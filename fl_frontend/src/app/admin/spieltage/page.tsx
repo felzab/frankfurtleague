@@ -115,9 +115,9 @@ async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextP
  * in the list is what keeps it out of the client bundle and out of the filtered view — a filter that hides
  * the second matchday must not renumber the third.
  *
- * **The per-phase matchday count is derived here for the same reason.** How many matchdays a phase holds
- * against how many the season's rules imply (ADR-0052) is a fact about the season, so a filter narrowing
- * the rows must not narrow it with them.
+ * **The per-phase matchday count is derived here for the same reason** — both its numbers are facts about
+ * the season rather than about the rows a filter left on screen
+ * (`fl_frontend/src/features/spieltage/utils.ts :: buildSpieltagPhaseProgress`).
  */
 async function SpieltageList({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();

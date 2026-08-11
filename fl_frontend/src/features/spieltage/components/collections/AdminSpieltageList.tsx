@@ -40,9 +40,10 @@ import type { SpieltagPhaseProgress } from "../../utils";
  * every intermediate count on the way — so showing the two together is what makes the gap visible without
  * making the intermediate states illegal.
  *
- * **The section heading says the same thing about the phase**, from `phaseProgress`: how many matchdays it
- * holds against how many the same rules imply. A phase with none at all is named at the foot instead, so
- * between the two every phase of a season under construction reports where it stands.
+ * **The section heading says the same thing about the phase**, from `phaseProgress`: how many live matchdays
+ * it holds against how many the same rules imply. A phase owing one is named again at the foot, which is the
+ * only place a phase with no section at all can be reported — so between the two, every phase of a season
+ * under construction says where it stands.
  *
  * **No per-row link to a matchday's fixtures**, and that is a fact about the Spielsuche rather than a gap
  * here: it searches team, venue, date, fixture number and referee, and a matchday's name is none of those,
@@ -96,18 +97,33 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     phase,
     rows: byPhase.get(phase) ?? [],
   }));
-  const phasesWithout = SAISON_PHASE_OPTIONS.filter((phase) => !byPhase.has(phase));
-
   const progressByPhase = new Map((phaseProgress ?? []).map((entry) => [entry.phase, entry]));
+
+  /**
+   * The phases this season still owes a live matchday, for the line at the foot.
+   *
+   * **From the same season-wide counts the headings read, never from the rows.** Read from the rows the
+   * two contradicted each other on screen: under `?phase=finale` the heading reported the season's own
+   * numbers while this line named every other phase as empty, though each held matchdays the facet had
+   * merely hidden.
+   *
+   * `erwartet > 0` keeps a round this season's bracket does not reach off the list — it is not short of a
+   * matchday, it plays none. A phase whose only matchday is RETIRED is on the list, and that is what makes
+   * „aktiven“ load-bearing in the rendered sentence: retiring one is how a mis-dated matchday leaves the
+   * schedule (ADR-0025), so the phase does still need another, but it is on screen and „Ohne Spieltag“
+   * would be false beside it.
+   */
+  const phasesWithout = SAISON_PHASE_OPTIONS.filter((phase) => {
+    const progress = progressByPhase.get(phase);
+    return progress !== undefined && progress.erwartet > 0 && progress.angelegt === 0;
+  });
 
   /**
    * The phase's own matchday count against what the season's rules imply — `spieleAngelegt` against
    * `anzahl_spiele`, one level up.
    *
-   * **Both numbers describe the SEASON and neither is counted from the rows below.** They arrive
-   * already derived over the whole received list, so a search or a facet narrowing the section cannot
-   * make a complete phase read as short. `shownCount` is the fallback for a page with no season
-   * resolved, where there is no expectation to state and only the rows can be counted.
+   * Both numbers are facts about the season rather than about the rows below
+   * (`fl_frontend/src/features/spieltage/utils.ts :: buildSpieltagPhaseProgress`).
    *
    * **Reported, never refused** (ADR-0052): a season being set up reaches its phases in order, so a
    * phase short of matchdays is the ordinary state on the way to complete.
@@ -115,6 +131,9 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   const renderPhaseCount = (phase: FLSaisonPhase, shownCount: number) => {
     const progress = progressByPhase.get(phase);
     if (progress === undefined) {
+      // Defensive, not a state this page reaches: `Map.get` needs narrowing, and a resolved season's
+      // schedule always holds the group phase, so every phase with a section here has an entry. With no
+      // season the empty-state card above returns first.
       return (
         <span className="fluid-xs text-foreground-muted font-medium">
           {shownCount === 1 ? "1 Spieltag" : `${String(shownCount)} Spieltage`}
@@ -259,13 +278,13 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
         </section>
       ))}
 
-      {/* The phases this season has no matchday for, named once at the foot rather than as empty headings
-          between the sections that do: a season being set up reaches them in order, so "not there yet" is
-          the normal state and belongs as a quiet line rather than as gaps. Suppressed while a search or a
-          filter is narrowing the list, where an absent phase says something about the query instead. */}
-      {phasesWithout.length > 0 && spieltageQuery === "" && (
+      {/* Named once at the foot rather than as empty headings between the sections that do have one: a
+          season being set up reaches its phases in order, so "not there yet" is the normal state and
+          belongs as a quiet line rather than as gaps. Unconditional, because `phasesWithout` reads the
+          season's own counts and neither a search nor a facet can move them. */}
+      {phasesWithout.length > 0 && (
         <p className="fluid-xs text-foreground-muted font-medium">
-          Ohne Spieltag: {phasesWithout.map((phase) => PHASE_LABELS[phase]).join(", ")}.
+          Ohne aktiven Spieltag: {phasesWithout.map((phase) => PHASE_LABELS[phase]).join(", ")}.
         </p>
       )}
 

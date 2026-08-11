@@ -42,8 +42,8 @@ export function AdminSpieltageView({
   /**
    * Each phase's live matchday count against the number the season's rules imply.
    *
-   * Passed through untouched rather than derived here: it is counted over the WHOLE season on the
-   * server, and re-deriving it beside the filtered rows is exactly what would make it wrong.
+   * Passed through untouched rather than derived here: both numbers are facts about the season rather than
+   * about the filtered rows (`fl_frontend/src/features/spieltage/utils.ts :: buildSpieltagPhaseProgress`).
    */
   phaseProgress?: readonly SpieltagPhaseProgress[];
 }) {
