@@ -8,7 +8,7 @@ remaining result can change (ADR-0035) — pure throughout. A team document is s
 that season's `spiele` on every read — caching or storing it is ADR-0019 reversed.
 
 Invariants:
-- A match counts exactly when it carries an `ergebnis` — forfeits count; no stage deriving a scored figure reads `is_canceled`.
+- A match counts exactly when it carries an `ergebnis`; a forfeit also counts as called off, and no scored figure reads `is_canceled`.
 - `elfmeterschiessen` is not consulted either: penalties are a draw for every figure here (ADR-0036).
 - `statistik_scope` picks the matches and defaults to the Gruppenphase (ADR-0022).
 - The pipeline takes an `FLSaisonRules` — points come from the season's own rules (ADR-0019).
@@ -151,11 +151,15 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
 
 def build_ausfall_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
     """
-    The `$lookup` counting the fixtures this team never got to play — called off, and no result.
+    The `$lookup` counting the fixtures of this team that were called off.
 
     **A stage of its own rather than a second accumulator inside the counting `$lookup`, and merging
-    the two is ADR-0063 reversed.** That decision carries why, what one lookup would cost, and the
-    shape that falls between the two `$match` clauses and is counted by neither.
+    the two is ADR-0063 reversed.** That decision carries why, and what one lookup would cost.
+
+    `is_canceled` is the whole rule, so a cancellation that was played out as a forfeit reaches this
+    count AND `anzahl_gespielte_spiele`. The two are not a partition and neither is the other's
+    remainder: what this figure says is how many of the team's fixtures were called off, never how
+    many are missing from the tally beside it (ADR-0063).
 
     Only a fixture that EXISTS and was called off is counted here. A fixture nobody has played yet is
     a different fact, no document records it, and how many a season should hold follows from the
@@ -172,13 +176,10 @@ def build_ausfall_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> M
                 {
                     "$match": {
                         **_fixtures_of_this_team(saison_id, scope),
-                        # The one aggregation stage reading `is_canceled`. ADR-0019 keeps it out of
-                        # the counting rule, and this does not reopen that: what it feeds is a count
-                        # of its own, reaching neither `punkte` nor any figure the table sorts on.
+                        # The only stage reading `is_canceled`, and the flag is the whole rule --
+                        # adding `ergebnis: None` drops the forfeits, which are nearly every
+                        # cancellation here. ADR-0019 holds: this reaches nothing the table scores on.
                         "is_canceled": True,
-                        # The other half of the same decision: cancelled AND carrying a result is a
-                        # forfeit, which was played and is counted by the lookup above.
-                        "ergebnis": None,
                     }
                 },
                 {"$count": AUSFALL_COUNT_NAME},

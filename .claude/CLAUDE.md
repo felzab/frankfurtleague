@@ -343,7 +343,7 @@ decision nobody ratified. Each row is one never-clause; the argument lives in `d
 | 0059 | Count a stamp-only markdown delta as material to `branch-impact`               |
 | 0060 | Compare the branch guard's paths as text; allow a target it cannot place       |
 | 0061 | Add a `callbackUrl` to the sign-in redirect without the allowlist first        |
-| 0063 | Merge the cancellation count into the lookup deriving the scoring figures      |
+| 0063 | Merge the cancellation count into the scoring lookup; drop a forfeit from it   |
 
 ## 8. Documentation
 

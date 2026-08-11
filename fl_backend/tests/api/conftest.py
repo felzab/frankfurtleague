@@ -38,8 +38,11 @@ TEAM_OIDS = {
     "Lessing": ObjectId("6890a1b2c3d4e5f607190003"),
     # A junction row and no counting match at all — the ZEROED FALLBACK.
     "Ohne": ObjectId("6890a1b2c3d4e5f607190004"),
-    # No junction row — the STRICT JOIN, which must drop it entirely.
+    # No junction row — the STRICT JOIN, which must drop it entirely even though it plays a match.
     "Fremd": ObjectId("6890a1b2c3d4e5f607190005"),
+    # A counting match and NO cancellation — the only team whose `anzahl_ausgefallene_spiele` comes
+    # from the `$ifNull` rather than a counted row, and the state the badge's own guard reads.
+    "Komplett": ObjectId("6890a1b2c3d4e5f607190006"),
 }
 
 # Lessing's disqualification, the one in the seed. A dict rather than a model, so the seed stays a
@@ -121,14 +124,16 @@ def league(mongo_database: Database) -> SeededLeague:
     ======================================================================================
     gruppenphase   Helmholtz 3 matches 1/1/1  5:7  4 pts   Bock 2  1/0/1  2:3  3 pts
                    Lessing   3 matches 1/1/1  6:3  4 pts   Ohne 0  0/0/0  0:0  0 pts
+                   Komplett  1 match   1/0/0  2:0  3 pts
     gesamt         Helmholtz 4 matches 2/1/1 10:7  7 pts   Bock 3  1/0/2  2:8  3 pts
     ======================================================================================
 
     Helmholtz reading 3 against 4 is the cheapest proof the scope filters at all -- the same
     divergence ADR-0022 measured against the live database.
 
-    Called off and never played, which moves none of the figures above: Helmholtz 1 under
-    `gruppenphase` and 2 under `gesamt`, Ohne 1 under both, Bock 0 and 1, Lessing 0 and 0.
+    Called off, which moves none of the figures above: Helmholtz 1 under `gruppenphase` and 2 under
+    `gesamt`, Bock 1 and 2, Lessing 1 under both, Ohne 1 under both, Komplett 0 under both. Bock's
+    and Lessing's is the forfeit, which the figures above count as played and this figure counts too.
     """
     for collection in ("teams", "saison_teams", "spiele"):
         mongo_database.drop_collection(collection)
@@ -140,6 +145,7 @@ def league(mongo_database: Database) -> SeededLeague:
             _team("Lessing", "LE"),
             _team("Ohne", "OH"),
             _team("Fremd", "FR"),
+            _team("Komplett", "KO"),
         ]
     )
 
@@ -165,6 +171,7 @@ def league(mongo_database: Database) -> SeededLeague:
             {"saison_id": SAISON, "team_id": TEAM_OIDS["Bock"], "gruppe": "A", "disqualifikation": None},
             {"saison_id": SAISON, "team_id": TEAM_OIDS["Lessing"], "gruppe": "A", "disqualifikation": dict(DISQUALIFIKATION)},
             {"saison_id": SAISON, "team_id": TEAM_OIDS["Ohne"], "gruppe": "B", "disqualifikation": None},
+            {"saison_id": SAISON, "team_id": TEAM_OIDS["Komplett"], "gruppe": "B", "disqualifikation": None},
             # No row for Fremd, and none for Helmholtz in 2025 -- both absences are asserted on.
         ]
     )
@@ -174,7 +181,8 @@ def league(mongo_database: Database) -> SeededLeague:
             _spiel(1, "gruppenphase", "Helmholtz", "Bock", 3, 1, ergebnis="3:1"),
             _spiel(2, "gruppenphase", "Lessing", "Helmholtz", 2, 2, ergebnis="2:2"),
             _spiel(3, "gruppenphase", "Helmholtz", "Lessing", 0, 4, ergebnis="0:4"),
-            # Cancelled and carrying a result: a forfeit, and it counts.
+            # Cancelled and carrying a result: a forfeit. It counts as played AND as called off, so
+            # it is the one row proving the two counts are not a partition.
             _spiel(4, "gruppenphase", "Bock", "Lessing", 1, 0, ergebnis="1:0", is_canceled=True),
             # Not yet played.
             _spiel(5, "gruppenphase", "Bock", "Helmholtz", None, None, ergebnis=None),
@@ -194,6 +202,9 @@ def league(mongo_database: Database) -> SeededLeague:
             _spiel(10, "gruppenphase", "Helmholtz", "Ohne", None, None, ergebnis=None, is_canceled=True),
             # The same, one phase later, so the cancellation count can be shown to obey the scope.
             _spiel(11, "halbfinale", "Helmholtz", "Bock", None, None, ergebnis=None, is_canceled=True),
+            # Played, and nothing about it called off. Its opponent holds no junction row, so the
+            # match gives Komplett a counting match without moving any figure asserted above.
+            _spiel(12, "gruppenphase", "Komplett", "Fremd", 2, 0, ergebnis="2:0"),
         ]
     )
 

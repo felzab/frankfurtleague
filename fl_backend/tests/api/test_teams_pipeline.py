@@ -142,19 +142,25 @@ def test_the_counting_lookup_never_consults_is_canceled():
 
 class TestTheAusfallLookup:
     """
-    The count of fixtures that were called off and never played — the one place `is_canceled` is read.
+    The count of the fixtures that were called off — the one place `is_canceled` is read.
 
     Separate from the figures beside it, which is what keeps ADR-0019 intact: these cases pin that the
-    flag reaches this lookup and nothing else, that a forfeit is excluded from it, and that the scope
-    applies to it — the ways a "clearly-named separate count" quietly stops being one.
+    flag reaches this lookup and nothing else, that the flag alone selects, and that the scope applies
+    to it — the ways a "clearly-named separate count" quietly stops being one.
     """
 
-    def test_it_counts_a_cancellation_carrying_no_result(self):
-        """Both halves. `is_canceled` alone would count every forfeit a second time, under a name saying it was never played."""
+    def test_it_selects_on_the_flag_and_nothing_else(self):
+        """
+        The whole rule is one key, and the `ergebnis` clause is the one a reader adds back.
+
+        Narrowing to a null `ergebnis` reads like a correction — the name says the match never
+        happened — and it would drop every forfeit, which is nearly every cancellation this league
+        records. Asserted as an absence so re-adding the clause fails here rather than on a figure.
+        """
         match_stage = ausfall_stage(build())["pipeline"][0]["$match"]
 
         assert match_stage["is_canceled"] is True
-        assert match_stage["ergebnis"] is None
+        assert "ergebnis" not in match_stage
 
     def test_it_is_the_only_stage_reading_the_flag(self):
         """ADR-0019's boundary, asserted rather than commented: a second reader of `is_canceled` would be the decision reversed."""

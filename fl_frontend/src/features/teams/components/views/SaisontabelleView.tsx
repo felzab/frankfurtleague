@@ -17,7 +17,11 @@ import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 import type { FLGruppen } from "../../schemas";
 
 /**
- * Why this row's match count is short of its group's, beside the count itself.
+ * How many of this row's fixtures were called off, beside the count of the ones that were played.
+ *
+ * The number is annotative and never additive: a forfeit is in both figures (ADR-0063), so a badge
+ * reading `+1` would invite a reader to add it to the tally beside it and arrive at a total the
+ * season never held.
  *
  * `InfoHint` and not `IconTooltip`, for the reason stated on
  * `fl_frontend/src/shared/components/ui/InfoHint.tsx` — this table is read on a phone, and its
@@ -27,25 +31,21 @@ import type { FLGruppen } from "../../schemas";
  * `fl_frontend/src/features/spiele/components/ui/SpielStatusChip.tsx` gives that status, so a card
  * and this badge say the same thing in the same colour.
  */
-function AusgefalleneSpieleHint({ anzahl }: { anzahl: number }) {
+function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
   return (
     <InfoHint
-      label={anzahl === 1 ? "1 ausgefallenes Spiel" : `${anzahl} ausgefallene Spiele`}
-      trigger={<span className="fluid-xxs bg-danger/10 text-danger-strong rounded-md px-1 py-0.5 font-extrabold">+{anzahl}</span>}>
+      label={anzahl === 1 ? "1 abgesagtes Spiel" : `${anzahl} abgesagte Spiele`}
+      trigger={<span className="fluid-xxs bg-danger/10 text-danger-strong rounded-md px-1 py-0.5 font-extrabold">{anzahl}</span>}>
       <p>
-        <strong>Ausgefallene Spiele</strong>
+        <strong>Abgesagte Spiele</strong>
       </p>
+      <p>{anzahl === 1 ? "Ein Spiel dieses Teams wurde abgesagt." : `${anzahl} Spiele dieses Teams wurden abgesagt.`}</p>
+      {/* Both directions of the forfeit rule, in the one place a reader meets it (ADR-0019). Without
+          the first sentence a cancellation on a full match count reads as a rendering fault; without
+          the second, the number invites a subtraction the table would not survive. */}
       <p>
-        {anzahl === 1
-          ? "Ein Spiel dieses Teams wurde abgesagt und nie gespielt."
-          : `${anzahl} Spiele dieses Teams wurden abgesagt und nie gespielt.`}
-      </p>
-      {/* The forfeit rule, in the one place a reader meets it: a cancelled match CAN carry a result,
-          and then it counts everywhere (ADR-0019). Without this sentence the badge reads as "every
-          cancellation is missing from the table", which is the wrong half of the rule. */}
-      <p>
-        Abgesagte Spiele ohne Wertung zählen in dieser Tabelle nirgends mit — auch nicht als Niederlage. Wurde ein abgesagtes Spiel gewertet,
-        zählt es ganz normal.
+        Ein abgesagtes Spiel kann trotzdem gewertet worden sein — dann zählt es in dieser Tabelle ganz normal mit. Ohne Wertung zählt es
+        nirgends mit, auch nicht als Niederlage.
       </p>
     </InfoHint>
   );
@@ -178,7 +178,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         <span className="inline-flex items-center justify-center gap-x-1">
                           {teamData.statistik.anzahl_gespielte_spiele}
                           {teamData.statistik.anzahl_ausgefallene_spiele > 0 && (
-                            <AusgefalleneSpieleHint anzahl={teamData.statistik.anzahl_ausgefallene_spiele} />
+                            <AbgesagteSpieleHint anzahl={teamData.statistik.anzahl_ausgefallene_spiele} />
                           )}
                         </span>
                       </Table.Cell>

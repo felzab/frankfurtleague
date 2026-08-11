@@ -153,13 +153,13 @@ def test_goals_are_oriented_towards_each_team(league: SeededLeague):
     assert (figures["Bock"]["tore_geschossen"], figures["Bock"]["tore_kassiert"]) == (2, 3)
 
 
-class TestACancellationThatWasNeverPlayed:
+class TestACalledOffFixture:
     """
-    The count that explains a short match tally, executed — and what it must leave alone.
+    The count of the fixtures a team had called off, executed — and what it must leave alone.
 
-    Every case here is about a fixture with `is_canceled` set and no `ergebnis`. Bock's cancelled
-    match carries a result and belongs to the forfeit rule above; these do not, and the two must not
-    reach the same figure.
+    Every case here is about a fixture with `is_canceled` set, whether or not a result was recorded
+    against it. The two counts are deliberately not a partition: Bock's forfeit is in this figure and
+    in `anzahl_gespielte_spiele` both, and a case below pins each half of that.
     """
 
     def test_it_is_counted_for_both_teams(self, league: SeededLeague):
@@ -189,12 +189,18 @@ class TestACancellationThatWasNeverPlayed:
             "punkte": 4,
         }
 
-    def test_a_forfeit_is_not_one_of_them(self, league: SeededLeague):
-        """Bock's cancelled match carries a result, so it counts as played and this figure must not see it."""
+    def test_a_forfeit_is_counted_here_and_as_played_both(self, league: SeededLeague):
+        """
+        The case an `ergebnis: None` clause would drop, and the reason the two counts overlap.
+
+        Bock's only Gruppenphase win is a cancelled match carrying a result. Both figures are asserted
+        together: a filter excluding it from this count leaves the match tally right, so nothing else
+        in this file would report it.
+        """
         bock = table(league)["Bock"]
 
         assert bock["anzahl_gespielte_spiele"] == 2
-        assert bock["anzahl_ausgefallene_spiele"] == 0
+        assert bock["anzahl_ausgefallene_spiele"] == 1
 
     def test_the_scope_narrows_it_like_every_figure_beside_it(self, league: SeededLeague):
         """Helmholtz's second cancellation is a Halbfinale, so the league table must not count it and a team's own page must."""
@@ -202,8 +208,13 @@ class TestACancellationThatWasNeverPlayed:
         assert table(league, scope="gesamt")["Helmholtz"]["anzahl_ausgefallene_spiele"] == 2
 
     def test_a_team_with_no_cancellation_reads_zero(self, league: SeededLeague):
-        """The absence has to be a number rather than a missing key, or the badge's own guard never fires."""
-        assert table(league)["Lessing"]["anzahl_ausgefallene_spiele"] == 0
+        """
+        The absence has to be a number rather than a missing key, or the badge's own guard never fires.
+
+        Komplett rather than a team with no match at all: the zeroed fallback already carries the key,
+        so only a team the `$group` produced a document for proves the `$ifNull` beside it supplies one.
+        """
+        assert table(league)["Komplett"]["anzahl_ausgefallene_spiele"] == 0
 
 
 def test_wins_draws_and_losses_partition_the_matches(league: SeededLeague):
@@ -240,7 +251,7 @@ def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):
 
 
 def test_a_team_with_no_junction_row_disappears(league: SeededLeague):
-    """The strict join. Fremd exists in `teams` and has no row for this season, so it is not a result."""
+    """The strict join. Fremd exists in `teams` and plays a 2026 match, so only the missing row can drop it."""
     assert "Fremd" not in table(league)
 
 
@@ -275,7 +286,7 @@ def test_the_result_validates_as_the_response_model(league: SeededLeague):
     """
     teams = FLTeamListAdapter.validate_python(rows(league))
 
-    assert {team.name for team in teams} == {"Helmholtz", "Bock", "Lessing", "Ohne"}
+    assert {team.name for team in teams} == {"Helmholtz", "Bock", "Lessing", "Ohne", "Komplett"}
     assert next(team for team in teams if team.name == "Ohne").statistik.punkte == 0
 
 
@@ -289,7 +300,7 @@ def test_a_single_team_query_returns_only_that_team(league: SeededLeague):
 
 def test_the_table_comes_back_sorted_by_name(league: SeededLeague):
     """The `$sort` is the last stage before `$limit`, so it orders the derived rows rather than the raw teams."""
-    assert [row["name"] for row in rows(league)] == ["Bock", "Helmholtz", "Lessing", "Ohne"]
+    assert [row["name"] for row in rows(league)] == ["Bock", "Helmholtz", "Komplett", "Lessing", "Ohne"]
 
 
 def test_the_id_is_the_teams_own_id_not_the_junctions(league: SeededLeague):
