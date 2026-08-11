@@ -44,8 +44,10 @@ group into its new group's table. The result is a standing that looks ordinary a
 
 The competition also has a point past which no swap is defensible whatever the round robins hold. A
 knockout slot is filled from a group placing only once no remaining result can change it (ADR-0035), so
-the first knockout result is the moment the standings stop being a live table and become the input the
-bracket was built from. Exchanging the groups behind it rewrites what its slots meant.
+the first knockout fixture to take place is the moment the standings stop being a live table and become
+the input the bracket was built from. Exchanging the groups behind it rewrites what its slots meant.
+Calling that fixture off does not un-fill the slot it was seeded into, which is why cancelling reaches
+this bound as squarely as playing does.
 
 And a season that is over is over. Its table is derived from these groups on every read, so exchanging
 them rewrites who won a finished competition with nothing left recording what it used to say — which is
@@ -78,23 +80,33 @@ find_gruppe_swap_refusal`:**
    another admin.
 2. **`REQ-SWAP-003` — the season's `status` is not `past`.** A code of its own rather than
    `REQ-RULES-005`'s, so the panel maps a code to a message one-to-one.
-3. **`REQ-SWAP-002` — no swap once any fixture outside the Gruppenphase carries an `ergebnis`.** That
-   is the test for "the knockout has begun", and it is a result rather than a date, because a bracket
-   whose matchday has arrived has still consumed nothing.
+3. **`REQ-SWAP-002` — no swap once any fixture outside the Gruppenphase has taken place.** That is the
+   test for "the knockout has begun", and it is the fixture rather than a date, because a bracket whose
+   matchday has arrived has still consumed nothing.
 4. **`REQ-SWAP-004` — neither club has taken part in its group's round robin**: no Gruppenphase fixture
-   fielding it carries an `ergebnis` or has been called off. A cancellation counts, because a called-off
-   match in this competition is a forfeit and a forfeit is a game the round robin holds — the same
-   reading `unplayed_spiel_nrs` already applies to closing a season.
+   fielding it has taken place.
+
+**Both windows read "taken place" as carrying an `ergebnis` OR having been called off**, which is the
+reading `unplayed_spiel_nrs` already applies when closing a season. A cancellation in this competition
+is a forfeit and counts as a real game, so a club with a cancelled group fixture has taken part in its
+round robin, and a cancelled knockout fixture had its slot filled from a group placing exactly as a
+played one did. The two rules differ in which phase they read, and in `REQ-SWAP-004` narrowing to the
+two clubs while `REQ-SWAP-002` counts the season's — not in what counts as having happened.
 
 **The order is the argument, and it narrows.** A pair that is not a swap describes nothing this season
-could ever do, so it is answered as that before anything about the season is read. The season being over
-comes next for `find_rules_refusal`'s own stated reason — where the whole operation is refused anyway,
-naming a bound that merely also applies sends an admin to look at the wrong thing. Then the bracket,
-which is a fact about the season; then the round robin, which is a fact about these two clubs.
+could ever do, so it is answered as that before anything about the season is read. **The season being
+over comes next, ahead of both windows inside it**, for the reason `find_rules_refusal` gives in its own
+first comment: where the whole operation is refused anyway, naming a bound that merely also applies
+sends an admin to look at the wrong thing. A `past` season is refused whatever its bracket and its round
+robins hold, so `REQ-SWAP-002` there would name a reason contingent on a refusal that has already
+happened. Then the bracket, which is a fact about the season; then the round robin, which is a fact
+about these two clubs.
 
 **`REQ-SWAP-002` is not dominated by `REQ-SWAP-004`, and the state that proves it is reachable.** Two
 clubs entered while the season was still `future` but after its fixtures were drawn hold junction rows
-and no fixture at all, so they reach a played-out bracket having taken part in no round robin.
+and no fixture at all, so they reach a played-out bracket having taken part in no round robin. Counting
+a called-off knockout fixture cannot turn it into a control that never fires: a wider test takes states
+from `REQ-SWAP-004` and gives none back, so it fires strictly more often than the narrower one would.
 
 **The swap rewrites the two clubs' drawn Gruppenphase sides, in the same transaction.** Every such
 fixture fielding either club has that side written to the other — `team_id`, `name` and `shorthand`, the

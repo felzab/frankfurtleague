@@ -328,7 +328,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
           return {
             success: false,
             error:
-              "Die KO-Runde dieser Saison hat schon ein Ergebnis, deshalb lässt sich keine Gruppe mehr tauschen. " +
+              "In der KO-Runde dieser Saison wurde schon gespielt oder abgesagt, deshalb lässt sich keine Gruppe mehr tauschen. " +
               "Die Setzung ist aus diesen Gruppen entstanden und würde sonst etwas anderes bedeuten.",
           };
         }

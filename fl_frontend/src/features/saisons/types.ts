@@ -102,8 +102,8 @@ export type SaisonSwapTeam = {
  * What the group swap control knows about the season it is standing on (ADR-0062).
  *
  * `playedKnockoutSpiele` is the endpoint's own window rule, counted for the page: any fixture outside
- * the Gruppenphase carrying a result closes the swap for good, because the bracket was seeded from
- * these groups. Non-zero is what turns the control into an explanation.
+ * the Gruppenphase that has taken place — a result, or called off — closes the swap for good, because
+ * the bracket was seeded from these groups. Non-zero is what turns the control into an explanation.
  */
 export type SaisonGruppenSwapContext = {
   /** Every club entered in this season, retired ones included, ordered by name. */

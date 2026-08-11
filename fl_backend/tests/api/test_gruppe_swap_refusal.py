@@ -87,13 +87,13 @@ class TestWhatCountsAsASwap:
 
 class TestTheKnockoutClosesTheWindow:
     def test_a_season_still_in_its_group_phase_permits_it(self):
-        """Zero played knockout fixtures is every season up to the first bracket result, which is the whole window."""
+        """Zero is every season up to the first knockout fixture taking place, which is the whole window."""
 
         assert swap(played_knockout_fixtures=0) is None
 
     def test_one_played_knockout_fixture_is_enough(self):
         """
-        There is no threshold to tune: the first result seeds a slot from a standing these groups produced.
+        There is no threshold to tune: the first one seeds a slot from a standing these groups produced.
 
         Exchanging them afterwards leaves that slot naming a placing in a group its occupant was never in.
         """
@@ -103,13 +103,26 @@ class TestTheKnockoutClosesTheWindow:
         assert refusal is not None
         assert refusal[0] == SWAP_KNOCKOUT_STARTED
 
-    def test_the_refusal_says_how_much_has_been_played(self):
-        """The count is what tells an admin whether this is the first result or a finished bracket."""
+    def test_the_refusal_says_how_much_has_taken_place(self):
+        """The count is what tells an admin whether this is the first fixture or a finished bracket."""
 
         refusal = swap(played_knockout_fixtures=4)
 
         assert refusal is not None
         assert "4" in refusal[1]
+
+    def test_the_message_names_a_called_off_fixture_as_one_that_took_place(self):
+        """
+        The count covers both, so the wording has to as well.
+
+        An admin whose bracket holds one cancelled fixture and no result would otherwise read that the
+        knockout "carries a result", go looking for it, and find none.
+        """
+
+        refusal = swap(played_knockout_fixtures=1)
+
+        assert refusal is not None
+        assert "called off" in refusal[1]
 
     def test_a_pair_that_is_not_a_swap_is_refused_as_that_first(self):
         """
@@ -128,9 +141,10 @@ class TestTheKnockoutClosesTheWindow:
         """
         `REQ-SWAP-002` is not dominated by `REQ-SWAP-004`, and this is the state that proves it.
 
-        Two clubs entered after the schedule was drawn hold junction rows and no fixture at all, so they
-        reach the end of a played-out season having taken part in no round robin. The knockout window is
-        the only thing left refusing them.
+        Two clubs entered while the season was still `future` but AFTER its fixtures were drawn hold
+        junction rows and no fixture at all, so they reach a played-out bracket having taken part in no
+        round robin. The knockout window is the only thing left refusing them, which is what keeps this
+        from being a control that can never fire.
         """
 
         refusal = swap(played_knockout_fixtures=3, played_gruppenphase_fixtures=0)

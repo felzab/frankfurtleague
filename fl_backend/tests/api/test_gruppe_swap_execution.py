@@ -108,15 +108,15 @@ def gruppen_fixture(
     }
 
 
-def knockout_fixture(*, ergebnis: str | None) -> dict[str, Any]:
+def knockout_fixture(*, ergebnis: str | None, is_canceled: bool = False) -> dict[str, Any]:
     """
-    A Viertelfinale fixture, with or without a result.
+    A Viertelfinale fixture, with or without a result and with or without having been called off.
 
-    Only the three fields the count reads are set. The rest of `FLSpiel` is beside the point here and
+    Only the four fields the count reads are set. The rest of `FLSpiel` is beside the point here and
     seeding it would make this document look like something the endpoint validates, which it is not.
     """
 
-    return {"saison_id": SAISON_ID, "saison_phase": "viertelfinale", "ergebnis": ergebnis}
+    return {"saison_id": SAISON_ID, "saison_phase": "viertelfinale", "ergebnis": ergebnis, "is_canceled": is_canceled}
 
 
 Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
@@ -478,8 +478,8 @@ class TestTheRefusalsReadTheRealDocuments:
         """
         `REQ-SWAP-002` against a real count, which is where the filter can be wrong while the rule is right.
 
-        Two fixtures are seeded and only one carries a result, so a filter that forgot `ergebnis` would
-        still refuse — and the count in the message is what separates the two.
+        Two fixtures are seeded and only one has taken place, so a filter matching every knockout
+        document would still refuse — and the count in the message is what separates the two.
         """
 
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
@@ -494,8 +494,51 @@ class TestTheRefusalsReadTheRealDocuments:
         )
 
         assert code == SWAP_KNOCKOUT_STARTED
-        assert "1 knockout fixture" in message, f"the unplayed fixture was counted too: {message}"
+        assert "1 knockout fixture" in message, f"the fixture still to be played was counted too: {message}"
         assert stored[ALPHA] == "A" and stored[BETA] == "B"
+
+    def test_a_called_off_knockout_fixture_closes_the_window_too(self, mongo_replica_set_url: str):
+        """
+        The same reading of "played" the group phase applies, on the other side of the bracket.
+
+        A knockout slot is filled from a group placing before the match is played, so calling the match
+        off does not un-fill it — the seeding was consumed either way, and the fixture is a forfeit
+        rather than one that never happened. The two clubs have taken part in no round robin here, so
+        `REQ-SWAP-004` does not cover this and the knockout window is what refuses it.
+        """
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_swap(database, client, ALPHA, BETA)
+            return refusal.value.error_code
+
+        code = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=[*DRAWN_ROUND_ROBIN, knockout_fixture(ergebnis=None, is_canceled=True)],
+        )
+
+        assert code == SWAP_KNOCKOUT_STARTED
+
+    def test_a_knockout_fixture_still_to_be_played_leaves_it_open(self, mongo_replica_set_url: str):
+        """
+        A drawn bracket is not a begun one, which is the whole reason this rule reads fixtures and not dates.
+
+        A season with its knockout matchdays scheduled and nothing played in them is exactly when a swap
+        is still worth making, so a count over every knockout document would close the window early.
+        """
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await call_swap(database, client, ALPHA, BETA)
+            return await gruppen_now(database)
+
+        stored = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=[*DRAWN_ROUND_ROBIN, knockout_fixture(ergebnis=None)],
+        )
+
+        assert stored[ALPHA] == "B" and stored[BETA] == "A"
 
     def test_a_played_group_fixture_closes_the_window(self, mongo_replica_set_url: str):
         """

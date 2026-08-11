@@ -103,10 +103,11 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
    * **The three definitions here have to agree with the endpoint's**, exactly as `offeneSpiele` agrees
    * with `unplayed_spiel_nrs` above. The club list is the season's junction rows, which the strict join
    * makes `GET /teams?saison_id=` — a club with no row is absent from it and is precisely the club the
-   * write path refuses. The knockout count is a fixture outside the Gruppenphase carrying an `ergebnis`,
-   * which is `find_gruppe_swap_refusal`'s own test. The per-club count is a Gruppenphase fixture
-   * fielding that club which has taken place — a result **or** called off, because a cancellation here
-   * is a forfeit and a forfeit is a game the round robin holds.
+   * write path refuses. Both fixture counts read "taken place" the way `find_gruppe_swap_refusal` does:
+   * a result **or** called off, because a cancellation here is a forfeit and a forfeit is a real game.
+   * The knockout count is season-wide, because `REQ-SWAP-002` asks whether the bracket consumed a
+   * standing whoever it named; the per-club one is narrowed to that club's own Gruppenphase fixtures,
+   * which is the grain `REQ-SWAP-004` asks about.
    *
    * The grouped shape is never requested, so the narrowing below is a type guard rather than a branch
    * anything reaches.
@@ -129,7 +130,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
             gespielteGruppenSpiele: gespieltePerTeam.get(team.id) ?? 0,
           }))
         : [],
-    playedKnockoutSpiele: playoffSpieleRes.spiele.filter((spiel) => spiel.ergebnis !== null).length,
+    playedKnockoutSpiele: playoffSpieleRes.spiele.filter((spiel) => spiel.ergebnis !== null || spiel.is_canceled).length,
   };
 
   // The inner bound on the season's own dates (`REQ-DATE-004`): the start may not move past the first

@@ -107,9 +107,10 @@ function SwapTeamSelect({
  * fifteen-second window and a route handler afterwards (ADR-0049 keeps that machinery for the editors
  * whose save it belongs to).
  *
- * **Once the knockout has a result the control refuses rather than warns** (`REQ-SWAP-002`). The
- * standings have been consumed by the seeding, so there is no reading under which the swap is still
- * defensible — and the endpoint refuses the same thing and stays the authority (ADR-0038).
+ * **Once a knockout fixture has been played or called off the control refuses rather than warns**
+ * (`REQ-SWAP-002`). The standings have been consumed by the seeding, so there is no reading under which
+ * the swap is still defensible — and the endpoint refuses the same thing and stays the authority
+ * (ADR-0038).
  *
  * **A club that has already played in its group is offered and refused in place** (`REQ-SWAP-004`), and
  * a finished season closes the panel outright (`REQ-SWAP-003`). Both are the endpoint's rules said in
@@ -242,8 +243,8 @@ export function FormGruppenSwapSection({
             severity="info"
             title="Die KO-Runde hat begonnen">
             {swap.playedKnockoutSpiele === 1
-              ? "Ein Spiel der KO-Runde hat schon ein Ergebnis."
-              : `${String(swap.playedKnockoutSpiele)} Spiele der KO-Runde haben schon ein Ergebnis.`}{" "}
+              ? "Ein Spiel der KO-Runde wurde schon gespielt oder abgesagt."
+              : `${String(swap.playedKnockoutSpiele)} Spiele der KO-Runde wurden schon gespielt oder abgesagt.`}{" "}
             Die Setzung ist aus diesen Gruppen entstanden, deshalb lässt sich jetzt keine Gruppe mehr tauschen.
           </Callout>
         ) : !hasTwoGruppen ? (

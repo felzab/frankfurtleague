@@ -396,15 +396,19 @@ async def swap_gruppen(
     groups are frozen for the same reason `REQ-RULES-005` freezes the scoring rules.
 
     **Refused with a 409 of its own once the knockout rounds have begun** (`REQ-SWAP-002`) — any fixture
-    outside the Gruppenphase carrying an `ergebnis`. By then the standings have been consumed by the
-    seeding, so exchanging the groups behind a played bracket rewrites what its slots meant. That is a
-    refusal and not a warning: there is no reading of it under which the swap is still defensible.
+    outside the Gruppenphase that carries an `ergebnis` or was called off. By then the standings have
+    been consumed by the seeding, so exchanging the groups behind it rewrites what its slots meant. That
+    is a refusal and not a warning: there is no reading of it under which the swap is still defensible.
 
     **Refused with a 409 of its own once either club has taken part in its group's round robin**
     (`REQ-SWAP-004`) — a Gruppenphase fixture fielding it that carries an `ergebnis` or was called off.
     The group phase is a round robin, so a club that has played inside one cannot leave it: its results
     stand against a group it is no longer in, and its new group gains a member who has played nobody in
     it. Neither group is a round robin afterwards.
+
+    **Both windows read a called-off fixture as one that took place**, because a cancellation here is a
+    forfeit and counts as a real game — the same reading `unplayed_spiel_nrs` applies when closing a
+    season.
 
     **`REQ-ENTER-004`'s lock is deliberately not consulted.** It refuses a MOVE for a club whose fixtures
     are drawn, and its own message names a swap as the case that would be defensible — so this operation
@@ -455,13 +459,18 @@ async def swap_gruppen(
             session=session,
         )
 
-        # Counted rather than listed: the rule asks whether the bracket has begun, and one played
-        # knockout fixture answers it.
+        # Counted rather than listed: the rule asks whether the bracket has begun, and one knockout
+        # fixture that has taken place answers it. `is_canceled` counts beside `ergebnis` because
+        # calling a fixture off does not un-fill the slot it was seeded into.
 
         # Straight on the collection, because no helper takes a session -- and without one this would
         # read the snapshot from before the transaction.
         played_knockout = await spiele_collection.count_documents(
-            {"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}, "ergebnis": {"$ne": None}},
+            {
+                "saison_id": saison_id,
+                "saison_phase": {"$in": list(KNOCKOUT_PHASES)},
+                "$or": [{"ergebnis": {"$ne": None}}, {"is_canceled": True}],
+            },
             session=session,
         )
 

@@ -753,8 +753,8 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
 # swap, so a request carrying one is stale or racing another admin.
 SWAP_NOT_A_SWAP = "REQ-SWAP-001"
 
-# The knockout rounds have started, so the standings these groups produce have already been consumed by
-# the seeding (ADR-0035). Exchanging the groups behind a played bracket rewrites what its slots meant.
+# The knockout rounds have started, so the standings these groups produce have already been consumed
+# by the seeding (ADR-0035). Exchanging the groups behind that rewrites what its slots meant.
 SWAP_KNOCKOUT_STARTED = "REQ-SWAP-002"
 
 # A `past` season, frozen for the reason `REQ-RULES-005` freezes its scoring rules (decided
@@ -781,21 +781,23 @@ def find_gruppe_swap_refusal(
     Each `gruppe` is what that club's `saison_teams` row holds for the season, and `None` means the club
     holds no row in it at all.
 
-    `played_gruppenphase_fixtures` counts the season's GROUP-phase fixtures fielding either of these two
-    clubs that have taken place -- carrying an `ergebnis` **or** called off. That is the repository's own
-    reading of "played" (`app.api.saisons.services.unplayed_spiel_nrs`), and it is the competition's:
-    a called-off match here is a forfeit and counts as a real game, so a club that has one has taken part
-    in its group's round robin either way.
+    **Both fixture counts read "played" the same way: carrying an `ergebnis`, OR called off.** That is
+    the repository's own reading (`app.api.saisons.services.unplayed_spiel_nrs`) and the competition's --
+    a called-off match here is a forfeit and counts as a real game. So a club with a cancelled group
+    fixture has taken part in its round robin, and a cancelled knockout fixture filled its slot from a
+    group placing exactly as a played one did. The two counts differ only in which phase they read.
 
-    `played_knockout_fixtures` counts the season's fixtures OUTSIDE the group phase carrying an
-    `ergebnis`. It does not count a called-off one, which is the one asymmetry between the two figures --
-    `REQ-SWAP-002` asks whether the bracket has consumed a standing, and only a result does that.
+    `played_gruppenphase_fixtures` is narrowed to fixtures fielding one of THESE TWO clubs, because
+    `REQ-SWAP-004` is about their own participation; `played_knockout_fixtures` counts the season's,
+    because `REQ-SWAP-002` is about the bracket having consumed a standing whoever it named.
 
     **Four rules, and the order is the argument.** A pair that is not a swap describes nothing this
     season could do, so it is answered as that before anything about the season is consulted. The season
-    being over comes next, for `find_rules_refusal`'s reason: where the whole operation is refused
-    anyway, naming a contingent bound instead of the complete one sends an admin to look at the wrong
-    thing. Then the bracket, then the round robin -- narrowing from the season to the two clubs.
+    being over comes next, for `find_rules_refusal`'s reason, stated in its own first comment: where the
+    whole operation is refused anyway, naming a bound that merely also applies sends an admin to look at
+    the wrong thing. A `past` season is refused whatever its bracket holds, so answering `REQ-SWAP-002`
+    there would name a reason contingent on a refusal that has already happened. Then the bracket, then
+    the round robin -- narrowing from the season to the two clubs.
 
     Deliberately silent about `ENTRY_GRUPPE_LOCKED`, which refuses a MOVE for a club whose fixtures are
     drawn. That lock's own message names this operation as the defensible one, so a swap neither routes
@@ -822,13 +824,12 @@ def find_gruppe_swap_refusal(
         )
 
     if played_knockout_fixtures > 0:
-        subject = (
-            "1 knockout fixture already carries"
-            if played_knockout_fixtures == 1
-            else f"{played_knockout_fixtures} knockout fixtures already carry"
-        )
+        noun = "fixture has" if played_knockout_fixtures == 1 else "fixtures have"
 
-        return (SWAP_KNOCKOUT_STARTED, f"{subject} a result; the bracket has been seeded from these groups")
+        return (
+            SWAP_KNOCKOUT_STARTED,
+            f"{played_knockout_fixtures} knockout {noun} already been played or called off; the bracket has been seeded from these groups",
+        )
 
     if played_gruppenphase_fixtures > 0:
         noun = "fixture has" if played_gruppenphase_fixtures == 1 else "fixtures have"
