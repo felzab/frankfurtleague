@@ -119,7 +119,7 @@ export type SaisonPhaseOutcome =
   | "won"
   /** Its fixture was lost on goals — the run ends here. */
   | "out"
-  /** A later round fields the team, so it got through whatever the goals said. */
+  /** Its round was played and a later one fields the team, so it got through whatever the goals said. */
   | "advanced"
   /** Its fixture carries no result yet. */
   | "pending"
@@ -206,12 +206,19 @@ export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSp
  * withdrawal replacement — and `out` claims a run that ended, which a later fixture is the evidence
  * it did not. Reading the loss first would chip that round "ausgeschieden" beside a chip for the
  * round the team is standing in, which is one page contradicting itself.
+ *
+ * **It outranks nothing at all, though.** Occupancy says how a round was survived, never that it
+ * happened: the same manual pick can seed a team out of a round whose fixture is still unplayed, and
+ * "überstanden" beside a card showing no score claims a result the season does not have. A round with
+ * no result stays `pending` however deep the team is standing.
  */
 const knockoutOutcome = (fixtures: readonly FLSpiel[], teamId: string, advanced: boolean): SaisonPhaseOutcome => {
   const results = fixtures.map((spiel) => computeErgebnisFor({ spiel, teamId }));
 
   if (results.includes("W")) return "won";
-  if (advanced) return "advanced";
+  // Occupancy is evidence about a round that was played. A round with no result at all is still open,
+  // whatever a later fixture says about where the team was placed.
+  if (advanced && results.some((result) => result !== "?")) return "advanced";
   if (results.includes("L")) return "out";
   // "?" is a fixture carrying no result: a malformed scoreline is refused at the API boundary, and
   // a team on neither side was filtered out above.

@@ -196,6 +196,17 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
+  // The bound on the rule above: an organiser may seed a team out of an unplayed round (ADR-0042
+  // warns a manual pick, never refuses it), so "überstanden" would sit beside a card with no score.
+  it("claims no outcome for an unplayed round, however deep the team is standing", () => {
+    const verlauf = verlaufOf([fixture({ phase: "viertelfinale" }), fixture({ phase: "halbfinale" })]);
+
+    assert.deepEqual(verlauf, [
+      { phase: "viertelfinale", outcome: "pending" },
+      { phase: "halbfinale", outcome: "pending" },
+    ]);
+  });
+
   // Trap in the other direction: a round the season does not play must produce no chip rather than
   // one saying the team failed to reach it.
   it("produces no entry for a round the team has no fixture in", () => {

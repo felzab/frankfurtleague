@@ -16,7 +16,8 @@
  */
 
 /**
- * The radius every pill in the app carries, the two recipes below and the HeroUI chips alike.
+ * The radius the two recipes below carry, and the one `SaisonPhaseChip`, `SpielStatusChip` and
+ * `TeamSaisonVerlauf` set on a HeroUI `Chip`.
  *
  * **On a `Chip` it overrides `rounded-2xl` from `.chip`**, and a utility beats the component layer, so
  * no `!` is needed. Declared here rather than spelled at each chip, where the same sentence about the
