@@ -16,8 +16,9 @@ import type { Key } from "@heroui/react";
  * One level's chip, in the tab strip's selected language (`formFieldStyles.ts :: TAB_ITEM`) rather than
  * HeroUI's own. Untouched, `--accent-soft` over `--default` barely separates the two states, and the
  * backdrop decides by how much — measured against `formPanel`'s `bg-surface`, which is the surface this
- * picker actually sits on, the selected chip is about 3 points of lightness away from an unselected one in
- * the light theme and about 4 points DARKER than one in the dark theme, where the picker reads inverted.
+ * picker actually sits on, the selected chip is about 3 points of OKLab lightness away from an unselected
+ * one in the light theme and about 4 points DARKER than one in the dark theme, where the picker reads
+ * inverted. OKLab because that is the space HeroUI mixes `--accent-soft` in.
  *
  * **Hover LIFTS an unselected chip to `bg-surface` instead of darkening it**, the tab strip's rule and for
  * its reason: the chip at rest is already the recessed `bg-muted`, and a darkening hover is invisible on it.
@@ -28,9 +29,9 @@ import type { Key } from "@heroui/react";
  * `--focus` is `--fg-base`, and `globals.css` already records that pair as unusable at the `--fg-on-brand`
  * declaration: near-black measures 1.97:1 on this maroon, where 3:1 is the floor. HeroUI pins the group's
  * ring INSET with a zero offset, so it cannot escape the fill onto the panel and be judged against that
- * instead — recolouring it is the fix that changes no geometry. White on the maroon is 10.02:1, and it is
- * the same value the chip's own text already takes. No other control substitutes a different focus colour,
- * and `globals.css` records this departure where `--focus` is declared.
+ * instead — recolouring it is the fix that changes no geometry. White on the maroon is 10.03:1, and it is
+ * the same value the chip's own text already takes. `globals.css` records this departure, and the
+ * condition that produced it, where `--focus` is declared.
  *
  * Local to this file rather than shared: one call site, and `TAB_ITEM` is where the shared version would
  * belong if a second picker ever wants it.
