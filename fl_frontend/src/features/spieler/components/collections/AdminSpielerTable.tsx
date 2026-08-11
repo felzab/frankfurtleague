@@ -99,8 +99,8 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       )}
       {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
         <>
-          {/* The season's own vocabulary rather than a separate one for this row (decided 2026-08-10).
-              „Aktiv“ is `src/features/spieler/facets.ts`'s word for „nicht stillgelegt“, a different
+          {/* The season's own vocabulary, not a separate one for this row (decided 2026-08-10). „Aktiv“
+              is `fl_frontend/src/features/spieler/facets.ts`'s word for „nicht stillgelegt“, a different
               fact about a different subject; „Laufend“ leaves it to the filter. */}
           {selectedSaisonStatus === "active" && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>}
           {selectedSaisonStatus === "past" && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>}

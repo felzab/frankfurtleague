@@ -132,15 +132,15 @@
        <a>/<button> an identical outline. A control whose focus ring sits INSET on its own fill -- no
        offset, so it cannot be judged against the surface behind -- recolours that ring where the fill
        fails WCAG 1.4.11 against --focus, and every such departure is recorded here: `StufenPicker.tsx
-       :: STUFE_CHIP` does it on the SELECTED chip, where --fg-base measures 1.97:1 on the maroon and
-       3:1 is the floor.
+       :: STUFE_CHIP` does it on the SELECTED chip, where --fg-base is near-black and measures 1.97:1
+       on the maroon, and 3:1 is the floor.
        INSET is the whole of the condition rather than a detail of it. Every other ring this app draws
        stands 2px clear of the fill -- the base rule's outline-offset below, and HeroUI's `focus-ring`
        resolving --tw-ring-offset-width to the theme's own 2px -- so the SURFACE behind it, not the
        fill, is the adjacent colour it answers to; `toggle-button-group.css` is the one file in the
        package that overrides that to 0px plus `ring-inset`. Recolouring a `bg-brand-solid` or
        `bg-danger-solid` control that keeps the ordinary offset would therefore CAUSE the failure this
-       rule exists to prevent: --fg-on-brand measures 1.09:1 on --bg-surface.
+       rule exists to prevent: --fg-on-brand measures 1.09:1 on the light theme's --bg-surface.
        The condition is written out because it EXTENDS --fg-on-brand's pairing rule, which governs
        text, to a non-text indicator -- it is not that pairing applied.
        --fg-base, not --accent-brand: it is white in the dark theme -- the chosen look --
@@ -265,10 +265,11 @@
   }
 
   /* The focus indicator for everything HeroUI does not already style.
-     HeroUI covers its own components -- button, link, tab, accordion trigger, menu item, table row,
-     switch and 30-odd more -- with a 2px ring in var(--focus) at a 2px offset. This gives a plain
-     <a>, <button> or [tabindex] an outline with the same width, offset and colour, so the app has
-     ONE focus appearance rather than three (decided 2026-07-31).
+     HeroUI rings its own components through `focus-ring`, which resolves --tw-ring-offset-width to
+     the theme's 2px and the colour to var(--focus). This gives a plain <a>, <button> or [tabindex]
+     an outline with the same width, offset and colour, so the app has ONE focus appearance rather
+     than three (decided 2026-07-31). The rings that do NOT take that offset or that colour are
+     recorded at the --focus declaration above, with the condition that bounds them.
 
      Why it beats the browser's own focus ring: any author style does.
 

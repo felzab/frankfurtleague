@@ -14,16 +14,21 @@ import type { Key } from "@heroui/react";
 
 /**
  * One level's chip, in the tab strip's selected language (`formFieldStyles.ts :: TAB_ITEM`) rather than
- * HeroUI's own. Untouched, `--accent-soft` over `--default` barely separates the two states, and the
- * backdrop decides by how much — measured against `formPanel`'s `bg-surface`, which is the surface this
- * picker actually sits on, the selected chip is about 3 points of OKLab lightness away from an unselected
- * one in the light theme and about 4 points DARKER than one in the dark theme, where the picker reads
- * inverted. OKLab because that is the space HeroUI mixes `--accent-soft` in.
+ * HeroUI's own. Untouched, `--accent-soft` over `--default` leaves a SELECTED chip DARKER than an
+ * unselected one in BOTH themes — the picker reads inverted — and the backdrop decides by how much,
+ * because `--accent-soft` mixes with transparent. On `formPanel`'s `bg-surface`, which
+ * `FormRegelnSection` renders this picker on, the gap is 2.97 OKLab points of lightness in the light
+ * theme and 3.79 in the dark one; inside the create modal, where `AdminCreateSaisonForm` renders it,
+ * 0.39 and 9.52 — that dialog is `ModalShell`'s `bg-background`, a utilities-layer class outranking
+ * HeroUI's own `bg-overlay`, and near-black in the dark theme, which is what makes the dark modal the
+ * widest inversion of the four. OKLab because that is the space HeroUI mixes `--accent-soft` in.
  *
- * **Hover LIFTS an unselected chip to `bg-surface` instead of darkening it**, the tab strip's rule and for
- * its reason: the chip at rest is already the recessed `bg-muted`, and a darkening hover is invisible on it.
- * A selected chip keeps its fill and switches its border to `--fg-base`, so a control already at full
- * strength answers the pointer without a second background competing with the fill.
+ * **Hover moves an unselected chip off `bg-muted` onto `bg-surface`**, the tab strip's rule and for its
+ * reason: the chip at rest is the recessed `bg-muted`, and one more step in that direction is invisible
+ * on it. The direction belongs to the theme, not to the rule — `bg-surface` is 4.82 OKLab points lighter
+ * in the light theme and 8.64 points darker in the dark one. A selected chip keeps its fill and switches
+ * its border to `--fg-base`, so a control already at full strength answers the pointer without a second
+ * background competing with the fill.
  *
  * **A selected chip's FOCUS RING takes the fill's paired foreground rather than `--focus`** (WCAG 1.4.11).
  * `--focus` is `--fg-base`, and `globals.css` already records that pair as unusable at the `--fg-on-brand`
@@ -33,8 +38,8 @@ import type { Key } from "@heroui/react";
  * the same value the chip's own text already takes. `globals.css` records this departure, and the
  * condition that produced it, where `--focus` is declared.
  *
- * Local to this file rather than shared: one call site, and `TAB_ITEM` is where the shared version would
- * belong if a second picker ever wants it.
+ * Used once, here, rather than shared: `TAB_ITEM` is where a shared version would belong if a second
+ * picker ever wants it.
  */
 const STUFE_CHIP =
   "border-border bg-muted text-foreground-muted data-hovered:bg-surface data-hovered:text-foreground " +

@@ -67,9 +67,10 @@ export const FIELD_TRIGGER = `${FIELD_INPUT} pe-9`;
  * The selected tab is excluded from the hover background on purpose: it already carries
  * `Tabs.Indicator`, and a second background under a moving indicator reads as a glitch.
  *
- * Hover LIFTS to `bg-surface` rather than darkening, because the track itself is the recessed
- * `bg-muted` (see `TAB_TRACK`). A darkening hover is invisible on a `bg-muted` track, which is
- * exactly how the two strips came to look different despite sharing this constant.
+ * Hover moves a tab off the track onto `bg-surface`, because the track itself is the recessed
+ * `bg-muted` (see `TAB_TRACK`) and one more step in that direction is invisible on it. The direction
+ * belongs to the theme, not to the rule — `bg-surface` is 4.82 OKLab points lighter than `bg-muted`
+ * in the light theme and 8.64 points darker in the dark one.
  *
  * `data-hovered:`, not `hover:` — these are react-aria components, and `useHover` ignores the
  * emulated mouse events a touch device fires, so `data-hovered` clears after a tap where `:hover`
@@ -78,7 +79,7 @@ export const FIELD_TRIGGER = `${FIELD_INPUT} pe-9`;
 export const TAB_ITEM =
   "text-foreground-muted data-hovered:bg-surface data-hovered:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:data-hovered:bg-transparent data-[selected=true]:data-hovered:text-brand-solid-foreground fluid-sm rounded-lg font-bold tracking-wide transition-colors";
 
-/** The recessed track both tab strips sit in. Paired with `TAB_ITEM`'s lifting hover. */
+/** The recessed track both tab strips sit in. Paired with the hover `TAB_ITEM` moves off it. */
 export const TAB_TRACK = "border-border bg-muted rounded-xl border";
 
 /**
