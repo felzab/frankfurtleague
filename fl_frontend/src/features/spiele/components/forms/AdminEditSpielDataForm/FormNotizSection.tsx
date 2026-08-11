@@ -2,7 +2,7 @@ import { useRef } from "react";
 
 import { Xmark } from "@gravity-ui/icons";
 
-import { Button, FieldError, TextArea, TextField } from "@heroui/react";
+import { FieldError, TextArea, TextField } from "@heroui/react";
 
 import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -75,29 +75,33 @@ export function FormNotizSection({
             className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
           />
           <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>
-        </TextField>
 
-        {/* No confirmation, here or anywhere on this page: the fifteen-second undo after a save is the
-            offer, and the two are alternatives (ADR-0041). Labelled rather than a bare X, which reads
-            unambiguously only inside a field group. */}
-        {hasNotiz && (
-          <Button
-            type="button"
-            variant="ghost"
-            onPress={() => {
-              onNotizChange(null);
-              // Before React unmounts this button with the value it just cleared, or focus falls to
-              // <body> and the next Tab restarts at the top of the page.
-              notizRef.current?.focus();
-            }}
-            className="border-border text-foreground-muted hover:border-danger/40 hover:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 self-start rounded-lg border px-2.5 font-bold transition-colors">
-            <Xmark
-              aria-hidden="true"
-              className="size-3.5 shrink-0"
-            />
-            Notiz entfernen
-          </Button>
-        )}
+          {/* The row is reserved whether the button is in it or not: `hasNotiz` flips on the first
+              character typed, and a control arriving then would push the panels below down the page
+              — the shift `FieldLabel`'s own `min-h-5` reserve exists to stop. */}
+          <div className="flex min-h-7 w-full flex-row items-center">
+            {/* No confirmation: nothing is written until Speichern, so this is an ordinary draft edit
+                — the same call `FormDateTimeSection.tsx :: ClearFieldButton` makes, and a plain button
+                for the same reason. Labelled, because a bare X reads only inside a field group. */}
+            {hasNotiz && (
+              <button
+                type="button"
+                onClick={() => {
+                  onNotizChange(null);
+                  // The focus move precedes the state change that unmounts this button: focus left on
+                  // a removed element falls to <body>, and the next Tab restarts at the top of the page.
+                  notizRef.current?.focus();
+                }}
+                className="border-border text-foreground-muted hover:border-danger/40 hover:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 rounded-lg border px-2.5 font-bold transition-colors">
+                <Xmark
+                  aria-hidden="true"
+                  className="size-3.5 shrink-0"
+                />
+                Notiz entfernen
+              </button>
+            )}
+          </div>
+        </TextField>
       </div>
     </section>
   );
