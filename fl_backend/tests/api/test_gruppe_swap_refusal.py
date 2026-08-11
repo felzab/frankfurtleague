@@ -5,9 +5,10 @@ TEAMS · when two clubs may exchange groups inside a season
 keeps every group's size and every drawn fixture intact, which is why it exists beside the lock
 `REQ-ENTER-004` applies to a MOVE rather than relaxing it (ADR-0062).
 
-Four rules, and the order between them is asserted here as well as the rules themselves: a pair
-that is not a swap is refused as one before anything about the season is consulted, and a season
-that is over is refused as that before either of the two windows inside it.
+Five rules, and the order between them is asserted here as well as the rules themselves: a pair
+that is not a swap is refused as one before anything about the season is consulted, a season that
+is over is refused as that before either of the two windows inside it, and the one bound an admin
+can repair is named only once nothing terminal is refusing too.
 """
 
 import pytest
@@ -17,6 +18,7 @@ from app.api.teams.services import (
     SWAP_KNOCKOUT_STARTED,
     SWAP_NOT_A_SWAP,
     SWAP_SAISON_FINISHED,
+    SWAP_SPIELTAG_CLASH,
     find_gruppe_swap_refusal,
 )
 
@@ -31,6 +33,7 @@ def swap(**overrides):
         "saison_status": "active",
         "played_knockout_fixtures": 0,
         "played_gruppenphase_fixtures": 0,
+        "clashing_spieltage": 0,
     }
     payload.update(overrides)
 
@@ -245,3 +248,55 @@ class TestTheRoundRobinClosesTheWindow:
 
         assert refusal is not None
         assert refusal[0] == SWAP_KNOCKOUT_STARTED
+
+
+class TestASpieltagNeverHoldsAClubTwice:
+    """`REQ-SWAP-005`: the exchange may not leave a club standing in two matches of one Spieltag (ADR-0042)."""
+
+    def test_a_swap_that_doubles_nobody_passes(self):
+        """Zero is the ordinary season, where the bracket has no manual pick sharing a Spieltag with a group fixture."""
+
+        assert swap(clashing_spieltage=0) is None
+
+    def test_one_clashing_spieltag_is_enough(self):
+        """
+        There is no threshold: a club playing two matches on one matchday is not a thing that can happen.
+
+        The match write path refuses that state wherever a team is fielded, and this endpoint writes
+        fixture documents without passing it — so a swap producing one would be the only route to it.
+        """
+
+        refusal = swap(clashing_spieltage=1)
+
+        assert refusal is not None
+        assert refusal[0] == SWAP_SPIELTAG_CLASH
+
+    def test_the_refusal_says_how_many_spieltage_it_found(self):
+        """The count is what tells an admin whether this is one fixture to move or a schedule to rethink."""
+
+        refusal = swap(clashing_spieltage=3)
+
+        assert refusal is not None
+        assert "3" in refusal[1]
+
+    @pytest.mark.parametrize(
+        ("terminal", "code"),
+        [
+            ({"saison_status": "past"}, SWAP_SAISON_FINISHED),
+            ({"played_knockout_fixtures": 1}, SWAP_KNOCKOUT_STARTED),
+            ({"played_gruppenphase_fixtures": 1}, SWAP_GRUPPENPHASE_PLAYED),
+        ],
+    )
+    def test_every_terminal_refusal_is_answered_first(self, terminal, code):
+        """
+        The ordering, and the reason it is this way round rather than assumed.
+
+        `REQ-SWAP-005` is the only bound of the five an admin can repair — move one of the two fixtures,
+        or clear the bracket side's manual pick. Naming it while a bound nothing reopens also applies
+        would send somebody to rearrange a schedule and be refused again for the real reason.
+        """
+
+        refusal = swap(clashing_spieltage=2, **terminal)
+
+        assert refusal is not None
+        assert refusal[0] == code

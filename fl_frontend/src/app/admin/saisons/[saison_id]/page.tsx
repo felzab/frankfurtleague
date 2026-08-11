@@ -101,7 +101,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   /**
    * What the group swap control stands on (ADR-0062).
    *
-   * **The three definitions here have to agree with the endpoint's**, exactly as `offeneSpiele` agrees
+   * **Every definition here has to agree with the endpoint's**, exactly as `offeneSpiele` agrees
    * with `unplayed_spiel_nrs` above. The club list is the season's junction rows, which the strict join
    * makes `GET /teams?saison_id=` — a club with no row is absent from it and is precisely the club the
    * write path refuses. Both fixture counts read "taken place" through `hasTakenPlace`, which is
@@ -109,6 +109,11 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
    * because `REQ-SWAP-002` asks whether the bracket consumed a standing whoever it named; the per-club
    * one is narrowed to that club's own Gruppenphase fixtures, which is the grain `REQ-SWAP-004` asks
    * about.
+   *
+   * **`REQ-SWAP-005` is the one that cannot be reduced to a per-club number**, because whether an
+   * exchange doubles a club on a Spieltag is a fact about the PAIR. So the picker is handed each club's
+   * fixtures counted per Spieltag, split by whether a swap would move them, and decides for itself. Both
+   * reads already carry `spieltag_id`, so this costs no request.
    *
    * The grouped shape is never requested, so the narrowing below is a type guard rather than a branch
    * anything reaches.
@@ -121,6 +126,9 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     }
   }
 
+  const gruppenSpieltage = countSpieleProSpieltag(gruppenSpieleRes.spiele);
+  const koSpieltage = countSpieleProSpieltag(playoffSpieleRes.spiele);
+
   const swap: SaisonGruppenSwapContext = {
     teams:
       teamsRes.format === "list"
@@ -129,6 +137,8 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
             name: team.name,
             gruppe: team.gruppe,
             gespielteGruppenSpiele: gespieltePerTeam.get(team.id) ?? 0,
+            gruppenSpieleProSpieltag: gruppenSpieltage.get(team.id) ?? {},
+            koSpieleProSpieltag: koSpieltage.get(team.id) ?? {},
           }))
         : [],
     playedKnockoutSpiele: playoffSpieleRes.spiele.filter(hasTakenPlace).length,
@@ -190,4 +200,26 @@ function hasTakenPlace(spiel: FLSpiel): boolean {
   // `?? null` collapses the two absences into one: an unresolved slot has no side at all and a resolved
   // one can hold no goals, and only a real count should read as a fixture that happened.
   return spiel.ergebnis !== null || spiel.is_canceled || (spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null;
+}
+
+/**
+ * Club id → Spieltag id → how many of these fixtures that club is fielded in on that Spieltag.
+ *
+ * Counted rather than collected into a set, because two fixtures of one club on one Spieltag is exactly
+ * the state `REQ-SWAP-005` is about and a set would erase it. Fed the group fixtures and the playoff
+ * ones separately, which is the split the rule turns on: a swap moves the first and leaves the second.
+ */
+function countSpieleProSpieltag(spiele: readonly FLSpiel[]): Map<string, Record<string, number>> {
+  const perTeam = new Map<string, Record<string, number>>();
+
+  for (const spiel of spiele) {
+    for (const seite of [spiel.team1, spiel.team2]) {
+      if (seite === null) continue;
+      const proSpieltag = perTeam.get(seite.team_id) ?? {};
+      proSpieltag[spiel.spieltag_id] = (proSpieltag[spiel.spieltag_id] ?? 0) + 1;
+      perTeam.set(seite.team_id, proSpieltag);
+    }
+  }
+
+  return perTeam;
 }

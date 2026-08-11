@@ -12,6 +12,7 @@ Invariants:
 - A group swap writes both junction rows or neither — one transaction, never two calls (ADR-0062).
 - It rewrites the two clubs' Gruppenphase sides in that same transaction, and never their `tore`.
 - Both of its windows read "has taken place" through the one predicate, `_has_taken_place`.
+- It refuses an exchange that would field a club twice on one Spieltag (ADR-0042, `_spieltag_clashes`).
 
 See:
 - docs/backend/spec.md — section 1.1, the season write endpoints
@@ -81,6 +82,62 @@ def _has_taken_place(spiel: Mapping[str, Any]) -> bool:
         return True
 
     return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
+
+
+def _spieltag_clashes(
+    *,
+    team_ids: Sequence[Any],
+    gruppenphase_spiele: Sequence[Mapping[str, Any]],
+    knockout_spiele: Sequence[Mapping[str, Any]],
+) -> int:
+    """
+    How many Spieltage would hold one of these two clubs twice once they exchange (`REQ-SWAP-005`).
+
+    A club plays at most one match per Spieltag (ADR-0042), and the match write path is the only thing
+    enforcing it -- so this endpoint, which writes fixture documents without passing that path, is the
+    one place that can create the state `judge_spieltag_occupancy` exists to refuse.
+
+    **The exchange is a bijection over the Gruppenphase and touches nothing else**, so after it a club
+    stands in its OWN knockout fixtures plus the OTHER's group ones. A Spieltag holding a group fixture
+    of one club beside a bracket fixture whose manual pick is the other therefore ends up fielding one
+    club twice. It takes a season whose Spieltage mix the two phases, which nothing forbids: a `spieltag`
+    carries its own `saison_phase` and a fixture's need not agree with it.
+
+    **Only a Spieltag the exchange BREAKS is counted, never one that was already broken.** Enforcement
+    leaves the past alone (ADR-0042), and refusing over a stored breach this swap did not cause would
+    name a bound that is not what an admin has to fix. A fixture attached to no Spieltag is nobody's
+    business here, for the reason `REQ-RULES-006` skips one.
+
+    The caller's projections have to carry `spieltag_id` and both `team_id`s.
+    """
+
+    other_of = {team_ids[0]: team_ids[1], team_ids[1]: team_ids[0]}
+
+    # Split by whether the rewrite moves the fixture: a group side becomes the other club's, a bracket
+    # side stays where it is, and that difference is the whole arithmetic below.
+    moved: dict[tuple[Any, Any], int] = {}
+    fixed: dict[tuple[Any, Any], int] = {}
+
+    for spiele, counted in ((gruppenphase_spiele, moved), (knockout_spiele, fixed)):
+        for spiel in spiele:
+            spieltag_id = spiel.get("spieltag_id")
+            if spieltag_id is None:
+                continue
+            for slot in ("team1", "team2"):
+                occupant = (spiel.get(slot) or {}).get("team_id")
+                if occupant in other_of:
+                    counted[(occupant, spieltag_id)] = counted.get((occupant, spieltag_id), 0) + 1
+
+    offending: set[Any] = set()
+    for club in team_ids:
+        other = other_of[club]
+        for spieltag_id in {day for held, day in fixed if held == club} | {day for held, day in moved if held == other}:
+            before = fixed.get((club, spieltag_id), 0) + moved.get((club, spieltag_id), 0)
+            after = fixed.get((club, spieltag_id), 0) + moved.get((other, spieltag_id), 0)
+            if after > 1 and before <= 1:
+                offending.add(spieltag_id)
+
+    return len(offending)
 
 
 async def _rewrite_gruppenphase_sides(
@@ -441,6 +498,13 @@ async def swap_gruppen(
     as a result does.** They differ only in which phase they read, and in `REQ-SWAP-004` narrowing to the
     two clubs while `REQ-SWAP-002` counts the season's.
 
+    **Refused with a 409 of its own where the exchange would field a club twice on one Spieltag**
+    (`REQ-SWAP-005`, ADR-0042). The rewrite below moves a group side and never a bracket one, so a
+    Spieltag holding a group fixture of one club beside a bracket fixture whose manual pick is the other
+    doubles a club the moment they exchange. It is answered LAST because it is the only one of the five an
+    admin can act on — `_spieltag_clashes` says which, and moving either fixture or clearing that manual
+    pick reopens the swap.
+
     **`REQ-ENTER-004`'s lock is deliberately not consulted.** It refuses a MOVE for a club whose fixtures
     are drawn, and its own message names a swap as the case that would be defensible — so this operation
     exists beside that lock rather than relaxing it. `disqualifikation` is untouched here: a swap changes
@@ -492,7 +556,7 @@ async def swap_gruppen(
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
-            projection=["team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "is_canceled"],
+            projection=["spieltag_id", "team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "is_canceled"],
             session=session,
         )
 
@@ -503,7 +567,7 @@ async def swap_gruppen(
         knockout_spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
-            projection=["team1.tore", "team2.tore", "ergebnis", "is_canceled"],
+            projection=["spieltag_id", "team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "is_canceled"],
             session=session,
         )
 
@@ -514,6 +578,11 @@ async def swap_gruppen(
             saison_status=str(saison_raw["status"]),
             played_knockout_fixtures=sum(1 for spiel in knockout_spiele if _has_taken_place(spiel)),
             played_gruppenphase_fixtures=sum(1 for spiel in gruppenphase_spiele if _has_taken_place(spiel)),
+            clashing_spieltage=_spieltag_clashes(
+                team_ids=both_ids,
+                gruppenphase_spiele=gruppenphase_spiele,
+                knockout_spiele=knockout_spiele,
+            ),
         )
         if refusal is not None:
             error_code, detail = refusal

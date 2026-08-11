@@ -97,6 +97,19 @@ export type SaisonSwapTeam = {
    * round robin, so a club that has played inside its group cannot leave it.
    */
   gespielteGruppenSpiele: number;
+  /**
+   * Spieltag id → how many of this club's Gruppenphase fixtures sit on it. A swap MOVES every one of
+   * these to the other club.
+   */
+  gruppenSpieleProSpieltag: Record<string, number>;
+  /**
+   * Spieltag id → how many of this club's fixtures OUTSIDE the group phase sit on it. A swap leaves
+   * every one of these where it is, which is what lets an exchange put a club on one Spieltag twice.
+   *
+   * The two maps together are `REQ-SWAP-005` said in the form: `wouldFieldAClubTwice` mirrors the
+   * arithmetic `_spieltag_clashes` performs on the server.
+   */
+  koSpieleProSpieltag: Record<string, number>;
 };
 
 /**

@@ -26,7 +26,13 @@ from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import swap_gruppen
 from app.api.saisons.schemas import FLSwapGruppenPayload
-from app.api.teams.services import SWAP_GRUPPENPHASE_PLAYED, SWAP_KNOCKOUT_STARTED, SWAP_NOT_A_SWAP, SWAP_SAISON_FINISHED
+from app.api.teams.services import (
+    SWAP_GRUPPENPHASE_PLAYED,
+    SWAP_KNOCKOUT_STARTED,
+    SWAP_NOT_A_SWAP,
+    SWAP_SAISON_FINISHED,
+    SWAP_SPIELTAG_CLASH,
+)
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 
@@ -85,6 +91,12 @@ def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
     return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": tore}
 
 
+# The matchday every seeded fixture sits on unless a test says otherwise, and a second one for the tests
+# needing two. Sharing one is what makes a `REQ-SWAP-005` clash reachable at all.
+SPIELTAG = ObjectId("6890a1b2c3d4e5f6072100ff")
+OTHER_SPIELTAG = ObjectId("6890a1b2c3d4e5f6072100fe")
+
+
 def gruppen_fixture(
     spiel_nr: int,
     home: ObjectId,
@@ -93,6 +105,7 @@ def gruppen_fixture(
     ergebnis: str | None = None,
     is_canceled: bool = False,
     tore: tuple[int | None, int | None] = (None, None),
+    spieltag_id: ObjectId = SPIELTAG,
 ) -> dict[str, Any]:
     """One Gruppenphase fixture between two clubs, unplayed unless told otherwise."""
 
@@ -100,7 +113,7 @@ def gruppen_fixture(
         "saison_id": SAISON_ID,
         "saison_phase": "gruppenphase",
         "spiel_nr": spiel_nr,
-        "spieltag_id": ObjectId("6890a1b2c3d4e5f6072100ff"),
+        "spieltag_id": spieltag_id,
         "team1": side(home, tore[0]),
         "team2": side(away, tore[1]),
         "ergebnis": ergebnis,
@@ -108,15 +121,21 @@ def gruppen_fixture(
     }
 
 
-def knockout_fixture(*, ergebnis: str | None, is_canceled: bool = False) -> dict[str, Any]:
+def knockout_fixture(*, ergebnis: str | None, is_canceled: bool = False, spieltag_id: ObjectId | None = None) -> dict[str, Any]:
     """
     A Viertelfinale fixture, with or without a result and with or without having been called off.
 
-    Only the four fields the count reads are set. The rest of `FLSpiel` is beside the point here and
-    seeding it would make this document look like something the endpoint validates, which it is not.
+    Only the fields the two windows read are set, plus a `spieltag_id` where the test is about
+    `REQ-SWAP-005`. The rest of `FLSpiel` is beside the point here and seeding it would make this
+    document look like something the endpoint validates, which it is not.
+
+    **The key is absent rather than null when no matchday is given**, which is the state
+    `_spieltag_clashes` skips — a fixture attached to no Spieltag cannot double a club on one.
     """
 
-    return {"saison_id": SAISON_ID, "saison_phase": "viertelfinale", "ergebnis": ergebnis, "is_canceled": is_canceled}
+    fixture = {"saison_id": SAISON_ID, "saison_phase": "viertelfinale", "ergebnis": ergebnis, "is_canceled": is_canceled}
+
+    return fixture if spieltag_id is None else {**fixture, "spieltag_id": spieltag_id}
 
 
 Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
@@ -394,10 +413,10 @@ class TestTheDrawnFixturesMoveWithTheClubs:
         asserted too, so a seed that was already illegal cannot make this pass by having nothing left to
         break.
 
-        **The seed is group fixtures only, and the claim is no wider than that.** A knockout side is never
-        rewritten, so a matchday holding both phases can still field one club twice after a swap — the
-        residual ADR-0062 records in its Consequences, which this endpoint does not guard and this test
-        does not cover.
+        **The seed is group fixtures only, and the claim is no wider than that.** A bracket side is never
+        rewritten, so a Spieltag mixing both phases is a separate case with a separate answer:
+        `REQ-SWAP-005` refuses it rather than the bijection making it impossible, and
+        `TestTheRefusalsReadTheRealDocuments` is where that is proved.
         """
 
         async def occupancy(database: AsyncIOMotorDatabase) -> int:
@@ -665,6 +684,102 @@ class TestTheRefusalsReadTheRealDocuments:
         code = on_a_seeded_season(mongo_replica_set_url, body, spiele=[*DRAWN_ROUND_ROBIN, scored_knockout])
 
         assert code == SWAP_KNOCKOUT_STARTED
+
+    def test_a_swap_that_would_field_a_club_twice_on_one_matchday_is_refused(self, mongo_replica_set_url: str):
+        """
+        `REQ-SWAP-005`, against the state only this endpoint can reach (ADR-0042, ADR-0062).
+
+        Beta's group fixture and a bracket fixture holding Alpha as a MANUAL pick share a matchday, and
+        Alpha's own group fixture is on another. The rewrite moves group sides and never bracket ones, so
+        Alpha would take over Beta's fixture and stand twice on that matchday — the state
+        `judge_spieltag_occupancy` refuses at the match write path, which a swap does not pass through.
+
+        The bracket fixture is unplayed and carries no goals, so `REQ-SWAP-002` is silent and this is the
+        rule under test rather than a bystander.
+        """
+
+        manual_pick = {**knockout_fixture(ergebnis=None, spieltag_id=SPIELTAG), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_swap(database, client, ALPHA, BETA)
+            return refusal.value.error_code, await gruppen_now(database), await sides_now(database)
+
+        code, stored, sides = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=[
+                gruppen_fixture(1, ALPHA, ALPHA_RIVAL, spieltag_id=OTHER_SPIELTAG),
+                gruppen_fixture(2, BETA_RIVAL, BETA, spieltag_id=SPIELTAG),
+                manual_pick,
+            ],
+        )
+
+        assert code == SWAP_SPIELTAG_CLASH
+        assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap moved a junction row"
+        assert sides[2] == (BETA_RIVAL, BETA), "a refused swap rewrote a fixture"
+
+    def test_the_same_bracket_pick_on_its_own_matchday_leaves_it_open(self, mongo_replica_set_url: str):
+        """
+        The ordinary season, and the assertion that keeps `REQ-SWAP-005` from being an inert control.
+
+        Identical to the case above but for the bracket fixture's matchday, which is the single fact the
+        rule turns on. A guard counting a club's fixtures without keying them by Spieltag would refuse
+        this too, and would then refuse most swaps worth making.
+        """
+
+        manual_pick = {
+            **knockout_fixture(ergebnis=None, spieltag_id=OTHER_SPIELTAG),
+            "spiel_nr": 9,
+            "team1": side(ALPHA),
+            "team2": None,
+        }
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await call_swap(database, client, ALPHA, BETA)
+            return await gruppen_now(database), await sides_now(database)
+
+        stored, sides = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=[
+                gruppen_fixture(1, ALPHA, ALPHA_RIVAL, spieltag_id=SPIELTAG),
+                gruppen_fixture(2, BETA_RIVAL, BETA, spieltag_id=SPIELTAG),
+                manual_pick,
+            ],
+        )
+
+        assert stored[ALPHA] == "B" and stored[BETA] == "A"
+        assert sides[9] == (ALPHA, None), "the bracket side was rewritten"
+
+    def test_a_matchday_already_holding_a_club_twice_does_not_refuse_the_swap(self, mongo_replica_set_url: str):
+        """
+        Enforcement leaves the past alone (ADR-0042), so only a Spieltag the exchange BREAKS is counted.
+
+        Alpha already stands in a group fixture and a bracket pick on one matchday — a stored breach this
+        swap did not cause, and one `report_relations` reports under `--check`. Refusing here would name a
+        bound that is not what an admin has to fix, and would trap the season in the state instead: the
+        swap is in fact what resolves it, because Alpha's group fixture leaves for Beta.
+        """
+
+        manual_pick = {**knockout_fixture(ergebnis=None, spieltag_id=SPIELTAG), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await call_swap(database, client, ALPHA, BETA)
+            return await gruppen_now(database), await sides_now(database)
+
+        stored, sides = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=[
+                gruppen_fixture(1, ALPHA, ALPHA_RIVAL, spieltag_id=SPIELTAG),
+                gruppen_fixture(2, BETA_RIVAL, BETA, spieltag_id=OTHER_SPIELTAG),
+                manual_pick,
+            ],
+        )
+
+        assert stored[ALPHA] == "B" and stored[BETA] == "A"
+        assert sides[1] == (BETA, ALPHA_RIVAL), "the fixture that made the matchday legal again did not move"
 
     def test_a_played_group_fixture_between_two_other_clubs_leaves_it_open(self, mongo_replica_set_url: str):
         """

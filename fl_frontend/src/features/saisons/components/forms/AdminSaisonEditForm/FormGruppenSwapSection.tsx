@@ -87,6 +87,32 @@ function SwapTeamSelect({
 }
 
 /**
+ * Whether exchanging these two clubs would leave one of them in two matches of one Spieltag.
+ *
+ * **`REQ-SWAP-005` said in the form (ADR-0038), mirroring `_spieltag_clashes` on the server.** A swap
+ * moves each club's Gruppenphase fixtures to the other and leaves the bracket ones where they are, so
+ * afterwards a club stands in its OWN `koSpieleProSpieltag` plus the OTHER's `gruppenSpieleProSpieltag`.
+ * A club plays at most one match per Spieltag (ADR-0042).
+ *
+ * **Only a Spieltag the exchange BREAKS counts, never one already broken.** The server draws the line in
+ * the same place, because enforcement leaves stored breaches alone (ADR-0042) — and a stricter client
+ * would hide a swap the endpoint accepts, which is ADR-0038's failure in the other direction.
+ */
+function wouldFieldAClubTwice(first: SaisonSwapTeam, second: SaisonSwapTeam): boolean {
+  const breaksASpieltag = (keeps: SaisonSwapTeam, gives: SaisonSwapTeam) =>
+    // Its own bracket Spieltage plus the ones it inherits — every Spieltag its count can move on.
+    [...Object.keys(keeps.koSpieleProSpieltag), ...Object.keys(gives.gruppenSpieleProSpieltag)].some((spieltagId) => {
+      const bleibt = keeps.koSpieleProSpieltag[spieltagId] ?? 0;
+      const vorher = bleibt + (keeps.gruppenSpieleProSpieltag[spieltagId] ?? 0);
+      const nachher = bleibt + (gives.gruppenSpieleProSpieltag[spieltagId] ?? 0);
+
+      return nachher > 1 && vorher <= 1;
+    });
+
+  return breaksASpieltag(first, second) || breaksASpieltag(second, first);
+}
+
+/**
  * The group swap: two clubs of this season exchange groups, in one write (ADR-0062).
  *
  * **The one mid-season group change that is defensible.** A group decides which table counts a club's
@@ -111,10 +137,11 @@ function SwapTeamSelect({
  * The standings have been consumed by the seeding, so there is no reading under which the swap is still
  * defensible — and the endpoint refuses the same thing and stays the authority (ADR-0038).
  *
- * **A club that has already played in its group is offered and refused in place** (`REQ-SWAP-004`), and
- * a finished season closes the panel outright (`REQ-SWAP-003`). Both are the endpoint's rules said in
- * the form, so the panel offers only pairs the write path takes. What counts as having taken place is
- * the season editor page's `hasTakenPlace`; both counts below arrive already taken over it.
+ * **A club that has already played in its group is offered and refused in place** (`REQ-SWAP-004`), a
+ * pair that would double a club on one Spieltag is refused on the second picker (`REQ-SWAP-005`), and a
+ * finished season closes the panel outright (`REQ-SWAP-003`). Each is the endpoint's rule said in the
+ * form, so the panel offers only pairs the write path takes. What counts as having taken place is the
+ * season editor page's `hasTakenPlace`; both counts below arrive already taken over it.
  */
 export function FormGruppenSwapSection({
   saisonId,
@@ -157,15 +184,18 @@ export function FormGruppenSwapSection({
   /**
    * What the SECOND picker may not take on top of that.
    *
-   * Both exclusions are `REQ-SWAP-001` said in the form (ADR-0038): a club cannot exchange groups with
-   * itself, and two clubs of one group exchange nothing. Offering either would be offering a request
-   * the write path answers with a 409.
+   * The first two exclusions are `REQ-SWAP-001` said in the form (ADR-0038): a club cannot exchange
+   * groups with itself, and two clubs of one group exchange nothing. The third is `REQ-SWAP-005`, and it
+   * is the reason this map is rebuilt against `first` rather than computed once — a Spieltag clash is a
+   * property of the PAIR, so no club is unpickable on its own account. Offering any of them would be
+   * offering a request the write path answers with a 409.
    */
   const unpickableForSecond = new Map(unpickable);
   if (first) {
     for (const team of swap.teams) {
       if (team.id === first.id) unpickableForSecond.set(team.id, "bereits gewählt");
       else if (team.gruppe === first.gruppe) unpickableForSecond.set(team.id, "gleiche Gruppe");
+      else if (wouldFieldAClubTwice(first, team)) unpickableForSecond.set(team.id, "zweimal am Spieltag");
     }
   }
 
@@ -174,7 +204,7 @@ export function FormGruppenSwapSection({
     setIsConfirming(false);
     // Cleared rather than kept: the new first pick can make the standing second one illegal, and a
     // disabled row left selected is a pair the button would send and the endpoint would refuse.
-    if (second && (second.id === team.id || second.gruppe === team.gruppe)) setSecond(null);
+    if (second && (second.id === team.id || second.gruppe === team.gruppe || wouldFieldAClubTwice(team, second))) setSecond(null);
   };
 
   const handleSecondChange = (team: SaisonSwapTeam) => {
@@ -224,6 +254,10 @@ export function FormGruppenSwapSection({
               <li>
                 Sobald eine der beiden in ihrer Gruppe <strong>gespielt</strong> hat, geht es nicht mehr: Eine Gruppe ist ein Rundenturnier, in
                 dem jede Mannschaft gegen jede andere ihrer Gruppe spielt.
+              </li>
+              <li>
+                Spiele der KO-Runde tauschen <strong>nicht</strong> mit. Stünde eine Mannschaft dadurch zweimal an einem Spieltag, ist das Paar
+                nicht wählbar — verschiebe eines der beiden Spiele.
               </li>
               <li>Ein einzelner Wechsel ist nicht vorgesehen. Dafür ist die Mannschaftsseite zuständig, und dort ist er gesperrt.</li>
             </ul>

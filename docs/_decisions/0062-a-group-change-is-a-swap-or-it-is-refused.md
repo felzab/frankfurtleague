@@ -73,7 +73,7 @@ in. The response is assembled from those rows before either write and then writt
 a stored group outside the closed A–D set before anything lands and makes it impossible for the echo to
 describe a swap other than the one that happened.
 
-**Four refusals, all 409, decided in this order by `fl_backend/app/api/teams/services.py ::
+**Five refusals, all 409, decided in this order by `fl_backend/app/api/teams/services.py ::
 find_gruppe_swap_refusal`:**
 
 1. **`REQ-SWAP-001` — the two ids must name two clubs of this season standing in different groups.**
@@ -88,6 +88,9 @@ find_gruppe_swap_refusal`:**
    matchday has arrived has still consumed nothing.
 4. **`REQ-SWAP-004` — neither club has taken part in its group's round robin**: no Gruppenphase fixture
    fielding it has taken place.
+5. **`REQ-SWAP-005` — the exchange must not leave a club standing in two matches of one Spieltag**
+   ([ADR-0042](0042-a-team-is-fielded-once-per-spieltag.md)), counted by
+   `fl_backend/app/api/saisons/admin_router.py :: _spieltag_clashes` over the two snapshots already read.
 
 **Both windows read "taken place" through one predicate,
 `fl_backend/app/api/saisons/admin_router.py :: _has_taken_place`: an `ergebnis`, a cancellation, or a
@@ -117,6 +120,13 @@ sends an admin to look at the wrong thing. A `past` season is refused whatever i
 robins hold, so `REQ-SWAP-002` there would name a reason contingent on a refusal that has already
 happened. Then the bracket, which is a fact about the season; then the round robin, which is a fact
 about these two clubs.
+
+**`REQ-SWAP-005` is answered last, and the reason is repairability rather than narrowness.** The four
+above are terminal — nothing an operator does reopens a played bracket or an unplayed round robin, and
+each of their messages ends the conversation. A Spieltag clash does not: moving either fixture to another
+matchday, or clearing the manual pick feeding the bracket side, makes the same swap legal. Naming a
+repairable bound while a terminal one also applies would send somebody to rearrange a schedule and be
+refused again for the real reason, which is the same harm the `REQ-SWAP-003`-first rule avoids.
 
 **`REQ-SWAP-002` is not dominated by `REQ-SWAP-004`, and the state that proves it is reachable.** Two
 clubs entered while the season was still `future` but after its fixtures were drawn hold junction rows
@@ -182,21 +192,32 @@ intact. Where one club has drawn fixtures and the other has none, the rewrite le
 unscheduled in its new group — a real outcome rather than an oversight, and the remaining draw is the
 admin's to make.
 
-**ADR-0042's occupancy invariant survives across the Gruppenphase, because the rewrite is a bijection
-there.** `_rewrite_gruppenphase_sides` touches group fixtures and nothing else, so over that set each
-club's count on a given matchday becomes exactly what the other's was — and both were at most one, so
-both still are.
+**ADR-0042's occupancy invariant holds across the Gruppenphase by construction and everywhere else by
+`REQ-SWAP-005`.** Over the group fixtures the rewrite is a bijection, so each club's count on a given
+matchday becomes exactly what the other's was — both were at most one, so both still are. Outside them
+it is not re-established by the shape of the operation, because a bracket side is never rewritten: a
+Spieltag holding a group fixture of one club alongside a bracket fixture whose manual pick is the other
+would field one club twice the moment they exchange. That is what the fifth refusal counts.
 
-**Outside that set it is not re-established, and this endpoint does not guard it.** A knockout side is
-never rewritten, so a matchday holding a group fixture of one club alongside a knockout fixture whose
-manual pick is the other fields one club twice once they exchange. Reaching that needs a season whose
-matchdays mix the two phases — which nothing forbids, since a `spieltag` carries its own `saison_phase`
-and a fixture's need not agree with it. It needs the pick to be a MANUAL one: a `quelle` comes to hold
-one of these two clubs only through its group's standing being decided, or through a bracket fixture it
-names having been played — a source in the group phase is refused outright — and each of those is a
-state `REQ-SWAP-004` or `REQ-SWAP-002` has already closed. Where the state does occur,
-`judge_spieltag_occupancy` refuses the next edit of either fixture and `report_relations` counts it under
-`--check`, which is where every stored breach of that rule surfaces.
+**The state it guards is narrow, and worth stating so nobody widens the guard by mistake.** It needs a
+season whose Spieltage mix the two phases — which nothing forbids, since a `spieltag` carries its own
+`saison_phase` and a fixture's need not agree with it — and it needs the bracket pick to be a MANUAL one.
+A `quelle` comes to hold one of these two clubs only through its group's standing being decided, or
+through a bracket fixture it names having been played (a source in the group phase is refused outright),
+and each of those is a state `REQ-SWAP-004` or `REQ-SWAP-002` has already closed.
+
+**Only a Spieltag the exchange BREAKS is counted, never one already broken.** Enforcement leaves the past
+alone (ADR-0042), so a stored breach this swap did not cause neither refuses it nor is repaired by it —
+`report_relations` reports that one under `--check`, which is where every pre-existing breach surfaces.
+Refusing over it would name a bound that is not what an admin has to fix, and would trap the season in
+the state rather than let a swap that happens to resolve it through.
+
+**This makes the swap the second writer of that rule, and the two do not share code.** The match write
+path decides it over `FLSpiel` models with a payload in hand and can resolve a clash by MOVING a manual
+side; the swap decides it over two projected snapshots and can only refuse, because there is no side it
+would be entitled to empty. A shared helper would have to take both shapes and both outcomes, so the
+arithmetic is stated twice on purpose — and `REQ-SWAP-005`'s half is a pure function over a snapshot the
+endpoint had already read, which is what keeps it to no extra query.
 
 **There is no undo offer, and none is owed.** A swap is its own inverse: running it again on the same
 pair restores the season. The panel says so, and the fifteen-second window plus a route handler
@@ -263,6 +284,16 @@ in this league so far has been a forfeit and counted as a real game, and that is
 so the club has taken part in its group whether or not the document gained an `ergebnis`. The system
 already reads it that way when closing a season (`unplayed_spiel_nrs`), and having the two disagree
 would be worse than either reading.
+
+**Documenting the Spieltag clash instead of refusing it.** The cheap option, and it was argued on
+reachability: the state needs a Spieltag mixing both phases, which a normally scheduled season does not
+produce, and it would surface on the next edit of either fixture through `judge_spieltag_occupancy` and
+in `--check`. Measured against what "surface" means here: the season renders normally in the meantime,
+the standings are derived on every request (ADR-0019), and nothing prompts anybody to run `--check` or to
+reopen a fixture that already looks right. It also leaves this endpoint as the one writer able to produce
+a state ADR-0042 calls impossible, which makes that decision's own claim conditional on nobody using this
+one. The guard costs a projection widened on a read already being made, so the argument for accepting the
+gap was never about cost.
 
 **Rewriting the knockout sides too.** Measured against what a knockout side is: either the resolution's,
 which re-derives it from the standing on the next pass ([ADR-0034](0034-a-result-entry-resolves-the-whole-bracket.md))

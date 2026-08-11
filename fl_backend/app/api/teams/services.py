@@ -765,6 +765,10 @@ SWAP_SAISON_FINISHED = "REQ-SWAP-003"
 # other club of its group, so one that has played inside a group cannot be moved out of it.
 SWAP_GRUPPENPHASE_PLAYED = "REQ-SWAP-004"
 
+# The exchange would leave a club standing in two matches of one Spieltag (ADR-0042, decided
+# 2026-08-11). Group sides move and bracket sides do not, so a Spieltag holding both can double a club.
+SWAP_SPIELTAG_CLASH = "REQ-SWAP-005"
+
 
 def find_gruppe_swap_refusal(
     *,
@@ -774,6 +778,7 @@ def find_gruppe_swap_refusal(
     saison_status: str,
     played_knockout_fixtures: int,
     played_gruppenphase_fixtures: int,
+    clashing_spieltage: int,
 ) -> tuple[str, str] | None:
     """
     Why exchanging these two clubs' groups must be refused, as `(error_code, detail)` -- or `None`.
@@ -793,13 +798,23 @@ def find_gruppe_swap_refusal(
     `REQ-SWAP-004` is about their own participation; `played_knockout_fixtures` counts the season's,
     because `REQ-SWAP-002` is about the bracket having consumed a standing whoever it named.
 
-    **Four rules, and the order is the argument.** A pair that is not a swap describes nothing this
+    `clashing_spieltage` is `app.api.saisons.admin_router._spieltag_clashes` over the same two snapshots:
+    the Spieltage that would hold one of the two clubs twice once the exchange lands, which ADR-0042
+    forbids and no validator or index can express.
+
+    **Five rules, and the order is the argument.** A pair that is not a swap describes nothing this
     season could do, so it is answered as that before anything about the season is consulted. The season
     being over comes next, for `find_rules_refusal`'s reason, stated in its own first comment: where the
     whole operation is refused anyway, naming a bound that merely also applies sends an admin to look at
     the wrong thing. A `past` season is refused whatever its bracket holds, so answering `REQ-SWAP-002`
     there would name a reason contingent on a refusal that has already happened. Then the bracket, then
     the round robin -- narrowing from the season to the two clubs.
+
+    **`REQ-SWAP-005` is last, and it is last because it is the only one an admin can act on.** The four
+    above are terminal: nothing an operator does reopens a played bracket or an unplayed round robin. A
+    Spieltag clash is repairable -- move one of the two fixtures, or clear the manual pick feeding the
+    bracket side -- so naming it while a terminal refusal also applies would send somebody to do work
+    that changes nothing. That is the `REQ-SWAP-003`-before-`REQ-SWAP-002` argument one step further out.
 
     Deliberately silent about `ENTRY_GRUPPE_LOCKED`, which refuses a MOVE for a club whose fixtures are
     drawn. That lock's own message names this operation as the defensible one, so a swap neither routes
@@ -840,6 +855,15 @@ def find_gruppe_swap_refusal(
             SWAP_GRUPPENPHASE_PLAYED,
             f"{played_gruppenphase_fixtures} gruppenphase {noun} already been played or called off for these two clubs; "
             "a club that has played inside its group cannot leave it without leaving a round robin that is not one",
+        )
+
+    if clashing_spieltage > 0:
+        noun = "spieltag would" if clashing_spieltage == 1 else "spieltage would"
+
+        return (
+            SWAP_SPIELTAG_CLASH,
+            f"{clashing_spieltage} {noun} field one of the two clubs twice after the exchange; "
+            "a club plays at most one match per spieltag, and a bracket side does not move with the swap",
         )
 
     return None

@@ -710,6 +710,15 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-SWAP-005",
+        operation="POST /saisons/{saison_id}/gruppen/swap",
+        aggregate="Saison",
+        summary="no group swap that would leave a club standing in two matches of one Spieltag",
+        implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
+        tested_by="tests/api/test_gruppe_swap_refusal.py::TestASpieltagNeverHoldsAClubTwice",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-RETIRE-001",
         operation="DELETE /teams/{team_id}",
         aggregate="Team",

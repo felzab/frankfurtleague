@@ -341,6 +341,15 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
               "wer darin gespielt hat, gehört dorthin. Lade die Seite neu.",
           };
         }
+        if (error.serverErrorCode === "REQ-SWAP-005") {
+          return {
+            success: false,
+            error:
+              "Durch den Tausch stünde eine der beiden Mannschaften zweimal an einem Spieltag. " +
+              "Eine Mannschaft spielt höchstens ein Spiel pro Spieltag, und die Spiele der KO-Runde tauschen nicht mit — " +
+              "verschiebe eines der beiden Spiele. Lade die Seite neu.",
+          };
+        }
       }
       throw error;
     }

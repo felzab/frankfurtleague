@@ -79,9 +79,10 @@ export async function activateSaison({ id }: FLActivateSaisonPayload): Promise<F
  * permanently. The same transaction also rewrites the two clubs' drawn Gruppenphase sides, which is
  * further out of reach of a client still.
  *
- * Four refusals, each mapped to its own message by `swapGruppenAction`: a pair that is not a swap
+ * Five refusals, each mapped to its own message by `swapGruppenAction`: a pair that is not a swap
  * (`REQ-SWAP-001`), a `past` season (`REQ-SWAP-003`), a knockout round already under way
- * (`REQ-SWAP-002`), and either club having played inside its group (`REQ-SWAP-004`).
+ * (`REQ-SWAP-002`), either club having played inside its group (`REQ-SWAP-004`), and an exchange that
+ * would leave a club standing in two matches of one Spieltag (`REQ-SWAP-005`).
  */
 export async function swapGruppen({ saison_id, ...teams }: FLSwapGruppenPayload): Promise<FLSwapGruppenResponse> {
   return apiClient<FLSwapGruppenResponse>(`/saisons/${saison_id}/gruppen/swap`, FLSwapGruppenResponseSchema, {
