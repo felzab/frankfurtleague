@@ -140,9 +140,20 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
-  // The group phase has exactly two readings and a third would have to come from somewhere this
-  // function cannot see, so the whole set is asserted rather than one case at a time.
-  it("resolves the group phase to come-through or nothing, whatever its fixtures did", () => {
+  // The group's half of the same bound: an organiser may seed a team into a knockout slot before its
+  // group has played anything (ADR-0042), and "überstanden" there claims a round that has not happened.
+  it("claims no outcome for a group phase with no result, however deep the team is standing", () => {
+    const verlauf = verlaufOf([fixture({ phase: "gruppenphase" }), fixture({ phase: "viertelfinale" })]);
+
+    assert.deepEqual(verlauf, [
+      { phase: "gruppenphase", outcome: "unknown" },
+      { phase: "viertelfinale", outcome: "pending" },
+    ]);
+  });
+
+  // Whatever a group fixture's own result says, it never becomes the round's outcome: come-through
+  // turns on a knockout fixture, and with no round beyond the group there is only one answer.
+  it("claims nothing for a group phase with no round beyond it, whatever its fixtures did", () => {
     const groupOutcomes = new Set(
       [null, "0:4", "2:2"].map((ergebnis) => verlaufOf([fixture({ phase: "gruppenphase", ergebnis })])[0]?.outcome),
     );

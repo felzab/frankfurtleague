@@ -145,8 +145,9 @@ export type SaisonPhaseVerlauf = {
  * request. `is_canceled` is deliberately not read (ADR-0019), and neither state it can be in asks to
  * be: a cancelled fixture carrying a result is a forfeit and decided its round like any other, and
  * one carrying none has decided nothing — it is replayed or forfeited later, so its round is as open
- * as an unplayed one and reads `pending`. The cancellation itself is stated where a reader can act on
- * it, in `SpielDetailsModal`, rather than being folded into a round's outcome word.
+ * as an unplayed one: `pending` for a knockout round, and the round's name with no outcome word for
+ * the group phase. The cancellation itself is stated where a reader can act on it, in
+ * `SpielDetailsModal`, rather than being folded into a round's outcome word.
  *
  * Invariants:
  * - Only a round the team has a fixture in produces an entry, so a season that plays no
@@ -180,9 +181,10 @@ export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSp
     const advanced = PHASE_RANK[phase] < deepestRank;
 
     if (phase === "gruppenphase") {
-      // Two readings and never a third: a knockout fixture is evidence the group was come through,
-      // and its absence is evidence of nothing at all (ADR-0039).
-      verlauf.push({ phase, outcome: advanced ? "advanced" : "unknown" });
+      // Two readings and never a third: a knockout fixture beside a group that was actually played is
+      // evidence the group was come through, and anything else is evidence of nothing at all (ADR-0039).
+      const played = fixtures.some((spiel) => computeErgebnisFor({ spiel, teamId }) !== "?");
+      verlauf.push({ phase, outcome: advanced && played ? "advanced" : "unknown" });
       continue;
     }
 

@@ -56,7 +56,7 @@ export function TeamSaisonSpieleTimeline({ teamSpiele, teamId, today }: { teamSp
           hint="Sobald der Spielplan steht, erscheinen die Begegnungen dieses Teams hier."
         />
       ) : (
-        // Same list semantics as the six card grids: this is a repeated collection too, so a
+        // Same list semantics as the app's card grids: this is a repeated collection too, so a
         // screen-reader user gets a count and a position here as well.
         <div
           role="list"
