@@ -185,6 +185,17 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
+  // A manual pick that did not qualify is warned and never refused (ADR-0042), so a beaten team in
+  // the next round is a real state, and no page may call that team out of the round before it.
+  it("reports a lost round as come through when a later round fields the team anyway", () => {
+    const verlauf = verlaufOf([fixture({ phase: "viertelfinale", ergebnis: "0:2" }), fixture({ phase: "halbfinale" })]);
+
+    assert.deepEqual(verlauf, [
+      { phase: "viertelfinale", outcome: "advanced" },
+      { phase: "halbfinale", outcome: "pending" },
+    ]);
+  });
+
   // Trap in the other direction: a round the season does not play must produce no chip rather than
   // one saying the team failed to reach it.
   it("produces no entry for a round the team has no fixture in", () => {

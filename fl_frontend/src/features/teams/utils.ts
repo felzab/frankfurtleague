@@ -142,8 +142,11 @@ export type SaisonPhaseVerlauf = {
  * Each round this team has a fixture in, in the order a season plays them, and how that round went.
  *
  * Derived from the fixtures the team page already holds — no endpoint, no stored field and no second
- * request. `is_canceled` is deliberately not read: a cancelled fixture carrying a result is a
- * forfeit and decided its round like any other (ADR-0019).
+ * request. `is_canceled` is deliberately not read (ADR-0019), and neither state it can be in asks to
+ * be: a cancelled fixture carrying a result is a forfeit and decided its round like any other, and
+ * one carrying none has decided nothing — it is replayed or forfeited later, so its round is as open
+ * as an unplayed one and reads `pending`. The cancellation itself is stated where a reader can act on
+ * it, in `SpielDetailsModal`, rather than being folded into a round's outcome word.
  *
  * Invariants:
  * - Only a round the team has a fixture in produces an entry, so a season that plays no
@@ -190,20 +193,27 @@ export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSp
 };
 
 /**
- * How one knockout round went, reading its result first and the bracket's own movement second.
+ * How one knockout round went, read off the round's own result where that is a win and off the
+ * bracket's own movement everywhere else.
  *
  * **Advancement is read off a later round's occupancy, never off a shoot-out.** A knockout that
  * finished level is a draw to every reader but the bracket (ADR-0036), so this cannot take a winner
  * from `elfmeterschiessen` — but a team standing in the round after it went through, whatever the
  * goals said, and that is a fact about where the team is rather than about how the tie broke.
+ *
+ * **Occupancy outranks a loss for that same reason.** A manual pick that did not qualify is warned
+ * and never refused (ADR-0042), so an organiser can field a beaten team in the next round — the
+ * withdrawal replacement — and `out` claims a run that ended, which a later fixture is the evidence
+ * it did not. Reading the loss first would chip that round "ausgeschieden" beside a chip for the
+ * round the team is standing in, which is one page contradicting itself.
  */
 const knockoutOutcome = (fixtures: readonly FLSpiel[], teamId: string, advanced: boolean): SaisonPhaseOutcome => {
   const results = fixtures.map((spiel) => computeErgebnisFor({ spiel, teamId }));
 
   if (results.includes("W")) return "won";
-  if (results.includes("L")) return "out";
   if (advanced) return "advanced";
-  // "?" is an unplayed fixture here: a malformed scoreline is refused at the API boundary, and a
-  // team on neither side was filtered out above.
+  if (results.includes("L")) return "out";
+  // "?" is a fixture carrying no result: a malformed scoreline is refused at the API boundary, and
+  // a team on neither side was filtered out above.
   return results.every((result) => result === "?") ? "pending" : "level";
 };

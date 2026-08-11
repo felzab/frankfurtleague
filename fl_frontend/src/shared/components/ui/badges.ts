@@ -25,7 +25,7 @@
 export const PILL_RADIUS = "rounded-md";
 
 /** A number in a pill — a section's count. `min-w-6` so single digits are not ovals. */
-export const COUNT_BADGE = "fluid-xxs inline-flex min-w-6 items-center justify-center rounded-md px-1.5 py-0.5 font-extrabold";
+export const COUNT_BADGE = `fluid-xxs inline-flex min-w-6 items-center justify-center ${PILL_RADIUS} px-1.5 py-0.5 font-extrabold`;
 
 /** A word in a pill — "empfohlen", "disqualifiziert", "in Spiel N", "Nicht gespeichert". */
-export const LABEL_BADGE = "fluid-xxs inline-flex items-center rounded-md px-1.5 py-0.5 font-bold";
+export const LABEL_BADGE = `fluid-xxs inline-flex items-center ${PILL_RADIUS} px-1.5 py-0.5 font-bold`;

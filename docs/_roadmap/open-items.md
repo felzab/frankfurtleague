@@ -139,15 +139,13 @@ and then again. The batch keeps its one-pass rule: one schema surface, one form,
 mirror that falls behind a gate failure that names the field). OPS-11 and OPS-10 are the cheapest
 entries here and the only ones a session pays for on every run: a guard that refuses commands it has
 no business refusing, and a classifier that spends a process per file to answer a question about the
-diff. OPS-12 and DOC-2 are each a
-boundary nothing currently watches — a generated file against the generator that owns it, and the
-documentation standard's enforcement claims against the gate, which resolves them in the direction
-that overstates and not in the direction that understates. BE-12, BE-15 and LOG-2 are prospective
-rather than dependent:
-BE-12 is real now that the spieler pages make retiring a row possible at all, BE-15 becomes real the
-moment a second person can write, and LOG-2 improves the fidelity of a logging convention that
-already works. FB-15 closes the tier with the group swap the team editor's lock names as the one
-defensible mid-season move.
+diff. OPS-12 and DOC-2 are each a boundary nothing currently watches — a generated file against the
+generator that owns it, and the documentation standard's enforcement claims against the gate, which
+resolves them in the direction that overstates and not in the direction that understates. BE-12,
+BE-15 and LOG-2 are prospective rather than dependent: BE-12 is real now that the spieler pages make
+retiring a row possible at all, BE-15 becomes real the moment a second person can write, and LOG-2
+improves the fidelity of a logging convention that already works. FB-15 closes the tier with the
+group swap the team editor's lock names as the one defensible mid-season move.
 
 ### 2 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
 
