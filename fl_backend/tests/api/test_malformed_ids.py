@@ -28,8 +28,8 @@ AUTH = {"Authorization": "Bearer test-key-base"}
 
 HEX_ID = "6890a1b2c3d4e5f607182930"
 
-# The right length and no hex in it. Every shorter malformed value is refused by the length anchor
-# before the character class is reached, so this is the one that tests the class.
+# The right length and no hex in it. `ObjectId` tests length before it decodes hex, so this is the
+# only value here the query control refuses on its characters rather than on its length.
 NON_HEX_ID = "z" * 24
 
 # Not the configured URI: a developer plausibly runs a real `mongod` on 27017, and a database that
