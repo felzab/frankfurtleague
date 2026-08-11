@@ -281,9 +281,9 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
 /**
  * The group swap. Two clubs exchange groups; the backend writes both junction rows in one transaction.
  *
- * **`spiele` is deliberately not invalidated.** No fixture document changes and no fixture RESPONSE
- * changes either: `GET /spiele` joins a side's `disqualifikation` from the junction and never its
- * `gruppe` (ADR-0021 rule 4). The standings do change, which is what the two `teams` tags below are for.
+ * **`spiele` is invalidated as well as `teams`**, because the same transaction rewrites every drawn
+ * Gruppenphase fixture fielding either club — each club inherits the other's opponents, dates and venues
+ * (ADR-0062). A schedule served from the cache afterwards would name the club that used to play there.
  */
 export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promise<{
   success: boolean;
@@ -303,25 +303,42 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // Both refusals are reachable, and the panel already prevents both — so each of these is the stale
-    // or raced page, and the message has to say what to do rather than only what went wrong.
+    // Every refusal here is reachable and the panel already prevents each one — so each of these is the
+    // stale or raced page, and the message has to say what to do rather than only what went wrong.
     let swapOperation;
     try {
       swapOperation = await swapGruppen(validated.data);
     } catch (error) {
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
-        if (error.serverErrorCode === "REQ-SWAP-002") {
-          return {
-            success: false,
-            error:
-              "Die KO.-Runde dieser Saison hat schon ein Ergebnis, deshalb lässt sich keine Gruppe mehr tauschen. " +
-              "Die Setzung ist aus diesen Gruppen entstanden und würde sonst etwas anderes bedeuten.",
-          };
-        }
         if (error.serverErrorCode === "REQ-SWAP-001") {
           return {
             success: false,
             error: "Die beiden Mannschaften stehen nicht mehr in zwei verschiedenen Gruppen dieser Saison. Lade die Seite neu.",
+          };
+        }
+        if (error.serverErrorCode === "REQ-SWAP-003") {
+          return {
+            success: false,
+            error:
+              "Diese Saison ist inzwischen abgeschlossen. Eine abgeschlossene Saison wird nicht mehr verändert — " +
+              "ihre Tabellen bleiben so, wie sie am Saisonende standen.",
+          };
+        }
+        if (error.serverErrorCode === "REQ-SWAP-002") {
+          return {
+            success: false,
+            error:
+              "Die KO-Runde dieser Saison hat schon ein Ergebnis, deshalb lässt sich keine Gruppe mehr tauschen. " +
+              "Die Setzung ist aus diesen Gruppen entstanden und würde sonst etwas anderes bedeuten.",
+          };
+        }
+        if (error.serverErrorCode === "REQ-SWAP-004") {
+          return {
+            success: false,
+            error:
+              "Mindestens eine der beiden Mannschaften hat in ihrer Gruppe inzwischen gespielt. " +
+              "Eine Gruppe ist ein Rundenturnier, in dem jede Mannschaft gegen jede andere ihrer Gruppe spielt — " +
+              "wer darin gespielt hat, gehört dorthin. Lade die Seite neu.",
           };
         }
       }
@@ -337,10 +354,23 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
     updateTag("teams");
     updateTag(`teams:saison_id:${validated.data.saison_id}`);
 
+    // And the fixtures, on the same two layers, because the swap rewrote the sides of every drawn
+    // Gruppenphase match either club was in. Without this the schedule pages keep serving the club that
+    // used to play there (ADR-0001).
+    updateTag("spiele");
+    updateTag(`spiele:saison_id:${validated.data.saison_id}`);
+
+    const umgeschrieben =
+      swapOperation.rewritten_spiele === 0
+        ? "Angesetzte Spiele gab es für die beiden noch keine."
+        : swapOperation.rewritten_spiele === 1
+          ? "Ein angesetztes Spiel wurde mitgetauscht."
+          : `${String(swapOperation.rewritten_spiele)} angesetzte Spiele wurden mitgetauscht.`;
+
     return {
       success: true,
       swap: swapOperation,
-      message: `Die beiden Mannschaften stehen jetzt in Gruppe ${swapOperation.team1_gruppe} und Gruppe ${swapOperation.team2_gruppe}.`,
+      message: `Die beiden Mannschaften stehen jetzt in Gruppe ${swapOperation.team1_gruppe} und Gruppe ${swapOperation.team2_gruppe}. ${umgeschrieben}`,
     };
   });
 }

@@ -52,7 +52,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
 
   // Retired matchdays included, for the reason the list page states: a retired matchday still holds
   // matches, so a season with one is not a season without a schedule.
-  const [spieltageRes, outgoingSpieleRes, teamsRes, playoffSpieleRes] = await Promise.all([
+  const [spieltageRes, outgoingSpieleRes, teamsRes, playoffSpieleRes, gruppenSpieleRes] = await Promise.all([
     getSpieltage({ saison_id: saison.id, include_inactive: true }),
     // Only fetched where there is something to warn about. A season that is already active has no
     // rollover to present, and one with no incumbent has no outgoing fixtures to check.
@@ -65,6 +65,9 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     // counts, so the page asks the endpoint's own question rather than fetching a whole season to
     // filter it here.
     getSpiele({ saison_id: saison.id, saison_phase: "playoffs" }),
+    // The other half of the same question (`REQ-SWAP-004`), narrowed to the phase the rule asks about
+    // for the reason the line above is: which clubs have already taken part in their group.
+    getSpiele({ saison_id: saison.id, saison_phase: "gruppenphase" }),
   ]);
 
   /**
@@ -97,17 +100,35 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   /**
    * What the group swap control stands on (ADR-0062).
    *
-   * **The two definitions here have to agree with the endpoint's**, exactly as `offeneSpiele` agrees
+   * **The three definitions here have to agree with the endpoint's**, exactly as `offeneSpiele` agrees
    * with `unplayed_spiel_nrs` above. The club list is the season's junction rows, which the strict join
    * makes `GET /teams?saison_id=` — a club with no row is absent from it and is precisely the club the
    * write path refuses. The knockout count is a fixture outside the Gruppenphase carrying an `ergebnis`,
-   * which is `find_gruppe_swap_refusal`'s own test.
+   * which is `find_gruppe_swap_refusal`'s own test. The per-club count is a Gruppenphase fixture
+   * fielding that club which has taken place — a result **or** called off, because a cancellation here
+   * is a forfeit and a forfeit is a game the round robin holds.
    *
    * The grouped shape is never requested, so the narrowing below is a type guard rather than a branch
    * anything reaches.
    */
+  const gespieltePerTeam = new Map<string, number>();
+  for (const spiel of gruppenSpieleRes.spiele) {
+    if (spiel.ergebnis === null && !spiel.is_canceled) continue;
+    for (const seite of [spiel.team1, spiel.team2]) {
+      if (seite !== null) gespieltePerTeam.set(seite.team_id, (gespieltePerTeam.get(seite.team_id) ?? 0) + 1);
+    }
+  }
+
   const swap: SaisonGruppenSwapContext = {
-    teams: teamsRes.format === "list" ? teamsRes.teams.map((team) => ({ id: team.id, name: team.name, gruppe: team.gruppe })) : [],
+    teams:
+      teamsRes.format === "list"
+        ? teamsRes.teams.map((team) => ({
+            id: team.id,
+            name: team.name,
+            gruppe: team.gruppe,
+            gespielteGruppenSpiele: gespieltePerTeam.get(team.id) ?? 0,
+          }))
+        : [],
     playedKnockoutSpiele: playoffSpieleRes.spiele.filter((spiel) => spiel.ergebnis !== null).length,
   };
 

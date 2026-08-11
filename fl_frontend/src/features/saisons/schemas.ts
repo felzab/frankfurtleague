@@ -238,10 +238,12 @@ export const FLActivateSaisonResponseSchema = BaseAPIResponseSchema.extend({
 export type FLActivateSaisonResponse = z.infer<typeof FLActivateSaisonResponseSchema>;
 
 /**
- * The swap's answer: both junction rows as it left them.
+ * The swap's answer: both junction rows as it left them, and how much of the schedule moved with them.
  *
  * The backend builds this object from the stored rows and then writes FROM it, so the two groups here
  * are what landed rather than what was intended — which is what lets the toast name them (ADR-0062).
+ * `rewritten_spiele` counts the drawn Gruppenphase fixtures whose side was moved to the other club, and
+ * is 0 for a pair that had none.
  */
 export const FLSwapGruppenResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string().length(4),
@@ -249,5 +251,6 @@ export const FLSwapGruppenResponseSchema = BaseAPIResponseSchema.extend({
   team1_gruppe: FLGruppenNamesSchema,
   team2_id: CustomObjectIdStringSchema,
   team2_gruppe: FLGruppenNamesSchema,
+  rewritten_spiele: z.int().nonnegative(),
 });
 export type FLSwapGruppenResponse = z.infer<typeof FLSwapGruppenResponseSchema>;

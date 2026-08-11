@@ -76,8 +76,12 @@ export async function activateSaison({ id }: FLActivateSaisonPayload): Promise<F
  *
  * **One request and not two junction PATCHes** (ADR-0062). Two calls have a window in which one group is
  * a club short and the other a club over, and a failure after the first leaves the season in that state
- * permanently. The endpoint refuses a pair that is not a swap (`REQ-SWAP-001`) and refuses any swap once
- * the knockout rounds have begun (`REQ-SWAP-002`); `swapGruppenAction` maps both to a message.
+ * permanently. The same transaction also rewrites the two clubs' drawn Gruppenphase sides, which is
+ * further out of reach of a client still.
+ *
+ * Four refusals, each mapped to its own message by `swapGruppenAction`: a pair that is not a swap
+ * (`REQ-SWAP-001`), a `past` season (`REQ-SWAP-003`), a knockout round already under way
+ * (`REQ-SWAP-002`), and either club having played inside its group (`REQ-SWAP-004`).
  */
 export async function swapGruppen({ saison_id, ...teams }: FLSwapGruppenPayload): Promise<FLSwapGruppenResponse> {
   return apiClient<FLSwapGruppenResponse>(`/saisons/${saison_id}/gruppen/swap`, FLSwapGruppenResponseSchema, {

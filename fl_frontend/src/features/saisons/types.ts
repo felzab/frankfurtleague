@@ -89,6 +89,13 @@ export type SaisonSwapTeam = {
   id: string;
   name: string;
   gruppe: FLGruppenNames;
+  /**
+   * How many of this club's own Gruppenphase fixtures have taken place — a result, or called off.
+   *
+   * `REQ-SWAP-004` counted for one club. Non-zero is what makes it unpickable: the group phase is a
+   * round robin, so a club that has played inside its group cannot leave it.
+   */
+  gespielteGruppenSpiele: number;
 };
 
 /**

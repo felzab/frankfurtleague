@@ -110,8 +110,21 @@ function SwapTeamSelect({
  * **Once the knockout has a result the control refuses rather than warns** (`REQ-SWAP-002`). The
  * standings have been consumed by the seeding, so there is no reading under which the swap is still
  * defensible — and the endpoint refuses the same thing and stays the authority (ADR-0038).
+ *
+ * **A club that has already played in its group is offered and refused in place** (`REQ-SWAP-004`), and
+ * a finished season closes the panel outright (`REQ-SWAP-003`). Both are the endpoint's rules said in
+ * the form, so the panel offers only pairs the write path takes.
  */
-export function FormGruppenSwapSection({ saisonId, swap }: { saisonId: string; swap: SaisonGruppenSwapContext }) {
+export function FormGruppenSwapSection({
+  saisonId,
+  swap,
+  isFinishedSaison,
+}: {
+  saisonId: string;
+  swap: SaisonGruppenSwapContext;
+  /** `REQ-SWAP-003`: a `past` season's groups are frozen, so the panel explains instead of offering. */
+  isFinishedSaison: boolean;
+}) {
   const router = useRouter();
   const panel = formPanel();
   const [isSwapping, startSwapping] = useTransition();
@@ -120,19 +133,34 @@ export function FormGruppenSwapSection({ saisonId, swap }: { saisonId: string; s
   const [second, setSecond] = useState<SaisonSwapTeam | null>(null);
 
   const isClosed = swap.playedKnockoutSpiele > 0;
-  // Two groups have to be occupied for an exchange to exist at all — a season whose clubs all stand in
-  // one group has nothing to swap, which is the ordinary state of a season being set up.
-  const occupiedGruppen = new Set(swap.teams.map((team) => team.gruppe));
-  const hasTwoGruppen = occupiedGruppen.size >= 2;
+
+  // Two groups have to hold a club that can still be exchanged. A club that has played inside its
+  // group cannot leave it (`REQ-SWAP-004`), so counting it would offer a pair the endpoint 409s.
+  const swappable = swap.teams.filter((team) => team.gespielteGruppenSpiele === 0);
+  const hasTwoGruppen = new Set(swap.teams.map((team) => team.gruppe)).size >= 2;
+  const hasTwoSwappableGruppen = new Set(swappable.map((team) => team.gruppe)).size >= 2;
 
   /**
-   * What the SECOND picker may not take, keyed by club id with the reason shown beside it.
+   * What EITHER picker may not take, keyed by club id with the reason shown beside it.
+   *
+   * `REQ-SWAP-004` said in the form: a club with a Gruppenphase fixture behind it — played or called
+   * off — has taken part in a round robin it can no longer leave, whichever side of the exchange it is
+   * offered as. Disabled and still visible, which is `GruppeSelect`'s rule for a full group: an admin
+   * should see why a club cannot be chosen instead of wondering where it went.
+   */
+  const unpickable = new Map<string, string>();
+  for (const team of swap.teams) {
+    if (team.gespielteGruppenSpiele > 0) unpickable.set(team.id, "hat schon gespielt");
+  }
+
+  /**
+   * What the SECOND picker may not take on top of that.
    *
    * Both exclusions are `REQ-SWAP-001` said in the form (ADR-0038): a club cannot exchange groups with
    * itself, and two clubs of one group exchange nothing. Offering either would be offering a request
    * the write path answers with a 409.
    */
-  const unpickableForSecond = new Map<string, string>();
+  const unpickableForSecond = new Map(unpickable);
   if (first) {
     for (const team of swap.teams) {
       if (team.id === first.id) unpickableForSecond.set(team.id, "bereits gewählt");
@@ -188,9 +216,14 @@ export function FormGruppenSwapSection({ saisonId, swap }: { saisonId: string; s
             <p>Zwei Mannschaften tauschen ihre Gruppen — in einem Schritt, nicht in zwei.</p>
             <ul>
               <li>
-                Jede Gruppe behält ihre <strong>Größe</strong>, und angesetzte Spiele behalten ihre Gegner.
+                Jede Gruppe behält ihre <strong>Größe</strong>. Die angesetzten Spiele tauschen mit: Jede Mannschaft übernimmt Gegner, Termine
+                und Orte der anderen.
               </li>
               <li>Die Tabellen beider Gruppen sehen ab sofort anders aus.</li>
+              <li>
+                Sobald eine der beiden in ihrer Gruppe <strong>gespielt</strong> hat, geht es nicht mehr: Eine Gruppe ist ein Rundenturnier, in
+                dem jede Mannschaft gegen jede andere ihrer Gruppe spielt.
+              </li>
               <li>Ein einzelner Wechsel ist nicht vorgesehen. Dafür ist die Mannschaftsseite zuständig, und dort ist er gesperrt.</li>
             </ul>
           </InfoHint>
@@ -198,13 +231,19 @@ export function FormGruppenSwapSection({ saisonId, swap }: { saisonId: string; s
       </div>
 
       <div className={panel.body()}>
-        {isClosed ? (
+        {isFinishedSaison ? (
           <Callout
             severity="info"
-            title="Die KO.-Runde hat begonnen">
+            title="Die Saison ist abgeschlossen">
+            Eine abgeschlossene Saison wird nicht mehr verändert. Ihre Tabellen bleiben so, wie sie am Saisonende standen.
+          </Callout>
+        ) : isClosed ? (
+          <Callout
+            severity="info"
+            title="Die KO-Runde hat begonnen">
             {swap.playedKnockoutSpiele === 1
-              ? "Ein Spiel der KO.-Runde hat schon ein Ergebnis."
-              : `${String(swap.playedKnockoutSpiele)} Spiele der KO.-Runde haben schon ein Ergebnis.`}{" "}
+              ? "Ein Spiel der KO-Runde hat schon ein Ergebnis."
+              : `${String(swap.playedKnockoutSpiele)} Spiele der KO-Runde haben schon ein Ergebnis.`}{" "}
             Die Setzung ist aus diesen Gruppen entstanden, deshalb lässt sich jetzt keine Gruppe mehr tauschen.
           </Callout>
         ) : !hasTwoGruppen ? (
@@ -214,11 +253,18 @@ export function FormGruppenSwapSection({ saisonId, swap }: { saisonId: string; s
             Für einen Tausch müssen Mannschaften in mindestens zwei verschiedenen Gruppen stehen. Nimm die Mannschaften über die
             Mannschaftsseite in die Saison auf.
           </Callout>
+        ) : !hasTwoSwappableGruppen ? (
+          <Callout
+            severity="info"
+            title="Die Gruppenphase ist zu weit">
+            Tauschen können nur Mannschaften, die in ihrer Gruppe noch kein Spiel gespielt oder abgesagt bekommen haben, und die gibt es nicht
+            mehr in zwei verschiedenen Gruppen. Eine Gruppe ist ein Rundenturnier: Wer darin einmal gespielt hat, gehört dorthin.
+          </Callout>
         ) : (
           <>
             <p className="fluid-sm text-foreground font-medium">
               Wähle die beiden Mannschaften, die ihre Gruppen tauschen sollen. Beide müssen in dieser Saison stehen, in zwei verschiedenen
-              Gruppen.
+              Gruppen, und dürfen in ihrer Gruppe noch nicht gespielt haben.
             </p>
 
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
@@ -227,7 +273,7 @@ export function FormGruppenSwapSection({ saisonId, swap }: { saisonId: string; s
                 value={first}
                 onChange={handleFirstChange}
                 teams={swap.teams}
-                unpickable={new Map()}
+                unpickable={unpickable}
                 isDisabled={isSwapping}
               />
               <SwapTeamSelect
@@ -248,7 +294,8 @@ export function FormGruppenSwapSection({ saisonId, swap }: { saisonId: string; s
                 severity="warning"
                 title="Das passiert beim Tausch">
                 <strong>{first.name}</strong> steht danach in Gruppe {second.gruppe}, <strong>{second.name}</strong> in Gruppe {first.gruppe}.
-                Die Tabellen beider Gruppen ändern sich damit sofort.
+                Beide übernehmen dabei die angesetzten Spiele der anderen — mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
+                sofort.
               </Callout>
             )}
 

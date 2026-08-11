@@ -421,6 +421,7 @@ export function AdminSaisonEditForm({
                 <FormGruppenSwapSection
                   saisonId={saison.id}
                   swap={swap}
+                  isFinishedSaison={saison.status === "past"}
                 />
 
                 {/* Last on the page, the position the club editor's Disqualifikation panel holds: the
