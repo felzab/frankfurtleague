@@ -217,8 +217,9 @@ def test_the_cancellation_count_survives_the_zeroed_fallback():
     """
     Merged over the figures rather than into them, so it reaches a team the `$group` produced nothing for.
 
-    That team is the whole point of the count: the badge exists for a row whose match count is low, and
-    a merge order putting the fallback last would overwrite the real figure with a zero.
+    That team is the whole point of the merge order: a team with no counting match at all can still
+    have had fixtures called off, and a fallback merged last would overwrite the real figure with a
+    zero.
     """
     merged = projection(build())["statistik"]["$mergeObjects"]
 
