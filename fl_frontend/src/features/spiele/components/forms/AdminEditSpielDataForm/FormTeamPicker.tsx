@@ -322,14 +322,16 @@ export function FormTeamPicker({
       disabledKeys={disabledTeamKeys}>
       <FieldLabel path={`${fieldName}.team_id`}>{isKnockout ? `${label}: Mannschaft` : label}</FieldLabel>
       <Autocomplete.Trigger className={FIELD_TRIGGER}>
-        {/* The name from the prop and the badge as its SIBLING, never through `Autocomplete.Value`:
-            invariant I29 in `docs/frontend/spec.md` carries why, and both halves are load-bearing. */}
-        <span className={`fluid-sm min-w-0 truncate ${teamPayload === null ? "text-foreground-muted" : ""}`}>
+        {/* The name from the prop, never through `Autocomplete.Value`, and `flex-1` as
+            `.autocomplete__value` carries on every sibling trigger: the free space is the name's
+            (I29 in `docs/frontend/spec.md`). */}
+        <span className={`fluid-sm min-w-0 flex-1 truncate ${teamPayload === null ? "text-foreground-muted" : ""}`}>
           {teamPayload?.name ?? PLACEHOLDER.slot}
         </span>
-        {/* `ml-auto` parks it at the trailing edge as the listbox rows do, so the closed trigger and
-            the open list read as one control. A no-op once the name truncates and eats the free space. */}
-        {isSelectedDisqualified && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong ml-auto shrink-0`}>Disqualifiziert</span>}
+        {/* A SIBLING of the truncating span, spaced by its own `ms-2` — and the free space above is
+            what parks it at the trailing edge as the listbox rows do, so the clear button beside it
+            does not move when a team is disqualified. */}
+        {isSelectedDisqualified && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong ms-2 shrink-0`}>Disqualifiziert</span>}
         {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. `size-7`
             because the default is a 20px target on the control that is the PRIMARY way a group
             fixture's side is emptied — too small to see and to hit. */}
@@ -341,7 +343,7 @@ export function FormTeamPicker({
           <Autocomplete.ClearButton
             type="button"
             aria-label={`${label}-Auswahl aufheben`}
-            className="text-foreground-muted hover:text-foreground size-7 rounded-md [&_svg]:size-4"
+            className="text-foreground-muted hover:text-foreground ms-2 size-7 rounded-md [&_svg]:size-4"
           />
         )}
         <Autocomplete.Indicator />

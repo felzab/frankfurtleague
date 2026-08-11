@@ -46,7 +46,7 @@ export const FIELD_GROUP = `border-border bg-surface text-foreground ${FIELD_HEI
 export const FIELD_COUNT_INPUT = "fluid-sm w-full";
 
 /**
- * A picker's trigger — `FIELD_INPUT`, a gap between its children, and room for the chevron.
+ * A picker's trigger — `FIELD_INPUT` plus room for the chevron.
  *
  * `pe-9` is a bug fix, not a preference. HeroUI reserves that space itself with `pe-7` inside
  * `.autocomplete__trigger:has(.autocomplete__indicator)`, but that rule is in `@layer components`
@@ -54,18 +54,18 @@ export const FIELD_COUNT_INPUT = "fluid-sm w-full";
  * reservation lost and the value's content box ran under an indicator that is positioned
  * `absolute … end-2`. Anything trailing in the value, a chip most visibly, sat underneath it.
  *
- * **`gap-x-2` is what every trailing element needs, and the reserve above is not a substitute for
- * it.** `FIELD_INPUT` is a flex row carrying no gap of its own, so without this each pair of
- * children meets at zero separation — a disqualification badge against the team name it annotates,
- * and the value against the clear button on the venue and referee pickers. The two answer different
- * questions: `pe-9` keeps the row clear of the indicator, so a child may sit at the trailing edge of
- * the content box, while this is what stops it touching its neighbour (I29 in
- * `docs/frontend/spec.md`).
+ * **The separation between two children does not belong here, and a `gap-x-*` cannot put it here.**
+ * `Autocomplete.Indicator` wraps its absolutely positioned icon in a `<button>` of its own — an
+ * in-flow flex item with nothing in it — so a gap on this recipe lands in front of that empty
+ * wrapper and buys a dead column at the trailing edge of every Autocomplete trigger. At a
+ * `Select.Trigger` it buys nothing at all: that indicator is the bare icon, absolutely positioned,
+ * and never a flex item to space. A child needing clearance from its neighbour carries its own
+ * `ms-2` (I29 in `docs/frontend/spec.md`).
  *
  * Use this on `Autocomplete.Trigger` and `Select.Trigger`; use `FIELD_INPUT` for a field with nothing
  * floating over its trailing edge.
  */
-export const FIELD_TRIGGER = `${FIELD_INPUT} gap-x-2 pe-9`;
+export const FIELD_TRIGGER = `${FIELD_INPUT} pe-9`;
 
 /**
  * The one tab appearance. Both tab strips in the app — the sign-in role picker and the spielplan's
