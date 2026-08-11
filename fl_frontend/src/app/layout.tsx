@@ -50,9 +50,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="de"
       suppressHydrationWarning
       className={`${inter.variable} scrollbar-gutter-stable`}>
-      {/* `<body>` stays unpositioned: a positioned root becomes the containing block for every
-          portalled overlay, and react-aria then measures its `bottom` against the viewport, not the
-          page (`docs/frontend/spec.md :: I29`). */}
+      {/* No containing-block trigger on either root — `docs/frontend/spec.md :: I29` lists them. Any
+          one makes the page the containing block for every portalled overlay, whose geometry
+          react-aria has already written against the viewport. */}
       <body className="bg-background text-foreground font-primary fluid-base flex min-h-dvh w-full flex-col antialiased">
         <RootProviders>{children}</RootProviders>
       </body>

@@ -272,8 +272,9 @@ implied coverage claim routes no later human check to the place that needs one.
   every time. `isFocusVisible` is a **global** modality flag, so styling keyed off it fires at
   seemingly random moments. Overlays light-dismiss on interaction, and a client-side navigation is
   not one. A portalled overlay's `bottom` is computed against the viewport and resolved by CSS
-  against its containing block, so a positioned `<html>` or `<body>` opens every top-placed overlay
-  a whole scroll height low (`docs/frontend/spec.md :: I29`).
+  against its containing block, so anything making `<html>` or `<body>` one — a `position`, a
+  transform, a `filter`, a `contain`, a `will-change` naming those, a `container-type` — opens every
+  top-placed overlay a whole scroll height low (`docs/frontend/spec.md :: I29`).
 - **`dynamic({ ssr: false })` with no `loading`** renders `null`, so a click on the trigger looks dead
   until the chunk arrives.
 - **Next writes suggested `tsconfig` defaults for any absent key** — a presence check, not a value
