@@ -42,8 +42,8 @@ scoring figures is never widened to admit a document without a result.**
 
 - `build_ausfall_lookup_stage` selects `is_canceled: true` together with `ergebnis: null`, counts
   what it finds with `$count`, and feeds `anzahl_ausgefallene_spiele` and nothing else.
-- `build_statistik_lookup_stage` is untouched: it still selects on `ergebnis` and the goal counts,
-  and `is_canceled` appears nowhere inside it.
+- `build_statistik_lookup_stage` selects on `ergebnis` and the goal counts, and no clause of the
+  stage it builds names `is_canceled`.
 - Both take their in-scope match from one builder, so `statistik_scope` keeps a single
   implementation and the two counts can never answer for different sets of matches.
 - The outer projection merges the cancellation count **over** the scoring figures, so a team whose
@@ -69,9 +69,8 @@ make that clause guess which of the document's two disagreeing facts was meant, 
 `docs/backend/spec.md`'s known-open table rather than repaired.
 
 **A reader meeting two lookups over one collection will reach to merge them.** That is this decision
-being reversed, not an optimisation, and the cost is silent: the match count stays correct while a
-cancellation scores as a draw, and no test in either pipeline suite fails. Cite this ADR at the
-stage.
+being reversed, not an optimisation, and the cost is silent: a cancellation scores as a draw, and no
+test in either pipeline suite fails. Cite this ADR at the stage.
 
 **The seeded corpus carries called-off fixtures**, so the boundary is executed rather than asserted:
 `fl_backend/tests/api/test_teams_pipeline_execution.py` proves the scoring figures do not move, as a
@@ -81,11 +80,14 @@ whole-set equality derived from `FLTeamStatistik.model_fields` rather than a spo
 
 **One `$lookup` counting both, with the accumulators guarded.** The construction this decision
 exists to refuse. Its `$match` becomes an `$or` over the counting rule and the cancellation rule,
-and every accumulator then needs a `$cond` distinguishing the two kinds of row. Rejected because the
-guard that matters is invisible: goals sum harmlessly, wins and losses fall out on `$gt` and `$lt`
-against nulls, and **only the draw accumulator is wrong** — `$eq: [null, null]` is true, so each
-cancellation silently becomes a draw, one point under the season's rules, while
-`anzahl_gespielte_spiele` stays right and every existing assertion passes. A defect whose only
+and every accumulator then needs a `$cond` distinguishing the two kinds of row. Rejected because
+those guards do not fail alike, and the one that matters is invisible. Four of them forgive being
+forgotten: goals sum harmlessly over a null, and wins and losses fall out on `$gt` and `$lt` against
+nulls. `anzahl_gespielte_spiele` does not forgive it — unguarded it is a `$sum` of 1 over the
+widened `$match` and counts the cancellation as played — but it fails in the open, contradicting the
+cancellation count standing beside it. **The draw accumulator is the one that fails silently:**
+`$eq: [null, null]` is true, so each cancellation becomes a draw, one point under the season's
+rules, while every other figure stays right and every existing assertion passes. A defect whose only
 symptom is a standing that is quietly one point out is worse than a second lookup over a few dozen
 documents.
 
