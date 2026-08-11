@@ -564,7 +564,9 @@ html:has([data-app-shell]) {
 /* THE two focus exceptions, and they are the only ones (decided 2026-07-31).
 
    Everything else in the app takes the one focus indicator declared in @layer base: HeroUI's ring
-   and the matching outline, both in var(--focus). These two categories must not.
+   and the matching outline. These two categories must not. Its colour is var(--focus) for every
+   control but one -- the Stufen picker's selected chip recolours the ring it keeps, and the --focus
+   declaration above is where that departure is recorded.
 
    1. FIELD-SHAPED CONTROLS -- anything you type a value into. A text input matches :focus-visible on
       a plain mouse click (the CSS selectors spec makes that exception for elements that take text

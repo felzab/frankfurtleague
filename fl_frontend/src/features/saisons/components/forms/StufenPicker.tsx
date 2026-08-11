@@ -21,8 +21,8 @@ import type { Key } from "@heroui/react";
  *
  * **Hover LIFTS an unselected chip to `bg-surface` instead of darkening it**, the tab strip's rule and for
  * its reason: the chip at rest is already the recessed `bg-muted`, and a darkening hover is invisible on it.
- * A selected chip keeps its fill and brightens its border, so a control already at full strength answers the
- * pointer without a second background competing with the fill.
+ * A selected chip keeps its fill and switches its border to `--fg-base`, so a control already at full
+ * strength answers the pointer without a second background competing with the fill.
  *
  * **A selected chip's FOCUS RING takes the fill's paired foreground rather than `--focus`** (WCAG 1.4.11).
  * `--focus` is `--fg-base`, and `globals.css` already records that pair as unusable at the `--fg-on-brand`
