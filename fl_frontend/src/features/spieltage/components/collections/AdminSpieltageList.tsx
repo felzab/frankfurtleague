@@ -28,22 +28,23 @@ import type { SpieltagPhaseProgress } from "../../utils";
  * count match what is attached — and a strip showing one matchday hides both.
  *
  * **The order arrives already correct and this list does not re-sort it** (ADR-0051). It is derived on the
- * backend from `saison_phase` in bracket order, then `beginn`, then `name`, so there is no stored position
+ * backend from `saison_phase` in bracket order, then `beginn`, then `_id`, so there is no stored position
  * to render, no collision to detect and no reordering control to offer. What the row shows instead is an
  * `ordinal` — its 1-based place within its phase section, assigned by the page from the order it received.
  * That number is presentation: two rows cannot claim the same one, and nothing can make it disagree with
  * where the row actually is.
  *
- * **`spieleAngelegt` against `anzahl_spiele` is the one fact only this surface can catch.** The expected
- * count follows from the season's rules and this matchday's phase (ADR-0052); the attached count is how
- * many fixtures carry its id. Nothing refuses a disagreement, because a season being set up passes through
- * every intermediate count on the way — so showing the two together is what makes the gap visible without
- * making the intermediate states illegal.
+ * **`spieleAngelegt` against `anzahl_spiele` is one of the two facts only this surface can catch.** The
+ * expected count follows from the season's rules and this matchday's phase (ADR-0052); the attached count
+ * is how many fixtures carry its id. Nothing refuses a disagreement, because a season being set up passes
+ * through every intermediate count on the way — so showing the two together is what makes the gap visible
+ * without making the intermediate states illegal.
  *
  * **The section heading says the same thing about the phase**, from `phaseProgress`: how many live matchdays
- * it holds against how many the same rules imply. A phase owing one is named again at the foot, which is the
- * only place a phase with no section at all can be reported — so between the two, every phase of a season
- * under construction says where it stands.
+ * it holds against how many the same rules imply. **A phase the season expects matchdays from and holds no
+ * LIVE one for is named again at the foot** — the only place a phase with no section at all can be reported,
+ * and it also catches one whose whole section is retired. A phase merely short of one, two of three say,
+ * states that in its heading alone.
  *
  * **No per-row link to a matchday's fixtures**, and that is a fact about the Spielsuche rather than a gap
  * here: it searches team, venue, date, fixture number and referee, and a matchday's name is none of those,
@@ -125,6 +126,12 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
    * Both numbers are facts about the season rather than about the rows below
    * (`fl_frontend/src/features/spieltage/utils.ts :: buildSpieltagPhaseProgress`).
    *
+   * **So the heading and the rows beneath it count different populations, and neither bounds the other.**
+   * The heading counts the season's LIVE matchdays; the rows are whatever the search and the facets left,
+   * retired ones included. A complete phase reads „3 von 3“ above four cards when one of them is retired,
+   * and above a single card under `?status=stillgelegt`. That is the deliberate trade for `phasesWithout`
+   * above reading these same season-wide numbers rather than the rows.
+   *
    * **Reported, never refused** (ADR-0052): a season being set up reaches its phases in order, so a
    * phase short of matchdays is the ordinary state on the way to complete.
    */
@@ -152,7 +159,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     );
   };
 
-  /** The derived expectation against what is actually attached — the one number only this list can check. */
+  /** The derived expectation against what is actually attached — the per-matchday half of the check `renderPhaseCount` makes per phase. */
   const renderSpieleCount = (spieltag: AdminSpieltagRow) => {
     const matches = spieltag.spieleAngelegt === spieltag.anzahl_spiele;
     // The noun agrees with the EXPECTED count, which is the number it belongs to: a final expects one

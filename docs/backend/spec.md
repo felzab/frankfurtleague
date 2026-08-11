@@ -105,6 +105,14 @@ is addressed resource-first, with the id in the path. `tests/api/test_admin_guar
 ([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)). The absent verbs on `/spiele`
 are I26's, and the rows above cite it.
 
+**Every `spieltage` response carrying a matchday injects `anzahl_spiele` before validation, writes
+as much as reads.** The field is required on `FLSpieltag` and sits on no document (ADR-0052), so
+both reads and the three write endpoints that echo a matchday pass the document through
+`fl_backend/app/api/spieltage/services.py :: with_expected_matches` first. `POST /spieltage` is the
+one exception and needs none: it answers with an id alone and validates no stored document.
+**ADR-0052's Decision names the two reads; this page is the wider statement** — a new write endpoint
+that echoes a matchday injects too, or it answers 500 from its own response.
+
 #### `system` router — mixed guards
 
 | Method | Path               | Guard                            |

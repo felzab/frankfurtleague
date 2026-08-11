@@ -43,7 +43,7 @@ async def get_spieltage(
     """
     List matchdays for a season, in the order they are played.
 
-    That order is derived rather than stored: the phase in bracket order, then `beginn`, then `name`. It
+    That order is derived rather than stored: the phase in bracket order, then `beginn`, then `_id`. It
     is what `sort_by=natural` means and it is the default; the other two sort options are dates, and
     neither is what a bracket reads.
 
