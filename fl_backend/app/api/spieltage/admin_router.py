@@ -10,6 +10,7 @@ Invariants:
 - Soft is not harmless — `REQ-RETIRE-002` refuses retiring a matchday holding a played match.
 - Nor is reactivating — `REQ-DATE-002` refuses one whose span the season no longer covers.
 - `anzahl_spiele` is derived (ADR-0052); `REQ-SPIELTAG-002` refuses a phase too small for its fixtures.
+- Every echo goes through `with_expected_matches`: the field is required and sits on no document.
 """
 
 from typing import Annotated
@@ -31,6 +32,7 @@ from app.api.spieltage.services import (
     find_spieltag_phase_refusal,
     find_spieltag_retire_refusal,
     find_spieltag_span_refusal,
+    with_expected_matches,
 )
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db
@@ -136,14 +138,15 @@ async def patch_spieltag(
 
     stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
 
-    # The season's rules decide what the proposed phase accounts for, so the refusal needs both. A
-    # matchday whose season document is missing is left to the write below: inventing an expected
-    # count from a default nobody chose is not honest (ADR-0035).
+    # The season's rules decide what the proposed phase accounts for, so the refusal needs both -- and
+    # so does the echo, whose `anzahl_spiele` is derived from the phase this write may have just moved.
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]})
+    rules = FLSaisonRules.model_validate(saison_raw["rules"])
+
     attached = await spiele_collection.count_documents({"spieltag_id": spieltag_id})
     refusal = find_spieltag_phase_refusal(
         attached_count=attached,
-        expected_count=expected_matches(FLSaisonRules.model_validate(saison_raw["rules"]), spieltag_data.saison_phase),
+        expected_count=expected_matches(rules, spieltag_data.saison_phase),
     )
     if refusal is not None:
         error_code, detail = refusal
@@ -175,13 +178,17 @@ async def patch_spieltag(
     if updated_raw is None:
         raise DocumentNotFoundException(filter={"_id": spieltag_id}, error_code="DB-COMMON-001")
 
-    return FLSpieltagWriteResponse(spieltag_id=spieltag_id, updated_document=FLSpieltag.model_validate(updated_raw))
+    return FLSpieltagWriteResponse(
+        spieltag_id=spieltag_id,
+        updated_document=FLSpieltag.model_validate(with_expected_matches(updated_raw, rules)),
+    )
 
 
 @router.delete(by_id("spieltag_id"), response_model=FLSpieltagWriteResponse, summary="Retire a Spieltag (soft delete)")
 async def delete_spieltag(
     spieltag_id: CustomRouteObjectId,
     spieltage_collection: SpieltageCollection,
+    saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLSpieltagWriteResponse:
@@ -198,6 +205,13 @@ async def delete_spieltag(
     unplayed matchday retires freely, which is the one somebody created by mistake.
     """
 
+    # Both reads before the write, the season's for the echo's derived count alone. Ahead of the stamp
+    # rather than after it, so a season this matchday cannot resolve is a 404 instead of a retirement
+    # that landed and then answered with an error.
+    stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]})
+    rules = FLSaisonRules.model_validate(saison_raw["rules"])
+
     played = await spiele_collection.count_documents({"spieltag_id": spieltag_id, "ergebnis": {"$ne": None}})
     refusal = find_spieltag_retire_refusal(played_count=played)
     if refusal is not None:
@@ -213,7 +227,10 @@ async def delete_spieltag(
     if updated_raw is None:
         raise DocumentNotFoundException(filter={"_id": spieltag_id}, error_code="DB-COMMON-001")
 
-    return FLSpieltagWriteResponse(spieltag_id=spieltag_id, updated_document=FLSpieltag.model_validate(updated_raw))
+    return FLSpieltagWriteResponse(
+        spieltag_id=spieltag_id,
+        updated_document=FLSpieltag.model_validate(with_expected_matches(updated_raw, rules)),
+    )
 
 
 @router.post(f"{by_id('spieltag_id')}/reactivate", response_model=FLSpieltagWriteResponse, summary="Bring a retired Spieltag back")
@@ -237,6 +254,7 @@ async def reactivate_spieltag(
 
     stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]})
+    rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
     span_refusal = find_spieltag_span_refusal(
         beginn=str(stored_raw["beginn"]),
@@ -258,4 +276,7 @@ async def reactivate_spieltag(
     if updated_raw is None:
         raise DocumentNotFoundException(filter={"_id": spieltag_id}, error_code="DB-COMMON-001")
 
-    return FLSpieltagWriteResponse(spieltag_id=spieltag_id, updated_document=FLSpieltag.model_validate(updated_raw))
+    return FLSpieltagWriteResponse(
+        spieltag_id=spieltag_id,
+        updated_document=FLSpieltag.model_validate(with_expected_matches(updated_raw, rules)),
+    )

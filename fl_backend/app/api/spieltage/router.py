@@ -10,13 +10,9 @@ Invariants:
 - `anzahl_spiele` is derived per read (ADR-0052), so both reads resolve the season document.
 """
 
-from typing import Any, Mapping
-
 from fastapi import APIRouter, Depends
 
 from app.api.saisons.crud import pull_saison_id_and_rules
-from app.api.saisons.schedule import expected_matches
-from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieltage.schemas import (
     FLSpieltag,
     FLSpieltageFilterParams,
@@ -24,7 +20,7 @@ from app.api.spieltage.schemas import (
     FLSpieltageSingleResponse,
     FLSpieltagListAdapter,
 )
-from app.api.spieltage.services import build_spieltage_filter, build_spieltage_sort, order_spieltage
+from app.api.spieltage.services import build_spieltage_filter, build_spieltage_sort, order_spieltage, with_expected_matches
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection, SpieltageCollection
@@ -36,18 +32,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieltage",
     dependencies=[Depends(verify_access_base)],
 )
-
-
-def _with_expected_matches(spieltage_raw: list[Mapping[str, Any]], rules: FLSaisonRules) -> list[dict[str, Any]]:
-    """
-    Attaches each matchday's derived `anzahl_spiele` before validation.
-
-    Injected into the raw document rather than set on the model afterwards, because the field is REQUIRED
-    on `FLSpieltag` -- so a document reaching validation without it is a 500, and doing it here means the
-    model's own bound (`ge=0`) still judges the derived value.
-    """
-
-    return [{**raw, "anzahl_spiele": expected_matches(rules, raw["saison_phase"])} for raw in spieltage_raw]
 
 
 @router.get("", response_model=FLSpieltageListResponse, summary="List Spieltage")
@@ -81,7 +65,7 @@ async def get_spieltage(
         limit=filters.limit,
         sort_by=db_sort,
     )
-    spieltage = FLSpieltagListAdapter.validate_python(_with_expected_matches(spieltage_raw, rules))
+    spieltage = FLSpieltagListAdapter.validate_python([with_expected_matches(raw, rules) for raw in spieltage_raw])
 
     # The exact order, applied after the read: the phases sort lexically in Mongo and that is not the
     # order they are played in (ADR-0051). Only the natural order is refined here — a caller who asked
@@ -111,4 +95,4 @@ async def get_spieltag(
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
     _, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=str(spieltag_raw["saison_id"]))
 
-    return FLSpieltageSingleResponse(spieltag=FLSpieltag.model_validate(_with_expected_matches([spieltag_raw], rules)[0]))
+    return FLSpieltageSingleResponse(spieltag=FLSpieltag.model_validate(with_expected_matches(spieltag_raw, rules)))
