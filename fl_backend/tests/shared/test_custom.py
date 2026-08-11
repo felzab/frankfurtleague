@@ -149,7 +149,7 @@ def test_object_id_round_trips_as_a_24_hex_string():
 
 @pytest.mark.parametrize("value", ["not-an-objectid", "6890a1b2c3d4e5f60718293", "zzzzzzzzzzzzzzzzzzzzzzzz", ""])
 def test_rejects_malformed_object_ids(value):
-    """Non-hex, one character short, 24 non-hex characters, and empty — refused from a dict and from JSON alike."""
+    """Nonsense, one character short, 24 non-hex characters, and empty — refused from a dict and from JSON alike."""
     with pytest.raises(ValidationError):
         _ObjectId.model_validate({"value": value})
 
