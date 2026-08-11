@@ -165,7 +165,7 @@ be machinery for a reversal the panel states in a sentence.
 | `postSaisonAction`              | saisons        | `saisons`                                                            |
 | `patchSaisonAction`             | saisons        | `saisons`, `teams`                                                   |
 | `activateSaisonAction`          | saisons        | `saisons`, `spiele`, `spieltage`, `teams`                            |
-| `swapGruppenAction`             | saisons        | `teams`, + `teams:saison_id:{id}`                                    |
+| `swapGruppenAction`             | saisons        | `teams`, `spiele`, + both `:saison_id:{id}`                          |
 | `postSpieltagAction`            | spieltage      | `spieltage`                                                          |
 | `patchSpieltagAction`           | spieltage      | `spieltage`                                                          |
 | `deleteSpieltagAction`          | spieltage      | `spieltage`                                                          |
