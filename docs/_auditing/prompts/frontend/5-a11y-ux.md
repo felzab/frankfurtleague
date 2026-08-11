@@ -43,8 +43,10 @@ behaviour comes from library primitives and which is hand-rolled. Recurring trap
 every time: a library `*.Trigger` component already renders a focusable button, so nesting a
 `<button>` inside one is invalid HTML and a double tab stop; overlays survive client-side
 navigation unless wired to the shared navigation-close hook, because a client-side navigation is
-not a light-dismiss interaction; and a popover anchored inside a `position: fixed` overlay is
-mispositioned, because positioning against `document.body` adds `documentElement.scrollTop`.
+not a light-dismiss interaction; and a top-placed overlay's `bottom` is computed against the
+viewport but resolved by CSS against its containing block, so check that `<html>` and `<body>` carry
+no `position`, `transform`, `filter` or `contain: paint` — any of those opens every such overlay a
+whole scroll height low on a route whose document scrolls (`docs/frontend/spec.md :: I29`).
 
 A2. **Keyboard reachability.** Click handlers on non-interactive elements, custom dropdowns, table
 row interactions, anything reachable by pointer only. Drive the running app, honouring the

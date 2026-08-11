@@ -114,13 +114,9 @@ export function SpielDetailsModal({
               </Modal.Header>
               <Modal.Body className="text-foreground">
                 <div className="bg-background border-border flex h-fit flex-col items-center justify-center rounded-xl border py-4 shadow-inner">
-                  {/* Plain links, not a team popover (decided 2026-07-31). A popover
-                      anchored inside a `position: fixed` overlay is mispositioned by react-aria,
-                      which adds `document.scrollTop` to the trigger's viewport rect — on the landing
-                      page, the one route where you must scroll to reach a match, it opened that far
-                      below the name. Every fix for that is a workaround around a nested overlay
-                      nobody needs: this modal is already a focused view of one match, so the name
-                      goes straight to the team. The Kader shortcut stays on the cards. */}
+                  {/* Plain links, not a team popover (decided 2026-07-31): this modal is already a
+                      focused view of one match, so the name goes straight to the team. The Kader
+                      shortcut stays on the cards. */}
                   <TeamNameLine
                     team={spielData.team1}
                     quelle={spielData.team1_quelle}

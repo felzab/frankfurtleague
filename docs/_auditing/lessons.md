@@ -271,8 +271,9 @@ implied coverage claim routes no later human check to the place that needs one.
   button-like element, so putting a `<button>` inside one nests interactive content — check for this
   every time. `isFocusVisible` is a **global** modality flag, so styling keyed off it fires at
   seemingly random moments. Overlays light-dismiss on interaction, and a client-side navigation is
-  not one. Positioning against `document.body` adds `documentElement.scrollTop`, which is wrong
-  inside any `position: fixed` overlay — never anchor a popover inside one.
+  not one. A portalled overlay's `bottom` is computed against the viewport and resolved by CSS
+  against its containing block, so a positioned `<html>` or `<body>` opens every top-placed overlay
+  a whole scroll height low (`docs/frontend/spec.md :: I29`).
 - **`dynamic({ ssr: false })` with no `loading`** renders `null`, so a click on the trigger looks dead
   until the chunk arrives.
 - **Next writes suggested `tsconfig` defaults for any absent key** — a presence check, not a value
