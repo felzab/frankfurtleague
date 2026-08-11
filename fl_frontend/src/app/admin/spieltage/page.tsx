@@ -8,7 +8,7 @@ import { AdminCreateSpieltagModal } from "@/features/spieltage/components/modals
 import { AdminSpieltageView } from "@/features/spieltage/components/views/AdminSpieltageView";
 import { SPIELTAGE_CRUD_COPY } from "@/features/spieltage/constants";
 import { getSpieltage } from "@/features/spieltage/queries";
-import { spieltagLabels } from "@/features/spieltage/utils";
+import { buildSpieltagPhaseProgress, spieltagLabels } from "@/features/spieltage/utils";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
@@ -114,6 +114,10 @@ async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextP
  * a 1-based counter per phase, assigned by walking the received order once. Assigning it here rather than
  * in the list is what keeps it out of the client bundle and out of the filtered view — a filter that hides
  * the second matchday must not renumber the third.
+ *
+ * **The per-phase matchday count is derived here for the same reason.** How many matchdays a phase holds
+ * against how many the season's rules imply (ADR-0052) is a fact about the season, so a filter narrowing
+ * the rows must not narrow it with them.
  */
 async function SpieltageList({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
@@ -174,6 +178,7 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
       saisonId={saisonId}
       saisonSpan={saison === null ? undefined : { start: saison.start_date, end: saison.end_date }}
       saisonSchedule={saison?.schedule}
+      phaseProgress={buildSpieltagPhaseProgress(saison?.schedule ?? [], spieltageRes.spieltage)}
     />
   );
 }

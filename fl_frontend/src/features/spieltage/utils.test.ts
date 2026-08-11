@@ -1,18 +1,22 @@
 /**
  * SPIELTAGE · derivation tests
  *
- * Covers the bracket ordering alone. The case the fixtures reproduce is the 2026 draw as the page
- * received it: quarter-finals sorted by `datum` put matches 25 and 28 on one branch while the
- * semi-final between them named 25 and 27 — the wiring (ADR-0034) and the index-drawn bracket lines
- * disagreed, and only the lines were wrong.
+ * Covers the bracket ordering and the per-phase matchday count. The case the ordering fixtures
+ * reproduce is the 2026 draw as the page received it: quarter-finals sorted by `datum` put matches 25
+ * and 28 on one branch while the semi-final between them named 25 and 27 — the wiring (ADR-0034) and
+ * the index-drawn bracket lines disagreed, and only the lines were wrong.
+ *
+ * The count's cases are its three quiet ones: a retired matchday, a phase the season does not play,
+ * and no season at all. Each reads as an ordinary number and each means something different.
  */
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { orderRoundsByWiring } from "./utils.ts";
+import { buildSpieltagPhaseProgress, orderRoundsByWiring } from "./utils.ts";
 
+import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "../saisons/schemas.ts";
 import type { FLSpiel, FLSpielQuelle } from "../spiele/schemas.ts";
 import type { FLSpieltagWithSpiele } from "./schemas.ts";
 
@@ -96,5 +100,69 @@ describe("orderRoundsByWiring", () => {
 
     assert.deepEqual(orderRoundsByWiring(single).map(numbers), [[31]]);
     assert.deepEqual(orderRoundsByWiring([]), []);
+  });
+});
+
+// The 2026 season's own shape: four groups of four give three group matchdays, and eight qualifiers
+// play the last three rounds — so `achtelfinale` is absent rather than present with a zero.
+const SCHEDULE_2026: FLSaisonPhaseSchedule[] = [
+  { phase: "gruppenphase", matchdays: 3, matches_per_matchday: 8 },
+  { phase: "viertelfinale", matchdays: 1, matches_per_matchday: 4 },
+  { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
+  { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+];
+
+const makeSpieltag = (phase: FLSaisonPhase, inactiveSince: string | null = null) => ({
+  saison_phase: phase,
+  inactive_since: inactiveSince,
+});
+
+const held = (progress: readonly { phase: FLSaisonPhase; angelegt: number; erwartet: number }[], phase: FLSaisonPhase) =>
+  progress.find((entry) => entry.phase === phase);
+
+describe("buildSpieltagPhaseProgress", () => {
+  it("counts a phase's matchdays against the number the season's rules imply", () => {
+    const progress = buildSpieltagPhaseProgress(SCHEDULE_2026, [
+      makeSpieltag("gruppenphase"),
+      makeSpieltag("gruppenphase"),
+      makeSpieltag("finale"),
+    ]);
+
+    assert.deepEqual(held(progress, "gruppenphase"), { phase: "gruppenphase", angelegt: 2, erwartet: 3 });
+    assert.deepEqual(held(progress, "finale"), { phase: "finale", angelegt: 1, erwartet: 1 });
+  });
+
+  // The state a phase reaches on its way to complete, and the one the section heading exists to end
+  // silently reporting as nothing.
+  it("reports a phase with no matchday as zero rather than omitting it", () => {
+    const progress = buildSpieltagPhaseProgress(SCHEDULE_2026, [makeSpieltag("gruppenphase")]);
+
+    assert.deepEqual(held(progress, "halbfinale"), { phase: "halbfinale", angelegt: 0, erwartet: 1 });
+  });
+
+  // Retiring one is how a mis-dated matchday leaves the schedule (ADR-0025), which is why
+  // `REQ-DATE-004` reads live matchdays alone — so a retired third matchday leaves the phase short.
+  it("does not count a retired matchday", () => {
+    const progress = buildSpieltagPhaseProgress(SCHEDULE_2026, [
+      makeSpieltag("gruppenphase"),
+      makeSpieltag("gruppenphase"),
+      makeSpieltag("gruppenphase", "2026-04-01"),
+    ]);
+
+    assert.deepEqual(held(progress, "gruppenphase"), { phase: "gruppenphase", angelegt: 2, erwartet: 3 });
+  });
+
+  // A phase absent from the schedule expects 0, the same answer `expected_matches` gives. The endpoint
+  // accepts a matchday in a round this bracket does not reach, so the count has to describe one.
+  it("expects none for a phase the season does not play", () => {
+    const progress = buildSpieltagPhaseProgress(SCHEDULE_2026, [makeSpieltag("achtelfinale")]);
+
+    assert.deepEqual(held(progress, "achtelfinale"), { phase: "achtelfinale", angelegt: 1, erwartet: 0 });
+  });
+
+  // No season resolved is not a season that plays nothing: answering with zeroes would tell the page
+  // every phase is short, which is the one wrong answer available here.
+  it("answers with nothing at all when no schedule was served", () => {
+    assert.deepEqual(buildSpieltagPhaseProgress([], [makeSpieltag("gruppenphase")]), []);
   });
 });

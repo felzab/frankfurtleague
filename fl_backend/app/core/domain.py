@@ -430,8 +430,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "schedule",
         Editability.DERIVED,
         "computed from this season's own `rules` (ADR-0052): the whole phase-by-phase shape the matchday "
-        "above reports one entry of. Served so the matchday editor can refuse `REQ-SPIELTAG-002` before "
-        "the request, which needs the count for a phase the matchday does not have yet",
+        "above reports one entry of. Served for both halves of it — `matches_per_matchday` lets the matchday "
+        "editor refuse `REQ-SPIELTAG-002` before the request, which needs the count for a phase the matchday "
+        "does not have yet, and `matchdays` is what says whether a phase is short of matchdays at all",
         "app.api.saisons.schedule.schedule_for",
     ),
     FieldPolicy(

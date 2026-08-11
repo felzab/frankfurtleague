@@ -17,6 +17,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { AdminSpieltagRow } from "../../types";
+import type { SpieltagPhaseProgress } from "../../utils";
 
 /**
  * The season's matchdays, sectioned by phase and in the order they are played.
@@ -39,6 +40,10 @@ import type { AdminSpieltagRow } from "../../types";
  * every intermediate count on the way — so showing the two together is what makes the gap visible without
  * making the intermediate states illegal.
  *
+ * **The section heading says the same thing about the phase**, from `phaseProgress`: how many matchdays it
+ * holds against how many the same rules imply. A phase with none at all is named at the foot instead, so
+ * between the two every phase of a season under construction reports where it stands.
+ *
  * **No per-row link to a matchday's fixtures**, and that is a fact about the Spielsuche rather than a gap
  * here: it searches team, venue, date, fixture number and referee, and a matchday's name is none of those,
  * so `?q=<name>` would land on an empty list. The public Spielplan at the foot is the outbound link that
@@ -51,6 +56,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   spieltageQuery,
   filteredSpieltage,
   saisonId,
+  phaseProgress,
   onEdit,
   onDelete,
 }: {
@@ -58,6 +64,8 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   filteredSpieltage: AdminSpieltagRow[];
   /** The season the list is showing, for the outbound Spielplan link. Null where no season exists. */
   saisonId: string | null;
+  /** Each phase's live matchday count against what the season's rules imply. Absent where no season is. */
+  phaseProgress?: readonly SpieltagPhaseProgress[];
   onEdit: (spieltag: AdminSpieltagRow) => void;
   onDelete: (spieltag: AdminSpieltagRow) => void;
 }) {
@@ -89,6 +97,41 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     rows: byPhase.get(phase) ?? [],
   }));
   const phasesWithout = SAISON_PHASE_OPTIONS.filter((phase) => !byPhase.has(phase));
+
+  const progressByPhase = new Map((phaseProgress ?? []).map((entry) => [entry.phase, entry]));
+
+  /**
+   * The phase's own matchday count against what the season's rules imply — `spieleAngelegt` against
+   * `anzahl_spiele`, one level up.
+   *
+   * **Both numbers describe the SEASON and neither is counted from the rows below.** They arrive
+   * already derived over the whole received list, so a search or a facet narrowing the section cannot
+   * make a complete phase read as short. `shownCount` is the fallback for a page with no season
+   * resolved, where there is no expectation to state and only the rows can be counted.
+   *
+   * **Reported, never refused** (ADR-0052): a season being set up reaches its phases in order, so a
+   * phase short of matchdays is the ordinary state on the way to complete.
+   */
+  const renderPhaseCount = (phase: FLSaisonPhase, shownCount: number) => {
+    const progress = progressByPhase.get(phase);
+    if (progress === undefined) {
+      return (
+        <span className="fluid-xs text-foreground-muted font-medium">
+          {shownCount === 1 ? "1 Spieltag" : `${String(shownCount)} Spieltage`}
+        </span>
+      );
+    }
+
+    // The noun agrees with the EXPECTED count, which is the number it belongs to — the rule the row
+    // badge below already follows: a final expects one matchday, so this reads „1 von 1 Spieltag“.
+    const noun = progress.erwartet === 1 ? "Spieltag" : "Spieltagen";
+
+    return (
+      <span className={`fluid-xs font-medium ${progress.angelegt === progress.erwartet ? "text-foreground-muted" : "text-warning-strong"}`}>
+        {progress.angelegt} von {progress.erwartet} {noun}
+      </span>
+    );
+  };
 
   /** The derived expectation against what is actually attached — the one number only this list can check. */
   const renderSpieleCount = (spieltag: AdminSpieltagRow) => {
@@ -164,9 +207,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
               bar's (ADR-0046). */}
           <h2 className="flex flex-row items-center gap-x-3">
             <SaisonPhaseChip saisonPhase={phase} />
-            <span className="fluid-xs text-foreground-muted font-medium">
-              {rows.length === 1 ? "1 Spieltag" : `${String(rows.length)} Spieltage`}
-            </span>
+            {renderPhaseCount(phase, rows.length)}
           </h2>
 
           <ul className="flex w-full flex-col gap-3">

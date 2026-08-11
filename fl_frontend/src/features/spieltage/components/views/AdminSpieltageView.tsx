@@ -8,6 +8,7 @@ import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
+import type { SpieltagPhaseProgress } from "@/features/spieltage/utils";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. A matchday is
 // found by its derived label or by either date; `label` is a field of the row, not of the document
@@ -30,6 +31,7 @@ export function AdminSpieltageView({
   saisonId,
   saisonSpan,
   saisonSchedule,
+  phaseProgress,
 }: {
   spieltage: AdminSpieltagRow[];
   saisonId: string | null;
@@ -37,6 +39,13 @@ export function AdminSpieltageView({
   saisonSpan?: { start: string; end: string };
   /** The season's derived per-phase match counts, which bound the edit dialog's phase picker. */
   saisonSchedule?: readonly FLSaisonPhaseSchedule[];
+  /**
+   * Each phase's live matchday count against the number the season's rules imply.
+   *
+   * Passed through untouched rather than derived here: it is counted over the WHOLE season on the
+   * server, and re-deriving it beside the filtered rows is exactly what would make it wrong.
+   */
+  phaseProgress?: readonly SpieltagPhaseProgress[];
 }) {
   return (
     <AdminCrudView<AdminSpieltagRow>
@@ -48,6 +57,7 @@ export function AdminSpieltageView({
           spieltageQuery={query}
           filteredSpieltage={filteredItems}
           saisonId={saisonId}
+          phaseProgress={phaseProgress}
           onEdit={onEdit}
           onDelete={onDelete}
         />
