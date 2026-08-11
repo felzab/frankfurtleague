@@ -107,9 +107,9 @@ export function SpielCard({
               onPress={onOpenInfoModal}
               size="md"
               variant="tertiary"
-              /* `flex` over HeroUI's `inline-flex`: HeroUI's tooltip trigger is `inline-block`, and an
-                 inline-level child gives it a line box whose descender room, rather than this control,
-                 would set the row's height. The link beside it is block-level already. */
+              /* `flex` over HeroUI's `inline-flex`: the tooltip trigger is `inline-block`, and a line
+                 box round an inline child leaves the trigger's height to the font's metrics rather
+                 than to this control. The link beside it is block-level already. */
               className="bg-muted text-foreground hover:bg-muted/80 flex h-[35px] w-[35px] rounded-xl p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
               <CircleExclamation className="m-0 size-5" />
             </Button>

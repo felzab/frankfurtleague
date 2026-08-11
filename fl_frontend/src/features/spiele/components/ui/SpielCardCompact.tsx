@@ -67,8 +67,8 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
                   size="sm"
                   variant="tertiary"
                   /* `flex` here and on the span, over HeroUI's `inline-flex`: the span and HeroUI's
-                     `inline-block` trigger each wrap this button, and an inline-level child gives its
-                     parent a line box whose descender room would set the row's height. */
+                     `inline-block` trigger each wrap this button, and a line box round an inline child
+                     leaves each wrapper's height to the font's metrics rather than to the control. */
                   className="bg-muted text-foreground hover:bg-muted/80 flex h-[32px] w-[32px] p-0 transition-colors duration-200">
                   <CircleExclamation className="m-0 size-4" />
                 </Button>

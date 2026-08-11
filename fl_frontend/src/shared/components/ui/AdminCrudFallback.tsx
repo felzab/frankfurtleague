@@ -13,10 +13,11 @@ const TABLE_ROW_ACTIONS = [0, 1, 2, 3];
 const SECTION_ROW_ACTIONS = [0, 1];
 
 /**
- * The targets a row ends in. How many there are decides only the cluster's width, and a resource
- * carrying fewer loses nothing by it; how tall each one is comes from `ROW_ACTION_SIZE`, which
- * `RowActions` reads too, and that is what a row is tall. A matchday offers an edit and a retire, a
- * table row up to four.
+ * The targets a row ends in. How many there are decides only the cluster's width, and the cluster is
+ * `ml-auto` against fixed-width cells, so a row carrying either side of `TABLE_ROW_ACTIONS` moves no
+ * other box; how tall each one is comes from `ROW_ACTION_SIZE`, which `RowActions` reads too, and
+ * that is what a row is tall. A matchday offers an edit and a retire; the longest table row is
+ * Spielorte's — a maps link, a fixtures link, a copy, an edit and a delete.
  */
 function RowActionCluster({ slots, className }: { slots: readonly number[]; className: string }) {
   return (
@@ -54,8 +55,9 @@ export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sect
       /* `gap-4` is `AdminCrudView`'s own column gap, so the filter block and the list below it sit
          where they will sit once the rows land. */
       className="animate-in fade-in fill-mode-both flex flex-col gap-4 delay-200 duration-150">
-      {/* Every admin slice declares facets, so `FilterBar` always renders its `h-10` trigger — and a
-          fallback that leaves it out puts the whole list a row above where the data lands. */}
+      {/* Every admin slice declares facets, so `FilterBar` always renders its `h-10` trigger, and a
+          fallback without it puts the list a row above the data. Only its reset is unreserved — `h-7`
+          plus `gap-2`, from the second active facet. */}
       <div className="flex w-full flex-row items-center gap-2">
         <div className={`${skeletonBlock()} h-10 w-28 rounded-xl`} />
       </div>
@@ -66,7 +68,8 @@ export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sect
 }
 
 /**
- * The four table-shaped resources: a stack of cards below `md`, a table above it.
+ * Saisons, Spieler, Schiedsrichter, Spielorte and Teams: a stack of cards below `md`, a table above
+ * it.
  *
  * The breakpoint is the tables' own — each renders a `md:hidden` card list beside a `hidden md:block`
  * table — so a fallback holding one shape at every width reserves the wrong box on one side of it.

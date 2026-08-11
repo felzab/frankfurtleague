@@ -50,12 +50,12 @@ export function IconTooltip({
         role="presentation">
         {children}
       </Tooltip.Trigger>
-      {/* HeroUI's `break-all` splits a word mid-token, wrong for prose. `break-normal` restores the
-          boundaries and `wrap-break-word` catches a token wider than HeroUI's `max-w-xs`;
-          `text-balance` evens the rest, a no-op below the browserslist floor. */}
+      {/* HeroUI's `break-all` splits a word mid-token, wrong for prose. `[word-break:normal]` restores the
+          boundaries and `wrap-break-word` guards an over-long token — one property each, so no
+          reorder can decide between them. `text-balance` evens the rest. */}
       <Tooltip.Content
         placement={placement}
-        className={`bg-surface border-border fluid-xs rounded-md border px-2.5 py-1 text-balance break-normal wrap-break-word shadow-lg ${tone === "danger" ? "text-danger" : "text-foreground"}`}>
+        className={`bg-surface border-border fluid-xs rounded-md border px-2.5 py-1 text-balance wrap-break-word [word-break:normal] shadow-lg ${tone === "danger" ? "text-danger" : "text-foreground"}`}>
         {label}
       </Tooltip.Content>
     </Tooltip>
