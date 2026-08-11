@@ -129,11 +129,20 @@
 
     /* THE focus colour, and the condition under which a control departs from it (decided 2026-07-31).
        HeroUI reads --focus for its focus rings, and the base-layer rule further down gives plain
-       <a>/<button> an identical outline. A control whose own fill fails WCAG 1.4.11 against --focus
-       recolours the ring it keeps, and every such departure is recorded here: `StufenPicker.tsx ::
-       STUFE_CHIP` does it on the SELECTED chip, where --fg-base measures 1.97:1 on the maroon and
-       3:1 is the floor. The condition is written out because it EXTENDS --fg-on-brand's pairing
-       rule, which governs text, to a non-text indicator -- it is not that pairing applied.
+       <a>/<button> an identical outline. A control whose focus ring sits INSET on its own fill -- no
+       offset, so it cannot be judged against the surface behind -- recolours that ring where the fill
+       fails WCAG 1.4.11 against --focus, and every such departure is recorded here: `StufenPicker.tsx
+       :: STUFE_CHIP` does it on the SELECTED chip, where --fg-base measures 1.97:1 on the maroon and
+       3:1 is the floor.
+       INSET is the whole of the condition rather than a detail of it. Every other ring this app draws
+       stands 2px clear of the fill -- the base rule's outline-offset below, and HeroUI's `focus-ring`
+       resolving --tw-ring-offset-width to the theme's own 2px -- so the SURFACE behind it, not the
+       fill, is the adjacent colour it answers to; `toggle-button-group.css` is the one file in the
+       package that overrides that to 0px plus `ring-inset`. Recolouring a `bg-brand-solid` or
+       `bg-danger-solid` control that keeps the ordinary offset would therefore CAUSE the failure this
+       rule exists to prevent: --fg-on-brand measures 1.09:1 on --bg-surface.
+       The condition is written out because it EXTENDS --fg-on-brand's pairing rule, which governs
+       text, to a non-text indicator -- it is not that pairing applied.
        --fg-base, not --accent-brand: it is white in the dark theme -- the chosen look --
        and near-black in the light theme, where white would be invisible on --bg-base. Both read as
        "the standard focus outline", which is the point.
@@ -565,14 +574,15 @@ html:has([data-app-shell]) {
    2026-07-31).
 
    The app's one focus indicator is declared in @layer base: HeroUI's ring and the matching outline.
-   A control leaves it behind only where the indicator fires on focus the user did not deliberately
-   place -- a plain pointer press, or a focus the library moved -- AND the control can say "focused"
-   another way, which is why each category below is stated with its substitute. The theme switch
+   A control leaves it behind only where the indicator fires on focus that was not a keyboard user's
+   own navigation -- a plain pointer press, or a focus the library moved -- AND the control can say
+   "focused" another way, which is why each category below is stated with its substitute. A `Switch`
    makes the same trade in its own rule further down, where the rest of its styling lives.
 
-   That ring's colour is var(--focus) unless the control's own fill fails WCAG 1.4.11 against it, in
-   which case it recolours the ring it keeps -- `StufenPicker.tsx :: STUFE_CHIP` on a selected chip.
-   The --focus declaration above is where every such departure is recorded.
+   That ring's colour is var(--focus) unless the ring sits INSET on the control's own fill and that
+   fill fails WCAG 1.4.11 against it, in which case it recolours the ring it keeps --
+   `StufenPicker.tsx :: STUFE_CHIP` on a selected chip. The --focus declaration above is where every
+   such departure is recorded, together with the offset condition that bounds the set to one.
 
    1. FIELD-SHAPED CONTROLS -- anything you type a value into. A text input matches :focus-visible on
       a plain mouse click (the CSS selectors spec makes that exception for elements that take text
@@ -732,7 +742,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   content: none;
 }
 
-/* The theme switch. HeroUI rings `.switch__control` off the Switch root's focus state, and that ring
+/* Every HeroUI `Switch`. It rings `.switch__control` off the Switch root's focus state, and that ring
    fired on a plain mouse press — react-aria's focus-visible modality is global, so a press that
    follows any earlier key press counts as keyboard focus. Rather than chase the modality, the switch
    opts out of rings entirely and speaks the same language every field-shaped control in this app
