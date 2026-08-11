@@ -55,8 +55,8 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
           </div>
 
           {/* SpielCard's affordance and tooltip, sized to the slimmer row. The row's classes sit on
-              the span because the trigger div lands between them, `flex` so it adds no line box,
-              `shrink-0` so a tap target keeps its box whatever the row does. */}
+              the span because the trigger div lands between them, and `shrink-0` so a tap target
+              keeps its box whatever the row does. */}
           {onOpenInfoModal && (
             <span className="ml-auto flex shrink-0 self-start">
               <IconTooltip label="Spielinfo">
@@ -66,7 +66,10 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
                   onPress={onOpenInfoModal}
                   size="sm"
                   variant="tertiary"
-                  className="bg-muted text-foreground hover:bg-muted/80 h-[32px] w-[32px] p-0 transition-colors duration-200">
+                  /* `flex` here and on the span, over HeroUI's `inline-flex`: the span and HeroUI's
+                     `inline-block` trigger each wrap this button, and an inline-level child gives its
+                     parent a line box whose descender room would set the row's height. */
+                  className="bg-muted text-foreground hover:bg-muted/80 flex h-[32px] w-[32px] p-0 transition-colors duration-200">
                   <CircleExclamation className="m-0 size-4" />
                 </Button>
               </IconTooltip>
