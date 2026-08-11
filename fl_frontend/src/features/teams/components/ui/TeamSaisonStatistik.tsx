@@ -23,10 +23,9 @@ export function TeamSaisonStatistik({ statistik }: { statistik: FLTeamStatistik 
         </p>
       </div>
 
-      {/* An odd number of cards leaves one alone on a two-column row, and a stretched leftover at
-          the bottom read as broken. Punkte leads and takes the whole row instead — it is the figure
-          the rest produce rather than a peer among them, so a wide card at the top is the summary it
-          already is. The span is undone where every card fits on one row. */}
+      {/* Punkte spans the narrow row because an odd number of cards leaves one alone on two columns,
+          and it is the figure the rest produce rather than a peer among them. The span is undone at
+          lg, where every card fits on one row. */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         {[
           { label: "Punkte", value: statistik.punkte, isSummary: true },

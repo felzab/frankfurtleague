@@ -46,6 +46,10 @@ const OUTCOME_TINTS: Record<SaisonPhaseOutcome, string> = {
  * Each chip is a whole sentence about one round, because the row wraps: two chips can land on
  * separate lines with nothing between them to refer back to, so none of them may lean on its
  * neighbour to say which round it means.
+ *
+ * The `im` in the `out` and `pending` cases fits a neuter round name, which every knockout round in
+ * `PHASE_LABELS` has. The feminine `Gruppenphase` would read "Im Gruppenphase" and never arrives
+ * here, because `computeSaisonVerlauf` resolves that phase to `advanced` or `unknown` alone.
  */
 const outcomeLabel = ({ phase, outcome }: SaisonPhaseVerlauf): string => {
   const round = PHASE_LABELS[phase];
@@ -77,7 +81,7 @@ export function TeamSaisonVerlauf({ teamSpiele, teamId }: { teamSpiele: FLSpiel[
 
       {verlauf.length === 0 ? (
         // Reached only where the team has no fixture at all, since the group phase always yields a
-        // chip. It promises nothing: a disqualified team renders its note directly above this, and a
+        // chip. It promises nothing: a disqualified team renders its note higher up the page, and a
         // past season reached by `?saison_id=` has no future left.
         <EmptyState
           title="Für dieses Team ist keine Runde vermerkt."
