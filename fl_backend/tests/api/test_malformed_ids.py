@@ -32,8 +32,9 @@ HEX_ID = "6890a1b2c3d4e5f607182930"
 # before the character class is reached, so this is the one that tests the class.
 NON_HEX_ID = "z" * 24
 
-# Not the configured URI: 27017 is where a developer plausibly runs a real `mongod`, and the
-# controls below would then be answered 404 for a document that merely does not exist.
+# Not the configured URI: a developer plausibly runs a real `mongod` on 27017, and a database that
+# answers gives each control something other than the failure it asserts -- 404 for the path one,
+# 200 and an empty list for the query one.
 UNANSWERED_URI = "mongodb://localhost:1"
 
 # What a request answers once it gets past routing and validation to an unreachable database.
