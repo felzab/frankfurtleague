@@ -21,9 +21,9 @@ import type { FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
  * **The three `SpielCard` variants stay separate** (ADR-0005) and pass their own `text` and layout
  * classes. What is shared here is the branch whose copies would each be a crash rather than a
  * cosmetic difference if one drifted — dereferencing a side that is `null`.
- * `fl_frontend/src/features/spiele/components/modals/SpielDetailsModal.tsx :: TeamNameLine` makes the
- * same decision a fourth time and deliberately does not use this component: it renders a plain `Link`
- * rather than a popover, for the reason recorded there.
+ * `fl_frontend/src/features/spiele/components/modals/SpielDetailsModal.tsx :: TeamNameLine` mounts the
+ * same popover from its own copy of that branch, because the modal sizes and places it differently and
+ * has a dialog of its own to close on the way out.
  *
  * The interactive classes are added here rather than by the caller, because they belong to the
  * resolved branch alone: `hover:text-brand` on a label nothing opens is a promise the card cannot keep.

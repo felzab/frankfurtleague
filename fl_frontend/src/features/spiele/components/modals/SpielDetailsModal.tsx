@@ -6,22 +6,32 @@ import { CircleInfo } from "@gravity-ui/icons";
 
 import { Modal, Separator } from "@heroui/react";
 
+import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { buildMapsSearchUrl, PLACEHOLDER } from "@/shared/utils/format";
 
 import { computeSpielStatus, formatQuelle, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "../ui/SaisonPhaseChip";
 import { SpielStatusChip } from "../ui/SpielStatusChip";
 
-import type { FLSpiel, FLSpielQuelle, FLSpielTeamField } from "../../schemas";
+import type { FLSpiel, FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
 
 /**
  * One side of the fixture, in this modal's own idiom.
  *
- * A resolved side is a plain link straight to the team — not a popover, for the reason recorded at the
- * call site. A side whose occupant is not yet known shows its provenance label as text, because there
+ * A resolved side is a `TeamPopoverMenu` placed `top`, not the cards' `right`: this trigger is a wide
+ * centred line, and only a vertical placement puts that width on the axis react-aria clamps to the
+ * viewport. A side whose occupant is not yet known shows its provenance label as text, because there
  * is no team page to send anyone to (ADR-0034).
  */
-function TeamNameLine({ team, quelle, onNavigate }: { team: FLSpielTeamField | null; quelle: FLSpielQuelle | null; onNavigate: () => void }) {
+function TeamNameLine({
+  team,
+  quelle,
+  onNavigate,
+}: {
+  team: FLSpielTeamFieldJoined | null;
+  quelle: FLSpielQuelle | null;
+  onNavigate: () => void;
+}) {
   if (team === null) {
     return (
       <span className="fluid-xl text-foreground-muted max-w-full truncate font-bold italic">{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
@@ -29,13 +39,14 @@ function TeamNameLine({ team, quelle, onNavigate }: { team: FLSpielTeamField | n
   }
 
   return (
-    <Link
-      prefetch={false}
-      href={`/dashboard/teams/${team.team_id}`}
-      onClick={onNavigate}
-      className="fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
-      {team.name}
-    </Link>
+    <TeamPopoverMenu
+      teamName={team.name}
+      teamId={team.team_id}
+      teamIsDisqualified={team.disqualifikation !== null}
+      placement="top"
+      onNavigate={onNavigate}>
+      <strong className="fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-200">{team.name}</strong>
+    </TeamPopoverMenu>
   );
 }
 
@@ -48,7 +59,7 @@ function TeamNameLine({ team, quelle, onNavigate }: { team: FLSpielTeamField | n
  * instantiated once per collection, so it would also mount ~11 idle overlay trees across the app on
  * first paint. Losing the exit transition is the accepted cost.
  *
- * `spielData` is nullable and the inner guard is deliberate. All four call sites guard the mount, so
+ * `spielData` is nullable and the inner guard is deliberate. Every call site guards the mount, so
  * null should not arrive — but the prop is typed for a caller holding a null selection, and the guard
  * is what keeps the header and body off it. It is cheap, and it is why a call site that forgets to
  * guard degrades to an empty dialog rather than a crash.
@@ -114,9 +125,8 @@ export function SpielDetailsModal({
               </Modal.Header>
               <Modal.Body className="text-foreground">
                 <div className="bg-background border-border flex h-fit flex-col items-center justify-center rounded-xl border py-4 shadow-inner">
-                  {/* Plain links, not a team popover (decided 2026-07-31): this modal is already a
-                      focused view of one match, so the name goes straight to the team. The Kader
-                      shortcut stays on the cards. */}
+                  {/* `onClose` on the way out: the App Router keeps this page in a hidden Activity
+                      tree, so a dialog left open over a navigation is open again on the way back. */}
                   <TeamNameLine
                     team={spielData.team1}
                     quelle={spielData.team1_quelle}

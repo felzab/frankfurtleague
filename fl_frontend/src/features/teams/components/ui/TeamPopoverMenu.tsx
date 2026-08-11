@@ -21,6 +21,7 @@ export function TeamPopoverMenu({
   teamId,
   teamIsDisqualified,
   placement = "right",
+  onNavigate,
   children,
 }: {
   teamName: string;
@@ -40,9 +41,23 @@ export function TeamPopoverMenu({
    * placement moves width onto the cross axis, where it does get clamped.
    */
   placement?: "right" | "top";
+  /**
+   * Runs as a link here is pressed, for a caller holding an overlay of its own open around this one.
+   * Optional because a caller that mounts this straight onto a page has nothing to dismiss; a caller
+   * that mounts it inside a dialog does, since the App Router keeps a departed page in a hidden
+   * Activity tree and a dialog nobody closed is open again when the visitor comes back.
+   */
+  onNavigate?: () => void;
   children: React.ReactNode;
 }) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
+
+  // Closing here is the immediate half of `useNavigationClosedOverlay`'s contract: its effect only
+  // runs once the new pathname commits, which is a whole navigation later.
+  const closeOnPress = () => {
+    setIsOpen(false);
+    onNavigate?.();
+  };
 
   // Not a control: it stops the card underneath from also reacting when the trigger is pressed. There
   // is no action here to give a keyboard equivalent to — `Popover.Trigger` below is the control — so
@@ -99,7 +114,7 @@ export function TeamPopoverMenu({
               <Link
                 prefetch={false}
                 href={`/dashboard/teams/${teamId}`}
-                onClick={() => setIsOpen(false)}
+                onClick={closeOnPress}
                 className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
                 <CircleInfo
                   className="text-brand shrink-0"
@@ -112,7 +127,7 @@ export function TeamPopoverMenu({
               <Link
                 prefetch={false}
                 href={`/dashboard/spieler/${teamId}`}
-                onClick={() => setIsOpen(false)}
+                onClick={closeOnPress}
                 className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
                 <Persons
                   className="text-brand shrink-0"
