@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `84d43da`, 2026-08-11\
 **Scope:** `fl_backend/`
 
 | Section                                                                        | Answers                                                         |
@@ -91,7 +91,7 @@ is addressed resource-first, with the id in the path. `tests/api/test_admin_guar
 | POST   | `/spieltage`                                           | Creates a matchday                                                                                                                                                                                         |
 | PATCH  | `/spieltage/{spieltag_id}`                             | Updates a matchday. Neither payload carries a position, a match count or a name: the position and the name are derived and composed by the reader (ADR-0051), the count from the season's rules (ADR-0052) |
 | DELETE | `/spieltage/{spieltag_id}`                             | Soft delete                                                                                                                                                                                                |
-| POST   | `/spieltage/{spieltag_id}/reactivate`                  | Clears `inactive_since`                                                                                                                                                                                    |
+| POST   | `/spieltage/{spieltag_id}/reactivate`                  | Clears `inactive_since`, re-checking the span against the season (`REQ-DATE-002`)                                                                                                                          |
 | POST   | `/spielorte`                                           | Creates a venue; builds `maps_link` server-side                                                                                                                                                            |
 | PATCH  | `/spielorte/{spielort_id}`                             | Updates a venue **and fans the change out** into every match embedding it                                                                                                                                  |
 | DELETE | `/spielorte/{spielort_id}`                             | Soft delete                                                                                                                                                                                                |

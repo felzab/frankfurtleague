@@ -8,6 +8,7 @@ Invariants:
 - No payload carries a position and none may gain one — a matchday's place is derived (ADR-0051).
 - Deletion is soft: `spiele.spieltag_id` points here and nothing cascades.
 - Soft is not harmless — `REQ-RETIRE-002` refuses retiring a matchday holding a played match.
+- Nor is reactivating — `REQ-DATE-002` refuses one whose span the season no longer covers.
 - `anzahl_spiele` is derived (ADR-0052); `REQ-SPIELTAG-002` refuses a phase too small for its fixtures.
 """
 
@@ -219,8 +220,34 @@ async def delete_spieltag(
 async def reactivate_spieltag(
     spieltag_id: CustomRouteObjectId,
     spieltage_collection: SpieltageCollection,
+    saisons_collection: SaisonsCollection,
 ) -> FLSpieltagWriteResponse:
-    """Clear `inactive_since`, restoring the matchday to every read that hides retired ones."""
+    """
+    Clear `inactive_since`, restoring the matchday to every read that hides retired ones.
+
+    **The span is checked on the way back in** (`REQ-DATE-002`). While the matchday was retired the
+    season's dates were free to move past it: `PATCH /saisons/{saison_id}` reads only LIVE matchdays for
+    `REQ-DATE-004`, deliberately, so that retiring a mis-dated matchday is what lets the dates it was
+    retired over be repaired. Restoring it is therefore the moment the containment has to hold again, and
+    the way through is to re-date the matchday first.
+
+    Its own fixtures need no check here. `spieltag_id` is on no payload and `REQ-DATE-001` reads this
+    matchday whether or not it is retired, so no fixture can have drifted outside the span meanwhile.
+    """
+
+    stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]})
+
+    span_refusal = find_spieltag_span_refusal(
+        beginn=str(stored_raw["beginn"]),
+        ende=str(stored_raw["ende"]),
+        saison_start=str(saison_raw["start_date"]),
+        saison_end=str(saison_raw["end_date"]),
+        fixture_dates=[],
+    )
+    if span_refusal is not None:
+        error_code, detail = span_refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
 
     updated_raw = await patch_one_in_db(
         collection=spieltage_collection,

@@ -691,9 +691,9 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-002",
-        operation="POST /spieltage · PATCH /spieltage/{spieltag_id}",
+        operation="POST /spieltage · PATCH /spieltage/{spieltag_id} · POST /spieltage/{spieltag_id}/reactivate",
         aggregate="Spieltag",
-        summary="a matchday's span must fall inside its season's",
+        summary="a matchday's span must fall inside its season's, on the way in and on the way back in",
         implemented_by="app.api.spieltage.services.find_spieltag_span_refusal",
         tested_by="tests/api/test_containment_refusals.py::TestAMatchdaySitsInsideItsSeason",
         multi_document=True,
