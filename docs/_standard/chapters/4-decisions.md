@@ -1,6 +1,6 @@
 # Decisions
 
-**Verified against:** `7555ecd`, 2026-08-10\
+**Verified against:** `84d43da`, 2026-08-11\
 **Applies to:** `docs/_decisions/` — every ADR, and the index beside them.
 
 | ID    | Rule                 |
@@ -85,8 +85,10 @@ readers, so the only route to a rewrite is one that leaves its own record on thi
 
 **Exceptions:** the mechanical class above; the two-line edit of DEC-6; the concision rewrite of
 every ADR (approved 2026-08-09); the compaction of the numbering to a contiguous `0001`–`0059`
-(approved 2026-08-09); and ADR-0012's Consequences pointer, rewritten because dissolving
-`docs/ops/runbooks.md`'s duplicated half collapsed the claim it made (approved 2026-08-10).
+(approved 2026-08-09); ADR-0012's Consequences pointer, rewritten because dissolving
+`docs/ops/runbooks.md`'s duplicated half collapsed the claim it made (approved 2026-08-10); and
+ADR-0009's Consequences cost figure, rewritten because the figure was measured wrong — the cost
+falls per call site, not per page load (approved 2026-08-11).
 
 **Enforced by:** unenforced — review judgment.
 
