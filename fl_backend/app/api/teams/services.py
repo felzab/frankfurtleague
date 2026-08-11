@@ -781,11 +781,13 @@ def find_gruppe_swap_refusal(
     Each `gruppe` is what that club's `saison_teams` row holds for the season, and `None` means the club
     holds no row in it at all.
 
-    **Both fixture counts read "played" the same way: carrying an `ergebnis`, OR called off.** That is
-    the repository's own reading (`app.api.saisons.services.unplayed_spiel_nrs`) and the competition's --
-    a called-off match here is a forfeit and counts as a real game. So a club with a cancelled group
-    fixture has taken part in its round robin, and a cancelled knockout fixture filled its slot from a
-    group placing exactly as a played one did. The two counts differ only in which phase they read.
+    **Both counts are taken over one predicate, `app.api.saisons.admin_router._has_taken_place`:** a
+    fixture carrying an `ergebnis`, one called off, or one holding a goal count on either side. A
+    called-off match here is a forfeit and counts as a real game, which is the repository's own reading
+    (`app.api.saisons.services.unplayed_spiel_nrs`); and a fixture can hold one side's goals with no
+    `ergebnis` at all, which is a match somebody has already started recording. So a club with either
+    behind it has taken part in its round robin, and a knockout fixture with either had its slot filled
+    from a group placing exactly as a played one did. The two counts differ only in which phase they read.
 
     `played_gruppenphase_fixtures` is narrowed to fixtures fielding one of THESE TWO clubs, because
     `REQ-SWAP-004` is about their own participation; `played_knockout_fixtures` counts the season's,

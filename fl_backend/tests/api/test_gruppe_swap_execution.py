@@ -342,6 +342,29 @@ class TestTheDrawnFixturesMoveWithTheClubs:
         assert sides[9] == (ALPHA, None)
         assert rewritten == 2
 
+    def test_a_fixture_between_the_two_clubs_exchanges_both_sides(self, mongo_replica_set_url: str):
+        """
+        The fixture that fields BOTH clubs, which is the one an exchange expressed as updates gets wrong.
+
+        The rewrite's passes are grouped by `(slot, occupant)` and are therefore disjoint, so this document
+        is written once per side and each write moves a side no other pass touches. A version filtering on
+        the club rather than on a snapshot of `_id`s would swap one side and then swap it back, and every
+        other test in this class would still pass.
+
+        It is counted ONCE, because the response tells an admin how many FIXTURES moved and a
+        `modified_count` would say two about one match.
+        """
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            response = await call_swap(database, client, ALPHA, BETA)
+            return response.rewritten_spiele, await spiele_now(database)
+
+        rewritten, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=[gruppen_fixture(1, ALPHA, BETA)])
+
+        assert spiele[1]["team1"] == {"team_id": BETA, "name": "Beta", "shorthand": "BE", "tore": None}
+        assert spiele[1]["team2"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "AL", "tore": None}
+        assert rewritten == 1, "one fixture fielding both clubs was counted twice"
+
     def test_a_club_with_no_drawn_fixture_leaves_the_other_unscheduled(self, mongo_replica_set_url: str):
         """
         The asymmetric case, asserted because it is a real outcome rather than an oversight.
@@ -362,13 +385,19 @@ class TestTheDrawnFixturesMoveWithTheClubs:
 
     def test_no_club_is_fielded_twice_on_one_matchday(self, mongo_replica_set_url: str):
         """
-        ADR-0042's occupancy invariant survives the rewrite, which follows from it being a bijection.
+        ADR-0042's occupancy invariant survives the rewrite across the group phase, where it is a bijection.
 
-        Each club's count on a given matchday becomes exactly what the other's was, and both were at
-        most one — so both still are. Both fixtures share a `spieltag_id`, which is the arrangement
-        where a rewrite moving one club without moving the other would put a club in two matches of one
-        matchday. The count BEFORE is asserted too, so a seed that was already illegal cannot make this
-        pass by having nothing left to break.
+        Over the fixtures `_rewrite_gruppenphase_sides` touches, each club's count on a given matchday
+        becomes exactly what the other's was, and both were at most one — so both still are. Both fixtures
+        seeded here share a `spieltag_id`, which is the arrangement where a rewrite moving one club
+        without moving the other would put a club in two matches of one matchday. The count BEFORE is
+        asserted too, so a seed that was already illegal cannot make this pass by having nothing left to
+        break.
+
+        **The seed is group fixtures only, and the claim is no wider than that.** A knockout side is never
+        rewritten, so a matchday holding both phases can still field one club twice after a swap — the
+        residual ADR-0062 records in its Consequences, which this endpoint does not guard and this test
+        does not cover.
         """
 
         async def occupancy(database: AsyncIOMotorDatabase) -> int:
@@ -585,6 +614,57 @@ class TestTheRefusalsReadTheRealDocuments:
         )
 
         assert code == SWAP_GRUPPENPHASE_PLAYED
+
+    def test_a_group_fixture_holding_one_goal_count_closes_the_window(self, mongo_replica_set_url: str):
+        """
+        The state a window reading only `ergebnis` and `is_canceled` would walk straight past.
+
+        `apply_payload_to_spiel` derives `ergebnis` from BOTH counts and strips the goals only where a
+        SIDE is absent, so a fixture with two clubs on it and one count entered is stored exactly as
+        seeded here — `3` against a null `ergebnis`, refused by nothing. Somebody typed that number about
+        a match that was played.
+
+        What it costs if the swap runs: `_rewrite_gruppenphase_sides` moves the side's identity and leaves
+        `tore` where it is, so Beta would arrive in this fixture holding three goals it did not score, and
+        the opponent's count entered afterwards would derive a real result for the wrong club.
+        """
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_swap(database, client, ALPHA, BETA)
+            return refusal.value.error_code, await spiele_now(database)
+
+        code, spiele = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, tore=(3, None)), gruppen_fixture(2, BETA_RIVAL, BETA)],
+        )
+
+        assert code == SWAP_GRUPPENPHASE_PLAYED
+        # Read back rather than trusted: a seed the database rewrote would make this test about
+        # something other than the state it is named for.
+        assert (spiele[1]["ergebnis"], spiele[1]["team1"]["tore"], spiele[1]["team2"]["tore"]) == (None, 3, None)
+        assert spiele[1]["team1"]["team_id"] == ALPHA, "a refused swap rewrote the side holding the goals"
+
+    def test_a_knockout_fixture_holding_one_goal_count_closes_the_window_too(self, mongo_replica_set_url: str):
+        """
+        The same shape on the other side of the bracket, because both windows ask one predicate.
+
+        Neither club being swapped has played a group fixture, so `REQ-SWAP-004` is silent and the knockout
+        window is the only thing left to refuse this. A count entered against a bracket fixture says that
+        fixture was played, and a played bracket fixture is how "the seeding has been consumed" is tested.
+        """
+
+        scored_knockout = {**knockout_fixture(ergebnis=None), "spiel_nr": 9, "team1": side(ALPHA_RIVAL, 2), "team2": side(BETA_RIVAL)}
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_swap(database, client, ALPHA, BETA)
+            return refusal.value.error_code
+
+        code = on_a_seeded_season(mongo_replica_set_url, body, spiele=[*DRAWN_ROUND_ROBIN, scored_knockout])
+
+        assert code == SWAP_KNOCKOUT_STARTED
 
     def test_a_played_group_fixture_between_two_other_clubs_leaves_it_open(self, mongo_replica_set_url: str):
         """

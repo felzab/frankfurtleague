@@ -11,6 +11,7 @@ Invariants:
 - A created season is always `future`, so a typo in a new id cannot roll over the live one.
 - A group swap writes both junction rows or neither — one transaction, never two calls (ADR-0062).
 - It rewrites the two clubs' Gruppenphase sides in that same transaction, and never their `tore`.
+- Both of its windows read "has taken place" through the one predicate, `_has_taken_place`.
 
 See:
 - docs/backend/spec.md — section 1.1, the season write endpoints
@@ -48,10 +49,38 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin)],
 )
 
-# The three keys a swap carries from one club to the other. `tore` is the fourth and stays where it is:
-# goals belong to the fixture and to whoever scored them, and `REQ-SWAP-004` has already refused every
-# fixture that could hold any.
+# The three keys a swap carries from one club to the other. `tore` is the fourth and stays put: goals
+# belong to whoever scored them, and `_has_taken_place` is why there is none left to move.
 SWAPPED_SIDE_KEYS: tuple[str, ...] = ("team_id", "name", "shorthand")
+
+
+def _has_taken_place(spiel: Mapping[str, Any]) -> bool:
+    """
+    Whether this fixture is one that happened, as both swap windows ask it (`REQ-SWAP-002`, `REQ-SWAP-004`).
+
+    An `ergebnis` or a cancellation is the reading `unplayed_spiel_nrs` already applies when closing a
+    season: a called-off match here is a forfeit and counts as a real game.
+
+    **The goal counts are the third clause, and they are the one a reader would not predict.**
+    `fl_backend/app/api/spiele/services.py :: apply_payload_to_spiel` derives `ergebnis` from BOTH counts
+    and strips the goals only when a SIDE is absent -- so a fixture with both sides occupied and one count
+    entered is stored holding `team1.tore` with no `ergebnis` at all, and nothing refuses it. Somebody
+    typed that number about a match that was played, which is exactly what the round-robin argument asks
+    about; reading only `ergebnis` would let the swap carry those goals to the club arriving in the
+    fixture. `build_statistik_lookup_stage` restates its own `tore` filter to survive the same shape.
+
+    **Not `unplayed_spiel_nrs` negated, and it must not become that.** That rule refuses a rollover while
+    the outgoing season still holds an unfinished fixture, so a half-entered score has to read as
+    UNFINISHED there and as PLAYED here. Both readings refuse, which is the direction each rule needs.
+
+    The caller's projection has to carry all four keys. A side the document stores as `null` reads as no
+    goals, which is what an unresolved slot is.
+    """
+
+    if spiel.get("ergebnis") is not None or spiel.get("is_canceled"):
+        return True
+
+    return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
 
 
 async def _rewrite_gruppenphase_sides(
@@ -83,7 +112,9 @@ async def _rewrite_gruppenphase_sides(
     identities = await pull_many_from_db(
         collection=teams_collection,
         db_filter={"_id": {"$in": list(team_ids)}},
-        projection=list(SWAPPED_SIDE_KEYS[1:]),
+        # Spelled out rather than sliced off `SWAPPED_SIDE_KEYS`: the slice depends on `team_id` being
+        # element 0, and reordering that tuple reads as free while it would raise `KeyError` here.
+        projection=["name", "shorthand"],
         session=session,
     )
     identity_of = {row["_id"]: row for row in identities}
@@ -396,19 +427,19 @@ async def swap_gruppen(
     groups are frozen for the same reason `REQ-RULES-005` freezes the scoring rules.
 
     **Refused with a 409 of its own once the knockout rounds have begun** (`REQ-SWAP-002`) — any fixture
-    outside the Gruppenphase that carries an `ergebnis` or was called off. By then the standings have
-    been consumed by the seeding, so exchanging the groups behind it rewrites what its slots meant. That
-    is a refusal and not a warning: there is no reading of it under which the swap is still defensible.
+    outside the Gruppenphase that has taken place. By then the standings have been consumed by the
+    seeding, so exchanging the groups behind it rewrites what its slots meant. That is a refusal and not a
+    warning: there is no reading of it under which the swap is still defensible.
 
     **Refused with a 409 of its own once either club has taken part in its group's round robin**
-    (`REQ-SWAP-004`) — a Gruppenphase fixture fielding it that carries an `ergebnis` or was called off.
-    The group phase is a round robin, so a club that has played inside one cannot leave it: its results
-    stand against a group it is no longer in, and its new group gains a member who has played nobody in
-    it. Neither group is a round robin afterwards.
+    (`REQ-SWAP-004`) — a Gruppenphase fixture fielding it that has taken place. The group phase is a round
+    robin, so a club that has played inside one cannot leave it: its results stand against a group it is
+    no longer in, and its new group gains a member who has played nobody in it. Neither group is a round
+    robin afterwards.
 
-    **Both windows read a called-off fixture as one that took place**, because a cancellation here is a
-    forfeit and counts as a real game — the same reading `unplayed_spiel_nrs` applies when closing a
-    season.
+    **Both windows ask `_has_taken_place`, so a cancellation and a lone goal count reach them as squarely
+    as a result does.** They differ only in which phase they read, and in `REQ-SWAP-004` narrowing to the
+    two clubs while `REQ-SWAP-002` counts the season's.
 
     **`REQ-ENTER-004`'s lock is deliberately not consulted.** It refuses a MOVE for a club whose fixtures
     are drawn, and its own message names a swap as the case that would be defensible — so this operation
@@ -418,7 +449,8 @@ async def swap_gruppen(
     **The drawn fixtures move with the clubs.** Every Gruppenphase fixture fielding either club has that
     side rewritten to the other, in the same transaction as the two junction rows — so each club inherits
     the opponents, dates and venues the other was scheduled against, and both groups are round robins
-    again. `tore` is never carried across, and under `REQ-SWAP-004` there is none to carry.
+    again. `tore` is never carried across, and under `REQ-SWAP-004` — which counts a lone goal count as a
+    fixture that was played — there is none to carry.
     """
 
     # A read first, so an unknown season is a 404 rather than a 409 about two clubs holding no row in a
@@ -444,7 +476,12 @@ async def swap_gruppen(
         # Read again in-session, and not from the 404 read above: `activate_saison` moves this field in a
         # transaction of its own, so a rollover committing between the two would leave this judging a
         # season that is no longer the one being written.
-        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
+
+        # `find_one` directly rather than `pull_one_from_db`, which takes no session -- the same call the
+        # match write path makes for a matchday, and for the same reason.
+        saison_raw = await saisons_collection.find_one({"_id": saison_id}, {"status": 1}, session=session)
+        if saison_raw is None:
+            raise DocumentNotFoundException(filter={"_id": saison_id}, error_code="DB-COMMON-001")
 
         # Every Gruppenphase fixture fielding either club, LISTED rather than counted: one read answers
         # `REQ-SWAP-004` and supplies what the rewrite moves, so the two cannot disagree.
@@ -455,22 +492,18 @@ async def swap_gruppen(
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
-            projection=["team1.team_id", "team2.team_id", "ergebnis", "is_canceled"],
+            projection=["team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "is_canceled"],
             session=session,
         )
 
-        # Counted rather than listed: the rule asks whether the bracket has begun, and one knockout
-        # fixture that has taken place answers it. `is_canceled` counts beside `ergebnis` because
-        # calling a fixture off does not un-fill the slot it was seeded into.
+        # Listed rather than counted, so both windows are decided by `_has_taken_place` rather than by one
+        # predicate here and a `$or` filter there -- two spellings of one rule, drifting apart silently.
 
-        # Straight on the collection, because no helper takes a session -- and without one this would
-        # read the snapshot from before the transaction.
-        played_knockout = await spiele_collection.count_documents(
-            {
-                "saison_id": saison_id,
-                "saison_phase": {"$in": list(KNOCKOUT_PHASES)},
-                "$or": [{"ergebnis": {"$ne": None}}, {"is_canceled": True}],
-            },
+        # A full ladder off `MAX_QUALIFIERS` is fifteen fixtures, so listing the bracket costs nothing.
+        knockout_spiele = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
+            projection=["team1.tore", "team2.tore", "ergebnis", "is_canceled"],
             session=session,
         )
 
@@ -479,10 +512,8 @@ async def swap_gruppen(
             team1_gruppe=gruppe_of.get(swap_data.team1_id),
             team2_gruppe=gruppe_of.get(swap_data.team2_id),
             saison_status=str(saison_raw["status"]),
-            played_knockout_fixtures=played_knockout,
-            played_gruppenphase_fixtures=sum(
-                1 for spiel in gruppenphase_spiele if spiel.get("ergebnis") is not None or spiel.get("is_canceled")
-            ),
+            played_knockout_fixtures=sum(1 for spiel in knockout_spiele if _has_taken_place(spiel)),
+            played_gruppenphase_fixtures=sum(1 for spiel in gruppenphase_spiele if _has_taken_place(spiel)),
         )
         if refusal is not None:
             error_code, detail = refusal

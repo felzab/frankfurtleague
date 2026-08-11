@@ -12,6 +12,7 @@ import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { SaisonGruppenSwapContext, SaisonOffeneSpiel, SaisonRolloverContext } from "@/features/saisons/types";
+import type { FLSpiel } from "@/features/spiele/schemas";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
@@ -103,18 +104,18 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
    * **The three definitions here have to agree with the endpoint's**, exactly as `offeneSpiele` agrees
    * with `unplayed_spiel_nrs` above. The club list is the season's junction rows, which the strict join
    * makes `GET /teams?saison_id=` — a club with no row is absent from it and is precisely the club the
-   * write path refuses. Both fixture counts read "taken place" the way `find_gruppe_swap_refusal` does:
-   * a result **or** called off, because a cancellation here is a forfeit and a forfeit is a real game.
-   * The knockout count is season-wide, because `REQ-SWAP-002` asks whether the bracket consumed a
-   * standing whoever it named; the per-club one is narrowed to that club's own Gruppenphase fixtures,
-   * which is the grain `REQ-SWAP-004` asks about.
+   * write path refuses. Both fixture counts read "taken place" through `hasTakenPlace`, which is
+   * `find_gruppe_swap_refusal`'s own reading said on this side. The knockout count is season-wide,
+   * because `REQ-SWAP-002` asks whether the bracket consumed a standing whoever it named; the per-club
+   * one is narrowed to that club's own Gruppenphase fixtures, which is the grain `REQ-SWAP-004` asks
+   * about.
    *
    * The grouped shape is never requested, so the narrowing below is a type guard rather than a branch
    * anything reaches.
    */
   const gespieltePerTeam = new Map<string, number>();
   for (const spiel of gruppenSpieleRes.spiele) {
-    if (spiel.ergebnis === null && !spiel.is_canceled) continue;
+    if (!hasTakenPlace(spiel)) continue;
     for (const seite of [spiel.team1, spiel.team2]) {
       if (seite !== null) gespieltePerTeam.set(seite.team_id, (gespieltePerTeam.get(seite.team_id) ?? 0) + 1);
     }
@@ -130,7 +131,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
             gespielteGruppenSpiele: gespieltePerTeam.get(team.id) ?? 0,
           }))
         : [],
-    playedKnockoutSpiele: playoffSpieleRes.spiele.filter((spiel) => spiel.ergebnis !== null || spiel.is_canceled).length,
+    playedKnockoutSpiele: playoffSpieleRes.spiele.filter(hasTakenPlace).length,
   };
 
   // The inner bound on the season's own dates (`REQ-DATE-004`): the start may not move past the first
@@ -167,4 +168,26 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       spieltagBound={spieltagBound}
     />
   );
+}
+
+/**
+ * Whether this fixture is one that happened, as both swap windows ask it (ADR-0062).
+ *
+ * **The mirror of `fl_backend/app/api/saisons/admin_router.py :: _has_taken_place`, and it has to stay
+ * one.** The endpoint refuses on its answer and this page decides what to offer on the same answer, so a
+ * clause on one side and not the other either offers a pair the write path 409s or hides a swap that
+ * would have worked (ADR-0038).
+ *
+ * The goal counts are the clause a reader would not predict: `PATCH /spiele/{spiel_id}` derives
+ * `ergebnis` from BOTH counts and drops the goals only when a SIDE is absent, so a fixture with two
+ * clubs on it and one count entered is stored holding goals and no result. Somebody typed that number
+ * about a match that was played.
+ *
+ * Not built from `computeSpielStatus`: a status label is not a filter and `ausstehend` is not a
+ * partition (ADR-0058).
+ */
+function hasTakenPlace(spiel: FLSpiel): boolean {
+  // `?? null` collapses the two absences into one: an unresolved slot has no side at all and a resolved
+  // one can hold no goals, and only a real count should read as a fixture that happened.
+  return spiel.ergebnis !== null || spiel.is_canceled || (spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null;
 }

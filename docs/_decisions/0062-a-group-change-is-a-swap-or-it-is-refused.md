@@ -58,8 +58,11 @@ the harm `REQ-RULES-005` already refuses over `win_points` and `draw_points`
 
 **`POST /saisons/{saison_id}/gruppen/swap` exchanges the groups of two clubs, writing both
 `saison_teams` rows inside one transaction.** The body names `team1_id` and `team2_id` and nothing
-else. `fl_backend/app/api/saisons/admin_router.py :: swap_gruppen` reads both rows through the
-transaction's session, judges them, and writes each club the group the other holds.
+else. `fl_backend/app/api/saisons/admin_router.py :: swap_gruppen` reads everything it judges on through
+the transaction's session — the two junction rows, the season's `status`, and the fixtures of both
+windows — and writes each club the group the other holds. The `status` read goes to the collection
+directly, because `pull_one_from_db` takes no session and would answer from the snapshot the transaction
+opened on.
 
 **It lands on the season's write router, because a swap belongs to the season.** The club editor
 addresses one club, which is the wrong grain for an operation whose subject is two of them.
@@ -86,12 +89,25 @@ find_gruppe_swap_refusal`:**
 4. **`REQ-SWAP-004` — neither club has taken part in its group's round robin**: no Gruppenphase fixture
    fielding it has taken place.
 
-**Both windows read "taken place" as carrying an `ergebnis` OR having been called off**, which is the
-reading `unplayed_spiel_nrs` already applies when closing a season. A cancellation in this competition
-is a forfeit and counts as a real game, so a club with a cancelled group fixture has taken part in its
-round robin, and a cancelled knockout fixture had its slot filled from a group placing exactly as a
-played one did. The two rules differ in which phase they read, and in `REQ-SWAP-004` narrowing to the
-two clubs while `REQ-SWAP-002` counts the season's — not in what counts as having happened.
+**Both windows read "taken place" through one predicate,
+`fl_backend/app/api/saisons/admin_router.py :: _has_taken_place`: an `ergebnis`, a cancellation, or a
+goal count standing on either side.** The first two are the reading `unplayed_spiel_nrs` already applies
+when closing a season. A cancellation in this competition is a forfeit and counts as a real game, so a
+club with a cancelled group fixture has taken part in its round robin, and a cancelled knockout fixture
+had its slot filled from a group placing exactly as a played one did.
+
+**The third clause is there because a fixture can hold goals and no result at all.**
+`fl_backend/app/api/spiele/services.py :: apply_payload_to_spiel` derives `ergebnis` from BOTH counts and
+strips the goals only where a SIDE is absent, so a fixture with two clubs on it and one count submitted
+is stored as goals against a null `ergebnis` — a shape nothing refuses, and the one
+`build_statistik_lookup_stage` already restates a `tore` filter to survive. Somebody entered that number
+about a match that was played, which is exactly what the round-robin argument asks about. It also decides
+the rewrite below: that carries a side's identity and leaves `tore` where it is, so a window reading only
+`ergebnis` would hand the club arriving in the fixture goals it did not score, and let a later entry of
+the opponent's count derive a real result for the wrong club in a real table.
+
+The two rules differ in which phase they read, and in `REQ-SWAP-004` narrowing to the two clubs while
+`REQ-SWAP-002` counts the season's — not in what counts as having happened.
 
 **The order is the argument, and it narrows.** A pair that is not a swap describes nothing this season
 could ever do, so it is answered as that before anything about the season is read. **The season being
@@ -111,8 +127,9 @@ from `REQ-SWAP-004` and gives none back, so it fires strictly more often than th
 **The swap rewrites the two clubs' drawn Gruppenphase sides, in the same transaction.** Every such
 fixture fielding either club has that side written to the other — `team_id`, `name` and `shorthand`, the
 three keys `PATCH /teams/{team_id}` already fans out (ADR-0021 rule 3). `tore` is the fourth and never
-moves; under `REQ-SWAP-004` there is none to move. Without this the junction rows would say one thing
-and the schedule another, which is the state `_spiele_by_gruppe` cannot attribute.
+moves, and because `REQ-SWAP-004` counts a lone goal count as a fixture that was played, there is none
+left to move. Without this the junction rows would say one thing and the schedule another, which is the
+state `_spiele_by_gruppe` cannot attribute.
 
 **The fixtures are named by `_id` from a snapshot read before any write.** Filtering on the club instead
 would let the second pass match what the first has just written and swap it back — the standing hazard
@@ -165,9 +182,21 @@ intact. Where one club has drawn fixtures and the other has none, the rewrite le
 unscheduled in its new group — a real outcome rather than an oversight, and the remaining draw is the
 admin's to make.
 
-**ADR-0042's occupancy invariant survives, because the rewrite is a bijection on the two clubs.** Each
-club's fixture count on a given matchday becomes exactly what the other's was, and both were at most
-one, so both still are.
+**ADR-0042's occupancy invariant survives across the Gruppenphase, because the rewrite is a bijection
+there.** `_rewrite_gruppenphase_sides` touches group fixtures and nothing else, so over that set each
+club's count on a given matchday becomes exactly what the other's was — and both were at most one, so
+both still are.
+
+**Outside that set it is not re-established, and this endpoint does not guard it.** A knockout side is
+never rewritten, so a matchday holding a group fixture of one club alongside a knockout fixture whose
+manual pick is the other fields one club twice once they exchange. Reaching that needs a season whose
+matchdays mix the two phases — which nothing forbids, since a `spieltag` carries its own `saison_phase`
+and a fixture's need not agree with it. It needs the pick to be a MANUAL one: a `quelle` comes to hold
+one of these two clubs only through its group's standing being decided, or through a bracket fixture it
+names having been played — a source in the group phase is refused outright — and each of those is a
+state `REQ-SWAP-004` or `REQ-SWAP-002` has already closed. Where the state does occur,
+`judge_spieltag_occupancy` refuses the next edit of either fixture and `report_relations` counts it under
+`--check`, which is where every stored breach of that rule surfaces.
 
 **There is no undo offer, and none is owed.** A swap is its own inverse: running it again on the same
 pair restores the season. The panel says so, and the fifteen-second window plus a route handler

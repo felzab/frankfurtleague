@@ -90,7 +90,8 @@ export type SaisonSwapTeam = {
   name: string;
   gruppe: FLGruppenNames;
   /**
-   * How many of this club's own Gruppenphase fixtures have taken place — a result, or called off.
+   * How many of this club's own Gruppenphase fixtures have taken place, per the season editor page's
+   * `hasTakenPlace`, which is where that reading is stated in full.
    *
    * `REQ-SWAP-004` counted for one club. Non-zero is what makes it unpickable: the group phase is a
    * round robin, so a club that has played inside its group cannot leave it.
@@ -102,8 +103,8 @@ export type SaisonSwapTeam = {
  * What the group swap control knows about the season it is standing on (ADR-0062).
  *
  * `playedKnockoutSpiele` is the endpoint's own window rule, counted for the page: any fixture outside
- * the Gruppenphase that has taken place — a result, or called off — closes the swap for good, because
- * the bracket was seeded from these groups. Non-zero is what turns the control into an explanation.
+ * the Gruppenphase that has taken place closes the swap for good, because the bracket was seeded from
+ * these groups. Non-zero is what turns the control into an explanation. Same reading as the field above.
  */
 export type SaisonGruppenSwapContext = {
   /** Every club entered in this season, retired ones included, ordered by name. */

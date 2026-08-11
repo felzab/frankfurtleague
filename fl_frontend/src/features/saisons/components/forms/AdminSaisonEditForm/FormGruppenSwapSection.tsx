@@ -107,14 +107,14 @@ function SwapTeamSelect({
  * fifteen-second window and a route handler afterwards (ADR-0049 keeps that machinery for the editors
  * whose save it belongs to).
  *
- * **Once a knockout fixture has been played or called off the control refuses rather than warns**
- * (`REQ-SWAP-002`). The standings have been consumed by the seeding, so there is no reading under which
- * the swap is still defensible — and the endpoint refuses the same thing and stays the authority
- * (ADR-0038).
+ * **Once a knockout fixture has taken place the control refuses rather than warns** (`REQ-SWAP-002`).
+ * The standings have been consumed by the seeding, so there is no reading under which the swap is still
+ * defensible — and the endpoint refuses the same thing and stays the authority (ADR-0038).
  *
  * **A club that has already played in its group is offered and refused in place** (`REQ-SWAP-004`), and
  * a finished season closes the panel outright (`REQ-SWAP-003`). Both are the endpoint's rules said in
- * the form, so the panel offers only pairs the write path takes.
+ * the form, so the panel offers only pairs the write path takes. What counts as having taken place is
+ * the season editor page's `hasTakenPlace`; both counts below arrive already taken over it.
  */
 export function FormGruppenSwapSection({
   saisonId,
@@ -144,8 +144,8 @@ export function FormGruppenSwapSection({
   /**
    * What EITHER picker may not take, keyed by club id with the reason shown beside it.
    *
-   * `REQ-SWAP-004` said in the form: a club with a Gruppenphase fixture behind it — played or called
-   * off — has taken part in a round robin it can no longer leave, whichever side of the exchange it is
+   * `REQ-SWAP-004` said in the form: a club with a Gruppenphase fixture behind it that has taken place
+   * has taken part in a round robin it can no longer leave, whichever side of the exchange it is
    * offered as. Disabled and still visible, which is `GruppeSelect`'s rule for a full group: an admin
    * should see why a club cannot be chosen instead of wondering where it went.
    */
