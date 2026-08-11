@@ -82,7 +82,7 @@ only means something inside a cache scope. Each seeds the request's correlation 
 with an `AbortController` timeout signal, and Next's `fetch` memoization opts out the moment a signal
 is present, so a page reading the same data from more than one boundary pays for each. A create modal
 beside its own list is the shape that does it, in `/admin/teams` as in `/admin/spieler`: a single page
-view produces a backend line for every one of those reads.
+view produces a backend line for each boundary that reads.
 
 **`getSpiel` is `GET /spiele/{spiel_id}` and carries the base tag ALONE.** The match editor is addressed
 by match id with no season in the URL
