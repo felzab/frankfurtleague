@@ -463,7 +463,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "gruppe",
         Editability.CONDITIONAL,
         "held to the groups the season runs and to their capacity on every write; a row is created only while the season is `future`, "
-        "a single move is refused once the started season has drawn its fixtures, and what stays open is a two-club swap (ADR-0062)",
+        "a single move is refused once the started season has drawn its fixtures, and what stays open is a two-club swap of clubs that "
+        "have not yet played inside their groups (ADR-0062)",
         "app.api.teams.services.find_entry_refusal",
     ),
     FieldPolicy(
@@ -688,6 +689,24 @@ RULES: tuple[Rule, ...] = (
         summary="no group swap once a knockout fixture carries a result, because the seeding has consumed the standings",
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
         tested_by="tests/api/test_gruppe_swap_refusal.py::TestTheKnockoutClosesTheWindow",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SWAP-003",
+        operation="POST /saisons/{saison_id}/gruppen/swap",
+        aggregate="Saison",
+        summary="no group swap in a `past` season, whose table is derived from these groups and is the record of what happened",
+        implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
+        tested_by="tests/api/test_gruppe_swap_refusal.py::TestAFinishedSeasonIsFrozen",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SWAP-004",
+        operation="POST /saisons/{saison_id}/gruppen/swap",
+        aggregate="Saison",
+        summary="no group swap once either club has played or called off a gruppenphase fixture; neither group would be a round robin",
+        implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
+        tested_by="tests/api/test_gruppe_swap_refusal.py::TestTheRoundRobinClosesTheWindow",
         multi_document=True,
     ),
     Rule(

@@ -757,25 +757,45 @@ SWAP_NOT_A_SWAP = "REQ-SWAP-001"
 # the seeding (ADR-0035). Exchanging the groups behind a played bracket rewrites what its slots meant.
 SWAP_KNOCKOUT_STARTED = "REQ-SWAP-002"
 
+# A `past` season, frozen for the reason `REQ-RULES-005` freezes its scoring rules (decided
+# 2026-08-11): both are inputs the finished table is computed from on every read.
+SWAP_SAISON_FINISHED = "REQ-SWAP-003"
+
+# Either club has taken part in its group's round robin (decided 2026-08-11). Every club plays every
+# other club of its group, so one that has played inside a group cannot be moved out of it.
+SWAP_GRUPPENPHASE_PLAYED = "REQ-SWAP-004"
+
 
 def find_gruppe_swap_refusal(
     *,
     is_same_team: bool,
     team1_gruppe: str | None,
     team2_gruppe: str | None,
+    saison_status: str,
     played_knockout_fixtures: int,
+    played_gruppenphase_fixtures: int,
 ) -> tuple[str, str] | None:
     """
     Why exchanging these two clubs' groups must be refused, as `(error_code, detail)` -- or `None`.
 
     Each `gruppe` is what that club's `saison_teams` row holds for the season, and `None` means the club
-    holds no row in it at all. `played_knockout_fixtures` counts the season's fixtures outside the group
-    phase already carrying an `ergebnis`; one is enough, because a single played knockout match is a slot
-    the standings have already filled.
+    holds no row in it at all.
 
-    **The pairing is judged before the window**, and the order is the argument: two ids that are not two
-    clubs of this season in different groups describe no swap at all, so whether a swap would still be
-    defensible is a question they never reach.
+    `played_gruppenphase_fixtures` counts the season's GROUP-phase fixtures fielding either of these two
+    clubs that have taken place -- carrying an `ergebnis` **or** called off. That is the repository's own
+    reading of "played" (`app.api.saisons.services.unplayed_spiel_nrs`), and it is the competition's:
+    a called-off match here is a forfeit and counts as a real game, so a club that has one has taken part
+    in its group's round robin either way.
+
+    `played_knockout_fixtures` counts the season's fixtures OUTSIDE the group phase carrying an
+    `ergebnis`. It does not count a called-off one, which is the one asymmetry between the two figures --
+    `REQ-SWAP-002` asks whether the bracket has consumed a standing, and only a result does that.
+
+    **Four rules, and the order is the argument.** A pair that is not a swap describes nothing this
+    season could do, so it is answered as that before anything about the season is consulted. The season
+    being over comes next, for `find_rules_refusal`'s reason: where the whole operation is refused
+    anyway, naming a contingent bound instead of the complete one sends an admin to look at the wrong
+    thing. Then the bracket, then the round robin -- narrowing from the season to the two clubs.
 
     Deliberately silent about `ENTRY_GRUPPE_LOCKED`, which refuses a MOVE for a club whose fixtures are
     drawn. That lock's own message names this operation as the defensible one, so a swap neither routes
@@ -795,6 +815,12 @@ def find_gruppe_swap_refusal(
     if team1_gruppe == team2_gruppe:
         return (SWAP_NOT_A_SWAP, f"both clubs stand in gruppe {team1_gruppe}; a swap exchanges two different groups")
 
+    if saison_status == "past":
+        return (
+            SWAP_SAISON_FINISHED,
+            "season is past; its groups are frozen because the league table is derived from them on every read",
+        )
+
     if played_knockout_fixtures > 0:
         subject = (
             "1 knockout fixture already carries"
@@ -803,6 +829,15 @@ def find_gruppe_swap_refusal(
         )
 
         return (SWAP_KNOCKOUT_STARTED, f"{subject} a result; the bracket has been seeded from these groups")
+
+    if played_gruppenphase_fixtures > 0:
+        noun = "fixture has" if played_gruppenphase_fixtures == 1 else "fixtures have"
+
+        return (
+            SWAP_GRUPPENPHASE_PLAYED,
+            f"{played_gruppenphase_fixtures} gruppenphase {noun} already been played or called off for these two clubs; "
+            "a club that has played inside its group cannot leave it without leaving a round robin that is not one",
+        )
 
     return None
 

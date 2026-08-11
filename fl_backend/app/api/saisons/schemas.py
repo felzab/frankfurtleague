@@ -152,6 +152,10 @@ class FLSwapGruppenResponse(BaseAPIResponse):
 
     Flat rather than two nested sides, because there is nothing else on a junction row this write
     touches -- `disqualifikation` is `PATCH /teams/{team_id}/saisons/{saison_id}`'s and is not read here.
+
+    `rewritten_spiele` reports the second half of the write: how many Gruppenphase fixtures had a side
+    moved to the other club. Reported for `FLPatchTeamResponse.fanned_out_to_spiele`'s reason -- a write
+    that reaches documents the caller did not name is one the caller should be told the size of.
     """
 
     saison_id: str
@@ -159,6 +163,7 @@ class FLSwapGruppenResponse(BaseAPIResponse):
     team1_gruppe: FLGruppenNames
     team2_id: CustomObjectId
     team2_gruppe: FLGruppenNames
+    rewritten_spiele: int
 
 
 class FLSaisonsListResponse(BaseAPIResponse):
