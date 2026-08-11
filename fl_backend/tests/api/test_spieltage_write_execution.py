@@ -11,7 +11,7 @@ Each step runs through the handler that performs it, so the premise is proved ra
 
 Invariants:
 - The season shrink is asserted to SUCCEED; a refusal there would leave the reactivate case vacuous.
-- No seeded matchday carries `anzahl_spiele`, so no echo can pass by reading a stale key.
+- The default seed carries no `anzahl_spiele`; the one case that seeds `99` asserts the echo ignores it.
 - Every test is marked `db` and deselected by default (`fl_backend/tests/README.md`).
 
 See:
@@ -84,7 +84,8 @@ def spieltag_document(**overrides: Any) -> dict[str, Any]:
 
     It carries no `anzahl_spiele`, which is the shape `POST /spieltage` inserts: the count is derived
     from the season's rules on every read (ADR-0052) and the payload has no field for it. Seeding it
-    this way is what makes the echo assertions below controls rather than readings of a stale key.
+    this way is what makes the echo assertions below controls rather than readings of a stale key --
+    the one test that wants a stale key overrides it.
     """
 
     return {
