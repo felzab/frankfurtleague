@@ -11,13 +11,16 @@
  * `danger` and a count tinted `success` are the same object saying different things.
  *
  * Not to be confused with a `Chip`, which is a HeroUI component with its own padding and an icon slot
- * — `SpielStatusChip` and `SaisonPhaseChip` are that family. These two are for a bare number or a bare
- * word inside another control, where a chip's weight would compete with what it annotates.
+ * — `SpielStatusChip` and `SaisonPhaseChip` are the wrappers around one. These two are for a bare
+ * number or a bare word inside another control, where a chip's weight would compete with what it
+ * annotates.
  */
 
 /**
- * The radius the two recipes below carry, and the one `SaisonPhaseChip`, `SpielStatusChip` and
- * `TeamSaisonVerlauf` set on a HeroUI `Chip`.
+ * The radius the two recipes below carry, and the one every `Chip` in this app sets in place of
+ * HeroUI's own — the chips of `SaisonPhaseChip`, `SpielStatusChip`, `TeamSaisonVerlauf` and
+ * `TeamCard`, and both of `TeamSpielerView`'s, which is the whole of them. A new chip joins that
+ * list or it is a different shape, and a `grep` for `<Chip` over `fl_frontend/src` settles which.
  *
  * **On a `Chip` it overrides `rounded-2xl` from `.chip`**, and a utility beats the component layer, so
  * no `!` is needed. Declared here rather than spelled at each chip, where the same sentence about the
