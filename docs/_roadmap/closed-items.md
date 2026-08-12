@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `0a21c75`, 2026-08-12
+**Verified against:** `bbb5182`, 2026-08-12
 
 Every item that has left [`open-items.md`](open-items.md) has a row here. This is a log: nothing in
 it is waiting for anything, and a regression is a new item with a new ID rather than an edit to a
@@ -13,11 +13,14 @@ the rule that the row is a pointer while the closing commit's body is the record
 
 **`OPS-8` is in neither roadmap file and nothing records what it was.** Nothing takes that number.
 
-**Thirty-seven rows carry an em dash where a closing commit should be.** They are the `scripts/`
-and CI rebuild's roadmap entries, triaged out on 2026-08-12 rather than worked: no work was done,
-so there is no commit for a row to point at, and each of those rows carries what the entry was
-together with why it was declined. [`protocol.md`](protocol.md#3-closing-an-entry-two-commits-not-one)
-describes an entry that was concluded, which none of these was.
+**Forty-seven rows carry an em dash where a closing commit should be**, and every one belongs to the
+`scripts/` and CI rebuild. Forty-six were triaged out rather than worked — thirty-seven on
+2026-08-12, and nine more by the independent review of that triage the same day — so there is no
+commit for a row to point at, and each of those rows carries what the entry was together with why it
+left. [`protocol.md`](protocol.md#3-closing-an-entry-two-commits-not-one) describes an entry that was
+concluded, which none of the forty-six was. **`OPS-17` is the forty-seventh:** it was repaired on the
+rebuild branch itself rather than declined, and the repair and the removal ride in one pull request,
+so no earlier commit exists for its row to cite.
 
 ## The log
 
@@ -106,5 +109,15 @@ describes an entry that was concluded, which none of these was.
 | OPS-55 | The branch guard answered a branch operation before reading a single token — needs a redirect written onto a branch switch            | Ops         | M      | —                            | —                                                                     |
 | OPS-58 | The standard guard's interpreter arm missed a versioned or path-reached spelling — costs a question, never a write                    | Ops         | S      | —                            | —                                                                     |
 | OPS-59 | The PowerShell guard's read list knew one spelling of git — fails closed on every miss                                                | Ops         | S      | —                            | —                                                                     |
-| BE-6  | `CustomObjectId` accepted any string in JSON mode and converted one in Python mode                 | BE          | —      | —                            | [`f8d9955`](https://github.com/felzab/frankfurtleague/commit/f8d9955) |
-| FE-3  | The team page's progress line named no milestone, and nothing public said why a team was out       | FE          | M      | —                            | [`43cd0ae`](https://github.com/felzab/frankfurtleague/commit/43cd0ae) |
+| BE-6   | `CustomObjectId` accepted any string in JSON mode and converted one in Python mode                                                    | BE          | —      | —                            | [`f8d9955`](https://github.com/felzab/frankfurtleague/commit/f8d9955) |
+| FE-3   | The team page's progress line named no milestone, and nothing public said why a team was out                                          | FE          | M      | —                            | [`43cd0ae`](https://github.com/felzab/frankfurtleague/commit/43cd0ae) |
+| BE-16  | `httpx` was declared where Starlette 1.6.0 now asks for `httpx2` — never fixing it costs one deprecation warning per test run         | BE          | —      | —                            | —                                                                     |
+| OPS-17 | The history-narration check matched inside longer words — word boundaries added on this branch instead of filing it                   | Ops, Docs   | S      | —                            | —                                                                     |
+| OPS-30 | A checker's advisory findings were dropped on a green run — advisory by design, and `/docs:audit` is their standing home              | Ops, Docs   | S      | —                            | —                                                                     |
+| OPS-34 | The frontend container was read as killed rather than drained — backwards: it drains, and 143 is the graceful exit code               | FE, Ops     | M      | —                            | —                                                                     |
+| OPS-35 | Three packaging details in the runtime images — two cosmetic, and `read_only` declined as operational friction                        | Ops         | S      | —                            | —                                                                     |
+| OPS-37 | A path a page named resolved against the working tree — CI's fresh checkout turns an unadded file red before merge                    | Ops, Docs   | M      | —                            | —                                                                     |
+| OPS-46 | The pnpm pin sat behind in three hand-kept copies — the 11.20.0 advisory needs `namedRegistries`, and none is declared                | FE, Ops     | S      | —                            | —                                                                     |
+| OPS-49 | Nothing in the deploy path had run on a Linux host — not work but three readings to take on the next supervised deploy                | Ops         | S      | —                            | —                                                                     |
+| OPS-50 | The rebuilt workflows had never run in CI — self-discharging: this branch's own pull request is the first run of each                 | Ops         | S      | —                            | —                                                                     |
+| OPS-57 | Only the first `git` in a command was stepped, so a read in front of a write hid it — merged into OPS-56                              | Ops         | S      | —                            | —                                                                     |
