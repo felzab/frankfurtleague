@@ -12,10 +12,13 @@ import type { FormState } from "@/shared/types/types";
 export function SidemenuFooter({
   isDesktopCollapsed,
   onToggleDesktopMenu,
+  onMobileNavigate,
   onSignOut,
 }: {
   isDesktopCollapsed: boolean;
   onToggleDesktopMenu: () => void;
+  /** Required, not optional: `Sidemenu` is the only caller and it always owns the drawer's state. */
+  onMobileNavigate: () => void;
   onSignOut?: () => Promise<FormState>;
 }) {
   return (
@@ -33,8 +36,14 @@ export function SidemenuFooter({
         label="Zur öffentlichen Website"
         placement="right"
         isEnabled={isDesktopCollapsed}>
+        {/* The drawer's way OUT of the shell, so it needs a close of its own: the tree that owns the
+            open state departs with the press, and the App Router hides a departed subtree in an
+            `<Activity>` rather than unmounting it — the state survives, the Effects do not, and Back
+            reveals the shell with the drawer still standing over the page. `onNavigate` for the
+            reason `SidemenuNavItem` gives. */}
         <Link
           href="/"
+          onNavigate={onMobileNavigate}
           className={`text-foreground-muted hover:bg-muted hover:text-foreground flex h-9 items-center rounded-md transition-colors ${
             isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2.5 px-3"
           }`}

@@ -71,7 +71,7 @@ export function SidemenuNavLinks<TIcon extends string>({
                   isActive={checkIsActive(sub_option.id)}
                   isDesktopCollapsed={isDesktopCollapsed}
                   icon={iconDictionary[sub_option.iconName]}
-                  onMobileClick={onMobileClose}
+                  onMobileNavigate={onMobileClose}
                 />
               );
             })}

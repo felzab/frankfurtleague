@@ -113,9 +113,9 @@ export function TeamPopoverMenu({
             />
 
             {/* Next's `onNavigate` rather than `onClick` on both: it runs only where the press really
-                navigates. A Ctrl-, Cmd- or middle-click opens its tab in the background and leaves the
-                visitor on this page, where closing this panel and the caller's dialog would be taking
-                away what they are still reading. */}
+                navigates. A Ctrl-, Cmd-, Shift- or Alt-click navigates nothing here — the browser opens
+                the target elsewhere, or downloads it — so closing this panel and the caller's dialog
+                would take away the page the visitor still has. */}
             <div className="fluid-sm flex size-full flex-col gap-y-1">
               <Link
                 prefetch={false}
