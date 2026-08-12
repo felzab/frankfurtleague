@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `d6dd386`, 2026-08-12\
+**Verified against:** `29c2a3d`, 2026-08-12\
 **Scope:** `fl_backend/`
 
 | Section                                                                        | Answers                                                         |
@@ -92,7 +92,7 @@ is addressed resource-first, with the id in the path. `tests/api/test_admin_guar
 | POST   | `/spieltage`                                           | Creates a matchday                                                                                                                                                                                         |
 | PATCH  | `/spieltage/{spieltag_id}`                             | Updates a matchday. Neither payload carries a position, a match count or a name: the position and the name are derived and composed by the reader (ADR-0051), the count from the season's rules (ADR-0052) |
 | DELETE | `/spieltage/{spieltag_id}`                             | Soft delete                                                                                                                                                                                                |
-| POST   | `/spieltage/{spieltag_id}/reactivate`                  | Clears `inactive_since`                                                                                                                                                                                    |
+| POST   | `/spieltage/{spieltag_id}/reactivate`                  | Clears `inactive_since`, re-checking the span against the season (`REQ-DATE-002`)                                                                                                                          |
 | POST   | `/spielorte`                                           | Creates a venue; builds `maps_link` server-side                                                                                                                                                            |
 | PATCH  | `/spielorte/{spielort_id}`                             | Updates a venue **and fans the change out** into every match embedding it                                                                                                                                  |
 | DELETE | `/spielorte/{spielort_id}`                             | Soft delete                                                                                                                                                                                                |
@@ -105,6 +105,14 @@ is addressed resource-first, with the id in the path. `tests/api/test_admin_guar
 **There is no `DELETE /saisons/{id}`**, and none on `/teams/{team_id}/saisons/{saison_id}` either
 ([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)). The absent verbs on `/spiele`
 are I26's, and the rows above cite it.
+
+**Every `spieltage` response carrying a matchday injects `anzahl_spiele` before validation, writes
+as much as reads.** The field is required on `FLSpieltag` and sits on no document (ADR-0052), so
+both reads and the three write endpoints that echo a matchday pass the document through
+`fl_backend/app/api/spieltage/services.py :: with_expected_matches` first. `POST /spieltage` is the
+one exception and needs none: it answers with an id alone and validates no stored document.
+**ADR-0052's Decision names the two reads; this page is the wider statement** — a new write endpoint
+that echoes a matchday injects too, or it answers 500 from its own response.
 
 **`/saisons/{saison_id}/gruppen/swap` writes `saison_teams` from the season's router, which is the one
 place the resource-first rule bends and does so deliberately**

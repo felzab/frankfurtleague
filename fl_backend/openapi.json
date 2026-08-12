@@ -740,7 +740,7 @@
     "/api/v0/spieltage": {
       "get": {
         "summary": "List Spieltage",
-        "description": "List matchdays for a season, in the order they are played.\n\nThat order is derived rather than stored: the phase in bracket order, then `beginn`, then `name`. It\nis what `sort_by=natural` means and it is the default; the other two sort options are dates, and\nneither is what a bracket reads.\n\nOmitting `saison_id` returns the **current** season. `saison_phase` accepts `playoffs` as an alias\nfor \"any phase except gruppenphase\".",
+        "description": "List matchdays for a season, in the order they are played.\n\nThat order is derived rather than stored: the phase in bracket order, then `beginn`, then `_id`. It\nis what `sort_by=natural` means and it is the default; the other two sort options are dates, and\nneither is what a bracket reads.\n\nOmitting `saison_id` returns the **current** season. `saison_phase` accepts `playoffs` as an alias\nfor \"any phase except gruppenphase\".",
         "operationId": "get_spieltage_api_v0_spieltage_get",
         "security": [
           {
@@ -2422,7 +2422,7 @@
     "/api/v0/spieltage/{spieltag_id}/reactivate": {
       "post": {
         "summary": "Bring a retired Spieltag back",
-        "description": "Clear `inactive_since`, restoring the matchday to every read that hides retired ones.",
+        "description": "Clear `inactive_since`, restoring the matchday to every read that hides retired ones.\n\n**The span is checked on the way back in** (`REQ-DATE-002`). While the matchday was retired the\nseason's dates were free to move past it: `PATCH /saisons/{saison_id}` reads only LIVE matchdays for\n`REQ-DATE-004`, deliberately, so that retiring a mis-dated matchday is what lets the dates it was\nretired over be repaired. Restoring it is therefore the moment the containment has to hold again, and\nthe way through is to re-date the matchday first.\n\nIts own fixtures need no check here. `spieltag_id` is on no payload and `REQ-DATE-001` reads this\nmatchday whether or not it is retired, so no fixture can have drifted outside the span meanwhile.",
         "operationId": "reactivate_spieltag_api_v0_spieltage__spieltag_id__reactivate_post",
         "security": [
           {
