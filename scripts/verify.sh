@@ -59,11 +59,15 @@ fi
 # are `_lib.sh`'s, and re-trapping either replaces the interrupted closing statement with nothing.
 if (( RUN_OPS || RUN_IMAGES )); then
   STANDIN_BE=0; STANDIN_FE=0
+  # The tag carries this run's pid, so the forced removal below can only ever reach images this run
+  # built. Fixed tags let a second gate run anywhere on the machine delete the images another run is
+  # still building against, and `-f` asks no questions.
+  VERIFY_TAG="frankfurtleague-verify-$$"
   cleanup() {
     rm -rf "${REPO_ROOT}/.tmp-nginx-check"
     if (( STANDIN_BE )); then rm -f fl_backend/.env; fi
     if (( STANDIN_FE )); then rm -f fl_frontend/.env; fi
-    docker image rm -f frankfurtleague-verify:frontend frankfurtleague-verify:backend >/dev/null 2>&1 || true
+    docker image rm -f "${VERIFY_TAG}:frontend" "${VERIFY_TAG}:backend" >/dev/null 2>&1 || true
   }
   trap cleanup EXIT
 fi
@@ -307,8 +311,12 @@ if (( RUN_FRONTEND )); then
 
   # `--lockfile-only` is what makes it a check rather than an install: it resolves and compares
   # without linking, so it writes nothing and costs seconds instead of minutes.
+
+  # `--no-optimistic-repeat-install` is what makes it a check at all: the setting defaults to true
+  # and answers from mtimes alone, so a manifest restored with its timestamp preserved passes here
+  # while disagreeing with the lockfile.
   step "frontend · pnpm  (manifest and lockfile agree)"
-  ( cd fl_frontend && quietly pnpm install --frozen-lockfile --lockfile-only ) \
+  ( cd fl_frontend && quietly pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ) \
     || die "fl_frontend's manifest and lockfile disagree — the packages are named above.
 Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile."
   ok "manifest and lockfile agree"
@@ -322,7 +330,14 @@ Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile."
   ok "lint clean"
 
   step "frontend · next build"
-  ( cd fl_frontend && quietly pnpm build ) || die "next build failed."
+  # The same variables the frontend CI job sets, for the reasons its own `env:` block records: the
+  # build evaluates modules that read the environment, so a checkout with no .env dies at page-data
+  # collection. Placeholders only; no .env is read or created.
+
+  # Set on this command rather than exported, so only the build sees them. The schema itself is
+  # enforced where it means something, by `scripts/local.sh` and by every deploy.
+  ( cd fl_frontend && SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder \
+      NEXT_TELEMETRY_DISABLED=1 quietly pnpm build ) || die "next build failed."
   ok "build succeeds"
 
   step "frontend · unit tests"
@@ -423,9 +438,9 @@ fi
 
 # --- images ----------------------------------------------------------------------------------------
 
-# The EXIT trap above reclaims the throwaway image tags on every exit path. Without it a failed gate
-# leaves both behind, and the next run moves them onto fresh images, orphaning untagged layers only
-# `docker image prune` reclaims.
+# The EXIT trap above reclaims this run's tags on every exit path it can see. A run killed outright
+# leaves its pair behind and no later run reclaims them: the tag carries a pid nothing else builds
+# against, so only `docker image rm` removes it.
 if (( RUN_IMAGES )); then
   section images
 
@@ -451,12 +466,15 @@ this step in the job."
 
       # `version` is deliberately unpinned: buildx picks the live cache service from
       # ACTIONS_CACHE_SERVICE_V2, and naming a retired one silently disables the cache (ADR-0031).
+
+      # The cache scope stays the bare image name while the tag carries the run: a scope holding a
+      # run id would miss every previous run's layers, which is the cache switched off (ADR-0031).
       quietly docker buildx build --load \
         --cache-from "type=gha,scope=${name}" \
         --cache-to "type=gha,scope=${name},mode=max" \
-        -f "$dockerfile" -t "frankfurtleague-verify:${name}" "$context"
+        -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
     else
-      quietly docker build -f "$dockerfile" -t "frankfurtleague-verify:${name}" "$context"
+      quietly docker build -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
     fi
   }
 
@@ -474,7 +492,7 @@ this step in the job."
   # From the repo root this file compiles but is not traced into the standalone output, which
   # silently disables the startup env gate and onRequestError. One command is cheaper than
   # rediscovering it.
-  if quietly docker run --rm --entrypoint sh frankfurtleague-verify:frontend -c '[ -f .next/server/instrumentation.js ]'; then
+  if quietly docker run --rm --entrypoint sh "${VERIFY_TAG}:frontend" -c '[ -f .next/server/instrumentation.js ]'; then
     ok "instrumentation.js present — env gate and error logging will run"
   else
     die "instrumentation.js is MISSING from the image. It must live at fl_frontend/src/instrumentation.ts, not the repo root."
