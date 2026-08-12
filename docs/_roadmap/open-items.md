@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `2c14281`, 2026-08-12\
+**Verified against:** `2a0eb0d`, 2026-08-12\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
@@ -62,13 +62,13 @@ chosen by feel.
 | #   | ID     | Item                                                    | Surfaces    | Effort | Status   | Depends on |
 | --- | ------ | ------------------------------------------------------- | ----------- | ------ | -------- | ---------- |
 | 1   | FB-16  | Nothing announces that a season rollover is due         | BE, Ops     | M      | Open     | —          |
-| 2   | FE-1   | A fixture carries one date, not a play window           | FE, BE      | XL     | Open     | —          |
-| 3   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
-| 4   | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
-| 5   | BE-12  | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | —          |
-| 6   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
-| 7   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
-| 8   | BE-15  | Nothing records who changed what, or what it replaced   | FE, BE, DB  | L      | Open     | —          |
+| 2   | BE-15  | Nothing records who changed what, or what it replaced   | FE, BE, DB  | L      | Open     | —          |
+| 3   | FE-1   | A fixture carries one date, not a play window           | FE, BE      | XL     | Open     | —          |
+| 4   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
+| 5   | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
+| 6   | BE-12  | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | —          |
+| 7   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
+| 8   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
 | 9   | LOG-2  | A cached read's call joins to no render                 | FE, BE, Ops | L      | Open     | —          |
 | 10  | FB-15  | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —          |
 | 11  | BE-7   | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | —          |
@@ -77,6 +77,10 @@ chosen by feel.
 | 14  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
 | 15  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
 | 16  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
+| 17  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops     | S      | Open     | —          |
+| 18  | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs   | S      | Open     | —          |
+| 19  | OPS-56 | The git stepper reads one `git`, on one line            | Ops         | S      | Open     | —          |
+| 20  | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops         | M      | Open     | —          |
 
 **No entry in this file blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -87,7 +91,11 @@ own `Path` line.
 ## Tier 1 — leverage and clocks
 
 What sits here has a date on it. FB-16 is the reason nobody is told that the rollover is due, and it
-is due on a date nobody is watching.
+is due on a date nobody is watching. BE-15 joins it because the date it was waiting for now has a
+year on it: a second person writes in the season plan this year, and from the day two people can
+write, an overwrite that records neither who made it nor what it replaced is a dispute with no
+evidence on either side. Neither is an enabler, so what separates them is the tier's fallback —
+the cheaper item first, which is what puts FB-16 above BE-15.
 
 ### 1 · FB-16 — Nothing announces that a season rollover is due
 
@@ -95,6 +103,9 @@ is due on a date nobody is watching.
 **Surfaces:** BE, Ops\
 **Effort:** M\
 **Path:** Independent — the clock is the only reason it ranks where it does.
+
+**Deferred by me on 2026-08-12: not worth building yet.** It keeps its rank because the clock is
+real and unwatched, and the trigger that turns it into work is a rollover actually being missed.
 
 **Every step of a rollover has a page; the sequence has nothing.** `/admin/saisons` creates the
 season, the Umstellung panel on `/admin/saisons/[saison_id]` activates it
@@ -108,9 +119,12 @@ stopped half-way: nothing prompts for a step that is skipped.
 though it were this one, and every read of it is a correct read of stale data.
 
 **A reminder is a scheduled job, not a surface** — nothing renders it, nobody navigates to it, and it
-has to run when no admin is present. This repository has no scheduler at all: there is no cron, no
-queue, no worker, and nothing `scripts/deploy.sh` starts is one. That, rather than the message, is
-the actual scope.
+has to run when no admin is present. This repository runs **no application-level scheduler**: there
+is no queue, no worker, each image's `CMD` starts its one server and nothing else, and nothing
+`scripts/deploy.sh` starts is a scheduler either. The one thing here that runs on a clock is
+`.github/workflows/codeql.yml`, which carries a pinned weekly `schedule: cron` and analyses source
+— so the mechanism exists in CI and reaches nothing inside the running application. That, rather
+than the message, is the actual scope.
 
 **What has to be settled when it is worked:**
 
@@ -118,11 +132,60 @@ the actual scope.
   season is over when its fixtures are played, and an early rollover is legitimate (ADR-0026). The
   honest trigger is probably a date approaching with the next season absent.
 - **What runs it.** A container with a cron, a scheduled GitHub Actions workflow hitting a guarded
-  endpoint, or the host's own crontab. The workflow needs no new runtime and the container needs no
-  public surface; the trade is where the credential lives.
+  endpoint, or the host's own crontab. The workflow needs no new runtime and is the only one of the
+  three already proven here, by `codeql.yml`; the container needs no public surface. The trade is
+  where the credential lives.
 - **What it says.** The value is the checklist, not the alarm: a reminder naming which steps are
   already done is a different message from one saying a date passed, and only the first is worth
   reading twice.
+
+### 2 · BE-15 — Nothing records who changed what, or what a write replaced
+
+**Status:** Open\
+**Surfaces:** FE, BE, DB\
+**Effort:** L\
+**Path:** Independent — what dates it is a second writer arriving this year, not another entry.
+
+**Every admin write overwrites in place.** A result is `$set` over its predecessor, `is_disqualified`
+flips with no trace of who flipped it or why, and the write that destroys the most is one nobody asked
+for — applying a bracket advancement clears the advanced fixture's `ergebnis` and `elfmeterschiessen`
+(`fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`), so correcting a quarter-final
+silently deletes a semi-final scoreline that a person had entered.
+[ADR-0041](../_decisions/0041-a-voided-result-is-named-before-it-is-lost.md) makes that destruction
+**visible** and deliberately does not make it **recoverable** beyond a fifteen-second undo — which is
+the question this entry carries.
+
+**What the reference model does.** Federation administration software treats a disciplinary action as
+a case with an audit trail, because a disqualification is a decision somebody has to be able to
+justify later, and because a sanction that nobody can trace is a sanction that gets disputed. Part of
+that is built — a disqualification carries a reason and a date
+([ADR-0047](../_decisions/0047-a-disqualification-is-a-record-and-its-absence-is-the-null.md)) — but a
+reason and a date on the current state is not a history: it says why the team is disqualified, never
+what its standing was a week ago.
+
+**What I have asked this to become (2026-08-06): an admin action-log page listing every edit and every
+add, with a smarter undo built over it.** That fixes what is recorded, where it goes, and whether a
+restore is offered:
+
+- **What is recorded:** every write, not only the destructive ones. A page that lists half of them is a
+  page nobody trusts.
+- **Where it goes:** a collection, because the page reads it. A log stream is out — `deploy.sh`
+  recreates the containers and the history would end at the last deploy (`docs/logging/spec.md`).
+- **Whether a restore is offered:** yes, and that is the smarter undo. The bound to beat is the one
+  ADR-0041 already ships: fifteen seconds, held in the browser, gone on reload. An undo over a stored
+  log outlives the fifteen seconds and survives a reload, and it can restore a write nobody was
+  watching at the time — which is the case the client-held one cannot reach.
+
+**Still open: how long it is kept, and whether it holds personal data.** A squad row names a person, so
+a history of squad edits is a retention decision rather than a storage one.
+
+**What makes it urgent is a second person who can write, and that now has a year on it.** I confirmed
+on 2026-08-12 that a second person will be writing in the season plan this year, which is what lifts
+this into tier 1: until now the only person who could dispute an entry was the one who made it, and
+from the first shared write that stops being true. The cost of delay is the part
+that cannot be recovered — a log records from the day it exists and never backwards, so every write
+made before it lands is one nobody can reconstruct. ADR-0041 raises the value of doing it meanwhile:
+the client-held undo makes the gap visible on the one surface an admin uses most.
 
 ---
 
@@ -139,13 +202,13 @@ entries here and the only ones a session pays for on every run: a guard that ref
 no business refusing, and a classifier that spends a process per file to answer a question about the
 diff. OPS-12 and DOC-2 are each a boundary nothing currently watches — a generated file against the
 generator that owns it, and the documentation standard's enforcement claims against the gate, which
-resolves them in the direction that overstates and not in the direction that understates. BE-12,
-BE-15 and LOG-2 are prospective rather than dependent: BE-12 is real now that the spieler pages make
-retiring a row possible at all, BE-15 becomes real the moment a second person can write, and LOG-2
-improves the fidelity of a logging convention that already works. FB-15 closes the tier with the
-group swap the team editor's lock names as the one defensible mid-season move.
+resolves them in the direction that overstates and not in the direction that understates. BE-12 and
+LOG-2 are prospective rather than dependent: BE-12 is real now that the spieler pages make retiring
+a row possible at all, and LOG-2 improves the fidelity of a logging convention that already works.
+FB-15 closes the tier with the group swap the team editor's lock names as the one defensible
+mid-season move.
 
-### 2 · FE-1 — A fixture carries one date, and a play window cannot be expressed
+### 3 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -164,14 +227,14 @@ ausstehend/heute/vergangen ternary genuinely harder, and that ADR's intent (a fi
 window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives ADR-0058's definitions under ranges.
 
-### 3 · OPS-11 — The local-compose guard cannot tell an invocation from a mention
+### 4 · OPS-11 — The local-compose guard cannot tell an invocation from a mention
 
 **Status:** Open\
 **Surfaces:** Ops\
 **Effort:** S\
 **Path:** Independent — `scripts/selfcheck.sh` already drives this hook the way the hook runner does.
 
-**`.claude/hooks/guard-local-compose.sh` matches the command as text.** It denies a Bash command
+**`.claude/hooks/guard-local-compose.sh` matches the command as text.** It denies a shell command
 containing `docker compose`, or `docker-compose` followed by a space, unless that same command also
 names the local compose file. A search for the phrase and a heredoc writing it into a document each
 contain it, so each is denied — with the message written for someone about to operate the production
@@ -194,7 +257,7 @@ separator, allowing a leading `sudo` or an environment assignment — still refu
 and `scripts/selfcheck.sh` asserts each. It already drives this hook for a bare invocation, for the
 local file named, and for a command that is not compose at all, so the probes have a home.
 
-### 4 · OPS-10 — Deciding whether a change is comments only costs a process per file
+### 5 · OPS-10 — Deciding whether a change is comments only costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -224,7 +287,7 @@ spawning it replaced.
 **Not measured:** what the spawns actually cost on this machine, and how much of a gate run is
 attributable to them. The mechanism above is read from the code; the magnitude is not.
 
-### 5 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+### 6 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -255,13 +318,15 @@ than rediscovered.
   club frees its shorthand for reuse, which is the point — and it also means a future club can hold
   letters that historical matches still name, if any survived the check above.
 - **What runs it.** A scheduled job, a script I run like the backfill, or an admin control. The
-  repository has no scheduler, which makes the hand-run script the cheapest by a distance.
+  repository runs no application-level scheduler — the weekly `cron` in
+  `.github/workflows/codeql.yml` analyses source and reaches nothing this could hang off, as FB-16
+  sets out — which makes the hand-run script the cheapest by a distance.
 
 `saisons` and `saison_teams` carry no such field and need none: neither has a delete at all
 ([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)), so neither can accumulate a
 row to purge.
 
-### 6 · OPS-12 — Nothing checks a generated file against the generator that owns it
+### 7 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -297,7 +362,7 @@ the formatter has run over each side so the comparison is about content rather t
 and fails where it differs from the committed one, and the images are left to review with that
 exclusion written down rather than assumed.
 
-### 7 · DOC-2 — An enforcement claim is resolved in one direction only
+### 8 · DOC-2 — An enforcement claim is resolved in one direction only
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -329,57 +394,12 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 8 · BE-15 — Nothing records who changed what, or what a write replaced
-
-**Status:** Open\
-**Surfaces:** FE, BE, DB\
-**Effort:** L\
-**Path:** Independent, and not scheduled.
-
-**Every admin write overwrites in place.** A result is `$set` over its predecessor, `is_disqualified`
-flips with no trace of who flipped it or why, and the write that destroys the most is one nobody asked
-for — applying a bracket advancement clears the advanced fixture's `ergebnis` and `elfmeterschiessen`
-(`fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`), so correcting a quarter-final
-silently deletes a semi-final scoreline that a person had entered.
-[ADR-0041](../_decisions/0041-a-voided-result-is-named-before-it-is-lost.md) makes that destruction
-**visible** and deliberately does not make it **recoverable** beyond a fifteen-second undo — which is
-the question this entry carries.
-
-**What the reference model does.** Federation administration software treats a disciplinary action as
-a case with an audit trail, because a disqualification is a decision somebody has to be able to
-justify later, and because a sanction that nobody can trace is a sanction that gets disputed. Part of
-that is built — a disqualification carries a reason and a date
-([ADR-0047](../_decisions/0047-a-disqualification-is-a-record-and-its-absence-is-the-null.md)) — but a
-reason and a date on the current state is not a history: it says why the team is disqualified, never
-what its standing was a week ago.
-
-**What I have asked this to become (2026-08-06): an admin action-log page listing every edit and every
-add, with a smarter undo built over it.** That fixes what is recorded, where it goes, and whether a
-restore is offered:
-
-- **What is recorded:** every write, not only the destructive ones. A page that lists half of them is a
-  page nobody trusts.
-- **Where it goes:** a collection, because the page reads it. A log stream is out — `deploy.sh`
-  recreates the containers and the history would end at the last deploy (`docs/logging/spec.md`).
-- **Whether a restore is offered:** yes, and that is the smarter undo. The bound to beat is the one
-  ADR-0041 already ships: fifteen seconds, held in the browser, gone on reload. An undo over a stored
-  log outlives the fifteen seconds and survives a reload, and it can restore a write nobody was
-  watching at the time — which is the case the client-held one cannot reach.
-
-**Still open: how long it is kept, and whether it holds personal data.** A squad row names a person, so
-a history of squad edits is a retention decision rather than a storage one.
-
-**What makes it urgent is a second person who can write.** Until then the only person who could dispute
-an entry is the one who made it, and the cost of having no log is paid when something goes wrong and
-somebody asks what happened. ADR-0041 raises the value of doing it meanwhile: the client-held undo
-makes the gap visible on the one surface an admin uses most.
-
 ### 9 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
 **Effort:** L\
-**Path:** Independent — ADR-0032 is the floor it builds on, not a blocker.
+**Path:** Independent — ADR-0032 is a floor; tracing waits on new dependencies and on a destination.
 
 **Implement the industry-standard shape of the correlation scope this repository runs a subset of** (my
 item, 2026-08-05).
@@ -398,7 +418,7 @@ packages. **Neither upstream claim was re-verified when this entry was written**
   hand-rolled scope provably cannot reach: `"use cache"` forbids request APIs, so no application code
   can carry the request's id into a cache fill (`docs/logging/spec.md`, the cache-fill boundary).
   OpenTelemetry propagates through the framework's own internals instead. It covers every cached read;
-  the uncached page-render query already joins.
+  the uncached page-render reads already join.
 - **Timings become a tree rather than separate numbers.** Today nginx reports `upstream_duration_s` and
   the backend reports `duration_ms`, and relating them is manual. A span tree shows where a slow
   request actually spent its time, including inside Mongo.
@@ -415,8 +435,11 @@ the end of it. So the ordering is:
 1. **Decide the destination first.** A self-hosted collector on the same box (Jaeger, Grafana
    Tempo/Loki, SigNoz), a hosted backend, or nothing. Each carries a resource cost on a server whose
    services are already capped by `docker-compose.yml`'s deploy limits, and a hosted one puts request
-   metadata for a public site into a third party.
-2. **Only then instrument.** The libraries are the cheap half.
+   metadata for a public site into a third party. Whichever answer wins, it lands in
+   `docker-compose.yml` and in `scripts/`, which is where the stack is defined and deployed — so this
+   step is an ops change before it is a code one.
+2. **Only then instrument.** The libraries are the cheap half, and each of them is a new dependency:
+   the backend's in `fl_backend/pyproject.toml`, the frontend's in `fl_frontend/package.json`.
 
 **One cheaper thing that is a real improvement on its own**, and a legitimate answer of "not yet" to
 the whole programme: **ship the logs off the host before they are lost.** A rotating copy, or a log
@@ -425,7 +448,7 @@ independent of tracing.
 
 **The avoidable half of the propagation gap is closed**, so this entry does not carry it:
 `fl_frontend/src/shared/utils/correlationScope.ts :: runWithIncomingCorrelationId` seeds the scope for
-every dynamic caller, the uncached page-render query included. What is left for OpenTelemetry is the
+every dynamic caller, the uncached page-render reads included. What is left for OpenTelemetry is the
 half no application code can reach.
 
 **What it would supersede.** ADR-0032's decision that the identifier is a single id on a custom header.
@@ -475,12 +498,30 @@ exists. Decide when either is next touched. Today's data has no case that needs 
 
 ## Tier 4 — standing cautions and watch items
 
-No scheduled action. Each of these has a recorded trigger rather than a plan, and some are owned
+No scheduled action. Each of these has a recorded trigger rather than a plan, and two are owned
 elsewhere: BE-7 is seeded into a backend audit pass, and OPS-2 into an ops pass. BE-14 and OPS-3
 carry their own triggers — a group of six teams, and the next Cloudflare bot-protection change —
-because no pass covers either. DOC-3 and DOC-4 close the tier with the documentation gate's own
-limits: each names a rule the gate decides by a narrower test than the rule states, and each fails by
-saying nothing.
+because no pass covers either. DOC-3 and DOC-4 name the documentation gate's own limits: each is a
+rule the gate decides by a narrower test than the rule states, and each fails by saying nothing.
+
+**The last three entries do not belong in this tier**, and each says so on its own `Path` line: none
+is a caution, and every one is open work with a live defect or an owed measurement behind it. They
+sit here because they were filed while this file could only be appended to, and the next re-rank owes
+each a position derived from the rubric rather than from where an append landed. They are what came
+through the `scripts/` and CI rebuild's triage on 2026-08-12 and the independent review of that
+triage the same day, which between them closed everything else the rebuild raised: what kept these is
+that each either makes a check answer wrongly, or costs measured time on every run.
+
+**The order the three sit in is the one they were appended in**, which is what the provisional
+ranking on each `Path` line means. OPS-19 is the one measured runtime item, both repository-wide
+linters re-reading every file on every run. OPS-29 is the one that answers wrongly rather than
+weakly, and a tool saying "fine" without having looked is worse than no tool: it reads nothing at
+all inside a shell file's embedded JavaScript, where INC-6 claims that region is covered and a cited
+ADR can therefore dangle in silence. **OPS-56 closes the tier**, and it is one line of the git
+subcommand stepper failing on two axes at once — a delimiter class short of a newline, and a strip
+that finds only the earliest `git` in a command. Either shape releases `git reset --hard` behind a
+command a session writes without thinking, and what that costs is the working tree rather than
+anything a branch ruleset can protect.
 
 ### 11 · BE-7 — `typing` imports instead of `collections.abc`
 
@@ -699,3 +740,252 @@ was written to replace.
 
 **Trigger to revisit:** a reference page added under `docs/` that sits outside
 `STAMP_REQUIRED_GLOBS`, or any change to what the branch-impact check arms on.
+
+### 17 · OPS-19 — Both repository-wide linters re-read every file on every run
+
+**Status:** Open\
+**Surfaces:** FE, Ops\
+**Effort:** S\
+**Path:** Independent. **Ranked provisionally, and the two entries below say the same on its terms** —
+this is Tier 3 work by the rubric, filed into Tier 4 because this file could only be appended to when
+it was raised, and the next re-rank owes each of the three a position derived from the rubric. Under
+test 4 what this one removes is a measured twenty-eight seconds a run, and what it costs is two
+package scripts and a gitignore line.
+
+**`fl_frontend/package.json` runs `eslint .` and `prettier --check ..` across the whole repository,
+and neither is given a cache.** `fl_frontend/tsconfig.json` sets `incremental: true`; nothing else in
+either tree keeps state between runs, so both tools re-read every file they are pointed at whether or
+not anything about it has changed since the last run said the same thing.
+
+**What the two steps cost**, measured 2026-08-11 on a development machine while the gate was
+profiled: prettier over the repository is 41.5 s with other scopes running beside it and 33.3 s
+alone, and eslint is 21.5 s — the longest step in the frontend scope, where a warm Turbopack cache
+leaves `next build` at half of it. On a runner the order reverses and eslint is the second-largest
+step behind `next build`, 16 s against 28 s over fourteen runs on 2026-08-11, inside the job that
+sets a pull request's critical path.
+
+**Why this may be worth more than the concurrency the gate already has.** Running the scopes
+concurrently moved the wall clock and spent about a quarter more processor time to do it. A cache
+does not redistribute the work, it removes it — and it lowers the floor in CI as well as locally,
+which concurrency cannot: `.github/workflows/verify.yml` runs one scope per job, so inside a job
+there is nothing to overlap it with.
+
+**The three unknowns this was filed on are answered**, measured on 2026-08-12 on the development
+machine — sixteen cores, repository clean — against the invocations the gate uses:
+
+| Run, 2026-08-12                                      | Wall clock |
+| ---------------------------------------------------- | ---------- |
+| `prettier --check ..`, no cache — the gate's today   | 34.5 s     |
+| `prettier --check ..`, `--cache`, warm               | 25.6 s     |
+| `eslint .`, no cache — the gate's today              | 23.4 s     |
+| `eslint .`, `--cache --cache-strategy content`, cold | 20.5 s     |
+| `eslint .`, `--cache --cache-strategy content`, warm | 4.5 s      |
+
+1. **Does a cache survive usefully between local runs?** Yes — decisively for eslint and modestly for
+   prettier, and together they take **about twenty-eight seconds off a warm local gate run**
+   (2026-08-12). Prettier's floor of 25.6 s with a fully warm cache and nothing changed says most of
+   its time is startup, discovery and ignore-matching rather than formatting, which bounds what any
+   cache can ever buy on that step.
+2. **Does `--cache` change what the check proves?** Not once the key is chosen rather than defaulted.
+   A cached clean verdict is exactly as good as its key, and `scripts/verify.sh` passes
+   `--no-optimistic-repeat-install` to pnpm precisely because that tool's fast path keys on
+   timestamps, where a stale one lets a real mismatch answer that everything is already up to date.
+   `--cache-strategy content` hashes file contents instead, so that shape cannot arise here — and on
+   2026-08-12 it measured no slower than the metadata key, 20.5 s cold and 4.5 s warm against 21.5 s
+   and 4.8 s. **Use `content`**: the suspicion this entry was filed with is discharged by choosing
+   the key, not by an argument about it.
+3. **Can CI persist one?** **Out of scope, decided 2026-08-12: the local win only.** It needs no CI
+   change to collect, so `.github/workflows/verify.yml` is left alone and
+   [ADR-0031](../_decisions/0031-the-image-cache-is-the-actions-cache-service.md) — which settles the
+   image build cache as buildx's `type=gha` and deletes the `actions/cache` step — needs no
+   revisiting, nor does `.claude/CLAUDE.md` §7's row for it. This is a boundary on the work rather
+   than a question still open inside it, and reopening it is a decision recorded beside ADR-0031.
+
+**Done when:** `fl_frontend/package.json`'s two scripts pass `--cache`, eslint's passes
+`--cache-strategy content` with it, and `fl_frontend/.gitignore` carries the line for eslint's cache
+file that it has none for today (2026-08-12). **One consequence lands with it and belongs beside the
+change**: a cache means the gate writes an untracked file into the working tree on every run.
+`.claude/CLAUDE.md`'s rule that no formatter the gate runs writes a _tracked_ file still holds, and
+`docs/ops/spec.md` §1.6 is where the note goes.
+
+**A second lever sits on the same eslint step and is worth taking in the same sitting**: eslint
+9.39.5 takes `--concurrency` as a first-class flag under flat configuration,
+`fl_frontend/eslint.config.mjs` declares no `project` or `projectService` so the configuration is not
+type-aware and a worker parses independently, and `auto` measured 13.8 s against 23.4 s uncached on
+that same sixteen-core machine on 2026-08-12. That is not the CI figure and must not be read as one —
+a standard GitHub-hosted runner has four cores, where worker startup and plugin loading can spend the
+whole win, so the flag is kept only if three CI runs beat the recorded baseline.
+
+### 18 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
+
+**Status:** Open\
+**Surfaces:** Ops, Docs\
+**Effort:** S\
+**Path:** Independent, and **ranked provisionally** on OPS-19's terms. **A rider on the next
+`scripts/docs_gate/` change** rather than a change of its own, on the measurement below.
+
+**`scripts/docs_gate/kernel.py :: comment_style` picks one comment reader per file, by suffix, and
+cannot switch languages inside a file.** A `.sh` file gets the `#` reader and everything downstream
+inherits it — `:: comments_only`, `:: _scan_body`, and `:: branch_additions`, which indexes into the
+scanned body by line number, so a `//` line lands on an empty position and drops out. The content is
+not shortened, it is absent. That same reader takes `.conf`, `.yml`, `.yaml`, `.toml` and any file
+with no suffix at all, `Dockerfile` included.
+
+**Measured on 2026-08-12 rather than reasoned.** Thirty-six tracked files reach the `#` reader; ten
+carry a non-URL `//`; six of those are `.claude/hooks/*.sh` with genuine embedded JavaScript, and
+they hold 43 `//` comment blocks no gate check has ever read. Over this branch's own diff, **every
+`//` comment line added to `.claude/hooks/guard-branch-bash.sh` is absent from `branch_additions`**.
+That one carries no figure on purpose: the file is still being edited, so a count taken today is
+wrong by merge. Re-take it by diffing the file against the fork point and comparing its `//` lines
+against what `branch_additions` returns.
+
+**The citation half is the sharper one and has to be named on its own.** `check_added_citations`
+(INC-6) sees none of that region, so an `ADR-NNNN` written inside one of those blocks can dangle
+**silently and permanently** — nothing resolves it on a branch, and nothing resolves it in a standing
+sweep either. There is one live reference today: `.claude/hooks/guard-branch-bash.sh` cites ADR-0060
+inside a `//` comment. It happens to resolve; nothing in the repository is checking that it still
+does, and nothing would notice when it stops.
+
+**The length half is the loud one, which is why it ranks under the other.** A breach is harmless
+until it is found and obvious once it is: `check_comment_length` (INC-9) has never measured those 43
+blocks, and one is already over — `.claude/hooks/docs-rules-index.sh`'s containment remark, four
+lines and 328 characters against caps of three and 250. `check_history_phrases` (COR-3) and
+`check_counts` (COR-4) are blind in the same region for the same reason.
+
+**This sits outside ADR-0030's accepted boundary, and not marginally.** That decision governs
+`scripts/check_scope.py`'s scope classifier, and every limit it accepts errs toward _more_ checking:
+what no parser can prove is code, so the full gate is demanded. Here unreadable means checked by
+nothing and reported as nothing — a different module, a different check family, and the opposite
+failure direction, so nothing in ADR-0030 can be cited to accept it.
+
+**What the change has to be scoped for.** INC-6's `Enforced by` names its checks over every tracked
+TypeScript, JavaScript, Python and shell file, and for the embedded-JavaScript region of a shell file
+that claim is false — a field claiming _more_ than the gate delivers, where DOC-2 records the
+opposite direction. Teaching the shell reader to take `//` runs beside `#` runs is the expected fix.
+The honest alternative is amending INC-6's `Enforced by` to say where its checks stop. **The outcome
+to avoid is the third one** — leaving both the silence and the enforcement claim standing, which is
+how the next dangling citation gets written into the one place a reader trusts most.
+
+**What teaching the reader would newly raise is one advisory, not forty-three**, which is what makes
+this a rider rather than its own change. Measured on 2026-08-12 by running the real checkers over a
+body carrying only the `//` text of all ten files: ADR resolution, rule-id, citation, line-citation,
+bare-path and voice raise **nothing**, because the `//` blocks are clean and every ADR in them
+resolves; COR-3's `check_history_phrases` raises nothing; and COR-4's `check_counts` raises **one
+advisory over three lines**. The reason is structural rather than lucky — COR-3, COR-4 and
+`check_comment_length` all read `branch_additions`, so they cannot fire on a line no branch added,
+and the over-length block named above surfaces only when somebody rewrites it. The earlier estimate
+of all 43 blocks at once was wrong by two orders, and it was the only argument for doing this alone.
+
+### 19 · OPS-56 — The git subcommand stepper reads one `git`, on one line
+
+**Status:** Open\
+**Surfaces:** Ops\
+**Effort:** S\
+**Path:** Independent, and **ranked provisionally** on OPS-19's terms. One expression carries both
+halves below, so they are one repair and one re-measurement of `scripts/selfcheck.sh` step 13.
+
+**The stepper the two bash guards share opens on `${padded#*[ /]git?(.exe) }`, and that one
+expression is short on two axes at once.** It strips to the **earliest** occurrence of the program
+and reads the word after it, so a second `git` later in the same command is never looked at. And its
+delimiter class holds a space and a slash but **no newline**, so a `git` beginning a second line is
+not the `git` the strip looks for at all: `tr -s ' \t' ' '` collapses runs of spaces and tabs ahead
+of it and leaves every other whitespace byte alone. Either way no subcommand is read, and no other
+arm of the shared block has anything to match. That block is byte-identical in
+`.claude/hooks/guard-branch-bash.sh` and `.claude/hooks/guard-standard-bash.sh` (ADR-0067), so both
+guards lose the same thing.
+
+**Measured 2026-08-12 by driving both hooks against a throwaway repository whose HEAD is `main`, and
+reproduced independently the same day.** On each axis, all thirteen shapes the stepper's own table
+names — its twelve subcommands, plus `checkout` with a pathspec — are released in both the plain and
+the `.exe` spelling, twenty-six probes of twenty-six each time. The rows worth reading are the
+ordinary ones:
+
+```
+allowed   git add -A && git commit -m x
+allowed   git status && git reset --hard
+allowed   git fetch && git rebase main
+allowed   cd fl_backend\ngit commit -am wip
+allowed   set -e\ngit reset --hard
+allowed   echo one\necho two\ngit commit -am wip
+denied    git reset --hard
+denied    git commit -am wip && git status
+denied    ls && git commit -am wip
+denied    git commit -am wip\necho done
+```
+
+**The four denials are the controls, and each closes a different explanation.** The write refuses
+alone. It refuses when it is the first `git` rather than the second, so what the occurrence axis
+moves is which `git` is read. **Only a `git` shadows a `git`** — `ls && git commit -am wip` and
+`cat notes.md && git commit -am wip` are both denied, because the strip lands on the real one — so
+the leading command has to be git itself carrying a subcommand off the write table, which makes
+`git status &&`, `git log &&`, `git diff &&` and `git fetch &&` the reachable prefixes rather than
+any chain at all. And with the write on the first line the stepper finds it, so what the delimiter
+axis moves is position rather than content.
+
+**What this releases is not an exotic spelling.** `git add -A && git commit -m x` is the most
+ordinary two-command shape there is, and `git status && git reset --hard` runs the one command
+`.claude/CLAUDE.md` §2 names as never to be run. The branch ruleset is not the control behind it
+either: that blocks the _push_, while what escapes here is local destruction of the working tree —
+`git reset --hard`, `git clean -fd`, `git stash`, `git checkout -- <path>` — which no ruleset covers.
+
+**A tab does not do this, and the difference says where the delimiter boundary is.** `echo start`, a
+tab, and `git commit -am wip` is denied, because `tr` has already turned that tab into a space; a
+carriage return is squeezed by nothing and behaves as the newline does. The class is short by
+exactly the whitespace `tr` does not reach.
+
+**On the standard guard both shapes hide a write into `docs/_standard/`, and that guard already
+disagrees with itself about the newline.** Its interpreter arm is spelled with `[[:space:]]`, which a
+newline satisfies, and the stepper above it is not:
+
+```
+asked     echo start\npython restamp.py docs/_standard/rules-index.md
+allowed   echo start\ngit checkout -- docs/_standard/rules-index.md
+allowed   git status && git checkout -- docs/_standard/rules-index.md
+```
+
+That guard runs on **every** branch, so neither half of this finding is bounded by `main`.
+
+**Why it is filed rather than already fixed, and why as one entry.** The delimiter half is a
+character-class edit, `[ /]` to `[[:space:]/]`, and it makes the standard guard's two arms agree. The
+occurrence half is a walk over every occurrence in place of one strip — more code in a block that has
+to stay byte-identical across two guards. Both sit inside the sentinel block `scripts/selfcheck.sh`
+step 9 byte-compares, so each lands in both guards or in neither, and both move verdicts, so step
+13's matrix is a re-measurement afterwards rather than a re-run. **Repairing them apart would measure
+that matrix twice for one line of code**, which is why they are one entry.
+
+**A sibling of OPS-29** — each a control reading one spelling of a thing that has several. The
+distinction to hold on to is that the subcommand table here is complete and the stepper never
+reaches it, which is the opposite of a guard whose vocabulary is genuinely short of a shape.
+
+### 20 · OPS-60 — The gate's wall clock is one scope, and that scope runs serially
+
+**Status:** Open**Surfaces:** Ops**Effort:** M**Path:** Independent. Its own branch — it touches the pool manifest, which carries the exit
+contract.
+
+**A parallel pool can never finish faster than its slowest member, and eight of the gate's nine
+sections already fit inside the ninth.** Measured on 2026-08-12 at the full form with images:
+scope 4.0s, **scripts 86s**, docs 12s, backend 17s, format 45s, frontend 57s, ops 2.8s, db 24s,
+images 9.1s — 257s of scope-time in **91s** of wall clock, a 2.8x speedup, and only five seconds
+more than `scripts` alone. **Parallelism is done; the remaining lever is inside one scope.**
+
+**Where the 86s sits**, same run: `selfcheck` **52s**, `pytest` **30s**, pyright 2.4s, ruff 0.4s.
+Both large halves are serial by construction — `selfcheck` drives 218 guard probes one at a time,
+each spawning a shell, and the fixture net builds a throwaway git repository per case.
+
+**Three levers, in descending measured value:**
+
+- **Batch or parallelise the probe table.** The largest single cost, and the probes are independent
+  by design.
+- **Run the fixture net across cores.** `pytest-xdist` is the standard answer; the risk is that two
+  workers write the same scratch repository, so isolation has to be proved rather than assumed.
+- **Split `scripts` into two pool members**, so its halves run concurrently instead of in sequence.
+
+**The estimate is half a day, and most of it is not the code.** Any change to how the probes execute
+must prove no verdict moved: 218 probes, a before-baseline, a verdict-set diff, and a required zero.
+`scripts/selfcheck.sh` also owns the four-code exit contract's classifier, so splitting the scope
+re-opens ADR-0066's eleven measured rank/finding/exit combinations.
+
+**What it buys, and what it does not.** Taking `scripts` to roughly 55s takes the whole gate to
+about 60s, at which point `frontend` at 57s becomes the new floor and the next lever is `next
+build`. **OPS-19's linter cache buys nothing on wall clock** — it targets `format` at 45s, which is
+already hidden inside `scripts`.

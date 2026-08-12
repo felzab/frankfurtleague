@@ -2,8 +2,9 @@
 TEMPLATE — copy to docs/_decisions/<NNNN>-<short-slug>.md; delete this block.
 Rules: ../chapters/4-decisions.md
   - Apply DEC-1's trigger test first; if it fails, this is documentation, not an ADR.
-  - An accepted ADR is never rewritten. Reversal is the next number plus two line edits here
-    (Status, Superseded by). Numbers are never reused, and only an ADR that exists may be cited.
+  - A merged ADR is never rewritten; before the merge, a repair is stated in the commit body.
+    Reversal is the next number plus two line edits here (Status, Superseded by). Numbers are
+    never reused, and only an ADR that exists may be cited.
 -->
 
 # ADR-\<NNNN\> — \<the decision, as a short statement, not a question\>
