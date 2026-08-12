@@ -31,7 +31,7 @@ import tomllib
 from pathlib import Path
 from typing import Final
 
-from checker_kernel import DEFAULT_BASE, EXIT_OK, REPO_ROOT, Finding, git, report_findings, resolve_base, run
+from checker_kernel import DEFAULT_BASE, EXIT_OK, EXIT_REFUSED, REPO_ROOT, Finding, git, report_findings, resolve_base, run
 
 # In the order verify.sh runs them. The set is `scripts/ci_scopes.sh`'s to change: a scope it emits
 # and this does not is a surface nobody is told about, the one drift a second list can still cause.
@@ -256,10 +256,24 @@ def main() -> int:
 
     base = resolve_base()
     if base is None:
-        print(f"      no merge base with {DEFAULT_BASE} -- this run was not checked against the diff")
-        return EXIT_OK
+        # Refused, not green (ADR-0066): this checker's only question is about the diff, so with no
+        # base it judged nothing. `check_docs.py` answers an advisory instead, because its
+        # branch-scoped checks are one slice of a run that judged the corpus anyway.
+        print(f"      no merge base with {DEFAULT_BASE} -- this run was not checked against the diff.")
+        print(f"      A single-branch clone fetches no base. Add it:  git remote set-branches --add origin {DEFAULT_BASE}")
+        print(f"                                                      git fetch origin {DEFAULT_BASE}")
+        return EXIT_REFUSED
 
-    code = report_findings(check(base, ran))
+    findings = check(base, ran)
+    if findings is None:
+        # Refused, not green (ADR-0066): the mapping is the only thing that knows which scopes this
+        # diff asks for, so a run that could not read the diff or launch it judged nothing.
+        print("      the diff could not be read, or scripts/ci_scopes.sh could not be run --")
+        print("      this run was not checked against the branch. bash is what runs it;")
+        print("      on Windows it ships with Git.")
+        return EXIT_REFUSED
+
+    code = report_findings(findings)
     if code != EXIT_OK:
         print("\n      The rule is CLAUDE.md, The gate. Why images fails where the rest report: ADR-0030.")
     return code

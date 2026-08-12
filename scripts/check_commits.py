@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from checker_kernel import DEFAULT_BASE, EXIT_FINDINGS, EXIT_OK, Finding, exit_code, failures, git, reports, resolve_base, run
+from checker_kernel import DEFAULT_BASE, EXIT_FINDINGS, EXIT_OK, EXIT_REFUSED, Finding, exit_code, failures, git, reports, resolve_base, run
 
 SUBJECT_TARGET: Final = 72  # reported: where GitHub truncates a title in a list view
 LINE_MAX: Final = 100  # failed: past here nothing wrapped the line at all
@@ -298,8 +298,13 @@ def main() -> int:
 
     base = resolve_base(args.base)
     if base is None:
-        print(f"      nothing here is named {args.base} or origin/{args.base} -- no commit message was checked")
-        return EXIT_OK
+        # Refused, not green (ADR-0066): every commit this reads is named by the base, so with none
+        # it judged nothing. `--message-file` returns above and never reaches here, which keeps the
+        # commit-msg hook working on a clone that has no base ref.
+        print(f"      nothing here is named {args.base} or origin/{args.base} -- no commit message was checked.")
+        print(f"      A single-branch clone fetches no base. Add it:  git remote set-branches --add origin {args.base}")
+        print(f"                                                      git fetch origin {args.base}")
+        return EXIT_REFUSED
 
     commits = branch_commits(base)
     if commits is None:
