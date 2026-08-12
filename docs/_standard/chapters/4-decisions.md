@@ -1,6 +1,6 @@
 # Decisions
 
-**Verified against:** `7555ecd`, 2026-08-10\
+**Verified against:** `a5c1085`, 2026-08-12\
 **Applies to:** `docs/_decisions/` — every ADR, and the index beside them.
 
 | ID    | Rule                 |
@@ -85,8 +85,11 @@ readers, so the only route to a rewrite is one that leaves its own record on thi
 
 **Exceptions:** the mechanical class above; the two-line edit of DEC-6; the concision rewrite of
 every ADR (approved 2026-08-09); the compaction of the numbering to a contiguous `0001`–`0059`
-(approved 2026-08-09); and ADR-0012's Consequences pointer, rewritten because dissolving
-`docs/ops/runbooks.md`'s duplicated half collapsed the claim it made (approved 2026-08-10).
+(approved 2026-08-09); ADR-0012's Consequences pointer, rewritten because dissolving
+`docs/ops/runbooks.md`'s duplicated half collapsed the claim it made (approved 2026-08-10); and the
+narrowing of ADR-0041's and ADR-0049's confirmation clauses to the save, the scope their own
+justifications already carry, because `ConfirmDiscardModal` predates ADR-0041 and every page-owned
+editor renders it (approved 2026-08-12).
 
 **Enforced by:** unenforced — review judgment.
 
