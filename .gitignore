@@ -1,15 +1,12 @@
 
-# TLS certificates. Mounted read-only into nginx from ./certs on the server (docker-compose.yml).
-# The directory does not exist in a development checkout -- this is here so that a private key can
-# never be committed by someone who creates it locally. Nothing in this repository should ever
-# contain one.
+# nginx mounts ./certs read-only on the server (docker-compose.yml); a development checkout has
+# no such directory. The rule is here for whoever creates one locally -- a private key must never
+# be committable from this repository.
 certs/
 
-# The rest of the credential shapes, ignored tree-wide rather than per package. This is the list
-# .claude/settings.json denies to the Read, Write and Edit tools, mirrored here because those tools
-# are not the only route into a commit: a file dropped by a shell command, an installer or an
-# external editor is git's problem alone. Unanchored on purpose -- a private key is a private key
-# wherever it lands, and the two package directories are not the only places one can land.
+# Mirrors the deny list in .claude/settings.json, because those tools are not the only route into
+# a commit -- a shell command, an installer or an external editor is git's problem alone.
+# Unanchored: a private key is one wherever it lands.
 .env*
 *.pem
 *.key
@@ -27,31 +24,23 @@ credentials.json
 kubeconfig
 secrets/
 
-# Where this list deliberately stops. It covers the private-key and keystore CONTAINERS (PEM, DER's
-# certificate spellings, PKCS#8 and PKCS#12 under both their extensions) and OpenSSH's three default
-# private-key names, because those are the shapes that leak a secret by being committed. It does not
-# chase public material (a .pub, a .csr, a certificate chain), files that live in $HOME rather than a
-# repository, or names too generic to pattern without swallowing real source -- `token`, `auth`,
-# `config`. A shape outside this list is a deliberate omission, not an oversight; widen it here.
+# Where the list stops, deliberately: private-key and keystore containers plus OpenSSH's default
+# key names -- the shapes that leak by being committed. Not public material, not $HOME files, not
+# names too generic to pattern. Widen it here.
 
-# Not a key file but a config file that grows one: a registry auth token lands here the moment
-# anyone runs `pnpm login` or `npm config set //registry…:_authToken`, and the file is otherwise
-# unremarkable enough to be committed without a second look. No .npmrc is tracked, so nothing is
-# hidden by this -- a deliberate one would need `git add -f` and a reason.
+# Not a key file but one that grows a key: a registry auth token lands here on `pnpm login`, in a
+# file unremarkable enough to commit without a second look. No .npmrc is tracked, so this hides
+# nothing -- a deliberate one needs `git add -f`.
 .npmrc
 
-# The throwaway directories the gate builds and reclaims: .tmp-nginx-check (scripts/verify.sh) and
-# .tmp-scope-fixtures / .tmp-hook-fixtures (scripts/selfcheck.sh). An EXIT trap does not run on
-# Ctrl-C, so an interrupted run leaves one behind, and an unignored leftover counts as an untracked
-# change that matches no scope arm -- the next scoped run then refuses, naming fixture files as the
-# reason an image was not rebuilt. Ignoring them holds for SIGKILL too, which no trap survives, and
-# it is also what lets guard-branch-bash.sh release the fixture writes on main: that exemption asks
-# git whether a path is ignored and untracked (ADR-0060).
+# Fixture directories scripts/verify.sh and scripts/selfcheck.sh build; their EXIT trap misses
+# Ctrl-C and SIGKILL. Unignored, a leftover is an untracked change the next scoped run refuses
+# over, and one guard-branch-bash.sh denies on main (ADR-0060).
 .tmp-*/
 
-# Docker Desktop on Windows creates these when a bind-mount path is mangled by
-# Git Bash MSYS path conversion (":" separators become ";C:\..."). Empty and useless.
-# Prevent them by prefixing a hand-typed bind mount with MSYS_NO_PATHCONV=1, per CLAUDE.md §5.
+# Docker Desktop on Windows creates these when Git Bash MSYS conversion mangles a bind-mount path
+# (":" separators become ";C:\..."). Empty and useless. Prevent one by prefixing a hand-typed
+# bind mount with MSYS_NO_PATHCONV=1, per CLAUDE.md §5.
 *;C
 *;C/
 
@@ -59,29 +48,25 @@ secrets/
 # this file is the per-developer override and must never be committed.
 .claude/settings.local.json
 
-# Nested git worktrees. A parallel session may put its checkout inside this repository, and each
-# one is a whole second tree -- node_modules, .next, .venv and all. Git keeps them out through
-# .git/info/exclude today, which is machine-local and absent from a fresh clone, so the first
-# session to create one there would see the entire checkout as untracked changes.
+# A parallel session may put its git worktree inside this repository -- a whole second tree, with
+# its own node_modules and .venv. .git/info/exclude is machine-local, absent from a fresh clone,
+# so without a tracked rule that tree reads as untracked.
 .claude/worktrees/
 
-# Python bytecode. scripts/ holds plain scripts that are normally run, not imported, so this only
-# fills when something imports one -- a test harness, or a REPL. Either way it is a build artifact
-# and one was committed once.
+# Python bytecode. scripts/ holds scripts that are run rather than imported, so this fills only
+# when something imports one -- a test harness, or a REPL. A build artifact either way.
 __pycache__/
 *.pyc
 
-# Tool caches, at every level they appear: the gate runs ruff and pytest from the root, from
-# scripts/ and from fl_backend/, and each working directory grows its own. Both tools also write a
-# .gitignore inside the cache, which is why none of these has ever surfaced -- this does not rest
-# on a tool continuing to do that.
+# The gate runs ruff and pytest from the root, from scripts/ and from fl_backend/, and each
+# working directory grows its own cache. Both tools write a .gitignore inside one; coverage here
+# does not rest on their continuing to.
 .pytest_cache/
 .ruff_cache/
 
-# Audit working documents (pass reports, remediation ledger, wave reports). Local-only by design:
-# the repo is public, and committing them would publish unfixed findings while they are being
-# remediated. The permanent record of a finished programme lives in docs/_auditing/reports/.
-# Ignored but not secret material -- CLAUDE.md §1 carves this path out, and .vscode/ with it.
+# Audit working documents, local-only by design: the repo is public and these carry findings not
+# yet fixed. A finished programme's permanent record is docs/_auditing/reports/. Ignored but not
+# secret -- CLAUDE.md §1 carves this path out.
 docs/audit/
 
 # Editor settings -- personal preference, and nothing in the toolchain reads them.

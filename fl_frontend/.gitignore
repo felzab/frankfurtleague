@@ -1,6 +1,6 @@
-# Installed dependencies and the build output, anchored to this directory: a `node_modules` or
-# `.next` deeper in the tree would be someone's source, not an artifact. The standalone output
-# next.config.ts asks for is written inside .next/, so it needs no rule of its own.
+# Anchored to this directory: a `node_modules` or `.next` deeper in the tree would be someone's
+# source, not an artifact. The standalone output next.config.ts asks for is written inside .next/,
+# so it needs no rule of its own.
 /node_modules
 /.next/
 

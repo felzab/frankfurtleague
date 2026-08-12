@@ -1,19 +1,15 @@
 # BACKEND · what must not enter the build context
 #
-# Short and hand-kept on purpose: everything in fl_backend/ that is NOT listed here reaches the
-# image, because the runner copies the context wholesale. This list reads as an answer to "what does
-# the image contain?". Add a line when something new here is a secret, a machine-local artifact, or
-# a file nothing at run time reads.
-#
-# `**/` on anything that can appear at any depth: a bare pattern matches the context root ALONE, so
-# `__pycache__/` would leave app/**/__pycache__ in the image. `**/` matches zero directories too, so
-# the root copy is covered by the same line.
+# Short and hand-kept on purpose: everything in fl_backend/ not listed here reaches the image,
+# because the runner copies the context wholesale, so this list answers "what does the image
+# contain?". Add a line when something here is a secret, a machine-local artifact, or a file
+# nothing at run time reads. `**/` where a name can appear at any depth: a bare `__pycache__/`
+# matches the context root alone and would leave app/**/__pycache__ in the image, while `**/`
+# also matches zero directories, so the root copy needs no second line.
 
-# Credentials, matched by shape rather than by inventory: each rule holds whether or not anything
-# matches it right now, because a credential that reaches an image is a failure nobody sees until
-# the image has shipped. The containers take their environment from compose's env_file at run time.
-# The same rules are kept in every `.dockerignore` in the repository, so no build context here is
-# the weaker one.
+# Matched by shape, not inventory: a rule holds whether or not anything matches it now, because
+# a credential inside an image is a failure nobody sees until it ships. Kept identically in every
+# `.dockerignore` here, so no build context is weaker.
 **/.env
 **/.env.*
 **/*.pem
