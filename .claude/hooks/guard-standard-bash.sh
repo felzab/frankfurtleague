@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# PreToolUse hook on Bash — a shell command that WRITES into docs/_standard/ asks the owner first,
-# on every branch.
+# PreToolUse hook on Bash and PowerShell — a shell command that WRITES into docs/_standard/ asks
+# the owner first, on every branch.
 #
 # WHY THIS EXISTS SEPARATELY FROM guard-standard-edit.sh AND guard-branch-bash.sh:
 #   guard-standard-edit.sh puts the owner's question on screen when Edit, Write or NotebookEdit
@@ -30,10 +30,11 @@
 #
 # DELIBERATE DIFFERENCES FROM guard-branch-bash.sh, whose write/read distinction is otherwise copied
 # verbatim so the two guards never disagree about what counts as a write:
-#   - An interpreter is a write shape here and not there. The cost of a wrong guess differs: here it
-#     is one prompt on a command that already names the standard, there it would be a refusal of
-#     every `python scripts/check_docs.py` on `main`. Widening a QUESTION is monotonic in a way that
-#     widening a REFUSAL is not.
+#   - An interpreter, and PowerShell's write cmdlets, are write shapes here and not there. The cost
+#     of a wrong guess differs: here it is one prompt on a command that already names the standard;
+#     there it would refuse every `python scripts/check_docs.py` on `main`, and refuse the
+#     gitignored write on `main` that guard-branch-powershell.sh exists to keep granting. Widening a
+#     QUESTION is monotonic in a way that widening a REFUSAL is not.
 #   - No exemption at all. There, a command is released when every path-like token lands outside the
 #     working tree or on a gitignored untracked path inside it, so work can land while `main` is
 #     protected. Here the question is whether a write can reach the standard on ANY branch, and a
@@ -147,11 +148,24 @@ esac
 # where refusing is not, so it counts here alone — its own flag, outside the block the branch guard
 # shares.
 interpreter=0
+# One pattern, not a list: every name carries the same optional Windows tail. python.exe, node.exe
+# and pnpm.cmd all resolve here and name what the bare spelling names, as on the in-place arm above.
+interp_names='python3?|node|bash|sh|perl|ruby|deno|bun|uvx?|npx|pnpm|npm|yarn|make|xargs|env'
+if [[ "$padded" =~ [[:space:]]($interp_names)(\.exe|\.cmd|\.bat)?[[:space:]] ]]; then interpreter=1; fi
+
+# PowerShell's write cmdlets, on the interpreter flag for its reason: the matcher reaches this hook
+# on both shells, none of these is POSIX, and asking is cheap. Matched case-blind, which is how
+# PowerShell binds a cmdlet name.
+shopt -s nocasematch
+# A cmdlet name never follows a letter, so demanding a non-letter ahead of it keeps `asset-content`
+# from reading as `Set-Content` and stops `Move-Item` swallowing `Remove-Item`.
 case "$padded" in
-  *" python "* | *" python3 "* | *" node "* | *" bash "* | *" sh "* | *" perl "* | *" ruby "* | \
-  *" deno "* | *" bun "* | *" uv "* | *" uvx "* | *" npx "* | *" pnpm "* | *" npm "* | *" yarn "* | \
-  *" make "* | *" xargs "* | *" env "*) interpreter=1 ;;
+  *[!a-z]"Set-Content"* | *[!a-z]"Add-Content"* | *[!a-z]"Clear-Content"* | \
+  *[!a-z]"Out-File"* | *[!a-z]"New-Item"* | *[!a-z]"Copy-Item"* | *[!a-z]"Move-Item"* | \
+  *[!a-z]"Rename-Item"* | *[!a-z]"Remove-Item"* | *[!a-z]"Export-Csv"* | \
+  *[!a-z]"Tee-Object"* | *[!a-z]"WriteAll"* | *[!a-z]"AppendAll"*) interpreter=1 ;;
 esac
+shopt -u nocasematch
 
 [ "$writes" = "1" ] || [ "$interpreter" = "1" ] || exit 0
 
@@ -177,6 +191,10 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
 
   const standard = path.resolve(strip(process.env.REPO_ROOT), "docs", "_standard");
 
+  // PowerShell binds a value with a colon, which the split below leaves glued to its flag. The
+  // leading dash is what keeps a drive letter out: C:/x is a path, not a bound parameter.
+  const BOUND = /^-+[A-Za-z][A-Za-z0-9-]*:/;
+
   // Whitespace and shell metacharacters end a candidate, so a path buried in inline python code, an
   // --option=value pair or a spaceless redirect still surfaces on its own. Quotes are REMOVED, not
   // split on: neither half of a quoted path is a path.
@@ -184,6 +202,8 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
     .split(/[\s;|&<>(),=]+/)
     // A backslashed quote goes first: the backslash left behind resolves somewhere else entirely.
     .map((t) => t.replace(/\\[\x22\x27\x60]/g, "").replace(/[\x22\x27\x60]/g, ""))
+    // The flag is kept beside its value: only ADDING a candidate can turn an allow into an ask.
+    .flatMap((t) => (BOUND.test(t) ? [t, t.replace(BOUND, "")] : [t]))
     .filter(Boolean);
 
   // Per candidate, the containment answer from guard-standard-edit.sh: empty means the candidate
