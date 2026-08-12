@@ -71,7 +71,10 @@ AI_SIGNATURE: Final = re.compile(
 # below -- the evidence, where a subject alone is ten typed characters. A merge needs neither:
 # --no-merges covers the gate, MERGE_HEAD the hook.
 GENERATED_SUBJECT: Final = re.compile(r'^(?:Revert|Reapply) ".+"$')
-GENERATED_BODY: Final = re.compile(r"^This reverts commit [0-9a-f]{7,40}\.", re.MULTILINE)
+# git closes the sentence with a period for an ordinary commit and with ", reversing" for a merge.
+# Every change here reaches main through a merge commit, so reverting one is routine and both
+# endings are the marker.
+GENERATED_BODY: Final = re.compile(r"^This reverts commit [0-9a-f]{7,40}[.,]", re.MULTILINE)
 
 # Banned outright: a trailer, an issue-closing keyword, an AI-authorship signature. The first two are
 # the convention (`docs/_git/templates.md :: Commit messages`); the third is
@@ -146,10 +149,15 @@ def comment_char() -> str:
     return configured if configured is not None and len(configured) == 1 else "#"
 
 
-def branch_commits(base: str) -> list[str]:
+def branch_commits(base: str) -> list[str] | None:
+    """The branch's non-merge commits, or None where git could not list them.
+
+    None is not an empty list: no commit is a branch with nothing on it, while a refused listing is
+    every message passing unread (ADR-0066).
+    """
     # --no-merges drops the merge commits GitHub writes; their subject is not ours to choose.
     out = git("rev-list", "--no-merges", f"{base}..HEAD")
-    return out.split() if out else []
+    return None if out is None else out.split()
 
 
 def trailer_block(message: str) -> list[str]:
@@ -186,19 +194,24 @@ def check_message(message: str, short: str, *, is_bot: bool = False) -> list[Com
     def report(detail: str) -> None:
         findings.append(CommitFinding("report", detail, short, subject))
 
-    if GENERATED_SUBJECT.match(subject) and GENERATED_BODY.search(message):
-        return []
+    # git writes a revert's subject and this repository does not choose it, so its shape and length
+    # go and nothing else does: the marker is typed in seconds, and releasing the whole message
+    # would hand the emoji, trailer and signature bans to anyone.
+    generated = bool(GENERATED_SUBJECT.match(subject) and GENERATED_BODY.search(message))
 
-    if not SUBJECT_SHAPE.match(subject):
-        fail("subject is not `Scope: what changed`")
-    elif subject.split(":", 1)[0] not in KNOWN_SCOPES:
-        report(f"scope `{subject.split(':', 1)[0]}` is not in the recorded vocabulary")
+    if not generated:
+        if not SUBJECT_SHAPE.match(subject):
+            fail("subject is not `Scope: what changed`")
+        elif subject.split(":", 1)[0] not in KNOWN_SCOPES:
+            report(f"scope `{subject.split(':', 1)[0]}` is not in the recorded vocabulary")
 
-    if len(subject) > LINE_MAX:
-        fail(f"subject is {len(subject)} characters - unreadable in every view, not just truncated")
-    elif len(subject) > SUBJECT_TARGET:
-        report(f"subject is {len(subject)} characters; GitHub truncates a title at {SUBJECT_TARGET}")
+        if len(subject) > LINE_MAX:
+            fail(f"subject is {len(subject)} characters - unreadable in every view, not just truncated")
+        elif len(subject) > SUBJECT_TARGET:
+            report(f"subject is {len(subject)} characters; GitHub truncates a title at {SUBJECT_TARGET}")
 
+    # Kept on a revert too: `Revert "..."` closes on a quote, so this costs a generated subject
+    # nothing.
     if subject.endswith("."):
         fail("subject ends in a period")
 
@@ -208,7 +221,9 @@ def check_message(message: str, short: str, *, is_bot: bool = False) -> list[Com
     body = "\n".join(lines[2:]).strip()
     if not body:
         fail("no body - a one-line commit records nothing the diff does not already show")
-    elif not is_bot:
+    # A generated revert body takes the release the bot gets: it is one line git wrote, so it records
+    # no verification and is not wrapped prose.
+    elif not (is_bot or generated):
         for raw in lines[2:]:
             if len(raw) > LINE_MAX and not UNWRAPPABLE.search(raw.strip()):
                 fail(f"a body line is {len(raw)} characters - the paragraph was never wrapped")
@@ -237,7 +252,9 @@ def check_commit(sha: str) -> list[CommitFinding]:
     """One commit's author and message from one `git show`: every commit on the branch pays this."""
     raw = git("show", "-s", "--format=%an%n%ae%n%B", sha)
     if raw is None:
-        return []
+        # Failed rather than skipped: `rev-list` named this commit, so a `git show` that will not
+        # answer is a broken object, and a message nothing read is indistinguishable from a clean one.
+        return [CommitFinding("fail", "git could not read this commit, so its message was never judged", sha[:7], "(unread)")]
     # git forbids a newline in either ident field, so the first two lines are the identity whatever
     # the message below them looks like.
     name, _, rest = raw.partition("\n")
@@ -285,6 +302,11 @@ def main() -> int:
         return EXIT_OK
 
     commits = branch_commits(base)
+    if commits is None:
+        # Refused, not green (ADR-0066): the range is what names every message this reads, so a
+        # listing git would not give is the whole branch passing unread.
+        print(f"      git could not list this branch's commits against {base[:7]} -- none was checked.")
+        return EXIT_REFUSED
     if not commits:
         print(f"      no commits on this branch against {base[:7]} -- nothing to check")
         return EXIT_OK

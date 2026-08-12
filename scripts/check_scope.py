@@ -4,7 +4,7 @@ SCRIPTS · does this gate run cover what the branch actually changed?
 Run by verify.sh as its first step, because the scope flags are chosen by whoever types them and
 nothing else reads the diff back. The rule held is CLAUDE.md's gate section: the scope covers
 every surface the branch touched, and a comment-only edit is a documentation change whatever
-file holds it. Only a missed images scope refuses; every other gap is reported — the reasoning,
+file holds it. Only a missed images scope fails; every other gap is reported — the reasoning,
 and why anything a parser cannot prove counts as code, is ADR-0030.
 
 Invariants:
@@ -43,20 +43,25 @@ PARSEABLE: Final[frozenset[str]] = frozenset({".ts", ".tsx", ".mts", ".cts", ".p
 MAX_NAMED_FILES: Final = 8  # a finding names the files; past this it says "and N more"
 
 # Named rather than spelled in the `except` line, so this module PARSES below the floor: the
-# kernel's refusal cannot print from a file that will not compile, and a SyntaxError exits 1 --
+# kernel's message cannot print from a file that will not compile, and a SyntaxError exits 1 --
 # the code a finding uses.
 CANNOT_PROVE: Final = (SyntaxError, ValueError, RuntimeError, OSError)
 UNREADABLE: Final = (OSError, UnicodeDecodeError)
 
 
-def changed_files(base: str) -> list[str]:
-    """Everything the branch changed against `base`, including what is not committed yet.
+def changed_files(base: str) -> list[str] | None:
+    """Everything the branch changed against `base`, or None where git could not answer.
 
     `git diff <base>` compares that commit to the WORKING TREE, so an edit the author has not staged
     counts - which is the point, since the gate is usually run before the commit.
+
+    None is not an empty list: no changed file is a clean branch, while a refused listing is every
+    scope complaint below passing unread (ADR-0066).
     """
-    tracked = git("diff", "--name-only", base) or ""
-    untracked = git("ls-files", "--others", "--exclude-standard") or ""
+    tracked = git("diff", "--name-only", base)
+    untracked = git("ls-files", "--others", "--exclude-standard")
+    if tracked is None or untracked is None:
+        return None
     return sorted({line.strip() for line in f"{tracked}\n{untracked}".split("\n") if line.strip()})
 
 
@@ -93,8 +98,10 @@ def typescript_same(suffix: str, old: str, new: str) -> bool:
         # The real suffix, because ts_normalize.mjs picks its script kind from the extension -- a
         # .tsx written out as .ts parses its JSX as syntax errors and the answer degrades to "code".
         old_path, new_path = Path(tmp) / f"old{suffix}", Path(tmp) / f"new{suffix}"
-        old_path.write_text(old, encoding="utf-8")
-        new_path.write_text(new, encoding="utf-8")
+        # newline="" because a Windows text stream rewrites every \n as \r\n (CLAUDE.md §6), and what
+        # the parser must see is the bytes git handed over -- a line ending is a token to a scanner.
+        old_path.write_text(old, encoding="utf-8", newline="")
+        new_path.write_text(new, encoding="utf-8", newline="")
         result = subprocess.run(
             ["node", "scripts/ts_normalize.mjs", str(old_path), str(new_path)],
             cwd=REPO_ROOT,
@@ -177,8 +184,11 @@ def named_list(paths: list[str]) -> str:
     return shown if len(paths) <= MAX_NAMED_FILES else f"{shown}, and {len(paths) - MAX_NAMED_FILES} more"
 
 
-def check(base: str, ran: set[str]) -> list[Finding]:
+def check(base: str, ran: set[str]) -> list[Finding] | None:
+    """Every scope the diff asks for and this run did not prove, or None where nothing was read."""
     files = changed_files(base)
+    if files is None:
+        return None
     if not files:
         print(f"      no changes against {base[:7]} -- nothing to scope")
         return []
@@ -189,7 +199,7 @@ def check(base: str, ran: set[str]) -> list[Finding]:
 
     required = ci_scopes(material)
     if required is None:
-        return [Finding("report", "could not run scripts/ci_scopes.sh -- this run was not checked against the diff")]
+        return None
 
     # A comment-only edit is still a documentation change, and a comment is exactly what prettier
     # reflows, so it still asks for the formatter.

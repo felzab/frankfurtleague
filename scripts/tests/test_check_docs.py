@@ -915,7 +915,7 @@ def _plant_adr_meta() -> None:
         SECOND_ADR,
         _adr("0002", "A record whose values are wrong")
         .replace("**Status:** Accepted\\", "**Status:** Perhaps\\")
-        .replace("**Date:** " + STAMP_DATE + "\\", "**Date:** the tenth\\")
+        .replace("**Date:** " + STAMP_DATE + "\\", "**Date:** a Tuesday\\")
         .replace("**Supersedes:** —\\", "**Supersedes:** an earlier one\\")
         .replace("**Source:** Decided while rebuilding the gate.", "**Source:**"),
     )
@@ -947,6 +947,15 @@ def _plant_unreadable() -> None:
 
 
 def _plant_header_see() -> None:
+    """One dead path per shape of what FOLLOWS it, the token being the entry's first word.
+
+    The em dash is the template's spelling and carries the ordinary entry; the bare one has nothing
+    after the path at all, so a reader requiring a separator drops it; the colon is a separator no
+    list of dashes holds, with the path backticked so the strip is exercised; and the last carries
+    COR-6's anchor, which a dash reader takes whole and then drops for want of a suffix. Every path
+    is package-relative, the spelling `bare-path` and `path` each leave alone: written with a
+    top-level prefix each entry would fail twice and this case could not say which check spoke.
+    """
     _replace(
         SAMPLE,
         QUOTES + "BACKEND · a sample module the corpus scans." + QUOTES,
@@ -954,7 +963,10 @@ def _plant_header_see() -> None:
             QUOTES + "BACKEND · a sample module the corpus scans.",
             "",
             "See:",
-            "- app/gone.py — a file that is not there",
+            "- app/gone-em.py — a file that is not there",
+            "- app/gone-bare.py",
+            "- `app/gone-colon.py` : a file that is not there",
+            "- app/gone-cited.py :: a symbol — a file that is not there",
             QUOTES,
         ).rstrip("\n"),
     )
@@ -1215,8 +1227,8 @@ CASES: Final[tuple[Case, ...]] = (
     Case("counts", _reports("counts", NOTES, SAMPLE), _plant_counts),
     Case("enforced-by", _fails("enforced-by", CORE), lambda: _replace(CORE, "`citation` and `path`", "`no-such-check`", restamp=True)),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
-    Case("header-see", _fails("header-see", SAMPLE), _plant_header_see),
-    Case("history", _reports("history", BRANCH_DIFF), lambda: _append(NOTES, "This page previously said otherwise.")),
+    Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
+    Case("history", _reports("history", BRANCH_DIFF), _plant_history),
     Case("inputs", _fails("inputs", ROADMAP), lambda: _delete(ROADMAP)),
     Case(
         "invariant-id",
