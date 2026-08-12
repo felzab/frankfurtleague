@@ -1,6 +1,6 @@
 # Git — spec
 
-**Verified against:** `bbb5182`, 2026-08-12\
+**Verified against:** `ece1382`, 2026-08-12\
 **Scope:** branching, commits, pull requests, the verification gate, and the GitHub settings that enforce them
 
 | Section                                                | Answers                                                                    |

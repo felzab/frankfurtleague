@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `bbb5182`, 2026-08-11\
+**Verified against:** `ece1382`, 2026-08-12\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
