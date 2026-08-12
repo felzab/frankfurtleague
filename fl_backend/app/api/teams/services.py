@@ -8,7 +8,7 @@ remaining result can change (ADR-0035) — pure throughout. A team document is s
 that season's `spiele` on every read — caching or storing it is ADR-0019 reversed.
 
 Invariants:
-- A match counts exactly when it carries an `ergebnis`; `is_canceled` is not consulted — forfeits count.
+- A match counts exactly when it carries an `ergebnis`; a forfeit also counts as called off, and no scored figure reads `is_canceled`.
 - `elfmeterschiessen` is not consulted either: penalties are a draw for every figure here (ADR-0036).
 - `statistik_scope` picks the matches and defaults to the Gruppenphase (ADR-0022).
 - The pipeline takes an `FLSaisonRules` — points come from the season's own rules (ADR-0019).
@@ -32,10 +32,34 @@ from app.shared.schemas.custom import CustomObjectId
 SPIELE_COLLECTION_NAME = "spiele"
 AS_NAME = "saison_data"
 STATISTIK_AS_NAME = "statistik_data"
+ABSAGE_AS_NAME = "absage_data"
+ABSAGE_COUNT_NAME = "anzahl"
 
 # What a team whose season holds no counting match gets. Derived from the model rather than written
 # out, so a field added to FLTeamStatistik cannot be forgotten here and fail response validation.
 ZERO_STATISTIK: Mapping[str, int] = {field_name: 0 for field_name in FLTeamStatistik.model_fields}
+
+# This team on either side of a fixture, for a `$lookup` whose `let` binds `team_oid`.
+_IS_THIS_TEAM_IN_SLOT_ONE: Mapping[str, Any] = {"$eq": ["$team1.team_id", "$$team_oid"]}
+
+
+def _fixtures_of_this_team(saison_id: str, scope: FLTeamStatistikScope) -> dict[str, Any]:
+    """
+    The season's fixtures this team appears on either side of, narrowed to the requested scope.
+
+    Shared by the `$lookup` stages below so the scope rule (ADR-0022) has one implementation: every
+    figure derived per team has to answer for the same set of matches, and a hand-written `$match` per
+    stage is another place for a phase filter to be forgotten. What each lookup adds is its own rule.
+    """
+
+    return {
+        "saison_id": saison_id,
+        # The phase rule (ADR-0022). Absent under "gesamt" rather than negated: no `saison_phase`
+        # value means "any", and an `$in` over every phase would need widening by hand the day one
+        # is added.
+        **({"saison_phase": "gruppenphase"} if scope == "gruppenphase" else {}),
+        "$expr": {"$or": [_IS_THIS_TEAM_IN_SLOT_ONE, {"$eq": ["$team2.team_id", "$$team_oid"]}]},
+    }
 
 
 def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
@@ -43,7 +67,9 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
     The `$lookup` deriving one team's seven statistics from the season's matches (ADR-0019).
 
     A match counts exactly when it carries an `ergebnis`. `is_canceled` is deliberately not consulted:
-    a cancelled match with a result is a forfeit, and a forfeit counts.
+    a cancelled match with a result is a forfeit, and a forfeit counts. Within the aggregation the flag
+    decides `build_absage_lookup_stage`'s count and nothing else; the certainty walk further down this
+    module reads it in Python, for the different question of which fixtures are still to come (ADR-0035).
 
     **`elfmeterschiessen` is not consulted either, and that is the same kind of deliberate omission.** A
     knockout settled on penalties is a DRAW here -- one point each, one entry in `unentschieden`, and
@@ -58,10 +84,6 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
     and narrows to that phase, `"gesamt"` is every phase and is what a team's own page shows.
     """
 
-    is_this_team_in_slot_one = {"$eq": ["$team1.team_id", "$$team_oid"]}
-
-    phase_match: Mapping[str, Any] = {"saison_phase": "gruppenphase"} if scope == "gruppenphase" else {}
-
     return {
         "$lookup": {
             "from": SPIELE_COLLECTION_NAME,
@@ -69,11 +91,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
             "pipeline": [
                 {
                     "$match": {
-                        "saison_id": saison_id,
-                        # The phase rule (ADR-0022). Absent under "gesamt" rather than negated:
-                        # no `saison_phase` value means "any", and an `$in` over every phase would
-                        # need widening by hand the day one is added.
-                        **phase_match,
+                        **_fixtures_of_this_team(saison_id, scope),
                         # The counting rule, in one place. Note what is absent: `is_canceled`
                         # (ADR-0019) and `elfmeterschiessen` (ADR-0036). A shoot-out decides the
                         # bracket and never the table -- see the docstring above.
@@ -83,7 +101,6 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                         # then group as a 0:0 draw instead of dropping out.
                         "team1.tore": {"$ne": None},
                         "team2.tore": {"$ne": None},
-                        "$expr": {"$or": [is_this_team_in_slot_one, {"$eq": ["$team2.team_id", "$$team_oid"]}]},
                     }
                 },
                 {
@@ -91,8 +108,8 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                     # around to face THIS team before anything is counted.
                     "$project": {
                         "_id": 0,
-                        "tore_self": {"$cond": [is_this_team_in_slot_one, "$team1.tore", "$team2.tore"]},
-                        "tore_opponent": {"$cond": [is_this_team_in_slot_one, "$team2.tore", "$team1.tore"]},
+                        "tore_self": {"$cond": [_IS_THIS_TEAM_IN_SLOT_ONE, "$team1.tore", "$team2.tore"]},
+                        "tore_opponent": {"$cond": [_IS_THIS_TEAM_IN_SLOT_ONE, "$team2.tore", "$team1.tore"]},
                     }
                 },
                 {
@@ -128,6 +145,46 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                 },
             ],
             "as": STATISTIK_AS_NAME,
+        }
+    }
+
+
+def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
+    """
+    The `$lookup` counting the fixtures of this team that were called off.
+
+    **A stage of its own rather than a second accumulator inside the counting `$lookup`, and merging
+    the two is ADR-0063 reversed.** That decision carries why, and what one lookup would cost.
+
+    `is_canceled` is the whole rule, so a cancellation that was played out as a forfeit reaches this
+    count AND `anzahl_gespielte_spiele`. The two are not a partition and neither is the other's
+    remainder: what this figure says is how many of the team's fixtures were called off, never how
+    many are missing from the tally beside it (ADR-0063).
+
+    Only a fixture that EXISTS and was called off is counted here. A fixture nobody has played yet is
+    a different fact, no document records it, and how many a season should hold follows from the
+    season's own rules instead (ADR-0052) — so this count can never speak for one.
+
+    `scope` narrows the matches exactly as it does for the figures beside them (ADR-0022).
+    """
+
+    return {
+        "$lookup": {
+            "from": SPIELE_COLLECTION_NAME,
+            "let": {"team_oid": "$_id"},
+            "pipeline": [
+                {
+                    "$match": {
+                        **_fixtures_of_this_team(saison_id, scope),
+                        # The only stage reading `is_canceled`, and the flag is the whole rule --
+                        # adding `ergebnis: None` drops the forfeits, which are nearly every
+                        # cancellation here. ADR-0019 holds: this reaches nothing the table scores on.
+                        "is_canceled": True,
+                    }
+                },
+                {"$count": ABSAGE_COUNT_NAME},
+            ],
+            "as": ABSAGE_AS_NAME,
         }
     }
 
@@ -198,9 +255,10 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
 
     # After the strict unwind, so the matches are only summed for teams that survive the join.
     pipeline.append(build_statistik_lookup_stage(saison_id=filters.saison_id, rules=rules, scope=filters.statistik_scope))
+    pipeline.append(build_absage_lookup_stage(saison_id=filters.saison_id, scope=filters.statistik_scope))
 
     # One projection, because there is one team shape. Never branch a reduced variant off it: measured
-    # 2026-08-02, the trim is 26 KiB and no query work at all -- both lookups run either way
+    # 2026-08-02, the trim is 26 KiB and no query work at all -- every lookup runs either way
     # (ADR-0027).
     pipeline.append(
         {
@@ -215,7 +273,15 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
                 "inactive_since": 1,
                 # The lookup yields one grouped document, or none at all for a team with no counting
                 # match -- `$group` emits nothing for an empty input rather than a row of zeros.
-                "statistik": {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, ZERO_STATISTIK]},
+                "statistik": {
+                    "$mergeObjects": [
+                        {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, ZERO_STATISTIK]},
+                        # Merged over the figures rather than grouped with them, which is what keeps
+                        # `is_canceled` out of the lookup that derives them (ADR-0019). A team with no
+                        # counting match reaches this too -- the fallback above supplies the rest.
+                        {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}},
+                    ]
+                },
                 "saison_id": f"${AS_NAME}.saison_id",
                 "gruppe": f"${AS_NAME}.gruppe",
                 "disqualifikation": f"${AS_NAME}.disqualifikation",

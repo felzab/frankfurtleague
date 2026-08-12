@@ -7,8 +7,9 @@
 # the whole branch is what binds. Anything this catches, the gate catches too — later, and after a
 # rebase costs something.
 #
-# It never blocks on a missing interpreter: a contributor without the backend venv gets the gate's
-# verdict instead of a commit they cannot make.
+# It blocks on a finding and on nothing else: an interpreter that is missing, or too old for the
+# checker, leaves the verdict to the gate rather than costing a contributor a commit they cannot
+# make.
 
 set -euo pipefail
 
@@ -18,9 +19,20 @@ for candidate in "${repo_root}/fl_backend/.venv/Scripts/python.exe" \
                  "${repo_root}/fl_backend/.venv/bin/python" \
                  python3 python; do
   if command -v "$candidate" >/dev/null 2>&1; then
-    exec "$candidate" "${repo_root}/scripts/check_commits.py" --message-file "$1"
+    # `scripts/checker_kernel.py :: run`'s contract: 0 passed, 1 findings, higher means the check
+    # never ran — a crash, or an interpreter under the kernel's floor. Only a finding is this hook's
+    # to refuse, which is why the checker is run rather than `exec`ed.
+    status=0
+    "$candidate" "${repo_root}/scripts/check_commits.py" --message-file "$1" || status=$?
+    if [ "$status" -le 1 ]; then
+      exit "$status"
+    fi
+    echo "  commit-msg hook: the checker did not run under ${candidate}, exit ${status} — skipping." >&2
+    echo "  ./scripts/verify.sh --docs and CI still check this." >&2
+    exit 0
   fi
 done
 
-echo "  commit-msg hook: no python found — skipping. ./scripts/verify.sh --docs still checks this." >&2
+echo "  commit-msg hook: no python found — skipping." >&2
+echo "  ./scripts/verify.sh --docs and CI still check this." >&2
 exit 0

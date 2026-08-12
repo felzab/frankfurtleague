@@ -29,8 +29,8 @@ break one: refuse, name the rule, do not partially comply.
 - **Treat every `.gitignore`-matched path as off-limits**, except `.vscode/` and `docs/audit/`,
   which hold no credential material. `/audit:*` and `/docs:audit` read and write `docs/audit/`.
 
-`.claude/settings.json` denies the Read tool for the common secret paths and cannot see Bash, so
-these rules are the only control on a shell route.
+`.claude/settings.json` denies the Read tool for the common secret paths and cannot see Bash or
+PowerShell, so these rules are the only control on either shell route.
 
 ## 2. Branch before you edit — the first action of any task that writes
 
@@ -84,21 +84,30 @@ response.** Not when it compiles.
 Scope flags name surfaces and combine; a bare invocation is the full form and runs every scope.
 [`docs/ops/spec.md`](../docs/ops/spec.md) §1.6 holds the table of what each scope runs and needs.
 
-| Branch touched                                                                                                             | Minimum scope                                    |
-| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| documentation only                                                                                                         | `--docs`, plus `pnpm format` from `fl_frontend/` |
-| `fl_backend/`                                                                                                              | `--backend --db --docs`                          |
-| `fl_frontend/`                                                                                                             | `--frontend --docs`                              |
-| nginx or a compose file                                                                                                    | `--ops --docs`                                   |
-| `scripts/`                                                                                                                 | the full form                                    |
-| packaging — a Dockerfile, a lockfile, `next.config.ts`, `src/core/config.ts`, `src/core/auth.ts`, `src/instrumentation.ts` | the full form, images included                   |
-| anything you are unsure about                                                                                              | the full form                                    |
+| Branch touched                                                                                                             | Minimum scope                      |
+| -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| documentation only                                                                                                         | `--docs --format`                  |
+| `fl_backend/`                                                                                                              | `--backend --db --docs`            |
+| `fl_backend/openapi.json`                                                                                                  | `--backend --db --frontend --docs` |
+| `fl_frontend/`                                                                                                             | `--frontend --docs`                |
+| nginx                                                                                                                      | `--ops --docs`                     |
+| a compose file                                                                                                             | `--ops --docs --format`            |
+| `scripts/*.sh`                                                                                                             | the full form                      |
+| anything else in `scripts/`                                                                                                | `--scripts --docs --format`        |
+| packaging — a Dockerfile, a lockfile, `next.config.ts`, `src/core/config.ts`, `src/core/auth.ts`, `src/instrumentation.ts` | the full form, images included     |
+| anything you are unsure about                                                                                              | the full form                      |
 
-- **Commit what the formatter rewrites, and read that diff.** The frontend scope runs prettier first
-  and rewrites the tree.
-- **Treat a comment-only edit as a documentation change, whatever file holds it** — `--docs` plus
-  `pnpm format`. What picks the scope is what the change could break, and a comment breaks
-  documentation. The moment a hunk touches a line that runs, the table above applies again.
+- **No formatter the gate runs writes a tracked file**, so no run leaves formatting to commit. The
+  one write outside that is `next build`'s to `fl_frontend/tsconfig.json`
+  ([`docs/ops/spec.md`](../docs/ops/spec.md) §1.6). Formatting happens when you
+  commit instead: `.githooks/pre-commit` formats the staged files, re-stages them, and names the
+  files it changed — read them before you push. It refuses a file staged in part, with the commands
+  that resolve it, rather than folding the unstaged half into the commit
+  ([ADR-0065](../docs/_decisions/0065-formatting-happens-at-commit-time.md)).
+- **Treat a comment-only edit as a documentation change, whatever file holds it** — run
+  `--docs --format`. What picks the scope is what the change could break: a comment breaks
+  documentation, and the formatter reflows it. The moment a hunk touches a line that runs, the
+  table above applies again.
 - **The carve-out reaches only as far as a parser does**
   ([ADR-0030](../docs/_decisions/0030-the-gate-refuses-an-undersized-scope.md)) — TypeScript, Python
   and TOML. **A comment in a Dockerfile, a workflow or a shell script still asks for the full form**,
@@ -242,9 +251,13 @@ Dev is Windows 11; production is Linux.
 Each fails **silently** — the gate stays green and the defect ships. Every other convention is in
 `/docs`; match the surrounding code.
 
-- **Never write a file with `Path.write_text()`** — it emits CRLF on Windows. `.gitattributes`
-  mandates LF and git normalises at commit, so the damage stays invisible until a shell script fails
-  on the Linux server or `prettier --check` rejects the tree. Write bytes, or pass `newline=""`.
+- **Never let a Windows text-mode stream write a file** — it turns every `\n` into `\r\n`.
+  `Path.write_text()`, `open(path, "w")` and a redirect of a program's stdout are one mechanism, a
+  scratch redirect made only to measure something included. Where the file is tracked,
+  `.gitattributes` mandates LF and git normalises at commit, so the damage stays invisible until a
+  shell script fails on the Linux server or `prettier --check` rejects the tree; where it is scratch,
+  nothing normalises it and the extra byte per line lands in whatever you measured it for. Write
+  bytes, or pass `newline=""`.
 - **Mark a db-touching test `@pytest.mark.db`.** Without it the test runs in the default tier with
   no container and fails for an unrelated-looking reason. Nothing catches an omitted marker.
 - **Pass a Pydantic field default by keyword** — `Field(default=0, ge=0)`, never `Field(0, ge=0)`.
@@ -280,70 +293,76 @@ weighed it: the ADR carries the alternatives that were rejected and what they we
 decision nobody ratified. Each row is one never-clause; the argument lives in `docs/_decisions/`.
 **Correct this list, never the ADR.**
 
-| ADR  | Never                                                                    |
-| ---- | ------------------------------------------------------------------------ |
-| 0001 | Add a granular cache tag with no `updateTag`; make base tags conditional |
-| 0002 | Give `saison_id` a Pydantic field default                                |
-| 0003 | Add a barrel file, an unrequired default export, a second nesting level  |
-| 0004 | Move the Spiel write path to `admin`; let its form read `useAdmin()`     |
-| 0005 | Merge the three `SpielCard` variants                                     |
-| 0006 | Remove an `await connection()` before a page fetch                       |
-| 0007 | Add a second direct `MongoClient`                                        |
-| 0008 | Scope a cross-feature import lint to anything but `core` and `shared`    |
-| 0009 | Cache an admin-scoped API read                                           |
-| 0010 | Remove `checkIsReady`, `getSystemInfo`, or the system key                |
-| 0011 | Disable `react/no-danger`; add a second CSP                              |
-| 0012 | Merge the two images into one package; make either package private       |
-| 0013 | Import HeroUI's CSS as one entry point, or out of HeroUI's order         |
-| 0014 | Enable the React Compiler                                                |
-| 0015 | Disable origin compression; precompress brotli at build time             |
-| 0016 | Pick `admin.css` membership by folder name, not the import graph         |
-| 0017 | Send `immutable` for a URL with no content hash                          |
-| 0018 | Write `text-fluid-*` — the scale is `fluid-sm`                           |
-| 0019 | Store or cache team statistics; hardcode 3/1/0; read `is_canceled`       |
-| 0020 | Swallow a failed validator or index; widen one past types and enums      |
-| 0021 | Treat `mietpreis` / `payment` as stale copies of the defaults            |
-| 0022 | Move the league table's default scope off `gruppenphase`                 |
-| 0023 | Move db-marked tests out of the gate                                     |
-| 0024 | Generate the `$jsonSchema` validators from the models                    |
-| 0025 | Make `inactive_since` a boolean; revive a retired row by creating it     |
-| 0026 | Write `status` outside the activate endpoint; DELETE a season row        |
-| 0027 | Move a guard onto an endpoint; merge the two routers; delete `GET /{id}` |
-| 0028 | Re-add a reference-data invalidation endpoint; fault sub-24h staleness   |
-| 0029 | Index a branch's commits in a pull request body                          |
-| 0030 | Let the comment classifier shrink a CI job; suppress the images refusal  |
-| 0031 | Pin `type=gha`'s version; share one cache scope; re-add `actions/cache`  |
-| 0032 | Let nginx pass a client's correlation id; log outside the envelope       |
-| 0033 | Generate the Zod mirror from OpenAPI; compare past the wire contract     |
-| 0034 | Store the bracket's German label; flag an override beside `quelle`       |
-| 0035 | Recurse the tiebreak chain; seed a placing the group can still change    |
-| 0036 | Put the shoot-out in `ergebnis`; store its winner; let the table read it |
-| 0037 | Add a POST or a DELETE to `/spiele`                                      |
-| 0038 | Offer in the form wiring the write path refuses                          |
-| 0039 | Store a bracket fault; report a merely undecided placing                 |
-| 0040 | Judge a typed field between keystrokes; return the editor to a dialog    |
-| 0041 | Guess a voided result rather than dry-running it; scope the undo offer   |
-| 0042 | Refuse a manual pick as unqualified; field a team twice in a Spieltag    |
-| 0043 | Style a toast from CSS past the two rules; call `toast` at a call site   |
-| 0044 | Hide a triage tab on a zero count; order sections off the label table    |
-| 0045 | Write from `/admin/finalrunden`; render its wiring as cards              |
-| 0046 | Give a shell page a second `h1`; make a sidemenu `hint` optional         |
-| 0047 | Add a disqualification boolean beside the record                         |
-| 0048 | Widen `position` or `stufe` past their `Literal`s; drop `E2`             |
-| 0049 | Route-handle an undo outside a page-owned editor; revert before E592     |
-| 0050 | Add a reorder endpoint for `spieltage`; move the rollover off its page   |
-| 0051 | Store a `Spieltag`'s position or name; serve its label from the API      |
-| 0052 | Store `anzahl_spiele`; hardcode the qualifier cap                        |
-| 0053 | Import `app/core/domain.py` from `app/`; generate it; enforce it         |
-| 0054 | Spell a collection name as a literal; enumerate the field names too      |
-| 0055 | Fetch the season list when `?saison_id=` is absent; drop either half     |
-| 0056 | Cache a season projection; remove its write-path drop or its TTL         |
-| 0057 | Answer 422 for a malformed path id, or 404 for a query one               |
-| 0058 | Make `ausstehend` a partition, or `computeSpielStatus` a filter          |
-| 0059 | Count a stamp-only markdown delta as material to `branch-impact`         |
-| 0060 | Compare the branch guard's paths as text; allow a target it cannot place |
-| 0061 | Add a `callbackUrl` to the sign-in redirect without the allowlist first  |
-| 0062 | Split the group swap into two writes; relax the move lock to serve it    |
+| ADR  | Never                                                                                     |
+| ---- | ----------------------------------------------------------------------------------------- |
+| 0001 | Add a granular cache tag with no `updateTag`; make base tags conditional                  |
+| 0002 | Give `saison_id` a Pydantic field default                                                 |
+| 0003 | Add a barrel file, an unrequired default export, a second nesting level                   |
+| 0004 | Move the Spiel write path to `admin`; let its form read `useAdmin()`                      |
+| 0005 | Merge the three `SpielCard` variants                                                      |
+| 0006 | Remove an `await connection()` before a page fetch                                        |
+| 0007 | Add a second direct `MongoClient`                                                         |
+| 0008 | Scope a cross-feature import lint to anything but `core` and `shared`                     |
+| 0009 | Cache an admin-scoped API read                                                            |
+| 0010 | Remove `checkIsReady`, `getSystemInfo`, or the system key                                 |
+| 0011 | Disable `react/no-danger`; add a second CSP                                               |
+| 0012 | Merge the two images into one package; make either package private                        |
+| 0013 | Import HeroUI's CSS as one entry point, or out of HeroUI's order                          |
+| 0014 | Enable the React Compiler                                                                 |
+| 0015 | Disable origin compression; precompress brotli at build time                              |
+| 0016 | Pick `admin.css` membership by folder name, not the import graph                          |
+| 0017 | Send `immutable` for a URL with no content hash                                           |
+| 0018 | Write `text-fluid-*` — the scale is `fluid-sm`                                            |
+| 0019 | Store or cache team statistics; hardcode 3/1/0; score or sort on `is_canceled`            |
+| 0020 | Swallow a failed validator or index; widen one past types and enums                       |
+| 0021 | Treat `mietpreis` / `payment` as stale copies of the defaults                             |
+| 0022 | Move the league table's default scope off `gruppenphase`                                  |
+| 0023 | Move db-marked tests out of the gate                                                      |
+| 0024 | Generate the `$jsonSchema` validators from the models                                     |
+| 0025 | Make `inactive_since` a boolean; revive a retired row by creating it                      |
+| 0026 | Write `status` outside the activate endpoint; DELETE a season row                         |
+| 0027 | Move a guard onto an endpoint; merge the two routers; delete `GET /{id}`                  |
+| 0028 | Re-add a reference-data invalidation endpoint; fault sub-24h staleness                    |
+| 0029 | Index a branch's commits in a pull request body                                           |
+| 0030 | Let the comment classifier shrink a CI job; suppress the images refusal                   |
+| 0031 | Pin `type=gha`'s version; share one cache scope; re-add `actions/cache`                   |
+| 0032 | Let nginx pass a client's correlation id; log outside the envelope                        |
+| 0033 | Generate the Zod mirror from OpenAPI; compare past the wire contract                      |
+| 0034 | Store the bracket's German label; flag an override beside `quelle`                        |
+| 0035 | Recurse the tiebreak chain; seed a placing the group can still change                     |
+| 0036 | Put the shoot-out in `ergebnis`; store its winner; let the table read it                  |
+| 0037 | Add a POST or a DELETE to `/spiele`                                                       |
+| 0038 | Offer in the form wiring the write path refuses                                           |
+| 0039 | Store a bracket fault; report a merely undecided placing                                  |
+| 0040 | Judge a typed field between keystrokes; return the editor to a dialog                     |
+| 0041 | Guess a voided result rather than dry-running it; scope the undo offer                    |
+| 0042 | Refuse a manual pick as unqualified; field a team twice in a Spieltag                     |
+| 0043 | Style a toast from CSS past the two rules; call `toast` at a call site                    |
+| 0044 | Hide a triage tab on a zero count; order sections off the label table                     |
+| 0045 | Write from `/admin/finalrunden`; render its wiring as cards                               |
+| 0046 | Give a shell page a second `h1`; make a sidemenu `hint` optional                          |
+| 0047 | Add a disqualification boolean beside the record                                          |
+| 0048 | Widen `position` or `stufe` past their `Literal`s; drop `E2`                              |
+| 0049 | Route-handle an undo outside a page-owned editor; revert before E592                      |
+| 0050 | Add a reorder endpoint for `spieltage`; move the rollover off its page                    |
+| 0051 | Store a `Spieltag`'s position or name; serve its label from the API                       |
+| 0052 | Store `anzahl_spiele`; hardcode the qualifier cap                                         |
+| 0053 | Import `app/core/domain.py` from `app/`; generate it; enforce it                          |
+| 0054 | Spell a collection name as a literal; enumerate the field names too                       |
+| 0055 | Fetch the season list when `?saison_id=` is absent; drop either half                      |
+| 0056 | Cache a season projection; remove its write-path drop or its TTL                          |
+| 0057 | Answer 422 for a malformed path id, or 404 for a query one                                |
+| 0058 | Make `ausstehend` a partition, or `computeSpielStatus` a filter                           |
+| 0059 | Count a stamp-only markdown delta as material to `branch-impact`                          |
+| 0060 | Compare the branch guard's paths as text; allow a target it cannot place                  |
+| 0061 | Add a `callbackUrl` to the sign-in redirect without the allowlist first                   |
+| 0063 | Drop a forfeit from the cancellation count; merge it into the scoring lookup              |
+| 0062 | Split the group swap into two writes; relax the move lock to serve it                     |
+| 0064 | Widen the bot exemption past an exact identity pair or its three rules                    |
+| 0065 | Let the gate write a formatted file; merge a partly-staged file's halves                  |
+| 0066 | Collapse a refusal into a failure; move one half of the exit contract alone               |
+| 0067 | Release a command on one token; source the shared write-shape block                       |
+| 0068 | Delete a shim re-export as unused; repoint a citation off it; name a package `check_docs` |
 
 ## 8. Documentation
 

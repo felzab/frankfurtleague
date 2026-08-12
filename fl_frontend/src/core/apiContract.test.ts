@@ -286,7 +286,7 @@ function factsFor(node: JsonSchema, root: JsonSchema, required: boolean): FieldF
  * `allRequired` is the response-direction rule: FastAPI publishes the VALIDATION schema, so a field
  * carrying a default sits outside `required` even though the server always serialises it. No route sets
  * `response_model_exclude_unset`, so on a response every declared property is on the wire —
- * `acknowledged`, the three `format` discriminators and `FLTeamStatistik`'s seven counters all depend on
+ * `acknowledged`, the three `format` discriminators and every `FLTeamStatistik` counter all depend on
  * this. On a request payload a default genuinely means optional, so the rule is not applied there.
  */
 function describeObject(node: JsonSchema, root: JsonSchema, allRequired: boolean): Map<string, FieldFacts> {

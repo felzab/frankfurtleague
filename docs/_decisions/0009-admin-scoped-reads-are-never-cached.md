@@ -33,8 +33,10 @@ added to the admin surface after it.
 
 ## Consequences
 
-**The cost is one backend request per admin page load**, on pages loaded by one person a handful of
-times a day. That is not a trade worth reversing.
+**The cost is one backend request per call site, not one per admin page load** — nothing dedupes
+them, so a page reading the same data from more than one boundary pays for each
+([`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) §1.2 carries the mechanism). On pages
+loaded by one person a handful of times a day, that is still not a trade worth reversing.
 
 **The safety property is a design guarantee rather than a routing accident.** Today an uncached
 admin read leaks nothing even if it were cached, because the admin queries are only reachable from

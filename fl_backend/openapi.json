@@ -6363,6 +6363,12 @@
             "minimum": 0.0,
             "title": "Punkte",
             "default": 0
+          },
+          "anzahl_abgesagte_spiele": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Anzahl Abgesagte Spiele",
+            "default": 0
           }
         },
         "type": "object",

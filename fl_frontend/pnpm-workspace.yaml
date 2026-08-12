@@ -2,9 +2,8 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
 overrides:
-  # next pins sharp ^0.34.5 and postcss 8.4.31, both of which carry advisories (R3b §S10.1).
-  # sharp is the only runtime-reachable one -- four libvips memory-safety CVEs on the /_next/image
-  # decode path, which is live and callable by anyone. postcss is build-time only.
-  # The direct postcss dependency was already patched; this override is for next's own resolution.
+  # Advisories in the versions next pulls (`docs/_auditing/reports/2026-07-frontend.md`); only
+  # sharp is runtime-reachable, via libvips on /_next/image. An override governs the direct
+  # dependency too: the importer takes this range, not package.json's.
   sharp: "^0.35.3"
   postcss: "^8.5.24"
