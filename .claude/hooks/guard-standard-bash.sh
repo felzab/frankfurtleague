@@ -92,24 +92,38 @@ padded=" $squeezed"
 writes=0
 case "$padded" in
   *" tee "* | *"|tee "*)           writes=1 ;;
-  *"write_bytes"* | *"write_text"* | *".writelines"*) writes=1 ;;
   *"--output "* | *"--output="*)   writes=1 ;;
   *" mv "* | *" cp "* | *" ln "* | *" rm "* | *" rmdir "* | *" mkdir "* | *" touch "*) writes=1 ;;
 esac
 
-# `sed -e s/a/b/ -i f` edits in place as surely as `sed -i` does, so the flag is matched wherever it
-# sits rather than only where it usually sits.
+# An inline interpreter names its target in source, where no verb and no redirect shows it.
+# `open(` counts whatever the mode says, so a read spelled that way refuses too — ADR-0060's
+# posture, and cheaper than a hole nothing observes.
 case "$padded" in
-  *" sed "*)
-    case "$padded" in
-      *" -i"* | *" --in-place"*) writes=1 ;;
-    esac
-    ;;
+  *"open("* | *"openSync"* | *".write"* | *"write_text"* | *"write_bytes"* | *"writeFile"*) writes=1 ;;
+  *"appendFile"* | *"createWriteStream"* | *".rename"* | *".replace("* | *".remove"*) writes=1 ;;
+  *".unlink"* | *".truncate"* | *".chmod"* | *".touch("* | *".mkdir"* | *".makedirs"*) writes=1 ;;
+  *".rmdir"* | *".symlink"* | *".link"* | *"hardlink"* | *"shutil."* | *"copyFile"*) writes=1 ;;
+  *"rmSync"* | *"cpSync"* | *"ZipFile"*) writes=1 ;;
 esac
 
-# git's global options sit between the program and its subcommand (`git -c user.name=x commit`), so
-# the subcommand is reached by stepping over them rather than by matching the string `git commit`.
-rest="${padded#*[ /]git }"
+# The program is gated because `-i` is case-insensitive to grep and interactive to cp, and the flag
+# is matched by SHAPE: `-pi`, `-i.bak` and `-nli.orig` edit in place as surely as `-i` does.
+if [[ "$padded" =~ [[:space:]/](sed|perl|ruby|awk|gawk|yq)[0-9.]*(\.exe)?[[:space:]] ]]; then
+  # A lowercase cluster only, so `-MList::Util` stays a module and `-Ilib` an include path.
+  if [[ "$padded" =~ [[:space:]]-[[:lower:][:digit:]]*i ]]; then writes=1; fi
+  # The spellings carrying no letter cluster: gawk names an extension, yq drops the hyphen.
+  case "$padded" in
+    *" --in-place"* | *"inplace"*) writes=1 ;;
+  esac
+fi
+
+# Global options sit between program and subcommand (`git -c user.name=x commit`), so the
+# subcommand is reached by stepping over them. The `.exe` tail is optional as on the in-place arm
+# above; extglob is on for that one expansion only.
+shopt -s extglob
+rest="${padded#*[ /]git?(.exe) }"
+shopt -u extglob
 if [ "$rest" != "$padded" ]; then
   while :; do
     case "$rest" in

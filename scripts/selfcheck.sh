@@ -790,6 +790,43 @@ else
     probe "$hb" denied cmd "$(printf 'printf x > docs/audit/log.txt\ngit commit -am wip')" 'bash guard: newline then commit'
     probe "$hb" denied cmd "$(printf 'printf x > docs/audit/log.txt\npnpm format')"        'bash guard: newline then format'
 
+    # --- An interpreter's own write API, one probe per pattern -----------------------------------
+
+    # A write named in program source reaches the scan as a NAME rather than a call, so each line
+    # below is spelled to match one pattern and no other: delete that pattern and this probe alone
+    # goes green on a tracked file.
+    probe "$hb" denied cmd 'python -c open("fl_frontend/src/app.ts","w")'        'bash guard: open() in program source'
+    probe "$hb" denied cmd 'node -e fs.openSync("fl_frontend/src/app.ts","w")'   'bash guard: openSync'
+    probe "$hb" denied cmd 'node -e s.write("fl_frontend/src/app.ts")'           'bash guard: a write method'
+    probe "$hb" denied cmd 'python -c write_text("fl_frontend/src/app.ts")'      'bash guard: write_text, undotted'
+    probe "$hb" denied cmd 'python -c write_bytes("fl_frontend/src/app.ts")'     'bash guard: write_bytes, undotted'
+    probe "$hb" denied cmd 'node -e writeFile("fl_frontend/src/app.ts","x")'     'bash guard: writeFile, destructured'
+    probe "$hb" denied cmd 'node -e appendFile("fl_frontend/src/app.ts","x")'    'bash guard: appendFile'
+    probe "$hb" denied cmd 'node -e createWriteStream("fl_frontend/src/app.ts")' 'bash guard: createWriteStream'
+    probe "$hb" denied cmd 'python -c os.rename("t","fl_frontend/src/app.ts")'   'bash guard: a rename'
+    probe "$hb" denied cmd 'python -c os.replace("t","fl_frontend/src/app.ts")'  'bash guard: an atomic replace'
+    probe "$hb" denied cmd 'python -c os.remove("fl_frontend/src/app.ts")'       'bash guard: a remove'
+    probe "$hb" denied cmd 'python -c os.unlink("fl_frontend/src/app.ts")'       'bash guard: an unlink'
+    probe "$hb" denied cmd 'python -c os.truncate("fl_frontend/src/app.ts",0)'   'bash guard: a truncate'
+    probe "$hb" denied cmd 'python -c os.chmod("fl_frontend/src/app.ts",384)'    'bash guard: a chmod'
+    probe "$hb" denied cmd 'python -c Path("fl_frontend/src/app.ts").touch()'    'bash guard: a pathlib touch'
+    probe "$hb" denied cmd 'python -c os.mkdir("fl_frontend/src/new")'           'bash guard: a mkdir in source'
+    probe "$hb" denied cmd 'python -c os.makedirs("fl_frontend/src/new")'        'bash guard: a makedirs'
+    probe "$hb" denied cmd 'python -c os.rmdir("fl_frontend/src/new")'           'bash guard: an rmdir in source'
+    probe "$hb" denied cmd 'python -c os.symlink("t","fl_frontend/src/app.ts")'  'bash guard: a symlink'
+    probe "$hb" denied cmd 'python -c os.link("t","fl_frontend/src/app.ts")'     'bash guard: a hard link'
+    probe "$hb" denied cmd 'python -c Path("fl_frontend/src/a.ts").hardlink_to("t")' 'bash guard: hardlink_to'
+    probe "$hb" denied cmd 'python -c shutil.copytree("t","fl_frontend/src/d")'  'bash guard: a shutil operation'
+    probe "$hb" denied cmd 'node -e copyFileSync("t","fl_frontend/src/app.ts")'  'bash guard: copyFile'
+    probe "$hb" denied cmd 'node -e rmSync("fl_frontend/src/app.ts")'            'bash guard: rmSync'
+    probe "$hb" denied cmd 'node -e cpSync("t","fl_frontend/src/app.ts")'        'bash guard: cpSync'
+    probe "$hb" denied cmd 'python -c zipfile.ZipFile("fl_frontend/src/a.zip","w")' 'bash guard: an archive opened to write'
+
+    # The cost of reading `open(` without its mode, pinned so it stays a decision: a python READ of
+    # a tracked file refuses here too, which is ADR-0060's direction and one `git checkout -b` from
+    # resolved.
+    probe "$hb" denied cmd 'python -c print(open("notes.md").read())'            'bash guard: a read spelled like a write'
+
     # The null device is not a destination, and a redirect into it must not release the command that
     # carries it.
     probe "$hb" denied  cmd 'echo hack > fl_frontend/src/app.ts 2>/dev/null'   'bash guard: stderr to the null device'
@@ -864,6 +901,40 @@ else
     # Recorded as an accepted cost rather than a defect: honouring it needs real shell tokenisation,
     # which is a larger change than this guard carries.
     probe "$hb" denied  cmd 'cp docs/audit/a.md "docs/audit/b c.md"'           'bash guard: a quoted name holding a space'
+
+    # --- In-place editing, one spelling at a time ------------------------------------------------
+
+    # The arm is gated on a program because `-i` reads as case-insensitive to a dozen others, and
+    # the flag is read by shape, so each line here is a spelling the one above it does not reach.
+    probe "$hb" denied  cmd 'perl -i -pe s/a/b/ scripts/verify.sh'             'bash guard: perl -i'
+    probe "$hb" denied  cmd 'perl -pi -e s/a/b/ scripts/verify.sh'             'bash guard: perl -i bundled behind -p'
+    probe "$hb" denied  cmd 'perl -i.bak -pe s/a/b/ scripts/verify.sh'         'bash guard: perl -i carrying a suffix'
+    probe "$hb" denied  cmd 'perl -nli.orig -e print scripts/verify.sh'        'bash guard: perl -i bundled and suffixed'
+    probe "$hb" denied  cmd 'perl -e s/a/b/ -i scripts/verify.sh'              'bash guard: perl with -i behind another flag'
+    probe "$hb" denied  cmd 'ruby -i -pe s/a/b/ scripts/verify.sh'             'bash guard: ruby -i'
+    probe "$hb" denied  cmd 'ruby -pi.bak -e s/a/b/ scripts/verify.sh'         'bash guard: ruby -i bundled and suffixed'
+    probe "$hb" denied  cmd 'sed --in-place s/a/b/ scripts/verify.sh'          'bash guard: the long in-place spelling'
+    probe "$hb" denied  cmd 'sed -i.bak s/a/b/ scripts/verify.sh'              'bash guard: sed -i carrying a suffix'
+    probe "$hb" denied  cmd 'gawk -i inplace {print} scripts/verify.sh'        'bash guard: gawk -i inplace'
+    probe "$hb" denied  cmd 'awk -i inplace {print} scripts/verify.sh'         'bash guard: awk -i inplace'
+    probe "$hb" denied  cmd 'gawk --include=inplace -f p.awk scripts/verify.sh' 'bash guard: gawk naming the extension'
+    probe "$hb" denied  cmd 'yq -i .a=1 fl_frontend/package.json'              'bash guard: yq -i'
+    probe "$hb" denied  cmd '/usr/bin/sed -i s/a/b/ scripts/verify.sh'         'bash guard: an in-place editor spelled with a path'
+    probe "$hb" denied  cmd 'perl5.36 -i -pe s/a/b/ scripts/verify.sh'         'bash guard: an in-place editor spelled with a version'
+    # perl is not argument-transparent, so the exempt class never reaches it. An accepted refusal
+    # rather than a hole, and the same one a python write into docs/audit already takes.
+    probe "$hb" denied  cmd 'perl -i -pe s/a/b/ docs/audit/note.md'            'bash guard: perl -i aimed at an ignored path'
+
+    # The capability half, and what keeps the gate honest: `-i` belongs to programs that only read,
+    # and each of these refuses the day the program gate is dropped from the arm.
+    probe "$hb" allowed cmd 'grep -i foo scripts/verify.sh'                    'bash guard: grep -i is not an in-place edit'
+    probe "$hb" allowed cmd 'rg -i foo scripts/verify.sh'                      'bash guard: rg -i is not an in-place edit'
+    probe "$hb" allowed cmd 'diff -i notes.md docs/audit/a.md'                 'bash guard: diff -i is not an in-place edit'
+    probe "$hb" allowed cmd 'sed -n 5p scripts/verify.sh'                      'bash guard: sed with no in-place flag'
+    probe "$hb" allowed cmd 'awk {print} scripts/verify.sh'                    'bash guard: awk with no in-place flag'
+    # An uppercase cluster carries a module or an include path, never the flag, and reading it as
+    # one would refuse most of what perl is run for.
+    probe "$hb" allowed cmd 'perl -MList::Util -e print notes.md'              'bash guard: an uppercase cluster is not the flag'
 
     # Deliberate tightenings, each with a route left open, and the adversarial spellings that reach
     # them.
@@ -953,6 +1024,11 @@ else
     probe "$hs" asked   cmd 'git checkout -- docs/_standard/x.md'              'standard bash guard: git checkout --'
     probe "$hs" asked   cmd 'rm docs/_standard/rules-index.md'                 'standard bash guard: a deletion'
     probe "$hs" asked   raw 'not json'                                         'standard bash guard: unparseable payload'
+    # The same in-place arm, in the guard that asks rather than refuses. Neither program is on the
+    # interpreter list beside it, so that arm is the only thing here that can be answering.
+    probe "$hs" asked   cmd 'awk -i inplace {print} docs/_standard/rules-index.md' 'standard bash guard: awk -i inplace'
+    probe "$hs" asked   cmd '/usr/bin/sed -i s/a/b/ docs/_standard/rules-index.md' 'standard bash guard: an editor spelled with a path'
+    probe "$hs" allowed cmd 'grep -i foo docs/_standard/rules-index.md'        'standard bash guard: grep -i is not an in-place edit'
     probe "$hs" allowed cmd 'ls docs/_standard > /dev/null'                    'standard bash guard: nothing written'
     probe "$hs" allowed cmd 'cat docs/_standard/rules-index.md'                'standard bash guard: a read'
     probe "$hs" allowed cmd 'git switch topic'                                 'standard bash guard: leaving a branch'
