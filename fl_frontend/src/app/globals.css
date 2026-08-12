@@ -708,10 +708,15 @@ html:has([data-app-shell]) {
      outline is clipped on one and collides on the other. The width and the colour are unchanged, and
      the button carries no fill, so var(--focus) still answers to the surface behind it — 18.2:1 on
      the light theme's --bg-surface and 18.7:1 on the dark one. Recorded at the --focus declaration
-     above, which is where an indicator departing from the standard offset or colour is listed. */
+     above, which is where an indicator departing from the standard offset or colour is listed.
+
+     THREE pixels rather than two, because the Anpfiff button's trailing edge IS the group's inner
+     border edge: the inset is the whole of the separation between this outline and the brand border
+     around it, and at 2px the two read as touching. The cost is the corner — an outline's radius is
+     the element's less the inset, so `rounded-md` leaves 3px here. */
   & button[data-field-clear="true"]:focus-visible {
     outline: 2px solid var(--focus);
-    outline-offset: -2px;
+    outline-offset: -3px;
   }
 }
 
