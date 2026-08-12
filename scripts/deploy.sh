@@ -42,7 +42,7 @@ for arg in "$@"; do
     --*)       die "Unknown option: ${arg}. Try --help." ;;
     *)
       # A second tag would silently win over the first, and which one deploys becomes a matter of
-      # argument order. Refuse instead.
+      # argument order. Stop instead.
       [[ -z "$PIN" ]] || die "Two tags given: '${PIN}' and '${arg}'. Deploy pins exactly one build."
       PIN="$arg" ;;
   esac
@@ -71,7 +71,10 @@ require_file "$COMPOSE"
 # `version` carries the whole qualifier.
 published_tag() {
   local value=""
-  value="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$1" 2>/dev/null)" || true
+  # Returns 1 where the inspect itself failed, so a caller can tell "this image carries no such
+  # label" from "nothing answered" — only the first may skip a comparison.
+  value="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$1" 2>/dev/null)" \
+    || return 1
   [[ "$value" == "<no value>" ]] && value=""
   printf '%s' "$value"
 }
@@ -95,30 +98,58 @@ if (( STATUS_ONLY )); then
   section "status"
   step "Currently running"
   running=0
+  # Set wherever the host declined to answer. What is live is what this report exists to state, and
+  # a question nobody answered leaves it stating nothing — the refusal below is that ending.
+  UNANSWERED=0
+  RUNNING_FE=""; RUNNING_BE=""
   for svc in frontend backend; do
     ps_rc=0
     cid="$(service_cid "$svc")" || ps_rc=$?
     if (( ps_rc )); then
       warn "${svc}: compose could not answer (exit ${ps_rc}), which is not the same as not running.
 Ask it directly:  docker compose -f ${COMPOSE} ps"
+      UNANSWERED=1
       continue
     fi
     if [[ -z "$cid" ]]; then
       warn "${svc}: not running"
       continue
     fi
+    # Guarded: the container can be removed between `ps` and `inspect`, and an unguarded read there
+    # takes the error trap, turning a report that changes nothing into a crash.
+    img_id="$(running_image "$cid")" || img_id=""
+    if [[ -z "$img_id" ]]; then
+      warn "${svc}: the container compose named is already gone, so nothing about it could be read"
+      UNANSWERED=1
+      continue
+    fi
     running=$(( running + 1 ))
-    img_id="$(running_image "$cid")"
     short_id="${img_id#sha256:}"
-    tag="$(published_tag "$img_id")"
-    state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid")"
+    tag_rc=0
+    tag="$(published_tag "$img_id")" || tag_rc=1
+    # An unread label is not an absent one, and this row is what a registry is pruned from.
+    if (( tag_rc )); then
+      UNANSWERED=1
+      tag_cell="could not be read"
+    else
+      tag_cell="${tag:-unlabelled (not built by publish.sh)}"
+    fi
+    case "$svc" in frontend) RUNNING_FE="$tag" ;; backend) RUNNING_BE="$tag" ;; esac
+    state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid")" || state="unreadable"
     detail "$(printf '%-9s %s' "${svc}:" "$state")" \
            "$(printf '%-9s image    %s' "" "${short_id:0:12}")" \
-           "$(printf '%-9s tag      %s' "" "${tag:-unlabelled (not built by publish.sh)}")" \
+           "$(printf '%-9s tag      %s' "" "$tag_cell")" \
            "$(printf '%-9s commit   %s' "" "$(image_revision_display "$img_id")")" \
            "$(printf '%-9s built    %s' "" "$(image_created_display "$img_id")")"
   done
   if (( running )); then ok "${running} service(s), read from the image each container is running"; fi
+
+  # The two packages move independently in the registry, so a host can serve a pair no single build
+  # names. Each service is healthy against its own half, which makes these rows the only place it shows.
+  if [[ -n "$RUNNING_FE" && -n "$RUNNING_BE" && "$RUNNING_FE" != "$RUNNING_BE" ]]; then
+    fail "the two services are running different builds: frontend ${RUNNING_FE}, backend ${RUNNING_BE}.
+Deploy the build both packages have:  ./scripts/deploy.sh ${RUNNING_BE}"
+  fi
 
   step "Published builds available to roll back to"
   # Two calls: `docker image ls` accepts at most one repository argument. Matched on the tag, not a
@@ -135,6 +166,11 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   else
     info "none pinned locally — pull one first: docker pull ${REPO_FRONTEND}:sha-XXXXXXX"
     ok "the registry still has them: https://github.com/felzab?tab=packages"
+  fi
+  if (( UNANSWERED )); then
+    refuse "This is not a statement of what is live: something above could not be asked, and an
+unasked service reads exactly like a stopped one. Registry pruning is decided from this
+report (docs/ops/spec.md §1.5), so delete nothing until it answers."
   fi
   finish
 fi
@@ -169,27 +205,43 @@ ok "engine ${ENGINE}, which is ${ENGINE_MIN} or newer"
 step "The build now live"
 PREV_PIN=""
 PS_RC=0
+RECORDED=1
 # The status is read rather than swallowed: an empty answer from a compose that FAILED would
 # otherwise print "nothing is running" about a stack this never asked, and discard the rollback
 # target on the one run that needs it.
 prev_cid="$(service_cid frontend)" || PS_RC=$?
 if (( PS_RC )); then
+  RECORDED=0
   warn "compose could not say what is running (exit ${PS_RC}), so this deploy has no rollback target it can name.
 Ask it directly:  docker compose -f ${COMPOSE} ps"
 elif [[ -z "$prev_cid" ]]; then
   info "nothing is running here yet, so this deploy has nothing to roll back to"
 else
-  prev_img="$(running_image "$prev_cid")"
-  PREV_PIN="$(published_tag "$prev_img")"
-  info "commit $(image_revision_display "$prev_img"), built $(image_created_display "$prev_img")"
-  if [[ "$PREV_PIN" =~ $PIN_RE ]]; then
-    info "rollback target: ${PREV_PIN}"
+  # Guarded for the same reason as the `--status` read: the container can go between `ps` and
+  # `inspect`, and an unread image is not an unlabelled one.
+  prev_img="$(running_image "$prev_cid")" || prev_img=""
+  if [[ -z "$prev_img" ]]; then
+    RECORDED=0
+    warn "the running container's image could not be read, so this deploy has no rollback target it can name"
   else
-    PREV_PIN=""
-    warn "the running image carries no published-tag label, so this deploy has no automatic rollback target"
+    PREV_RC=0
+    PREV_PIN="$(published_tag "$prev_img")" || PREV_RC=1
+    info "commit $(image_revision_display "$prev_img"), built $(image_created_display "$prev_img")"
+    if (( PREV_RC )); then
+      RECORDED=0
+      PREV_PIN=""
+      warn "the running image's build label could not be read, so this deploy has no rollback target it can name"
+    elif [[ "$PREV_PIN" =~ $PIN_RE ]]; then
+      info "rollback target: ${PREV_PIN}"
+    else
+      PREV_PIN=""
+      warn "the running image carries no published-tag label, so this deploy has no automatic rollback target"
+    fi
   fi
 fi
-ok "recorded before anything is pulled or recreated"
+# Only where something was read. A verdict on the branch above that recorded nothing is a pass
+# printed directly beneath the line saying the opposite.
+if (( RECORDED )); then ok "recorded before anything is pulled or recreated"; fi
 
 # --- pull -------------------------------------------------------------------------------------------
 
@@ -209,15 +261,21 @@ The frontend tag has already moved, so this host's pair is mismatched: re-run th
   ok "both :latest tags now point at ${PIN} locally"
 else
   step "Pulling the current published images"
-  # What :latest names before the pull moves it. A failed second pull would otherwise leave this host
-  # holding a new frontend and an old backend under the two names compose starts from.
-  before_fe="$(docker image inspect --format '{{.Id}}' "$IMAGE_FRONTEND" 2>/dev/null || true)"
+  # What :latest names before the pull moves it, so a failed second pull leaves no new frontend
+  # beside an old backend. `image ls`, not `inspect`: inspect reads an absent image and a dead
+  # daemon alike, and only the second may skip the restore.
+  BEFORE_RC=0
+  before_fe="$(docker image ls --quiet --no-trunc "$IMAGE_FRONTEND" 2>/dev/null)" || BEFORE_RC=$?
   docker pull "$IMAGE_FRONTEND" || die "pull failed for ${IMAGE_FRONTEND}
 The packages are public, so this server needs no login. An authentication or
 'not found' error almost always means the package was left PRIVATE after a
 first push — check https://github.com/felzab?tab=packages"
   if ! docker pull "$IMAGE_BACKEND"; then
-    if [[ -n "$before_fe" ]]; then
+    if (( BEFORE_RC )); then
+      warn "what ${IMAGE_FRONTEND} named before this run could not be read (exit ${BEFORE_RC}), so the
+frontend tag cannot be put back. This host's pair may be mismatched until a deploy pulls both again:
+  ./scripts/deploy.sh --status"
+    elif [[ -n "$before_fe" ]]; then
       if quietly docker tag "$before_fe" "$IMAGE_FRONTEND"; then
         info "the frontend tag was put back to the image it named before this run"
       else
@@ -231,6 +289,26 @@ fi
 
 info "frontend commit: $(image_revision_display "$IMAGE_FRONTEND")"
 info "backend  commit: $(image_revision_display "$IMAGE_BACKEND")"
+
+# The two packages move independently, so a publish that moved one tag and failed on the other
+# leaves a pair no tag names. Three answers rather than two, because a label nobody could read
+# is not an absent one.
+FE_RC=0; BE_RC=0
+FE_BUILD="$(published_tag "$IMAGE_FRONTEND")" || FE_RC=1
+BE_BUILD="$(published_tag "$IMAGE_BACKEND")"  || BE_RC=1
+if (( FE_RC || BE_RC )); then
+  refuse "the pulled images' build labels could not be read, so nothing says whether these two
+packages are the same build. NOTHING has been recreated. Pin the build explicitly instead:
+  ./scripts/deploy.sh <tag>       (./scripts/deploy.sh --status lists them)"
+elif [[ -z "$FE_BUILD" || -z "$BE_BUILD" ]]; then
+  warn "one of the pulled images carries no published-tag label, so this deploy is NOT verified as a
+matched pair. An image not built by publish.sh is the usual cause."
+elif [[ "$FE_BUILD" != "$BE_BUILD" ]]; then
+  die "The two :latest tags are different builds: frontend ${FE_BUILD}, backend ${BE_BUILD}.
+A publish that moved one and failed on the other leaves exactly this pair, and nothing downstream
+sees it: each service is healthy against its own half. NOTHING has been recreated.
+Deploy the build both packages have:  ./scripts/deploy.sh ${BE_BUILD}"
+fi
 
 # --- recreate ---------------------------------------------------------------------------------------
 
@@ -258,16 +336,34 @@ wait_healthy "$COMPOSE" backend 150  || HEALTHY=0
 wait_healthy "$COMPOSE" frontend 180 || HEALTHY=0
 if (( UP_RC )); then HEALTHY=0; fi
 
+# `wait_healthy` answers 1 for "reports UNHEALTHY" and for "could not ask compose" alike, and only
+# the first is a verdict on this build. Asking compose again separates them, before the ending
+# below says something definite about production.
+if (( ! HEALTHY && ! UP_RC )); then
+  # Not where `up` itself exited non-zero: the recreate was attempted and did not complete, so this
+  # deploy has a verdict whether or not the daemon answered afterwards.
+  ASK_RC=0
+  service_cid backend  >/dev/null || ASK_RC=$?
+  service_cid frontend >/dev/null || ASK_RC=$?
+  if (( ASK_RC )); then
+    refuse "compose cannot be asked about this stack (exit ${ASK_RC}), so nothing here says whether
+the new version is healthy — and the containers WERE recreated, so the site's state is unknown too.
+Ask it directly:  docker compose -f ${COMPOSE} ps"
+  fi
+fi
+
 if (( HEALTHY )); then
   ok "both services are healthy"
 
   section "checks"
+  SITE_VERIFIED=1
   step "Security headers, as served over HTTPS"
   headers="$(curl -fsSI https://frankfurtleague.de 2>/dev/null | grep -iE "content-security-policy|strict-transport-security" || true)"
   if [[ -n "$headers" ]]; then
     printf '%s\n' "$headers" | detail
     ok "the edge is serving them"
   else
+    SITE_VERIFIED=0
     warn "Could not read the headers over HTTPS — check nginx and the certificates in certs/."
   fi
 
@@ -277,7 +373,8 @@ if (( HEALTHY )); then
   NGINX_RC=0
   nginx_cid="$(service_cid nginx)" || NGINX_RC=$?
   if (( NGINX_RC )); then
-    warn "compose could not say whether nginx is running (exit ${NGINX_RC}), so the site is unverified.
+    refuse "compose could not say whether nginx is running (exit ${NGINX_RC}), so nothing establishes
+that the site serves this build — and after --force-recreate that is the one thing left to establish.
 Ask it directly:  docker compose -f ${COMPOSE} ps"
   elif [[ -n "$nginx_cid" ]]; then
     ok "running"
@@ -289,7 +386,9 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   end_section
   detail "What is live:  ./scripts/deploy.sh --status" \
          "Follow logs:   docker compose -f ${COMPOSE} logs -f frontend"
-  finish "The pulled build is live."
+  # Passed only when both reachability checks answered: the sentence is a claim about the live site,
+  # and neither `curl` nor the nginx query above is allowed to leave it unqualified.
+  if (( SITE_VERIFIED )); then finish "The pulled build is live."; else finish; fi
 else
   fail "THE NEW VERSION IS NOT HEALTHY."
   detail "nginx waits for the frontend to be healthy, so it is not serving this version to anyone." \

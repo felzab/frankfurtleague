@@ -45,7 +45,9 @@ else
     files="$(cat)"
   else
     base="$(git merge-base "$BASE_REF" HEAD)" || die "No merge base between '${BASE_REF}' and HEAD."
-    files="$(git diff --name-only "$base" HEAD)"
+    # `core.quotepath=false` because git otherwise quotes and octal-escapes a non-ASCII path, and the
+    # quoted spelling matches no arm below — every scope turns on for a file only prettier reads.
+    files="$(git -c core.quotepath=false diff --name-only "$base" HEAD)"
   fi
   while IFS= read -r f; do
     [[ -n "$f" ]] || continue
@@ -89,18 +91,18 @@ else
       # pnpm-workspace.yaml owns the build-scripts policy the in-image install obeys. Both can
       # break only the image while the host build stays green.
       fl_frontend/package.json|fl_frontend/pnpm-lock.yaml|fl_frontend/next.config.ts|fl_frontend/pnpm-workspace.yaml)
-        frontend=true; images=true ;;
+        frontend=true; images=true; docs=true ;;
       # `db` is emitted wherever `backend` is: the db tier is that same suite behind a marker
       # (ADR-0023), so what breaks one can break the other. It is a line of its own so CI and
       # `check_scope.py` read this vocabulary rather than translating it.
-      fl_backend/pyproject.toml|fl_backend/uv.lock) backend=true; db=true; images=true ;;
+      fl_backend/pyproject.toml|fl_backend/uv.lock) backend=true; db=true; images=true; docs=true ;;
       # The published API surface, which the frontend's contract test reads (ADR-0033). It selects
       # the frontend scope too: a change confined to fl_backend/ would otherwise never run the check
       # comparing a Pydantic model against its Zod mirror.
       fl_backend/openapi.json) backend=true; db=true; frontend=true; docs=true ;;
-      # What prettier may not read decides what the format scope proves, so a change to it is a
-      # change to that scope — and to nothing else, the build reading none of it.
-      .prettierignore|*/.prettierignore) format=true ;;
+      # prettier's configuration and its ignore file decide what the format scope proves, so a change
+      # to either is a change to that scope — and to nothing else, the build reading neither.
+      .prettierignore|*/.prettierignore|.prettierrc.json|*/.prettierrc.json) format=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
       fl_backend/*) backend=true; db=true; docs=true ;;
       # The ops scope parses the compose files and runs nginx against prod.conf; prettier also

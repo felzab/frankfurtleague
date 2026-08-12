@@ -38,7 +38,7 @@ for arg in "$@"; do
   esac
 done
 
-# Refused rather than silently ignored, which is the rule `scripts/deploy.sh` applies to its own
+# Stopped rather than silently ignored, which is the rule `scripts/deploy.sh` applies to its own
 # nonsense combination: a flag that does nothing reads as a flag that did something.
 if (( DOWN )) && (( FOLLOW )); then
   die "--down stops the stack, so there is no log left to follow.
@@ -47,6 +47,7 @@ fi
 
 require_platform windows
 require_docker
+require_file "$COMPOSE"
 
 if (( DOWN )); then
   section "down"
@@ -74,9 +75,11 @@ ok "both .env files are in place"
 
 step "Anything holding the build's files open"
 # A running `next dev` holds .next open and makes the build fail with EBUSY on Windows. Never
-# `grep -q` here: it closes the pipe on its first match, and under `pipefail` tasklist's SIGPIPE
+# `grep -q` here: it closes the pipe on its first match, and under `pipefail` the writer's SIGPIPE
 # then fails the test exactly when there WAS a match.
-if tasklist 2>/dev/null | grep -i "node.exe" >/dev/null; then
+if ! task_list="$(tasklist 2>/dev/null)"; then
+  info "tasklist did not answer, so nothing here says whether a build-blocking process is running"
+elif printf '%s\n' "$task_list" | grep -i "node.exe" >/dev/null; then
   info "node.exe is running — if the build fails with EBUSY, stop any 'pnpm dev' and retry"
 else
   info "no node.exe running"
@@ -116,6 +119,20 @@ HEALTHY=1
 wait_healthy "$COMPOSE" backend 150  || HEALTHY=0
 wait_healthy "$COMPOSE" frontend 150 || HEALTHY=0
 if (( UP_RC )); then HEALTHY=0; fi
+
+# `wait_healthy` answers 1 for "reports UNHEALTHY" and for "could not ask compose" alike, and only
+# the first says anything about this stack. Asking compose again separates them.
+if (( ! HEALTHY && ! UP_RC )); then
+  # Not where `up` itself exited non-zero: the start was attempted and did not complete, so this
+  # run has a verdict whether or not the daemon answered afterwards.
+  ASK_RC=0
+  docker compose -f "$COMPOSE" ps -q backend  >/dev/null 2>&1 || ASK_RC=$?
+  docker compose -f "$COMPOSE" ps -q frontend >/dev/null 2>&1 || ASK_RC=$?
+  if (( ASK_RC )); then
+    refuse "compose could not be asked about this stack (exit ${ASK_RC}), so 'unhealthy' is not what
+this run established. Ask it directly:  docker compose -f ${COMPOSE} ps"
+  fi
+fi
 
 if (( HEALTHY )); then
   ok "both services are healthy"

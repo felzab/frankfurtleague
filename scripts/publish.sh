@@ -65,6 +65,46 @@ builds of ${SHA} apart; it says nothing about which of them is which."
   ok "dirty at ${SHA} on ${BRANCH}"
 fi
 
+# `:latest` is production's default pull target and a `sha-` tag is a rollback target, so both name
+# a commit somebody else must resolve (docs/ops/spec.md I12). Any remote branch clears the bar, so
+# a release or a hotfix branch still publishes.
+step "The commit this build names"
+
+# Each remote is asked what it has, rather than `git branch -r`, whose tracking refs are a local
+# cache: a branch deleted upstream answers `--contains` until something prunes it.
+ON_REMOTE=0
+UNASKED=()
+while IFS= read -r remote; do
+  [[ -n "$remote" ]] || continue
+  # A remote wanting credentials would otherwise hang the publish on a prompt nobody is watching.
+  heads="$(GIT_TERMINAL_PROMPT=0 git ls-remote --heads "$remote")" || { UNASKED+=("$remote"); continue; }
+  while IFS=$'\t' read -r tip _; do
+    [[ -n "$tip" ]] || continue
+    # Only a tip this clone holds can be tested, so a branch somebody else advanced since the last
+    # fetch is skipped rather than believed.
+    if git merge-base --is-ancestor HEAD "$tip" 2>/dev/null; then ON_REMOTE=1; break 2; fi
+  done <<< "$heads"
+done <<< "$(git remote)"
+
+if (( ! ON_REMOTE )); then
+  # A remote that could not answer leaves the bar unproven rather than failed (ADR-0066): the commit
+  # may well be on it, and nothing read here says otherwise.
+  if (( ${#UNASKED[@]} )); then
+    # One command per remote: `git ls-remote` takes one repository and reads a later name as a ref
+    # pattern, so a joined command asks the first alone — and answers exit 0 in silence once that
+    # one is reachable, which reads as this refusal disproved.
+    unasked_names="$(printf '%s, ' "${UNASKED[@]}")"; unasked_names="${unasked_names%, }"
+    unasked_cmds="$(printf '\n  git ls-remote --heads %s' "${UNASKED[@]}")"
+    refuse "could not get a branch list from ${unasked_names} — so nothing establishes that
+${SHA} is fetchable, and ${QUALIFIER} would name it. NOTHING has been built or pushed.
+Ask by hand:${unasked_cmds}"
+  fi
+  die "HEAD is on no branch a remote has, so ${QUALIFIER} would name a commit nobody else can
+resolve, and :latest would move to it. Push the branch first. Only a branch tip this clone holds can
+be tested, so run 'git fetch' if the branch carrying HEAD has moved on elsewhere."
+fi
+ok "${SHA} is on a branch a remote has"
+
 TAG_FE="${REPO_FRONTEND}:${QUALIFIER}"
 TAG_BE="${REPO_BACKEND}:${QUALIFIER}"
 
@@ -102,12 +142,20 @@ build_one "backend"  "fl_backend/Dockerfile"  "fl_backend"  "$IMAGE_BACKEND"  "$
 # from the standalone output — which disables the startup environment gate and all production error
 # logging. One check keeps that out of the registry.
 step "Checking the frontend image is sound"
-if quietly docker run --rm --entrypoint sh "$IMAGE_FRONTEND" -c '[ -f .next/server/instrumentation.js ]'; then
+PROBE_RC=0
+quietly docker run --rm --entrypoint sh "$IMAGE_FRONTEND" -c '[ -f .next/server/instrumentation.js ]' || PROBE_RC=$?
+if (( PROBE_RC == 0 )); then
   ok "instrumentation.js is in the image (env gate + error logging will run)"
-else
+elif (( PROBE_RC == 1 )); then
   die "instrumentation.js is MISSING from the frontend image.
 It must live at fl_frontend/src/instrumentation.ts — from the repo root it is dropped
 from output:\"standalone\" without any error. NOTHING has been pushed."
+else
+  # 1 is the test's own answer; anything above it is docker's — no `sh` in the image, a container
+  # that would not start — and says nothing about the file either way.
+  refuse "the probe container did not run (exit ${PROBE_RC}), so whether instrumentation.js reached
+the image is unknown. NOTHING has been pushed. Ask the image directly:
+  docker run --rm --entrypoint sh ${IMAGE_FRONTEND} -c 'ls .next/server'"
 fi
 
 if (( DRY_RUN )); then
@@ -123,11 +171,14 @@ section "push"
 
 push_one() {
   # Progress deliberately NOT captured: a first push is minutes of silence otherwise, which is
-  # indistinguishable from a hang.
+  # indistinguishable from a hang. `$2` is what this particular failure leaves behind, which the
+  # caller knows and a helper pushing one name cannot.
   info "pushing $1"
   docker push "$1" || die "push failed for $1.
 If this is an authentication error, log in with a token carrying write:packages:
-  docker login ghcr.io -u felzab"
+  docker login ghcr.io -u felzab${2:+
+
+$2}"
 }
 
 # The immutable tags first, because they carry every layer. `deploy.sh` follows `:latest` or an
@@ -143,7 +194,9 @@ ok "${QUALIFIER} is in the registry for both packages"
 # rather than the length of an image upload.
 step "Moving the :latest tag of each package"
 push_one "$IMAGE_FRONTEND"
-push_one "$IMAGE_BACKEND"
+push_one "$IMAGE_BACKEND" "THE FRONTEND'S :latest HAS ALREADY MOVED to ${QUALIFIER} and the backend's
+has not, so './scripts/deploy.sh' with no tag would ship a mismatched pair. Both pinned tags ARE in
+the registry: deploy ./scripts/deploy.sh ${QUALIFIER}, or re-run this script to move the pair."
 ok "both moving tags now point at ${QUALIFIER}"
 
 # --- prune superseded LOCAL sha tags ---------------------------------------------------------------
@@ -158,14 +211,21 @@ ok "both moving tags now point at ${QUALIFIER}"
 section "prune"
 
 step "Pruning superseded local sha tags"
-# `docker image ls` accepts at most one repository argument, so this is two calls. Passing both
-# fails, and the `|| true` below would swallow it — the prune would quietly stop working.
-superseded="$( { docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}'; \
-                 docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}'; } \
+# `docker image ls` accepts at most one repository argument, so this is two calls, each read on its
+# own: a listing that FAILED is empty too, and reported as "none" it describes this machine from a
+# command that never answered.
+LS_RC=0
+listed_fe="$(docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}')" || LS_RC=$?
+listed_be="$(docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}')" || LS_RC=$?
+superseded="$(printf '%s\n%s\n' "$listed_fe" "$listed_be" \
   | grep -E ':sha-' \
   | grep -vxF -e "$TAG_FE" -e "$TAG_BE" || true)"
 
-if [[ -z "$superseded" ]]; then
+if (( LS_RC )); then
+  warn "could not list this machine's images (exit ${LS_RC}), so nothing was pruned and nothing here
+says what is left behind. Every build is already in the registry, which is what deploy.sh reads.
+Clean up by hand:  docker image ls '${REPO_FRONTEND}'"
+elif [[ -z "$superseded" ]]; then
   ok "none — ${QUALIFIER} is the only build on this machine"
 else
   removed=0
