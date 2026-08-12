@@ -162,8 +162,6 @@ const path = require("path");
 
 // Quotes, the substitution forms and the backslash are spelled as escapes so the surrounding
 // single-quoting survives shellcheck and the shell alike: nothing here is meant to expand.
-// A backslashed quote goes first: inside a double-quoted string it is how a one-liner writes a
-// quote, and leaving the backslash behind turns the path it wraps into a different path.
 const ESCAPED = /\\[\x22\x27\x60]/g;
 const QUOTES = /[\x22\x27\x60]/g;
 
@@ -195,9 +193,9 @@ const extended = (t) => {
 
 // Programs whose every operand is a path, so a bare word among them is a target rather than a
 // literal, and programs mixing paths with literals, where only a path-shaped token counts.
-// ln is absent deliberately: a symlink planted inside the ignored tree points the exempt class at
-// the tracked one, and neither guard resolves a link before deciding.
 const PATHS = ["cat", "cp", "ls", "mkdir", "mv", "sort", "tee", "touch", "uniq"];
+// ln is absent from both lists deliberately: a symlink planted inside the ignored tree points the
+// exempt class at the tracked one, and neither guard resolves a link before deciding.
 const MIXED = ["basename", "cut", "date", "diff", "dirname", "echo", "grep", "head", "nl",
   "printf", "rg", "sed", "seq", "tail", "tr", "wc"];
 // git subcommands that write nothing of their own; the rest of git is never exemptible.
@@ -222,6 +220,7 @@ const decide = (input) => {
   const words = cmd
     .split(/[ \t]+/)
     .filter(Boolean)
+    // ESCAPED before QUOTES: a backslash left behind turns the path it wraps into a different path.
     .map((w) => w.replace(ESCAPED, "").replace(QUOTES, ""));
 
   // Ahead of the flag skip below, because a credential name glued into a flag is the same file.

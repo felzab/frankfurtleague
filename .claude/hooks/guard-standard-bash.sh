@@ -178,12 +178,11 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
   const standard = path.resolve(strip(process.env.REPO_ROOT), "docs", "_standard");
 
   // Whitespace and shell metacharacters end a candidate, so a path buried in inline python code, an
-  // --option=value pair or a spaceless redirect still surfaces on its own. Quotes are REMOVED
-  // rather than split on: splitting leaves neither half of \x22docs/\x22_standard/x.md a path.
-  // A backslashed quote goes first, because a one-liner writes its paths that way and the backslash
-  // left behind would resolve somewhere else entirely.
+  // --option=value pair or a spaceless redirect still surfaces on its own. Quotes are REMOVED, not
+  // split on: neither half of a quoted path is a path.
   const tokens = s
     .split(/[\s;|&<>(),=]+/)
+    // A backslashed quote goes first: the backslash left behind resolves somewhere else entirely.
     .map((t) => t.replace(/\\[\x22\x27\x60]/g, "").replace(/[\x22\x27\x60]/g, ""))
     .filter(Boolean);
 
