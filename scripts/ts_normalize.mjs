@@ -25,9 +25,7 @@ let ts;
 try {
   ts = createRequire(`${repoRoot}fl_frontend/package.json`)("typescript");
 } catch {
-  console.error(
-    "typescript is not installed — run pnpm install in fl_frontend",
-  );
+  console.error("typescript is not installed — run pnpm install in fl_frontend");
   process.exit(1);
 }
 
@@ -38,24 +36,16 @@ function normalize(path) {
   // setParentNodes, because the printer walks parents as it emits. The script kind must follow the
   // extension: a .tsx parsed as plain TS reads its JSX as syntax errors, and the refusal below then
   // counts every comment-only .tsx edit as code.
-  const source = ts.createSourceFile(
-    path,
-    text,
-    ts.ScriptTarget.Latest,
-    true,
-    path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-  );
+  const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   // `parseDiagnostics` is internal: it is absent from the installed typescript.d.ts, so an upgrade
   // that renames or drops it would take this guard with it and no type error anywhere would say so.
   // Its absence is refused rather than optional-chained past.
   if (!Array.isArray(source.parseDiagnostics)) {
-    throw new Error(
-      `${path}: this typescript no longer exposes parseDiagnostics, so a damaged parse tree cannot be detected`,
-    );
+    throw new Error(`${path}: this typescript no longer exposes parseDiagnostics, so a damaged parse tree cannot be detected`);
   }
-  // A version that does not parse cleanly may lose content in the printed form, which would make
-  // two different files compare equal — a comment-only verdict on a real change, the one direction
-  // ADR-0030 exists to make impossible. Refuse rather than answer from a damaged tree.
+  // A damaged parse tree can lose content in the printed form, so two different files compare
+  // equal — a comment-only verdict on a real change, the one direction ADR-0030 exists to make
+  // impossible. Refuse rather than answer from it.
   if (source.parseDiagnostics.length) {
     throw new Error(`${path} does not parse cleanly`);
   }
