@@ -135,8 +135,8 @@ set changes.
 the result shape across that boundary, so the request schema is validated with zod in the handler and
 the response is narrowed at the call site.
 
-**The editors get no confirmation dialog**, for ADR-0041's reason: undo and confirmation are
-alternatives, and undo is the one that helps the admin who was not paying attention.
+**The editors get no confirmation dialog on the SAVE**, for ADR-0041's reason: undo and
+confirmation are alternatives, and undo is the one that helps the admin who was not paying attention.
 
 **The same exposure remains on two public routes and is not addressed here.**
 `/dashboard/teams/[team_id]` and `/dashboard/spieler/[team_id]` carry the same `◐` sub-entry over
@@ -147,7 +147,7 @@ own decision.
 ## Alternatives considered
 
 **Keep the server action and accept a broken undo.** Rejected: the undo is the only safety net on
-pages that deliberately have no confirmation dialog (ADR-0041), so losing it removes the mechanism
+a save that pages deliberately do not confirm (ADR-0041), so losing it removes the mechanism
 that justified removing the dialog.
 
 **Wait for the upstream fix.** Rejected as a plan rather than as an expectation. It is Next's bug

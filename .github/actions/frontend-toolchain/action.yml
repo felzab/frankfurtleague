@@ -1,0 +1,40 @@
+name: Frontend toolchain
+description: >-
+  pnpm, Node and fl_frontend's installed dependencies, in the order the cache needs them. Four jobs
+  of the verify workflow want exactly this block, and a copy per job is a copy that can drift.
+
+# The caller checks out first. A `./` action is read from the workspace, so the runner cannot find
+# this file until actions/checkout has run -- which is also why the checkout stays in each job,
+# where its own fetch-depth is decided.
+#
+# Local to this repository, so it needs no Actions allowlist entry (docs/_git/spec.md, Repository
+# settings). The pins below are the same full-SHA form the workflows use; dependabot reaches them
+# through the composite-action entry in .github/dependabot.yml, never through its root one.
+
+runs:
+  using: composite
+  steps:
+    # pnpm before setup-node: `cache: pnpm` asks pnpm where its store is, so the other order caches
+    # nothing and reports no error.
+    - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      with:
+        # Read from `packageManager` in fl_frontend/package.json. The image pins the same version
+        # independently at `fl_frontend/Dockerfile :: ARG PNPM_VERSION`, and nothing compares the
+        # two -- bump both.
+        package_json_file: fl_frontend/package.json
+
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        # The version comes from the same file, so a Node bump is one edit rather than one per job.
+        # setup-node reads `volta.node`, then `devEngines.runtime`, then `engines.node`, and the
+        # first of those that exists wins.
+        node-version-file: fl_frontend/package.json
+        cache: pnpm
+        cache-dependency-path: fl_frontend/pnpm-lock.yaml
+
+    # Every calling job needs the installed tree, and each has its own reason -- written at the call
+    # site, because the reasons differ and none of them is this action's.
+    - name: Install frontend dependencies
+      working-directory: fl_frontend
+      shell: bash
+      run: pnpm install --frozen-lockfile

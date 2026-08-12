@@ -1,22 +1,25 @@
 """
-SPIELTAGE · filter construction and the derived order
+SPIELTAGE · filter construction, the derived order, and the derived match count
 
-Pure translation of `FLSpieltageFilterParams` into a Mongo filter and sort, plus the one
-expression of a matchday's position: `order_spieltage` is the only place in the system that says
-what "the third matchday" means (ADR-0051).
+Pure translation of `FLSpieltageFilterParams` into a Mongo filter and sort, plus the two things a
+matchday does not store: its position, of which `order_spieltage` is the only expression in the
+system (ADR-0051), and its match count, which `with_expected_matches` attaches (ADR-0052).
 
 Invariants:
 - The natural order is total: `PHASE_RANK[saison_phase]`, then `beginn`, then `_id`.
 - The phase leads — date alone would let a Halbfinale render ahead of a Viertelfinale.
 - `order_spieltage` sorts in Python, after the read: `$sort` would order phases lexically.
 - The Mongo sort still approximates the natural order, so `limit` selects the right prefix.
+- Every path validating a stored matchday injects `anzahl_spiele` first, reads and writes alike.
 
 See:
 - docs/domain.md — what a derived field is, and why a position is one
 """
 
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
+from app.api.saisons.schedule import expected_matches
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import PHASE_RANK
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
 
@@ -67,6 +70,23 @@ def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
         query["inactive_since"] = None
 
     return query
+
+
+def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules) -> dict[str, Any]:
+    """
+    One raw matchday with its derived `anzahl_spiele` attached, ready to validate.
+
+    Injected into the DOCUMENT rather than set on the model afterwards, because the field is required on
+    `FLSpieltag` and sits on no document (ADR-0052) -- so a matchday reaching validation without it is a
+    500, and doing it here means the model's own bound (`ge=0`) still judges the derived value.
+
+    **Every path that validates a stored matchday goes through this, writes as much as reads.** A write
+    endpoint echoes the document it just changed, and `PATCH` can move the `saison_phase` the count is
+    derived from, so an echo skipping this would answer with a stale number even once it stopped raising.
+    One home for the derivation is also what ADR-0052 is for: a second one is a second answer.
+    """
+
+    return {**spieltag_raw, "anzahl_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
 
 
 # Retiring a matchday that holds a match with a result (decided 2026-08-08). A retired matchday is

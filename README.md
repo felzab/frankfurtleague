@@ -91,7 +91,7 @@ squashed; [`docs/_git/spec.md`](docs/_git/spec.md) is the convention.
 
 Run the gate before opening a PR, at the scope [`CONTRIBUTING.md`](CONTRIBUTING.md) names. CI runs it too.
 
-Full detail, including how to report a bug and where ideas go: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Full detail — setup, how to report a bug, and where ideas go: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Status
 

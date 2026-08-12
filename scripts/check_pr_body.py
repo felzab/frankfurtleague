@@ -23,17 +23,20 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
+
+from checker_kernel import EXIT_OK, Finding, report_findings, run
 
 SUMMARY_TARGET: Final = 200  # reported: past a generous reading of "one or two paragraphs"
 SUMMARY_MAX: Final = 500  # failed: past any reading of it
 
-BOT_AUTHORS: Final[frozenset[str]] = frozenset({"dependabot[bot]", "dependabot-preview[bot]"})
+# The login GitHub reports as the pull request's author, matched whole. The commit half of the same
+# exemption is `check_commits.py :: BOT_IDENTITIES` (COR-2).
+BOT_AUTHORS: Final[frozenset[str]] = frozenset({"dependabot[bot]"})
 
 # Verbatim fragments of the form in `docs/_git/templates.md :: Pull requests`: their presence means
-# it was pasted rather than filled in. Reword one and this refusal stops firing, which
+# it was pasted rather than filled in. Reword one and this check stops firing, which
 # `check_docs.py :: check_template_fragments` catches.
 TEMPLATE_FRAGMENTS: Final[tuple[str, ...]] = (
     "One orientation sentence, for a multi-commit PR only",
@@ -53,12 +56,6 @@ SECTION_LEAD: Final = re.compile(
 VERIFIED_HEADING: Final = re.compile(r"^\**Verified\b", re.MULTILINE | re.IGNORECASE)
 
 COMMIT_LIST_ITEM: Final = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+`?[0-9a-f]{7,40}`?\b")
-
-
-@dataclass(frozen=True)
-class Finding:
-    severity: str  # "fail" | "report"
-    detail: str
 
 
 def summary_of(body: str) -> str:
@@ -96,12 +93,14 @@ def check_body(body: str, author: str = "") -> list[Finding]:
     if not VERIFIED_HEADING.search(body):
         findings.append(Finding("fail", "no Verified paragraph -- name the gate invocation and its exit code (bold optional)"))
 
-    run = longest_commit_run(body)
-    if run >= 3:
+    # Not `run`: this module imports a callable under that name, and the next edit reaching for it
+    # here would get an integer instead.
+    hashes = longest_commit_run(body)
+    if hashes >= 3:
         findings.append(
             Finding(
                 "fail",
-                f"{run} consecutive list items carry a commit hash -- a body summarises the branch, it never indexes its commits (ADR-0029)",
+                f"{hashes} consecutive list items carry a commit hash -- a body summarises the branch, it never indexes its commits (ADR-0029)",
             )
         )
 
@@ -125,24 +124,18 @@ def main() -> int:
     args = parser.parse_args()
 
     body = sys.stdin.read() if args.body == "-" else Path(args.body).read_text(encoding="utf-8")
-    findings = check_body(body, args.author)
 
-    failures = [f for f in findings if f.severity == "fail"]
-    reports = [f for f in findings if f.severity == "report"]
-
-    for finding in failures:
-        print(f"  FAIL    {finding.detail}", file=sys.stderr)
-    for finding in reports:
-        print(f"  report  {finding.detail}", file=sys.stderr)
-
-    if failures:
+    # stderr for every severity: the workflow step's log is the only reader, and a body that fails
+    # should say so where a failed step is looked for.
+    code = report_findings(check_body(body, args.author), indent=2, stream=sys.stderr)
+    if code != EXIT_OK:
         print("\n  The form is docs/_git/templates.md, Pull requests.", file=sys.stderr)
         print("  Edit the body in place -- `gh pr edit <n> --body-file <path>` keeps the number and the URL.\n", file=sys.stderr)
-        return 1
+        return code
 
     print("  the body follows the form")
-    return 0
+    return code
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run(main))

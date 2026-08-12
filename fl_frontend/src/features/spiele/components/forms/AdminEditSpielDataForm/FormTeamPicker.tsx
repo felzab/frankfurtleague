@@ -322,19 +322,16 @@ export function FormTeamPicker({
       disabledKeys={disabledTeamKeys}>
       <FieldLabel path={`${fieldName}.team_id`}>{isKnockout ? `${label}: Mannschaft` : label}</FieldLabel>
       <Autocomplete.Trigger className={FIELD_TRIGGER}>
-        {/* The selected team's NAME from the prop, not `Autocomplete.Value`. That component renders the
-            chosen list ITEM's content, and a row's content is the name plus its chip with `ml-auto` -- so a
-            disqualified team's closed trigger drew "Disqualifiziert" on top of its own name inside a
-            `truncate` span (decided 2026-08-08). Same reason `SpieltagFormFields` reads its phase from the
-            prop rather than from `Select.Value`.
-            The badge is kept, as a SIBLING rather than inside the truncating span: it is the one piece of
-            state a closed trigger genuinely has to carry, and losing it to fix the overlap would trade one
-            defect for a quieter one. `shrink-0` beside `min-w-0 truncate` is what makes the name give way
-            instead of the badge. */}
-        <span className={`fluid-sm min-w-0 truncate ${teamPayload === null ? "text-foreground-muted" : ""}`}>
+        {/* The name from the prop, never through `Autocomplete.Value`, and `flex-1` as
+            `.autocomplete__value` carries on every sibling trigger: the free space is the name's
+            (I30 in `docs/frontend/spec.md`). */}
+        <span className={`fluid-sm min-w-0 flex-1 truncate ${teamPayload === null ? "text-foreground-muted" : ""}`}>
           {teamPayload?.name ?? PLACEHOLDER.slot}
         </span>
-        {isSelectedDisqualified && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong shrink-0`}>Disqualifiziert</span>}
+        {/* A SIBLING of the truncating span, spaced by its own `ms-2` — and the free space above is
+            what parks it at the trailing edge as the listbox rows do, so the clear button beside it
+            does not move when a team is disqualified. */}
+        {isSelectedDisqualified && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong ms-2 shrink-0`}>Disqualifiziert</span>}
         {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. `size-7`
             because the default is a 20px target on the control that is the PRIMARY way a group
             fixture's side is emptied — too small to see and to hit. */}
@@ -346,7 +343,7 @@ export function FormTeamPicker({
           <Autocomplete.ClearButton
             type="button"
             aria-label={`${label}-Auswahl aufheben`}
-            className="text-foreground-muted hover:text-foreground size-7 rounded-md [&_svg]:size-4"
+            className="text-foreground-muted hover:text-foreground ms-2 size-7 rounded-md [&_svg]:size-4"
           />
         )}
         <Autocomplete.Indicator />

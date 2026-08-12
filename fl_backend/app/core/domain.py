@@ -430,8 +430,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "schedule",
         Editability.DERIVED,
         "computed from this season's own `rules` (ADR-0052): the whole phase-by-phase shape the matchday "
-        "above reports one entry of. Served so the matchday editor can refuse `REQ-SPIELTAG-002` before "
-        "the request, which needs the count for a phase the matchday does not have yet",
+        "above reports one entry of. Served for both halves of it — `matches_per_matchday` lets the matchday "
+        "editor refuse `REQ-SPIELTAG-002` before the request, which needs the count for a phase the matchday "
+        "does not have yet, and `matchdays` is what says whether a phase is short of matchdays at all",
         "app.api.saisons.schedule.schedule_for",
     ),
     FieldPolicy(
@@ -462,7 +463,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SAISON_TEAMS,
         "gruppe",
         Editability.CONDITIONAL,
-        "held to the groups the season runs and to their capacity on every write; a row is created only while the season is `future`",
+        "held to the groups the season runs and to their capacity on every write; a row is created only while the season is `future`, "
+        "a single move is refused once the started season has drawn its fixtures, and what stays open is a two-club swap of clubs that "
+        "have not yet played inside their groups (ADR-0062)",
         "app.api.teams.services.find_entry_refusal",
     ),
     FieldPolicy(
@@ -672,6 +675,51 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-SWAP-001",
+        operation="POST /saisons/{saison_id}/gruppen/swap",
+        aggregate="Saison",
+        summary="a swap names two clubs of this season standing in different groups, or it is not a swap",
+        implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
+        tested_by="tests/api/test_gruppe_swap_refusal.py::TestWhatCountsAsASwap",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SWAP-002",
+        operation="POST /saisons/{saison_id}/gruppen/swap",
+        aggregate="Saison",
+        summary="no group swap once a knockout fixture has been played, called off or given a goal count",
+        implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
+        tested_by="tests/api/test_gruppe_swap_refusal.py::TestTheKnockoutClosesTheWindow",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SWAP-003",
+        operation="POST /saisons/{saison_id}/gruppen/swap",
+        aggregate="Saison",
+        summary="no group swap in a `past` season, whose table is derived from these groups and is the record of what happened",
+        implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
+        tested_by="tests/api/test_gruppe_swap_refusal.py::TestAFinishedSeasonIsFrozen",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SWAP-004",
+        operation="POST /saisons/{saison_id}/gruppen/swap",
+        aggregate="Saison",
+        summary="no group swap once either club's gruppenphase fixture has been played, called off or given a goal count",
+        implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
+        tested_by="tests/api/test_gruppe_swap_refusal.py::TestTheRoundRobinClosesTheWindow",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SWAP-005",
+        operation="POST /saisons/{saison_id}/gruppen/swap",
+        aggregate="Saison",
+        summary="no group swap that would leave a club standing in two matches of one Spieltag",
+        implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
+        tested_by="tests/api/test_gruppe_swap_refusal.py::TestASpieltagNeverHoldsAClubTwice",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-RETIRE-001",
         operation="DELETE /teams/{team_id}",
         aggregate="Team",
@@ -691,9 +739,9 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-002",
-        operation="POST /spieltage · PATCH /spieltage/{spieltag_id}",
+        operation="POST /spieltage · PATCH /spieltage/{spieltag_id} · POST /spieltage/{spieltag_id}/reactivate",
         aggregate="Spieltag",
-        summary="a matchday's span must fall inside its season's",
+        summary="a matchday's span must fall inside its season's, on the way in and on the way back in",
         implemented_by="app.api.spieltage.services.find_spieltag_span_refusal",
         tested_by="tests/api/test_containment_refusals.py::TestAMatchdaySitsInsideItsSeason",
         multi_document=True,

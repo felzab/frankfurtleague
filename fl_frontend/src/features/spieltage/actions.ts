@@ -36,10 +36,14 @@ import type { SpieltagCreateDraft } from "./types";
  *
  * Written to the shapes stated in `fl_frontend/src/features/saisons/actions.ts`. Two land on a field and
  * are one sentence about that value: `REQ-SPIELTAG-002` on `saison_phase`, and `REQ-DATE-002` on `beginn`,
- * which is the earlier of the two dates and so the one to look at first. The other two have no field to
+ * which is the earlier of the two dates and so the one to look at first. The other three have no field to
  * land on -- `REQ-RETIRE-002` is raised from a dialog rather than a form, `REQ-DATE-003` is about FIXTURES
  * this form does not show, and `REQ-SPIELTAG-003` is about the SEASON's own schedule -- so each is two
  * sentences with the action second.
+ *
+ * **The `beginn` field error serves the create and the edit alone.** `reactivateSpieltagAction` answers the
+ * same `REQ-DATE-002` from a row button with no form behind it, so it maps that code itself rather than
+ * handing back a field error with no field to land on.
  */
 function mapSpieltagRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -224,7 +228,23 @@ export async function reactivateSpieltagAction(rawPayload: FLSpieltagKeyPayload)
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const reactivateOperation = await reactivateSpieltag(validated.data);
+    // The span is re-checked on the way back in (`REQ-DATE-002`): while it was retired the season's
+    // dates were free to move past it. This lands on a toast, not a form, so the sentence carries its
+    // own repair — a field error would have no field to land on.
+    let reactivateOperation;
+    try {
+      reactivateOperation = await reactivateSpieltag(validated.data);
+    } catch (error) {
+      if (error instanceof APIBadStatusError && error.statusCode === 409 && error.serverErrorCode === "REQ-DATE-002") {
+        return {
+          success: false,
+          error:
+            "Der Zeitraum dieses Spieltags liegt außerhalb des Zeitraums der Saison. Passe den Zeitraum des Spieltags oder der Saison an und reaktiviere ihn danach.",
+        };
+      }
+      throw error;
+    }
+
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: "Beim Reaktivieren des Spieltags ist ein unerwarteter Fehler aufgetreten" };
     }

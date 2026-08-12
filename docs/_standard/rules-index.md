@@ -1,6 +1,6 @@
 # Rules index
 
-**Verified against:** `7555ecd`, 2026-08-10
+**Verified against:** `bbb5182`, 2026-08-12
 
 Every rule in one line each; the chapter heading links to the file the full rules live in.
 
@@ -77,8 +77,9 @@ Every rule in one line each; the chapter heading links to the file the full rule
   argument re-derived — never for a bug fix or a first implementation nobody argues with.
 - **DEC-2:** six metadata lines, four H2s, Source required, no stamp.
 - **DEC-3:** Status is `Accepted`, `Proposed`, `Deprecated` or `Superseded by ADR-NNNN`.
-- **DEC-4:** accepted reasoning is never edited — mechanical repairs, or a rewrite that is
-  certainly warranted and explicitly approved, with the approval and its date on the rule.
+- **DEC-4:** reasoning is immutable once merged, repairable before that in a commit body that says
+  so — afterwards mechanical repairs, or a rewrite that is certainly warranted and explicitly
+  approved, with the approval and its date on the rule.
 - **DEC-5:** numbers are permanent identities; gaps stay gaps, mapped in the index, except under
   DEC-4's approval clause on the same terms.
 - **DEC-6:** reversal — a new number plus exactly two lines in the old one.

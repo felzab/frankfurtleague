@@ -1,212 +1,37 @@
-# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# FRONTEND · what must not enter the build context
+#
+# Short and hand-kept on purpose: everything in fl_frontend/ not listed here reaches the builder,
+# so this list answers "what does the image see?". Add a line when something here is a secret, a
+# machine-local artifact, or output the image rebuilds for itself. `**/` where a name can appear
+# at any depth: a bare `*.log` matches the context root alone and would leave src/**/*.log in the
+# context, while `**/` also matches zero directories, so the root copy needs no second line.
 
-# Security & Sensitive Data
+# Matched by shape rather than inventory: a rule holds whether or not anything matches it now,
+# because a credential inside an image is a failure nobody sees until it ships. The containers
+# take their environment from compose's env_file at run time.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.crt
+# The deliberate trade: an `.npmrc` usually carries pnpm configuration, so one added later to
+# shape the install would never reach `deps` and the build would not say why. Excluded anyway --
+# a registry token in a shipped image is found too late.
+**/.npmrc
 
-# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-**/config/credentials.*
-**/config/secrets.*
-**/keys/
-**/passwords/
-**/private/
-**/secrets/
-
-.env
-.env.*
-.git
-
-*.auth
-*.authz
-*.password
-*.secret
-*.secrets
-*.token
-*_tokens
-*password*
-
-apikeys.*
-appsettings.Development.json
-appsettings.Local.json
-appsettings.Staging.json
-connectionstrings.config
-credentials
-database.ini
-database.yml
-dbconfig.xml
-secrets.json
-secrets.yaml
-secrets.yml
-tokens.*
-
-# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-# Build Artifacts & Distribution
-
-# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-**/.astro/
-**/.build/
-**/.gatsby/
-**/.nuxt/
-**/.output/
-**/.svelte-kit/
-**/_build/
-**/_site/
-**/dist/
-**/out/
-**/public/static/chunks/
-**/public/static/css/
-**/public/static/media/
-**/storybook-static/
-
-# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-# Dependency Management & Package Cache
-
-# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-**/.bun/
-**/.npm/
-**/.pnpm-store/
-**/.pnpm/
-**/.yarn/
-**/bower_components/
+# Reinstalled by the deps stage from the lockfile, and the host tree is built for another platform,
+# so copying it in would be both wrong and the largest thing in the context.
 **/node_modules/
 
-.npmignore
-.npmrc
-.npmrc.*
-.yarnrc
-.yarnrc.yml
-npm-debug.log*
-pnpm-debug.log*
-# pnpm-workspace.yaml
-yarn-error.log
+# Build output. The builder writes its own; the host's copy could only shadow it.
+.next/
 
-# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Machine-local typechecker state (~700 KB, rewritten by every `pnpm typecheck`). In the context it
+# makes the builder's `COPY . .` layer key depend on whether anyone ran the typechecker.
+tsconfig.tsbuildinfo
 
-# Development & Runtime Artifacts
+**/*.log
 
-# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-**/.cache/
-**/.eslintcache
-**/.idea/
-**/.static/
-**/.storybook/
-**/.stylelintcache
-**/.tmp/
-**/.turbo/
-**/.vs/
-**/.vscode/
-**/temp/
-**/tmp/
-
-*.log
-*.pid
-*.sock
-
-# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-# Testing & Quality Assurance
-
-# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-**/.coverage_html/
-**/.nyc_output/
-**/.pytest_cache/
-**/.spec/
-**/.ssg/
-**/.ssr/
-**/.tests/
-**/coverage/
-**/coverage_html/
-**/test-reports/
-**/test-results/
-
-.coverage
-.coverage.*
-junit.xml
-test-results.xml
-
-# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-# Tool-Specific Patterns
-
-# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-**/.allure/
-**/.blitz/
-**/.cypress/
-**/.devcontainer/
-**/.devpod/
-**/.docusaurus/
-**/.esbuild/
-**/.expo/
-**/.firebase/
-**/.functions/
-**/.hydrogen/
-**/.jest/
-**/.keystone/
-**/.netlify/
-**/.next/
-**/.parcel-cache/
-**/.playwright/
-**/.puppeteer/
-**/.qwik/
-**/.redwood/
-**/.remix/
-**/.rollup.cache/
-**/.sanity/
-**/.sapper/
-**/.serverless/
-**/.solid-start/
-**/.swc/
-**/.testcontainers/
-**/.tina/
-**/.vercel/
-**/.vitest/
-**/.webpack/
-**/.wrangler/
-**/allure-results/
-**/bazel-*
-**/bazel-bin/
-**/bazel-out/
-**/bazel-testlogs/
-**/buck-out/
-**/config/development.*
-**/config/local.*
-**/config/production.*
-**/config/staging.*
-**/config/test.*
-**/cypress/screenshots/
-**/cypress/videos/
-**/dist-newstyle/
-**/elm-stuff/
-**/functions/
-**/migrations/local/
-**/pkg/
-**/playwright-report/
-**/public/_next/
-**/seeds/local/
-**/settings/development.*
-**/settings/local.*
-**/settings/production.*
-**/settings/staging.*
-**/settings/test.*
-
-.cypress
-.eslintrc.local.*
-.prettierrc.local.*
-.stylelintrc.local.*
-
-database.local.*
-db.local.*
-docker-compose.dev.*
-docker-compose.local.*
-docker-compose.override.*
-docker-compose.test.*
-next.config.local.*
-redis.local.*
-vite.config.local.*
-webpack.config.local.*
+# buildkit receives both by other means; copying them in only invalidates layers.
+Dockerfile
+.dockerignore

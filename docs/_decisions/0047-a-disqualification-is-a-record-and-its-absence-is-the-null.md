@@ -79,9 +79,7 @@ serves the league table, the group grids and every team page. This follows the s
 1. **Before the deploy**, against the live database, seed the new key and leave the old one in place:
 
    ```js
-   db.saison_teams.updateMany({ disqualifikation: { $exists: false } }, [
-     { $set: { disqualifikation: null } },
-   ]);
+   db.saison_teams.updateMany({ disqualifikation: { $exists: false } }, [{ $set: { disqualifikation: null } }]);
    ```
 
    Filtered on `$exists: false` so it is idempotent and cannot overwrite a record already entered. The

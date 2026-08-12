@@ -128,6 +128,60 @@ export function spieltagLabels(
   return labels;
 }
 
+/** One phase of a season, with the matchdays it holds against the number its rules imply. */
+export type SpieltagPhaseProgress = {
+  phase: FLSaisonPhase;
+  /** Live matchdays the season holds in this phase. A retired one does not count (ADR-0025). */
+  angelegt: number;
+  /** How many the season's rules imply. Zero for a phase this season's bracket does not reach. */
+  erwartet: number;
+};
+
+/**
+ * Every phase, with the matchdays the season holds in it and the number `FLSaison.schedule` implies —
+ * the matchday-level twin of the per-row `spieleAngelegt` against `anzahl_spiele`.
+ *
+ * **The count is the SERVED schedule, never recomputed here** (ADR-0052), for the reason
+ * `buildSpieltagPhaseOffer` gives one level down: an odd group needs an extra round, and a hand-written
+ * copy that gets it wrong would report a complete phase as short.
+ *
+ * **Both numbers are facts about the SEASON rather than about whatever is on screen.** The list this
+ * feeds is searched and facetted, and a numerator taken from the narrowed rows would report a complete
+ * phase as short the moment somebody filtered — which is the one wrong answer this exists to prevent.
+ *
+ * **A retired matchday is not counted.** Retiring one is how a mis-dated matchday leaves the schedule,
+ * which is why `REQ-DATE-004` reads live matchdays alone — so a phase whose third matchday is retired
+ * is genuinely a matchday short until something replaces it.
+ *
+ * **Reported, never refused** (ADR-0052). A season being set up passes through every intermediate count
+ * on the way to complete, so a phase short of matchdays is the ordinary state rather than a mistake.
+ *
+ * An empty `schedule` means no season was resolved rather than a season that plays nothing, so this
+ * answers with nothing at all and the caller falls back to counting what it has.
+ */
+export function buildSpieltagPhaseProgress(
+  schedule: readonly FLSaisonPhaseSchedule[],
+  spieltage: readonly { saison_phase: FLSaisonPhase; inactive_since: string | null }[],
+): readonly SpieltagPhaseProgress[] {
+  if (schedule.length === 0) return [];
+
+  const liveByPhase = new Map<FLSaisonPhase, number>();
+  for (const spieltag of spieltage) {
+    if (spieltag.inactive_since !== null) continue;
+    liveByPhase.set(spieltag.saison_phase, (liveByPhase.get(spieltag.saison_phase) ?? 0) + 1);
+  }
+
+  // A phase absent from the schedule expects 0, the same answer `expected_matches` gives — a matchday
+  // may legally sit in a phase this season's bracket does not reach, and „1 von 0“ says exactly that.
+  const expectedByPhase = new Map(schedule.map((entry) => [entry.phase, entry.matchdays]));
+
+  return SAISON_PHASE_OPTIONS.map((phase) => ({
+    phase,
+    angelegt: liveByPhase.get(phase) ?? 0,
+    erwartet: expectedByPhase.get(phase) ?? 0,
+  }));
+}
+
 /** One phase the matchday editor may offer, with the count that decides whether it may be picked. */
 export type SpieltagPhaseOffer = {
   phase: FLSaisonPhase;

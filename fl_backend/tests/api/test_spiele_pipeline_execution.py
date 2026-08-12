@@ -123,7 +123,9 @@ class TestTheFilterAndTheOrder:
 
         canceled = list(league.database.spiele.aggregate(build_spiele_pipeline(db_filter={"saison_id": SAISON, "is_canceled": True})))
 
-        assert [document["spiel_nr"] for document in canceled] == [4]
+        # Sorted rather than taken in pipeline order: no `sort_by` is passed here, so the order is
+        # the storage engine's and asserting it would make this test about something it is not.
+        assert sorted(document["spiel_nr"] for document in canceled) == [4, 10, 11]
 
     def test_the_sort_and_the_limit_run_before_the_join(self, league: SeededLeague) -> None:
         """
