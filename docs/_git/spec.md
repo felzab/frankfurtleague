@@ -1,6 +1,6 @@
 # Git — spec
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `bbb5182`, 2026-08-12\
 **Scope:** branching, commits, pull requests, the verification gate, and the GitHub settings that enforce them
 
 | Section                                                | Answers                                                                    |
@@ -74,8 +74,11 @@ Four things a body carries that the diff cannot:
 - **where a prior assumption turned out to be wrong**
 - **the rejected alternative**, where there was one
 
-No issue-closing keywords, no emoji, no trailers. Work is never signed as AI-generated, which
-overrides any tool default appending a `Co-Authored-By` line.
+No issue-closing keywords, no emoji, no trailers — except a closing paragraph that is sign-offs and
+nothing else, which is what Dependabot's generator always writes and the only trailer form the
+checker releases, on an exact author identity (`scripts/check_commits.py :: BOT_IDENTITIES`, and
+[`templates.md`](templates.md) for what else that identity releases there). Work is never signed as
+AI-generated, which overrides any tool default appending a `Co-Authored-By` line.
 
 **None of that rests on memory.** `scripts/check_commits.py` refuses a malformed message as a
 `commit-msg` hook when you write it, in the `--docs` gate scope before you push, and in CI on every
@@ -87,10 +90,15 @@ run** — until then the gate and CI are the only checks.
 Beyond that list:
 
 - A non-blank second line is refused — git otherwise reads the whole message as the subject.
-- A subject past 72 characters is reported, not refused (`scripts/check_commits.py :: SUBJECT_TARGET`).
+- A subject longer than GitHub shows in a list view is reported, not refused
+  (`scripts/check_commits.py :: SUBJECT_TARGET`).
 - A scope outside the recorded set is reported, not refused.
-- A body recording no verification is reported, not refused.
+- A body recording no verification is reported, not refused — and not reported at all for a commit
+  Dependabot wrote, whose generator records none and has no way to.
 - Merge and revert subjects are skipped — they are git's.
+- Nothing else is released for a bot: the subject's shape and its length tiers, the scope vocabulary,
+  the emoji, issue-closing and AI-signature bans, and every trailer but the sign-off all answer for
+  Dependabot as for anyone — I4 included, so a bot commit with no body is still refused.
 
 ### 1.4 Pull requests
 
@@ -98,9 +106,11 @@ Every change reaches `main` through a pull request, merged with a **merge commit
 rebase. **The commit bodies are the documentation**: squashing collapses several carefully written
 bodies into one and loses the structure, and rebasing discards the merge point that groups them.
 
-**Every pull request is opened as a draft, whoever opens it.** A draft runs CI exactly as a ready one
+**Every pull request a person opens is opened as a draft.** A draft runs CI exactly as a ready one
 does and **cannot be merged until it is marked ready**. Marking ready and merging are **mine, and only
-mine**.
+mine**. The rule is a convention, and a convention reaches only what reads one:
+`.github/dependabot.yml` carries no draft setting, so a bot's pull request arrives ready and its
+review is the merge button rather than the ready button.
 
 ```bash
 git push -u origin short-kebab-name
@@ -139,24 +149,33 @@ at anything under it from a body.
 ./scripts/verify.sh
 ```
 
-Scopes run in cheapest-to-fail order. A bare invocation runs everything; scope flags name surfaces
-and combine. The scope table, what each scope runs and what it needs, the diff check that refuses an
-undersized scope and the CI job mapping are all in [`../ops/spec.md`](../ops/spec.md), which owns
-`scripts/`.
+Scopes run concurrently, and `verify.sh` replays their output in cheapest-to-fail order, so a parallel
+run reads as a serial one. A bare invocation runs everything; scope flags name surfaces and combine.
+The scope table, what each scope runs and what it needs, the `--serial` oracle that ordering is
+measured against, the diff check that refuses an undersized scope and the CI job mapping are all in
+[`../ops/spec.md`](../ops/spec.md) §1.6, which owns `scripts/`.
 
-> **`pnpm format` covers the whole repository.** It runs prettier over the repository root, and what
-> stays out is decided by exactly two ignore files — `.prettierignore` at the root and
-> `fl_frontend/.prettierignore`. There is no path list to keep in step, so moving, renaming or adding a
-> file cannot make the formatter fail on a path that is not there. **Verify with a gate run whose scope
-> includes the formatter — `./scripts/verify.sh --quick` or `--frontend` — never with a hand-written
-> `prettier` command**, which covers the paths you happen to remember. In CI the `format` job runs the
-> check for changes outside `fl_frontend`.
+> **`pnpm format` covers the whole repository.** It runs prettier over the repository root under the
+> root `.prettierrc.json`, and what stays out is decided by one ignore file, `.prettierignore` beside
+> it. There is no path list to keep in step, so moving, renaming or adding a file cannot make the
+> formatter fail on a path that is not there. **Verify with a gate run whose scope includes the
+> formatter — `./scripts/verify.sh --format`, or any run that implies it, such as `--frontend` or
+> `--quick` — never with a hand-written `prettier` command**, which covers the paths you happen to
+> remember. In CI the `format` job runs the check for changes outside `fl_frontend`.
 
-> **When bumping an action version, verify the tag exists by fetching
-> `https://raw.githubusercontent.com/<owner>/<repo>/<tag>/action.yml`.** A 404 means the tag is not
-> there. Release _pages_ render dynamically and summarise unreliably; the raw file is unambiguous. The
-> first CI run failed instantly on `astral-sh/setup-uv@v9`, a version that has never existed, taken
-> from a bad reading of a release page.
+> **When bumping an action, resolve the version to a commit SHA and pin that, never the tag.**
+> `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` names the object the tag points at. Where that
+> object is itself a tag rather than a commit — an annotated tag — dereference it with
+> `gh api repos/<owner>/<repo>/git/tags/<object-sha>`: the SHA of the tag object is not the SHA of
+> any commit, so a pin holding it resolves to nothing on a runner, and the ref API hands it over
+> without complaint. Then read the action's metadata at the SHA you are about to write,
+> `gh api repos/<owner>/<repo>/contents/<subdir>/action.yml?ref=<sha>` — a version that does not
+> exist has no tree to read it from. `<subdir>` is whatever the `uses:` line carries after the
+> repository name, and is empty at the repository root: `github/codeql-action/init` reads
+> `init/action.yml`, while the bare `action.yml` at that repository's root describes a different
+> action and returns 200 all the same. Release _pages_ render dynamically and summarise unreliably.
+> The first CI run failed instantly on `astral-sh/setup-uv@v9`, a version that has never existed,
+> taken from a bad reading of a release page.
 
 ### 1.6 Repository settings
 
@@ -174,6 +193,7 @@ ruleset targeting the default branch, enforcement **Active**.
 | Block force pushes                    | on                                                                     | Rules → Rulesets             |
 | Require a pull request before merging | on, required approvals **`0`**                                         | Rules → Rulesets             |
 | Require status checks to pass         | on — **`verify`**, **`backend-db`**, **`pr-body`**                     | Rules → Rulesets             |
+| Require branches up to date to merge  | **off** — read 2026-08-11                                              | Rules → Rulesets             |
 | Require linear history                | **off**                                                                | Rules → Rulesets             |
 | Bypass list                           | **empty**                                                              | Rules → Rulesets             |
 | Actions permissions                   | GitHub-authored, plus `pnpm/action-setup@*` and `astral-sh/setup-uv@*` | Actions → General            |
@@ -198,11 +218,24 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   [ADR-0029](../_decisions/0029-a-pull-request-body-summarises-the-branch.md) and is its own workflow
   because it listens for `edited` — subscribing `verify.yml` to that event would rebuild both images
   every time a description gained a comma.
-- **An action living in this repository needs no allowlist entry** —
-  `.github/actions/actions-runtime-env` is read from the checkout
+- **"Require branches up to date to merge" stays off**
+  (`strict_required_status_checks_policy`, read through
+  `gh api repos/<owner>/<repo>/rules/branches/main`). A required check therefore passes against a
+  commit that predates `main`'s tip, so a green run proves the branch rather than the merge result.
+  Turning it on forces every open pull request to re-run after each base move, which the `images`
+  job makes expensive.
+- **An action living in this repository needs no allowlist entry** — every action under
+  `.github/actions/` is read from the checkout
   ([ADR-0031](../_decisions/0031-the-image-cache-is-the-actions-cache-service.md)).
-- **Every action is pinned to an exact version**, never a floating major tag, so upstream patches
-  arrive as a Dependabot pull request. A local `./` action needs no pin.
+- **Every action is pinned to a full commit SHA**, with the version in a trailing comment — the form
+  Dependabot rewrites, so a routine upstream patch still arrives as a pull request that moves the
+  pin and the comment together. An exact version tag is not enough: a tag is a mutable ref, so a
+  compromised upstream can repoint the tag every caller already trusts and nothing in this
+  repository changes. **The pin also costs the alert route**: Dependabot raises no advisory alert
+  for an action pinned to a SHA, so the scheduled version-update run in `.github/dependabot.yml` is
+  this repository's whole coverage for a vulnerable action, and a published advisory waits for it. A
+  local `./` action needs no pin, and the pins **inside** one are watched only because
+  `.github/dependabot.yml` names the composite-action directory separately (COR-2).
 - **Every workflow triggers on `pull_request`, never `pull_request_target`**, so a fork's run
   receives no secrets and no write token. Each declares its own `permissions:` block, and the
   read-only default is what one that forgets inherits.
@@ -217,31 +250,31 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 
 ## 2. Invariants
 
-| #   | Invariant                                                     | Enforced by                                | Breaks how                                                                                           |
-| --- | ------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| I1  | `main` takes changes only through a pull request              | the ruleset                                | A direct push rewrites history nobody reviewed                                                       |
-| I2  | Merge commits are the only permitted merge method             | Settings → General, and linear history off | A squash-merge collapses the commit bodies irreversibly                                              |
-| I3  | Every pull request is opened as a draft                       | convention; a draft cannot be merged       | A ready pull request can be merged before anyone has read it                                         |
-| I4  | Every commit on a branch carries a body                       | `scripts/check_commits.py`                 | The reasoning behind a change survives nowhere the diff can be read from                             |
-| I5  | No commit is signed as AI-generated                           | `scripts/check_commits.py :: BANNED`       | A trailer claims authorship the convention refuses                                                   |
-| I6  | The gate's scope is checked against the diff before it runs   | `scripts/check_scope.py` (ADR-0030)        | A run that skips the image build merges a packaging change nothing built                             |
-| I7  | Required status checks are added by hand in the ruleset panel | the ruleset                                | A new workflow reports forever and blocks nothing                                                    |
-| I8  | Every action is pinned to an exact version                    | review of `.github/workflows/`             | A repointed floating tag changes what CI executes without a commit                                   |
-| I9  | Every workflow triggers on `pull_request`                     | `.github/workflows/`                       | `pull_request_target` would hand a fork's run the repository's secrets and a write token             |
-| I10 | The ruleset's bypass list is empty                            | the ruleset                                | The force-push this guards against is the maintainer's own, so an exemption exempts exactly the risk |
+| #   | Invariant                                                     | Enforced by                                           | Breaks how                                                                                           |
+| --- | ------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| I1  | `main` takes changes only through a pull request              | the ruleset                                           | A direct push rewrites history nobody reviewed                                                       |
+| I2  | Merge commits are the only permitted merge method             | Settings → General, and linear history off            | A squash-merge collapses the commit bodies irreversibly                                              |
+| I3  | Every pull request a person opens is opened as a draft        | convention; a draft cannot be merged                  | A ready pull request can be merged before anyone has read it                                         |
+| I4  | Every commit on a branch carries a body                       | `scripts/check_commits.py`                            | The reasoning behind a change survives nowhere the diff can be read from                             |
+| I5  | No commit is signed as AI-generated                           | `scripts/check_commits.py :: BANNED`                  | A trailer claims authorship the convention refuses                                                   |
+| I6  | The gate's scope is checked against the diff before it runs   | `scripts/check_scope.py` (ADR-0030)                   | A run that skips the image build merges a packaging change nothing built                             |
+| I7  | Required status checks are added by hand in the ruleset panel | the ruleset                                           | A new workflow reports forever and blocks nothing                                                    |
+| I8  | Every action is pinned to a full commit SHA                   | review of `.github/workflows/` and `.github/actions/` | A repointed tag, floating or exact, changes what CI executes without a commit                        |
+| I9  | Every workflow triggers on `pull_request`                     | `.github/workflows/`                                  | `pull_request_target` would hand a fork's run the repository's secrets and a write token             |
+| I10 | The ruleset's bypass list is empty                            | the ruleset                                           | The force-push this guards against is the maintainer's own, so an exemption exempts exactly the risk |
 
 ## 3. Violation → remedy
 
-| Symptom                                                  | Cause                                                         | Remedy                                                                                                 |
-| -------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `remote rejected ... repository rule violations` on push | The ruleset: `main` takes changes only through a pull request | Mark the commits on a branch, rewind local `main`, push the branch — the commands are under this table |
-| `git pull` refuses to fast-forward                       | Local `main` has drifted                                      | Stop and look. `--ff-only` failing is the signal, not the problem                                      |
-| The gate refuses a run naming too few scopes             | The branch touches a packaging path (ADR-0030)                | Run the full form, images included                                                                     |
-| The gate reports surfaces it did not prove               | A scoped run mid-work                                         | Expected. Report it rather than suppressing it                                                         |
-| A commit is refused by the `commit-msg` hook             | No body, an unwrapped line, a malformed subject, a trailer    | Rewrite the message to [`templates.md`](templates.md); `git commit -F` recovers a draft                |
-| A pull request check named `pr-body` fails               | The body indexes commits instead of summarising (ADR-0029)    | Rewrite the body; `gh pr edit --body-file` updates it in place                                         |
-| A merge button is greyed out with every check green      | The pull request is still a draft                             | Marking it ready is the review, and it is mine                                                         |
-| CI fails instantly on an action version                  | The tag does not exist                                        | Fetch the raw `action.yml` at that tag before pinning it                                               |
+| Symptom                                                  | Cause                                                                                                                       | Remedy                                                                                                 |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `remote rejected ... repository rule violations` on push | The ruleset: `main` takes changes only through a pull request                                                               | Mark the commits on a branch, rewind local `main`, push the branch — the commands are under this table |
+| `git pull` refuses to fast-forward                       | Local `main` has drifted                                                                                                    | Stop and look. `--ff-only` failing is the signal, not the problem                                      |
+| The gate refuses a run naming too few scopes             | The branch touches a packaging path (ADR-0030)                                                                              | Run the full form, images included                                                                     |
+| The gate reports surfaces it did not prove               | A scoped run mid-work                                                                                                       | Expected. Report it rather than suppressing it                                                         |
+| A commit is refused by the `commit-msg` hook             | No body, an unwrapped line, a malformed subject, a trailer                                                                  | Rewrite the message to [`templates.md`](templates.md); `git commit -F` recovers a draft                |
+| A pull request check named `pr-body` fails               | The body indexes commits instead of summarising (ADR-0029)                                                                  | Rewrite the body; `gh pr edit --body-file` updates it in place                                         |
+| A merge button is greyed out with every check green      | The pull request is still a draft                                                                                           | Marking it ready is the review, and it is mine                                                         |
+| CI fails instantly on an action reference                | The pin resolves to nothing — a version that never existed, or an annotated tag's own object instead of the commit under it | Resolve the tag to its commit and read `action.yml` at that SHA before writing the pin (§1.5)          |
 
 **Recovering commits already made on local `main`:**
 

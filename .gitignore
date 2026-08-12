@@ -1,13 +1,46 @@
 
-# TLS certificates. Mounted read-only into nginx from ./certs on the server (docker-compose.yml).
-# The directory does not exist in a development checkout -- this is here so that a private key can
-# never be committed by someone who creates it locally. Nothing in this repository should ever
-# contain one.
+# nginx mounts ./certs read-only on the server (docker-compose.yml); a development checkout has
+# no such directory. The rule is here for whoever creates one locally -- a private key must never
+# be committable from this repository.
 certs/
 
-# Docker Desktop on Windows creates these when a bind-mount path is mangled by
-# Git Bash MSYS path conversion (":" separators become ";C:\..."). Empty and useless.
-# Prevent them by prefixing a hand-typed bind mount with MSYS_NO_PATHCONV=1, per CLAUDE.md §5.
+# Mirrors the deny list in .claude/settings.json, because those tools are not the only route into
+# a commit -- a shell command, an installer or an external editor is git's problem alone.
+# Unanchored: a private key is one wherever it lands.
+.env*
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.p8
+*.pk8
+id_rsa*
+id_ed25519*
+id_ecdsa*
+credentials.json
+*-service-account*.json
+kubeconfig
+secrets/
+
+# Where the list stops, deliberately: private-key and keystore containers plus OpenSSH's default
+# key names -- the shapes that leak by being committed. Not public material, not $HOME files, not
+# names too generic to pattern. Widen it here.
+
+# Not a key file but one that grows a key: a registry auth token lands here on `pnpm login`, in a
+# file unremarkable enough to commit without a second look. No .npmrc is tracked, so this hides
+# nothing -- a deliberate one needs `git add -f`.
+.npmrc
+
+# Fixture directories scripts/verify.sh and scripts/selfcheck.sh build; their EXIT trap misses
+# Ctrl-C and SIGKILL. Unignored, a leftover is an untracked change the next scoped run refuses
+# over, and one guard-branch-bash.sh denies on main (ADR-0060).
+.tmp-*/
+
+# Docker Desktop on Windows creates these when Git Bash MSYS conversion mangles a bind-mount path
+# (":" separators become ";C:\..."). Empty and useless. Prevent one by prefixing a hand-typed
+# bind mount with MSYS_NO_PATHCONV=1, per CLAUDE.md §5.
 *;C
 *;C/
 
@@ -15,16 +48,25 @@ certs/
 # this file is the per-developer override and must never be committed.
 .claude/settings.local.json
 
-# Python bytecode. scripts/ holds plain scripts that are normally run, not imported, so this only
-# fills when something imports one -- a test harness, or a REPL. Either way it is a build artifact
-# and one was committed once.
+# A parallel session may put its git worktree inside this repository -- a whole second tree, with
+# its own node_modules and .venv. .git/info/exclude is machine-local, absent from a fresh clone,
+# so without a tracked rule that tree reads as untracked.
+.claude/worktrees/
+
+# Python bytecode. scripts/ holds scripts that are run rather than imported, so this fills only
+# when something imports one -- a test harness, or a REPL. A build artifact either way.
 __pycache__/
 *.pyc
 
-# Audit working documents (pass reports, remediation ledger, wave reports). Local-only by design:
-# the repo is public, and committing them would publish unfixed findings while they are being
-# remediated. The permanent record of a finished programme lives in docs/_auditing/reports/.
-# Ignored but not secret material -- CLAUDE.md §1 carves this path out, and .vscode/ with it.
+# The gate runs ruff and pytest from the root, from scripts/ and from fl_backend/, and each
+# working directory grows its own cache. Both tools write a .gitignore inside one; coverage here
+# does not rest on their continuing to.
+.pytest_cache/
+.ruff_cache/
+
+# Audit working documents, local-only by design: the repo is public and these carry findings not
+# yet fixed. A finished programme's permanent record is docs/_auditing/reports/. Ignored but not
+# secret -- CLAUDE.md §1 carves this path out.
 docs/audit/
 
 # Editor settings -- personal preference, and nothing in the toolchain reads them.
