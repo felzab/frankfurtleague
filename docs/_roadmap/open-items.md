@@ -73,12 +73,11 @@ chosen by feel.
 | 10  | LOG-2  | A cached read's call joins to no render                 | FE, BE, Ops | L      | Open     | —          |
 | 11  | FB-15  | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —          |
 | 12  | BE-7   | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | —          |
-| 13  | BE-6   | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | —          |
-| 14  | BE-14  | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | —          |
-| 15  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
-| 16  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
-| 17  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
-| 18  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
+| 13  | BE-14  | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | —          |
+| 14  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
+| 15  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
+| 16  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
+| 17  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
 
 **No entry in this file blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -521,8 +520,8 @@ exists. Decide when either is next touched. Today's data has no case that needs 
 ## Tier 4 — standing cautions and watch items
 
 No scheduled action. Each of these has a recorded trigger rather than a plan, and some are owned
-elsewhere: BE-6 and BE-7 are seeded into backend audit passes, and OPS-2 into an ops pass. BE-14 and
-OPS-3 carry their own triggers — a group of six teams, and the next Cloudflare bot-protection change —
+elsewhere: BE-7 is seeded into a backend audit pass, and OPS-2 into an ops pass. BE-14 and OPS-3
+carry their own triggers — a group of six teams, and the next Cloudflare bot-protection change —
 because no pass covers either. DOC-3 and DOC-4 close the tier with the documentation gate's own
 limits: each names a rule the gate decides by a narrower test than the rule states, and each fails by
 saying nothing.
@@ -539,21 +538,7 @@ deprecated since Python 3.9, on a project running far newer. **Deliberately not 
 modernising one module while the rest keep the old spelling is worse than uniformity. The recorded
 decision is to enable ruff's `UP` rules and migrate in one pass.
 
-### 13 · BE-6 — `CustomObjectId` validates nothing in JSON mode
-
-**Status:** Standing\
-**Surfaces:** BE\
-**Effort:** —\
-**Path:** Independent — backend audit pass B2's validation-mode check owns it.
-
-Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch
-(`fl_backend/app/shared/schemas/custom.py`), so `model_validate_json` accepts **any string** as an
-ObjectId while `model_validate` rejects it. Unreachable through FastAPI, which validates
-already-parsed dicts — which is precisely why the existing tests certify a guarantee that holds in the
-Python mode alone. If anything ever routes through `model_validate_json`, an arbitrary string reaches
-a Mongo `_id` filter. Found 2026-07-30.
-
-### 14 · BE-14 — The certainty walk gives up in a group of six or more
+### 13 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -614,7 +599,7 @@ deduplicated, but inside a transaction, whose lifetime is bounded.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 15 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 14 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -653,7 +638,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 16 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 15 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -698,7 +683,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately — which is exactly the distinction that cost time this round.
 
-### 17 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 16 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -732,7 +717,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a chapter added to the standard under a prefix the patterns do not carry, or
 the first page that needs a metadata block indented.
 
-### 18 · DOC-4 — A stamp is required by a path and owed by a claim
+### 17 · DOC-4 — A stamp is required by a path and owed by a claim
 
 **Status:** Standing\
 **Surfaces:** Docs\
