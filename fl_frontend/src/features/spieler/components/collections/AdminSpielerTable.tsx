@@ -268,7 +268,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                   return (
                     <Table.Row
                       id={spieler.id}
-                      className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
+                      className="border-border/50 border-b last:border-b-0">
                       <Table.Cell className="px-6 py-4">
                         <div className={`flex min-w-0 items-center gap-3 ${isRetired ? "opacity-60" : ""}`}>
                           <Person

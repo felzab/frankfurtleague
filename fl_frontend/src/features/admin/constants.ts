@@ -109,7 +109,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             { term: "Spiele", detail: "die angelegte Zahl neben der erwarteten. Weichen sie ab, fehlt etwas." },
             { term: "Stilllegen", detail: "nimmt den Spieltag aus den Listen. Nur möglich, solange keines seiner Spiele ein Ergebnis hat." },
           ],
-          note: "Sobald die KO.-Runde begonnen hat, lassen sich keine Spieltage mehr anlegen.",
+          note: "Sobald die KO-Runde begonnen hat, lassen sich keine Spieltage mehr anlegen.",
         },
       },
       // Named AND iconed for the public bracket's own entry (`DASHBOARD_SIDEMENU_ICONS`), because it is the
@@ -124,7 +124,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         hint: {
           lead: "Woher jede Seite jedes KO-Spiels kommt und wer gerade darin steht. Zum Prüfen der Auslosung, bevor sie gespielt wird.",
           points: [
-            { term: "„1. der Gruppe A“", detail: "aus der Tabelle gesetzt. So wird die erste KO.-Runde besetzt." },
+            { term: "„1. der Gruppe A“", detail: "aus der Tabelle gesetzt. So wird die erste KO-Runde besetzt." },
             { term: "„Sieger 25.“", detail: "aus einem früheren Spiel. So wird jede spätere Runde besetzt." },
             { term: "„Manuell gesetzt“", detail: "diese Seite gehört Dir, keine Auflösung schreibt hinein." },
             { term: "„Ohne Herkunft“", detail: "weder Mannschaft noch Herkunft. Diese Seite füllt niemand." },

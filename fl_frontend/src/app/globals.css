@@ -904,6 +904,19 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     @apply border-b-0!;
   }
 
+  /* HeroUI's `secondary` variant fills a row's CELLS on hover with `bg-default/50`, and `--default`
+     is not this app's `--bg-surface`, so unlike the base variant's `bg-surface/40` it paints visibly
+     over the card underneath. No secondary table gives a row an action for it to advertise:
+     `AdminBracketWiringView`'s edit link and `SaisontabelleView`'s team popover each sit inside a
+     cell, and `TeamSpielerView`'s rows carry no control at all — so the library default goes and each
+     table's own hover class, which is a per-table call, is left alone. Vendored selector,
+     `@heroui/styles` 3.2.3 `table.css`: it is the same block that gives a secondary row its
+     separator, so re-read it on a HeroUI upgrade. */
+  .table-root--secondary .table__row:hover .table__cell,
+  .table-root--secondary .table__row[data-hovered="true"] .table__cell {
+    background-color: transparent;
+  }
+
   /* THE TOAST — and this block is deliberately small, because most of a toast is not styled here.
    *
    * `AppToaster` supplies `Toast.Provider`'s `children` render function, so the tile, the text
