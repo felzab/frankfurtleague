@@ -60,9 +60,9 @@ export const FIELD_COUNT_INPUT = "fluid-sm w-full";
 export const FIELD_TRIGGER = `${FIELD_INPUT} pe-9`;
 
 /**
- * The one tab appearance. Both tab strips in the app — the sign-in role picker and the spielplan's
- * Spieltag bar — are the same control doing the same job, and writing the classes at each site is
- * how they ended up with different hover states.
+ * The one tab appearance. All three tab strips in the app — the sign-in role picker, the spielplan's
+ * Spieltag bar and the admin triage strip — are the same control doing the same job, and writing the
+ * classes at each site is how they ended up with different hover states.
  *
  * The selected tab is excluded from the hover background on purpose: it already carries
  * `Tabs.Indicator`, and a second background under a moving indicator reads as a glitch.
@@ -79,7 +79,7 @@ export const FIELD_TRIGGER = `${FIELD_INPUT} pe-9`;
 export const TAB_ITEM =
   "text-foreground-muted data-hovered:bg-surface data-hovered:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:data-hovered:bg-transparent data-[selected=true]:data-hovered:text-brand-solid-foreground fluid-sm rounded-lg font-bold tracking-wide transition-colors";
 
-/** The recessed track both tab strips sit in. Paired with the hover `TAB_ITEM` moves off it. */
+/** The recessed track every tab strip sits in. Paired with the hover `TAB_ITEM` moves off it. */
 export const TAB_TRACK = "border-border bg-muted rounded-xl border";
 
 /**

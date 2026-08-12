@@ -2,8 +2,6 @@
 
 import { useId } from "react";
 
-import { Check } from "@gravity-ui/icons";
-
 import { ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
@@ -13,40 +11,36 @@ import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { Key } from "@heroui/react";
 
 /**
- * One level's chip, in the tab strip's selected language (`formFieldStyles.ts :: TAB_ITEM`) rather than
- * HeroUI's own. Untouched, `--accent-soft` over `--default` leaves a SELECTED chip DARKER than an
- * unselected one in BOTH themes — the picker reads inverted — and the backdrop decides by how much,
- * because `--accent-soft` mixes with transparent. On `formPanel`'s `bg-surface`, which
- * `FormRegelnSection` renders this picker on, the gap is 2.97 OKLab points of lightness in the light
- * theme and 3.79 in the dark one; inside the create modal, where `AdminCreateSaisonForm` renders it,
- * 0.39 and 9.52 — that dialog is `ModalShell`'s `bg-background`, a utilities-layer class outranking
- * HeroUI's own `bg-overlay`, and near-black in the dark theme, which is what makes the dark modal the
- * widest inversion of the four. OKLab because that is the space HeroUI mixes `--accent-soft` in.
+ * One level's chip. A chosen level takes the brand fill under its paired foreground, an unchosen one a
+ * transparent background behind the app's ordinary border — the same filled-against-outlined pair
+ * `formButtons.ts :: formButton` gives `submit` and `cancel` (decided 2026-08-12). Both states are the same
+ * box — same border width, same height, same radius — so picking a level moves nothing in the row.
  *
- * **Hover moves an unselected chip off `bg-muted` onto `bg-surface`**, the tab strip's rule and for its
- * reason: the chip at rest is the recessed `bg-muted`, and one more step in that direction is invisible
- * on it. The direction belongs to the theme, not to the rule — `bg-surface` is 4.82 OKLab points lighter
- * in the light theme and 8.64 points darker in the dark one. A selected chip keeps its fill and switches
- * its border to `--fg-base`, so a control already at full strength answers the pointer without a second
- * background competing with the fill.
+ * **The unchosen label recedes rather than taking `cancel`'s `text-foreground`.** The fill is the weaker
+ * signal in the dark theme — `globals.css` measures this maroon at 1.88:1 on that theme's `--bg-surface`,
+ * where `--fg-muted` and `--fg-on-brand` stand 2.52:1 apart — so the label carries the difference there.
+ * Colour is not the only carrier either way — one state has a fill the other has not — and react-aria puts
+ * the same distinction on the button as `aria-pressed`.
  *
- * **A selected chip's FOCUS RING takes the fill's paired foreground rather than `--focus`** (WCAG 1.4.11).
- * `--focus` is `--fg-base`, and `globals.css` already records that pair as unusable at the `--fg-on-brand`
- * declaration: near-black measures 1.97:1 on this maroon, where 3:1 is the floor. HeroUI pins the group's
- * ring INSET with a zero offset, so it cannot escape the fill onto the panel and be judged against that
- * instead — recolouring it is the fix that changes no geometry. White on the maroon is 10.03:1, and it is
- * the same value the chip's own text already takes. `globals.css` records this departure, and the
- * condition that produced it, where `--focus` is declared.
+ * **Neither state changes under hover or press, and a `data-hovered:` variant does not belong here** — a
+ * hover fill would be a third appearance competing with both. HeroUI's own hover and press fills are
+ * `@layer components` and these classes are utilities, and `globals.css` declares utilities last, so each
+ * state's resting background is the whole of what suppresses them.
  *
- * Used once, here, rather than shared: `TAB_ITEM` is where a shared version would belong if a second
- * picker ever wants it.
+ * **A selected chip's FOCUS RING takes the fill's paired foreground rather than `--focus`** (WCAG 1.4.11):
+ * HeroUI pins this group's ring INSET with a zero offset, so the ring is judged against the maroon it sits
+ * on rather than against the surface, and `--focus` fails that in the light theme, where it is near-black.
+ * `globals.css` records that departure, and the condition that produced it, where `--focus` is declared.
+ * The selected chip keeps its border for the geometry above and an inset ring is drawn within it, so a
+ * focused selected chip reads fill, ring, a hairline of fill again, then the surface behind.
+ *
+ * Used once, here. A second picker wanting this appearance is when it earns a shared constant.
  */
 const STUFE_CHIP =
-  "border-border bg-muted text-foreground-muted data-hovered:bg-surface data-hovered:text-foreground " +
+  "border-border bg-transparent text-foreground-muted " +
   "data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground " +
   "data-[selected=true]:ring-brand-solid-foreground " +
-  "data-[selected=true]:data-hovered:bg-brand-solid data-[selected=true]:data-hovered:border-foreground " +
-  "fluid-xs h-9 min-w-16 gap-x-1 rounded-lg border px-3 font-extrabold tracking-wide transition-colors";
+  "fluid-xs h-9 min-w-16 rounded-lg border px-3 font-extrabold tracking-wide transition-colors";
 
 /**
  * Which of the league's six school levels a season runs — `rules.erlaubte_stufen`.
@@ -68,10 +62,6 @@ const STUFE_CHIP =
  * **No `disallowEmptySelection`.** Emptying the set is a state the admin can reach and the schema
  * refuses on save, which is better than a control that silently declines to deselect and leaves
  * somebody pressing a button that does nothing.
- *
- * **Two signals separate the states, never colour alone (WCAG 1.4.1):** the fill `STUFE_CHIP` carries,
- * and a check glyph rendered in every chip and revealed only in a chosen one — reserving its box is what
- * stops the row reflowing as the set is picked.
  */
 export function StufenPicker({
   value,
@@ -102,26 +92,14 @@ export function StufenPicker({
           onChange(STUFE_OPTIONS.filter((stufe) => picked.has(stufe)));
         }}
         className="flex w-full flex-row flex-wrap gap-2">
-        {STUFE_OPTIONS.map((stufe) => {
-          // Read from the prop rather than from a render function: the selection is already here, and a
-          // plain boolean keeps the glyph's condition typed and greppable.
-          const isPicked = value.includes(stufe);
-
-          return (
-            <ToggleButton
-              key={stufe}
-              id={stufe}
-              className={STUFE_CHIP}>
-              {/* Decorative in both states — react-aria announces the selection on the button itself, so a
-                  labelled glyph would say it twice. */}
-              <Check
-                aria-hidden="true"
-                className={`size-3.5 shrink-0 ${isPicked ? "opacity-100" : "opacity-0"}`}
-              />
-              {stufe}
-            </ToggleButton>
-          );
-        })}
+        {STUFE_OPTIONS.map((stufe) => (
+          <ToggleButton
+            key={stufe}
+            id={stufe}
+            className={STUFE_CHIP}>
+            {stufe}
+          </ToggleButton>
+        ))}
       </ToggleButtonGroup>
 
       {error && (
