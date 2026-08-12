@@ -100,8 +100,8 @@ wrap_up() {
 }
 
 # The checkers' exit contract, `scripts/checker_kernel.py :: run`: 0 nothing to report, 1 findings,
-# 2 and up the check could not run, 130 interrupted. Reported as findings, a crash sends a reader
-# hunting the tree for a defect in their toolchain.
+# 2 it read its input and would not judge it, 3 and up it could not run, 130 interrupted. A refusal
+# is satisfied; a crash is repaired.
 
 # `stop` ends the run at the first finding, which is what cheapest-to-fail order buys. `collect`
 # records it and returns 1, for a pair of cheap checks whose findings a reader wants together.
@@ -113,6 +113,10 @@ run_checker() {
     0) return 0 ;;
     1) if [[ "$mode" == "collect" ]]; then fail "$message"; return 1; fi
        die "$message" ;;
+    # A refusal ends the run in both modes, `collect` included: a pair collects so that two sets of
+    # findings reach the reader together, and a check that could not judge its input has none.
+    2) refuse "${label} could not judge its input, so nothing here stands as a verdict on the
+change. Its own reason is above." ;;
     130) on_interrupt ;;
     # `skip` is right for the scope check below and wrong here: a named scope whose checker never
     # ran has proved nothing, so this ends the run as the crash it is rather than passing it.
@@ -185,10 +189,19 @@ These are the same errors Pylance shows in the editor."
   # After pyright, so a type error surfaces before this scope's slowest step. Every check
   # `scripts/check_docs.py :: CHECKS` registers runs against a fixture repo, so one that stopped
   # reporting fails here rather than passing unnoticed (CUR-5).
+
+  # pytest answers its own codes, not the kernel's: 1 is a failing test and 2 is a collection error,
+  # which `run_checker`'s kernel mapping would announce as a considered refusal.
   step "scripts · pytest  (the documentation gate's fixture net)"
-  run_checker stop "pytest scripts/tests" "The documentation gate's fixture net failed: a check stopped
-reporting its planted violation. scripts/tests/test_check_docs.py names which one." \
-    "$PY" -m pytest scripts/tests
+  PYTEST_RC=0
+  quietly "$PY" -m pytest scripts/tests || PYTEST_RC=$?
+  case "$PYTEST_RC" in
+    0) ;;
+    1) die "The documentation gate's fixture net failed: a check stopped
+reporting its planted violation. scripts/tests/test_check_docs.py names which one." ;;
+    130) on_interrupt ;;
+    *) on_error "$PYTEST_RC" "${LINENO}" "pytest scripts/tests" ;;
+  esac
   ok "every documentation check fires on a planted violation"
 fi
 
@@ -356,12 +369,14 @@ if (( RUN_OPS )); then
   OPS_FLOOR=0
   if [[ -n "$OPS_PY" ]]; then
     # Asked of the kernel rather than restated here, so one file owns the floor. Only the kernel's
-    # own refusal counts as too old; any other probe failure leaves the checker to answer for itself.
+    # own crash counts as too old; any other probe failure leaves the checker to answer for itself.
     quietly "$OPS_PY" -c "import sys; sys.path.insert(0, 'scripts'); import checker_kernel" || OPS_FLOOR=$?
   fi
   if [[ -z "$OPS_PY" ]]; then
     skip "no python found, so the compose files were not compared"
-  elif (( OPS_FLOOR == 2 )); then
+  # 3 is `checker_kernel.py :: EXIT_CRASH`, which its import-time floor guard raises. A stale literal
+  # here stops matching and the checker runs, so this fails loudly rather than skipping quietly.
+  elif (( OPS_FLOOR == 3 )); then
     skip "this python is below the checkers' floor, so the compose files were not compared"
   else
     run_checker stop "scripts/check_compose_mirror.py" "The compose files have drifted. The findings above name
