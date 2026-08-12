@@ -171,7 +171,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                 {(saison: AdminSaisonRow) => (
                   <Table.Row
                     id={saison.id}
-                    className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
+                    className="border-border/50 border-b last:border-b-0">
                     <Table.Cell className="px-6 py-4">
                       {/* The season id wears the same chip tint a team's Kürzel does: both are the short
                           identifier a reader scans a column for. */}

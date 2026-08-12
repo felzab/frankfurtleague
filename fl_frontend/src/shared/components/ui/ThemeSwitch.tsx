@@ -33,10 +33,10 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
 
   const selected = resolvedTheme === "dark" ? "dark" : "light";
 
-  // `compact` is the menu-row height (decided 2026-08-08): inside the sidemenu's options menu an h-8
-  // control makes the Modus row taller than the Abmelden row beside it, and a row's height comes from
-  // the menu, not from whichever control it holds.
-  const buttonHeight = compact ? "h-7" : "h-7 sm:h-8";
+  // `compact` is what leaves the Modus row exactly as tall as the Abmelden row below it (decided
+  // 2026-08-10): `.menu-item` floors a row at 36px and spends 12 of them on its own padding, so 24px
+  // is the tallest control that floor still absorbs.
+  const buttonSize = compact ? "h-6" : "h-8 w-8 sm:h-9 sm:w-9";
 
   return (
     <ToggleButtonGroup
@@ -55,17 +55,17 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
       <ToggleButton
         id="light"
         isIconOnly
-        // Shorter on a phone (decided 2026-08-08): HeroUI's `size="sm"` toggle is `h-8`, right in a
-        // desktop footer and taller than it needs to be in a mobile one. `h-7` below `sm`, HeroUI's
-        // own height from there up.
-        className={buttonHeight}
+        // Spelled here rather than left to HeroUI's size variant: `ToggleButtonGroup` is `h-auto`, so
+        // the buttons are the whole control's height (decided 2026-08-10). The width comes with it,
+        // or an icon-only half ends up taller than it is wide.
+        className={buttonSize}
         aria-label="Helle Darstellung">
         <Sun className="size-4" />
       </ToggleButton>
       <ToggleButton
         id="dark"
         isIconOnly
-        className={buttonHeight}
+        className={buttonSize}
         aria-label="Dunkle Darstellung">
         <Moon className="size-4" />
       </ToggleButton>

@@ -27,12 +27,31 @@ import type { CalendarDate, Time } from "@internationalized/date";
  * A plain button rather than a react-aria one: it lives inside the group whose focus styling is
  * keyed off `:focus-within` in `globals.css`, and a `Button` would add press/hover state machinery
  * for what is a single synchronous state reset.
+ *
+ * `data-field-clear` is the hook that stylesheet needs to hand it a focus outline back. The group
+ * strips one from every button inside it because its own border already says focus is in the field
+ * — but this button is one tab stop among the segments, and the border cannot tell them apart.
+ *
+ * **A POINTER press must not move focus onto it**, because clearing removes it: a browser fires no
+ * blur when it removes the focused element, so `useFocusWithin` on the group never learns focus left,
+ * `data-focus-within` stays set, and the field keeps its brand border while `document.activeElement`
+ * is `<body>` and nothing can be typed into it. Preventing the press default leaves focus where it
+ * already was — a segment, or somewhere outside the field, both of which the border then tells the
+ * truth about. It is how react-aria treats a search field's own clear control, for the same reason
+ * (`useSearchField` focuses the input on press start).
+ *
+ * Known gap, recorded rather than hidden: Tab reaches this button and Enter still removes it while it
+ * holds focus, so that path can leave the same stale border behind, and focus on `<body>`. Closing it
+ * needs focus moved into the field first, and HeroUI 3.2.3 offers no ref to a segment to move it to —
+ * `DateField.Segment` and `DateField.Input` accept no `ref` prop, only `DateField.Group` does.
  */
 function ClearFieldButton({ label, onClear }: { label: string; onClear: () => void }) {
   return (
     <button
       type="button"
       aria-label={label}
+      data-field-clear="true"
+      onMouseDown={(event) => event.preventDefault()}
       onClick={onClear}
       className="text-foreground-muted hover:text-foreground flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors">
       <Xmark className="size-4" />
