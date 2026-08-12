@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 import { Xmark } from "@gravity-ui/icons";
 
 import { Calendar, DateField, DatePicker, FieldError, TimeField } from "@heroui/react";
@@ -15,25 +17,46 @@ import { FieldLabel } from "./FieldLabel";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { CalendarDate, Time } from "@internationalized/date";
+import type { RefObject } from "react";
 
 /**
  * The one clear affordance for the two segmented fields.
  *
  * It exists because a segmented field has no other way back to empty: react-aria clears one segment
  * per Backspace, so "kein Termin mehr" — a legitimate value, the stored `null` the pickers render as
- * TBD — used to cost six keystrokes and the knowledge that it was possible at all. Rendered only
- * while there is something to clear, exactly like the pickers' own clear buttons.
+ * TBD — otherwise costs one press per segment plus the knowledge that it was possible at all.
+ * Rendered only while there is something to clear, exactly like the pickers' own clear buttons.
  *
  * A plain button rather than a react-aria one: it lives inside the group whose focus styling is
  * keyed off `:focus-within` in `globals.css`, and a `Button` would add press/hover state machinery
  * for what is a single synchronous state reset.
+ *
+ * **Focus moves to the field group before the value is cleared**, the same order
+ * `FormNotizSection`'s note delete keeps. This button unmounts on that state change, and focus left
+ * on a removed element falls to `<body>`, so the next Tab restarts at the top of the page. The group
+ * is the target because react-aria makes only the segments focusable — `useDateSegment` gives each
+ * `tabIndex: 0` and `useDateField` leaves the group without one — so the group carries
+ * `tabIndex={-1}`: it stays out of the tab order, `:focus-within` still paints the field's brand
+ * border so the move is visible, and the next Tab enters the field at its first segment.
  */
-function ClearFieldButton({ label, onClear }: { label: string; onClear: () => void }) {
+function ClearFieldButton({
+  label,
+  onClear,
+  groupRef,
+}: {
+  label: string;
+  onClear: () => void;
+  /** The field group this button sits in, which is why that group carries `tabIndex={-1}`. */
+  groupRef: RefObject<HTMLDivElement | null>;
+}) {
   return (
     <button
       type="button"
       aria-label={label}
-      onClick={onClear}
+      onClick={() => {
+        groupRef.current?.focus();
+        onClear();
+      }}
       className="text-foreground-muted hover:text-foreground flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors">
       <Xmark className="size-4" />
     </button>
@@ -69,6 +92,9 @@ export function FormDateTimeSection({
   onUhrzeitChange: (value: Time | null) => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
+  const datumGroupRef = useRef<HTMLDivElement>(null);
+  const uhrzeitGroupRef = useRef<HTMLDivElement>(null);
+
   return (
     <div
       className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2"
@@ -81,6 +107,8 @@ export function FormDateTimeSection({
         className="w-full">
         <FieldLabel path="datum">Spieldatum</FieldLabel>
         <DateField.Group
+          ref={datumGroupRef}
+          tabIndex={-1}
           fullWidth
           className={FIELD_GROUP}>
           {/* HeroUI styles literal segments (the "." and ":") with `text-muted`, which is a
@@ -98,6 +126,7 @@ export function FormDateTimeSection({
             {datum !== null && (
               <ClearFieldButton
                 label="Datum entfernen"
+                groupRef={datumGroupRef}
                 onClear={() => onDatumChange(null)}
               />
             )}
@@ -140,7 +169,10 @@ export function FormDateTimeSection({
         onChange={onUhrzeitChange}
         onBlur={() => onValidateFields(["uhrzeit"])}>
         <FieldLabel path="uhrzeit">Anpfiff</FieldLabel>
-        <TimeField.Group className={FIELD_GROUP}>
+        <TimeField.Group
+          ref={uhrzeitGroupRef}
+          tabIndex={-1}
+          className={FIELD_GROUP}>
           <TimeField.Input className="fluid-sm w-full">
             {(segment) => (
               <TimeField.Segment
@@ -152,6 +184,7 @@ export function FormDateTimeSection({
           {uhrzeit !== null && (
             <ClearFieldButton
               label="Uhrzeit entfernen"
+              groupRef={uhrzeitGroupRef}
               onClear={() => onUhrzeitChange(null)}
             />
           )}
