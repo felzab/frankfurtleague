@@ -7,8 +7,11 @@
  * navigation is not an outside interaction, so react-aria's light dismiss never fires, and Next keeps
  * the previous page mounted in a hidden Activity tree — an overlay left open is still open on return.
  *
- * Callers should *also* close explicitly on link press: that is immediate, whereas this effect only
- * runs once the new pathname commits.
+ * The effect below reaches an overlay the router keeps mounted across a navigation — one the sidemenu
+ * renders, say. It cannot reach one that lives inside a page: the departed page is hidden rather than
+ * unmounted, and React destroys a hidden subtree's Effects, so nothing inside it ever observes the new
+ * pathname. Such a caller closes as its own link navigates, and that press is the whole of its closing
+ * rather than the immediate half.
  */
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";

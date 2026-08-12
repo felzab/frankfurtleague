@@ -280,9 +280,11 @@ implied coverage claim routes no later human check to the place that needs one.
 - **Next writes suggested `tsconfig` defaults for any absent key** — a presence check, not a value
   check. `allowJs` cannot be deleted, only declared `false`.
 - **Next keeps the previous page mounted in a hidden Activity tree.** Hidden trees still re-render on
-  new props, and a react-aria collection that re-renders while hidden drops its rows. In a test
-  harness, `element.click()` on a `<Link>` performs a **hard** navigation, so a loop driven that way
-  never exercises Activity trees at all — drive `router.push` instead.
+  new props, and a react-aria collection that re-renders while hidden drops its rows. React destroys a
+  hidden subtree's Effects and re-creates them on the way back, so an effect watching the pathname
+  never sees the navigation that hid it — a page's own overlay closes as its link navigates or not at
+  all. In a test harness, `element.click()` on a `<Link>` performs a **hard** navigation, so a loop
+  driven that way never exercises Activity trees at all — drive `router.push` instead.
 
 **Backend**
 
