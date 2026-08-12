@@ -46,7 +46,7 @@ def a_team(team: PayloadFactory, statistik: PayloadFactory) -> TeamFactory:
     One club in group A, with its derived table stated directly.
 
     The figures are set rather than computed from the matches below, exactly as production does it: the
-    seven numbers come from the aggregation (ADR-0019) and the standing consumes them. A case may
+    numbers come from the aggregation (ADR-0019) and the standing consumes them. A case may
     therefore state a table that its match list does not add up to, which is the point — the head-to-head
     criterion is the only one that reads the matches, so every other case can leave them out.
     """

@@ -45,10 +45,14 @@ documents.
    environment traps — each verified before it is written, and merged into the existing sections
    rather than appended as a new dump. Lessons are stated so that a reader who has never seen this
    programme understands them: no programme names, no wave numbers, no finding IDs.
-6. Present the final report to the owner and ask for explicit confirmation before deleting anything.
-   Only after a clear yes: delete **`docs/audit/programme/` and nothing else**. It is gitignored and
-   untracked, so this is a plain filesystem delete with no commit involved and **nothing in it is
-   recoverable afterwards** — which is why steps 3 to 5 must be genuinely complete first. Anything
+6. Present the final report to the owner and ask for explicit confirmation before anything is deleted.
+   **The delete is the owner's**, on a clear yes: `rm -rf docs/audit/programme` from the repository
+   root, that folder and nothing else. It is gitignored and untracked, so this is a plain filesystem
+   delete with no commit involved and **nothing in it is recoverable afterwards**, which is why steps
+   3 to 5 must be genuinely complete first and why the close's one irreversible act belongs to the
+   person who confirmed it. `.claude/hooks/guard-branch-bash.sh` draws the same line from its own
+   side: on `main`, where a resumed close sits once the last wave has merged, a session may write
+   into a gitignored path and may not remove one. Confirm the folder is gone before step 7. Anything
    else under `docs/audit/` belongs to no programme's lifecycle and stays.
 
 7. Run the gate at the scope CLAUDE.md's gate section names for what changed, commit the final report

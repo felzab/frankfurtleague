@@ -34,18 +34,66 @@ Two conventions that are load-bearing rather than stylistic:
   squashed. Please write them that way.
 - **A change that invalidates a documented claim updates that documentation in the same commit.**
 
+### What a clone needs
+
+Development is on Windows with Git Bash and the server is Linux. The shell scripts under `scripts/`
+— the gate among them — run under bash, so reach for Git Bash rather than PowerShell.
+
+| Tool       | Which version, and where it is declared                                              |
+| ---------- | ------------------------------------------------------------------------------------ |
+| **Node**   | what [`fl_frontend/package.json`](fl_frontend/package.json) declares under `engines` |
+| **pnpm**   | `packageManager` in that same file, which pins it exactly                            |
+| **Python** | [`fl_backend/.python-version`](fl_backend/.python-version)                           |
+| **uv**     | no manifest declares a version                                                       |
+| **Docker** | for the gate scopes that need a daemon, and for running the stack locally            |
+
+**uv is the prerequisite nothing in the repository declares.** It is what builds the backend
+virtualenv, and it reads the Python version declared above;
+[install it first](https://docs.astral.sh/uv/getting-started/installation/). CI installs it with
+`astral-sh/setup-uv`.
+
+**Node and pnpm are yours to install.** `packageManager` is corepack's contract, but nothing here
+uses corepack: [`fl_frontend/Dockerfile`](fl_frontend/Dockerfile) installs pnpm globally at the
+pinned version, which is the route to match on a development machine.
+
+Then, once per clone, from the repository root:
+
+```bash
+(cd fl_backend  && uv sync --dev)   # the virtualenv every checker and the backend tests run from
+(cd fl_frontend && pnpm install)    # what tsc, eslint, next build and prettier read
+git config core.hooksPath .githooks # the commit-message check, and the formatter that runs on commit
+```
+
+The hooks are opt-in per clone: without that last line the gate and CI are the only checks
+([`docs/_git/spec.md`](docs/_git/spec.md) §1.3, and [`docs/ops/spec.md`](docs/ops/spec.md) §1.6 for
+the formatter).
+
+**The gate needs no `.env` file.** [`scripts/verify.sh`](scripts/verify.sh) passes placeholder values
+to `next build` and creates empty stand-ins for the compose parse, removing them again on the way
+out. Running the application does need real credentials, and those are not in the repository.
+
 Run the gate before opening the PR:
 
 ```bash
-./scripts/verify.sh --quick
+./scripts/verify.sh
 ```
 
-CI runs the same script's scopes as parallel jobs, mapped to the paths your PR touches, and `main`
-requires the aggregate `verify` check to pass. The full form — no flags — also builds both Docker
-images, and is what you want if you touched `src/core/config.ts`, `src/core/auth.ts`,
-`src/instrumentation.ts`, or anything about packaging; CI builds the images for exactly those paths
-on a pull request. [`scripts/README.md`](scripts/README.md) covers the rest of the tooling,
-including the scope flags and the Windows-specific traps.
+The bare form runs every scope, the image builds included, and is the answer whenever you are
+unsure. Scope flags name surfaces and combine — `--quick` is the scopes that need no Docker — but
+before any of them runs, the gate compares the scopes you named against your diff and **refuses a
+run too narrow for the image build**, naming the files that ask for it and the flag to add
+([ADR-0030](docs/_decisions/0030-the-gate-refuses-an-undersized-scope.md)). A change that reaches
+packaging is stopped rather than half-checked, whichever flags you typed.
+
+CI runs the same scopes as parallel jobs, mapped from the paths your PR touches, and `main` requires
+the status checks [`docs/_git/spec.md`](docs/_git/spec.md) §1.6 records. The scope table, and what
+each scope needs, is in [`docs/ops/spec.md`](docs/ops/spec.md) §1.6;
+[`scripts/README.md`](scripts/README.md) maps the tooling and the Windows-specific traps.
+
+**The gate checks formatting rather than fixing it**
+([ADR-0065](docs/_decisions/0065-formatting-happens-at-commit-time.md)), so a formatting failure is
+yours to resolve: `pnpm format` from `fl_frontend/` reformats the whole repository
+([`docs/_git/spec.md`](docs/_git/spec.md) §1.5).
 
 ## Licence
 

@@ -19,10 +19,14 @@
 #   blessed directories means a path gitignored tomorrow is covered without editing this file.
 #
 # CREDENTIAL SHAPES ARE CHECKED FIRST AND BEAT THE EXEMPTION:
-#   `.env*`, `*.pem`, `id_rsa*`, `credentials.json` and `kubeconfig` are refused inside the repository
-#   whatever `.gitignore` says. This is not a credential control — `settings.json`'s deny list and
-#   CLAUDE.md §1 are that, and this hook is silent on every branch but `main`. It is the exemption
-#   above declining to swallow the one class of file whose whole purpose is to be gitignored.
+#   `.env*`, `*.pem`, `*.key`, `*.p12`, `id_rsa*`, `credentials.json`, `kubeconfig`, a name carrying
+#   `service-account`, and anything under a `certs/` directory are refused inside the repository
+#   whatever `.gitignore` says. The same list is carried by guard-branch-bash.sh and
+#   guard-branch-powershell.sh, so no route is weaker than another for the same name; it also covers
+#   what `settings.json` denies the Read, Write and Edit tools. This is not a credential control —
+#   that deny list and CLAUDE.md §1 are, and this hook is silent on every branch but `main`. It is
+#   the exemption above declining to swallow the one class of file whose whole purpose is to be
+#   gitignored.
 #
 # CONTRACT: prints nothing and exits 0 on any branch but `main`; on `main`, for a target outside the
 # working tree, and for an ignored, untracked, non-credential-shaped target inside it. Otherwise it
@@ -122,9 +126,15 @@ fi
 
 # Matched on every segment, not only the basename, so a directory carrying the name is caught too.
 # The leading slash is what lets one `*/name` pattern mean "any segment" including the first.
+
+# `service-account` is unanchored, as it is in the shell guards: the name it sits inside is
+# arbitrary — `gcp-service-account.json` — so an anchored pattern would refuse a narrower set here.
 lower="$(printf '%s' "$rel_path" | tr '[:upper:]' '[:lower:]')"
 case "/$lower" in
-  */.env* | *.pem | */id_rsa* | */credentials.json* | */kubeconfig*) deny ;;
+  */.env* | *.pem | *.key | *.p12 | */id_rsa* | */credentials.json* | */kubeconfig* | *service-account*) deny ;;
+  # The one directory in the list, so it is matched as a whole segment: as a bare substring `certs/`
+  # would refuse `my-certs/notes.md`, which carries no credential at all.
+  */certs/*) deny ;;
 esac
 
 # Ignored AND untracked is CLAUDE.md §2's "writes no tracked file", asked of git rather than kept in

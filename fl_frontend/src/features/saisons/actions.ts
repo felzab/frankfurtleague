@@ -25,8 +25,8 @@ import { APIBadStatusError } from "@/core/errors";
 import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { activateSaison, patchSaison, postSaison } from "./mutations";
-import { FLActivateSaisonPayloadSchema, FLPatchSaisonPayloadSchema, FLPostSaisonPayloadSchema } from "./schemas";
+import { activateSaison, patchSaison, postSaison, swapGruppen } from "./mutations";
+import { FLActivateSaisonPayloadSchema, FLPatchSaisonPayloadSchema, FLPostSaisonPayloadSchema, FLSwapGruppenPayloadSchema } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
@@ -35,6 +35,8 @@ import type {
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
   FLPostSaisonPayload,
+  FLSwapGruppenPayload,
+  FLSwapGruppenResponse,
 } from "./schemas";
 
 // `saisons._id` is the document key, so a reused id is refused by the index rather than silently
@@ -273,5 +275,111 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
           : `Saison ${validated.data.id} ist jetzt aktiv. ${String(demoted)} vorher aktive Saisons wurden abgeschlossen.`;
 
     return { success: true, saison: activateOperation, message };
+  });
+}
+
+/**
+ * The group swap. Two clubs exchange groups; the backend writes both junction rows in one transaction.
+ *
+ * **`spiele` is invalidated as well as `teams`**, because the same transaction rewrites every drawn
+ * Gruppenphase fixture fielding either club — each club inherits the other's opponents, dates and venues
+ * (ADR-0062). A schedule served from the cache afterwards would name the club that used to play there.
+ */
+export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promise<{
+  success: boolean;
+  swap?: FLSwapGruppenResponse;
+  message?: string;
+  error?: string;
+  fieldErrors?: FieldErrors;
+}> {
+  return runAdminMutation("swapGruppenAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: "Access Denied: Admin privileges missing" };
+    }
+
+    const validated = FLSwapGruppenPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    // Every refusal here is reachable and the panel already prevents each one — so each of these is the
+    // stale or raced page, and the message has to say what to do rather than only what went wrong.
+    let swapOperation;
+    try {
+      swapOperation = await swapGruppen(validated.data);
+    } catch (error) {
+      if (error instanceof APIBadStatusError && error.statusCode === 409) {
+        if (error.serverErrorCode === "REQ-SWAP-001") {
+          return {
+            success: false,
+            error: "Die beiden Mannschaften stehen nicht mehr in zwei verschiedenen Gruppen dieser Saison. Lade die Seite neu.",
+          };
+        }
+        if (error.serverErrorCode === "REQ-SWAP-003") {
+          return {
+            success: false,
+            error:
+              "Diese Saison ist inzwischen abgeschlossen. Eine abgeschlossene Saison wird nicht mehr verändert — " +
+              "ihre Tabellen bleiben so, wie sie am Saisonende standen.",
+          };
+        }
+        if (error.serverErrorCode === "REQ-SWAP-002") {
+          return {
+            success: false,
+            error:
+              "In der KO-Runde dieser Saison wurde schon gespielt oder abgesagt, deshalb lässt sich keine Gruppe mehr tauschen. " +
+              "Die Setzung ist aus diesen Gruppen entstanden und würde sonst etwas anderes bedeuten.",
+          };
+        }
+        if (error.serverErrorCode === "REQ-SWAP-004") {
+          return {
+            success: false,
+            error:
+              "Mindestens eine der beiden Mannschaften hat in ihrer Gruppe inzwischen gespielt. " +
+              "Eine Gruppe ist ein Rundenturnier, in dem jede Mannschaft gegen jede andere ihrer Gruppe spielt — " +
+              "wer darin gespielt hat, gehört dorthin. Lade die Seite neu.",
+          };
+        }
+        if (error.serverErrorCode === "REQ-SWAP-005") {
+          return {
+            success: false,
+            error:
+              "Durch den Tausch stünde eine der beiden Mannschaften zweimal an einem Spieltag. " +
+              "Eine Mannschaft spielt höchstens ein Spiel pro Spieltag, und die Spiele der KO-Runde tauschen nicht mit — " +
+              "verschiebe eines der beiden Spiele. Lade die Seite neu.",
+          };
+        }
+      }
+      throw error;
+    }
+
+    if (!swapOperation.acknowledged) {
+      return { success: false, error: "Beim Tausch der Gruppen ist ein unerwarteter Fehler aufgetreten" };
+    }
+
+    // Both layers for this season (ADR-0001): the base tag serves the reads that named no season, the
+    // granular one those that named this one. A group decides which table counts a club's results.
+    updateTag("teams");
+    updateTag(`teams:saison_id:${validated.data.saison_id}`);
+
+    // And the fixtures, on the same two layers, because the swap rewrote the sides of every drawn
+    // Gruppenphase match either club was in. Without this the schedule pages keep serving the club that
+    // used to play there (ADR-0001).
+    updateTag("spiele");
+    updateTag(`spiele:saison_id:${validated.data.saison_id}`);
+
+    const umgeschrieben =
+      swapOperation.rewritten_spiele === 0
+        ? "Angesetzte Spiele gab es für die beiden noch keine."
+        : swapOperation.rewritten_spiele === 1
+          ? "Ein angesetztes Spiel wurde mitgetauscht."
+          : `${String(swapOperation.rewritten_spiele)} angesetzte Spiele wurden mitgetauscht.`;
+
+    return {
+      success: true,
+      swap: swapOperation,
+      message: `Die beiden Mannschaften stehen jetzt in Gruppe ${swapOperation.team1_gruppe} und Gruppe ${swapOperation.team2_gruppe}. ${umgeschrieben}`,
+    };
   });
 }

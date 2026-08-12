@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.schemas import FLSpielerStufe
-from app.api.teams.schemas import FLTeam, FLTeamRecord, FLTeamsGroupedResponse
+from app.api.teams.schemas import FLTeam, FLTeamRecord, FLTeamsGroupedResponse, FLTeamStatistik
 from app.api.teams.services import build_gruppen
 
 # Ordinary scoring. Every case below is decided on points or goals, so the head-to-head criterion
@@ -69,12 +69,11 @@ def test_rejects_a_website_url_that_is_not_http(team, url):
         FLTeam.model_validate(team(website_url=url))
 
 
-@pytest.mark.parametrize(
-    "field",
-    ["anzahl_gespielte_spiele", "siege", "niederlagen", "unentschieden", "tore_geschossen", "tore_kassiert", "punkte"],
-)
+# Taken from the model rather than listed, for ZERO_STATISTIK's reason: a counter added to
+# `FLTeamStatistik` without its `ge=0` would otherwise be the one nothing here asks about.
+@pytest.mark.parametrize("field", list(FLTeamStatistik.model_fields))
 def test_rejects_negative_statistics(team, statistik, field):
-    """Every one of the seven counters. They are computed by an aggregation, so an arithmetic error surfaces here."""
+    """Every counter the model declares. They are computed by an aggregation, so an arithmetic error surfaces here."""
     with pytest.raises(ValidationError):
         FLTeam.model_validate(team(statistik=statistik(**{field: -1})))
 

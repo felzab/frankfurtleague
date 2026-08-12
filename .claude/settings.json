@@ -37,11 +37,17 @@
       "Bash(git status:*)",
       "Bash(git log:*)",
       "Bash(git diff:*)",
-      "Bash(git branch:*)",
+      "Bash(git branch)",
+      "Bash(git branch -v:*)",
+      "Bash(git branch -vv:*)",
+      "Bash(git branch -a:*)",
+      "Bash(git branch -r:*)",
+      "Bash(git branch --list:*)",
+      "Bash(git branch --show-current)",
       "Bash(git show:*)",
       "Bash(pnpm exec tsc:*)",
       "Bash(pnpm exec eslint:*)",
-      "Bash(pnpm exec prettier:*)",
+      "Bash(pnpm exec prettier --check:*)",
       "Bash(pnpm test:*)",
       "Bash(./scripts/verify.sh:*)",
       "Bash(./scripts/selfcheck.sh:*)"
@@ -65,7 +71,7 @@
         ]
       },
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -80,6 +86,16 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/guard-local-compose.sh\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/guard-branch-powershell.sh\"",
             "timeout": 10
           }
         ]

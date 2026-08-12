@@ -7,6 +7,7 @@
  * chronologically. That is a property of the id format, not a coincidence.
  */
 
+import type { FLGruppenNames } from "../teams/schemas";
 import type { FLSaisonRules, FLSaisonStatus } from "./schemas";
 
 export type FLSaisonsSortOptions = "_id" | "start_date" | "end_date";
@@ -76,4 +77,50 @@ export type SaisonRolloverContext = {
   outgoingSaisonId: string | null;
   /** Every unfinished match of the OUTGOING season. Empty when there is nothing to warn about. */
   offeneSpiele: SaisonOffeneSpiel[];
+};
+
+/**
+ * One club the swap control can pick, as it stands in THIS season.
+ *
+ * Deliberately not the whole `FLTeam`: the control needs a name to show and a group to pair on, and the
+ * derived `statistik` behind every team read is a table it never draws.
+ */
+export type SaisonSwapTeam = {
+  id: string;
+  name: string;
+  gruppe: FLGruppenNames;
+  /**
+   * How many of this club's own Gruppenphase fixtures have taken place, per the season editor page's
+   * `hasTakenPlace`, which is where that reading is stated in full.
+   *
+   * `REQ-SWAP-004` counted for one club. Non-zero is what makes it unpickable: the group phase is a
+   * round robin, so a club that has played inside its group cannot leave it.
+   */
+  gespielteGruppenSpiele: number;
+  /**
+   * Spieltag id → how many of this club's Gruppenphase fixtures sit on it. A swap MOVES every one of
+   * these to the other club.
+   */
+  gruppenSpieleProSpieltag: Record<string, number>;
+  /**
+   * Spieltag id → how many of this club's fixtures OUTSIDE the group phase sit on it. A swap leaves
+   * every one of these where it is, which is what lets an exchange put a club on one Spieltag twice.
+   *
+   * The two maps together are `REQ-SWAP-005` said in the form: `wouldFieldAClubTwice` mirrors the
+   * arithmetic `_spieltag_clashes` performs on the server.
+   */
+  koSpieleProSpieltag: Record<string, number>;
+};
+
+/**
+ * What the group swap control knows about the season it is standing on (ADR-0062).
+ *
+ * `playedKnockoutSpiele` is the endpoint's own window rule, counted for the page: any fixture outside
+ * the Gruppenphase that has taken place closes the swap for good, because the bracket was seeded from
+ * these groups. Non-zero is what turns the control into an explanation. Same reading as the field above.
+ */
+export type SaisonGruppenSwapContext = {
+  /** Every club entered in this season, retired ones included, ordered by name. */
+  teams: SaisonSwapTeam[];
+  playedKnockoutSpiele: number;
 };

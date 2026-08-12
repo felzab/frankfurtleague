@@ -1,6 +1,6 @@
 # Decisions
 
-**Verified against:** `a5c1085`, 2026-08-12\
+**Verified against:** `74b7df3`, 2026-08-12\
 **Applies to:** `docs/_decisions/` — every ADR, and the index beside them.
 
 | ID    | Rule                 |
@@ -72,24 +72,31 @@ reading is in force.
 
 ### DEC-4 — Immutability
 
-**Rule:** an accepted ADR's reasoning is never edited — a wrong rationale is a new ADR that
-supersedes it. Two editing classes are allowed. The first is mechanical: a typo, or a reference
-repair the gate demands because a path or identifier the text names stopped resolving. The second
-is a rewrite that is certainly warranted and has been explicitly approved, and it is allowed only
-once the approval and its date stand in the Exceptions field below. Context is the one section
-written in the past tense (COR-3 lists the full exemption set); Decision and Consequences are
-present tense, aimed at the reader about to break the rule.
+**Rule:** an ADR's reasoning becomes immutable when it reaches `main`, not when its Status line
+reads `Accepted`. On the branch that writes it the reasoning may still be repaired, and the commit
+body making the repair states what changed. Once merged the reasoning is never edited — a wrong
+rationale is a new ADR that supersedes it — and two editing classes survive that boundary. The
+first is mechanical: a typo, or a reference repair the gate demands because a path or identifier
+the text names stopped resolving. The second is a rewrite that is certainly warranted and has been
+explicitly approved, and it is allowed only once the approval and its date stand in the Exceptions
+field below. Context is the one section written in the past tense (COR-3 lists the full exemption
+set); Decision and Consequences are present tense, aimed at the reader about to break the rule.
 
 **Why:** the log is trustworthy precisely because what it records cannot quietly change under its
-readers, so the only route to a rewrite is one that leaves its own record on this rule.
+readers, so every route to a rewrite leaves its own record — in the commit body before the merge,
+on this rule after it. What the boundary is not is a private drafting window: a draft pull request
+has reviewers, and a reviewer arguing from an ADR's text is reading a page that would otherwise be
+free to move underneath them. A stated repair is not the quiet change this rule refuses.
 
 **Exceptions:** the mechanical class above; the two-line edit of DEC-6; the concision rewrite of
 every ADR (approved 2026-08-09); the compaction of the numbering to a contiguous `0001`–`0059`
 (approved 2026-08-09); ADR-0012's Consequences pointer, rewritten because dissolving
-`docs/ops/runbooks.md`'s duplicated half collapsed the claim it made (approved 2026-08-10); and the
-narrowing of ADR-0041's and ADR-0049's confirmation clauses to the save, the scope their own
-justifications already carry, because `ConfirmDiscardModal` predates ADR-0041 and every page-owned
-editor renders it (approved 2026-08-12).
+`docs/ops/runbooks.md`'s duplicated half collapsed the claim it made (approved 2026-08-10); and
+ADR-0009's Consequences cost figure, rewritten because the figure was measured wrong — the cost
+falls per call site, not per page load (approved 2026-08-11); and the narrowing of ADR-0041's and
+ADR-0049's confirmation clauses to the save, the scope their own justifications already carry,
+because `ConfirmDiscardModal` predates ADR-0041 and every page-owned editor renders it (approved
+2026-08-12).
 
 **Enforced by:** unenforced — review judgment.
 

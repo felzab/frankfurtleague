@@ -22,7 +22,10 @@ ask() {
 }
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
-# No repository here means the target cannot be inside docs/_standard of this one.
+# Not being in a repository is an answer — nothing here to protect. git MISSING is not, and a gate
+# that falls silent on it is one in name only. A present git failing for another reason still
+# exits: that state has already broken the session.
+[ -n "$repo_root" ] || command -v git >/dev/null 2>&1 || ask
 [ -n "$repo_root" ] || exit 0
 
 # Containment on canonical paths, for `.claude/hooks/guard-branch.sh`'s reasons: `./` segments, `..`
