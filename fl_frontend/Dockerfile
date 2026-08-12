@@ -2,7 +2,8 @@
 FROM node:26-alpine3.24 AS base
 
 # libc6-compat for Alpine's native C binaries (SWC while building, image optimization while
-# serving); tini for PID 1 signal routing -> the container shuts down gracefully.
+# serving); tini for PID 1 signal routing -> a stop signal reaches node, which exits on it
+# without draining what is in flight (`docs/ops/spec.md`).
 RUN apk add --no-cache libc6-compat tini
 
 ENV NEXT_TELEMETRY_DISABLED=1

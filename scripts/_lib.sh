@@ -118,7 +118,7 @@ _WORKER=0
 if [[ "${FL_GATE_WORKER:-}" == "1" ]]; then _WORKER=1; fi
 
 # A verdict may only make a section's row worse, so one failed step is what the row reports however
-# many passed around it. The last two ranks block a green run. The labels are padded as ASCII.
+# many passed around it. `refused` and `failed` block a green run. The labels are padded as ASCII.
 
 # `failed` outranks `refused` because a definite verdict is the more actionable of the two: where a
 # section both failed a check and could not judge another, the failure is what a reader should see.
@@ -520,7 +520,7 @@ ran, so nothing here is a verdict on the change (exit 130)." >&2 ;;
 # script free to carry on past its own closing statement can print a second one under it.
 
 # A sentence passed in is appended to the GREEN statement only — "safe to merge" is the one thing a
-# caller knows that this does not, and it is nonsense under any of the other four endings.
+# caller knows that this does not, and it is nonsense under every other ending.
 finish() {
   local i count worst=0
   end_section

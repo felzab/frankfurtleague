@@ -36,7 +36,7 @@ SUMMARY_MAX: Final = 500  # failed: past any reading of it
 BOT_AUTHORS: Final[frozenset[str]] = frozenset({"dependabot[bot]"})
 
 # Verbatim fragments of the form in `docs/_git/templates.md :: Pull requests`: their presence means
-# it was pasted rather than filled in. Reword one and this refusal stops firing, which
+# it was pasted rather than filled in. Reword one and this check stops firing, which
 # `check_docs.py :: check_template_fragments` catches.
 TEMPLATE_FRAGMENTS: Final[tuple[str, ...]] = (
     "One orientation sentence, for a multi-commit PR only",
@@ -125,7 +125,7 @@ def main() -> int:
 
     body = sys.stdin.read() if args.body == "-" else Path(args.body).read_text(encoding="utf-8")
 
-    # stderr for both severities: the workflow step's log is the only reader, and a body that fails
+    # stderr for every severity: the workflow step's log is the only reader, and a body that fails
     # should say so where a failed step is looked for.
     code = report_findings(check_body(body, args.author), indent=2, stream=sys.stderr)
     if code != EXIT_OK:

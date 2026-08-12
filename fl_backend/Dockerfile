@@ -25,7 +25,7 @@ FROM base AS builder
 # nothing at run time invokes: the CMD below runs uvicorn out of the copied virtualenv.
 COPY --from=uv /uv /uvx /bin/
 
-# Both settings steer `uv sync` alone, so they belong to the stage that runs it.
+# These settings steer `uv sync` alone, so they belong to the stage that runs it.
 ENV UV_COMPILE_BYTECODE=1
 # Copy mode, not symlinks: the .venv moves across stages and a symlink would not survive it.
 ENV UV_LINK_MODE=copy

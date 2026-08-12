@@ -37,7 +37,7 @@ LINE_MAX: Final = 100  # failed: past here nothing wrapped the line at all
 # space or a `+` because "Backend + Frontend" and "Backend deps" are both real and both correct.
 SUBJECT_SHAPE: Final = re.compile(r"^[A-Z][A-Za-z0-9+ ]{0,30}: \S")
 
-# The vocabulary, reported only. The areas a subject leads with, plus the six prefixes
+# The vocabulary, reported only. The areas a subject leads with, and every prefix
 # `.github/dependabot.yml` sets, one per update entry. A new area is a reason to add a row, not a
 # reason to fail a run.
 KNOWN_SCOPES: Final[frozenset[str]] = frozenset(
@@ -80,7 +80,7 @@ GENERATED_BODY: Final = re.compile(r"^This reverts commit [0-9a-f]{7,40}[.,]", r
 # the convention (`docs/_git/templates.md :: Commit messages`); the third is
 # CLAUDE.md §2, the one a tool default adds on its own.
 
-# The third column is whether the rule still binds a commit the bot exemption has released. Only the
+# The trailing flag is whether the rule still binds a commit the bot exemption has released. Only the
 # sign-off is dropped, because only the sign-off is something dependabot's generator cannot leave out.
 BANNED: Final[tuple[tuple[re.Pattern[str], str, bool], ...]] = (
     (re.compile(r"^\s*Co-authored-by:", re.IGNORECASE | re.MULTILINE), "a Co-authored-by trailer", True),

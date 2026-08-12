@@ -1,9 +1,9 @@
 """
 SCRIPTS · what every checker in this folder is built on
 
-git, the branch's base and the finding-to-exit-code tail, once each: the three copies had drifted
-into three behaviours, and the one that raised on a missing git binary had its traceback worded as a
-scope refusal naming nothing. The exit code below is the contract verify.sh reads back.
+git, the branch's base and the finding-to-exit-code tail, once each: a checker taking any of them
+from its own copy drifts into its own behaviour. The exit code below is the contract verify.sh
+reads back.
 
 Invariants:
 - Python 3.14 is the floor, refused at import — a checker's own body may use syntax an older
@@ -44,7 +44,7 @@ PYTHON_FLOOR: Final = (3, 14)
 
 # The oldest interpreter that REACHES these files, not one that runs them: `.githooks/commit-msg`
 # falls back to a system `python3`, and the oldest supported distribution ships 3.9. Below the
-# floor they must still parse, or the refusal cannot print.
+# floor they must still parse, or the message cannot print.
 PARSE_FLOOR: Final = (3, 9)
 
 DEFAULT_BASE: Final = "main"
@@ -154,7 +154,7 @@ def report_findings(findings: Iterable[Finding], *, indent: int = 6, stream: Tex
     """Print the failures, then the advisories, into one stream, and answer the run's exit code.
 
     One stream and one order on purpose: verify.sh prints a checker's output straight through instead
-    of capturing it, so splitting the two severities across stdout and stderr would interleave them on
+    of capturing it, so splitting the severities across stdout and stderr would interleave them on
     the terminal and land a finding under the wrong heading.
     """
     collected = list(findings)
