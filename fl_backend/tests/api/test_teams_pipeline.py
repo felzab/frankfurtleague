@@ -153,8 +153,8 @@ class TestTheAusfallLookup:
         """
         The whole rule is one key, and the `ergebnis` clause is the one a reader adds back.
 
-        Narrowing to a null `ergebnis` reads like a correction — the name says the match never
-        happened — and it would drop every forfeit, which is nearly every cancellation this league
+        Narrowing to a null `ergebnis` reads like a correction — a reader expects the two counts to
+        partition — and it would drop every forfeit, which is nearly every cancellation this league
         records. Asserted as an absence so re-adding the clause fails here rather than on a figure.
         """
         match_stage = ausfall_stage(build())["pipeline"][0]["$match"]
@@ -223,7 +223,7 @@ def test_the_cancellation_count_survives_the_zeroed_fallback():
     """
     merged = projection(build())["statistik"]["$mergeObjects"]
 
-    assert merged[-1] == {"anzahl_ausgefallene_spiele": {"$ifNull": [{"$first": f"${AUSFALL_AS_NAME}.{AUSFALL_COUNT_NAME}"}, 0]}}
+    assert merged[-1] == {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${AUSFALL_AS_NAME}.{AUSFALL_COUNT_NAME}"}, 0]}}
 
 
 def test_reads_statistik_from_no_stored_copy():

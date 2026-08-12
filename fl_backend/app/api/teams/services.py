@@ -279,7 +279,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
                         # Merged over the figures rather than grouped with them, which is what keeps
                         # `is_canceled` out of the lookup that derives them (ADR-0019). A team with no
                         # counting match reaches this too -- the fallback above supplies the rest.
-                        {"anzahl_ausgefallene_spiele": {"$ifNull": [{"$first": f"${AUSFALL_AS_NAME}.{AUSFALL_COUNT_NAME}"}, 0]}},
+                        {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${AUSFALL_AS_NAME}.{AUSFALL_COUNT_NAME}"}, 0]}},
                     ]
                 },
                 "saison_id": f"${AS_NAME}.saison_id",

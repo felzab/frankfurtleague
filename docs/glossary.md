@@ -126,7 +126,7 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 **Is:** a boolean on the match saying the fixture was called off.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpiel`.\
-**Trap:** it is not a delete of any kind — the match keeps its row, its `spiel_nr` and its place in the bracket — and a cancelled match that carries a result still counts in the table, because the derivation of the figures the table is scored and sorted on deliberately does not consult this field; the one figure it does decide is `anzahl_ausgefallene_spiele`, which counts every cancellation, so a forfeit lands in that count and in the match tally both.\
+**Trap:** it is not a delete of any kind — the match keeps its row, its `spiel_nr` and its place in the bracket — and a cancelled match that carries a result still counts in the table, because the derivation of the figures the table is scored and sorted on deliberately does not consult this field; the one figure it does decide is `anzahl_abgesagte_spiele`, which counts every cancellation, so a forfeit lands in that count and in the match tally both.\
 **See:** [ADR-0019](_decisions/0019-team-statistics-are-derived-from-spiele.md), [ADR-0037](_decisions/0037-a-seasons-fixtures-are-created-once.md), [ADR-0063](_decisions/0063-a-cancellation-is-counted-by-a-lookup-of-its-own.md).
 
 ### `Quelle` — where a side of a fixture comes from
@@ -182,7 +182,7 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 **Is:** matches played, wins, losses, draws, goals scored, goals conceded, points, and a count of the fixtures that were called off — computed per team and per season from the `spiele` documents on every read.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, built by `fl_backend/app/api/teams/services.py :: build_team_pipeline`.\
-**Trap:** nothing stores it, so there is no field to update and nothing to back-fill; a match counts exactly when it carries an `ergebnis`, points come from the season's `rules` rather than a hardcoded 3/1/0, and which of the two tables you get is `statistik_scope`, whose default is the narrow `gruppenphase` one. `anzahl_ausgefallene_spiele` is the one figure `is_canceled` decides, it includes a forfeit and therefore overlaps the match tally rather than partitioning it, and it reaches no other figure — a fixture merely not played yet is not in it and is not stored anywhere.\
+**Trap:** nothing stores it, so there is no field to update and nothing to back-fill; a match counts exactly when it carries an `ergebnis`, points come from the season's `rules` rather than a hardcoded 3/1/0, and which of the two tables you get is `statistik_scope`, whose default is the narrow `gruppenphase` one. `anzahl_abgesagte_spiele` is the one figure `is_canceled` decides, it includes a forfeit and therefore overlaps the match tally rather than partitioning it, and it reaches no other figure — a fixture merely not played yet is not in it and is not stored anywhere.\
 **See:** [ADR-0019](_decisions/0019-team-statistics-are-derived-from-spiele.md), [ADR-0022](_decisions/0022-the-league-table-counts-the-gruppenphase.md), [ADR-0063](_decisions/0063-a-cancellation-is-counted-by-a-lookup-of-its-own.md), backend spec I1c.
 
 ### `Mietpreis` — rental price

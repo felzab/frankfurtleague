@@ -6,7 +6,7 @@
  *
  * Invariants:
  * - `FLTeam` flattens the club record, junction fields and a derived `statistik` (ADR-0019).
- * - `anzahl_ausgefallene_spiele` counts every cancellation, forfeits included, never `punkte` (ADR-0019).
+ * - `anzahl_abgesagte_spiele` counts every cancellation, forfeits included, never `punkte` (ADR-0019).
  * - The grouped response requires ALL FOUR group keys, or the table page's parse fails.
  * - `website_url` is scheme-restricted — it renders into an href on a public page.
  * - There is ONE team shape; never a reduced mirror beside it (ADR-0027).
@@ -56,7 +56,7 @@ export const FLTeamStatistikSchema = z.object({
   punkte: z.int().nonnegative(),
   // Every fixture called off, forfeits included, so this figure and `anzahl_gespielte_spiele` count
   // the same match whenever a cancellation was played out. Beside the scoring, never in it (ADR-0019).
-  anzahl_ausgefallene_spiele: z.int().nonnegative(),
+  anzahl_abgesagte_spiele: z.int().nonnegative(),
 });
 export type FLTeamStatistik = z.infer<typeof FLTeamStatistikSchema>;
 

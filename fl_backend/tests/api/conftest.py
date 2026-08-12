@@ -40,7 +40,7 @@ TEAM_OIDS = {
     "Ohne": ObjectId("6890a1b2c3d4e5f607190004"),
     # No junction row — the STRICT JOIN, which must drop it entirely even though it plays a match.
     "Fremd": ObjectId("6890a1b2c3d4e5f607190005"),
-    # A counting match and NO cancellation — the only team whose `anzahl_ausgefallene_spiele` comes
+    # A counting match and NO cancellation — the only team whose `anzahl_abgesagte_spiele` comes
     # from the `$ifNull` rather than a counted row, and the state the badge's own guard reads.
     "Komplett": ObjectId("6890a1b2c3d4e5f607190006"),
 }

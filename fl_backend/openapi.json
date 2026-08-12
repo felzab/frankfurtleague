@@ -6230,10 +6230,10 @@
             "title": "Punkte",
             "default": 0
           },
-          "anzahl_ausgefallene_spiele": {
+          "anzahl_abgesagte_spiele": {
             "type": "integer",
             "minimum": 0.0,
-            "title": "Anzahl Ausgefallene Spiele",
+            "title": "Anzahl Abgesagte Spiele",
             "default": 0
           }
         },

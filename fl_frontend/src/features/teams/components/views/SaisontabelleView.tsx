@@ -177,8 +177,8 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                             sitting on the text baseline would drag the number off that centre. */}
                         <span className="inline-flex items-center justify-center gap-x-1">
                           {teamData.statistik.anzahl_gespielte_spiele}
-                          {teamData.statistik.anzahl_ausgefallene_spiele > 0 && (
-                            <AbgesagteSpieleHint anzahl={teamData.statistik.anzahl_ausgefallene_spiele} />
+                          {teamData.statistik.anzahl_abgesagte_spiele > 0 && (
+                            <AbgesagteSpieleHint anzahl={teamData.statistik.anzahl_abgesagte_spiele} />
                           )}
                         </span>
                       </Table.Cell>

@@ -46,9 +46,9 @@ projected `tore_self` and `tore_opponent` are both null, and the draw accumulato
 scoring figures is never widened to admit a document without a result.**
 
 - `build_ausfall_lookup_stage` selects on `is_canceled: true` and nothing else, counts what it finds
-  with `$count`, and feeds `anzahl_ausgefallene_spiele` and nothing else.
+  with `$count`, and feeds `anzahl_abgesagte_spiele` and nothing else.
 - **The two counts are not a partition.** A cancellation played out as a forfeit is in
-  `anzahl_gespielte_spiele` and in `anzahl_ausgefallene_spiele` both, so the second is never the
+  `anzahl_gespielte_spiele` and in `anzahl_abgesagte_spiele` both, so the second is never the
   first's remainder and no surface may present it as one.
 - `build_statistik_lookup_stage` selects on `ergebnis` and the goal counts, and no clause of the
   stage it builds names `is_canceled`.
@@ -94,12 +94,12 @@ a spot check — and proves the forfeit reaches both counts at once.
 
 **Counting only a cancellation that was never played**, so the figure would be the exact shortfall in
 the match tally beside it. The tidier arrangement, and the one a reader adds an `ergebnis: null`
-clause to reach: two disjoint counts, a badge that adds up, and a name — "ausgefallen" — that would
-then be literally true. Rejected on what this league actually records. A cancellation here is settled
-by awarding the match, so almost every one of them carries a result, and the tidy version would have
-left the badge silent about the very fixtures the organisers called off. It also buys its tidiness by
-answering a question nobody asked: a reader looking at a team's row wants to know what happened to
-that team's fixtures, not which arithmetic reconciles two numbers.
+clause to reach: two disjoint counts and a badge that adds up. Rejected on what this league actually
+records. A cancellation here is settled by awarding the match, so almost every one of them carries a
+result, and the tidy version would have left the badge silent about the very fixtures the organisers
+called off. It also buys its tidiness by answering a question nobody asked: a reader looking at a
+team's row wants to know what happened to that team's fixtures, not which arithmetic reconciles two
+numbers.
 
 **One `$lookup` counting both, with the accumulators guarded.** The construction this decision
 exists to refuse. Its `$match` becomes an `$or` over the counting rule and the cancellation rule,

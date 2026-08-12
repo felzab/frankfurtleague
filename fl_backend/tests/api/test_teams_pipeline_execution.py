@@ -166,8 +166,8 @@ class TestACalledOffFixture:
         """The `$expr` reaches either side, exactly as the counting lookup's does — a slot-one-only match would show 1 and 0."""
         figures = table(league)
 
-        assert figures["Helmholtz"]["anzahl_ausgefallene_spiele"] == 1
-        assert figures["Ohne"]["anzahl_ausgefallene_spiele"] == 1
+        assert figures["Helmholtz"]["anzahl_abgesagte_spiele"] == 1
+        assert figures["Ohne"]["anzahl_abgesagte_spiele"] == 1
 
     def test_it_moves_none_of_the_figures_the_table_is_built_from(self, league: SeededLeague):
         """
@@ -179,7 +179,7 @@ class TestACalledOffFixture:
         """
         helmholtz = table(league)["Helmholtz"]
 
-        assert {field: helmholtz[field] for field in FLTeamStatistik.model_fields if field != "anzahl_ausgefallene_spiele"} == {
+        assert {field: helmholtz[field] for field in FLTeamStatistik.model_fields if field != "anzahl_abgesagte_spiele"} == {
             "anzahl_gespielte_spiele": 3,
             "siege": 1,
             "unentschieden": 1,
@@ -200,12 +200,12 @@ class TestACalledOffFixture:
         bock = table(league)["Bock"]
 
         assert bock["anzahl_gespielte_spiele"] == 2
-        assert bock["anzahl_ausgefallene_spiele"] == 1
+        assert bock["anzahl_abgesagte_spiele"] == 1
 
     def test_the_scope_narrows_it_like_every_figure_beside_it(self, league: SeededLeague):
         """Helmholtz's second cancellation is a Halbfinale, so the league table must not count it and a team's own page must."""
-        assert table(league)["Helmholtz"]["anzahl_ausgefallene_spiele"] == 1
-        assert table(league, scope="gesamt")["Helmholtz"]["anzahl_ausgefallene_spiele"] == 2
+        assert table(league)["Helmholtz"]["anzahl_abgesagte_spiele"] == 1
+        assert table(league, scope="gesamt")["Helmholtz"]["anzahl_abgesagte_spiele"] == 2
 
     def test_a_team_with_no_cancellation_reads_zero(self, league: SeededLeague):
         """
@@ -214,7 +214,7 @@ class TestACalledOffFixture:
         Komplett rather than a team with no match at all: the zeroed fallback already carries the key,
         so only a team the `$group` produced a document for proves the `$ifNull` beside it supplies one.
         """
-        assert table(league)["Komplett"]["anzahl_ausgefallene_spiele"] == 0
+        assert table(league)["Komplett"]["anzahl_abgesagte_spiele"] == 0
 
 
 def test_wins_draws_and_losses_partition_the_matches(league: SeededLeague):
@@ -247,7 +247,7 @@ def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):
     ohne = table(league)["Ohne"]
 
     assert set(ohne) == set(FLTeamStatistik.model_fields)
-    assert set(value for field, value in ohne.items() if field != "anzahl_ausgefallene_spiele") == {0}
+    assert set(value for field, value in ohne.items() if field != "anzahl_abgesagte_spiele") == {0}
 
 
 def test_a_team_with_no_junction_row_disappears(league: SeededLeague):

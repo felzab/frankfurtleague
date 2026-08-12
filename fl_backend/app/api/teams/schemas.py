@@ -10,7 +10,7 @@ Invariants:
 - There is one team shape — never a reduced projection beside it (ADR-0027).
 - `FLGruppen` always emits all four group keys, and only `build_gruppen` constructs it (ADR-0035).
 - Statistics fields default to 0 — a team with no counting match is served zeros, not absence.
-- `anzahl_ausgefallene_spiele` counts every cancellation, forfeits included, never `punkte` (ADR-0019).
+- `anzahl_abgesagte_spiele` counts every cancellation, forfeits included, never `punkte` (ADR-0019).
 - `statistik_scope` decides which matches count and defaults to `"gruppenphase"` (ADR-0022).
 - `FLTeam` is a read shape, `FLTeamRecord` the stored one — a write echoes the record.
 
@@ -69,7 +69,7 @@ class FLTeamStatistik(BaseModel):
     # Beside the scoring, never inside it (ADR-0019): every cancellation counts here, so a forfeit
     # is in this figure and in `anzahl_gespielte_spiele` both. A fixture not played yet is stored
     # nowhere and follows from the season's rules (ADR-0052).
-    anzahl_ausgefallene_spiele: int = Field(default=0, ge=0)
+    anzahl_abgesagte_spiele: int = Field(default=0, ge=0)
 
 
 class FLTeam(BaseModel):
