@@ -313,7 +313,7 @@ decision nobody ratified. Each row is one never-clause; the argument lives in `d
 | 0016 | Pick `admin.css` membership by folder name, not the import graph                          |
 | 0017 | Send `immutable` for a URL with no content hash                                           |
 | 0018 | Write `text-fluid-*` — the scale is `fluid-sm`                                            |
-| 0019 | Store or cache team statistics; hardcode 3/1/0; read `is_canceled`                        |
+| 0019 | Store or cache team statistics; hardcode 3/1/0; score or sort on `is_canceled`            |
 | 0020 | Swallow a failed validator or index; widen one past types and enums                       |
 | 0021 | Treat `mietpreis` / `payment` as stale copies of the defaults                             |
 | 0022 | Move the league table's default scope off `gruppenphase`                                  |
@@ -356,6 +356,7 @@ decision nobody ratified. Each row is one never-clause; the argument lives in `d
 | 0059 | Count a stamp-only markdown delta as material to `branch-impact`                          |
 | 0060 | Compare the branch guard's paths as text; allow a target it cannot place                  |
 | 0061 | Add a `callbackUrl` to the sign-in redirect without the allowlist first                   |
+| 0063 | Drop a forfeit from the cancellation count; merge it into the scoring lookup              |
 | 0064 | Widen the bot exemption past an exact identity pair or its three rules                    |
 | 0065 | Let the gate write a formatted file; merge a partly-staged file's halves                  |
 | 0066 | Collapse a refusal into a failure; move one half of the exit contract alone               |

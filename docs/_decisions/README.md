@@ -75,6 +75,7 @@ cited from code and the path must never move
 | [0059](0059-a-restamp-is-not-a-material-change.md)                                | A markdown delta of stamp lines only does not re-arm `branch-impact`         | ops                    | Accepted | 2026-08-09 |
 | [0060](0060-the-branch-guard-compares-canonical-paths.md)                         | The branch guard compares canonical paths, and denies what it cannot answer  | ops                    | Accepted | 2026-08-08 |
 | [0061](0061-the-signin-redirect-carries-no-callbackurl.md)                        | The sign-in redirect carries no `callbackUrl`                                | frontend               | Accepted | 2026-07-29 |
+| [0063](0063-a-cancellation-is-counted-by-a-lookup-of-its-own.md)                  | A cancellation is counted by a `$lookup` of its own                          | backend                | Accepted | 2026-08-10 |
 | [0064](0064-a-bot-commit-is-exempted-by-identity.md)                              | A bot commit is exempted by exact identity, from three rules                 | ops                    | Accepted | 2026-08-10 |
 | [0065](0065-formatting-happens-at-commit-time.md)                                 | Formatting happens at commit time; the gate only checks                      | ops, frontend          | Accepted | 2026-08-10 |
 | [0066](0066-a-refusal-is-not-a-failure.md)                                        | A checker answers four exit codes, and a refusal is not a failure            | ops                    | Accepted | 2026-08-10 |
