@@ -14,6 +14,7 @@
 #   ./scripts/verify.sh --scripts --docs --backend --format --frontend --ops --db --images
 #   ./scripts/verify.sh --quick           the scopes needing no Docker: not ops, not db, not images
 #   ./scripts/verify.sh --verbose         stream each tool's own output instead of capturing it
+#   ./scripts/verify.sh --serial          one scope at a time, in the order the output already reads
 #   ./scripts/verify.sh --help
 #
 # See:
@@ -22,6 +23,7 @@
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 RUN_SCRIPTS=0; RUN_DOCS=0; RUN_BACKEND=0; RUN_FORMAT=0; RUN_FRONTEND=0; RUN_OPS=0; RUN_DB=0; RUN_IMAGES=0
+SERIAL=0
 # shellcheck disable=SC2034  # VERBOSE is consumed by _lib.sh, which shellcheck cannot follow into
 for arg in "$@"; do
   case "$arg" in
@@ -35,6 +37,7 @@ for arg in "$@"; do
     --images)   RUN_IMAGES=1 ;;
     --quick)    RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FRONTEND=1 ;;
     --verbose)  VERBOSE=1 ;;
+    --serial)   SERIAL=1 ;;
     --help|-h)  usage ;;
     *)          die "Unknown option: ${arg}. Try --help." ;;
   esac
@@ -46,7 +49,11 @@ fi
 
 # The frontend scope reads exactly the files the formatter governs, so naming it names the formatter
 # too — without this, `check_scope.py` reports a format scope unproven on a run that proved it.
-if (( RUN_FRONTEND )); then RUN_FORMAT=1; fi
+
+# Never in a worker: the parent has made the implication already and given the formatter a unit of
+# its own, so a worker repeating it runs prettier over the repository twice and hands back a
+# second `format` row for one section.
+if (( RUN_FRONTEND )) && ! worker; then RUN_FORMAT=1; fi
 
 # Fail on a missing prerequisite NOW: without this, a full run on a machine whose Docker is asleep
 # discovers it only at the db tier, minutes of green checks in.
@@ -59,6 +66,21 @@ fi
 
 # Ctrl-C runs it too, an EXIT trap being enough for that. INT and TERM must NOT be added here: they
 # are `_lib.sh`'s, and re-trapping either replaces the interrupted closing statement with nothing.
+
+# One trap, installed whatever this run covers, because bash keeps exactly one and a worker owes its
+# parent a ledger on every exit path. `cleanup` is a no-op until a scope that makes something
+# replaces it.
+cleanup() { :; }
+gate_exit() {
+  # From the trap and not the end of the body: `die`, `refuse` and `on_error` exit where they stand,
+  # so a body-final call would miss exactly the rows whose verdict matters most.
+  if worker; then end_section; emit_section_ledger > "${FL_GATE_LEDGER:?}"; fi
+  cleanup
+  if [[ -n "${POOL_DIR:-}" ]]; then rm -rf "$POOL_DIR"; fi
+  if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then rm -f "$FL_SELFCHECK_LEDGER"; fi
+}
+trap gate_exit EXIT
+
 if (( RUN_OPS || RUN_IMAGES )); then
   STANDIN_BE=0; STANDIN_FE=0
   # The tag carries this run's pid, so the forced removal below can only ever reach images this run
@@ -71,7 +93,6 @@ if (( RUN_OPS || RUN_IMAGES )); then
     if (( STANDIN_FE )); then rm -f fl_frontend/.env; fi
     docker image rm -f "${VERIFY_TAG}:frontend" "${VERIFY_TAG}:backend" >/dev/null 2>&1 || true
   }
-  trap cleanup EXIT
 fi
 PY=""
 if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
@@ -83,8 +104,8 @@ fi
 # The scopes this run covers, settled before anything runs. Stated up front and read back by the
 # closing table, so a run that stopped early can be seen to have stopped: an exit code alone cannot
 # say which scopes it never reached.
-SCOPES_RAN=""; NOT_RUN=""
-add_scope() { if (( $2 )); then SCOPES_RAN+="$1 "; else NOT_RUN+=" $1"; fi; }
+SCOPES_RAN=""; NOT_RUN=""; SCOPE_ORDER=()
+add_scope() { if (( $2 )); then SCOPES_RAN+="$1 "; SCOPE_ORDER+=("$1"); else NOT_RUN+=" $1"; fi; }
 add_scope scripts  "$RUN_SCRIPTS"
 add_scope docs     "$RUN_DOCS"
 add_scope backend  "$RUN_BACKEND"
@@ -94,17 +115,51 @@ add_scope ops      "$RUN_OPS"
 add_scope db       "$RUN_DB"
 add_scope images   "$RUN_IMAGES"
 
+# Told once, before anything can end. A worker is given one scope, so its own answer would be every
+# other scope in the gate — and the parent's is the only one that describes the run.
+if ! worker; then set_not_run "$NOT_RUN"; fi
+
+# What a scope shares mutable state with, and therefore may not run beside. Everything absent is
+# independent of every other scope, which is what lets the pool below start it at once.
+scope_shares() { # $1 scope · prints the scopes it must follow
+  case "$1" in
+    # Both test tiers write fl_backend/__pycache__ and .pytest_cache.
+    db)  printf 'backend' ;;
+    # Its stand-in .env files appear and vanish in both trees, which the backend's tests and
+    # `next build` read while they run.
+    ops) printf 'backend db frontend' ;;
+  esac
+  return 0
+}
+
+# One `scope[:after,after]` per unit, in the order the scopes are replayed in.
+
+# Named only where this run covers them: the pool refuses a constraint naming a scope it was not
+# given, which makes a typo above an error rather than a guarantee quietly dropped.
+UNITS=()
+build_units() {
+  local IFS=' ' name other after
+  for name in "${SCOPE_ORDER[@]}"; do
+    after=""
+    for other in $(scope_shares "$name"); do
+      case " ${SCOPES_RAN} " in *" ${other} "*) after+="${other}," ;; esac
+    done
+    UNITS+=("${name}${after:+:${after%,}}")
+  done
+}
+build_units
+
 # The one way this script ends a run it is still in control of. `finish` appends its sentence to the
 # green ending alone, so a stopped run cannot inherit "safe to merge" from a call site that expected
 # to be the last one.
 wrap_up() {
+  # In a worker the ending belongs to the parent, which holds every scope's rows and can say the
+  # half no single scope knows — what the run as a whole left unproven.
+  if worker; then end_worker; fi
   end_section
-  if [[ -n "$NOT_RUN" ]]; then
-    skip "not run:${NOT_RUN}"
-    finish
-  else
-    finish "Safe to merge."
-  fi
+  # The scopes left out are named by the ending itself, whichever one this run reaches. All that is
+  # withheld here is "Safe to merge.", which a run covering only part of the tree has not earned.
+  if [[ -n "$NOT_RUN" ]]; then finish; else finish "Safe to merge."; fi
 }
 
 # The checkers' exit contract, `scripts/checker_kernel.py :: run`: 0 nothing to report, 1 findings,
@@ -137,33 +192,125 @@ change. Its own reason is above." ;;
 # Before any scope runs, because refusing an undersized run in two seconds is the point: the same
 # refusal after a next build has already cost the minutes it exists to save. This is where ADR-0030
 # stops depending on memory.
-section scope
-info "this run covers: ${SCOPES_RAN% }"
 
-# Skipped in CI, where the scopes are separate jobs and the mapping is derived from paths rather than
-# typed: there is no single invocation for the question to be about, and `--docs` would fail for a
-# missing images scope another job is running.
-if [[ -n "${CI:-}" ]]; then
-  skip "scope check: CI maps scopes from paths itself, so there is no typed scope to check"
-else
-  step "scope · does this run cover what the branch changed?"
-  SCOPE_PY="$(any_python || true)"
-  SCOPE_RC=0
-  if [[ -z "$SCOPE_PY" ]]; then
-    skip "no python found — this run was not checked against the diff"
+# Parent only. A worker is given one scope and the parent has already asked this question for the
+# whole run, so asking again would put a second `scope` row in the table it replays into.
+if ! worker; then
+  section scope
+  info "this run covers: ${SCOPES_RAN% }"
+
+  # Skipped in CI, where the scopes are separate jobs and the mapping is derived from paths rather than
+  # typed: there is no single invocation for the question to be about, and `--docs` would fail for a
+  # missing images scope another job is running.
+  if [[ -n "${CI:-}" ]]; then
+    skip "scope check: CI maps scopes from paths itself, so there is no typed scope to check"
   else
-    # Not through `quietly`: the advisory findings are the useful half and a green run should still
-    # print them.
-    "$SCOPE_PY" scripts/check_scope.py --ran "$SCOPES_RAN" || SCOPE_RC=$?
-    case "$SCOPE_RC" in
-      0) ok "the scopes named cover the change" ;;
-      1) refuse "This run is not wide enough to merge on. The finding above names the file and the flag." ;;
-      130) on_interrupt ;;
-      # Degraded exactly like the missing interpreter above, and never a refusal: a checker that
-      # broke says nothing about the scope, and a refusal naming nothing is the defect A2 named.
-      *) skip "the scope check itself failed (exit ${SCOPE_RC}), so this run was not checked against the diff" ;;
-    esac
+    step "scope · does this run cover what the branch changed?"
+    SCOPE_PY="$(any_python || true)"
+    SCOPE_RC=0
+    if [[ -z "$SCOPE_PY" ]]; then
+      skip "no python found — this run was not checked against the diff"
+    else
+      # Not through `quietly`: the advisory findings are the useful half and a green run should still
+      # print them.
+      "$SCOPE_PY" scripts/check_scope.py --ran "$SCOPES_RAN" || SCOPE_RC=$?
+      case "$SCOPE_RC" in
+        0) ok "the scopes named cover the change" ;;
+        1) refuse "This run is not wide enough to merge on. The finding above names the file and the flag." ;;
+        # A refusal that names something, which only a checker that read its input can return. The
+        # reason is on screen because this step deliberately bypasses `quietly`.
+        2) refuse "The scope check could not judge its input, so this run was not checked against the
+diff. Its own reason is above." ;;
+        130) on_interrupt ;;
+        # Degraded exactly like the missing interpreter above, and never a refusal: a checker that
+        # broke says nothing about the scope, and a refusal naming nothing is the defect A2 named.
+        *) skip "the scope check itself failed (exit ${SCOPE_RC}), so this run was not checked against the diff" ;;
+      esac
+    fi
   fi
+fi
+
+# --- the scopes, concurrently ------------------------------------------------------------------------
+
+# Every scope below runs in a process of its own, and this block replays what they printed in the
+# order they are written in, so a parallel run reads as the serial one it must match.
+
+# Nothing returns past the `wrap_up` at the end of it; the serial path below is what runs instead.
+
+# Serial where concurrency cannot pay or cannot be watched. One scope has nothing to overlap, and
+# CI runs one scope per job already.
+
+# `--verbose` streams a tool's output as it arrives rather than replaying it, and `--serial` is the
+# oracle a byte-identity comparison needs.
+PARALLEL=1
+if (( SERIAL || VERBOSE )) || worker || [[ -n "${CI:-}" ]] || (( ${#UNITS[@]} < 2 )); then PARALLEL=0; fi
+
+POOL_PY=""
+if (( PARALLEL )); then
+  # The floor is asked of the kernel rather than restated here, exactly as the ops scope asks it: a
+  # python too old to import it is too old to run the pool, and the answer costs a tenth of a second.
+  POOL_PY="$(any_python || true)"
+  if [[ -z "$POOL_PY" ]] \
+    || ! "$POOL_PY" -c "import sys; sys.path.insert(0, 'scripts'); import checker_kernel" >/dev/null 2>&1; then
+    PARALLEL=0
+  fi
+fi
+
+if (( PARALLEL )); then
+  # Closed before the pool starts rather than at the first replayed row: the scope section's row
+  # prints its duration, and left open across the pool it would report the whole run's wall clock.
+  end_section
+  POOL_DIR="$(mktemp -d)"
+  # The parent's own shell, spelled the way a Windows python can launch it. `cygpath` does not exist
+  # on Linux, where `$BASH` is already an absolute path python can use.
+  POOL_BASH="$(cygpath -w "$BASH" 2>/dev/null || printf '%s' "$BASH")"
+
+  # This run's own answer, carried to the workers in the gate's own variable — never `FORCE_COLOR`
+  # or `NO_COLOR`, which prettier, pnpm and eslint all read as instructions of their own.
+  if [[ -n "$C_RED" ]]; then export FL_GATE_COLOR=1; else export FL_GATE_COLOR=0; fi
+
+  # The parent spins for the whole pool: a worker's own spinner is dead, its stdout being a file,
+  # and this is the one stretch of a gate run where nothing prints for a minute.
+  spinner_start "${#UNITS[@]} scopes running concurrently"
+  POOL_RC=0
+  "$POOL_PY" scripts/gate_pool.py --dir "$POOL_DIR" --bash "$POOL_BASH" --verify scripts/verify.sh \
+    "${UNITS[@]}" || POOL_RC=$?
+  spinner_stop
+  # The pool answers on the checkers' scale and never on the workers': a failure here is this
+  # program failing, which is a crash whatever the scopes did.
+  if (( POOL_RC )); then on_error "$POOL_RC" "${LINENO}" "scripts/gate_pool.py"; fi
+
+  declare -A UNIT_STATUS=()
+  while IFS=$'\t' read -r u_scope u_status _ _; do UNIT_STATUS["$u_scope"]="$u_status"; done \
+    < "${POOL_DIR}/manifest.tsv"
+
+  # One scope: its bytes, then its rows, then whatever its status says about the run. Bytes and rows
+  # travel apart because a capture cannot carry a verdict, and `adopt_section` prints nothing.
+  replay_scope() { # $1 scope
+    local scope="$1" status="${UNIT_STATUS[$1]:-}" rank ms findings advisories name
+    if [[ -s "${POOL_DIR}/${scope}.out" ]]; then cat "${POOL_DIR}/${scope}.out"; fi
+    if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
+    if [[ -s "${POOL_DIR}/${scope}.ledger" ]]; then
+      while IFS=$'\t' read -r rank ms findings advisories name; do
+        adopt_section "$name" "$rank" "$ms" "$findings" "$advisories"
+      done < "${POOL_DIR}/${scope}.ledger"
+    else
+      # A worker that died before it could write one. Rank 0 is what `finish` refuses to call green,
+      # so the scope surfaces as the unproven thing it is rather than as a scope that passed.
+      adopt_section "$scope" 0 0 0 0
+    fi
+    # The manifest's own word for a unit that never ran, which no exit code may spell: a number here
+    # is always one a real process returned.
+    if [[ ! "$status" =~ ^[0-9]+$ ]]; then
+      on_error 3 "${LINENO}" "scripts/gate_pool.py did not run the ${scope} scope (${status:-no row})"
+    fi
+    # Crashed and interrupted end the run here, having no row that could say so. Findings and a
+    # refusal are already in the rows, so `finish` reads back the ending the serial run would print.
+    adopt_ending "$status"
+    if (( status )); then finish; fi
+  }
+  for u_scope in "${SCOPE_ORDER[@]}"; do replay_scope "$u_scope"; done
+  wrap_up
 fi
 
 # --- scripts ---------------------------------------------------------------------------------------

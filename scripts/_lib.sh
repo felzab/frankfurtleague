@@ -48,7 +48,16 @@ IMAGE_BACKEND="${REPO_BACKEND}:latest"
 # Colour is on for a terminal and in GitHub Actions, whose log renders ANSI. NO_COLOR forces it off
 # (https://no-color.org) and FORCE_COLOR forces it on — except FORCE_COLOR=0, which the npm
 # ecosystem defines as "off" and which is honoured the same way.
-if [[ -n "${NO_COLOR:-}" || "${FORCE_COLOR:-}" == "0" ]]; then
+
+# A worker is told the parent's answer, because it decides from `[[ -t 1 ]]` and its stdout is a
+# file: left to itself it comes back uncoloured underneath a coloured table.
+
+# The variable is the gate's own and never `NO_COLOR` or `FORCE_COLOR`. Those two are read by every
+# tool a scope runs, so exporting either would change what prettier and pnpm print inside the scope
+# as well as what the gate prints around it.
+if [[ -n "${FL_GATE_COLOR:-}" ]]; then
+  if [[ "$FL_GATE_COLOR" == "1" ]]; then _colour=1; else _colour=0; fi
+elif [[ -n "${NO_COLOR:-}" || "${FORCE_COLOR:-}" == "0" ]]; then
   _colour=0
 elif [[ -t 1 || -n "${FORCE_COLOR:-}" || -n "${GITHUB_ACTIONS:-}" ]]; then
   _colour=1
@@ -86,9 +95,27 @@ _ENDED=0
 _RUN_FINDINGS=0
 _RUN_ADVISORIES=0
 
+# The scopes a run's flags left out, named by whichever ending it reaches.
+
+# Held here rather than at the call site because most endings exit where they stand, so only one of
+# them is reachable from a call site — which is why a line printed there survives a serial ending
+# and a replayed failure loses it.
+_NOT_RUN=""
+
 # Set here rather than in each script, so `quietly`, the spinner and `verbose` read one variable
 # whoever the caller is. A script still owns the `--verbose)` arm of its own argument loop.
 VERBOSE="${VERBOSE:-0}"
+
+# One scope, run in its own process for a parent to replay in the run's serial order.
+
+# The parent prints the closing table and statement once, for every scope it replayed, so a worker
+# printing either would put a second summary inside the bytes being replayed verbatim.
+
+# The environment carries it, not a flag: `scripts/selfcheck.sh` reads every double-dashed word in
+# a script's header as a flag it must accept, so an internal one would be documented in `--help`
+# as though a person could type it.
+_WORKER=0
+if [[ "${FL_GATE_WORKER:-}" == "1" ]]; then _WORKER=1; fi
 
 # A verdict may only make a section's row worse, so one failed step is what the row reports however
 # many passed around it. The last two ranks block a green run. The labels are padded as ASCII.
@@ -124,6 +151,15 @@ fmt_ms() {
 # True only under `--verbose`, for a caller deciding between streaming and an overview. Call it in a
 # condition: bare, a false answer is a non-zero status that `set -e` acts on.
 verbose() { (( VERBOSE )); }
+
+# True inside a worker, for a caller deciding whether the run's ending is its own to print. Call it
+# in a condition, for the same reason `verbose` says: bare, a false answer is a status `set -e` acts
+# on.
+worker() { (( _WORKER )); }
+
+# The scopes this run's flags left out, for the ending to name. Set once, by the parent, before
+# anything can end: every ending reads it, and only the flags know it.
+set_not_run() { _NOT_RUN="$*"; }
 
 # Sourcing happens at the top of every script, so this is the run's start for every purpose the
 # closing statement has.
@@ -436,6 +472,18 @@ _closing() {
   if (( _ENDED )); then return 0; fi
   _ENDED=1
   end_section
+  # Every ending verb routes through here, so this line is what makes each of them safe in a
+  # worker: they still print their own verdict and exit with their own code, and none prints a
+  # summary of a run it can see one scope of.
+
+  # Below `end_section` rather than above it: a worker's rows travel to its parent, and a
+  # duration read from a section still running is not one.
+  if (( _WORKER )); then return 0; fi
+
+  # Above the table it completes — the rows name the scopes that ran, this line names the rest — and
+  # below the worker's return, because a worker's idea of what was left out is every scope but its
+  # own.
+  if [[ -n "$_NOT_RUN" ]]; then skip "not run:${_NOT_RUN}"; fi
   _summary_table
   count="${#_SECTION_NAMES[@]}"
   elapsed="$(fmt_ms $(( $(_now_ms) - _RUN_T0 )))"
@@ -498,8 +546,10 @@ finish() {
 # --- Sections a worker ran ---------------------------------------------------------------------------
 
 # Concurrent scopes print nothing where they stand: each captures its own output, and a parent
-# replays the captures in a fixed order so a parallel run reads as a serial one. The ledger is what
-# a capture cannot carry home, and these two verbs move it.
+# replays the captures in a fixed order so a parallel run reads as a serial one.
+
+# The ledger is what a capture cannot carry home, and the verbs below move it: a pair for the rows,
+# and a pair for the endings no row can express.
 
 # The worker half. One tab-separated line per section — rank, milliseconds, findings, advisories,
 # then the name, last because it is the only field that may hold a space. Redirect it to a file: a
@@ -523,6 +573,17 @@ Open the section before the first verb that records."
       "${_SECTION_RANKS[i]}" "${_SECTION_MS[i]}" "${_SECTION_FINDINGS[i]}" \
       "${_SECTION_ADVISORIES[i]}" "${_SECTION_NAMES[i]}"
   done
+}
+
+# The end of a worker that reached the end of its scope. `finish` is what a script calls there and
+# what a worker may never call: it prints the table and speaks for every scope in the run.
+
+# All a worker owes its parent is the status its own rows already imply, which the parent re-derives
+# from those rows — so the two cannot disagree about how the run ended.
+end_worker() {
+  end_section
+  if (( _RUN_FINDINGS > 0 )); then exit 1; fi
+  exit 0
 }
 
 # The parent half: a completed section recorded into this run's table and totals, printing nothing.
@@ -552,9 +613,31 @@ adopt_section() {
   return 0
 }
 
-# A deliberate refusal to answer, its own ending rather than a shade of the other two: ADR-0030's
-# scope refusal is one, a checker meeting an input outside its parsed subset another. In both the
-# check ran, and its result cannot stand as a verdict.
+# The two endings a row cannot carry. `on_error` and `on_interrupt` rank their section `failed`
+# on the way out, so a parent reading rows alone would report a crash or an interrupt as
+# findings — the wrong statement, and the wrong code.
+
+# Every other status returns, the rows being the whole story there: `die` ranks its section 5 and
+# `refuse` ranks it 4, and `finish` reads each back as the ending the serial run would have
+# printed.
+adopt_ending() { # $1 the worker's exit status
+  local rc="$1"
+  [[ "$rc" =~ ^[0-9]+$ ]] || die "adopt_ending: '${rc}' is not an exit status."
+  if (( rc == 130 )); then _closing interrupted; exit 130; fi
+
+  # A killed worker is a crash like any other, but the status a kill leaves is not a number `exit`
+  # can return: measured on Windows, `kill -9` on a worker reports 2304, which masks to 0.
+
+  # So it is classified on the raw value and reported as the floor. Masking first would close the
+  # run green over a scope that was killed.
+  if (( rc > 255 )); then rc=3; fi
+  if (( rc >= 3 )); then _closing crashed; exit "$rc"; fi
+  return 0
+}
+
+# A deliberate refusal, its own ending rather than a shade of a pass or a failure: ADR-0030's scope
+# refusal is one, a checker meeting an input outside its parsed subset another. In both the check
+# ran, and its result cannot stand as a verdict.
 
 # Ranked below `failed` and above `pass`, so a step that passed before the refusal cannot leave the
 # row reading green — the same rule that keeps an advisory from passing as a verdict.
