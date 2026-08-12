@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `84d43da`, 2026-08-10
+**Verified against:** `8944e3e`, 2026-08-12
 
 Every item that has left [`open-items.md`](open-items.md) has a row here. This is a log: nothing in
 it is waiting for anything, and a regression is a new item with a new ID rather than an edit to a
