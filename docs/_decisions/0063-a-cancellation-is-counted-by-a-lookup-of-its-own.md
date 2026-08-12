@@ -45,7 +45,7 @@ projected `tore_self` and `tore_opponent` are both null, and the draw accumulato
 **The cancellation count is derived by a second `$lookup` of its own, and the `$match` deriving the
 scoring figures is never widened to admit a document without a result.**
 
-- `build_ausfall_lookup_stage` selects on `is_canceled: true` and nothing else, counts what it finds
+- `build_absage_lookup_stage` selects on `is_canceled: true` and nothing else, counts what it finds
   with `$count`, and feeds `anzahl_abgesagte_spiele` and nothing else.
 - **The two counts are not a partition.** A cancellation played out as a forfeit is in
   `anzahl_gespielte_spiele` and in `anzahl_abgesagte_spiele` both, so the second is never the

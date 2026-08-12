@@ -18,7 +18,7 @@ from bson import ObjectId
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
-from app.api.teams.services import AS_NAME, AUSFALL_AS_NAME, AUSFALL_COUNT_NAME, STATISTIK_AS_NAME, build_team_pipeline
+from app.api.teams.services import ABSAGE_AS_NAME, ABSAGE_COUNT_NAME, AS_NAME, STATISTIK_AS_NAME, build_team_pipeline
 
 # The levels the seeded season offers, typed as the Literal list `FLSaisonRules` declares -- a bare
 # list of `str` is invariant against it.
@@ -60,9 +60,9 @@ def statistik_stage(pipeline: Pipeline) -> Mapping[str, Any]:
     return next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == STATISTIK_AS_NAME)
 
 
-def ausfall_stage(pipeline: Pipeline) -> Mapping[str, Any]:
+def absage_stage(pipeline: Pipeline) -> Mapping[str, Any]:
     """The second `$lookup` into `spiele`, the one counting the fixtures that were called off."""
-    return next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == AUSFALL_AS_NAME)
+    return next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == ABSAGE_AS_NAME)
 
 
 def junction_match(pipeline: Pipeline) -> Mapping[str, Any] | None:
@@ -140,7 +140,7 @@ def test_the_counting_lookup_never_consults_is_canceled():
     assert "is_canceled" not in repr(statistik_stage(build()))
 
 
-class TestTheAusfallLookup:
+class TestTheAbsageLookup:
     """
     The count of the fixtures that were called off — the one place `is_canceled` is read.
 
@@ -157,7 +157,7 @@ class TestTheAusfallLookup:
         partition — and it would drop every forfeit, which is nearly every cancellation this league
         records. Asserted as an absence so re-adding the clause fails here rather than on a figure.
         """
-        match_stage = ausfall_stage(build())["pipeline"][0]["$match"]
+        match_stage = absage_stage(build())["pipeline"][0]["$match"]
 
         assert match_stage["is_canceled"] is True
         assert "ergebnis" not in match_stage
@@ -168,7 +168,7 @@ class TestTheAusfallLookup:
 
     def test_it_counts_rather_than_carrying_the_documents_back(self):
         """A `$count` and not a `$size` over projected rows: the figure is the whole answer this lookup owes."""
-        assert ausfall_stage(build())["pipeline"][-1] == {"$count": AUSFALL_COUNT_NAME}
+        assert absage_stage(build())["pipeline"][-1] == {"$count": ABSAGE_COUNT_NAME}
 
     def test_it_selects_the_same_matches_the_figures_are_derived_from(self):
         """
@@ -181,12 +181,12 @@ class TestTheAusfallLookup:
 
         for scope, expected in cases:
             counting = statistik_stage(build(scope=scope))["pipeline"][0]["$match"]
-            ausfall = ausfall_stage(build(scope=scope))["pipeline"][0]["$match"]
+            absage = absage_stage(build(scope=scope))["pipeline"][0]["$match"]
 
             assert counting.get("saison_phase") == expected
-            assert ausfall.get("saison_phase") == expected
-            assert ausfall["saison_id"] == counting["saison_id"]
-            assert ausfall["$expr"] == counting["$expr"]
+            assert absage.get("saison_phase") == expected
+            assert absage["saison_id"] == counting["saison_id"]
+            assert absage["$expr"] == counting["$expr"]
 
 
 def test_scores_with_the_seasons_own_points_rather_than_a_constant():
@@ -223,7 +223,7 @@ def test_the_cancellation_count_survives_the_zeroed_fallback():
     """
     merged = projection(build())["statistik"]["$mergeObjects"]
 
-    assert merged[-1] == {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${AUSFALL_AS_NAME}.{AUSFALL_COUNT_NAME}"}, 0]}}
+    assert merged[-1] == {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}}
 
 
 def test_reads_statistik_from_no_stored_copy():
@@ -277,7 +277,7 @@ def test_derives_the_statistics_after_the_strict_junction_join():
     """Ordering, not style: summing matches before the join would do the work for teams the join then drops."""
     pipeline = build()
     stage_names = [next(iter(stage)) for stage in pipeline]
-    match_lookups = {STATISTIK_AS_NAME, AUSFALL_AS_NAME}
+    match_lookups = {STATISTIK_AS_NAME, ABSAGE_AS_NAME}
     first_index = next(i for i, stage in enumerate(pipeline) if stage.get("$lookup", {}).get("as") in match_lookups)
 
     assert stage_names.index("$unwind") < first_index

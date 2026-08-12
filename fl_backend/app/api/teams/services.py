@@ -32,8 +32,8 @@ from app.shared.schemas.custom import CustomObjectId
 SPIELE_COLLECTION_NAME = "spiele"
 AS_NAME = "saison_data"
 STATISTIK_AS_NAME = "statistik_data"
-AUSFALL_AS_NAME = "ausfall_data"
-AUSFALL_COUNT_NAME = "anzahl"
+ABSAGE_AS_NAME = "absage_data"
+ABSAGE_COUNT_NAME = "anzahl"
 
 # What a team whose season holds no counting match gets. Derived from the model rather than written
 # out, so a field added to FLTeamStatistik cannot be forgotten here and fail response validation.
@@ -68,7 +68,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
 
     A match counts exactly when it carries an `ergebnis`. `is_canceled` is deliberately not consulted:
     a cancelled match with a result is a forfeit, and a forfeit counts. Within the aggregation the flag
-    decides `build_ausfall_lookup_stage`'s count and nothing else; the certainty walk further down this
+    decides `build_absage_lookup_stage`'s count and nothing else; the certainty walk further down this
     module reads it in Python, for the different question of which fixtures are still to come (ADR-0035).
 
     **`elfmeterschiessen` is not consulted either, and that is the same kind of deliberate omission.** A
@@ -149,7 +149,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
     }
 
 
-def build_ausfall_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
+def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
     """
     The `$lookup` counting the fixtures of this team that were called off.
 
@@ -182,9 +182,9 @@ def build_ausfall_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> M
                         "is_canceled": True,
                     }
                 },
-                {"$count": AUSFALL_COUNT_NAME},
+                {"$count": ABSAGE_COUNT_NAME},
             ],
-            "as": AUSFALL_AS_NAME,
+            "as": ABSAGE_AS_NAME,
         }
     }
 
@@ -255,7 +255,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
 
     # After the strict unwind, so the matches are only summed for teams that survive the join.
     pipeline.append(build_statistik_lookup_stage(saison_id=filters.saison_id, rules=rules, scope=filters.statistik_scope))
-    pipeline.append(build_ausfall_lookup_stage(saison_id=filters.saison_id, scope=filters.statistik_scope))
+    pipeline.append(build_absage_lookup_stage(saison_id=filters.saison_id, scope=filters.statistik_scope))
 
     # One projection, because there is one team shape. Never branch a reduced variant off it: measured
     # 2026-08-02, the trim is 26 KiB and no query work at all -- every lookup runs either way
@@ -279,7 +279,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
                         # Merged over the figures rather than grouped with them, which is what keeps
                         # `is_canceled` out of the lookup that derives them (ADR-0019). A team with no
                         # counting match reaches this too -- the fallback above supplies the rest.
-                        {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${AUSFALL_AS_NAME}.{AUSFALL_COUNT_NAME}"}, 0]}},
+                        {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}},
                     ]
                 },
                 "saison_id": f"${AS_NAME}.saison_id",
