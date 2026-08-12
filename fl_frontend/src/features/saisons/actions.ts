@@ -76,7 +76,7 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     case "REQ-RULES-004":
       return {
         fieldErrors: {
-          "rules.qualifiers_per_group": "Ein Platz im KO.-Baum verweist auf eine Platzierung, die dann nicht mehr erreicht wird.",
+          "rules.qualifiers_per_group": "Ein Platz im KO-Baum verweist auf eine Platzierung, die dann nicht mehr erreicht wird.",
         },
       };
     case "REQ-RULES-007":

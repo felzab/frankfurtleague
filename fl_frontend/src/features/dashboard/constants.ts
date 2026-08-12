@@ -67,7 +67,7 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         label: "Finalrunden",
         iconName: "Medal",
         hint: {
-          lead: "Der Turnierbaum der Finalrunden, von der ersten KO.-Runde bis zum Finale.",
+          lead: "Der Turnierbaum der Finalrunden, von der ersten KO-Runde bis zum Finale.",
           points: [
             { term: "Linien", detail: "verbinden ein Spiel mit dem, aus dem sein Sieger kommt." },
             { term: "Offene Seiten", detail: "zeigen ihre Herkunft statt einer Mannschaft, etwa „Sieger 25.“." },
@@ -88,7 +88,7 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
           lead: "Der Tabellenstand jeder Gruppe der Saison.",
           points: [
             { term: "Gewertet", detail: "werden ausschließlich Spiele der Gruppenphase." },
-            { term: "Hervorgehoben", detail: "sind die Mannschaften, die aktuell auf einem KO.-Runden-Platz stehen." },
+            { term: "Hervorgehoben", detail: "sind die Mannschaften, die aktuell auf einem KO-Runden-Platz stehen." },
           ],
           note: "Die Gesamtbilanz einer Mannschaft steht auf ihrer eigenen Seite.",
         },

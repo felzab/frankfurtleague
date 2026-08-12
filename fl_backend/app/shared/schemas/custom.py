@@ -9,6 +9,7 @@ Invariants:
 - `DATE_REGEX` accepts impossible dates; `date.fromisoformat` runs after it and constrains reality.
 - `CustomExternalUrl` restricts the scheme — a bare URL check accepts `javascript:`, an XSS sink.
 - ObjectId serialisation is context-dependent: `keep_oid` for a database write, string for the wire.
+- The JSON branch validates through the same chain as the Python one, so a string is checked either way.
 """
 
 import re
@@ -22,9 +23,11 @@ from pydantic import (
     AfterValidator,
     BeforeValidator,
     GetCoreSchemaHandler,
+    GetJsonSchemaHandler,
     SerializationInfo,
     StringConstraints,
 )
+from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema, core_schema
 
 DATE_REGEX = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
@@ -47,21 +50,42 @@ class CustomObjectIdAnnotation:
                 return v
             return str(v)
 
+        from_str_schema = core_schema.chain_schema(
+            [
+                core_schema.str_schema(),
+                core_schema.no_info_plain_validator_function(validate_str_to_oid),
+            ]
+        )
+
         return core_schema.json_or_python_schema(
-            json_schema=core_schema.str_schema(),
+            # JSON has no ObjectId literal, so the instance check belongs to the python union alone:
+            # naming it on the json branch would declare a value that cannot arrive there.
+            json_schema=from_str_schema,
             python_schema=core_schema.union_schema(
                 [
                     core_schema.is_instance_schema(ObjectId),
-                    core_schema.chain_schema(
-                        [
-                            core_schema.str_schema(),
-                            core_schema.no_info_plain_validator_function(validate_str_to_oid),
-                        ]
-                    ),
+                    from_str_schema,
                 ]
             ),
             serialization=core_schema.plain_serializer_function_ser_schema(serialize_oid, info_arg=True),
         )
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, _core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        """
+        What an ObjectId looks like on the wire, in both JSON schema modes: a string.
+
+        Declared rather than inferred because neither mode can read it off the core schema. Validation
+        would take the first step of the chain, which is the string, only for as long as nobody puts a
+        constraint in front of it; serialization walks to the last step, a plain validator function no
+        JSON schema can describe. `openapi.json` is a published contract (ADR-0033), so it says what it
+        means here instead of tracking a shape chosen for other reasons.
+
+        Deliberately not a `return_schema` on the serializer: it would declare the same string and fix
+        the same generation, at the cost of a serializer warning on every `keep_oid` dump, where the
+        value stays an ObjectId on purpose.
+        """
+        return handler(core_schema.str_schema())
 
 
 CustomObjectId = Annotated[ObjectId, CustomObjectIdAnnotation]
