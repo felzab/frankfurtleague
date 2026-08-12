@@ -45,12 +45,14 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 }) {
   const [, startReactivating] = useTransition();
 
-  // The selector's season rides along on every row link, so the editor and the public page open on
-  // the season this list is showing. Reading it here is safe: the parent view already subscribes this
-  // tree to the router.
+  // The selector's season rides along on every row link, so the editor, the public page and the
+  // fixture list open on the season this list is showing. Reading it here is safe: the parent view
+  // already subscribes this tree to the router.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
   const saisonQuery = selectedFromUrl ? `?saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
+  // The same value as a second parameter, for the one row link that carries a facet of its own.
+  const saisonParam = selectedFromUrl ? `&saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
 
   // One press, then a toast either way. No confirmation step: reactivation is undone by the delete
   // control that takes its place.
@@ -85,8 +87,10 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 
   const renderActions = (team: AdminTeamRow) => (
     <RowActions>
+      {/* `team` as `buildSpielFacets` declares it, carrying the id its options are keyed by, and it
+          reads both sides — so this finds the club's fixtures whichever slot it occupies. */}
       <RowActionLink
-        href={`/admin/spielsuche?q=${encodeURIComponent(team.name)}`}
+        href={`/admin/spielsuche?team=${team.id}${saisonParam}`}
         label="Spiele anzeigen"
         ariaLabel={`Spiele von ${team.name} anzeigen`}>
         <Calendar
