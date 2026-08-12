@@ -1,6 +1,6 @@
 # Decisions
 
-**Verified against:** `74b7df3`, 2026-08-12\
+**Verified against:** `a2c7e96`, 2026-08-12\
 **Applies to:** `docs/_decisions/` — every ADR, and the index beside them.
 
 | ID    | Rule                 |
@@ -93,7 +93,10 @@ every ADR (approved 2026-08-09); the compaction of the numbering to a contiguous
 (approved 2026-08-09); ADR-0012's Consequences pointer, rewritten because dissolving
 `docs/ops/runbooks.md`'s duplicated half collapsed the claim it made (approved 2026-08-10); and
 ADR-0009's Consequences cost figure, rewritten because the figure was measured wrong — the cost
-falls per call site, not per page load (approved 2026-08-11).
+falls per call site, not per page load (approved 2026-08-11); and the narrowing of ADR-0041's and
+ADR-0049's confirmation clauses to the save, the scope their own justifications already carry,
+because `ConfirmDiscardModal` predates ADR-0041 and every page-owned editor renders it (approved
+2026-08-12).
 
 **Enforced by:** unenforced — review judgment.
 
