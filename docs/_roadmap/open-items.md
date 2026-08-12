@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `b3ea116`, 2026-08-12\
+**Verified against:** `29c2a3d`, 2026-08-12\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
@@ -63,26 +63,24 @@ chosen by feel.
 | --- | ------ | ------------------------------------------------------- | ----------- | ------ | -------- | ---------- |
 | 1   | FB-16  | Nothing announces that a season rollover is due         | BE, Ops     | M      | Open     | —          |
 | 2   | BE-15  | Nothing records who changed what, or what it replaced   | FE, BE, DB  | L      | Open     | —          |
-| 3   | FB-7   | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | —          |
-| 4   | FE-1   | A fixture carries one date, not a play window           | FE, BE      | XL     | Open     | —          |
-| 5   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
-| 6   | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
-| 7   | BE-12  | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | —          |
-| 8   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
-| 9   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
-| 10  | LOG-2  | A cached read's call joins to no render                 | FE, BE, Ops | L      | Open     | —          |
-| 11  | FB-15  | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —          |
-| 12  | BE-7   | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | —          |
-| 13  | BE-14  | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | —          |
-| 14  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
-| 15  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
-| 16  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
-| 17  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
-| 18  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops     | S      | Open     | —          |
-| 19  | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs   | S      | Open     | —          |
-| 20  | OPS-56 | The git stepper reads one `git`, on one line            | Ops         | S      | Open     | —          |
-| 21  | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops         | M      | Open     | —          |
-| 22  | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops         | S      | Open     | —          |
+| 3   | FE-1   | A fixture carries one date, not a play window           | FE, BE      | XL     | Open     | —          |
+| 4   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
+| 5   | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
+| 6   | BE-12  | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | —          |
+| 7   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
+| 8   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
+| 9   | LOG-2  | A cached read's call joins to no render                 | FE, BE, Ops | L      | Open     | —          |
+| 10  | BE-7   | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | —          |
+| 11  | BE-14  | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | —          |
+| 12  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
+| 13  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
+| 14  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
+| 15  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
+| 16  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops     | S      | Open     | —          |
+| 17  | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs   | S      | Open     | —          |
+| 18  | OPS-56 | The git stepper reads one `git`, on one line            | Ops         | S      | Open     | —          |
+| 19  | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops         | M      | Open     | —          |
+| 20  | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops         | S      | Open     | —          |
 
 **No entry in this file blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -193,11 +191,11 @@ the client-held undo makes the gap visible on the one surface an admin uses most
 
 ## Tier 3 — independent
 
-Entries that block nothing and wait on nothing, ordered by value per cost. The surface the FB-7/FE-1
-batch was waiting on exists — the match editor is a page at `/admin/spiele/[spiel_id]`
-([ADR-0040](../_decisions/0040-a-form-that-outgrows-a-dialog-becomes-a-page.md)) — so the batch
-renders on it and the triage list links into it, and neither has to be built against a dialog first
-and then again. The batch keeps its one-pass rule: one schema surface, one form, one mirror pass
+Entries that block nothing and wait on nothing, ordered by value per cost. FE-1 opens the tier, and
+the surface it was waiting on exists — the match editor is a page at `/admin/spiele/[spiel_id]`
+([ADR-0040](../_decisions/0040-a-form-that-outgrows-a-dialog-becomes-a-page.md)) — so it renders
+there and the triage list links into it, rather than being built against a dialog first and then
+again. It still wants one pass over the schema surface, the form and the mirror
 ([ADR-0033](../_decisions/0033-the-zod-mirror-is-checked-against-the-published-document.md) makes a
 mirror that falls behind a gate failure that names the field). OPS-11 and OPS-10 are the cheapest
 entries here and the only ones a session pays for on every run: a guard that refuses commands it has
@@ -205,60 +203,16 @@ no business refusing, and a classifier that spends a process per file to answer 
 diff. OPS-12 and DOC-2 are each a boundary nothing currently watches — a generated file against the
 generator that owns it, and the documentation standard's enforcement claims against the gate, which
 resolves them in the direction that overstates and not in the direction that understates. BE-12 and
-LOG-2 are prospective rather than dependent: BE-12 is real now that the spieler pages make retiring
-a row possible at all, and LOG-2 improves the fidelity of a logging convention that already works.
-FB-15 closes the tier with the group swap the team editor's lock names as the one defensible
-mid-season move.
+LOG-2 close the tier and are prospective rather than dependent: BE-12 is real now that the spieler
+pages make retiring a row possible at all, and LOG-2 improves the fidelity of a logging convention
+that already works.
 
-### 3 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
-
-**Status:** Open\
-**Surfaces:** FE, BE\
-**Effort:** M\
-**Path:** Batched with FE-1 — one schema, mirror and form pass, landing on the edit page.
-
-**A team showing fewer games than its group's fixtures should say why** (my item, 2026-08-04). The
-sketch is `Spiele: 2 +1` in contrasting colours, with a tooltip on hover for a pointer and on tap for
-touch.
-
-**What the number actually counts.** `anzahl_gespielte_spiele` counts matches carrying an `ergebnis`
-with both `tore` present (`fl_backend/app/api/teams/services.py :: build_statistik_lookup_stage`). **A
-cancelled match that has a result already counts** — it is a forfeit, and
-[ADR-0019](../_decisions/0019-team-statistics-are-derived-from-spiele.md) settles that. So a missing
-game is a match with no result at all: a cancellation without a result, or a fixture not yet played.
-
-**Verify which one is behind the numbers before designing the badge.** My reading is that they are
-cancellations; the pipeline cannot tell one from the other, and a badge that says "cancelled" about a
-fixture that simply has not happened yet is worse than no badge.
-
-**`is_canceled` conflates a forfeit with a match that did not happen** (named 2026-08-06). Reference
-bracket models keep a forfeit — a match awarded without being played — as its own property of the
-result, separate from whether the match happened. Here a forfeit and a cancellation are alike
-`is_canceled: true`, and the only thing distinguishing them is whether an `ergebnis` is also present.
-That encoding is deliberate and ADR-0019 depends on it, so this item does not reopen it; it is the
-reason the badge needs a new counted field rather than a filter over the flag.
-
-**What it costs.** `FLTeamStatistik` carries no such field. A count of cancelled matches is a new
-field in the aggregation, the Pydantic model and the Zod mirror — a schema change, which is why it
-belongs in the batch rather than on its own. The new field lands in each mirror and in
-`fl_backend/openapi.json`, which the gate compares
-([ADR-0033](../_decisions/0033-the-zod-mirror-is-checked-against-the-published-document.md)).
-
-**Where it approaches a ratified decision.** ADR-0019 keeps `is_canceled` out of the counting rule,
-and this item would read that flag inside the same pipeline. A separate, clearly-named count is not a
-reversal — **the scoring must not change** — but the boundary belongs in a comment at the stage,
-because the next reader will see `is_canceled` in a pipeline an ADR says does not consult it.
-
-**The tooltip is an accessibility question rather than a device question.** A trigger that is
-focusable and announced gives the tap behaviour on touch and the hover behaviour on a pointer without
-branching on the device at all.
-
-### 4 · FE-1 — A fixture carries one date, and a play window cannot be expressed
+### 3 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
 **Status:** Open\
 **Surfaces:** FE, BE\
 **Effort:** XL\
-**Path:** Batched with FB-7 — one schema, mirror and form pass, landing on the edit page.
+**Path:** Independent — `/admin/spiele/[spiel_id]` is the page it lands on, and it exists.
 
 **A fixture's `datum` is a single day, so a match scheduled across a window cannot be recorded as one**
 (my item, 2026-08-02). Implementing ranges is heavy in my scoping: it would change
@@ -272,7 +226,7 @@ ausstehend/heute/vergangen ternary genuinely harder, and that ADR's intent (a fi
 window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives ADR-0058's definitions under ranges.
 
-### 5 · OPS-11 — The local-compose guard cannot tell an invocation from a mention
+### 4 · OPS-11 — The local-compose guard cannot tell an invocation from a mention
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -302,7 +256,7 @@ separator, allowing a leading `sudo` or an environment assignment — still refu
 and `scripts/selfcheck.sh` asserts each. It already drives this hook for a bare invocation, for the
 local file named, and for a command that is not compose at all, so the probes have a home.
 
-### 6 · OPS-10 — Deciding whether a change is comments only costs a process per file
+### 5 · OPS-10 — Deciding whether a change is comments only costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -332,7 +286,7 @@ spawning it replaced.
 **Not measured:** what the spawns actually cost on this machine, and how much of a gate run is
 attributable to them. The mechanism above is read from the code; the magnitude is not.
 
-### 7 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+### 6 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -371,7 +325,7 @@ than rediscovered.
 ([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)), so neither can accumulate a
 row to purge.
 
-### 8 · OPS-12 — Nothing checks a generated file against the generator that owns it
+### 7 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -407,7 +361,7 @@ the formatter has run over each side so the comparison is about content rather t
 and fails where it differs from the committed one, and the images are left to review with that
 exclusion written down rather than assumed.
 
-### 9 · DOC-2 — An enforcement claim is resolved in one direction only
+### 8 · DOC-2 — An enforcement claim is resolved in one direction only
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -439,7 +393,7 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 10 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
+### 9 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -507,38 +461,6 @@ validated or replaced the same way.
 **Not measured:** the runtime cost of the instrumentation packages on this application, and whether a
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
-
-### 11 · FB-15 — A mid-season group move is only defensible as a swap, and nothing offers one
-
-**Status:** Open\
-**Surfaces:** FE, BE\
-**Effort:** M\
-**Path:** Independent — the lock in the club editor is the interim answer.
-
-**The club editor locks the Gruppe select the moment the selected season is underway and the club has a
-fixture in it** (my item, 2026-08-07, out of the admin teams work). A group decides which table counts
-the club's results and which bracket slot its placing seeds
-([ADR-0035](../_decisions/0035-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md)),
-so moving one club
-mid-season falsifies the table and the bracket at once. The lock's own message names the move that
-would be defensible: **two clubs exchanging groups**, which keeps each group's size and each schedule
-intact.
-
-**Why it is not a pair of junction PATCHes.** `PATCH /teams/{team_id}/saisons/{saison_id}` addresses
-one row, so a swap done as two calls has a window in which one group is a club short and the other a
-club over — and a failure after the first call leaves the season in that state. A swap is one decision
-and wants one transaction over two junction rows, which no endpoint offers. This is the same endpoint
-question the draw editor recorded for fixtures
-([ADR-0045](../_decisions/0045-a-draw-is-reviewed-as-a-table-of-provenance.md)), on a smaller surface.
-
-**A further bound, also mine:** once the knockout rounds have begun, no swap is defensible either — the
-standings have been consumed by the seeding, and a group change behind a played bracket rewrites what
-its slots meant. The control must refuse then, not merely warn.
-
-**Where it lands is open.** The club editor addresses one club, so a two-club operation sits awkwardly
-there; `/admin/saisons/[saison_id]` addresses the season, which is the thing a swap belongs to, and it
-exists. Decide when either is next touched. Today's data has no case that needs a swap.
-
 ---
 
 ## Tier 4 — standing cautions and watch items
@@ -568,7 +490,7 @@ that finds only the earliest `git` in a command. Either shape releases `git rese
 command a session writes without thinking, and what that costs is the working tree rather than
 anything a branch ruleset can protect.
 
-### 12 · BE-7 — `typing` imports instead of `collections.abc`
+### 10 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -580,7 +502,7 @@ deprecated since Python 3.9, on a project running far newer. **Deliberately not 
 modernising one module while the rest keep the old spelling is worse than uniformity. The recorded
 decision is to enable ruff's `UP` rules and migrate in one pass.
 
-### 13 · BE-14 — The certainty walk gives up in a group of six or more
+### 11 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -641,7 +563,7 @@ deduplicated, but inside a transaction, whose lifetime is bounded.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 14 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 12 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -680,7 +602,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 15 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 13 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -725,7 +647,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately — which is exactly the distinction that cost time this round.
 
-### 16 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 14 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -759,7 +681,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a chapter added to the standard under a prefix the patterns do not carry, or
 the first page that needs a metadata block indented.
 
-### 17 · DOC-4 — A stamp is required by a path and owed by a claim
+### 15 · DOC-4 — A stamp is required by a path and owed by a claim
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -786,7 +708,7 @@ was written to replace.
 **Trigger to revisit:** a reference page added under `docs/` that sits outside
 `STAMP_REQUIRED_GLOBS`, or any change to what the branch-impact check arms on.
 
-### 18 · OPS-19 — Both repository-wide linters re-read every file on every run
+### 16 · OPS-19 — Both repository-wide linters re-read every file on every run
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -861,7 +783,7 @@ that same sixteen-core machine on 2026-08-12. That is not the CI figure and must
 a standard GitHub-hosted runner has four cores, where worker startup and plugin loading can spend the
 whole win, so the flag is kept only if three CI runs beat the recorded baseline.
 
-### 19 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
+### 17 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -921,7 +843,7 @@ advisory over three lines**. The reason is structural rather than lucky — COR-
 and the over-length block named above surfaces only when somebody rewrites it. The earlier estimate
 of all 43 blocks at once was wrong by two orders, and it was the only argument for doing this alone.
 
-### 20 · OPS-56 — The git subcommand stepper reads one `git`, on one line
+### 18 · OPS-56 — The git subcommand stepper reads one `git`, on one line
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -1002,7 +924,7 @@ that matrix twice for one line of code**, which is why they are one entry.
 distinction to hold on to is that the subcommand table here is complete and the stepper never
 reaches it, which is the opposite of a guard whose vocabulary is genuinely short of a shape.
 
-### 21 · OPS-60 — The gate's wall clock is one scope, and that scope runs serially
+### 19 · OPS-60 — The gate's wall clock is one scope, and that scope runs serially
 
 **Status:** Open**Surfaces:** Ops**Effort:** M**Path:** Independent. Its own branch — it touches the pool manifest, which carries the exit
 contract.
@@ -1035,7 +957,7 @@ about 60s, at which point `frontend` at 57s becomes the new floor and the next l
 build`. **OPS-19's linter cache buys nothing on wall clock** — it targets `format` at 45s, which is
 already hidden inside `scripts`.
 
-### 22 · OPS-61 — The commit hook builds its scratch at a path git cannot open
+### 20 · OPS-61 — The commit hook builds its scratch at a path git cannot open
 
 **Status:** Open**Surfaces:** Ops**Effort:** S**Path:** Independent. One line, and the idiom it needs is already in two other files.
 

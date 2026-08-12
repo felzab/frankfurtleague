@@ -1,21 +1,27 @@
 """
 SAISONS · write endpoints
 
-Creating a season, editing its dates and rules, and the rollover. The guard is router-level, so
-every endpoint added here is admin-guarded by construction (ADR-0027) — never move it onto one.
+Creating a season, editing its dates and rules, the rollover, and the group swap. The guard is
+router-level, so every endpoint added here is admin-guarded by construction (ADR-0027) — never move
+it onto one.
 
 Invariants:
 - Exactly one season is `active`; `activate_saison` is the only writer of `status` (ADR-0026).
 - There is no DELETE — retiring a season would orphan every spiel, spieltag and junction row.
 - A created season is always `future`, so a typo in a new id cannot roll over the live one.
+- A group swap writes both junction rows or neither — one transaction, never two calls (ADR-0062).
+- It rewrites the two clubs' Gruppenphase sides in that same transaction, and never their `tore`.
+- Both of its windows read "has taken place" through the one predicate, `_has_taken_place`.
+- It refuses an exchange that would field a club twice on one Spieltag (ADR-0042, `_spieltag_clashes`).
 
 See:
 - docs/backend/spec.md — section 1.1, the season write endpoints
 """
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Mapping, Sequence
 
 from fastapi import APIRouter, Body, Depends
+from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 from pymongo import ReturnDocument
 
 from app.api.saisons.cache import invalidate_saison_cache
@@ -27,12 +33,15 @@ from app.api.saisons.schemas import (
     FLPostSaisonResponse,
     FLSaison,
     FLSaisonRules,
+    FLSwapGruppenPayload,
+    FLSwapGruppenResponse,
 )
 from app.api.saisons.services import find_activation_refusal, find_rules_refusal, find_saison_span_refusal, unplayed_spiel_nrs, with_schedule
-from app.api.spiele.schemas import FLSpielListAdapter
+from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
+from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import DBClient, SaisonsCollection, SaisonTeamsCollection, SpieleCollection, SpieltageCollection
+from app.core.dependencies import DBClient, SaisonsCollection, SaisonTeamsCollection, SpieleCollection, SpieltageCollection, TeamsCollection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.security import verify_access_admin
 
@@ -40,6 +49,163 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
     dependencies=[Depends(verify_access_admin)],
 )
+
+# The three keys a swap carries from one club to the other. `tore` is the fourth and stays put: goals
+# belong to whoever scored them, and `_has_taken_place` is why there is none left to move.
+SWAPPED_SIDE_KEYS: tuple[str, ...] = ("team_id", "name", "shorthand")
+
+
+def _has_taken_place(spiel: Mapping[str, Any]) -> bool:
+    """
+    Whether this fixture is one that happened, as both swap windows ask it (`REQ-SWAP-002`, `REQ-SWAP-004`).
+
+    An `ergebnis` or a cancellation is the reading `unplayed_spiel_nrs` already applies when closing a
+    season: a called-off match here is a forfeit and counts as a real game.
+
+    **The goal counts are the third clause, and they are the one a reader would not predict.**
+    `fl_backend/app/api/spiele/services.py :: apply_payload_to_spiel` derives `ergebnis` from BOTH counts
+    and strips the goals only when a SIDE is absent -- so a fixture with both sides occupied and one count
+    entered is stored holding `team1.tore` with no `ergebnis` at all, and nothing refuses it. Somebody
+    typed that number about a match that was played, which is exactly what the round-robin argument asks
+    about; reading only `ergebnis` would let the swap carry those goals to the club arriving in the
+    fixture. `build_statistik_lookup_stage` restates its own `tore` filter to survive the same shape.
+
+    **Not `unplayed_spiel_nrs` negated, and it must not become that.** That rule refuses a rollover while
+    the outgoing season still holds an unfinished fixture, so a half-entered score has to read as
+    UNFINISHED there and as PLAYED here. Both readings refuse, which is the direction each rule needs.
+
+    The caller's projection has to carry all four keys. A side the document stores as `null` reads as no
+    goals, which is what an unresolved slot is.
+    """
+
+    if spiel.get("ergebnis") is not None or spiel.get("is_canceled"):
+        return True
+
+    return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
+
+
+def _spieltag_clashes(
+    *,
+    team_ids: Sequence[Any],
+    gruppenphase_spiele: Sequence[Mapping[str, Any]],
+    knockout_spiele: Sequence[Mapping[str, Any]],
+) -> int:
+    """
+    How many Spieltage would hold one of these two clubs twice once they exchange (`REQ-SWAP-005`).
+
+    A club plays at most one match per Spieltag (ADR-0042), and the match write path is the only thing
+    enforcing it -- so this endpoint, which writes fixture documents without passing that path, is the
+    one place that can create the state `judge_spieltag_occupancy` exists to refuse.
+
+    **The exchange is a bijection over the Gruppenphase and touches nothing else**, so after it a club
+    stands in its OWN knockout fixtures plus the OTHER's group ones. A Spieltag holding a group fixture
+    of one club beside a bracket fixture whose manual pick is the other therefore ends up fielding one
+    club twice. It takes a season whose Spieltage mix the two phases, which nothing forbids: a `spieltag`
+    carries its own `saison_phase` and a fixture's need not agree with it.
+
+    **Only a Spieltag the exchange BREAKS is counted, never one that was already broken.** Enforcement
+    leaves the past alone (ADR-0042), and refusing over a stored breach this swap did not cause would
+    name a bound that is not what an admin has to fix. A fixture attached to no Spieltag is nobody's
+    business here, for the reason `REQ-RULES-006` skips one.
+
+    The caller's projections have to carry `spieltag_id` and both `team_id`s.
+    """
+
+    other_of = {team_ids[0]: team_ids[1], team_ids[1]: team_ids[0]}
+
+    # Split by whether the rewrite moves the fixture: a group side becomes the other club's, a bracket
+    # side stays where it is, and that difference is the whole arithmetic below.
+    moved: dict[tuple[Any, Any], int] = {}
+    fixed: dict[tuple[Any, Any], int] = {}
+
+    for spiele, counted in ((gruppenphase_spiele, moved), (knockout_spiele, fixed)):
+        for spiel in spiele:
+            spieltag_id = spiel.get("spieltag_id")
+            if spieltag_id is None:
+                continue
+            for slot in ("team1", "team2"):
+                occupant = (spiel.get(slot) or {}).get("team_id")
+                if occupant in other_of:
+                    counted[(occupant, spieltag_id)] = counted.get((occupant, spieltag_id), 0) + 1
+
+    offending: set[Any] = set()
+    for club in team_ids:
+        other = other_of[club]
+        for spieltag_id in {day for held, day in fixed if held == club} | {day for held, day in moved if held == other}:
+            before = fixed.get((club, spieltag_id), 0) + moved.get((club, spieltag_id), 0)
+            after = fixed.get((club, spieltag_id), 0) + moved.get((other, spieltag_id), 0)
+            if after > 1 and before <= 1:
+                offending.add(spieltag_id)
+
+    return len(offending)
+
+
+async def _rewrite_gruppenphase_sides(
+    *,
+    spiele: Sequence[Mapping[str, Any]],
+    team_ids: Sequence[Any],
+    spiele_collection: AsyncIOMotorCollection,
+    teams_collection: AsyncIOMotorCollection,
+    session: AsyncIOMotorClientSession,
+) -> int:
+    """
+    Rewrites each club's side of these fixtures to the other club, and returns how many were touched.
+
+    The second half of a group swap (ADR-0062). A group phase is a round robin, so a club's fixtures are
+    the ones its group draws — exchanging the two junction rows without exchanging the fixtures leaves
+    each club scheduled against the group it left. Rewriting them is what makes the swap read as the one
+    club having become the other.
+
+    **The fixtures are named by `_id` from a snapshot read before any write.** Filtering on the club
+    instead would let the second pass match what the first has just written and swap it straight back —
+    the standing hazard of expressing an exchange as two updates. The four passes it does issue are
+    disjoint by `(fixture, slot)`, so a fixture somehow fielding both clubs is exchanged correctly too.
+
+    **`name` and `shorthand` come from the `teams` documents**, which is where `PATCH /teams/{team_id}`
+    fans them out from (ADR-0021 rule 3) — not from another fixture's embedded copy, which is a copy of
+    the same thing one drift away from being wrong.
+    """
+
+    identities = await pull_many_from_db(
+        collection=teams_collection,
+        db_filter={"_id": {"$in": list(team_ids)}},
+        # Spelled out rather than sliced off `SWAPPED_SIDE_KEYS`: the slice depends on `team_id` being
+        # element 0, and reordering that tuple reads as free while it would raise `KeyError` here.
+        projection=["name", "shorthand"],
+        session=session,
+    )
+    identity_of = {row["_id"]: row for row in identities}
+
+    # A junction row whose club document is gone is a broken season rather than a swap this endpoint can
+    # perform, and raising here aborts the transaction rather than writing half an exchange.
+    for team_id in team_ids:
+        if team_id not in identity_of:
+            raise DocumentNotFoundException(filter={"_id": team_id}, error_code="DB-COMMON-001")
+
+    other_of = {team_ids[0]: team_ids[1], team_ids[1]: team_ids[0]}
+
+    # Grouped by `(slot, occupant)` because one `update_many` writes one path with one value, exactly as
+    # the rename fan-out splits into a pass per slot.
+    by_pass: dict[tuple[str, Any], list[Any]] = {}
+    for spiel in spiele:
+        for slot in ("team1", "team2"):
+            occupant = (spiel.get(slot) or {}).get("team_id")
+            if occupant in other_of:
+                by_pass.setdefault((slot, occupant), []).append(spiel["_id"])
+
+    for (slot, occupant), spiel_ids in by_pass.items():
+        target = other_of[occupant]
+        identity = identity_of[target]
+        await patch_many_in_db(
+            collection=spiele_collection,
+            filter={"_id": {"$in": spiel_ids}},
+            update={"$set": {f"{slot}.{key}": (target if key == "team_id" else identity[key]) for key in SWAPPED_SIDE_KEYS}},
+            session=session,
+        )
+
+    # The fixtures, not the sides: a `modified_count` sums a fixture fielding both clubs twice and
+    # reports 0 for a write whose value already matched, and neither is what an admin is being told.
+    return len({spiel_id for spiel_ids in by_pass.values() for spiel_id in spiel_ids})
 
 
 @router.post("", response_model=FLPostSaisonResponse, status_code=201, summary="Create a Saison")
@@ -282,3 +448,188 @@ async def activate_saison(
     activated = FLSaison.model_validate(with_schedule(activated_raw if activated_raw is not None else target_raw))
 
     return FLActivateSaisonResponse(updated_document=activated, deactivated=demoted.modified_count)
+
+
+@router.post("/{saison_id}/gruppen/swap", response_model=FLSwapGruppenResponse, summary="Exchange two teams' groups")
+async def swap_gruppen(
+    saison_id: str,
+    swap_data: Annotated[FLSwapGruppenPayload, Body()],
+    saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    spiele_collection: SpieleCollection,
+    teams_collection: TeamsCollection,
+    db: DBClient,
+) -> FLSwapGruppenResponse:
+    """
+    Exchange the groups of two clubs entered in this season, as one write.
+
+    **The one mid-season group change that is defensible** (ADR-0062). A group decides which table counts
+    a club's results and which bracket slot its placing seeds (ADR-0035), so moving a single club
+    falsifies both; two clubs exchanging keeps each group's size and leaves every drawn fixture facing
+    the opponents it was drawn against.
+
+    **On the season rather than on the club** (ADR-0027's grain): `PATCH /teams/{team_id}/saisons/{saison_id}`
+    addresses one junction row, so a swap done there is two requests with a window between them in which
+    one group is a club short and the other a club over — and a failure after the first leaves the season
+    in that state with nothing to say so. Both rows are written in **one transaction**, so the season
+    never holds half a swap.
+
+    **Refused with a 409 unless the two ids name two clubs of this season standing in different groups**
+    (`REQ-SWAP-001`). One club named twice, a club with no junction row, and two clubs of one group all
+    describe something that is not a swap. The control offers only pairs that are one, so a request
+    carrying any of them is stale or racing another admin, and reloading is the way past it.
+
+    **Refused with a 409 of its own while the season is `past`** (`REQ-SWAP-003`). A finished season's
+    table is the record of what happened, and it is derived from these groups on every read — so the
+    groups are frozen for the same reason `REQ-RULES-005` freezes the scoring rules.
+
+    **Refused with a 409 of its own once the knockout rounds have begun** (`REQ-SWAP-002`) — any fixture
+    outside the Gruppenphase that has taken place. By then the standings have been consumed by the
+    seeding, so exchanging the groups behind it rewrites what its slots meant. That is a refusal and not a
+    warning: there is no reading of it under which the swap is still defensible.
+
+    **Refused with a 409 of its own once either club has taken part in its group's round robin**
+    (`REQ-SWAP-004`) — a Gruppenphase fixture fielding it that has taken place. The group phase is a round
+    robin, so a club that has played inside one cannot leave it: its results stand against a group it is
+    no longer in, and its new group gains a member who has played nobody in it. Neither group is a round
+    robin afterwards.
+
+    **Both windows ask `_has_taken_place`, so a cancellation and a lone goal count reach them as squarely
+    as a result does.** They differ only in which phase they read, and in `REQ-SWAP-004` narrowing to the
+    two clubs while `REQ-SWAP-002` counts the season's.
+
+    **Refused with a 409 of its own where the exchange would field a club twice on one Spieltag**
+    (`REQ-SWAP-005`, ADR-0042). The rewrite below moves a group side and never a bracket one, so a
+    Spieltag holding a group fixture of one club beside a bracket fixture whose manual pick is the other
+    doubles a club the moment they exchange. It is answered LAST because it is the only one of the five an
+    admin can act on — `_spieltag_clashes` says which, and moving either fixture or clearing that manual
+    pick reopens the swap.
+
+    **`REQ-ENTER-004`'s lock is deliberately not consulted.** It refuses a MOVE for a club whose fixtures
+    are drawn, and its own message names a swap as the case that would be defensible — so this operation
+    exists beside that lock rather than relaxing it. `disqualifikation` is untouched here: a swap changes
+    where a club plays and nothing about whether it may.
+
+    **The drawn fixtures move with the clubs.** Every Gruppenphase fixture fielding either club has that
+    side rewritten to the other, in the same transaction as the two junction rows — so each club inherits
+    the opponents, dates and venues the other was scheduled against, and both groups are round robins
+    again. `tore` is never carried across, and under `REQ-SWAP-004` — which counts a lone goal count as a
+    fixture that was played — there is none to carry.
+    """
+
+    # A read first, so an unknown season is a 404 rather than a 409 about two clubs holding no row in a
+    # season nobody has (ADR-0057). Inside the transaction it would roll back either way; the ordering is
+    # what makes the failure legible.
+    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
+
+    async def exchange_the_two_gruppen(session: AsyncIOMotorClientSession) -> FLSwapGruppenResponse:
+        """The whole swap: judge, then write both rows. Everything it decides on is read in-session."""
+
+        both_ids = [swap_data.team1_id, swap_data.team2_id]
+
+        # Read THROUGH the session, because these rows decide what is written: a retry after a write
+        # conflict has to judge them as they are then, not as this request first saw them.
+        rows = await pull_many_from_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id, "team_id": {"$in": both_ids}},
+            projection=["team_id", "gruppe"],
+            session=session,
+        )
+        gruppe_of = {row["team_id"]: row["gruppe"] for row in rows}
+
+        # Read again in-session, and not from the 404 read above: `activate_saison` moves this field in a
+        # transaction of its own, so a rollover committing between the two would leave this judging a
+        # season that is no longer the one being written.
+
+        # `find_one` directly rather than `pull_one_from_db`, which takes no session -- the same call the
+        # match write path makes for a matchday, and for the same reason.
+        saison_raw = await saisons_collection.find_one({"_id": saison_id}, {"status": 1}, session=session)
+        if saison_raw is None:
+            raise DocumentNotFoundException(filter={"_id": saison_id}, error_code="DB-COMMON-001")
+
+        # Every Gruppenphase fixture fielding either club, LISTED rather than counted: one read answers
+        # `REQ-SWAP-004` and supplies what the rewrite moves, so the two cannot disagree.
+        gruppenphase_spiele = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={
+                "saison_id": saison_id,
+                "saison_phase": "gruppenphase",
+                "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
+            },
+            projection=["spieltag_id", "team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "is_canceled"],
+            session=session,
+        )
+
+        # Listed rather than counted, so both windows are decided by `_has_taken_place` rather than by one
+        # predicate here and a `$or` filter there -- two spellings of one rule, drifting apart silently.
+
+        # A full ladder off `MAX_QUALIFIERS` is fifteen fixtures, so listing the bracket costs nothing.
+        knockout_spiele = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
+            projection=["spieltag_id", "team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "is_canceled"],
+            session=session,
+        )
+
+        refusal = find_gruppe_swap_refusal(
+            is_same_team=swap_data.team1_id == swap_data.team2_id,
+            team1_gruppe=gruppe_of.get(swap_data.team1_id),
+            team2_gruppe=gruppe_of.get(swap_data.team2_id),
+            saison_status=str(saison_raw["status"]),
+            played_knockout_fixtures=sum(1 for spiel in knockout_spiele if _has_taken_place(spiel)),
+            played_gruppenphase_fixtures=sum(1 for spiel in gruppenphase_spiele if _has_taken_place(spiel)),
+            clashing_spieltage=_spieltag_clashes(
+                team_ids=both_ids,
+                gruppenphase_spiele=gruppenphase_spiele,
+                knockout_spiele=knockout_spiele,
+            ),
+        )
+        if refusal is not None:
+            error_code, detail = refusal
+            raise DocumentConflictException(error_code=error_code, message=detail)
+
+        rewritten = await _rewrite_gruppenphase_sides(
+            spiele=gruppenphase_spiele,
+            team_ids=both_ids,
+            spiele_collection=spiele_collection,
+            teams_collection=teams_collection,
+            session=session,
+        )
+
+        # The refusal above proved both rows exist and hold different groups, so each club's target is
+        # simply the other's current group.
+
+        # Built BEFORE the junction writes and then written FROM, rather than assembled from them
+        # afterwards.
+
+        # Two things follow: this model refuses a stored group outside the closed A-D set before anything
+        # is written, and the echo cannot disagree with what landed -- it is the same object.
+        swapped = FLSwapGruppenResponse(
+            saison_id=saison_id,
+            team1_id=swap_data.team1_id,
+            team1_gruppe=gruppe_of[swap_data.team2_id],
+            team2_id=swap_data.team2_id,
+            team2_gruppe=gruppe_of[swap_data.team1_id],
+            rewritten_spiele=rewritten,
+        )
+
+        for team_id, target_gruppe in ((swapped.team1_id, swapped.team1_gruppe), (swapped.team2_id, swapped.team2_gruppe)):
+            written = await patch_one_in_db(
+                collection=saison_teams_collection,
+                filter={"saison_id": saison_id, "team_id": team_id},
+                update={"$set": {"gruppe": target_gruppe}},
+                session=session,
+            )
+            # `find_one_and_update` returns None only when nothing matched, so this is the 404 branch
+            # rather than an error check -- and raising here aborts the transaction, taking the first
+            # write back with it rather than leaving one group a club short.
+            if written is None:
+                raise DocumentNotFoundException(filter={"saison_id": saison_id, "team_id": team_id}, error_code="DB-COMMON-001")
+
+        return swapped
+
+    # `with_transaction` rather than a bare `start_transaction`, which is `patch_spiel_data`'s choice and
+    # for its reason: two admins on one season can write-conflict here, and the callback re-reads
+    # everything it judges on, so it is safe to retry.
+    async with await db.start_session() as session:
+        return await session.with_transaction(exchange_the_two_gruppen)

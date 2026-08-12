@@ -128,6 +128,7 @@ def test_the_mutation_inventory_is_the_size_the_write_path_built():
     A guard-coverage suite that finds no mutations passes vacuously, which is its own failure mode.
 
     Pinned to the count rather than to `> 0`: the inventory shrinking is exactly as interesting as it
-    growing, and both should be a deliberate edit to this line (ADR-0027 built 30 across seven slices).
+    growing, and both should be a deliberate edit to this line (ADR-0027 built 30 across seven slices,
+    and ADR-0062's group swap is the 31st).
     """
-    assert len(MUTATIONS) == 30
+    assert len(MUTATIONS) == 31

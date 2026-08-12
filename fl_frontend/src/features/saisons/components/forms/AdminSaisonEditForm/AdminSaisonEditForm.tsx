@@ -16,6 +16,7 @@ import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
+import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
 import { FormRolloverSection } from "./FormRolloverSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
@@ -24,7 +25,7 @@ import { SaisonDraftStatusProvider } from "./SaisonDraftStatusContext";
 import { SaisonRail } from "./SaisonRail";
 
 import type { FLPatchSaisonPayload, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
-import type { SaisonDraftFields, SaisonRolloverContext } from "@/features/saisons/types";
+import type { SaisonDraftFields, SaisonGruppenSwapContext, SaisonRolloverContext } from "@/features/saisons/types";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
@@ -78,12 +79,15 @@ async function postSaisonUndo(payload: FLPatchSaisonPayload): Promise<{ success:
 export function AdminSaisonEditForm({
   saison,
   rollover,
+  swap,
   spieltagBound,
   registerRequestLeave,
   pageHeader,
 }: {
   saison: { id: string; status: FLSaisonStatus } & SaisonDraftFields;
   rollover: SaisonRolloverContext;
+  /** This season's clubs and their groups, plus the knockout count that closes the swap (ADR-0062). */
+  swap: SaisonGruppenSwapContext;
   /** The span the live matchdays already occupy, which the date pickers may not shrink past. */
   spieltagBound?: { startMax: string; endMin: string };
   registerRequestLeave?: (requestLeave: () => void) => void;
@@ -409,6 +413,14 @@ export function AdminSaisonEditForm({
                   }}
                   stufenError={fieldErrors["rules.erlaubte_stufen"]}
                   isLiveSaison={saison.status === "active"}
+                  isFinishedSaison={saison.status === "past"}
+                />
+
+                {/* Above the rollover, and below the two field panels: a control rather than a field,
+                    but the one control on this page that a later run of itself undoes (ADR-0062). */}
+                <FormGruppenSwapSection
+                  saisonId={saison.id}
+                  swap={swap}
                   isFinishedSaison={saison.status === "past"}
                 />
 

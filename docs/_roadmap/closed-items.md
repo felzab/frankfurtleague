@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `bbb5182`, 2026-08-12
+**Verified against:** `74b7df3`, 2026-08-12
 
 Every item that has left [`open-items.md`](open-items.md) has a row here. This is a log: nothing in
 it is waiting for anything, and a regression is a new item with a new ID rather than an edit to a
@@ -121,3 +121,7 @@ so no earlier commit exists for its row to cite.
 | OPS-49 | Nothing in the deploy path had run on a Linux host — not work but three readings to take on the next supervised deploy                | Ops         | S      | —                            | —                                                                     |
 | OPS-50 | The rebuilt workflows had never run in CI — self-discharging: this branch's own pull request is the first run of each                 | Ops         | S      | —                            | —                                                                     |
 | OPS-57 | Only the first `git` in a command was stepped, so a read in front of a write hid it — merged into OPS-56                              | Ops         | S      | —                            | —                                                                     |
+
+| FB-7 | Nothing on any surface said a fixture had been called off | FE, BE | M | — (batched with FE-1) | [`96408d9`](https://github.com/felzab/frankfurtleague/commit/96408d9) |
+
+| FB-15 | A mid-season group change was defensible only as a swap, and no endpoint offered one | FE, BE | M | — | [`e7c8163`](https://github.com/felzab/frankfurtleague/commit/e7c8163) |
