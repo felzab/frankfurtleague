@@ -132,9 +132,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                   {teamsData.map((teamData) => (
                     <Table.Row
                       key={teamData.id}
-                      className={`border-border hover:bg-muted/40 border-b transition-colors last:border-0 ${
-                        qualifying.has(teamData.id) ? "bg-brand/5" : ""
-                      }`}>
+                      className={`border-border border-b last:border-0 ${qualifying.has(teamData.id) ? "bg-brand/5" : ""}`}>
                       {/** The playoff marker rides on this cell as a left rule, so it reads as an
                            annotation on the position rather than as a highlight on the club. */}
                       <Table.Cell
