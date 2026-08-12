@@ -1,6 +1,6 @@
 # Logging — spec
 
-**Verified against:** `74b7df3`, 2026-08-12\
+**Verified against:** `a2c7e96`, 2026-08-12\
 **Scope:** the correlation id, the log stream on all three surfaces, the browser-crash path, and
 the development formats.\
 **Governing decision:** [ADR-0032](../_decisions/0032-one-correlation-id-per-request-one-document-per-line.md)
