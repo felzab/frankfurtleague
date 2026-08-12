@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `4cc32fa`, 2026-08-12\
+**Verified against:** `d6dd386`, 2026-08-12\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -55,26 +55,34 @@ collection behind it both key on the array's identity
 
 ### 1.2 Cached reads
 
-| Function                                       | Slice          | Lifetime  | Tags                                                  |
-| ---------------------------------------------- | -------------- | --------- | ----------------------------------------------------- |
-| `getSpiele`                                    | spiele         | `hours`   | `spiele` + `spiele:saison_id:{id}` when filtered      |
-| `getSpiel`                                     | spiele         | `hours`   | `spiele`                                              |
-| `getTeams`                                     | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered        |
-| `getTeam`                                      | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered        |
-| `getTeamMemberships`                           | teams          | `days`    | `teams` (admin-authed; every team action clears)      |
-| `getSaisons`                                   | saisons        | `days`    | `saisons`                                             |
-| `getCurrentSaison`                             | saisons        | `days`    | `saisons`                                             |
-| `getSpieler`                                   | spieler        | `days`    | `spieler`                                             |
-| `getSpielerMemberships`                        | spieler        | `days`    | `spieler` (admin-authed; every spieler action clears) |
-| `getSpieltage`                                 | spieltage      | `days`    | `spieltage`                                           |
-| `getSpielorte`                                 | spielorte      | `days`    | `spielorte`                                           |
-| `getSchiedsrichter`                            | schiedsrichter | `days`    | `schiedsrichter`                                      |
-| `checkIsLive`, `checkIsReady`, `getSystemInfo` | system         | `minutes` | `system`                                              |
+| Function                                       | Slice          | Lifetime  | Tags                                             |
+| ---------------------------------------------- | -------------- | --------- | ------------------------------------------------ |
+| `getSpiele`                                    | spiele         | `hours`   | `spiele` + `spiele:saison_id:{id}` when filtered |
+| `getSpiel`                                     | spiele         | `hours`   | `spiele`                                         |
+| `getTeams`                                     | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
+| `getTeam`                                      | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
+| `getSaisons`                                   | saisons        | `days`    | `saisons`                                        |
+| `getCurrentSaison`                             | saisons        | `days`    | `saisons`                                        |
+| `getSpieler`                                   | spieler        | `days`    | `spieler`                                        |
+| `getSpieltage`                                 | spieltage      | `days`    | `spieltage`                                      |
+| `getSpielorte`                                 | spielorte      | `days`    | `spielorte`                                      |
+| `getSchiedsrichter`                            | schiedsrichter | `days`    | `schiedsrichter`                                 |
+| `checkIsLive`, `checkIsReady`, `getSystemInfo` | system         | `minutes` | `system`                                         |
 
-**Uncached, deliberately:** `getAdminSpieleActionRequired` (admin). Admin-authorized data does not
-belong in a shared cache, and its `bracket_faults` are derived per request over the stored bracket
-([ADR-0039](../_decisions/0039-a-bracket-fault-is-derived-on-demand.md)), so a cached copy would be
-wrong the moment a document moved under it.
+**Uncached, deliberately:** the admin-authed reads — `getAdminSpieleActionRequired`,
+`getTeamMemberships` and `getSpielerMemberships`
+([ADR-0009](../_decisions/0009-admin-scoped-reads-are-never-cached.md)). Admin-authorized data does not
+belong in a shared cache, and `getAdminSpieleActionRequired`'s `bracket_faults` are derived per request
+over the stored bracket ([ADR-0039](../_decisions/0039-a-bracket-fault-is-derived-on-demand.md)), so a
+cached copy would be wrong the moment a document moved under it. None carries a cache tag either: a tag
+only means something inside a cache scope. Each seeds the request's correlation scope, which a
+`"use cache"` read cannot ([`docs/logging/spec.md`](../logging/spec.md#11-the-correlation-id)).
+
+**The cost is one backend request per call site, not per page load.** `apiClient` bounds every call
+with an `AbortController` timeout signal, and Next's `fetch` memoization opts out the moment a signal
+is present, so a page reading the same data from more than one boundary pays for each. A create modal
+beside its own list is the shape that does it, in `/admin/teams` as in `/admin/spieler`: a single page
+view produces a backend line for each boundary that reads.
 
 **`getSpiel` is `GET /spiele/{spiel_id}` and carries the base tag ALONE.** The match editor is addressed
 by match id with no season in the URL

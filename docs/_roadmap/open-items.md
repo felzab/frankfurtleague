@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `bbb5182`, 2026-08-11\
+**Verified against:** `2a0eb0d`, 2026-08-12\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
@@ -443,7 +443,7 @@ added for OUT-7 lands with the field that claims it.
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
 **Effort:** L\
-**Path:** Independent — ADR-0032 is the floor it builds on, not a blocker.
+**Path:** Independent — ADR-0032 is a floor; tracing waits on new dependencies and on a destination.
 
 **Implement the industry-standard shape of the correlation scope this repository runs a subset of** (my
 item, 2026-08-05).
@@ -462,7 +462,7 @@ packages. **Neither upstream claim was re-verified when this entry was written**
   hand-rolled scope provably cannot reach: `"use cache"` forbids request APIs, so no application code
   can carry the request's id into a cache fill (`docs/logging/spec.md`, the cache-fill boundary).
   OpenTelemetry propagates through the framework's own internals instead. It covers every cached read;
-  the uncached page-render query already joins.
+  the uncached page-render reads already join.
 - **Timings become a tree rather than separate numbers.** Today nginx reports `upstream_duration_s` and
   the backend reports `duration_ms`, and relating them is manual. A span tree shows where a slow
   request actually spent its time, including inside Mongo.
@@ -479,8 +479,11 @@ the end of it. So the ordering is:
 1. **Decide the destination first.** A self-hosted collector on the same box (Jaeger, Grafana
    Tempo/Loki, SigNoz), a hosted backend, or nothing. Each carries a resource cost on a server whose
    services are already capped by `docker-compose.yml`'s deploy limits, and a hosted one puts request
-   metadata for a public site into a third party.
-2. **Only then instrument.** The libraries are the cheap half.
+   metadata for a public site into a third party. Whichever answer wins, it lands in
+   `docker-compose.yml` and in `scripts/`, which is where the stack is defined and deployed — so this
+   step is an ops change before it is a code one.
+2. **Only then instrument.** The libraries are the cheap half, and each of them is a new dependency:
+   the backend's in `fl_backend/pyproject.toml`, the frontend's in `fl_frontend/package.json`.
 
 **One cheaper thing that is a real improvement on its own**, and a legitimate answer of "not yet" to
 the whole programme: **ship the logs off the host before they are lost.** A rotating copy, or a log
@@ -489,7 +492,7 @@ independent of tracing.
 
 **The avoidable half of the propagation gap is closed**, so this entry does not carry it:
 `fl_frontend/src/shared/utils/correlationScope.ts :: runWithIncomingCorrelationId` seeds the scope for
-every dynamic caller, the uncached page-render query included. What is left for OpenTelemetry is the
+every dynamic caller, the uncached page-render reads included. What is left for OpenTelemetry is the
 half no application code can reach.
 
 **What it would supersede.** ADR-0032's decision that the identifier is a single id on a custom header.
