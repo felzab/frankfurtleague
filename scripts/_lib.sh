@@ -772,7 +772,7 @@ git_clean()  { [[ -z "$(git status --porcelain)" ]]; }
 # frontend stays up and 500s on every route, so the healthcheck fails and nginx serves nothing —
 # fail-closed, and invisible unless something waits on it.
 wait_healthy() {
-  local compose_file="$1" service="$2" timeout="${3:-150}" waited=0 state cid rc
+  local compose_file="$1" service="$2" timeout="${3:-150}" waited=0 state cid rc log_tail matched
   info "waiting for '${service}' to become healthy (up to ${timeout}s)"
   while (( waited < timeout )); do
     rc=0
@@ -796,9 +796,21 @@ This says nothing about the container; the daemon or the compose file is what di
       healthy|running) ok "'${service}' is ${state}"; return 0 ;;
       unhealthy)
         warn "'${service}' reports UNHEALTHY. Its own explanation, if it gave one:"
-        docker compose -f "$compose_file" logs --tail=60 "$service" 2>&1 \
-          | grep -iE "invalid environment|failed to prepare|error|refused" | head -12 | detail \
-          || detail "(nothing obvious in the log — see the full log below)"
+        # Read once and filtered in memory: `grep | head` fails the pipeline on SIGPIPE under
+        # `pipefail`, which prints the arm below underneath the lines it just found.
+        log_tail="$(docker compose -f "$compose_file" logs --tail=60 "$service" 2>&1 || true)"
+        matched="$(printf '%s\n' "$log_tail" | grep -iE "invalid environment|failed to prepare|error|refused" || true)"
+        if [[ -n "$matched" ]]; then
+          printf '%s\n' "$matched" | excerpt 12
+        elif [[ -n "$log_tail" ]]; then
+          # The log itself, because an operator reading this has nothing else to go on and the
+          # cause is in it under a wording this list does not carry.
+          detail "(nothing in the log matches the usual causes — its last 30 lines follow)"
+          printf '%s\n' "$log_tail" | tail -30 | detail
+        else
+          detail "(no log came back for '${service}' — ask compose yourself)" \
+                 "   docker compose -f ${compose_file} logs ${service}"
+        fi
         return 1 ;;
     esac
     sleep 3; waited=$(( waited + 3 ))
@@ -808,28 +820,35 @@ This says nothing about the container; the daemon or the compose file is what di
   return 1
 }
 
-# Reads one OCI label off an image, or returns empty where it is absent. `docker image inspect`
-# succeeds and prints an empty line for a missing label, so a trailing `|| echo unknown` never
-# fires — hence the explicit emptiness test.
-
-# These return the raw value with exactly one sentinel, the empty string: deploy.sh compares the
-# value and interpolates it into a suggested command, and a prose sentinel breaks both. Formatting
-# for humans belongs to the caller.
+# Reads one OCI label off an image, raw, with one sentinel — the empty string, for an absent
+# label. A value is what a comparison or an interpolated command needs, and a prose sentinel
+# breaks both; wording an answer is the display pair's job.
 _image_label() {
   local image="$1" label="$2" value=""
-  value="$(docker image inspect --format "{{index .Config.Labels \"${label}\"}}" "$image" 2>/dev/null)" || true
+  # Returns 1 where the inspect itself failed, so a caller can tell "this image carries no such
+  # label" from "nothing answered" — `docker image inspect` prints an empty line for both.
+  value="$(docker image inspect --format "{{index .Config.Labels \"${label}\"}}" "$image" 2>/dev/null)" \
+    || return 1
   [[ "$value" == "<no value>" ]] && value=""
   printf '%s' "$value"
 }
 image_revision() { _image_label "$1" "org.opencontainers.image.revision"; }
 image_created()  { _image_label "$1" "org.opencontainers.image.created";  }
 
-# Human-readable form for status output only. Never use this in a comparison or a command.
+# Human-readable form for status output only, and where the unread answer becomes a sentence rather
+# than a status — every caller prints this into a line and none is placed to read one. Never use
+# either in a comparison or a command.
 image_revision_display() {
-  local v; v="$(image_revision "$1")"
-  [[ -n "$v" ]] && printf '%s' "$v" || printf 'unlabelled (not built by publish.sh)'
+  local v rc=0; v="$(image_revision "$1")" || rc=$?
+  if (( rc )); then printf 'could not be read'
+  elif [[ -n "$v" ]]; then printf '%s' "$v"
+  else printf 'unlabelled (not built by publish.sh)'
+  fi
 }
 image_created_display() {
-  local v; v="$(image_created "$1")"
-  [[ -n "$v" ]] && printf '%s' "$v" || printf 'unknown'
+  local v rc=0; v="$(image_created "$1")" || rc=$?
+  if (( rc )); then printf 'could not be read'
+  elif [[ -n "$v" ]]; then printf '%s' "$v"
+  else printf 'unknown'
+  fi
 }
