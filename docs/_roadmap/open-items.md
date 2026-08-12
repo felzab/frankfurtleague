@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `d0da355`, 2026-08-12\
+**Verified against:** `74b7df3`, 2026-08-12\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
@@ -460,6 +460,34 @@ validated or replaced the same way.
 **Not measured:** the runtime cost of the instrumentation packages on this application, and whether a
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
+---
+
+## Tier 4 — standing cautions and watch items
+
+No scheduled action. Each of these has a recorded trigger rather than a plan, and two are owned
+elsewhere: BE-7 is seeded into a backend audit pass, and OPS-2 into an ops pass. BE-14 and OPS-3
+carry their own triggers — a group of six teams, and the next Cloudflare bot-protection change —
+because no pass covers either. DOC-3 and DOC-4 name the documentation gate's own limits: each is a
+rule the gate decides by a narrower test than the rule states, and each fails by saying nothing.
+
+**The last three entries do not belong in this tier**, and each says so on its own `Path` line: none
+is a caution, and every one is open work with a live defect or an owed measurement behind it. They
+sit here because they were filed while this file could only be appended to, and the next re-rank owes
+each a position derived from the rubric rather than from where an append landed. They are what came
+through the `scripts/` and CI rebuild's triage on 2026-08-12 and the independent review of that
+triage the same day, which between them closed everything else the rebuild raised: what kept these is
+that each either makes a check answer wrongly, or costs measured time on every run.
+
+**The order the three sit in is the one they were appended in**, which is what the provisional
+ranking on each `Path` line means. OPS-19 is the one measured runtime item, both repository-wide
+linters re-reading every file on every run. OPS-29 is the one that answers wrongly rather than
+weakly, and a tool saying "fine" without having looked is worse than no tool: it reads nothing at
+all inside a shell file's embedded JavaScript, where INC-6 claims that region is covered and a cited
+ADR can therefore dangle in silence. **OPS-56 closes the tier**, and it is one line of the git
+subcommand stepper failing on two axes at once — a delimiter class short of a newline, and a strip
+that finds only the earliest `git` in a command. Either shape releases `git reset --hard` behind a
+command a session writes without thinking, and what that costs is the working tree rather than
+anything a branch ruleset can protect.
 
 ### 10 · BE-7 — `typing` imports instead of `collections.abc`
 
