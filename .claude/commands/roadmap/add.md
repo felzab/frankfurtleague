@@ -130,9 +130,9 @@ date with `origin/main`, and you are on a branch named for the change (CLAUDE.md
 10. **Restamp every stamped page this change touched**, in CUR-3's shape and only after re-reading
     it — `docs/_standard/chapters/5-currency.md`. Step 8 edits spec sheets, and each carries a stamp.
 
-11. **Ship it as one commit**, per `docs/_git/spec.md`: `pnpm format` from `fl_frontend/`, then
-    `./scripts/verify.sh --docs`. Report the actual exit code. Push, open the pull request as a
-    draft, and print its link. Commit message shape: `docs/_git/templates.md`.
+11. **Ship it as one commit**, per `docs/_git/spec.md`: `./scripts/verify.sh --docs --format`.
+    Report the actual exit code. Push, open the pull request as a draft, and print its link. Commit
+    message shape: `docs/_git/templates.md`.
 
     The two-commit protocol belongs to closing an item and does not apply here.
 
