@@ -55,11 +55,11 @@ HISTORY_PHRASES: Final[tuple[str, ...]] = (
     "previously",
     "moved here",
     "formerly",
-    "former ",
+    "former",
     "no longer",
     "any more",
 )
-HISTORY_RE: Final = re.compile("|".join(re.escape(phrase) for phrase in HISTORY_PHRASES), re.IGNORECASE)
+HISTORY_RE: Final = re.compile(rf"\b(?:{'|'.join(re.escape(phrase) for phrase in HISTORY_PHRASES)})\b", re.IGNORECASE)
 
 
 HUNK_HEADER_RE: Final = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
