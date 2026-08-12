@@ -58,8 +58,9 @@ export default function AdminSpielerPage(props: NextPageProps) {
 async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
   const requestedSaisonId = await resolveSaisonId(searchParams);
-  // `getSpielerMemberships` is the same `"use cache"` read the list below this modal already makes on
-  // every render of this page, so the squad numbers cost a cache hit rather than a round trip.
+  // The list below makes the same read, and this call is still its own round trip: uncached by
+  // ADR-0009, and `apiClient`'s timeout signal opts every call out of Next's fetch memoization.
+  // Cheap enough on an admin page loaded a handful of times a day.
   const [saisonsRes, teamsRes, spielerRes] = await Promise.all([getSaisons(), getTeamMemberships(), getSpielerMemberships()]);
 
   // Running and planned seasons both (decided 2026-08-07), unlike the club create's planned-only

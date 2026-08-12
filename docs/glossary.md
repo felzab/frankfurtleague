@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `2c14281`, 2026-08-12\
+**Verified against:** `74b7df3`, 2026-08-12\
 **Purpose:** the German domain vocabulary — one entry per term, each giving what it is, where it lives, what catches people, and where the argument is written down.
 
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs.
@@ -126,8 +126,8 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 **Is:** a boolean on the match saying the fixture was called off.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpiel`.\
-**Trap:** it is not a delete of any kind — the match keeps its row, its `spiel_nr` and its place in the bracket — and a cancelled match that carries a result still counts in the table, because the derivation deliberately does not consult this field.\
-**See:** [ADR-0019](_decisions/0019-team-statistics-are-derived-from-spiele.md), [ADR-0037](_decisions/0037-a-seasons-fixtures-are-created-once.md).
+**Trap:** it is not a delete of any kind — the match keeps its row, its `spiel_nr` and its place in the bracket — and a cancelled match that carries a result still counts in the table, because the derivation of the figures the table is scored and sorted on deliberately does not consult this field; the one figure it does decide is `anzahl_abgesagte_spiele`, which counts every cancellation, so a forfeit lands in that count and in the match tally both.\
+**See:** [ADR-0019](_decisions/0019-team-statistics-are-derived-from-spiele.md), [ADR-0037](_decisions/0037-a-seasons-fixtures-are-created-once.md), [ADR-0063](_decisions/0063-a-cancellation-is-counted-by-a-lookup-of-its-own.md).
 
 ### `Quelle` — where a side of a fixture comes from
 
@@ -180,10 +180,10 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 ### `Statistik` — the derived league-table figures
 
-**Is:** matches played, wins, losses, draws, goals scored, goals conceded and points, computed per team and per season from the `spiele` documents on every read.\
+**Is:** matches played, wins, losses, draws, goals scored, goals conceded, points, and a count of the fixtures that were called off — computed per team and per season from the `spiele` documents on every read.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, built by `fl_backend/app/api/teams/services.py :: build_team_pipeline`.\
-**Trap:** nothing stores it, so there is no field to update and nothing to back-fill; a match counts exactly when it carries an `ergebnis`, points come from the season's `rules` rather than a hardcoded 3/1/0, and which of the two tables you get is `statistik_scope`, whose default is the narrow `gruppenphase` one.\
-**See:** [ADR-0019](_decisions/0019-team-statistics-are-derived-from-spiele.md), [ADR-0022](_decisions/0022-the-league-table-counts-the-gruppenphase.md), backend spec I1c.
+**Trap:** nothing stores it, so there is no field to update and nothing to back-fill; a match counts exactly when it carries an `ergebnis`, points come from the season's `rules` rather than a hardcoded 3/1/0, and which of the two tables you get is `statistik_scope`, whose default is the narrow `gruppenphase` one. `anzahl_abgesagte_spiele` is the one figure `is_canceled` decides, it includes a forfeit and therefore overlaps the match tally rather than partitioning it, and it reaches no other figure — a fixture merely not played yet is not in it and is not stored anywhere.\
+**See:** [ADR-0019](_decisions/0019-team-statistics-are-derived-from-spiele.md), [ADR-0022](_decisions/0022-the-league-table-counts-the-gruppenphase.md), [ADR-0063](_decisions/0063-a-cancellation-is-counted-by-a-lookup-of-its-own.md), backend spec I1c.
 
 ### `Mietpreis` — rental price
 
@@ -203,7 +203,7 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 **Is:** two collections with no model of their own, joined at read time and never returned directly, which is what makes "a team" and "a player" season-scoped concepts although their base documents are not.\
 **In code:** `fl_backend/app/core/collections.py :: Collection`.\
-**Trap:** the two behave differently on the way out — `saison_spieler` carries `inactive_since` because a player leaves a squad, while `saison_teams` has no DELETE at all and disqualification is the only way out of a season; and a junction row is addressed under its entity at `/teams/{team_id}/saisons/{saison_id}`, where the `saisons` segment names a junction row rather than a season document.\
+**Trap:** the two behave differently on the way out — `saison_spieler` carries `inactive_since` because a player leaves a squad, while `saison_teams` has no DELETE at all and disqualification is the only way out of a season; and a junction row is addressed under its entity at `/teams/{team_id}/saisons/{saison_id}`, where the `saisons` segment names a junction row rather than a season document — except for the group swap, which writes two `saison_teams` rows at once and so is addressed on the season (ADR-0062).\
 **See:** [ADR-0026](_decisions/0026-one-active-season-and-one-path-to-it.md), [ADR-0027](_decisions/0027-the-write-path-is-resource-first-in-a-second-router.md).
 
 ---

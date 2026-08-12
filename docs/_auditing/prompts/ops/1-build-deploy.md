@@ -8,9 +8,9 @@ to `docs/audit/programme/o1-build-deploy.md`.
 
 SCOPE — the ops surface as `docs/README.md` defines it: `docker-compose*.yml`, both Dockerfiles, both
 `.dockerignore`s, `nginx/` (routing only — security posture is `ops 2`), everything in `scripts/`,
-`.github/workflows/`, and the build-relevant config in both packages (`next.config.ts` `output`,
-`pyproject` build metadata). `docs/ops/overview.md` and `docs/ops/spec.md` are the documented claims
-this pass checks reality against.
+`.github/workflows/` and `.github/actions/`, and the build-relevant config in both packages
+(`next.config.ts` `output`, `pyproject` build metadata). `docs/ops/overview.md` and `docs/ops/spec.md`
+are the documented claims this pass checks reality against.
 
 DELIVERABLE: required tables — the gate coverage map (check 5) and the excess table (check 8).
 Every image claim comes from a built image, never from reading the Dockerfile.
@@ -23,7 +23,7 @@ and are the reason for that rule:
   can disable a startup gate and all production error logging without any error anywhere;
 - an ignore pattern that matches nothing and looks identical to one that matches, so host build
   artifacts ship into Linux images;
-- a CI action version that does not exist, which fails only when CI runs.
+- a CI action pin that resolves to nothing, which fails only when CI runs.
 
 THE CHECKS, in priority order:
 
@@ -61,8 +61,11 @@ THE CHECKS, in priority order:
    (rendered-output defects, cache-tag wiring, anything behind auth) and hunt for new ones. Verify CI
    (`verify.yml`) runs the scopes its path mapping claims (scope jobs per touched surface on a pull
    request, everything on main), that the tree-diff step still guards the write-mode formatter, and
-   that every action version exists — check the raw `action.yml` URL, because release pages summarise
-   unreliably.
+   that every action reference in `.github/workflows/` and `.github/actions/` is pinned to a full
+   commit SHA resolving to a real commit — the rule is `docs/_git/spec.md` §1.6 and the resolution
+   procedure §1.5, whose annotated-tag step is what separates a pin that reads as valid from one no
+   runner can resolve. Run that procedure per pin rather than trusting the trailing version comment,
+   which is prose beside the pin and can disagree with it.
 
 6. **PUBLISH AND ROLLBACK.** `publish.sh` builds both images before pushing either (verify — this is
    the property that lets coupled frontend and backend changes ship in one pull request); tags carry

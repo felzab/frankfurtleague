@@ -1,39 +1,10 @@
-# dependencies
+# Anchored to this directory: a `node_modules` or `.next` deeper in the tree would be someone's
+# source, not an artifact. The standalone output next.config.ts asks for is written inside .next/,
+# so it needs no rule of its own.
 /node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
 /.next/
-/out/
 
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files
-.env*
-
-# vercel
-.vercel
-
-# typescript
+# Generated beside the source and derived from tracked files: tsc writes its incremental cache even
+# under --noEmit, and next rewrites next-env.d.ts on every build.
 *.tsbuildinfo
 next-env.d.ts

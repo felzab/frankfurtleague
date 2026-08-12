@@ -56,13 +56,13 @@ stop.
 7. **Close with the gate**, reporting its actual exit code:
 
    ```bash
-   ./scripts/verify.sh --docs
+   ./scripts/verify.sh --docs --format
    ```
 
-   plus `pnpm format` from `fl_frontend/` if any markdown or source comment changed — **one run, at
-   the end**, and commit what it rewrites. `--docs` is the floor for the slice; where the branch
-   touched more than documentation the gate refuses that scope and names the one it needs (ADR-0030),
-   and the run is repeated at that scope.
+   **One run, at the end.** `--docs --format` is the floor for the slice, the formatter being what
+   holds the prose and the comments this command rewrites; where the branch touched more than
+   documentation the gate refuses that scope and names the one it needs (ADR-0030), and the run is
+   repeated at that scope.
 
    Report **net lines, separating relocated from removed** — a reshaping that moves content between
    files is not a reduction, and a diffstat that excludes new untracked files overstates one. The
