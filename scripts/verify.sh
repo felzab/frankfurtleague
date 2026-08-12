@@ -2,8 +2,10 @@
 #
 # SCRIPTS · the pre-merge gate — everything, or exactly the surfaces a change touched.
 #
-# Read-only throughout, prettier included: a gate run never rewrites a tracked file, so every check
-# measures the tree exactly as it is committed and nothing afterwards has to prove that. Before any
+# Read-only as a formatter: prettier runs in check mode everywhere, so no run reformats a tracked
+# file — with one write this script does not control, `next build` rewriting the tracked
+# `fl_frontend/tsconfig.json` when a `compilerOptions` key is absent, which the frontend CI job
+# catches by diffing that one path (not ADR-0065's retired whole-tree compensation). Before any
 # scope runs, `scripts/check_scope.py` refuses a run narrower than the branch's diff (ADR-0030).
 # Never name another tool's flag in this block: `scripts/selfcheck.sh` reads every double-dashed
 # word here as a flag this script must accept.

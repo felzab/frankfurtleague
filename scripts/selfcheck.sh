@@ -142,14 +142,14 @@ par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per q
   par_reset
 }
 
-# --- The two third-party checkers, started early -------------------------------------------------
+# --- The third-party checkers, started early -----------------------------------------------------
 
 # SC1091 is excluded throughout: shellcheck cannot follow the sourced `scripts/_lib.sh`. SC2034 is
 # annotated at the line rather than excluded globally, so a new unused-looking assignment justifies
 # itself where it is written.
 
-# One pinned version here and in the workflow that installs it: shellcheck adds checks between
-# releases, so an unpinned pair goes red on one machine and green on the other.
+# The version the Docker fallback pulls, and the one step 10 reports a local binary against. New
+# releases add checks, so a difference nobody names is drift the pin exists to remove.
 
 # Nothing bumps this automatically — dependabot reads `uses:` references, and this is a version
 # string inside a shell script.
@@ -257,8 +257,8 @@ for f in "${RUNNABLE[@]}"; do
 done
 
 step "4. Every helper called is defined"
-# Membership is answered out of an array rather than by a `grep` per name: the scripts call roughly
-# ten helpers each, and sixty processes to answer sixty yes/no questions is most of this check's cost.
+# Membership is answered out of an array rather than by a `grep` per name: a grep per name would be
+# one process for every script-and-helper pair, which is most of this check's cost.
 declare -A DEFINED=()
 while IFS= read -r fn; do DEFINED["$fn"]=1; done \
   < <(grep -oE '^[a-z_]+\(\)' scripts/_lib.sh | tr -d '()')
@@ -682,7 +682,7 @@ else
     probe "$hb" allowed cmd "printf x > ${TMPDIR:-/tmp}/claude/x/scratchpad/note.txt" 'bash guard: a scratchpad write'
     probe "$hb" allowed cmd 'printf x > /tmp/note.txt'                         'bash guard: a /tmp write'
 
-    # Ten commands that satisfy every stated condition and still write into the tracked tree, each
+    # Commands that satisfy every stated condition and still write into the tracked tree, each
     # through a path git cannot place.
     probe "$hb" denied cmd 'cp docs/audit/note.md fl_frontend/src/leaked.ts'   'bash guard: new file in src/'
     probe "$hb" denied cmd 'mv docs/audit/note.md fl_frontend/src/leaked.ts'   'bash guard: mv into src/'
