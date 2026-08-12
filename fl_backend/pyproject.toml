@@ -28,11 +28,11 @@ dependencies = [
     #
     # `[standard]`, not bare, because uvicorn's defaults are `--loop auto` and `--http auto`: it
     # uses uvloop and the httptools C parser when it can import them and silently drops to asyncio
-    # and h11 when it cannot. Both arrive only through this extra, so a bare `uvicorn` would change
-    # what the server runs on with nothing in the gate to show it. The extra also carries watchfiles
-    # and websockets, which this application does not use -- the alternative is hand-copying
-    # uvicorn's own platform markers for uvloop, which does not build on Windows, and owning that
-    # copy forever.
+    # and h11 when it cannot. uvloop and httptools arrive only through this extra, so a bare
+    # `uvicorn` would change what the server runs on with nothing in the gate to show it. The extra
+    # also carries packages this application does not use, watchfiles and websockets among them --
+    # the alternative is hand-copying uvicorn's own platform markers for uvloop, which does not
+    # build on Windows, and owning that copy forever.
     "uvicorn[standard]>=0.52.1",
 ]
 
@@ -111,9 +111,9 @@ markers = [
 ]
 
 [tool.pyright]
-# The type checker the EDITOR already runs. Without it in the gate, Pylance was the only thing that
-# saw these errors and only for whoever had the file open -- three of them reached `main` behind a
-# green `verify.sh`, because ruff lints and pytest executes and neither checks a type.
+# The type checker the EDITOR already runs, in the gate as well. ruff lints and pytest executes and
+# neither checks a type, so without this section a type error reaches only whoever has the file open
+# in Pylance, while `scripts/verify.sh` goes green past it.
 #
 # venvPath/venv are what make this meaningful: without them pyright resolves no third-party import,
 # reports ~137 phantom errors and is rightly ignored.

@@ -24,9 +24,9 @@ updates:
   # The highest-value ecosystem here and the cheapest to review: few dependencies, small diffs, and
   # an outdated action is a supply-chain exposure that nothing else in the repo would surface.
 
-  # Two locations, because `/` is not the repository for this ecosystem: it means the root
-  # `action.yml` plus `.github/workflows/`, and reaches no composite action. The second entry is a
-  # glob over `.github/actions`, so a local action added later is watched without a config edit.
+  # `/` is not the repository for this ecosystem: it means the root `action.yml` plus
+  # `.github/workflows/`, and reaches no composite action. The glob over `.github/actions` is what
+  # watches a local action added later, without a config edit.
   - package-ecosystem: github-actions
     directories:
       - "/"
@@ -91,6 +91,10 @@ updates:
       interval: monthly
     commit-message:
       prefix: "Frontend image"
+    groups:
+      frontend-image-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: docker
     directory: /fl_backend
@@ -98,6 +102,10 @@ updates:
       interval: monthly
     commit-message:
       prefix: "Backend image"
+    groups:
+      backend-image-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
   # --- Stack images ---------------------------------------------------------------------------
 
@@ -113,6 +121,10 @@ updates:
       interval: monthly
     commit-message:
       prefix: "Ops"
+    groups:
+      stack-images-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
     ignore:
       # This repository's own published images. `scripts/publish.sh` moves those tags, and a bot
       # proposing to bump either would be proposing a deploy.
