@@ -46,24 +46,17 @@ services:
     healthcheck:
       # A static asset, not a page: it proves the server is answering without rendering a route or
       # touching the backend. `--spider` issues a HEAD, so nothing is downloaded.
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://127.0.0.1:3000/favicon.ico",
-        ]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/favicon.ico"]
       interval: 30s
       timeout: 10s
       retries: 3
       # Next's standalone server needs a moment before it answers; without this the early probes
       # fail and the container is marked unhealthy on a perfectly good start.
       start_period: 20s
-      # The probe cadence DURING start_period. Without it the first probe waits a full `interval`,
-      # so a service that answers in two seconds is not MARKED healthy for thirty -- and nginx,
-      # gated on `service_healthy`, serves 502s for that whole window on every deploy.
+      # The probe cadence DURING start_period. Without it the engine's own start-period default
+      # applies, measured at 5.2 s against this file's 3.2 s (2026-08-11, engine 29.7.2). nginx is
+      # gated on `service_healthy`, so it is not serving at all until both upstreams answer, and
+      # that difference is dead air on every deploy.
       # Requires Docker Engine 25 or newer on the host, which is where the healthcheck runs.
       start_interval: 3s
     deploy:
@@ -95,13 +88,7 @@ services:
       # The API version is hardcoded here and must match
       # `fl_backend/app/core/config.py :: API_VERSION`, which records why it is a constant rather
       # than a setting. Bump both.
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v0/system/is_live', timeout=10)",
-        ]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v0/system/is_live', timeout=10)"]
       interval: 30s
       timeout: 10s
       retries: 3
