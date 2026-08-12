@@ -1,6 +1,6 @@
 # Currency
 
-**Verified against:** `3ab1688`, 2026-08-10\
+**Verified against:** `0a21c75`, 2026-08-12\
 **Applies to:** every stamped page, and every change that touches what a documented claim
 describes.
 
@@ -155,7 +155,7 @@ docs scope. This table is the one place its checks are listed; the script's docs
 | `sha`               | A commit named in prose resolves to nothing in this clone — the hits must be read                                                                                                    | Report  |
 | `counts`            | A cardinal or an ordinal appears in the branch's added prose or comments (COR-4) — the hits must be read                                                                             | Report  |
 | `comment-citation`  | A comment the branch added names a roadmap id or a review round (INC-6)                                                                                                              | Report  |
-| `branch-scope`      | A branch-scoped check did not run: git could not answer for the base or the diff — a clone shape, not a defect                                                                       | Report  |
+| `branch-scope`      | A branch-scoped check did not run: git could not answer for an input it reads — a clone shape, not a defect                                                                          | Report  |
 
 The scanning rules that keep it quiet:
 
@@ -167,6 +167,10 @@ The scanning rules that keep it quiet:
   answered from the tracked files, a template excepted, so untracked copies beside them — a build
   directory, a cache, a nested worktree — cannot make one ambiguous, and a name that set does not
   answer resolves to nothing
+- a page a check reads as its subject, whether a glob selects it or a check names it, and every
+  `ADR-NNNN`, rule id, roadmap id and `I<n>` a citation resolves against, come from the tracked
+  files — a page `git add` has not reached selects nothing and resolves nothing, exactly as on a
+  clean checkout. A path a page names is still answered from disk
 - source files are scanned comments-only (INC-6), and everything else is scanned in full
 - a template is checked like any other page except for its stamp, its backticked paths and its
   relative links, all three of which resolve from where the template is copied to
