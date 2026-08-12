@@ -82,15 +82,15 @@ export function FormNotizSection({
           <div className="flex min-h-7 w-full flex-row items-center">
             {/* No confirmation: nothing is written until Speichern, so this is an ordinary draft edit
                 — the same call `FormDateTimeSection.tsx :: ClearFieldButton` makes, and a plain button
-                for the same reason. Labelled, because a bare X reads only inside a field group. */}
+                for the same reason. Labelled: a bare X reads only inside a field group. */}
             {hasNotiz && (
               <button
                 type="button"
                 onClick={() => {
-                  onNotizChange(null);
                   // The focus move precedes the state change that unmounts this button: focus left on
                   // a removed element falls to <body>, and the next Tab restarts at the top of the page.
                   notizRef.current?.focus();
+                  onNotizChange(null);
                 }}
                 className="border-border text-foreground-muted hover:border-danger/40 hover:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 rounded-lg border px-2.5 font-bold transition-colors">
                 <Xmark
