@@ -36,11 +36,9 @@ export function SidemenuFooter({
         label="Zur öffentlichen Website"
         placement="right"
         isEnabled={isDesktopCollapsed}>
-        {/* The drawer's way OUT of the shell, so it needs a close of its own: the tree that owns the
-            open state departs with the press, and the App Router hides a departed subtree in an
-            `<Activity>` rather than unmounting it — the state survives, the Effects do not, and Back
-            reveals the shell with the drawer still standing over the page. `onNavigate` for the
-            reason `SidemenuNavItem` gives. */}
+        {/* This link leaves the shell, so it closes the drawer itself: the tree owning that state
+            departs, and the router hides it rather than unmounting it, so Back would reveal the
+            drawer still up. `onNavigate` for `SidemenuNavItem`'s reason. */}
         <Link
           href="/"
           onNavigate={onMobileNavigate}

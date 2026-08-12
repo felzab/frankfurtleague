@@ -26,8 +26,8 @@ export function SidemenuNavItem({
       // Shift- or Alt-click navigates nothing here — closing the drawer on one takes the navigation
       // away from a visitor who never left the page.
       onNavigate={onMobileNavigate}
-      // Colour and weight alone are what assistive tech cannot see, and these are seven
-      // identically-structured links with no other way to tell which is the current page.
+      // Colour and weight alone are what assistive tech cannot see, and every link the sidemenu
+      // renders is structurally identical, with no other way to tell which is the current page.
       aria-current={isActive ? "page" : undefined}
       // Collapsed, this is a 36x36 square -- `w-9 justify-center`, what `SidemenuFooter`'s two
       // controls are (decided 2026-08-07). Under `w-full` the fill is a wide rectangle in the nav and

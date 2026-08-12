@@ -53,9 +53,9 @@ export function TeamPopoverMenu({
 }) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
 
-  // The whole of the closing, not the immediate half: this popover lives inside a page, which the
-  // router hides — Effects and all — as the navigation commits, so `useNavigationClosedOverlay`'s
-  // effect never reaches it.
+  // The whole of the closing, not the immediate half: the router hides this popover's page — Effects
+  // and all — so the hook's effect never reaches it. The hook stays anyway: that redundancy is the
+  // router's behaviour, not this file's.
   const closeOnNavigate = () => {
     setIsOpen(false);
     onNavigate?.();
@@ -112,10 +112,9 @@ export function TeamPopoverMenu({
               className="bg-border my-3 h-[1px] w-full"
             />
 
-            {/* Next's `onNavigate` rather than `onClick` on both: it runs only where the press really
-                navigates. A Ctrl-, Cmd-, Shift- or Alt-click navigates nothing here — the browser opens
-                the target elsewhere, or downloads it — so closing this panel and the caller's dialog
-                would take away the page the visitor still has. */}
+            {/* `onNavigate`, not `onClick`, on both: it fires only where the press really navigates,
+                so a modifier-click that opens a new tab leaves this panel and the caller's dialog
+                standing. */}
             <div className="fluid-sm flex size-full flex-col gap-y-1">
               <Link
                 prefetch={false}
