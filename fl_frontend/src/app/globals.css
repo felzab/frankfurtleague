@@ -1078,7 +1078,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    *
    * Two collections are deliberate exceptions, both because their cards are positioned against
    * chrome that does not animate with them: the playoff bracket (CSS bracket lines) and
-   * `TeamDetailsView`'s timeline (a dashed rule with an absolutely-placed badge per row).
+   * `TeamSaisonSpieleTimeline` (a dashed rule with an absolutely-placed badge per row).
    *
    * `[role="listitem"]`, not a child combinator: `SpielCardsList` wraps its cards in a
    * `display: contents` div, which removes the box but NOT the DOM node, so `>` would match the

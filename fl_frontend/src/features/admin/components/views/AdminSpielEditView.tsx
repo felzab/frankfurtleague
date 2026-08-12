@@ -83,9 +83,9 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
         }}
         pageHeader={
           <>
-            {/* The app's back control, copied from `TeamSpielerView` and `TeamDetailsView` rather
-                than re-invented: those two are also detail pages reached from several places, and
-                they answer it with history rather than a named destination for exactly that reason. */}
+            {/* Copied from `TeamSpielerView` and `TeamDetailsBackButton` rather than re-invented:
+                both sit on detail pages reached from several places, so history is the first thing
+                they try. This one goes through the discard guard, which is why it is not shared. */}
             <Button
               onPress={() => requestLeaveRef.current()}
               className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">

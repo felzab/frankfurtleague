@@ -2,6 +2,8 @@ import { Calendar, CircleCheckFill, CircleQuestion, Clock, XmarkShapeFill } from
 
 import { Chip } from "@heroui/react";
 
+import { PILL_RADIUS } from "@/shared/components/ui/badges";
+
 import type { FLSpielStatus } from "../../schemas";
 
 // Module scope, and `Record<FLSpielStatus,...>` so they stay exhaustive: in the
@@ -38,10 +40,7 @@ export function SpielStatusChip({ spielStatus }: { spielStatus: FLSpielStatus })
   return (
     <Chip
       size="sm"
-      /* `rounded-md` overrides HeroUI's `rounded-2xl` on `.chip`: one radius for every pill in the
-         app, this chip and the badge recipes alike. A utility beats the component layer, so no `!`
-         is needed. */
-      className={`rounded-md border-none px-1.5 py-0.5 ${STATUS_CLASSES[spielStatus]}`}>
+      className={`${PILL_RADIUS} border-none px-1.5 py-0.5 ${STATUS_CLASSES[spielStatus]}`}>
       <div className="fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
         {STATUS_ICONS[spielStatus]}
         {STATUS_LABELS[spielStatus]}

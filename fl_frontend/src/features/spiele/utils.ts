@@ -165,7 +165,8 @@ export const deriveSlotHerkunft = (team: FLSpielTeamField | null, quelle: FLSpie
   quelle !== null ? "quelle" : team !== null ? "manuell" : "offen";
 
 /**
- * Each round's place in the order they are played, so "strictly earlier" is a comparison.
+ * Each round's place in the order they are played, so "strictly earlier" and "furthest reached" are
+ * both comparisons.
  *
  * Mirrors `PHASE_RANK` in `fl_backend/app/api/spiele/schemas.py` and exists for the same rule: a
  * bracket slot is fed only by a knockout match of an earlier round (ADR-0038). The form derives its
@@ -175,7 +176,7 @@ export const deriveSlotHerkunft = (team: FLSpielTeamField | null, quelle: FLSpie
  * copy from `PHASE_ORDER`. A hand-written map is a second statement of the sequence, and adding a round
  * would then compile with that round ranked nowhere (ADR-0052).
  */
-const PHASE_RANK: Record<FLSaisonPhase, number> = Object.fromEntries(SAISON_PHASE_OPTIONS.map((phase, rank) => [phase, rank])) as Record<
+export const PHASE_RANK: Record<FLSaisonPhase, number> = Object.fromEntries(SAISON_PHASE_OPTIONS.map((phase, rank) => [phase, rank])) as Record<
   FLSaisonPhase,
   number
 >;
