@@ -81,6 +81,7 @@ chosen by feel.
 | 18  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops     | S      | Open     | —          |
 | 19  | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs   | S      | Open     | —          |
 | 20  | OPS-56 | The git stepper reads one `git`, on one line            | Ops         | S      | Open     | —          |
+| 21  | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops         | M      | Open     | —          |
 
 **No entry in this file blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -996,3 +997,36 @@ that matrix twice for one line of code**, which is why they are one entry.
 **A sibling of OPS-29** — each a control reading one spelling of a thing that has several. The
 distinction to hold on to is that the subcommand table here is complete and the stepper never
 reaches it, which is the opposite of a guard whose vocabulary is genuinely short of a shape.
+
+### 21 · OPS-60 — The gate's wall clock is one scope, and that scope runs serially
+
+**Status:** Open**Surfaces:** Ops**Effort:** M**Path:** Independent. Its own branch — it touches the pool manifest, which carries the exit
+contract.
+
+**A parallel pool can never finish faster than its slowest member, and eight of the gate's nine
+sections already fit inside the ninth.** Measured on 2026-08-12 at the full form with images:
+scope 4.0s, **scripts 86s**, docs 12s, backend 17s, format 45s, frontend 57s, ops 2.8s, db 24s,
+images 9.1s — 257s of scope-time in **91s** of wall clock, a 2.8x speedup, and only five seconds
+more than `scripts` alone. **Parallelism is done; the remaining lever is inside one scope.**
+
+**Where the 86s sits**, same run: `selfcheck` **52s**, `pytest` **30s**, pyright 2.4s, ruff 0.4s.
+Both large halves are serial by construction — `selfcheck` drives 218 guard probes one at a time,
+each spawning a shell, and the fixture net builds a throwaway git repository per case.
+
+**Three levers, in descending measured value:**
+
+- **Batch or parallelise the probe table.** The largest single cost, and the probes are independent
+  by design.
+- **Run the fixture net across cores.** `pytest-xdist` is the standard answer; the risk is that two
+  workers write the same scratch repository, so isolation has to be proved rather than assumed.
+- **Split `scripts` into two pool members**, so its halves run concurrently instead of in sequence.
+
+**The estimate is half a day, and most of it is not the code.** Any change to how the probes execute
+must prove no verdict moved: 218 probes, a before-baseline, a verdict-set diff, and a required zero.
+`scripts/selfcheck.sh` also owns the four-code exit contract's classifier, so splitting the scope
+re-opens ADR-0066's eleven measured rank/finding/exit combinations.
+
+**What it buys, and what it does not.** Taking `scripts` to roughly 55s takes the whole gate to
+about 60s, at which point `frontend` at 57s becomes the new floor and the next lever is `next
+build`. **OPS-19's linter cache buys nothing on wall clock** — it targets `format` at 45s, which is
+already hidden inside `scripts`.
