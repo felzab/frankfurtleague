@@ -310,6 +310,8 @@ verdict="${candidates%%"$LF"*}"
 [ "$verdict" = "branch-op" ] && exit 0
 [ "$verdict" = "check" ] || deny
 
+# >>> SHARED EXEMPTION — byte-identical in the branch guards; edit both or neither >>>
+
 anchor=0
 paths=()
 placed=()
@@ -352,3 +354,5 @@ fi
 [ "$anchor" = "1" ] && exit 0
 
 deny
+
+# <<< SHARED EXEMPTION END <<<
