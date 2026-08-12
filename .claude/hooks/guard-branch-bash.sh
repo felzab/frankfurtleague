@@ -216,6 +216,9 @@ const decide = (input) => {
   const padded = " " + cmd + " ";
   if (padded.indexOf(" rm ") >= 0 || padded.indexOf(" rmdir ") >= 0) return "refuse";
 
+  // A quoted path holding a space arrives split at the space, and the part past it is not ignored
+  // on its own, so a write aimed inside the ignored tree is refused. A false refusal rather than a
+  // hole, which is the side ADR-0060 errs on.
   const words = cmd
     .split(/[ \t]+/)
     .filter(Boolean)
