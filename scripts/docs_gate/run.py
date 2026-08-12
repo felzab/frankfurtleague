@@ -1,0 +1,134 @@
+"""
+SCRIPTS · the gate's run order and its exit code
+
+Every check once, in one place: the per-file driver over the tracked corpus, then the checks a
+page's kind decides, then the ones reading the branch. Findings print under their severity, and a
+failing one is the exit code.
+
+Invariants:
+- The base is resolved here and nowhere else, so no check can resolve it a second way.
+- Advisories are truncated at ten unless every one is asked for; failures always print in full.
+
+See:
+- docs/ops/spec.md — the gate's scopes, and which of them runs this
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+
+import checker_kernel
+
+from .branch import (
+    Branch,
+    branch_additions,
+    check_added_citations,
+    check_branch_diff,
+    check_branch_impact,
+    check_comment_bounds,
+    check_counts,
+    check_history_phrases,
+    check_prose_shas,
+    check_stamp_freshness,
+    check_stamps,
+)
+from .kernel import (
+    Finding,
+    tolerate_console_encoding,
+    tracked_files,
+)
+from .perkind import (
+    adr_numbers,
+    check_adr_index,
+    check_adr_meta,
+    check_check_registry,
+    check_enforced_by,
+    check_glossary,
+    check_inputs,
+    check_invariant_tables,
+    check_line_endings,
+    check_overviews,
+    check_roadmap,
+    check_rule_index,
+    check_rule_shape,
+    check_segment_map,
+    check_spec_sheets,
+    check_stamp_missing,
+    check_template_fragments,
+    invariant_ids,
+    rule_ids,
+)
+from .references import check_file
+
+
+def main() -> int:
+    tolerate_console_encoding()
+    parser = argparse.ArgumentParser(description="Documentation gate (docs/_standard/chapters/5-currency.md).")
+    parser.add_argument("--all", action="store_true", help="list every advisory finding, not just the first ten")
+    args = parser.parse_args()
+
+    files = tracked_files()
+    if not files:
+        # Refused, not green (ADR-0066): an empty corpus is a tree this gate could not read, and a
+        # green exit under a line saying nothing was checked is the shape that ADR rejects.
+        print("      no tracked file matched -- nothing was read, so this run proves nothing", file=sys.stderr)
+        return checker_kernel.EXIT_REFUSED
+
+    # Resolved once, and handed to every branch-scoped check below. The kernel's resolver prefers the
+    # remote-tracking ref: a CI checkout has no local branch, and a stale local one reads another
+    # branch's commits as this one's.
+    branch = Branch(checker_kernel.DEFAULT_BASE, checker_kernel.resolve_base())
+
+    existing_adrs = adr_numbers()
+    existing_rules = rule_ids()
+    existing_invariants = invariant_ids()
+    additions = branch_additions(branch)
+    findings: list[Finding] = []
+    for path in files:
+        findings.extend(check_file(path, existing_adrs, existing_rules, existing_invariants))
+    findings.extend(check_stamps(files))
+    findings.extend(check_stamp_missing())
+    findings.extend(check_stamp_freshness(branch))
+    findings.extend(check_branch_impact(branch))
+    findings.extend(check_branch_diff(branch))
+    findings.extend(check_adr_meta())
+    findings.extend(check_adr_index())
+    findings.extend(check_roadmap())
+    findings.extend(check_inputs())
+    findings.extend(check_line_endings())
+    findings.extend(check_spec_sheets())
+    findings.extend(check_invariant_tables())
+    findings.extend(check_overviews())
+    findings.extend(check_glossary())
+    findings.extend(check_enforced_by())
+    findings.extend(check_rule_shape())
+    findings.extend(check_rule_index(existing_rules))
+    findings.extend(check_check_registry())
+    findings.extend(check_segment_map())
+    findings.extend(check_template_fragments())
+    findings.extend(check_prose_shas(files))
+    findings.extend(check_history_phrases(additions))
+    findings.extend(check_counts(additions))
+    findings.extend(check_added_citations(additions))
+    findings.extend(check_comment_bounds(branch))
+
+    failures = [f for f in findings if f.severity == "fail"]
+    reports = [f for f in findings if f.severity == "report"]
+
+    if failures:
+        print(f"\n      {len(failures)} failing finding(s):")
+        for finding in failures:
+            print(finding.line())
+
+    if reports:
+        print(f"\n      {len(reports)} advisory finding(s):")
+        for finding in reports if args.all else reports[:10]:
+            print(finding.line())
+        if not args.all and len(reports) > 10:
+            print(f"      ... and {len(reports) - 10} more -- scripts/check_docs.py --all lists every one")
+
+    docs = sum(1 for f in files if f.suffix == ".md")
+    sources = len(files) - docs
+    print(f"\n      scanned {docs} documents and {sources} source files against {len(existing_adrs)} ADRs, {len(existing_rules)} rules")
+    return checker_kernel.EXIT_FINDINGS if failures else checker_kernel.EXIT_OK

@@ -92,6 +92,12 @@ UNTRACKED_TWIN: Final = UNTRACKED_DIR + "/glossary.md"
 # rather than any one page's.
 BRANCH_DIFF: Final = "(branch diff)"
 
+# The partition, anchored on folder names rather than `**/*`: a path git spelled in quotes, which a
+# listing without `-z` returns for a name outside ASCII, then matches no segment and reads as
+# unclaimed.
+FOLDER_SEGMENT: Final = "| Folders | `docs/**` · `fl_backend/**` · `fl_frontend/**` · `nginx/**` · `.claude/**` |"
+ROOT_SEGMENT: Final = "| Root files | `*` |"
+
 SCRIPTS_COPY: Final = "scripts"
 HOOKS_STUB: Final = "nohooks"
 # What the fixture is BUILT out of rather than checked. Naming what must SURVIVE the reset keeps this
@@ -381,7 +387,8 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             "",
             "| Segment | Globs |",
             "| --- | --- |",
-            "| Everything | `*` · `**/*` |",
+            FOLDER_SEGMENT,
+            ROOT_SEGMENT,
         ),
         SAMPLE: _page(
             QUOTES + "BACKEND · a sample module the corpus scans." + QUOTES,
@@ -574,6 +581,18 @@ def _gate() -> Fixture:
     if not _STATE:
         _STATE.append(_load())
     return _STATE[0]
+
+
+def _module(name: str) -> ModuleType:
+    """One of the gate's own modules, from the copy inside the fixture repository.
+
+    The entry point re-exports the names the corpus cites and nothing else. A check reached only
+    from inside the package is reached by its own module here, rather than added to that list --
+    which would put a name in the shipped file that exists for a test.
+    """
+    module = importlib.import_module(name)
+    assert Path(module.__file__ or "").resolve().is_relative_to(_gate().root), name + " is not the copy under test"
+    return module
 
 
 # --- driving it ----------------------------------------------------------------------------------
@@ -842,8 +861,12 @@ def _plant_roadmap() -> None:
 
 
 def _plant_segment_map() -> None:
-    """Both producers: a tracked file no segment claims, and files two segments claim."""
-    _replace(SWEEP, "| Everything | `*` · `**/*` |", "| Everything | `docs/**` |\n| Also the documents | `docs/**` |")
+    """Both producers: a tracked file no segment claims, and files two segments claim.
+
+    Narrowing the folder row to the documents leaves every source and configuration file unclaimed,
+    and the second row naming the same glob claims each document twice.
+    """
+    _replace(SWEEP, FOLDER_SEGMENT, "| Folders | `docs/**` |\n| Also the documents | `docs/**` |")
 
 
 def _plant_adr_meta() -> None:
@@ -878,8 +901,14 @@ def _plant_adr_meta() -> None:
 
 
 def _plant_crlf() -> None:
+    """Both an ASCII path and one outside it, because the finding carries the path git spelled.
+
+    Without `ls-files -z` the second arrives octal-escaped inside quotes, and the finding then names
+    a file no checkout holds -- which reads as a defect in a page nobody can open.
+    """
     root = _gate().root
-    (root / NOTES).write_bytes(_read(NOTES).replace("\n", "\r\n").encode("utf-8"))
+    for rel in (NOTES, UMLAUT_MODULE):
+        (root / rel).write_bytes(_read(rel).replace("\n", "\r\n").encode("utf-8"))
 
 
 def _plant_unreadable() -> None:
@@ -986,6 +1015,44 @@ def _plant_bare_paths() -> None:
     )
 
 
+def _plant_history() -> None:
+    """COR-3's banned shape where a marker rule cannot see it: inside a module's docstring.
+
+    A docstring opens with a quote rather than a comment marker, so reading the diff's line
+    prefixes drops it and the check reports a clean branch. Markdown's half of the same reader is
+    pinned by the `counts` case, whose plant is a page's prose.
+    """
+    _replace(
+        SECOND_SAMPLE,
+        QUOTES + "BACKEND · a module beside the sample, so one check can speak about more than one file." + QUOTES,
+        _page(
+            QUOTES + "BACKEND · a module beside the sample, so one check can speak about more than one file.",
+            "",
+            "This module previously said otherwise.",
+            QUOTES,
+        ).rstrip("\n"),
+    )
+
+
+def _plant_counts() -> None:
+    """COR-4's enumerations in both halves of the reader: a page's prose, and a module's docstring.
+
+    Two files, because this check reports per file -- which is what separates the docstring half
+    from the markdown half when either stops being read.
+    """
+    _append(NOTES, "The pages here number four.")
+    _replace(
+        SAMPLE,
+        QUOTES + "BACKEND · a sample module the corpus scans." + QUOTES,
+        _page(
+            QUOTES + "BACKEND · a sample module the corpus scans.",
+            "",
+            "It holds three constants a reader could count.",
+            QUOTES,
+        ).rstrip("\n"),
+    )
+
+
 def _plant_line_citations() -> None:
     """Both spellings COR-6 bans: the backticked citation, and the bare one a comment reaches for.
 
@@ -1003,14 +1070,24 @@ def _plant_metadata_breaks() -> None:
 
 
 def _plant_citations() -> None:
-    """Each of `_check_citation`'s branches, in a different page so the triples separate them.
+    """Each of `_check_citation`'s branches, in a page of its own so the triples separate them.
 
-    The branches return one at a time, so a citation exercises exactly one: two of them planted in
-    one page would be a single finding, and swapping which branch fires would not move the count.
+    The branches return one at a time, so a citation exercises exactly one, and every branch names
+    the CITING page -- which is why a branch that stops answering is caught only where its input
+    then reaches no sibling. Two of the five are written so that it does not:
+
+    - the empty ANCHOR resolves its file and finds the anchor present, so the malformed guard is
+      the only thing between it and silence;
+    - the ambiguous name's first match carries the anchor, so dropping that guard leaves nothing to
+      report rather than an anchor finding wearing the same triple.
+
+    The empty FILE part stays beside the empty anchor, in one page, because it exercises the other
+    half of the same guard: a count of two is what separates them.
     """
     _append(ROADMAP, "A citation naming nothing: `  ::  x`.")
+    _append(ROADMAP, "A citation with no anchor: `docs/notes.md ::  `.")
     _append(NOTES, "`docs/gone.md :: symbol` names nothing.")
-    _append(TEMPLATES, "`notes.md :: the heading` resolves more than once.")
+    _append(TEMPLATES, "`notes.md :: a bare name can be made to resolve twice` resolves more than once.")
     _append(SWEEP, "`docs/data.bin :: anything` cannot be read.")
     _append(ADR_INDEX, "`docs/notes.md :: no such anchor` resolves to a page without it.")
 
@@ -1029,6 +1106,18 @@ def _plant_stamp_formats() -> None:
     """
     _replace(FRONTEND_SPEC, _stamp_line(FRONTEND_SPEC), _stamp_line(FRONTEND_SPEC) + " extra")
     _replace(FRONTEND_OVERVIEW, _stamp_line(FRONTEND_OVERVIEW), "\n" + _stamp_line(FRONTEND_OVERVIEW), restamp=True)
+
+
+def _plant_comment_bounds() -> None:
+    """Both of INC-9's bounds, one block each: the line cap alone, and the character cap alone.
+
+    Two blocks rather than one breaching both, because a block over both bounds proves neither of
+    them separately -- lifting either cap would leave the other still firing, and the case would
+    stay green with half the rule deleted.
+    """
+    _append(SAMPLE, *[HASH + " a line of a block that runs past what a comment may hold" for _ in range(4)])
+    # One line, so nothing but the character bound can be what fires on the second block.
+    _append(SECOND_SAMPLE, HASH + " " + ("a clause that carries the block past the character bound " * 5))
 
 
 def _plant_comment_citations() -> None:
@@ -1084,18 +1173,14 @@ CASES: Final[tuple[Case, ...]] = (
     Case("branch-scope", _reports("branch-scope", *[BRANCH_DIFF] * 3), _plant_branch_scope, _undo_branch_scope),
     Case("branch-impact", _fails("branch-impact", BACKEND_SPEC), lambda: _append(SAMPLE, "EXTRA = 2")),
     Case("check-registry", _fails("check-registry", CURRENCY, CURRENCY, CURRENCY), _plant_check_registry),
-    Case("citation", _fails("citation", NOTES, ROADMAP, TEMPLATES, SWEEP, ADR_INDEX), _plant_citations),
+    Case("citation", _fails("citation", NOTES, ROADMAP, ROADMAP, TEMPLATES, SWEEP, ADR_INDEX), _plant_citations),
     Case(
         "comment-citation",
         _fails("comment-citation", SAMPLE, SECOND_SAMPLE) + _reports("comment-citation", SAMPLE, SAMPLE),
         _plant_comment_citations,
     ),
-    Case(
-        "comment-length",
-        _fails("comment-length", SAMPLE),
-        lambda: _append(SAMPLE, *[HASH + " a line of a block that runs past what a comment may hold" for _ in range(4)]),
-    ),
-    Case("counts", _reports("counts", NOTES), lambda: _append(NOTES, "The pages here number four.")),
+    Case("comment-length", _fails("comment-length", SAMPLE, SECOND_SAMPLE), _plant_comment_bounds),
+    Case("counts", _reports("counts", NOTES, SAMPLE), _plant_counts),
     Case("enforced-by", _fails("enforced-by", CORE), lambda: _replace(CORE, "`citation` and `path`", "`no-such-check`", restamp=True)),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
     Case("header-see", _fails("header-see", SAMPLE), _plant_header_see),
@@ -1108,7 +1193,7 @@ CASES: Final[tuple[Case, ...]] = (
     ),
     Case("invariant-row", _fails("invariant-row", BACKEND_SPEC, BACKEND_SPEC, FRONTEND_SPEC), _plant_invariant_rows),
     Case("line-citation", _fails("line-citation", NOTES, SAMPLE), _plant_line_citations),
-    Case("line-endings", _fails("line-endings", NOTES), _plant_crlf),
+    Case("line-endings", _fails("line-endings", NOTES, UMLAUT_MODULE), _plant_crlf),
     Case("link", _fails("link", NOTES), lambda: _append(NOTES, "[gone](gone.md)")),
     Case("metadata-break", _fails("metadata-break", NOTES, CORE), _plant_metadata_breaks),
     Case("module-header", _fails("module-header", *[SAMPLE] * 3, *[SECOND_SAMPLE] * 2, THIRD_SAMPLE, LABEL_SAMPLE), _plant_module_headers),
@@ -1194,6 +1279,41 @@ def test_every_check_reports_its_planted_violation() -> None:
     """Each plant raises exactly the findings its case declares -- no fewer, and nothing beside them."""
     wrong = _mismatches(CASES)
     assert not wrong, "\n".join(wrong)
+
+
+def test_a_check_naming_one_page_reads_the_tracked_one() -> None:
+    """A check that names a fixed page resolves it through the corpus, not off disk.
+
+    Driven directly rather than through a plant, because a `Case` declares every finding its plant
+    raises and this input silences the glossary's other producers by returning first. The page is
+    left on disk and taken out of the index, which is a page written and never `git add`ed: read
+    off disk it satisfies its own check and `inputs` with it, and a clean checkout has neither.
+    """
+    _reset()
+    _git(_gate().root, "rm", "--cached", "-q", "--", GLOSSARY)
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "glossary-entry", GLOSSARY)] == 1, "an untracked glossary was read as the corpus': " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_the_comment_bounds_read_a_file_by_its_format_not_its_suffix() -> None:
+    """INC-9's bounds are measured through the reader the FORMAT needs, never through `path.suffix`.
+
+    Driven directly rather than through a plant, because no corpus file can separate the two: every
+    path that reaches the bounds today carries a suffix its reader is named after. A Dockerfile and
+    every dotfile carry none, and read for a C-style marker they yield no block at all -- so the
+    check would run, report nothing, and look wired. This is the one input that tells them apart.
+    """
+    block = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(4)]
+    # A first line that opens no comment: a leading run of hashes is the module header, which INC-2
+    # bounds instead and which `comment_runs` therefore steps over.
+    raw = _page("FROM scratch", *block)
+    bounds = _module("docs_gate.structure").check_comment_length
+    found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 2)))
+    assert [finding.check for finding in found] == ["comment-length"], "the block was read by the wrong format's reader"
 
 
 def _select(names: list[str]) -> int:
