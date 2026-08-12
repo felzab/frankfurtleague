@@ -2,8 +2,7 @@
 #
 # GITHOOKS · format the staged files and re-stage them, so every commit is born formatted.
 #
-# Commit time is the one moment a reformat is free: a gate that rewrites the tree hands back a
-# second, whitespace-only commit, and that commit is what a documentation restamp cascades from.
+# Formatting happens at commit time and the gate only checks (ADR-0065).
 #
 # What reaches the index is formatted from the index, never read back off disk, so an editor
 # autosave or a second agent writing while prettier runs cannot put unstaged content in the commit.
@@ -73,6 +72,9 @@ while IFS= read -r -d '' path; do
   if [ -n "${candidate["$path"]:-}" ]; then partial+=("$path"); fi
 done < "$work/dirty"
 
+# `git commit --only` leaves the real index holding pre-format bytes -- git writes the worktree copy
+# there before the hook sees a temporary index -- so a refusal below can name a partial stage the
+# author never made.
 if [ ${#partial[@]} -gt 0 ]; then
   # %q so a name carrying a space or a glob character is pasteable as it stands.
   quoted="$(printf '%q ' "${partial[@]}")"
@@ -97,12 +99,12 @@ if ! command -v node >/dev/null 2>&1 || [ ! -f "fl_frontend/$prettier_entry" ]; 
   exit 0
 fi
 
-# Invoked exactly as `pnpm format` invokes it, same directory and same two ignore files, so the hook
+# Invoked exactly as `pnpm format` invokes it, same directory and same ignore file, so the hook
 # cannot reach a file the gate's own run leaves alone. The `../` prefix stops a file named like an
 # option from being read as one.
 prettier_write() {
   ( cd fl_frontend && node "$prettier_entry" --write --log-level warn --ignore-unknown \
-      --ignore-path .prettierignore --ignore-path ../.prettierignore "$@" )
+      --ignore-path ../.prettierignore "$@" )
 }
 
 # Never called with an empty batch: prettier with no file argument reads stdin, and a hook that
@@ -188,7 +190,7 @@ if [ ${#changed[@]} -gt 0 ]; then
     fi
     git cat-file blob "${index_oid["$path"]}" > "$work/blob"
     if ( cd fl_frontend && node "$prettier_entry" --stdin-filepath "../$path" --log-level warn \
-           --ignore-unknown --ignore-path .prettierignore --ignore-path ../.prettierignore \
+           --ignore-unknown --ignore-path ../.prettierignore \
            < "$work/blob" > "$work/formatted" ); then
       oid="$(git hash-object -w --path="$path" -- "$work/formatted")"
       printf '%s %s\t%s\0' "${index_mode["$path"]}" "$oid" "$path" >> "$work/stage"
