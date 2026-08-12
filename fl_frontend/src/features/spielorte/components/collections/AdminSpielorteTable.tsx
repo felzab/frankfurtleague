@@ -173,7 +173,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                 {(ort: FLSpielort) => (
                   <Table.Row
                     id={ort.id}
-                    className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
+                    className="border-border/50 border-b last:border-b-0">
                     <Table.Cell className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <MapPin

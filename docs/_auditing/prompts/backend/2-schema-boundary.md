@@ -37,11 +37,12 @@ THE CHECKS, in priority order:
 
 2. **VALIDATION-MODE COVERAGE.** For every custom type in `app/shared/schemas/custom.py` and every
    `json_or_python_schema` or custom validator: does it enforce the same rule in **JSON mode**
-   (`model_validate_json`) as in Python mode? A known open item in `docs/_roadmap/open-items.md` is
-   that `CustomObjectId` passes a bare `str_schema()` on the JSON branch, so JSON-mode validation
-   accepts any string. Re-verify it at the current code, then sweep every other custom type for the
-   same shape. Also check that each custom type's _serialization_ schema matches what is actually
-   stored and emitted.
+   (`model_validate_json`) as in Python mode? `CustomObjectId` is the shape to measure the others
+   against — the same chain serves its json branch and its python union, so a JSON string is
+   converted and checked exactly as a Python one is, and `__get_pydantic_json_schema__` states the
+   published schema rather than leaving it to be read off that chain. A branch that only declares a
+   value's type where the other branch converts it is the defect to look for. Also check that each
+   custom type's _serialization_ schema matches what is actually stored and emitted.
 
 3. **NEW AND CHANGED READ-PATH CONSTRAINTS.** The inventory of what stored data could violate belongs
    to b1's check 8; do not rebuild it. What belongs here is the provenance of each constraint on a
