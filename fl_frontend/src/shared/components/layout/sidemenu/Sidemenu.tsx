@@ -116,6 +116,7 @@ export function Sidemenu<TIcon extends string>({
       <SidemenuFooter
         isDesktopCollapsed={isDesktopCollapsed}
         onToggleDesktopMenu={onToggleDesktopMenu}
+        onMobileNavigate={onMobileClose}
         onSignOut={onSignOut}
       />
     </aside>

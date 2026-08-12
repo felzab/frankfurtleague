@@ -73,6 +73,10 @@ others — which can be worse than not applying it at all — or ships a snippet
   for server errors, or a colour inheriting from `currentColor` where it does not.
 - **The ledger row and its source section prescribe opposite fixes**, or the row prescribes an
   approach a later wave already disproved. Read both, and where they conflict re-derive from the code.
+- **A control resolves, succeeds, and is wrong.** A guard matching `git` never sees `git.exe`; a
+  helper handing `mktemp -d`'s MSYS path to a Windows binary dies after its work is half done; a
+  strict check whose comparison window is empty passes everything. Nothing errors in any of them, so
+  each is found only by constructing the input that should fail.
 
 ---
 
@@ -145,6 +149,10 @@ green.
   floor; a bare `pytest.raises(ValidationError)` passes whatever went wrong, so assert the failing
   field; `node --test` collects any `test-*` file including tooling files and reports them as passing
   tests.
+- **A gate over an uncommitted tree has checked nothing that is not tracked, and a gate that stops at
+  its first failing scope understates the branch.** Citations resolve against tracked files, so a new
+  file's breaches appear only once it is committed; and the scopes after the failing one never run,
+  so a single reported finding can hide a second failing scope entirely.
 - **No gate sees these**: React Server Component serialization rules — a Server Component passing a
   render prop to a Client Component throws only at request time on a dynamic route, so **grep for
   render props before deleting a `"use client"`** — emitted-but-wrong class strings, manifest URLs,
@@ -181,6 +189,10 @@ a route nothing exercised.
   Build a probe image instead.
 - **Scope every search away from ignored paths before running it.** An unscoped grep has matched a
   secret file.
+- **A transcript is not a liveness signal; a deliverable is.** A completion notification arrives only
+  for an agent that finishes, so an agent that stopped is indistinguishable from a slow one until its
+  own output is checked. Read the deliverable file and the agent's scratch prefix, and check the
+  artefact before assuming the work needs redoing — the transcript and the tree fail independently.
 
 ---
 
@@ -271,16 +283,20 @@ implied coverage claim routes no later human check to the place that needs one.
   button-like element, so putting a `<button>` inside one nests interactive content — check for this
   every time. `isFocusVisible` is a **global** modality flag, so styling keyed off it fires at
   seemingly random moments. Overlays light-dismiss on interaction, and a client-side navigation is
-  not one. Positioning against `document.body` adds `documentElement.scrollTop`, which is wrong
-  inside any `position: fixed` overlay — never anchor a popover inside one.
+  not one. A portalled overlay's `bottom` is computed against the viewport and resolved by CSS
+  against its containing block, so anything making `<html>` or `<body>` one — a `position`, a
+  transform, a `filter`, a `contain`, a `will-change` naming those, a `container-type` — opens every
+  top-placed overlay a whole scroll height low (`docs/frontend/spec.md :: I29`).
 - **`dynamic({ ssr: false })` with no `loading`** renders `null`, so a click on the trigger looks dead
   until the chunk arrives.
 - **Next writes suggested `tsconfig` defaults for any absent key** — a presence check, not a value
   check. `allowJs` cannot be deleted, only declared `false`.
 - **Next keeps the previous page mounted in a hidden Activity tree.** Hidden trees still re-render on
-  new props, and a react-aria collection that re-renders while hidden drops its rows. In a test
-  harness, `element.click()` on a `<Link>` performs a **hard** navigation, so a loop driven that way
-  never exercises Activity trees at all — drive `router.push` instead.
+  new props, and a react-aria collection that re-renders while hidden drops its rows. React destroys a
+  hidden subtree's Effects and re-creates them on the way back, so an effect watching the pathname
+  never sees the navigation that hid it — a page's own overlay closes as its link navigates or not at
+  all. In a test harness, `element.click()` on a `<Link>` performs a **hard** navigation, so a loop
+  driven that way never exercises Activity trees at all — drive `router.push` instead.
 
 **Backend**
 
@@ -298,3 +314,7 @@ implied coverage claim routes no later human check to the place that needs one.
 - **Docker ignore patterns fail silently.** A dead pattern looks identical to a live one, so ignore
   files accumulate patterns matching nothing while host build artifacts ship into Linux images.
   Spot-check by building a probe image.
+- **Git Bash aliases `%TEMP%` to `/tmp`**, so a checkout or a scratch directory under it answers with
+  a path a Windows binary resolves elsewhere or cannot open at all — a container binds the wrong
+  directory, or a command dies mid-run. `cygpath -w` is the repository's existing answer, and
+  `scripts/verify.sh` already spells its pool's shell that way.

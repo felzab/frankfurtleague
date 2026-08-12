@@ -7,6 +7,7 @@ lens. [`../programme.md`](../programme.md) covers everything above a single sess
 | --------------------------------------------------------- | -------------------------------------------------------------- |
 | [Start sequence](#start-sequence)                         | What to read and write before check 1                          |
 | [Ground rules](#ground-rules)                             | What a pass may and may not do, and where it writes            |
+| [What every agent is told](#what-every-agent-is-told)     | The five that hold for any dispatched agent, audit or fix      |
 | [Report structure](#report-structure-in-this-order)       | The report's required shape and severity rubric                |
 | [Method](#method)                                         | Traversal, evidence, blast radius, deliberate decisions        |
 | [Ask, don't guess](#ask-dont-guess)                       | What goes to a human rather than into an assumption            |
@@ -55,6 +56,24 @@ Run these before check 1, in order.
   credential value; refer to secrets by variable name only. A check that would require reading a
   secret is reported as unverifiable, with the reason. Scope every grep away from ignored paths
   **before** running it — an unscoped grep has matched a secret file.
+
+## What every agent is told
+
+These hold for any agent a programme dispatches, auditing or fixing. They sit here rather than in
+each prompt because every one has been broken by an agent that had read
+[`../lessons.md`](../lessons.md) first.
+
+- **Build it and measure.** A claim about a regex, an exit code, a guard's verdict or a hook's
+  behaviour is unverified until someone runs it, however many people have repeated it. Here the
+  argument you can construct is reliably weaker than the answer the machine gives.
+- **When a fix handles N instances, enumerate the population and count.** A correct conclusion is not
+  evidence the population was complete.
+- **Verify prescribed text before applying it.** A reviewer's authority is over the defect, never
+  automatically over the replacement.
+- **Write findings into the deliverable as you establish them.** An agent that stops while holding
+  everything in flight loses all of it; one that wrote as it went loses only the last item.
+- **Say what you could not verify and why.** An unverifiable check reported honestly costs minutes; a
+  guessed one costs a session.
 
 ## Report structure, in this order
 

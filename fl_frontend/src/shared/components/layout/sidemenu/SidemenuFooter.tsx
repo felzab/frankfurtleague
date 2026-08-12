@@ -12,10 +12,13 @@ import type { FormState } from "@/shared/types/types";
 export function SidemenuFooter({
   isDesktopCollapsed,
   onToggleDesktopMenu,
+  onMobileNavigate,
   onSignOut,
 }: {
   isDesktopCollapsed: boolean;
   onToggleDesktopMenu: () => void;
+  /** Required, not optional: `Sidemenu` is the only caller and it always owns the drawer's state. */
+  onMobileNavigate: () => void;
   onSignOut?: () => Promise<FormState>;
 }) {
   return (
@@ -33,8 +36,12 @@ export function SidemenuFooter({
         label="Zur öffentlichen Website"
         placement="right"
         isEnabled={isDesktopCollapsed}>
+        {/* This link leaves the shell, so it closes the drawer itself: the tree owning that state
+            departs, and the router hides it rather than unmounting it, so Back would reveal the
+            drawer still up. `onNavigate` for `SidemenuNavItem`'s reason. */}
         <Link
           href="/"
+          onNavigate={onMobileNavigate}
           className={`text-foreground-muted hover:bg-muted hover:text-foreground flex h-9 items-center rounded-md transition-colors ${
             isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2.5 px-3"
           }`}

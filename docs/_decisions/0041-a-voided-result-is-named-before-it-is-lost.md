@@ -95,8 +95,8 @@ resolution ran, both `null` when the slot merely filled from empty. The success 
 destroyed scoreline **its own sentence** — a moved `Paarung` and a deleted result are two facts, and
 a reader told specifically that a pairing changed reasonably concludes the score did not.
 
-**Every save offers an undo for fifteen seconds, and there is no confirmation dialog anywhere on
-the page.** Confirmation and undo are alternatives, not companions: a dialog interrupts every save
+**Every save offers an undo for fifteen seconds, and no save is preceded by a confirmation
+dialog.** Confirmation and undo are alternatives, not companions: a dialog interrupts every save
 to ask about a case that is usually harmless, and the thirty-first one is dismissed unread.
 
 **The offer is not scoped to the destructive save**, over a narrower first draft that scoped it:

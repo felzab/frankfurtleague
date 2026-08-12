@@ -21,6 +21,7 @@ export function TeamPopoverMenu({
   teamId,
   teamIsDisqualified,
   placement = "right",
+  onNavigate,
   children,
 }: {
   teamName: string;
@@ -40,9 +41,25 @@ export function TeamPopoverMenu({
    * placement moves width onto the cross axis, where it does get clamped.
    */
   placement?: "right" | "top";
+  /**
+   * Runs as a link here navigates — and not on a press that opens a new tab instead — for a caller
+   * holding an overlay of its own open around this one. Optional because a caller that mounts this
+   * straight onto a page has nothing to dismiss; a caller that mounts it inside a dialog does, since
+   * the App Router keeps a departed page in a hidden Activity tree and a dialog nobody closed is open
+   * again when the visitor comes back.
+   */
+  onNavigate?: () => void;
   children: React.ReactNode;
 }) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
+
+  // The whole of the closing, not the immediate half: the router hides this popover's page — Effects
+  // and all — so the hook's effect never reaches it. The hook stays anyway: that redundancy is the
+  // router's behaviour, not this file's.
+  const closeOnNavigate = () => {
+    setIsOpen(false);
+    onNavigate?.();
+  };
 
   // Not a control: it stops the card underneath from also reacting when the trigger is pressed. There
   // is no action here to give a keyboard equivalent to — `Popover.Trigger` below is the control — so
@@ -95,11 +112,14 @@ export function TeamPopoverMenu({
               className="bg-border my-3 h-[1px] w-full"
             />
 
+            {/* `onNavigate`, not `onClick`, on both: it fires only where the press really navigates,
+                so a modifier-click that opens a new tab leaves this panel and the caller's dialog
+                standing. */}
             <div className="fluid-sm flex size-full flex-col gap-y-1">
               <Link
                 prefetch={false}
                 href={`/dashboard/teams/${teamId}`}
-                onClick={() => setIsOpen(false)}
+                onNavigate={closeOnNavigate}
                 className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
                 <CircleInfo
                   className="text-brand shrink-0"
@@ -112,7 +132,7 @@ export function TeamPopoverMenu({
               <Link
                 prefetch={false}
                 href={`/dashboard/spieler/${teamId}`}
-                onClick={() => setIsOpen(false)}
+                onNavigate={closeOnNavigate}
                 className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
                 <Persons
                   className="text-brand shrink-0"

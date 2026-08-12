@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 import { Xmark } from "@gravity-ui/icons";
 
 import { Calendar, DateField, DatePicker, FieldError, TimeField } from "@heroui/react";
@@ -15,44 +17,72 @@ import { FieldLabel } from "./FieldLabel";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { CalendarDate, Time } from "@internationalized/date";
+import type { RefObject } from "react";
 
 /**
  * The one clear affordance for the two segmented fields.
  *
  * It exists because a segmented field has no other way back to empty: react-aria clears one segment
  * per Backspace, so "kein Termin mehr" — a legitimate value, the stored `null` the pickers render as
- * TBD — used to cost six keystrokes and the knowledge that it was possible at all. Rendered only
- * while there is something to clear, exactly like the pickers' own clear buttons.
+ * TBD — otherwise costs one press per segment plus the knowledge that it was possible at all.
+ * Rendered only while there is something to clear, exactly like the pickers' own clear buttons.
  *
  * A plain button rather than a react-aria one: it lives inside the group whose focus styling is
  * keyed off `:focus-within` in `globals.css`, and a `Button` would add press/hover state machinery
- * for what is a single synchronous state reset.
+ * for what is a single synchronous state reset. `data-field-clear` is the hook that stylesheet needs
+ * to hand it a focus outline back: the group strips one from every button inside it because its own
+ * border already says focus is in the field, and this button is one tab stop among the segments,
+ * which a single border cannot tell apart.
  *
- * `data-field-clear` is the hook that stylesheet needs to hand it a focus outline back. The group
- * strips one from every button inside it because its own border already says focus is in the field
- * — but this button is one tab stop among the segments, and the border cannot tell them apart.
+ * **Focus must not be on this button when the value is cleared**, because clearing removes it and a
+ * browser fires no blur for an element it removes: `useFocusWithin` on the group never learns focus
+ * left, `data-focus-within` stays set, and the field keeps its brand border while
+ * `document.activeElement` is `<body>` and nothing can be typed into it.
  *
- * **A POINTER press must not move focus onto it**, because clearing removes it: a browser fires no
- * blur when it removes the focused element, so `useFocusWithin` on the group never learns focus left,
- * `data-focus-within` stays set, and the field keeps its brand border while `document.activeElement`
- * is `<body>` and nothing can be typed into it. Preventing the press default leaves focus where it
- * already was — a segment, or somewhere outside the field, both of which the border then tells the
- * truth about. It is how react-aria treats a search field's own clear control, for the same reason
- * (`useSearchField` focuses the input on press start).
+ * The CLICK handler is what holds that, and it holds it on both paths: it moves focus into the group
+ * before clearing, the order `FormNotizSection`'s note delete also keeps, so a pointer press and the
+ * keyboard's Tab-then-Enter — which fires the same click — both end inside the field.
  *
- * Known gap, recorded rather than hidden: Tab reaches this button and Enter still removes it while it
- * holds focus, so that path can leave the same stale border behind, and focus on `<body>`. Closing it
- * needs focus moved into the field first, and HeroUI 3.2.3 offers no ref to a segment to move it to —
- * `DateField.Segment` and `DateField.Input` accept no `ref` prop, only `DateField.Group` does.
+ * `preventDefault` on `mousedown` is a second guard rather than the pointer path's own, and it earns
+ * its place by making the outcome independent of the ref: a press never makes this button the active
+ * element at all, so nothing is stranded even in the branch where `groupRef.current` is null and the
+ * focus call quietly does nothing. It is also how react-aria treats a search field's own clear
+ * control (`useSearchField` focuses the input on press start). The two do not fight — cancelling a
+ * `mousedown` default suppresses only the browser's own focus transfer, so the `click` still fires
+ * and a scripted `focus()` inside it is untouched.
+ *
+ * The group is the focus target because react-aria makes only the segments focusable —
+ * `useDateSegment` gives each `tabIndex: 0`, `useDateField` leaves the group without one — and
+ * HeroUI 3.2.3 exposes a `ref` on `DateField.Group` alone, never on `DateField.Segment` or
+ * `DateField.Input`. Hence `tabIndex={-1}` on the group: it stays out of the tab order,
+ * `:focus-within` still paints the field's brand border so the move is visible, and the next Tab
+ * enters the field at its first segment.
+ *
+ * **The keyboard path is closed by reasoning, not yet by observation.** Tab-then-Enter now runs the
+ * same focus-then-clear handler, so it should end inside the field rather than on `<body>`; the
+ * event ordering holds in a reduction of this markup, but neither path has been watched in the admin
+ * UI in this composed form.
  */
-function ClearFieldButton({ label, onClear }: { label: string; onClear: () => void }) {
+function ClearFieldButton({
+  label,
+  onClear,
+  groupRef,
+}: {
+  label: string;
+  onClear: () => void;
+  /** The field group this button sits in, which is why that group carries `tabIndex={-1}`. */
+  groupRef: RefObject<HTMLDivElement | null>;
+}) {
   return (
     <button
       type="button"
       aria-label={label}
       data-field-clear="true"
       onMouseDown={(event) => event.preventDefault()}
-      onClick={onClear}
+      onClick={() => {
+        groupRef.current?.focus();
+        onClear();
+      }}
       className="text-foreground-muted hover:text-foreground flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors">
       <Xmark className="size-4" />
     </button>
@@ -88,6 +118,9 @@ export function FormDateTimeSection({
   onUhrzeitChange: (value: Time | null) => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
+  const datumGroupRef = useRef<HTMLDivElement>(null);
+  const uhrzeitGroupRef = useRef<HTMLDivElement>(null);
+
   return (
     <div
       className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2"
@@ -100,6 +133,8 @@ export function FormDateTimeSection({
         className="w-full">
         <FieldLabel path="datum">Spieldatum</FieldLabel>
         <DateField.Group
+          ref={datumGroupRef}
+          tabIndex={-1}
           fullWidth
           className={FIELD_GROUP}>
           {/* HeroUI styles literal segments (the "." and ":") with `text-muted`, which is a
@@ -117,6 +152,7 @@ export function FormDateTimeSection({
             {datum !== null && (
               <ClearFieldButton
                 label="Datum entfernen"
+                groupRef={datumGroupRef}
                 onClear={() => onDatumChange(null)}
               />
             )}
@@ -159,7 +195,10 @@ export function FormDateTimeSection({
         onChange={onUhrzeitChange}
         onBlur={() => onValidateFields(["uhrzeit"])}>
         <FieldLabel path="uhrzeit">Anpfiff</FieldLabel>
-        <TimeField.Group className={FIELD_GROUP}>
+        <TimeField.Group
+          ref={uhrzeitGroupRef}
+          tabIndex={-1}
+          className={FIELD_GROUP}>
           <TimeField.Input className="fluid-sm w-full">
             {(segment) => (
               <TimeField.Segment
@@ -171,6 +210,7 @@ export function FormDateTimeSection({
           {uhrzeit !== null && (
             <ClearFieldButton
               label="Uhrzeit entfernen"
+              groupRef={uhrzeitGroupRef}
               onClear={() => onUhrzeitChange(null)}
             />
           )}

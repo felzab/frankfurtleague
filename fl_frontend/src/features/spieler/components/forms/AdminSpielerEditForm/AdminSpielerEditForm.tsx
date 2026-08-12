@@ -30,7 +30,7 @@ import type { SpielerRailBanner } from "./SpielerRail";
 
 /**
  * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). There is no
- * confirmation dialog on this page for the same reason as the other editors: confirmation and
+ * confirmation dialog on the SAVE for the same reason as the other editors: confirmation and
  * undo are alternatives, and undo is the one that helps the admin who was not paying attention.
  */
 const UNDO_TIMEOUT_MS = 15000;

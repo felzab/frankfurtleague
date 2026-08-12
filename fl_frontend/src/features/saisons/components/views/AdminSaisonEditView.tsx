@@ -11,7 +11,7 @@ import { AdminSaisonEditForm } from "@/features/saisons/components/forms/AdminSa
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
-import type { SaisonDraftFields, SaisonRolloverContext } from "@/features/saisons/types";
+import type { SaisonDraftFields, SaisonGruppenSwapContext, SaisonRolloverContext } from "@/features/saisons/types";
 
 /**
  * The whole body of `/admin/saisons/[saison_id]` — which season this is, then the form that edits it, in
@@ -30,10 +30,13 @@ import type { SaisonDraftFields, SaisonRolloverContext } from "@/features/saison
 export function AdminSaisonEditView({
   saison,
   rollover,
+  swap,
   spieltagBound,
 }: {
   saison: { id: string; status: FLSaisonStatus } & SaisonDraftFields;
   rollover: SaisonRolloverContext;
+  /** This season's clubs and their groups, plus the knockout count that closes the swap (ADR-0062). */
+  swap: SaisonGruppenSwapContext;
   /** The span the live matchdays already occupy, which the date pickers may not shrink past. */
   spieltagBound?: { startMax: string; endMin: string };
 }) {
@@ -47,6 +50,7 @@ export function AdminSaisonEditView({
       <AdminSaisonEditForm
         saison={saison}
         rollover={rollover}
+        swap={swap}
         spieltagBound={spieltagBound}
         registerRequestLeave={(requestLeave) => {
           requestLeaveRef.current = requestLeave;

@@ -7,6 +7,7 @@ import { Badge, Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
@@ -14,6 +15,41 @@ import { computePlatzByTeamId, computeQualifyingTeamIds } from "../../utils";
 import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 
 import type { FLGruppen } from "../../schemas";
+
+/**
+ * How many of this row's fixtures were called off, beside the count of the ones that were played.
+ *
+ * The number is annotative and never additive: a forfeit is in both figures (ADR-0063), so a badge
+ * reading `+1` would invite a reader to add it to the tally beside it and arrive at a total the
+ * season never held.
+ *
+ * `InfoHint` and not `IconTooltip`, for the reason stated on
+ * `fl_frontend/src/shared/components/ui/InfoHint.tsx` — this table is read on a phone, and its
+ * `aria-label` is what a screen reader hears in place of the glyph.
+ *
+ * Red because the app already means "abgesagt" by it — the value
+ * `fl_frontend/src/features/spiele/components/ui/SpielStatusChip.tsx` gives that status, so a card
+ * and this badge say the same thing in the same colour.
+ */
+function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
+  return (
+    <InfoHint
+      label={anzahl === 1 ? "1 abgesagtes Spiel" : `${anzahl} abgesagte Spiele`}
+      trigger={<span className="fluid-xxs bg-danger/10 text-danger-strong rounded-md px-1 py-0.5 font-extrabold">{anzahl}</span>}>
+      <p>
+        <strong>Abgesagte Spiele</strong>
+      </p>
+      <p>{anzahl === 1 ? "Ein Spiel dieses Teams wurde abgesagt." : `${anzahl} Spiele dieses Teams wurden abgesagt.`}</p>
+      {/* Both directions of the forfeit rule, in the one place a reader meets it (ADR-0019). Without
+          the first sentence a cancellation on a full match count reads as a rendering fault; without
+          the second, the number invites a subtraction the table would not survive. */}
+      <p>
+        Ein abgesagtes Spiel kann trotzdem gewertet worden sein — dann zählt es in dieser Tabelle ganz normal mit. Ohne Wertung zählt es
+        nirgends mit, auch nicht als Niederlage.
+      </p>
+    </InfoHint>
+  );
+}
 
 export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppenData: FLGruppen; qualifiersPerGroup: number }) {
   if (typedObjectEntries(gruppenData).length === 0) {
@@ -58,7 +94,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
               {qualifying.size > 0 && (
                 <p className="fluid-xxs text-foreground-muted font-medium">
                   Hervorgehoben {qualifying.size === 1 ? "ist das Team, das" : `sind die ${qualifying.size} Teams, die`} aktuell auf einem
-                  KO.-Runden-Platz {qualifying.size === 1 ? "steht" : "stehen"}.
+                  KO-Runden-Platz {qualifying.size === 1 ? "steht" : "stehen"}.
                 </p>
               )}
             </div>
@@ -96,9 +132,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                   {teamsData.map((teamData) => (
                     <Table.Row
                       key={teamData.id}
-                      className={`border-border hover:bg-muted/40 border-b transition-colors last:border-0 ${
-                        qualifying.has(teamData.id) ? "bg-brand/5" : ""
-                      }`}>
+                      className={`border-border border-b last:border-0 ${qualifying.has(teamData.id) ? "bg-brand/5" : ""}`}>
                       {/** The playoff marker rides on this cell as a left rule, so it reads as an
                            annotation on the position rather than as a highlight on the club. */}
                       <Table.Cell
@@ -107,7 +141,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         }`}>
                         {/* The colour is never the only carrier. A screen reader gets the same fact the
                             rule and the legend give a sighted reader, in the cell that states the place. */}
-                        {qualifying.has(teamData.id) && <span className="sr-only">KO.-Runden-Platz: </span>}
+                        {qualifying.has(teamData.id) && <span className="sr-only">KO-Runden-Platz: </span>}
                         {teamData.statistik.anzahl_gespielte_spiele === 0 ? "N/A" : (platzByTeamId.get(teamData.id) ?? "—")}
                       </Table.Cell>
 
@@ -137,7 +171,14 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                       </Table.Cell>
 
                       <Table.Cell className="text-foreground-muted px-1 py-4 text-center font-medium lg:px-2">
-                        {teamData.statistik.anzahl_gespielte_spiele}
+                        {/* A flex row rather than two inline nodes: the cell is centred, and a badge
+                            sitting on the text baseline would drag the number off that centre. */}
+                        <span className="inline-flex items-center justify-center gap-x-1">
+                          {teamData.statistik.anzahl_gespielte_spiele}
+                          {teamData.statistik.anzahl_abgesagte_spiele > 0 && (
+                            <AbgesagteSpieleHint anzahl={teamData.statistik.anzahl_abgesagte_spiele} />
+                          )}
+                        </span>
                       </Table.Cell>
 
                       {/** `-strong`, not the plain accents: these are 13.9px text on a table row, and the

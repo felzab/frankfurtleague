@@ -29,16 +29,24 @@ export function BrandLink({
    */
   nameClassName = "",
   className = "",
+  /**
+   * Runs as this link navigates, and never on a press the browser turns into a new tab, a new window
+   * or a download. Optional because only a caller rendering this inside something dismissable has
+   * anything to run — `SidemenuDrawerHeader` is the one that does.
+   */
+  onNavigate,
 }: {
   title?: string;
   hideName?: boolean;
   nameClassName?: string;
   className?: string;
+  onNavigate?: () => void;
 }) {
   return (
     <Link
       href="/"
       title={title}
+      onNavigate={onNavigate}
       className={`fluid-lg text-foreground flex items-center font-bold tracking-tight transition-opacity hover:opacity-80 ${
         hideName ? "justify-center" : "gap-2"
       } ${className}`}>

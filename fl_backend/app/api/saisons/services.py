@@ -31,9 +31,9 @@ def with_schedule(saison_raw: Mapping[str, Any]) -> dict[str, Any]:
 
     Injected into the raw document rather than computed on the model, for the reason `FLSaison.schedule`
     gives: `schedule_for` imports `FLSaisonRules` from that module, so a computed field there would close
-    an import cycle. The shape is the same one `_with_expected_matches` uses for a matchday's count, and
-    for the same reason -- the field is REQUIRED on the model, so a document reaching validation without
-    it is a 500 rather than a silently absent key.
+    an import cycle. The shape is the same one `app/api/spieltage/services.py :: with_expected_matches` uses
+    for a matchday's count, and for the same reason -- the field is REQUIRED on the model, so a document
+    reaching validation without it is a 500 rather than a silently absent key.
 
     **Every path that answers with an `FLSaison` goes through this**, which is what
     `fl_backend/tests/api/test_schedule.py :: TestTheSeasonCarriesItsSchedule` holds it to.

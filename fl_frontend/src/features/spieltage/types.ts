@@ -11,7 +11,7 @@ import type { FLSaisonPhase } from "../saisons/schemas";
 import type { FLPostSpieltagPayload } from "./schemas";
 
 // `natural` is the derived order the backend applies and the default: the phase in bracket order,
-// then `beginn`, then `name` (ADR-0051). `anzahl_spiele` is not sortable — derived on read rather
+// then `beginn`, then `_id` (ADR-0051). `anzahl_spiele` is not sortable — derived on read rather
 // than stored, so no Mongo sort can reach it (ADR-0052).
 export type FLSpieltageSortingOptions = "natural" | "beginn" | "ende";
 
