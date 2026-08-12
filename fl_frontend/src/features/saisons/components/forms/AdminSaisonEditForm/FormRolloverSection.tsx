@@ -100,7 +100,7 @@ export function FormRolloverSection({
       <div className={`${panel.header()} relative`}>
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           {isAlreadyActive ? (
-            <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>
+            <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>
           ) : saisonStatus === "future" ? (
             <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>
           ) : (

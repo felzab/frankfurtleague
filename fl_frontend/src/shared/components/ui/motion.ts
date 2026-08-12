@@ -39,7 +39,7 @@ export const PAGE_RISE = "animate-in fade-in slide-in-from-bottom-4 duration-400
  *
  * **Two collections deliberately do not use it**, both because their items are positioned relative
  * to chrome that cannot animate with them: the playoff bracket, whose cards are joined by CSS
- * bracket lines, and `TeamDetailsView`'s timeline, whose cards hang off a dashed rule with an
+ * bracket lines, and `TeamSaisonSpieleTimeline`, whose cards hang off a dashed rule with an
  * absolutely-placed badge per row. Both take `PAGE_RISE` on the view instead.
  */
 export const CARDS_CASCADE = "cards-cascade";
