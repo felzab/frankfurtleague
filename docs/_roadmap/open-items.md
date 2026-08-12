@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `f11ac88`, 2026-08-12\
+**Verified against:** `b4cf3c9`, 2026-08-12\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
@@ -81,6 +81,7 @@ chosen by feel.
 | 18  | OPS-56 | The git stepper reads one `git`, on one line            | Ops         | S      | Open     | —          |
 | 19  | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops         | M      | Open     | —          |
 | 20  | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops         | S      | Open     | —          |
+| 21  | OPS-62 | A pin bump arms every page citing the workflow          | Ops, Docs   | S      | Open     | —          |
 
 **No entry in this file blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -987,3 +988,38 @@ resolves the alias, and it is already how `scripts/verify.sh` spells the pool's 
 `scripts/selfcheck.sh` builds its container bind. **Three files now reach for a Windows path from a
 POSIX-looking one; two do it correctly.** Worth considering whether the third should share a helper
 rather than a third spelling.
+
+### 21 · OPS-62 — A version pin bump arms every stamped page citing that workflow
+
+**Status:** Open**Surfaces:** Ops, Docs**Effort:** S**Path:** Independent. One classifier arm and a fixture pair; the ADR is the larger half.
+
+**`branch-impact` (CUR-4) fires on any change to a cited file, and a bot cannot answer it.** A
+Dependabot pull request bumping a pinned action changes a workflow, so every stamped page citing that
+workflow is asked to re-verify and restamp — work Dependabot has no way to do. Measured on
+2026-08-12 against PR #108, which moves `github/codeql-action` from `f205ea1c` to `5595ccaf` and
+touches nothing else: **two pages armed, `docs` exits 1, and no author of that change can clear it.**
+It recurs on the monthly schedule.
+
+**The pages cite the workflow for what it does, and name no commit.** A SHA moving with its version
+comment cannot invalidate a claim neither page makes, so the rule is asking a human to confirm
+something that did not change.
+
+**The repository already answers this shape.** ADR-0059 established that a restamp is not a material
+change, and `scripts/docs_gate/branch.py :: _material` already dispatches to two immateriality tests
+— `check_scope.py :: is_comment_only` for parseable source, and `:: _stamp_only_delta` for markdown.
+**A third sibling is the fix**: a delta where every changed line is a `uses:` pin whose action path is
+unchanged and whose version comment moves with the SHA.
+
+**Narrow it, or it is a hole rather than a carve-out.** The action path must be identical on both
+sides — a different action is a different thing — and one changed line that is not such a pin makes
+the whole delta material again. The fixture net needs both cases: a pin-only delta that is immaterial,
+and a pin-plus-one-line delta that is not.
+
+**Not a bot exemption, and the ADR should say why.** Deciding by author gets it wrong in both
+directions: a human making the identical bump is still blocked, and a bot making a substantive
+workflow change passes unchecked. **The question is what changed, not who changed it** — which is
+also what keeps a human's identical bump answerable by the same rule.
+
+**The residual risk, stated rather than hidden:** a major-version bump that alters behaviour a page
+describes while touching only the pin line. That is the same risk ADR-0059 already accepted, and it
+belongs to the review of the version bump rather than to a stamp on an unrelated page.
