@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `74b7df3`, 2026-08-12\
+**Verified against:** `29c2a3d`, 2026-08-12\
 **Purpose:** the German domain vocabulary — one entry per term, each giving what it is, where it lives, what catches people, and where the argument is written down.
 
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs.
