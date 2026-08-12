@@ -49,7 +49,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   filteredSpieler: AdminSpielerRow[];
   /** Which season the squad columns describe — the sidemenu selector's, resolved by the page. */
   selectedSaisonId: string;
-  /** Decides the status column's wording: a past season reads Abgeschlossen, a planned one Ausstehend. */
+  /** Decides the status column's wording: Laufend, Abgeschlossen or Geplant, the season's own three. */
   selectedSaisonStatus: "past" | "active" | "future";
   setDeletingSpieler: (spieler: AdminSpielerRow) => void;
 }) {
@@ -99,9 +99,12 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       )}
       {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
         <>
-          {selectedSaisonStatus === "active" && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>}
+          {/* The season's own vocabulary, not a separate one for this row (decided 2026-08-10). „Aktiv“
+              is `fl_frontend/src/features/spieler/facets.ts`'s word for „nicht stillgelegt“, a different
+              fact about a different subject; „Laufend“ leaves it to the filter. */}
+          {selectedSaisonStatus === "active" && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>}
           {selectedSaisonStatus === "past" && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>}
-          {selectedSaisonStatus === "future" && <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Ausstehend</span>}
+          {selectedSaisonStatus === "future" && <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>}
         </>
       )}
     </div>
