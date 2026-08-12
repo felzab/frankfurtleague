@@ -143,7 +143,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
       <div className="max-w-page mx-auto flex w-full flex-col gap-6 px-3 py-4 sm:p-8">
         <EmptyState
           title="Noch keine Finalrunden"
-          hint="Sobald die Spieltage der KO.-Runde angelegt sind, steht hier ihre Verweisstruktur."
+          hint="Sobald die Spieltage der KO-Runde angelegt sind, steht hier ihre Verweisstruktur."
         />
       </div>
     );
@@ -229,7 +229,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                     .map((spiel) => (
                       <Table.Row
                         key={spiel.id}
-                        className="border-border hover:bg-muted/40 border-b transition-colors last:border-0">
+                        className="border-border border-b last:border-0">
                         {/* The match number, which is what a `spiel` reference names — so the column
                             an admin reads a "Sieger 25." against is the column they look 25 up in
                             (ADR-0034). */}

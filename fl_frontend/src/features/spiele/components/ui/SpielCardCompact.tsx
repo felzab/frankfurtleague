@@ -16,6 +16,7 @@ import { CircleExclamation } from "@gravity-ui/icons";
 import { Button, Card } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
+import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
 import { formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
@@ -53,18 +54,26 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
             <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
           </div>
 
-          {/* The same details-modal affordance SpielCard has, sized to the slimmer row. `shrink-0`
-              because a tap target must keep its box whatever the row does around it. */}
+          {/* SpielCard's affordance and tooltip, sized to the slimmer row. The row's classes sit on
+              the span because the trigger div lands between them, and `shrink-0` so a tap target
+              keeps its box whatever the row does. */}
           {onOpenInfoModal && (
-            <Button
-              isIconOnly
-              aria-label={`Spielinfo Spiel Nr.${spielData.spiel_nr}`}
-              onPress={onOpenInfoModal}
-              size="sm"
-              variant="tertiary"
-              className="bg-muted text-foreground hover:bg-muted/80 ml-auto h-[32px] w-[32px] shrink-0 self-start p-0 transition-colors duration-200">
-              <CircleExclamation className="m-0 size-4" />
-            </Button>
+            <span className="ml-auto flex shrink-0 self-start">
+              <IconTooltip label="Spielinfo">
+                <Button
+                  isIconOnly
+                  aria-label={`Spielinfo Spiel Nr.${spielData.spiel_nr}`}
+                  onPress={onOpenInfoModal}
+                  size="sm"
+                  variant="tertiary"
+                  /* `flex` here and on the span, over HeroUI's `inline-flex`: the span and HeroUI's
+                     `inline-block` trigger each wrap this button, and a line box round an inline child
+                     leaves each wrapper's height to the font's metrics rather than to the control. */
+                  className="bg-muted text-foreground hover:bg-muted/80 flex h-[32px] w-[32px] p-0 transition-colors duration-200">
+                  <CircleExclamation className="m-0 size-4" />
+                </Button>
+              </IconTooltip>
+            </span>
           )}
         </div>
 
