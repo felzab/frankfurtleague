@@ -1,23 +1,23 @@
 # Closed items
 
-**Verified against:** `74b7df3`, 2026-08-12
+**Verified against:** `9f04f46`, 2026-08-12
 
-Every item that has left [`open-items.md`](open-items.md) has a row here. This is a log: nothing in
-it is waiting for anything, and a regression is a new item with a new ID rather than an edit to a
-row.
+Every item that has left a ranked page — [`open-items.md`](open-items.md) or
+[`tooling-items.md`](tooling-items.md) — has a row here. This is a log: nothing in it is waiting for
+anything, and a regression is a new item with a new ID rather than an edit to a row.
 
 **An ID is never reused**, and a new item takes the next free number in its prefix, retired IDs
 counted. A row is cited by its ID, and its position carries no meaning. What each column holds — and
 the rule that the row is a pointer while the closing commit's body is the record — is in
 [`protocol.md`](protocol.md#the-closed-row).
 
-**`OPS-8` is in neither roadmap file and nothing records what it was.** Nothing takes that number.
+**`OPS-8` is in no roadmap file and nothing records what it was.** Nothing takes that number.
 
 **Forty-seven rows carry an em dash where a closing commit should be**, and every one belongs to the
 `scripts/` and CI rebuild. Forty-six were triaged out rather than worked — thirty-seven on
 2026-08-12, and nine more by the independent review of that triage the same day — so there is no
 commit for a row to point at, and each of those rows carries what the entry was together with why it
-left. [`protocol.md`](protocol.md#3-closing-an-entry-two-commits-not-one) describes an entry that was
+left. [`protocol.md`](protocol.md#2-closing-an-entry-two-commits-not-one) describes an entry that was
 concluded, which none of the forty-six was. **`OPS-17` is the forty-seventh:** it was repaired on the
 rebuild branch itself rather than declined, and the repair and the removal ride in one pull request,
 so no earlier commit exists for its row to cite.

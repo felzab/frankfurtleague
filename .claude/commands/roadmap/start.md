@@ -4,22 +4,24 @@ description: Work one open item to a conclusion — /roadmap:start <ID>
 
 Work the item named by the arguments to a conclusion: `$ARGUMENTS`
 
-The **first token** is the item ID, taken from the index table in `docs/_roadmap/open-items.md`.
-Anything after it is context carried forward by the session that unblocked this item — sort it in
-step 1 before acting on any of it.
+The **first token** is the item ID, taken from the index table of the ranked page that holds it —
+`docs/_roadmap/open-items.md` or `docs/_roadmap/tooling-items.md`. Anything after it is context
+carried forward by the session that unblocked this item — sort it in step 1 before acting on any of
+it.
 
-**One item per session, and this command never starts another.** The tiers in
-`docs/_roadmap/open-items.md` are an ordering, not a batch: a session that opens several items builds
-the later fixes on decisions the earlier ones have not taken yet.
+**One item per session, and this command never starts another.** A ranked page is an ordering, not a
+batch: a session that opens several items builds the later fixes on decisions the earlier ones have
+not taken yet.
 
 ## Preconditions
 
-Read `docs/_roadmap/open-items.md`, `docs/_roadmap/closed-items.md` and `docs/_roadmap/protocol.md` in
-full, find the entry, and work down this table. **The first row that matches decides.**
+Read `docs/_roadmap/open-items.md`, `docs/_roadmap/tooling-items.md`, `docs/_roadmap/closed-items.md`
+and `docs/_roadmap/protocol.md` in full, find the entry, and work down this table. **The first row
+that matches decides.**
 
 | The item                                                            | Do                                                                                                                                |
 | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Is in neither roadmap file                                          | **Stop.** List the ids from the index table                                                                                       |
+| Is in no roadmap file                                               | **Stop.** List the ids from both ranked pages' index tables                                                                       |
 | Is a row in `docs/_roadmap/closed-items.md`                         | **Stop.** Report the row and its `Closed in` commit — that commit's body is the record. A regression opens a new id, not this one |
 | Carries `Status: Closed`                                            | The closing commit already landed. Run **only** the removal commit — step 5's commit 2, then step 6                               |
 | Carries `Status: Standing`                                          | **Stop.** Report the entry's own trigger and ask whether it has fired                                                             |
@@ -68,7 +70,7 @@ you are on a branch named for the change (CLAUDE.md §2).
    reduced version of it under the entry's name.
 
 5. **Conclude the item in two commits, never one** —
-   [Closing an entry](../../../docs/_roadmap/protocol.md#3-closing-an-entry-two-commits-not-one).
+   [Closing an entry](../../../docs/_roadmap/protocol.md#2-closing-an-entry-two-commits-not-one).
    Both go in **one pull request**.
 
    **Commit 1 — the closing commit.** The work itself, plus:
@@ -81,17 +83,16 @@ you are on a branch named for the change (CLAUDE.md §2).
      spec sheet (its `#` column), in an audit pass prompt under `docs/_auditing/prompts/`, in ADR
      bodies, and in source comments. A comment keeps the constraint and cites the ADR — INC-6 bans
      the roadmap id there.
-   - In `docs/_roadmap/open-items.md`: set the entry's `Status` to **Closed** in the index table and
-     in the entry itself, and add a short block naming what concluded it — the ADR numbers, and
-     where each finding that was _not_ a decision was rehomed. **The entry stays.**
+   - On the entry's ranked page: set the entry's `Status` to **Closed** in the index table and in
+     the entry itself, and add a short block naming what concluded it — the ADR numbers, and where
+     each finding that was _not_ a decision was rehomed. **The entry stays.**
 
-   **Commit 2 — the removal commit.** `docs/_roadmap/open-items.md` and
-   `docs/_roadmap/closed-items.md`, nothing else:
+   **Commit 2 — the removal commit.** The entry's ranked page and `docs/_roadmap/closed-items.md`,
+   nothing else:
 
    - **Delete the entry and its heading**, and delete its row from the index table.
-   - **Renumber the index table and every `### <rank> ·` heading together**, and rewrite each tier's
-     opening paragraph to describe the entries actually in it (`docs/_roadmap/protocol.md` §2).
-   - **Delete an emptied tier's section and its row in the file's navigation table.**
+   - **Renumber the index table and every `### <rank> ·` heading together**, leaving the page one
+     run from 1 with no gap (`docs/_roadmap/protocol.md` §1).
    - **Add one row to `docs/_roadmap/closed-items.md`**: the id, one past-tense line describing what
      the item was, surfaces, effort, what it depended on, and commit 1's short SHA linked to GitHub
      in `Closed in`. Never copy the entry's reasoning across — the row is a pointer and the commit
@@ -99,7 +100,7 @@ you are on a branch named for the change (CLAUDE.md §2).
    - **Insert any new entries the work produced**, each with its own `Status`.
    - **Fix every `Path` line that named the ID**, replacing the reference with the decision the item
      reached, stated as a fact.
-   - **Re-derive the `Status` of EVERY row**, by `docs/_roadmap/protocol.md` §4 — first match wins.
+   - **Re-derive the `Status` of EVERY row**, by `docs/_roadmap/protocol.md` §3 — first match wins.
      Read each row's `Status` and `Depends on` together: a row where they disagree is what this
      catches, and removing an entry silently changes rows nobody edited.
    - **Correct the `Depends on` column and the sentence under the table** that states what that
@@ -112,14 +113,14 @@ you are on a branch named for the change (CLAUDE.md §2).
 
 6. **Verify the close before handing over.** Every one of these holds:
 
-   | Check                                                       | How                                                                                                          |
-   | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-   | `Closed` survives nowhere                                   | `git grep -n "Closed" -- docs/_roadmap/open-items.md` returns only the status-vocabulary row that defines it |
-   | The ID has left the open file                               | `git grep -n "<ID>" -- docs/_roadmap/open-items.md` returns nothing                                          |
-   | The ID has exactly one closed row                           | `git grep -n "<ID>" -- docs/_roadmap/closed-items.md`                                                        |
-   | Ranks run from 1 with no gap, each heading matching its row | Read the index table against the `### <rank> ·` headings                                                     |
-   | Commit 2 names commit 1                                     | `git log -2`                                                                                                 |
-   | No reference to the ID is stale                             | `git grep -n "<ID>"` — every remaining hit is deliberate                                                     |
+   | Check                                                       | How                                                                                                                                            |
+   | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `Closed` survives nowhere                                   | `git grep -n "Closed" -- docs/_roadmap/open-items.md docs/_roadmap/tooling-items.md` returns nothing but the status vocabulary that defines it |
+   | The ID has left both ranked pages                           | `git grep -n "<ID>" -- docs/_roadmap/open-items.md docs/_roadmap/tooling-items.md` returns nothing                                             |
+   | The ID has exactly one closed row                           | `git grep -n "<ID>" -- docs/_roadmap/closed-items.md`                                                                                          |
+   | Ranks run from 1 with no gap, each heading matching its row | Read the index table against the `### <rank> ·` headings                                                                                       |
+   | Commit 2 names commit 1                                     | `git log -2`                                                                                                                                   |
+   | No reference to the ID is stale                             | `git grep -n "<ID>"` — every remaining hit is deliberate                                                                                       |
 
 7. **Hand over.** State the mode you were in, what was concluded, whether the entry was deleted or
    rewritten, and which other entries' `Path` lines changed.
@@ -153,7 +154,7 @@ you are on a branch named for the change (CLAUDE.md §2).
    - **Which of your own sentences are descriptions rather than decisions.** Step 1 asks the next
      session to sort them; you know which is which and it does not.
 
-   If nothing is unblocked, say which entries now sit at the top of the file instead.
+   If nothing is unblocked, say which entries now sit at the top of that page instead.
 
 ## Scope
 

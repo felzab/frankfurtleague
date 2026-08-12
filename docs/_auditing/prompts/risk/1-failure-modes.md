@@ -92,7 +92,8 @@ THE CHECKS, in priority order:
 
 4. **OUT-OF-SURFACE HAZARDS.** Register rows whose mechanism lives outside the surface this programme
    audits. List them separately with the owning surface named. These do not become ledger rows; they
-   go to `docs/_roadmap/open-items.md` so the next programme on that surface inherits them.
+   go to the roadmap — `docs/_roadmap/open-items.md` or `docs/_roadmap/tooling-items.md`, whichever
+   `docs/_roadmap/protocol.md` names — so the next programme on that surface inherits them.
 
 5. **CONTROL DURABILITY** — also written to `docs/audit/register.md`. For every register row whose
    existing control is not `nothing`: is that control enforced automatically, or does it depend on

@@ -33,7 +33,9 @@ documents.
 4. Harvest before deletion. Every still-open item — undecided questions, accepted deviations, `[!]`
    rows, guardrails not yet built, hazards still uncovered — moves somewhere that survives, **with
    its analysis intact**, and the destination depends on whether publishing it is safe:
-   - **Safe to publish** → `docs/_roadmap/open-items.md` (tracked) or the report's "Left open".
+   - **Safe to publish** → the tracked roadmap: `docs/_roadmap/open-items.md` or
+     `docs/_roadmap/tooling-items.md`, whichever `docs/_roadmap/protocol.md` names — or the report's
+     "Left open".
    - **Actionable by an attacker if published** → a private security advisory on this repository,
      the channel `SECURITY.md` names. The report gives the area and says it is tracked there,
      nothing more.
