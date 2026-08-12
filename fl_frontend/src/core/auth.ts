@@ -80,11 +80,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   // unthrottled entry point to the same email-send surface, on a URL the app never links to.
   pages: { signIn: "/signin", error: "/signin" },
 
-  // 8 hours, down from a 30-day sliding default, for an interface whose only purpose is mutating
-  // league data. The lifetime is not the only revocation: sign-out ends a session on demand, and the
+  // 48 hours, long enough to span a weekend of matchdays without a fresh sign-in mid-round, for an
+  // interface whose only purpose is mutating league data. Sign-out ends a session on demand, and the
   // `session` callback above re-derives `role` on every read.
   session: {
-    maxAge: 60 * 60 * 8, // 8h -- one working session
+    maxAge: 60 * 60 * 48,
     updateAge: 60 * 60, // refresh the DB row at most hourly
   },
 
