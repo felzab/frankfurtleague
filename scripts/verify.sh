@@ -173,10 +173,47 @@ fi
 if (( RUN_SCRIPTS )); then
   section scripts
 
+  # `quietly` prints the self-check's output only on failure, so a `skip` inside it reaches nobody
+  # on a green run, under a line reading as a pass — against the verb's own definition
+  # (`docs/ops/spec.md` §1.7).
+  FL_SELFCHECK_LEDGER="$(mktemp)"; export FL_SELFCHECK_LEDGER
+  SELFCHECK_SKIPS=0
+
+  # Required, never consulted: a self-check that stopped writing a ledger has gone quiet again, so
+  # this ends the run rather than reporting a scope it cannot describe.
+
+  # A broken ledger is this gate's own plumbing, never the change under test, so each fault below
+  # crashes rather than reporting a finding — `replay_scope`'s idiom, and the ending ADR-0066 gives
+  # an event nothing in the tree can fix.
+  replay_selfcheck() {
+    local verb message records=0 declared=""
+    [[ -r "$FL_SELFCHECK_LEDGER" ]] \
+      || on_error 3 "${LINENO}" "scripts/selfcheck.sh left no ledger, so what it did not run cannot be reported (scripts/selfcheck.sh :: _ledger)"
+    while IFS=$'\t' read -r verb message; do
+      case "$verb" in
+        skip) skip "$message"; SELFCHECK_SKIPS=$(( SELFCHECK_SKIPS + 1 )) ;;
+        warn) warn "$message" ;;
+        end)  declared="$message"; continue ;;
+        *)    on_error 3 "${LINENO}" "scripts/selfcheck.sh's ledger holds '${verb}', which is none of its verbs" ;;
+      esac
+      records=$(( records + 1 ))
+    done < "$FL_SELFCHECK_LEDGER"
+    # An absent count is a ledger with no closing line, which is the self-check having stopped
+    # writing one rather than having had nothing to report.
+    [[ "$declared" == "$records" ]] \
+      || on_error 3 "${LINENO}" "scripts/selfcheck.sh left ${records} ledger record(s) under a closing count of '${declared:-none}'"
+  }
+
   step "scripts · selfcheck"
   run_checker stop "scripts/selfcheck.sh" "scripts/selfcheck.sh failed — its findings are above." \
     bash scripts/selfcheck.sh
-  ok "scripts are internally consistent"
+  replay_selfcheck
+  # A scope proved in part may not close on the sentence that describes proving all of it.
+  if (( SELFCHECK_SKIPS )); then
+    ok "scripts are internally consistent, apart from the ${SELFCHECK_SKIPS} check(s) skipped above"
+  else
+    ok "scripts are internally consistent"
+  fi
 
   step "scripts · ruff  (lint, and format in check mode)"
   ( quietly "$PY" -m ruff check scripts && quietly "$PY" -m ruff format --check scripts ) \

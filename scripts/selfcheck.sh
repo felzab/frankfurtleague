@@ -8,6 +8,10 @@
 # check announces itself with a `step` title, so what runs is the run's own output rather than a copy
 # here that can disagree with it.
 #
+# What did not run reaches the gate as well as the screen: `verify.sh` captures this output and
+# prints it only on failure, so every `skip` and every advisory is recorded in the file
+# `$FL_SELFCHECK_LEDGER` names, for the gate to replay in its own voice.
+#
 #   ./scripts/selfcheck.sh
 #   ./scripts/selfcheck.sh --verbose     one check at a time, and every finding in full
 #   ./scripts/selfcheck.sh --help
@@ -59,6 +63,22 @@ trap cleanup EXIT
 
 FAILURES=0
 note_fail() { fail "$*"; FAILURES=$(( FAILURES + 1 )); }
+
+# `verify.sh` captures this script's output and prints it only when it fails, so a bare `skip` or
+# `warn` reaches nobody on the green run that most needs it. These record one for the gate to
+# replay, and step 14 keeps them the only route.
+
+# One record per line, so a newline inside a message is folded rather than read back as a record of
+# its own. Absent the variable there is no gate to answer, and a direct run has said it on screen.
+LEDGERED=0
+_ledger() { # $1 verb · $2 message
+  LEDGERED=$(( LEDGERED + 1 ))
+  if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then
+    printf '%s\t%s\n' "$1" "${2//$'\n'/ }" >> "$FL_SELFCHECK_LEDGER"
+  fi
+}
+note_skip() { skip "$*"; _ledger skip "$*"; }
+note_warn() { warn "$*"; _ledger warn "$*"; }
 
 # --- Running the independent checks concurrently -------------------------------------------------
 
@@ -133,7 +153,8 @@ par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per q
       case "$verb" in
         info) info "$msg" ;;
         fail) note_fail "$msg" ;;
-        skip) skip "$msg" ;;
+        skip) note_skip "$msg" ;;
+        warn) note_warn "$msg" ;;
         *)    note_fail "${PAR_LABELS[i]}: unreadable verdict line" ;;
       esac
     done < "$f"
@@ -155,6 +176,11 @@ par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per q
 # string inside a shell script.
 SHELLCHECK_VERSION="0.11.0"
 
+# Availability is decided here, not encoded in a status: shellcheck's own 2 means "a file could not
+# be read", so a numeric sentinel reports a real failure as an absent tool.
+shellcheck_available() { command -v shellcheck >/dev/null 2>&1 || docker version >/dev/null 2>&1; }
+actionlint_available() { command -v actionlint >/dev/null 2>&1 || docker version >/dev/null 2>&1; }
+
 run_shellcheck() {
   if command -v shellcheck >/dev/null 2>&1; then
     shellcheck -e SC1091 "$@"
@@ -162,12 +188,8 @@ run_shellcheck() {
   fi
   # No local binary: the pinned official image, which is how shellcheck is reachable on a Windows dev
   # machine. MSYS_NO_PATHCONV stops Git Bash rewriting the container path into a Windows one.
-  if docker version >/dev/null 2>&1; then
-    MSYS_NO_PATHCONV=1 docker run --rm -v "/${REPO_ROOT}:/mnt" -w /mnt \
-      "koalaman/shellcheck:v${SHELLCHECK_VERSION}" -e SC1091 "$@"
-    return
-  fi
-  return 2
+  MSYS_NO_PATHCONV=1 docker run --rm -v "/${REPO_ROOT}:/mnt" -w /mnt \
+    "koalaman/shellcheck:v${SHELLCHECK_VERSION}" -e SC1091 "$@"
 }
 
 run_actionlint() {
@@ -175,14 +197,10 @@ run_actionlint() {
     actionlint
     return
   fi
-  if docker version >/dev/null 2>&1; then
-    # 1.7.8 is the floor: earlier versions reject `using: node24`, which GitHub documents and
-    # supports. Nothing bumps this automatically — dependabot's github-actions ecosystem covers
-    # `uses:` references, and this is a `docker run`.
-    MSYS_NO_PATHCONV=1 docker run --rm -v "/${REPO_ROOT}:/repo" -w /repo rhysd/actionlint:1.7.12
-    return
-  fi
-  return 2
+  # 1.7.8 is the floor: earlier versions reject `using: node24`, which GitHub documents and
+  # supports. Nothing bumps this automatically — dependabot's github-actions ecosystem covers
+  # `uses:` references, and this is a `docker run`.
+  MSYS_NO_PATHCONV=1 docker run --rm -v "/${REPO_ROOT}:/repo" -w /repo rhysd/actionlint:1.7.12
 }
 
 # Both read files this run never writes, and each is the slowest thing in the step it belongs to, so
@@ -190,9 +208,19 @@ run_actionlint() {
 # instead of following them.
 SC_OUT="${SELFCHECK_TMP}/shellcheck.out"; SC_RC="${SELFCHECK_TMP}/shellcheck.rc"
 AL_OUT="${SELFCHECK_TMP}/actionlint.out"; AL_RC="${SELFCHECK_TMP}/actionlint.rc"
-( set +e; run_shellcheck "${SHELL_FILES[@]}" > "$SC_OUT" 2>&1; printf '%s' "$?" > "$SC_RC" ) &
+( set +e
+  if shellcheck_available; then
+    run_shellcheck "${SHELL_FILES[@]}" > "$SC_OUT" 2>&1; printf '%s' "$?" > "$SC_RC"
+  else
+    printf 'unavailable' > "$SC_RC"
+  fi ) &
 SC_PID=$!
-( set +e; run_actionlint > "$AL_OUT" 2>&1; printf '%s' "$?" > "$AL_RC" ) &
+( set +e
+  if actionlint_available; then
+    run_actionlint > "$AL_OUT" 2>&1; printf '%s' "$?" > "$AL_RC"
+  else
+    printf 'unavailable' > "$AL_RC"
+  fi ) &
 AL_PID=$!
 
 step "1. Syntax"
@@ -365,28 +393,48 @@ if [[ -s "$SC_RC" ]]; then sc_rc="$(cat "$SC_RC")"; else sc_rc="unfinished"; fi
 if command -v shellcheck >/dev/null 2>&1; then
   sc_have="$(shellcheck --version 2>/dev/null | awk '$1 == "version:" { print $2 }')"
   if [[ "$sc_have" != "$SHELLCHECK_VERSION" ]]; then
-    warn "shellcheck ${sc_have:-(unreadable version)} is on PATH but this gate pins ${SHELLCHECK_VERSION}, so a finding here need not reproduce elsewhere."
+    note_warn "shellcheck ${sc_have:-(unreadable version)} is on PATH but this gate pins ${SHELLCHECK_VERSION}, so a finding here need not reproduce elsewhere."
   fi
-elif [[ "$sc_rc" != "2" ]]; then
-  warn "no shellcheck on PATH, so this step ran the pinned image through Docker — about nine seconds instead of one.
+# Neutral detail rather than an advisory: the step ran and its verdict stands whole, and what this
+# reports is the minute it cost and how to get that minute back.
+elif [[ "$sc_rc" != "unavailable" ]]; then
+  info "no shellcheck on PATH, so this step ran the pinned image through Docker — about nine seconds instead of one.
 Install shellcheck once and it stops being the slowest thing here."
 fi
 case "$sc_rc" in
   0) info "no findings in any script" ;;
-  2) skip "unavailable (no local binary and no Docker)" ;;
+  # CI installs the pinned binary for this step, so an unavailable one there is that install gone
+  # rather than a machine without the tool — the assertion steps 12 and 13 make for python and node.
+  unavailable)
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+      note_fail "no shellcheck and no Docker, and this is CI, where the scripts job installs the pinned binary before this step"
+    else
+      note_skip "shellcheck did not run — no local binary and no Docker"
+    fi ;;
+  # Its own code for a file it could not open, which is not a verdict on any script: reported as
+  # findings a reader looks for a defect in the shell, and reported as a skip nobody looks at all.
+  2) note_fail "shellcheck could not read a file it was given, so the scripts were not all linted:"
+     excerpt 40 < "$SC_OUT" ;;
   unfinished) note_fail "shellcheck left no exit status behind, so it did not run to completion" ;;
   *) note_fail "shellcheck reported findings:"; excerpt 40 < "$SC_OUT" ;;
 esac
 
 step "11. actionlint on the workflows"
 # actionlint validates a workflow's expressions, job graph, action inputs and embedded shell — the
-# class of bug that otherwise surfaces on the first live run. The availability ladder check 10 uses:
-# local binary, else the pinned Docker image, else skip.
+# class of bug that otherwise surfaces on the first live run. It takes check 10's ladder: local
+# binary, else the pinned Docker image, else the arm below.
 wait "$AL_PID" 2>/dev/null || true
 if [[ -s "$AL_RC" ]]; then al_rc="$(cat "$AL_RC")"; else al_rc="unfinished"; fi
 case "$al_rc" in
   0) info "no findings in any workflow" ;;
-  2) skip "unavailable (no local binary and no Docker)" ;;
+  # Nothing installs actionlint in CI: what carries this step there is the runner's own daemon, so
+  # an unavailable one names a runner that answers `docker version` no more.
+  unavailable)
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+      note_fail "no actionlint and no Docker, and this is CI, where the runner's daemon is what runs the pinned image"
+    else
+      note_skip "actionlint did not run — no local binary and no Docker"
+    fi ;;
   unfinished) note_fail "actionlint left no exit status behind, so it did not run to completion" ;;
   *) note_fail "actionlint reported findings:"; excerpt 40 < "$AL_OUT" ;;
 esac
@@ -406,8 +454,8 @@ CLASSIFIER="$(any_python || true)"
 CLASSIFIER_FLOOR=0
 if [[ -n "$CLASSIFIER" ]]; then
   # `any_python` answers whether an interpreter exists; the question is whether it can host the
-  # checkers. Asked of the kernel, so one file owns the floor: only its own refusal is too old, and
-  # any other failure leaves the classifier to answer.
+  # checkers. Asked of the kernel, so one file owns the floor, and read back below as the status its
+  # import-time guard raises rather than as any other failure.
   quietly "$CLASSIFIER" -c "import sys; sys.path.insert(0, 'scripts'); import checker_kernel" \
     || CLASSIFIER_FLOOR=$?
 fi
@@ -416,13 +464,16 @@ if [[ -z "$CLASSIFIER" ]]; then
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
     note_fail "no python here, and this is CI, where the venv is installed for this check to run"
   else
-    skip "no python found, so the classifier was not exercised"
+    note_skip "no python found, so the classifier was not exercised"
   fi
-elif (( CLASSIFIER_FLOOR == 2 )); then
+# 3 is `checker_kernel.py :: EXIT_CRASH`, which its import-time floor guard raises. A stale literal
+# here stops matching, and the fixtures then run on an interpreter that cannot host them —
+# reporting a broken classifier where an old python is the story.
+elif (( CLASSIFIER_FLOOR == 3 )); then
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
     note_fail "this python is below the checkers' floor, and this is CI, where the venv is installed to clear it"
   else
-    skip "this python is below the checkers' floor, so the classifier was not exercised"
+    note_skip "this python is below the checkers' floor, so the classifier was not exercised"
   fi
 else
   rm -rf "${FIXTURES:?}"; mkdir -p "$FIXTURES"
@@ -508,7 +559,7 @@ if ! command -v node >/dev/null 2>&1; then
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
     note_fail "node is absent, and this is CI, which installs it so these probes can run"
   else
-    skip "node not found (without node the hooks deny by contract, and there is nothing to probe)"
+    note_skip "the hook probes did not run — node is absent, and without it the hooks deny by contract"
   fi
 else
   HOOKS_DIR="${REPO_ROOT}/.claude/hooks"
@@ -920,6 +971,30 @@ else
   expect_silent "rules hook: comment-free source"   "$(probe_rules "$(rules_src_payload "${sid}-b" "${rules_root}/fl_frontend/src/probe.ts")")"
   expect_silent "rules hook: path outside the repo" "$(probe_rules "$(rules_md_payload "${sid}-c" "${rules_root}/../outside.md")")"
   rm -f "$(node -e 'process.stdout.write(require("os").tmpdir())')"/claude-docs-rules-index-"${sid}"* 2>/dev/null || true
+fi
+
+step "14. Every deliberate non-run reaches the gate"
+# The gate prints this script's output only when it fails, so a `skip` or a `warn` called directly
+# announces its shortfall to nobody on a green run. This keeps a new call off that route:
+# `note_skip` and `note_warn` write the ledger the gate replays.
+
+# Any message shape, not a quoted one alone, so `skip bareword` is caught too. That reaches prose
+# using the word, which the first exclusion drops; the second exempts the definitions themselves,
+# by the names they open with.
+stray="$(grep -nE '(^|[^_[:alnum:]])(skip|warn)[[:space:]]+[^[:space:]]' scripts/selfcheck.sh \
+  | grep -vE '^[0-9]+:[[:space:]]*#' \
+  | grep -vE '^[0-9]+:(note_skip|note_warn)\(\)' || true)"
+if [[ -n "$stray" ]]; then
+  note_fail "these lines announce a shortfall the gate cannot see — call note_skip or note_warn instead:"
+  printf '%s\n' "$stray" | excerpt 5
+else
+  info "every deliberate non-run here is written to the ledger verify.sh replays"
+fi
+
+# The closing record, and the only thing that tells a run with nothing to report from one that
+# stopped reporting: `verify.sh` requires it and stops the gate where it is absent.
+if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then
+  printf 'end\t%s\n' "$LEDGERED" >> "$FL_SELFCHECK_LEDGER"
 fi
 
 printf '\n'
