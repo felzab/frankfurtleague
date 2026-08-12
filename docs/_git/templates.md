@@ -1,6 +1,6 @@
 # Git — templates
 
-**Verified against:** `3ab1688`, 2026-08-10\
+**Verified against:** `0a21c75`, 2026-08-11\
 **Scope:** copy-paste forms for commit messages and pull request bodies
 
 | Section                             | Answers                                                           |
@@ -36,23 +36,26 @@ Name what could not be verified, and why.>
 Two related changes may share one subject, joined by `, and`. **Never "correct" a declarative
 subject to the imperative** ([`spec.md`](spec.md) §1.3).
 
-Three narrower scopes carry the changes those five do not describe, and a wave of an audit
+Narrower scopes carry the changes the form's subject line does not name, and a wave of an audit
 programme in progress leads with its own name (`Wave 6`):
 
-| Scope      | Used for                                  |
-| ---------- | ----------------------------------------- |
-| `Ops`      | deployment, images, nginx                 |
-| `CI`       | `.github/workflows/`                      |
-| `Database` | the data itself, or the constraints on it |
+| Scope           | Used for                                           |
+| --------------- | -------------------------------------------------- |
+| `Ops`           | deployment, images, nginx                          |
+| `CI`            | `.github/workflows/`                               |
+| `Database`      | the data itself, or the constraints on it          |
+| `Frontend deps` | a manifest or lockfile change under `fl_frontend/` |
+| `Backend deps`  | a manifest or lockfile change under `fl_backend/`  |
 
 Dependabot writes to the same shape, leading with whichever prefix `.github/dependabot.yml` gives
-the update entry. `scripts/check_commits.py :: KNOWN_SCOPES` is the recorded vocabulary, those
-prefixes and the scopes above together.
+the update entry. It shares the dependency scopes above with a person; its base-image prefixes are
+its alone, an image bump made by hand being `Ops`. `scripts/check_commits.py :: KNOWN_SCOPES` is the
+recorded vocabulary, those prefixes and the scopes above together.
 
 `scripts/check_commits.py` refuses a `Co-authored-by` or a `Signed-off-by` trailer
-(`scripts/check_commits.py :: BANNED`), a subject past 100 characters, and a body line past 100
-characters — unless that line is one unbroken token or carries a long URL, which wrapping would
-break (`scripts/check_commits.py :: UNWRAPPABLE`).
+(`scripts/check_commits.py :: BANNED`), and a subject or a body line past the hard maximum
+(`scripts/check_commits.py :: LINE_MAX`) — unless that line is one unbroken token or carries a long
+URL, which wrapping would break (`scripts/check_commits.py :: UNWRAPPABLE`).
 
 A commit Dependabot wrote — matched on an exact author identity
 (`scripts/check_commits.py :: BOT_IDENTITIES`), never a substring — is released from the sign-off

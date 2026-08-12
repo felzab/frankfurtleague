@@ -1,6 +1,6 @@
 # Git — spec
 
-**Verified against:** `3ab1688`, 2026-08-10\
+**Verified against:** `0a21c75`, 2026-08-12\
 **Scope:** branching, commits, pull requests, the verification gate, and the GitHub settings that enforce them
 
 | Section                                                | Answers                                                                    |
@@ -74,11 +74,11 @@ Four things a body carries that the diff cannot:
 - **where a prior assumption turned out to be wrong**
 - **the rejected alternative**, where there was one
 
-No issue-closing keywords, no emoji, no trailers — except the sign-off Dependabot's generator always
-writes, which the checker releases on an exact author identity
-(`scripts/check_commits.py :: BOT_IDENTITIES`, and [`templates.md`](templates.md) for what else that
-identity releases there). Work is never signed as AI-generated, which overrides any tool default
-appending a `Co-Authored-By` line.
+No issue-closing keywords, no emoji, no trailers — except a closing paragraph that is sign-offs and
+nothing else, which is what Dependabot's generator always writes and the only trailer form the
+checker releases, on an exact author identity (`scripts/check_commits.py :: BOT_IDENTITIES`, and
+[`templates.md`](templates.md) for what else that identity releases there). Work is never signed as
+AI-generated, which overrides any tool default appending a `Co-Authored-By` line.
 
 **None of that rests on memory.** `scripts/check_commits.py` refuses a malformed message as a
 `commit-msg` hook when you write it, in the `--docs` gate scope before you push, and in CI on every
@@ -149,18 +149,19 @@ at anything under it from a body.
 ./scripts/verify.sh
 ```
 
-Scopes run in cheapest-to-fail order. A bare invocation runs everything; scope flags name surfaces
-and combine. The scope table, what each scope runs and what it needs, the diff check that refuses an
-undersized scope and the CI job mapping are all in [`../ops/spec.md`](../ops/spec.md), which owns
-`scripts/`.
+Scopes run concurrently, and `verify.sh` replays their output in cheapest-to-fail order, so a parallel
+run reads as a serial one. A bare invocation runs everything; scope flags name surfaces and combine.
+The scope table, what each scope runs and what it needs, the `--serial` oracle that ordering is
+measured against, the diff check that refuses an undersized scope and the CI job mapping are all in
+[`../ops/spec.md`](../ops/spec.md) §1.6, which owns `scripts/`.
 
-> **`pnpm format` covers the whole repository.** It runs prettier over the repository root, and what
-> stays out is decided by exactly two ignore files — `.prettierignore` at the root and
-> `fl_frontend/.prettierignore`. There is no path list to keep in step, so moving, renaming or adding a
-> file cannot make the formatter fail on a path that is not there. **Verify with a gate run whose scope
-> includes the formatter — `./scripts/verify.sh --quick` or `--frontend` — never with a hand-written
-> `prettier` command**, which covers the paths you happen to remember. In CI the `format` job runs the
-> check for changes outside `fl_frontend`.
+> **`pnpm format` covers the whole repository.** It runs prettier over the repository root under the
+> root `.prettierrc.json`, and what stays out is decided by one ignore file, `.prettierignore` beside
+> it. There is no path list to keep in step, so moving, renaming or adding a file cannot make the
+> formatter fail on a path that is not there. **Verify with a gate run whose scope includes the
+> formatter — `./scripts/verify.sh --format`, or any run that implies it, such as `--frontend` or
+> `--quick` — never with a hand-written `prettier` command**, which covers the paths you happen to
+> remember. In CI the `format` job runs the check for changes outside `fl_frontend`.
 
 > **When bumping an action, resolve the version to a commit SHA and pin that, never the tag.**
 > `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` names the object the tag points at. Where that
@@ -192,6 +193,7 @@ ruleset targeting the default branch, enforcement **Active**.
 | Block force pushes                    | on                                                                     | Rules → Rulesets             |
 | Require a pull request before merging | on, required approvals **`0`**                                         | Rules → Rulesets             |
 | Require status checks to pass         | on — **`verify`**, **`backend-db`**, **`pr-body`**                     | Rules → Rulesets             |
+| Require branches up to date to merge  | **off** — read 2026-08-11                                              | Rules → Rulesets             |
 | Require linear history                | **off**                                                                | Rules → Rulesets             |
 | Bypass list                           | **empty**                                                              | Rules → Rulesets             |
 | Actions permissions                   | GitHub-authored, plus `pnpm/action-setup@*` and `astral-sh/setup-uv@*` | Actions → General            |
@@ -216,6 +218,12 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   [ADR-0029](../_decisions/0029-a-pull-request-body-summarises-the-branch.md) and is its own workflow
   because it listens for `edited` — subscribing `verify.yml` to that event would rebuild both images
   every time a description gained a comma.
+- **"Require branches up to date to merge" stays off**
+  (`strict_required_status_checks_policy`, read through
+  `gh api repos/<owner>/<repo>/rules/branches/main`). A required check therefore passes against a
+  commit that predates `main`'s tip, so a green run proves the branch rather than the merge result.
+  Turning it on forces every open pull request to re-run after each base move, which the `images`
+  job makes expensive.
 - **An action living in this repository needs no allowlist entry** — every action under
   `.github/actions/` is read from the checkout
   ([ADR-0031](../_decisions/0031-the-image-cache-is-the-actions-cache-service.md)).
