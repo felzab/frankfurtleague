@@ -28,8 +28,8 @@ COMPOSE="docker-compose.yml"
 ENGINE_MIN=25
 
 # One shape for a published tag: it validates what the operator types, and decides whether a label
-# read off a running image is safe to print as a command. Both dirty forms are accepted because tags
-# in the registry carry them.
+# read off a running image is safe to print as a command. The fingerprint is optional so an older
+# image's label still names a rollback target.
 PIN_RE='^sha-[0-9a-f]{7,40}(-dirty(-[0-9a-f]{7})?)?$'
 
 PIN=""; STATUS_ONLY=0
