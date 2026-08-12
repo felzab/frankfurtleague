@@ -40,8 +40,8 @@ export function IconTooltip({
           `Tooltip.Trigger` renders `<div role="button">` and runs react-aria's `useFocusable`, which
           hands it `tabIndex: 0` unconditionally (HeroUI 3.2.2, `tooltip.js`). Every child here is
           already an interactive, labelled control, so the wrapper was adding a SECOND tab stop with
-          no accessible name in front of each one — eight stops for the four actions in an admin
-          table row — and `role="button"` around an `<a>`/`<button>` is nested interactive content.
+          no accessible name in front of each one — doubling the tab stops in an admin table's
+          action cluster — and `role="button"` around an `<a>`/`<button>` is nested interactive content.
           `props` is spread after `mergeProps(focusableProps, props)`, so these two win.
           The tooltip still opens on hover and on focus: React's synthetic focus events bubble, so
           the wrapper sees the inner control being focused. */}
@@ -50,9 +50,12 @@ export function IconTooltip({
         role="presentation">
         {children}
       </Tooltip.Trigger>
+      {/* HeroUI's `break-all` splits a word mid-token, wrong for prose. `[word-break:normal]` and
+          `wrap-break-word` write one property each, so no reorder decides between them.
+          `text-balance` evens the rest, and not every browserslist target supports it. */}
       <Tooltip.Content
         placement={placement}
-        className={`bg-surface border-border fluid-xs rounded-md border px-2.5 py-1 shadow-lg ${tone === "danger" ? "text-danger" : "text-foreground"}`}>
+        className={`bg-surface border-border fluid-xs rounded-md border px-2.5 py-1 text-balance wrap-break-word [word-break:normal] shadow-lg ${tone === "danger" ? "text-danger" : "text-foreground"}`}>
         {label}
       </Tooltip.Content>
     </Tooltip>
