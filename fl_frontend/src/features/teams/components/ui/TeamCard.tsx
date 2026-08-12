@@ -1,5 +1,6 @@
 import { Card, Chip } from "@heroui/react";
 
+import { PILL_RADIUS } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 
 import type { FLTeam } from "../../schemas";
@@ -19,7 +20,7 @@ import type { FLTeam } from "../../schemas";
  * HeroUI's `--success-soft-foreground` is a `color-mix` against ITS foreground token and has never
  * been measured against this app's surfaces.
  */
-const STAT_CHIP_CLASSES = "bg-success/15 text-success-strong";
+const STAT_CHIP_CLASSES = `${PILL_RADIUS} bg-success/15 text-success-strong`;
 
 /** `value` rather than a precomputed number so the three rows stay one declaration each. */
 const STAT_CHIPS: { label: string; value: (team: FLTeam) => number }[] = [

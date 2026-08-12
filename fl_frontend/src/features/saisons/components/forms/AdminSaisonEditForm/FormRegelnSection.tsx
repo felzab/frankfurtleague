@@ -68,7 +68,7 @@ export function FormRegelnSection({
                 <strong>Gruppen und Teams pro Gruppe</strong> begrenzen, wohin ein Team aufgenommen werden kann.
               </li>
               <li>
-                <strong>Qualifikanten</strong> ist die Zahl pro Gruppe, die die KO.-Runde erreicht.
+                <strong>Qualifikanten</strong> ist die Zahl pro Gruppe, die die KO-Runde erreicht.
               </li>
               <li>
                 <strong>Stufen</strong> begrenzen nur die Auswahl in Formularen. Bestehende Kadereinträge bleiben, wie sie sind.

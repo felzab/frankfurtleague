@@ -11,6 +11,38 @@ import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { Key } from "@heroui/react";
 
 /**
+ * One level's chip. A chosen level takes the brand fill under its paired foreground, an unchosen one a
+ * transparent background behind the app's ordinary border — the same filled-against-outlined pair
+ * `formButtons.ts :: formButton` gives `submit` and `cancel` (decided 2026-08-12). Both states are the same
+ * box — same border width, same height, same radius — so picking a level moves nothing in the row.
+ *
+ * **The unchosen label recedes rather than taking `cancel`'s `text-foreground`.** The fill is the weaker
+ * signal in the dark theme — `globals.css` measures this maroon at 1.88:1 on that theme's `--bg-surface`,
+ * where `--fg-muted` and `--fg-on-brand` stand 2.52:1 apart — so the label carries the difference there.
+ * Colour is not the only carrier either way — one state has a fill the other has not — and react-aria puts
+ * the same distinction on the button as `aria-pressed`.
+ *
+ * **Neither state changes under hover or press, and a `data-hovered:` variant does not belong here** — a
+ * hover fill would be a third appearance competing with both. HeroUI's own hover and press fills are
+ * `@layer components` and these classes are utilities, and `globals.css` declares utilities last, so each
+ * state's resting background is the whole of what suppresses them.
+ *
+ * **A selected chip's FOCUS RING takes the fill's paired foreground rather than `--focus`** (WCAG 1.4.11):
+ * HeroUI pins this group's ring INSET with a zero offset, so the ring is judged against the maroon it sits
+ * on rather than against the surface, and `--focus` fails that in the light theme, where it is near-black.
+ * `globals.css` records that departure, and the condition that produced it, where `--focus` is declared.
+ * The selected chip keeps its border for the geometry above and an inset ring is drawn within it, so a
+ * focused selected chip reads fill, ring, a hairline of fill again, then the surface behind.
+ *
+ * Used once, here. A second picker wanting this appearance is when it earns a shared constant.
+ */
+const STUFE_CHIP =
+  "border-border bg-transparent text-foreground-muted " +
+  "data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground " +
+  "data-[selected=true]:ring-brand-solid-foreground " +
+  "fluid-xs h-9 min-w-16 rounded-lg border px-3 font-extrabold tracking-wide transition-colors";
+
+/**
  * Which of the league's six school levels a season runs — `rules.erlaubte_stufen`.
  *
  * **A segmented group rather than a multi-select, and the reason is the question it answers.** Six
@@ -64,7 +96,7 @@ export function StufenPicker({
           <ToggleButton
             key={stufe}
             id={stufe}
-            className="fluid-xs h-9 min-w-14 font-extrabold tracking-wide">
+            className={STUFE_CHIP}>
             {stufe}
           </ToggleButton>
         ))}

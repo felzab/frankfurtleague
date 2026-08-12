@@ -127,14 +127,32 @@
     /* Accents & Feedback */
     --accent-brand: #82181a;
 
-    /* THE focus colour, and there is only one (decided 2026-07-31).
-       HeroUI reads --focus for all 47 of its focus rings, and the base-layer rule further down gives
-       plain <a>/<button> an identical outline, so this single line is the whole focus palette.
+    /* THE focus colour, and the condition under which a control departs from it (decided 2026-07-31).
+       HeroUI reads --focus for its focus rings, and the base-layer rule further down gives plain
+       <a>/<button> an identical outline. A control whose focus ring sits INSET on its own fill -- no
+       offset, so it cannot be judged against the surface behind -- recolours that ring where the fill
+       fails WCAG 1.4.11 against --focus, and every such departure is recorded here: `StufenPicker.tsx
+       :: STUFE_CHIP` does it on the SELECTED chip, where --fg-base is near-black and measures 1.97:1
+       on the maroon, and 3:1 is the floor.
+       INSET is the whole of the condition rather than a detail of it. Every other ring this app draws
+       stands 2px clear of the fill -- the base rule's outline-offset below, and HeroUI's `focus-ring`
+       resolving --tw-ring-offset-width to the theme's own 2px -- so the SURFACE behind it, not the
+       fill, is the adjacent colour it answers to; `toggle-button-group.css` is the one file in the
+       package that overrides that to 0px plus `ring-inset`. Recolouring a `bg-brand-solid` or
+       `bg-danger-solid` control that keeps the ordinary offset would therefore CAUSE the failure this
+       rule exists to prevent: --fg-on-brand measures 1.09:1 on the light theme's --bg-surface.
+       One app indicator departs from that OFFSET while keeping this colour, and is recorded here for
+       the same reason: the clear controls inside the two segmented fields, inset because their group
+       clips an outward outline (the exceptions block further down). They carry no fill of their own,
+       so the surface behind them is still what --focus answers to, and the recolouring condition
+       above does not reach them.
+       The condition is written out because it EXTENDS --fg-on-brand's pairing rule, which governs
+       text, to a non-text indicator -- it is not that pairing applied.
        --fg-base, not --accent-brand: it is white in the dark theme -- the chosen look --
        and near-black in the light theme, where white would be invisible on --bg-base. Both read as
        "the standard focus outline", which is the point.
-       Field-like controls and collection options opt out; both exceptions are declared once, in the
-       unlayered block near the bottom of this file. */
+       A control that opts out of the indicator altogether is declared unlayered further down this
+       file, so nothing in a layer can put it back. */
     --focus: var(--fg-base);
     /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 10:1 in both themes --
        while --accent-brand does, for foreground use on dark surfaces. */
@@ -252,10 +270,11 @@
   }
 
   /* The focus indicator for everything HeroUI does not already style.
-     HeroUI covers its own components -- button, link, tab, accordion trigger, menu item, table row,
-     switch and 30-odd more -- with a 2px ring in var(--focus) at a 2px offset. This gives a plain
-     <a>, <button> or [tabindex] an outline with the same width, offset and colour, so the app has
-     ONE focus appearance rather than three (decided 2026-07-31).
+     HeroUI rings its own components through `focus-ring`, which resolves --tw-ring-offset-width to
+     the theme's 2px and the colour to var(--focus). This gives a plain <a>, <button> or [tabindex]
+     an outline with the same width, offset and colour, so the app has ONE focus appearance rather
+     than three (decided 2026-07-31). The rings that do NOT take that offset or that colour are
+     recorded at the --focus declaration above, with the condition that bounds them.
 
      Why it beats the browser's own focus ring: any author style does.
 
@@ -557,10 +576,19 @@ html:has([data-app-shell]) {
   background-size: 32px 32px;
 }
 
-/* THE two focus exceptions, and they are the only ones (decided 2026-07-31).
+/* Three CATEGORIES of control that take no focus indicator of their own, and what each says
+   instead (decided 2026-07-31; the third arrived 2026-08-06 and took its carve-out 2026-08-12).
 
-   Everything else in the app takes the one focus indicator declared in @layer base: HeroUI's ring
-   and the matching outline, both in var(--focus). These two categories must not.
+   The app's one focus indicator is declared in @layer base: HeroUI's ring and the matching outline.
+   A control leaves it behind only where the indicator fires on focus that was not a keyboard user's
+   own navigation -- a plain pointer press, or a focus the library moved -- AND the control can say
+   "focused" another way, which is why each category below is stated with its substitute. A `Switch`
+   makes the same trade in its own rule further down, where the rest of its styling lives.
+
+   That ring's colour is var(--focus) unless the ring sits INSET on the control's own fill and that
+   fill fails WCAG 1.4.11 against it, in which case it recolours the ring it keeps --
+   `StufenPicker.tsx :: STUFE_CHIP` on a selected chip. The --focus declaration above is where every
+   such departure is recorded, together with the offset condition that bounds the set to one.
 
    1. FIELD-SHAPED CONTROLS -- anything you type a value into. A text input matches :focus-visible on
       a plain mouse click (the CSS selectors spec makes that exception for elements that take text
@@ -574,9 +602,17 @@ html:has([data-app-shell]) {
       option is conveyed by a background highlight, which is what every native picker does; the
       composite widget's own border already shows where focus is.
 
+   3. BUTTONS INSIDE A FIELD GROUP -- an indicator, a stepper, a picker's trigger, a clear control.
+      The group's border has already turned brand by the time any of them takes focus, so an outline
+      around a control inside it says the same thing a second time. Scoped by POSITION rather than by
+      slot, because the members this repository writes carry none. That border is the substitute,
+      and it identifies a member only while the member is its group's ONLY tab stop, or draws a ring
+      of its own, or is out of the tab order -- true of every member but the two clear controls,
+      whose carve-out is declared with the rule below.
+
    Deliberately unlayered: unlayered rules outrank every @layer, including HeroUI's `components` and
    Tailwind's `utilities`, so neither a library default nor a stray per-site class can reintroduce a
-   ring. That also means this is the ONE place either rule can be changed -- which is the point. */
+   ring. That also means this is the ONE place any of them can be changed -- which is the point. */
 /* iOS Safari zooms the whole page into any focused control whose computed font-size is under
    16px, and several field styles resolve below that on a phone (`fluid-sm` bottoms out around
    14px). The cure is the control's font-size, never `maximum-scale` in the viewport tag — that
@@ -650,10 +686,37 @@ html:has([data-app-shell]) {
      Scoped to every inner button rather than to the indicator slots alone, because the two clear
      controls on Spieldatum and Anpfiff are plain `<button>`s carrying no HeroUI slot at all: the
      slot-suffix selector matched the chevron beside them and missed them, so completing a time lit a
-     white box around the control that had just appeared. Position, not markup, is what decides this
-     — anything focusable inside a field group is inside a control that already says it is focused. */
+     white box around the control that had just appeared. Position still decides it after the
+     carve-out below takes those two back: `Autocomplete.Indicator` wraps its chevron in a react-aria
+     `Button` carrying neither slot nor class, and that button is the autocomplete's real trigger, so
+     a slot-scoped selector would box the chevron of a field whose border is already brand. What the
+     border says is that focus is in there, which is all a container's indicator can say. */
   & button:focus-visible {
     outline: none;
+  }
+
+  /* Two members need more than that, and `FormDateTimeSection.tsx :: ClearFieldButton` is both of
+     them — Spieldatum and Anpfiff. Each sits in a group holding SEVERAL tab stops, since every date
+     and time segment is one, so the border was already brand when focus arrived from the segment
+     beside it and tabbing onto the clear control changed nothing on screen. The segments carry their
+     own focus fill and `.date-picker__trigger` its own ring, which left these two the only stops in
+     either group with nothing to be told apart by (WCAG 2.4.7).
+
+     INSET rather than the 2px clear the app gives everything else, and the reason is the group, not
+     the button: `.date-input-group` is `overflow-hidden`, and the Anpfiff control sits flush against
+     its padding edge with the Spieldatum one hard against the calendar trigger, so an outward
+     outline is clipped on one and collides on the other. The width and the colour are unchanged, and
+     the button carries no fill, so var(--focus) still answers to the surface behind it — 18.2:1 on
+     the light theme's --bg-surface and 18.7:1 on the dark one. Recorded at the --focus declaration
+     above, which is where an indicator departing from the standard offset or colour is listed.
+
+     THREE pixels rather than two, because the Anpfiff button's trailing edge IS the group's inner
+     border edge: the inset is the whole of the separation between this outline and the brand border
+     around it, and at 2px the two read as touching. The cost is the corner — an outline's radius is
+     the element's less the inset, so `rounded-md` leaves 3px here. */
+  & button[data-field-clear="true"]:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -3px;
   }
 }
 
@@ -720,7 +783,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   content: none;
 }
 
-/* The theme switch. HeroUI rings `.switch__control` off the Switch root's focus state, and that ring
+/* Every HeroUI `Switch`. It rings `.switch__control` off the Switch root's focus state, and that ring
    fired on a plain mouse press — react-aria's focus-visible modality is global, so a press that
    follows any earlier key press counts as keyboard focus. Rather than chase the modality, the switch
    opts out of rings entirely and speaks the same language every field-shaped control in this app
@@ -904,6 +967,19 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     @apply border-b-0!;
   }
 
+  /* HeroUI's `secondary` variant fills a row's CELLS on hover with `bg-default/50`, and `--default`
+     is not this app's `--bg-surface`, so unlike the base variant's `bg-surface/40` it paints visibly
+     over the card underneath. No secondary table gives a row an action for it to advertise:
+     `AdminBracketWiringView`'s edit link and `SaisontabelleView`'s team popover each sit inside a
+     cell, and `TeamSpielerView`'s rows carry no control at all — so the library default goes and each
+     table's own hover class, which is a per-table call, is left alone. Vendored selector,
+     `@heroui/styles` 3.2.3 `table.css`: it is the same block that gives a secondary row its
+     separator, so re-read it on a HeroUI upgrade. */
+  .table-root--secondary .table__row:hover .table__cell,
+  .table-root--secondary .table__row[data-hovered="true"] .table__cell {
+    background-color: transparent;
+  }
+
   /* THE TOAST — and this block is deliberately small, because most of a toast is not styled here.
    *
    * `AppToaster` supplies `Toast.Provider`'s `children` render function, so the tile, the text
@@ -1065,7 +1141,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    *
    * Two collections are deliberate exceptions, both because their cards are positioned against
    * chrome that does not animate with them: the playoff bracket (CSS bracket lines) and
-   * `TeamDetailsView`'s timeline (a dashed rule with an absolutely-placed badge per row).
+   * `TeamSaisonSpieleTimeline` (a dashed rule with an absolutely-placed badge per row).
    *
    * `[role="listitem"]`, not a child combinator: `SpielCardsList` wraps its cards in a
    * `display: contents` div, which removes the box but NOT the DOM node, so `>` would match the

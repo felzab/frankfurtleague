@@ -37,7 +37,10 @@ export default function AdminSpieltagePage(props: NextPageProps) {
           <CreateSpieltagModalLoader searchParams={props.searchParams} />
         </Suspense>
       }>
-      <Suspense fallback={<AdminCrudFallback />}>
+      {/* `sections`, because this is the one admin list that is not a table at any width: it arrives
+          as phase-headed groups of cards (ADR-0050), and the table shape would reserve the wrong box
+          on every viewport rather than on one side of a breakpoint. */}
+      <Suspense fallback={<AdminCrudFallback shape="sections" />}>
         <SpieltageList searchParams={props.searchParams} />
       </Suspense>
     </AdminCrudShell>
