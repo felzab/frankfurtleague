@@ -359,30 +359,48 @@ unit_flags() { # $1 index · $2 script name · $3 label
 for f in "${RUNNABLE[@]}"; do par_add "$f" "$f"; done
 par_run unit_flags
 
-step "9. The two bash guards keep one copy of the write-shape block"
-# The two bash guards hold one write-shape block verbatim, which
-# `.claude/hooks/guard-standard-bash.sh :: header` records as deliberate. A defect once lived in
-# both copies because nothing compared them; this is that comparison.
+step "9. The guards keep one copy of each shared block"
+# Two blocks are duplicated rather than sourced (ADR-0067): the write shapes the bash guards share,
+# and the exemption tail the branch guards share. Nothing else compares the copies, so drift stays
+# silent until a guard misses a write.
 
 # Bounded by the sentinels the hooks carry, not by a line count that rots on the first edit nor by
 # prose, which moves whenever either guard's own consumer line does.
-write_shape_block() { # $1 hook path
-  awk '
-    /^# >>> SHARED WRITE SHAPES/ { inside = 1 }
+
+# The sentinel name is a parameter because there are two pairs now and a third would otherwise mean
+# a third copy of this awk. `opener` and `ender`, because gawk refuses `close` as a variable name.
+sentinel_block() { # $1 sentinel name · $2 hook path
+  awk -v opener="# >>> $1" -v ender="# <<< $1 END" '
+    index($0, opener) == 1 { inside = 1 }
     inside { print }
-    inside && /^# <<< SHARED WRITE SHAPES END/ { exit }
-  ' "$1"
+    inside && index($0, ender) == 1 { exit }
+  ' "$2"
 }
-block_branch="$(write_shape_block .claude/hooks/guard-branch-bash.sh)"
-block_standard="$(write_shape_block .claude/hooks/guard-standard-bash.sh)"
-if [[ "${block_branch##*$'\n'}" != *'SHARED WRITE SHAPES END'* || "${block_standard##*$'\n'}" != *'SHARED WRITE SHAPES END'* ]]; then
-  note_fail "the write-shape block's sentinels are gone from one of the two bash guards, so nothing was compared. It runs between the '>>> SHARED WRITE SHAPES' and '<<< SHARED WRITE SHAPES END' comment lines."
-elif [[ "$block_branch" != "$block_standard" ]]; then
-  note_fail "the two bash guards' write-shape blocks have drifted apart — the copy is deliberate, so make them identical again:"
-  diff <(printf '%s\n' "$block_branch") <(printf '%s\n' "$block_standard") | excerpt 20 || true
-else
-  info "both copies are byte-identical ($(printf '%s\n' "$block_branch" | wc -l) lines)"
-fi
+
+# The closing sentinel is asserted on both copies before they are compared, because two empty
+# extractions compare equal — so a reworded marker would report as agreement (ADR-0067).
+compare_sentinel_block() { # $1 sentinel name · $2 hook path · $3 hook path
+  local name="$1" one two
+  # Asked before the extraction: awk on a file that is not there returns the same nothing as a
+  # reworded marker, and the two want different fixes.
+  if [[ ! -f "$2" || ! -f "$3" ]]; then
+    note_fail "the ${name} block could not be compared — ${2} or ${3} is not there."
+    return 0
+  fi
+  one="$(sentinel_block "$name" "$2")"
+  two="$(sentinel_block "$name" "$3")"
+  if [[ "${one##*$'\n'}" != *"$name END"* || "${two##*$'\n'}" != *"$name END"* ]]; then
+    note_fail "the ${name} block's sentinels are gone from ${2##*/} or ${3##*/}, so nothing was compared. It runs between the '>>> ${name}' and '<<< ${name} END' comment lines."
+  elif [[ "$one" != "$two" ]]; then
+    note_fail "${2##*/} and ${3##*/} have drifted apart inside ${name} — the copy is deliberate, so make them identical again:"
+    diff <(printf '%s\n' "$one") <(printf '%s\n' "$two") | excerpt 20 || true
+  else
+    info "${name}: byte-identical in ${2##*/} and ${3##*/} ($(printf '%s\n' "$one" | wc -l) lines)"
+  fi
+}
+
+compare_sentinel_block 'SHARED WRITE SHAPES' .claude/hooks/guard-branch-bash.sh .claude/hooks/guard-standard-bash.sh
+compare_sentinel_block 'SHARED EXEMPTION' .claude/hooks/guard-branch-bash.sh .claude/hooks/guard-branch-powershell.sh
 
 step "10. shellcheck"
 wait "$SC_PID" 2>/dev/null || true
