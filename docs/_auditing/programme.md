@@ -225,6 +225,25 @@ diff, the work may be partial — and continue from the first unfinished row.
 
 ---
 
+### Running a session that dispatches many agents
+
+- **Dry-run one unit before quoting any timeline.** A plan written as prose and never executed is
+  wrong in several ways at once, and each surfaces separately. One rehearsed unit turns a guess into
+  an estimate.
+- **Merge `main` into a long-lived branch continuously.** A branch touching shared documentation for
+  days conflicts on every shared page, and the cost compounds until it is paid.
+- **A merge resolution needs a no-loss assertion, not care.** Enumerate every line each side added
+  since the fork and prove none is absent from the result. Taking one side whole is how a heading, a
+  clause and an edited line each disappeared while the result read correctly.
+- **An agent that stops says nothing.** A completion notification arrives only for one that finishes,
+  so check the deliverable file and the agent's own scratch prefix. A transcript is not a liveness
+  signal.
+- **Validate the artefact that ships, not its draft.** Where a set exists twice — messages, plans,
+  prescriptions — the validated copy and the used copy must be the same file, or the validation
+  proves nothing about what lands.
+- **Relay a measurement with the state it describes.** `HEAD`, the working tree and one agent's
+  output are three different things, and a number without that qualifier is read as an instruction.
+
 ## 4. Close-out, identical every wave
 
 Every step below is the session's job, in this order, with none skipped.
