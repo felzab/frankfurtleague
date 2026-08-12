@@ -77,6 +77,9 @@ EXTRA_CHAPTER: Final = "docs/_standard/chapters/9-extra.md"
 ADR: Final = "docs/_decisions/0001-the-gate-has-a-fixture-net.md"
 SECOND_ADR: Final = "docs/_decisions/0002-a-record-with-wrong-values.md"
 THIRD_ADR: Final = "docs/_decisions/0003-a-record-naming-another.md"
+# Written by a plant and deliberately never staged: the record a citation resolves to on the
+# machine that wrote it and on no clean checkout, which is the whole of what `tracked_glob` buys.
+FOURTH_ADR: Final = "docs/_decisions/0004-a-record-nobody-added.md"
 # What a reciprocity finding names in place of a path: `check_adr_meta` reports across records and
 # has only the number to hand.
 SECOND_ADR_GLOB: Final = "docs/_decisions/0002-*"
@@ -674,9 +677,9 @@ def _assert_corpus_restored() -> None:
 
     `git checkout HEAD -- .` reaches only paths HEAD knows and `git clean` skips whatever the index
     tracks, so a plant that staged a NEW file would leave it on disk and in `git ls-files` -- part of
-    the corpus every case below it is measured against. No plant stages anything today, which makes
-    the class unvisited rather than closed; this is where that constraint is written down, and it
-    costs one process against the forty a run already spends.
+    the corpus every case below it is measured against. Three plants stage one, which is what makes
+    this assertion load-bearing rather than a written-down constraint, and it costs one process
+    against the forty a run already spends.
     """
     dirty = _git(_gate().root, "status", "--porcelain", "-uno")
     assert dirty == "", "a case left the index or the tree changed after the reset:\n" + dirty
@@ -685,12 +688,17 @@ def _assert_corpus_restored() -> None:
 def _reset() -> None:
     """The corpus as it was committed, with only `PRESERVED` left standing.
 
-    From HEAD rather than from the index: a bare `git checkout -- .` restores what is STAGED, so a
-    plant that ever reached for `git add` would leave its own edit behind as the corpus every case
-    after it is measured against, silently. Naming the commit makes that unreachable.
+    The index comes back to HEAD first, because a file a plant staged is tracked: `git clean` skips
+    it and `git checkout HEAD --` cannot reach a path HEAD never held, so it would survive as part
+    of the corpus every case after it is measured against. The pathspec form rewrites the index
+    alone and never the working tree, which the restore below then owns.
+
+    That restore names HEAD rather than the index: a bare `git checkout -- .` restores what is
+    STAGED, which would hand a plant's own edit to the cases after it, silently.
     """
     root = _gate().root
     excludes = [argument for name in PRESERVED for argument in ("-e", "/" + name)]
+    _git(root, "reset", "-q", "HEAD", "--", ".")
     _git(root, "checkout", "HEAD", "--", ".")
     _git(root, "clean", "-fdq", *excludes)
     # The twin only guards while it is untracked and outside the reset's reach. Moving it inside would
@@ -717,6 +725,15 @@ def _replace(rel: str, old: str, new: str, *, restamp: bool = False) -> None:
     _write(root, rel, text.replace(old, new, 1))
     if restamp:
         _restamp(rel)
+
+
+def _stage(*rels: str) -> None:
+    """A file a plant ADDED, put in the index so the gate reads it.
+
+    The corpus the gate resolves against is `git ls-files`, so a page written and left untracked is
+    a page no check sees and no citation resolves to. `_reset` unstages it again.
+    """
+    _git(_gate().root, "add", "--", *rels)
 
 
 def _append(rel: str, *lines: str, restamp: bool = False) -> None:
@@ -750,7 +767,19 @@ def _index_row(rel: str) -> str:
 def _plant_second_adr() -> None:
     """Both producers: an index row naming another number's file, and a file with no row at all."""
     _write(_gate().root, SECOND_ADR, _adr("0002", "A decision with no index row"))
+    _stage(SECOND_ADR)
     _append(ADR_INDEX, "| [0003](0001-the-gate-has-a-fixture-net.md) | A row naming another number's file |")
+
+
+def _plant_adr_citations() -> None:
+    """Both producers: a number with no file anywhere, and one whose file is on disk but un-added.
+
+    The second is what pins `tracked_glob`. A number with no file cannot tell a tracked record from
+    a merely present one, so on its own this case stays green with the resolver reading the disk.
+    """
+    _append(NOTES, "See ADR-9999 for the argument.")
+    _write(_gate().root, FOURTH_ADR, _adr("0004", "A record nobody added"))
+    _append(NOTES, "See ADR-0004 for the rest of it.")
 
 
 def _plant_rule_index() -> None:
@@ -897,6 +926,7 @@ def _plant_adr_meta() -> None:
         .replace("**Supersedes:** —\\", "**Supersedes:** ADR-0002\\")
         .replace("**Superseded by:** —\\", "**Superseded by:** ADR-0002\\"),
     )
+    _stage(SECOND_ADR, THIRD_ADR)
     _append(ADR_INDEX, _index_row(SECOND_ADR), _index_row(THIRD_ADR))
 
 
@@ -945,8 +975,9 @@ def _plant_stamps() -> None:
 def _plant_rule_ids() -> None:
     """All three producers: an unresolvable id, an id two chapters define, and an ambiguous invariant.
 
-    The second chapter is untracked, so no scan reads it in its own right; `rule_ids` globs the
-    chapters directory and finds it anyway, which is what gives COR-1 two homes.
+    The extra chapter is staged, because `rule_ids` reads the TRACKED chapters: written and left
+    untracked it gives COR-1 one home and this case proves nothing. Staged, it is also scanned in
+    its own right, which is why it carries a stamp, PRE-4's whole anatomy and no COR-4 count word.
     """
     _append(NOTES, "A claim citing COR-99.")
     _append(SAMPLE, HASH + " a bare I1 with no sheet named")
@@ -966,7 +997,7 @@ def _plant_rule_ids() -> None:
             "",
             _heading(3, "COR-1 — Write for a reader with no context"),
             "",
-            "**Rule:** a second chapter states the same rule, which is what makes it unresolvable.",
+            "**Rule:** another chapter states the same rule, which is what makes it unresolvable.",
             "",
             "**Why:** a citation that resolves twice cannot be followed.",
             "",
@@ -974,9 +1005,10 @@ def _plant_rule_ids() -> None:
             "",
             "**Enforced by:** `rule-id`.",
             "",
-            "**Example:** a rule copied into a second chapter.",
+            "**Example:** a rule copied into another chapter.",
         ),
     )
+    _stage(EXTRA_CHAPTER)
 
 
 def _plant_branch_scope() -> None:
@@ -1161,7 +1193,7 @@ class Case:
 
 
 CASES: Final[tuple[Case, ...]] = (
-    Case("adr", _fails("adr", NOTES), lambda: _append(NOTES, "See ADR-9999 for the argument.")),
+    Case("adr", _fails("adr", NOTES, NOTES), _plant_adr_citations),
     Case("adr-index", _fails("adr-index", ADR_INDEX, ADR_INDEX), _plant_second_adr),
     Case("adr-meta", _fails("adr-meta", *[ADR] * 6, *[SECOND_ADR] * 3, SECOND_ADR_GLOB, *[THIRD_ADR_GLOB] * 2), _plant_adr_meta),
     Case("anchor", _fails("anchor", NOTES, ROADMAP), _plant_anchors),
@@ -1202,7 +1234,9 @@ CASES: Final[tuple[Case, ...]] = (
     Case("path", _fails("path", NOTES), lambda: _append(NOTES, "`docs/gone.md` is named here.")),
     Case("readme-cap", _fails("readme-cap", ROOT_README), lambda: _append(ROOT_README, *["A line." for _ in range(130)])),
     Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 8), _plant_roadmap),
-    Case("rule-id", _fails("rule-id", NOTES, SAMPLE, CORE, RULES_INDEX), _plant_rule_ids),
+    # The extra chapter names its own duplicated id, so it reports the collision alongside the pages
+    # that merely cite it -- the plant stages it, which is what puts it in the scan.
+    Case("rule-id", _fails("rule-id", NOTES, SAMPLE, CORE, RULES_INDEX, EXTRA_CHAPTER), _plant_rule_ids),
     Case("rule-index", _fails("rule-index", RULES_INDEX, RULES_INDEX), _plant_rule_index),
     Case("rule-shape", _fails("rule-shape", CORE, CORE, CURRENCY), _plant_rule_shapes),
     Case("segment-map", _fails("segment-map", SWEEP, SWEEP), _plant_segment_map),
