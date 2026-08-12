@@ -271,16 +271,20 @@ implied coverage claim routes no later human check to the place that needs one.
   button-like element, so putting a `<button>` inside one nests interactive content — check for this
   every time. `isFocusVisible` is a **global** modality flag, so styling keyed off it fires at
   seemingly random moments. Overlays light-dismiss on interaction, and a client-side navigation is
-  not one. Positioning against `document.body` adds `documentElement.scrollTop`, which is wrong
-  inside any `position: fixed` overlay — never anchor a popover inside one.
+  not one. A portalled overlay's `bottom` is computed against the viewport and resolved by CSS
+  against its containing block, so anything making `<html>` or `<body>` one — a `position`, a
+  transform, a `filter`, a `contain`, a `will-change` naming those, a `container-type` — opens every
+  top-placed overlay a whole scroll height low (`docs/frontend/spec.md :: I29`).
 - **`dynamic({ ssr: false })` with no `loading`** renders `null`, so a click on the trigger looks dead
   until the chunk arrives.
 - **Next writes suggested `tsconfig` defaults for any absent key** — a presence check, not a value
   check. `allowJs` cannot be deleted, only declared `false`.
 - **Next keeps the previous page mounted in a hidden Activity tree.** Hidden trees still re-render on
-  new props, and a react-aria collection that re-renders while hidden drops its rows. In a test
-  harness, `element.click()` on a `<Link>` performs a **hard** navigation, so a loop driven that way
-  never exercises Activity trees at all — drive `router.push` instead.
+  new props, and a react-aria collection that re-renders while hidden drops its rows. React destroys a
+  hidden subtree's Effects and re-creates them on the way back, so an effect watching the pathname
+  never sees the navigation that hid it — a page's own overlay closes as its link navigates or not at
+  all. In a test harness, `element.click()` on a `<Link>` performs a **hard** navigation, so a loop
+  driven that way never exercises Activity trees at all — drive `router.push` instead.
 
 **Backend**
 

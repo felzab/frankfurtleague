@@ -18,7 +18,12 @@ import { BrandLink } from "../../ui/BrandLink";
 export function SidemenuDrawerHeader({ onClose }: { onClose: () => void }) {
   return (
     <div className="border-border flex h-(--navbar-height) shrink-0 items-center justify-between border-b px-4 lg:hidden">
-      <BrandLink title="Zur öffentlichen Website" />
+      {/* Closes the drawer as it navigates: this leaves the shell exactly as `SidemenuFooter`'s link
+          to the same page does, and the reason is written there. */}
+      <BrandLink
+        title="Zur öffentlichen Website"
+        onNavigate={onClose}
+      />
 
       <button
         onClick={onClose}

@@ -59,7 +59,9 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
         }
 
         appToast.success(result?.message ?? "Erfolgreich abgemeldet");
-        // `refresh()` drops the cached server render of the admin shell just left behind.
+        // `refresh()` drops the cached server render of the admin shell just left behind. Sign-out
+        // closes no drawer, unlike the sidemenu's links: it is admin-only, and
+        // `fl_frontend/src/proxy.ts` turns a session-less `/admin` request away.
         router.push("/");
         router.refresh();
       } catch {
