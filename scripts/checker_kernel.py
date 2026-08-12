@@ -6,9 +6,10 @@ from its own copy drifts into its own behaviour. The exit code below is the cont
 reads back.
 
 Invariants:
-- Python 3.14 is the floor, refused at import — a checker's own body may use syntax an older
-  interpreter cannot parse, and nothing runs earlier than an import to say so.
-- `git()` never raises, and a command that failed answers None rather than an empty string.
+- Python 3.14 is the floor. Below it a checker crashes at import rather than refusing (ADR-0066):
+  its own body may use syntax an older interpreter cannot parse, and nothing runs earlier to say so.
+- `git()` never raises, a command that failed answers None rather than an empty string, and it runs
+  from the repository root, so a caller's pathspec is repo-relative and never relative to the cwd.
 - `resolve_base` prefers `origin/<base>`, so a local main a merge left behind cannot make another
   branch's commits read as this one's.
 - 0 pass · 1 findings · 2 the check could not judge its input · 3 or more the environment is broken.
