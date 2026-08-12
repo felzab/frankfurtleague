@@ -39,7 +39,7 @@ from .kernel import (
     OVERVIEW_GLOB,
     REPO_ROOT,
     ROADMAP_GLOB,
-    ROADMAP_PAGE,
+    ROADMAP_RANKED_PAGES,
     RULES_INDEX_PAGE,
     SPEC_GLOB,
     STAMP_RE,
@@ -60,10 +60,10 @@ from .kernel import (
 # all share. The label is bounded because a bold sentence ending in a colon is prose, and holding
 # prose to a layout rule gets a check ignored.
 METADATA_LINE_RE: Final = re.compile(r"^\*\*([A-Z][A-Za-z ]{0,30}):\*\*(?:\s|$)")
-# COR-8's break is a line ending; written as the characters `\` and `n` it leaves two entries on one
-# physical line. Each half then reads well formed — the first needs no break, and the second's `**`
-# reads to the stamp check as a wildcard.
-METADATA_JOIN_RE: Final = re.compile(r"\\n\s*\*\*([A-Z][A-Za-z ]{0,30}):\*\*")
+# COR-8's break is a line ending, and two ways of omitting one join two entries on one line: the
+# characters `\` and `n`, and nothing at all. Arm two demands the second label abut what precedes
+# it; whitespace before it is spared.
+METADATA_JOIN_RE: Final = re.compile(r"(?:(\\n)\s*|(?<=\S))\*\*([A-Z][A-Za-z ]{0,30}):\*\*")
 
 
 # PRE-4's anatomy: the heading opens on the id and states the rule as a claim, the fixed fields
@@ -95,7 +95,7 @@ REQUIRED_INPUTS: Final[tuple[str, ...]] = (
     CHAPTERS_DIR,
     RULES_INDEX_PAGE,
     DECISIONS_DIR,
-    ROADMAP_PAGE,
+    *ROADMAP_RANKED_PAGES,
     TEMPLATES_PAGE,
     GLOSSARY_PAGE,
     SWEEP_PAGE,
@@ -265,6 +265,12 @@ def check_metadata_breaks(rel: str, body: str) -> list[Finding]:
     parted them is this rule's. Neither half is malformed on its own, which is why the stamp's own
     shape check cannot see it: a joined stamp is a complete entry followed by a complete entry.
 
+    Reading a second label as a join wherever it appears would fail a report header that carries two
+    fields on one line on purpose, so the abutting arm fires only where nothing at all separates the
+    two. Any whitespace spares it, which is wider than those headers need: a single space between
+    two fields reads as a join to a person and passes here. The narrower test would have to name the
+    separators it accepts, and a header is free to pick one nobody listed.
+
     ADRs are excluded because `adr-meta` holds their metadata block to this same rule already, and
     one defect reported twice reads as a check that cries wolf.
     """
@@ -284,11 +290,15 @@ def check_metadata_breaks(rel: str, body: str) -> list[Finding]:
                 names.append(match.group(1))
                 ends.append(index)
                 # Backticked spans come out first: a rule quoting a label to name it, as chapter 0
-                # does, is a mention rather than a second entry.
-                if joined := METADATA_JOIN_RE.search(BACKTICK_SPAN_RE.sub("", lines[index])):
+                # does, is a mention rather than a second entry. The opening label is re-matched on
+                # the scrubbed line because removing a span moves every offset after it.
+                scrubbed = BACKTICK_SPAN_RE.sub("", lines[index])
+                opening = METADATA_LINE_RE.match(scrubbed)
+                if opening and (joined := METADATA_JOIN_RE.search(scrubbed, opening.end())):
+                    written = "the characters \\n" if joined.group(1) else "nothing at all"
                     detail = (
-                        f"the {match.group(1)} line at line {index + 1} runs into {joined.group(1)} on one physical line"
-                        " -- COR-8's break is a line ending, written here as the characters \\n"
+                        f"the {match.group(1)} line at line {index + 1} runs into {joined.group(2)} on one physical line"
+                        f" -- COR-8's break is a line ending, written here as {written}"
                     )
                     found.append(Finding("fail", "metadata-break", rel, detail))
             elif names:
@@ -432,54 +442,62 @@ def check_adr_meta() -> list[Finding]:
 
 
 def check_roadmap() -> list[Finding]:
-    """The ranked roadmap agrees with itself: index and entries, ranks, ids, and no transient status.
+    """Each ranked roadmap page agrees with itself: index and entries, ranks, ids, no transient status.
 
-    The file's failure mode is that it quietly stops being trustworthy -- an entry with no index
-    row is invisible to the reader who only reads the table, a rank that disagrees with its heading
+    A page's failure mode is that it quietly stops being trustworthy -- an entry with no index row
+    is invisible to the reader who only reads the table, a rank that disagrees with its heading
     makes the working order ambiguous, and a `Closed` entry is one a closing commit's successor
     never deleted. Nothing else looks at any of it.
+
+    Ranks run from 1 per page rather than across the folder, because each page is ranked only
+    against itself: product work and tooling work are not comparable, which is why there are two.
     """
-    page = tracked_page(ROADMAP_PAGE)
-    if page is None or (body := _readable(page)) is None:
-        # Absence is `check_inputs`' alone here, and saying it twice reads as a gate crying wolf.
-        # A page sitting on disk untracked is neither absent nor tracked, so nothing else names it.
-        if not (REPO_ROOT / ROADMAP_PAGE).exists():
-            return []
-        return [Finding("fail", "roadmap-shape", ROADMAP_PAGE, "untracked or unreadable, so the ranked roadmap was read against nothing")]
-
     found: list[Finding] = []
-    entries = {match.group(2): int(match.group(1)) for match in ROADMAP_ENTRY_RE.finditer(body)}
-    rows = {match.group(2): int(match.group(1)) for match in ROADMAP_INDEX_ROW_RE.finditer(body)}
+    for rel in ROADMAP_RANKED_PAGES:
+        page = tracked_page(rel)
+        if page is None:
+            # Absence is `check_inputs`' alone, and saying it twice reads as a gate crying wolf. A
+            # page sitting on disk untracked is neither absent nor selected by anything that reads
+            # the corpus, so this is the one place it is anything but green.
+            if (REPO_ROOT / rel).exists():
+                found.append(Finding("fail", "roadmap-shape", rel, "untracked, so the ranked roadmap was read against nothing"))
+            continue
+        if (body := _readable(page)) is None:
+            found.append(Finding("fail", "roadmap-shape", rel, "unreadable, so the ranked roadmap was read against nothing"))
+            continue
 
-    for entry_id in sorted(set(entries) - set(rows)):
-        found.append(Finding("fail", "roadmap-shape", ROADMAP_PAGE, f"entry {entry_id} has no row in the index table"))
-    for entry_id in sorted(set(rows) - set(entries)):
-        found.append(Finding("fail", "roadmap-shape", ROADMAP_PAGE, f"index row {entry_id} has no entry below it"))
-    for entry_id in sorted(set(entries) & set(rows)):
-        if entries[entry_id] != rows[entry_id]:
-            detail = f"{entry_id} ranks {entries[entry_id]} in its heading and {rows[entry_id]} in the index"
-            found.append(Finding("fail", "roadmap-shape", ROADMAP_PAGE, detail))
+        entries = {match.group(2): int(match.group(1)) for match in ROADMAP_ENTRY_RE.finditer(body)}
+        rows = {match.group(2): int(match.group(1)) for match in ROADMAP_INDEX_ROW_RE.finditer(body)}
 
-    known = roadmap_ids()
-    for entry_id in sorted(set(entries) - known):
-        found.append(Finding("fail", "roadmap-shape", ROADMAP_PAGE, f"entry id {entry_id} is defined by no tracked roadmap table"))
+        for entry_id in sorted(set(entries) - set(rows)):
+            found.append(Finding("fail", "roadmap-shape", rel, f"entry {entry_id} has no row in the index table"))
+        for entry_id in sorted(set(rows) - set(entries)):
+            found.append(Finding("fail", "roadmap-shape", rel, f"index row {entry_id} has no entry below it"))
+        for entry_id in sorted(set(entries) & set(rows)):
+            if entries[entry_id] != rows[entry_id]:
+                detail = f"{entry_id} ranks {entries[entry_id]} in its heading and {rows[entry_id]} in the index"
+                found.append(Finding("fail", "roadmap-shape", rel, detail))
 
-    # Contiguous from 1, on each side: a gap makes "the next one" unanswerable, and a duplicate
-    # makes the working order ambiguous.
-    for where, ranks in (("entry heading", sorted(entries.values())), ("index", sorted(rows.values()))):
-        if ranks and ranks != list(range(1, len(ranks) + 1)):
-            detail = f"{where} ranks are {', '.join(str(rank) for rank in ranks)} -- they run 1 to {len(ranks)} without a gap or a repeat"
-            found.append(Finding("fail", "roadmap-shape", ROADMAP_PAGE, detail))
+        known = roadmap_ids()
+        for entry_id in sorted(set(entries) - known):
+            found.append(Finding("fail", "roadmap-shape", rel, f"entry id {entry_id} is defined by no tracked roadmap table"))
 
-    transient = "that status lasts one commit, whose successor"
-    for match in ROADMAP_STATUS_RE.finditer(body):
-        if match.group(1) == ROADMAP_TRANSIENT_STATUS:
-            detail = f"an entry states Status: {ROADMAP_TRANSIENT_STATUS} -- {transient} deletes the entry"
-            found.append(Finding("fail", "roadmap-shape", ROADMAP_PAGE, detail))
-    for match in ROADMAP_INDEX_ROW_RE.finditer(body):
-        if ROADMAP_TRANSIENT_STATUS in [cell.strip() for cell in match.group(3).split("|")]:
-            detail = f"index row {match.group(2)} states {ROADMAP_TRANSIENT_STATUS} -- {transient} deletes the entry"
-            found.append(Finding("fail", "roadmap-shape", ROADMAP_PAGE, detail))
+        # Contiguous from 1, on each side: a gap makes "the next one" unanswerable, and a duplicate
+        # makes the working order ambiguous. A page holding no entry at all says nothing here.
+        for where, ranks in (("entry heading", sorted(entries.values())), ("index", sorted(rows.values()))):
+            if ranks and ranks != list(range(1, len(ranks) + 1)):
+                detail = f"{where} ranks are {', '.join(str(rank) for rank in ranks)} -- they run 1 to {len(ranks)} without a gap or a repeat"
+                found.append(Finding("fail", "roadmap-shape", rel, detail))
+
+        transient = "that status lasts one commit, whose successor"
+        for match in ROADMAP_STATUS_RE.finditer(body):
+            if match.group(1) == ROADMAP_TRANSIENT_STATUS:
+                detail = f"an entry states Status: {ROADMAP_TRANSIENT_STATUS} -- {transient} deletes the entry"
+                found.append(Finding("fail", "roadmap-shape", rel, detail))
+        for match in ROADMAP_INDEX_ROW_RE.finditer(body):
+            if ROADMAP_TRANSIENT_STATUS in [cell.strip() for cell in match.group(3).split("|")]:
+                detail = f"index row {match.group(2)} states {ROADMAP_TRANSIENT_STATUS} -- {transient} deletes the entry"
+                found.append(Finding("fail", "roadmap-shape", rel, detail))
 
     return found
 

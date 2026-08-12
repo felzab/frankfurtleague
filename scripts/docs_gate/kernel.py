@@ -121,8 +121,14 @@ RULES_INDEX_PAGE: Final = f"{DOCS_DIR}/_standard/rules-index.md"
 CURRENCY_PAGE: Final = f"{CHAPTERS_DIR}/5-currency.md"
 ADR_INDEX_PAGE: Final = f"{DECISIONS_DIR}/README.md"
 ROADMAP_PAGE: Final = f"{ROADMAP_DIR}/open-items.md"
+ROADMAP_TOOLING_PAGE: Final = f"{ROADMAP_DIR}/tooling-items.md"
 TEMPLATES_PAGE: Final = f"{DOCS_DIR}/_git/templates.md"
 SWEEP_PAGE: Final = ".claude/commands/docs/audit.md"
+
+# The pages carrying ranked entries. `ROADMAP_GLOB` also matches the log, the protocol and the
+# README, which hold none -- so a shape check reads the glob and says nothing about those, while
+# presence and tracking are asked of these two by name.
+ROADMAP_RANKED_PAGES: Final[tuple[str, ...]] = (ROADMAP_PAGE, ROADMAP_TOOLING_PAGE)
 
 # The part of CUR-3's criterion a path decides: each kind here is a current-state claim by the rule
 # that shapes it. Which other pages make such a claim is a judgment about content, and stays one.

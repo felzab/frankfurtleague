@@ -89,5 +89,6 @@ cited from code and the path must never move
   ADR, an ADR's anatomy, its numbering, and how a reversal is recorded
 - [`../_standard/templates/adr.md`](../_standard/templates/adr.md) — the file to copy when writing
   one
-- [`../_roadmap/open-items.md`](../_roadmap/open-items.md) — where an undecided question waits, with
-  the analysis its decision will be taken from
+- [`../_roadmap/open-items.md`](../_roadmap/open-items.md) and
+  [`../_roadmap/tooling-items.md`](../_roadmap/tooling-items.md) — where an undecided question waits,
+  with the analysis its decision will be taken from

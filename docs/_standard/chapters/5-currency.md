@@ -1,6 +1,6 @@
 # Currency
 
-**Verified against:** `bbb5182`, 2026-08-12\
+**Verified against:** `9f04f46`, 2026-08-12\
 **Applies to:** every stamped page, and every change that touches what a documented claim
 describes.
 
@@ -133,7 +133,7 @@ docs scope. This table is the one place its checks are listed; the script's docs
 | `rule-id`           | A cited rule id resolves to no rule heading in `docs/_standard/chapters/`, or resolves to more than one rule — including a bare `I<n>` in a comment that two spec sheets both define | Fail    |
 | `metadata-break`    | A metadata line breaks COR-8's hard break — carrying one where it must not, or missing one where it must                                                                             | Fail    |
 | `bare-path`         | A repository path named in a comment without backticks resolves to nothing                                                                                                           | Fail    |
-| `roadmap-shape`     | The ranked roadmap disagrees with itself — an entry with no index row, a repeated rank, or a transient status                                                                        | Fail    |
+| `roadmap-shape`     | A ranked roadmap page disagrees with itself — an entry with no index row, a repeated rank, or a transient status — or sits on disk untracked                                         | Fail    |
 | `spec-spine`        | A spec sheet's four sections, or its contract's `1.<n>` numbering, departs from OUT-4                                                                                                | Fail    |
 | `invariant-row`     | An invariant row repeats a number, has the wrong column count, or states no failure mode (OUT-4)                                                                                     | Fail    |
 | `invariant-id`      | A spec sheet cites an invariant number no invariant table defines                                                                                                                    | Fail    |

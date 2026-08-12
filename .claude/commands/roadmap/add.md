@@ -1,9 +1,9 @@
 ---
-description: Add described items to the roadmap and re-rank the file — /roadmap:add, one `*` bullet per item
+description: Add described items to the roadmap and re-rank each page they land on — /roadmap:add, one `*` bullet per item
 ---
 
-Add the items described in the arguments to `docs/_roadmap/open-items.md`, then re-rank the whole
-file: `$ARGUMENTS`
+Add the items described in the arguments to the ranked page each one belongs on
+(`docs/_roadmap/protocol.md`), then re-rank every page that gained an entry: `$ARGUMENTS`
 
 **Each top-level `*` bullet is exactly one item.** Never merge two bullets into one entry, and never
 split one bullet without asking. A bullet is a description; the entry is what you write after
@@ -19,14 +19,15 @@ date with `origin/main`, and you are on a branch named for the change (CLAUDE.md
 
 1. **Read all of these before writing a line.**
 
-   | Read                                | For                                                                             |
-   | ----------------------------------- | ------------------------------------------------------------------------------- |
-   | `docs/_roadmap/protocol.md`         | The ranking rubric (§1), the tiers (§2), the status derivation (§4)             |
-   | `docs/_roadmap/README.md`           | What belongs on the roadmap, and what belongs in an ADR or a spec sheet instead |
-   | `docs/_roadmap/open-items.md`       | Every open entry, and the shape "What every entry carries" fixes                |
-   | `docs/_roadmap/closed-items.md`     | The retired ids, and the numbers already spent                                  |
-   | `docs/_standard/chapters/1-core.md` | An entry is documentation: COR-1, COR-3, COR-4, COR-6 and COR-9 bind it         |
-   | `docs/_auditing/lessons.md`         | How a claim is verified before it is written down                               |
+   | Read                                | For                                                                                 |
+   | ----------------------------------- | ----------------------------------------------------------------------------------- |
+   | `docs/_roadmap/protocol.md`         | Which page an entry belongs on, the ranking rubric (§1), the status derivation (§3) |
+   | `docs/_roadmap/README.md`           | What belongs on the roadmap, and what belongs in an ADR or a spec sheet instead     |
+   | `docs/_roadmap/open-items.md`       | Every open product entry, and the shape "What every entry carries" fixes            |
+   | `docs/_roadmap/tooling-items.md`    | Every open tooling entry, written in that same shape                                |
+   | `docs/_roadmap/closed-items.md`     | The retired ids, and the numbers already spent                                      |
+   | `docs/_standard/chapters/1-core.md` | An entry is documentation: COR-1, COR-3, COR-4, COR-6 and COR-9 bind it             |
+   | `docs/_auditing/lessons.md`         | How a claim is verified before it is written down                                   |
 
 2. **Triage every bullet and say each outcome back before writing anything.**
 
@@ -70,7 +71,7 @@ date with `origin/main`, and you are on a branch named for the change (CLAUDE.md
    ```
    ### <rank> · <ID> — <the problem, never the solution>
 
-   **Status:** <derived by docs/_roadmap/protocol.md §4>\
+   **Status:** <derived by docs/_roadmap/protocol.md §3>\
    **Surfaces:** <FE, BE, DB, Ops — in that order, only those it touches>\
    **Effort:** <S | M | L | XL>\
    **Path:** <what it blocks, and what blocks it>
@@ -80,21 +81,17 @@ date with `origin/main`, and you are on a branch named for the change (CLAUDE.md
 
    - **A field with nothing to say holds an em dash**, never an absent line.
    - Every metadata line but the last ends in a backslash (COR-8).
-   - Add the row to "The path at a glance": rank, ID, the heading's problem in short form, surfaces,
+   - Add the row to the page's index table: rank, ID, the heading's problem in short form, surfaces,
      effort, status, and `Depends on` — an entry id, or an em dash.
    - Optimise the owner's description into the entry rather than transcribing it. An instruction
      inside the description — consult me first, check this against a source, record this reminder —
      survives into the entry: the session that works the item reads only the entry.
 
-7. **Re-rank the whole file** by `docs/_roadmap/protocol.md` §1, re-deriving every rank rather than
-   inserting the new entries into the order that exists.
+7. **Re-rank every page that gained an entry, and only those** (`docs/_roadmap/protocol.md` §1),
+   re-deriving every rank rather than inserting the new entries into the order that exists.
 
    - Renumber the index table **and** every `### <rank> ·` heading, and keep them in step.
-   - Move entries between tiers where the rubric says so, and rewrite each tier's opening paragraph
-     to describe the entries actually in it (`docs/_roadmap/protocol.md` §2).
-   - Add a tier section and its row in the file's navigation table when a tier gains an entry, and
-     delete the section and the row when a tier empties.
-   - **Re-derive every row's `Status`** by §4, not only the new rows. `Blocked` is a claim about
+   - **Re-derive every row's `Status`** by §3, not only the new rows. `Blocked` is a claim about
      another row, so an added entry changes rows nobody edited.
    - Fix every `Path` line the new entries affect, in each direction: what they block, and what
      blocks them.

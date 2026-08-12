@@ -86,6 +86,14 @@ SECOND_ADR_GLOB: Final = "docs/_decisions/0002-*"
 THIRD_ADR_GLOB: Final = "docs/_decisions/0003-*"
 ADR_INDEX: Final = "docs/_decisions/README.md"
 ROADMAP: Final = "docs/_roadmap/open-items.md"
+# The tooling half of the split roadmap, so the shape check has more than the one ranked page to
+# loop over.
+TOOLING_ROADMAP: Final = "docs/_roadmap/tooling-items.md"
+# Its one ranked item. The corpus writes the row and the entry, the plant rewrites them, and one
+# spelling here is what keeps the page the plant edits and the page the corpus holds in step.
+TOOLING_ITEM: Final = "Rank the tooling work apart"
+TOOLING_ROW: Final = "| 1 | TL-1 | " + TOOLING_ITEM + " |"
+TOOLING_ENTRY: Final = "1 · TL-1 — " + TOOLING_ITEM
 TEMPLATES: Final = "docs/_git/templates.md"
 SWEEP: Final = ".claude/commands/docs/audit.md"
 ROOT_README: Final = "README.md"
@@ -153,6 +161,10 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             "Connect to example.com:443, or to api.test:8080.",
             "",
             "The host `example.com:443` is named in backticks as well.",
+            "",
+            # Metadata labels on one line, parted by a visible separator -- an audit report's header
+            # shape. What parts it from a joined pair is the character before the label, nothing else.
+            "**Programme:** the fixture net · **Method:** a planted corpus",
             "",
             # An underscore survives GitHub's slugger and a repeated heading takes a `-N` suffix, so
             # both fragments below resolve. The link text carries no ordinal: `counts` reads one.
@@ -367,6 +379,19 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             "| 1 | FX-1 | Give the gate a fixture net |",
             "",
             _heading(3, "1 · FX-1 — Give the gate a fixture net"),
+            "",
+            "**Status:** Open",
+        ),
+        TOOLING_ROADMAP: _page(
+            _heading(1, "Tooling items"),
+            "",
+            "**Purpose:** what is open in the tooling, ranked.",
+            "",
+            "| Rank | ID | Item |",
+            "| --- | --- | --- |",
+            TOOLING_ROW,
+            "",
+            _heading(3, TOOLING_ENTRY),
             "",
             "**Status:** Open",
         ),
@@ -879,7 +904,13 @@ def _plant_module_headers() -> None:
 
 
 def _plant_roadmap() -> None:
-    """Every shape the ranked roadmap can lose: rows, entries, ranks, ids and a transient status."""
+    """Every shape a ranked page can lose -- rows, entries, ranks, ids, a transient status -- and a subset on the tooling page.
+
+    The check reads a LOOP of ranked pages, and a plant confined to the product page cannot tell
+    that loop from a check stopping at the page it opens with: either reports the same findings.
+    The tooling page carries fewer of them, so a finding attributed to the wrong page is a
+    shortfall on one side and a surplus on the other rather than a wash.
+    """
     _replace(
         ROADMAP,
         "| 1 | FX-1 | Give the gate a fixture net |",
@@ -887,6 +918,8 @@ def _plant_roadmap() -> None:
     )
     _replace(ROADMAP, _heading(3, "1 · FX-1 — Give the gate a fixture net"), _heading(3, "4 · FX-1 — Give the gate a fixture net"))
     _append(ROADMAP, _heading(3, "2 · FX-9 — An entry no table defines"), "", "**Status:** Closed")
+    _replace(TOOLING_ROADMAP, TOOLING_ROW, TOOLING_ROW + "\n| 2 | TL-2 | A tooling row with no entry below it |")
+    _replace(TOOLING_ROADMAP, _heading(3, TOOLING_ENTRY), _heading(3, "2 · TL-1 — " + TOOLING_ITEM))
 
 
 def _plant_segment_map() -> None:
@@ -1108,9 +1141,19 @@ def _plant_line_citations() -> None:
 
 
 def _plant_metadata_breaks() -> None:
-    """Both break producers, and the joined pair that reads as well formed on both sides."""
+    """Each producer on a page of its own: the absent break, and a joined pair written either way.
+
+    A join is spelled as the characters `\\` and `n`, or as no separator at all, and the arms are
+    planted on separate pages because they share a check, a severity and a wording: planted on one
+    page they would share a count too, and an arm that stopped matching would move neither.
+
+    The line that must stay SILENT is in the clean corpus rather than here -- labels parted by a
+    visible separator, which is an audit report's header and not a defect. It guards the abutting
+    arm's lookbehind, so it has to be read on every run rather than on this case's alone.
+    """
     _append(NOTES, "**Scope:** the gate", "**Purpose:** a planted block")
     _replace(CORE, "\\\n**Applies to:**", "\\n**Applies to:**")
+    _append(TWIN_NOTES, "**Status:** Open**Surfaces:** Ops")
 
 
 def _plant_citations() -> None:
@@ -1239,13 +1282,13 @@ CASES: Final[tuple[Case, ...]] = (
     Case("line-citation", _fails("line-citation", NOTES, SAMPLE), _plant_line_citations),
     Case("line-endings", _fails("line-endings", NOTES, UMLAUT_MODULE), _plant_crlf),
     Case("link", _fails("link", NOTES), lambda: _append(NOTES, "[gone](gone.md)")),
-    Case("metadata-break", _fails("metadata-break", NOTES, CORE), _plant_metadata_breaks),
+    Case("metadata-break", _fails("metadata-break", NOTES, TWIN_NOTES, CORE), _plant_metadata_breaks),
     Case("module-header", _fails("module-header", *[SAMPLE] * 3, *[SECOND_SAMPLE] * 2, THIRD_SAMPLE, LABEL_SAMPLE), _plant_module_headers),
     Case("overview-spine", _fails("overview-spine", OVERVIEW, FRONTEND_OVERVIEW), _plant_overviews),
     Case("owner-voice", _fails("owner-voice", NOTES), lambda: _append(NOTES, "The owner reads it.")),
     Case("path", _fails("path", NOTES), lambda: _append(NOTES, "`docs/gone.md` is named here.")),
     Case("readme-cap", _fails("readme-cap", ROOT_README), lambda: _append(ROOT_README, *["A line." for _ in range(130)])),
-    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 8), _plant_roadmap),
+    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 8, *[TOOLING_ROADMAP] * 3), _plant_roadmap),
     # The extra chapter names its own duplicated id, so it reports the collision alongside the pages
     # that merely cite it -- the plant stages it, which is what puts it in the scan.
     Case("rule-id", _fails("rule-id", NOTES, SAMPLE, CORE, RULES_INDEX, EXTRA_CHAPTER), _plant_rule_ids),
@@ -1342,6 +1385,25 @@ def test_a_check_naming_one_page_reads_the_tracked_one() -> None:
     finally:
         _reset()
     assert reported[("fail", "glossary-entry", GLOSSARY)] == 1, "an untracked glossary was read as the corpus': " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_an_untracked_ranked_page_is_read_as_a_page_nobody_added() -> None:
+    """A ranked roadmap page on disk and outside the index fails, rather than passing unexamined.
+
+    Driven directly rather than through a plant, because this producer and the shape producers
+    exclude each other: the page the shape checks read is selected from the tracked corpus, so a
+    page taken out of the index yields no shape finding at all and could not share that case's
+    plant. Untracked, it also satisfies `inputs`, which asks the disk -- which leaves this the one
+    thing between a page nobody `git add`ed and a run that is green on every check of it.
+    """
+    _reset()
+    _git(_gate().root, "rm", "--cached", "-q", "--", TOOLING_ROADMAP)
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", TOOLING_ROADMAP)] == 1, "an untracked ranked page passed: " + _shape(reported)
     _assert_corpus_restored()
 
 

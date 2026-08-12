@@ -12,8 +12,7 @@ replies take a few days.
 - **A suspected vulnerability** — **not** a public issue. Follow [`SECURITY.md`](SECURITY.md), which
   also says what is in and out of scope.
 - **An idea that needs thinking through before anyone can decide on it** — those live in
-  [`docs/_roadmap/open-items.md`](docs/_roadmap/open-items.md) with their full reasoning, rather than
-  in the tracker.
+  [`docs/_roadmap/`](docs/_roadmap/) with their full reasoning, rather than in the tracker.
 
 ## Changing code
 

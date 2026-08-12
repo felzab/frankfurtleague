@@ -1,30 +1,31 @@
 # Documentation
 
-**Verified against:** `7555ecd`, 2026-08-10\
+**Verified against:** `9f04f46`, 2026-08-12\
 **Folder purpose:** everything written down about Frankfurt-League — a Next.js frontend, a FastAPI backend, MongoDB, deployed with Docker Compose behind nginx on a single host.
 
 ## Folder overview
 
-| Read                                                   | For                                                                                         |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| [`glossary.md`](glossary.md)                           | The German domain vocabulary, and the pitfall in each term                                  |
-| [`domain.md`](domain.md)                               | What depends on what, when a field may be edited, and what is refused                       |
-| [`frontend/overview.md`](frontend/overview.md)         | What the Next.js app is for, and how it is organised                                        |
-| [`frontend/spec.md`](frontend/spec.md)                 | Its exact contract — routes, caching, invariants                                            |
-| [`backend/overview.md`](backend/overview.md)           | What the FastAPI app is for, and how it is organised                                        |
-| [`backend/spec.md`](backend/spec.md)                   | Its exact contract — endpoints, error codes, the test suite                                 |
-| [`ops/overview.md`](ops/overview.md)                   | How the system is built, routed and deployed                                                |
-| [`ops/spec.md`](ops/spec.md)                           | Compose, nginx, the scripts and every gate scope                                            |
-| [`_decisions/`](_decisions/)                           | Why something is built this way, and whether it is deliberate                               |
-| [`_git/`](_git/)                                       | Branching, commits, pull requests, the gate, repository settings                            |
-| [`_git/templates.md`](_git/templates.md)               | Writing a commit message or a pull request body                                             |
-| [`ops/runbooks.md`](ops/runbooks.md)                   | The recurring procedures, and what this repository cannot record about the host             |
-| [`logging/README.md`](logging/README.md)               | Following a request through the logs, and adding an error code                              |
-| [`_roadmap/open-items.md`](_roadmap/open-items.md)     | What is planned, ranked, and what is deliberately not                                       |
-| [`_roadmap/closed-items.md`](_roadmap/closed-items.md) | What happened to an item no longer listed                                                   |
-| [`_standard/`](_standard/)                             | Writing or changing any documentation — the rules and the shapes                            |
-| [`_auditing/`](_auditing/)                             | Running an audit or a remediation programme                                                 |
-| `audit/`                                               | **Gitignored.** Working documents; what lives there is listed in [`_auditing/`](_auditing/) |
+| Read                                                     | For                                                                                         |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [`glossary.md`](glossary.md)                             | The German domain vocabulary, and the pitfall in each term                                  |
+| [`domain.md`](domain.md)                                 | What depends on what, when a field may be edited, and what is refused                       |
+| [`frontend/overview.md`](frontend/overview.md)           | What the Next.js app is for, and how it is organised                                        |
+| [`frontend/spec.md`](frontend/spec.md)                   | Its exact contract — routes, caching, invariants                                            |
+| [`backend/overview.md`](backend/overview.md)             | What the FastAPI app is for, and how it is organised                                        |
+| [`backend/spec.md`](backend/spec.md)                     | Its exact contract — endpoints, error codes, the test suite                                 |
+| [`ops/overview.md`](ops/overview.md)                     | How the system is built, routed and deployed                                                |
+| [`ops/spec.md`](ops/spec.md)                             | Compose, nginx, the scripts and every gate scope                                            |
+| [`_decisions/`](_decisions/)                             | Why something is built this way, and whether it is deliberate                               |
+| [`_git/`](_git/)                                         | Branching, commits, pull requests, the gate, repository settings                            |
+| [`_git/templates.md`](_git/templates.md)                 | Writing a commit message or a pull request body                                             |
+| [`ops/runbooks.md`](ops/runbooks.md)                     | The recurring procedures, and what this repository cannot record about the host             |
+| [`logging/README.md`](logging/README.md)                 | Following a request through the logs, and adding an error code                              |
+| [`_roadmap/open-items.md`](_roadmap/open-items.md)       | What is planned for the product, ranked, and what is deliberately not                       |
+| [`_roadmap/tooling-items.md`](_roadmap/tooling-items.md) | What is planned for the toolchain and the documentation corpus, ranked                      |
+| [`_roadmap/closed-items.md`](_roadmap/closed-items.md)   | What happened to an item no longer listed                                                   |
+| [`_standard/`](_standard/)                               | Writing or changing any documentation — the rules and the shapes                            |
+| [`_auditing/`](_auditing/)                               | Running an audit or a remediation programme                                                 |
+| `audit/`                                                 | **Gitignored.** Working documents; what lives there is listed in [`_auditing/`](_auditing/) |
 
 ## Coming back after a while
 
