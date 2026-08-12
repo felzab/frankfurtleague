@@ -544,11 +544,12 @@ export function AdminEditSpielDataForm({
   /**
    * The undo toast: fifteen seconds to take a save back (ADR-0041).
    *
-   * **There is no confirmation dialog anywhere on this page, and this is why.** Confirmation and undo
-   * are alternatives, not companions: a dialog interrupts every save to ask about a case that is
-   * usually harmless, and an admin who has dismissed thirty of them reads the thirty-first without
-   * seeing it. Undo costs nothing until it is wanted, and it is the only offer that helps the admin
-   * who was not paying attention — which is the case worth designing for.
+   * **No confirmation before a SAVE, and this is why.** Confirmation and undo are alternatives, not
+   * companions: a dialog interrupts every save to ask about a case that is usually harmless, and an
+   * admin who has dismissed thirty of them reads the thirty-first without seeing it. Undo costs
+   * nothing until it is wanted, and it is the only offer that helps the admin who was not paying
+   * attention — which is the case worth designing for. Discarding is a different question and keeps
+   * its own dialog (`ConfirmDiscardModal`), because nothing was written for an undo to take back.
    *
    * `destroyedSomething` picks the grade rather than whether to appear. An ordinary save is a success
    * that happens to be reversible; a save that deleted a scoreline elsewhere is a warning that

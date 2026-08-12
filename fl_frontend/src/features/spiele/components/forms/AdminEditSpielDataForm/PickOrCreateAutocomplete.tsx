@@ -113,7 +113,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
               so passing one is the only way to germanise it. `size-7` matches the team pickers': the
               default 20px target was the smallest control on the page. */}
           {/* `ms-2` here rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
-              truncated name ends against this button (I29 in `docs/frontend/spec.md`). */}
+              truncated name ends against this button (I30 in `docs/frontend/spec.md`). */}
           <Autocomplete.ClearButton
             type="button"
             aria-label={`${label}-Auswahl aufheben`}

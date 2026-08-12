@@ -59,8 +59,9 @@ export const FIELD_COUNT_INPUT = "fluid-sm w-full";
  * in-flow flex item with nothing in it — so a gap on this recipe lands in front of that empty
  * wrapper and buys a dead column at the trailing edge of every Autocomplete trigger. At a
  * `Select.Trigger` it buys nothing at all: that indicator is the bare icon, absolutely positioned,
- * and never a flex item to space. A child needing clearance from its neighbour carries its own
- * `ms-2` (I29 in `docs/frontend/spec.md`).
+ * and never a flex item to space. Both structures are HeroUI 3.2.3's (`autocomplete.js`,
+ * `select.js`) — re-read them on an upgrade, because nothing in the gate reads `node_modules`. A
+ * child needing clearance from its neighbour carries its own `ms-2` (I30 in `docs/frontend/spec.md`).
  *
  * Use this on `Autocomplete.Trigger` and `Select.Trigger`; use `FIELD_INPUT` for a field with nothing
  * floating over its trailing edge.
