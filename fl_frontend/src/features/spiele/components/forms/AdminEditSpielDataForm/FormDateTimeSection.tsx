@@ -29,15 +29,39 @@ import type { RefObject } from "react";
  *
  * A plain button rather than a react-aria one: it lives inside the group whose focus styling is
  * keyed off `:focus-within` in `globals.css`, and a `Button` would add press/hover state machinery
- * for what is a single synchronous state reset.
+ * for what is a single synchronous state reset. `data-field-clear` is the hook that stylesheet needs
+ * to hand it a focus outline back: the group strips one from every button inside it because its own
+ * border already says focus is in the field, and this button is one tab stop among the segments,
+ * which a single border cannot tell apart.
  *
- * **Focus moves to the field group before the value is cleared**, the same order
- * `FormNotizSection`'s note delete keeps. This button unmounts on that state change, and focus left
- * on a removed element falls to `<body>`, so the next Tab restarts at the top of the page. The group
- * is the target because react-aria makes only the segments focusable — `useDateSegment` gives each
- * `tabIndex: 0` and `useDateField` leaves the group without one — so the group carries
- * `tabIndex={-1}`: it stays out of the tab order, `:focus-within` still paints the field's brand
- * border so the move is visible, and the next Tab enters the field at its first segment.
+ * **Focus must not be on this button when the value is cleared**, because clearing removes it and a
+ * browser fires no blur for an element it removes: `useFocusWithin` on the group never learns focus
+ * left, `data-focus-within` stays set, and the field keeps its brand border while
+ * `document.activeElement` is `<body>` and nothing can be typed into it.
+ *
+ * The CLICK handler is what holds that, and it holds it on both paths: it moves focus into the group
+ * before clearing, the order `FormNotizSection`'s note delete also keeps, so a pointer press and the
+ * keyboard's Tab-then-Enter — which fires the same click — both end inside the field.
+ *
+ * `preventDefault` on `mousedown` is a second guard rather than the pointer path's own, and it earns
+ * its place by making the outcome independent of the ref: a press never makes this button the active
+ * element at all, so nothing is stranded even in the branch where `groupRef.current` is null and the
+ * focus call quietly does nothing. It is also how react-aria treats a search field's own clear
+ * control (`useSearchField` focuses the input on press start). The two do not fight — cancelling a
+ * `mousedown` default suppresses only the browser's own focus transfer, so the `click` still fires
+ * and a scripted `focus()` inside it is untouched.
+ *
+ * The group is the focus target because react-aria makes only the segments focusable —
+ * `useDateSegment` gives each `tabIndex: 0`, `useDateField` leaves the group without one — and
+ * HeroUI 3.2.3 exposes a `ref` on `DateField.Group` alone, never on `DateField.Segment` or
+ * `DateField.Input`. Hence `tabIndex={-1}` on the group: it stays out of the tab order,
+ * `:focus-within` still paints the field's brand border so the move is visible, and the next Tab
+ * enters the field at its first segment.
+ *
+ * **The keyboard path is closed by reasoning, not yet by observation.** Tab-then-Enter now runs the
+ * same focus-then-clear handler, so it should end inside the field rather than on `<body>`; the
+ * event ordering holds in a reduction of this markup, but neither path has been watched in the admin
+ * UI in this composed form.
  */
 function ClearFieldButton({
   label,
@@ -53,6 +77,8 @@ function ClearFieldButton({
     <button
       type="button"
       aria-label={label}
+      data-field-clear="true"
+      onMouseDown={(event) => event.preventDefault()}
       onClick={() => {
         groupRef.current?.focus();
         onClear();

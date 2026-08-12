@@ -50,9 +50,9 @@ THE CHECKS, in priority order:
 
 2. **QUERY INJECTION SURFACE.** Every place user-influenced input becomes part of a Mongo query or
    pipeline: can an attacker introduce operator keys (`$where`, `$gt`, dict-shaped values where a
-   scalar is assumed)? Are ids validated? `CustomObjectId`'s JSON-mode gap makes this
-   reachability-dependent — state whether any path parses ids via `model_validate_json`. Regex built
-   from input anywhere (ReDoS or pattern injection)? Sort or projection fields taken from input?
+   scalar is assumed)? Are ids validated — by a type that converts rather than one that only
+   declares a string, in whichever mode that call site validates in? Regex built from input anywhere
+   (ReDoS or pattern injection)? Sort or projection fields taken from input?
 
 3. **RESOURCE-EXHAUSTION SURFACE.** Unbounded or expensive work reachable per request: `limit` bounds
    actually enforced, unindexed scans in the pipelines, `$lookup` fan-out on attacker-chosen

@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `8944e3e`, 2026-08-12\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
@@ -66,20 +66,18 @@ chosen by feel.
 | 3   | FE-1   | A fixture carries one date, not a play window           | FE, BE      | XL     | Open     | —          |
 | 4   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
 | 5   | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
-| 6   | FE-3   | TeamDetailsView's progress line names no milestone      | FE          | M      | Open     | —          |
-| 7   | BE-12  | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | —          |
-| 8   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
-| 9   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
-| 10  | BE-15  | Nothing records who changed what, or what it replaced   | FE, BE, DB  | L      | Open     | —          |
-| 11  | LOG-2  | A cached read's call joins to no render                 | FE, BE, Ops | L      | Open     | —          |
-| 12  | FB-15  | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —          |
-| 13  | BE-7   | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | —          |
-| 14  | BE-6   | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | —          |
-| 15  | BE-14  | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | —          |
-| 16  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
-| 17  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
-| 18  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
-| 19  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
+| 6   | BE-12  | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | —          |
+| 7   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
+| 8   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
+| 9   | BE-15  | Nothing records who changed what, or what it replaced   | FE, BE, DB  | L      | Open     | —          |
+| 10  | LOG-2  | A cached read's call joins to no render                 | FE, BE, Ops | L      | Open     | —          |
+| 11  | FB-15  | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —          |
+| 12  | BE-7   | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | —          |
+| 13  | BE-14  | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | —          |
+| 14  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
+| 15  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
+| 16  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
+| 17  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
 
 **No entry in this file blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -140,15 +138,13 @@ and then again. The batch keeps its one-pass rule: one schema surface, one form,
 mirror that falls behind a gate failure that names the field). OPS-11 and OPS-10 are the cheapest
 entries here and the only ones a session pays for on every run: a guard that refuses commands it has
 no business refusing, and a classifier that spends a process per file to answer a question about the
-diff. FE-3 is presentation work on a surface that already exists. OPS-12 and DOC-2 are each a
-boundary nothing currently watches — a generated file against the generator that owns it, and the
-documentation standard's enforcement claims against the gate, which resolves them in the direction
-that overstates and not in the direction that understates. BE-12, BE-15 and LOG-2 are prospective
-rather than dependent:
-BE-12 is real now that the spieler pages make retiring a row possible at all, BE-15 becomes real the
-moment a second person can write, and LOG-2 improves the fidelity of a logging convention that
-already works. FB-15 closes the tier with the group swap the team editor's lock names as the one
-defensible mid-season move.
+diff. OPS-12 and DOC-2 are each a boundary nothing currently watches — a generated file against the
+generator that owns it, and the documentation standard's enforcement claims against the gate, which
+resolves them in the direction that overstates and not in the direction that understates. BE-12,
+BE-15 and LOG-2 are prospective rather than dependent: BE-12 is real now that the spieler pages make
+retiring a row possible at all, BE-15 becomes real the moment a second person can write, and LOG-2
+improves the fidelity of a logging convention that already works. FB-15 closes the tier with the
+group swap the team editor's lock names as the one defensible mid-season move.
 
 ### 2 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
 
@@ -272,33 +268,7 @@ spawning it replaced.
 **Not measured:** what the spawns actually cost on this machine, and how much of a gate run is
 attributable to them. The mechanism above is read from the code; the magnitude is not.
 
-### 6 · FE-3 — TeamDetailsView's season progress line names no milestone
-
-**Status:** Open\
-**Surfaces:** FE\
-**Effort:** M\
-**Path:** Independent — the record it renders exists and the fetch it needs is written.
-
-**`TeamDetailsView` should look better, and the season progress line at the bottom should carry the
-notes and milestones a season produces** — "went to playoffs" is the shape (my item, 2026-08-02).
-
-Contents the rework must carry:
-
-- the **full statistics** of the team, which this view shows and is the only surface that does. The
-  Saisontabelle counts the Gruppenphase; this page asks `GET /teams` for `statistik_scope=gesamt` and
-  counts every phase
-  ([ADR-0022](../_decisions/0022-the-league-table-counts-the-gruppenphase.md)). **The data question is
-  settled and the fetch is written** — what remains here is presentation, plus the line of copy that
-  explains the difference and should survive the rework in some form;
-- a **note on disqualified teams**, which is where the reason and the date get displayed.
-  `FLTeam.disqualifikation` carries each, and each is public by decision
-  ([ADR-0047](../_decisions/0047-a-disqualification-is-a-record-and-its-absence-is-the-null.md)), so
-  the note renders `grund` as authored rather than mapping it to a label.
-
-The compact card this view is the only consumer of already survives narrow screens (the `FE-8` row of
-[`closed-items.md`](closed-items.md)).
-
-### 7 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+### 6 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -335,7 +305,7 @@ than rediscovered.
 ([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)), so neither can accumulate a
 row to purge.
 
-### 8 · OPS-12 — Nothing checks a generated file against the generator that owns it
+### 7 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -371,7 +341,7 @@ the formatter has run over each side so the comparison is about content rather t
 and fails where it differs from the committed one, and the images are left to review with that
 exclusion written down rather than assumed.
 
-### 9 · DOC-2 — An enforcement claim is resolved in one direction only
+### 8 · DOC-2 — An enforcement claim is resolved in one direction only
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -403,7 +373,7 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 10 · BE-15 — Nothing records who changed what, or what a write replaced
+### 9 · BE-15 — Nothing records who changed what, or what a write replaced
 
 **Status:** Open\
 **Surfaces:** FE, BE, DB\
@@ -448,7 +418,7 @@ an entry is the one who made it, and the cost of having no log is paid when some
 somebody asks what happened. ADR-0041 raises the value of doing it meanwhile: the client-held undo
 makes the gap visible on the one surface an admin uses most.
 
-### 11 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
+### 10 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -514,7 +484,7 @@ validated or replaced the same way.
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
 
-### 12 · FB-15 — A mid-season group move is only defensible as a swap, and nothing offers one
+### 11 · FB-15 — A mid-season group move is only defensible as a swap, and nothing offers one
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -550,13 +520,13 @@ exists. Decide when either is next touched. Today's data has no case that needs 
 ## Tier 4 — standing cautions and watch items
 
 No scheduled action. Each of these has a recorded trigger rather than a plan, and some are owned
-elsewhere: BE-6 and BE-7 are seeded into backend audit passes, and OPS-2 into an ops pass. BE-14 and
-OPS-3 carry their own triggers — a group of six teams, and the next Cloudflare bot-protection change —
+elsewhere: BE-7 is seeded into a backend audit pass, and OPS-2 into an ops pass. BE-14 and OPS-3
+carry their own triggers — a group of six teams, and the next Cloudflare bot-protection change —
 because no pass covers either. DOC-3 and DOC-4 close the tier with the documentation gate's own
 limits: each names a rule the gate decides by a narrower test than the rule states, and each fails by
 saying nothing.
 
-### 13 · BE-7 — `typing` imports instead of `collections.abc`
+### 12 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -568,21 +538,7 @@ deprecated since Python 3.9, on a project running far newer. **Deliberately not 
 modernising one module while the rest keep the old spelling is worse than uniformity. The recorded
 decision is to enable ruff's `UP` rules and migrate in one pass.
 
-### 14 · BE-6 — `CustomObjectId` validates nothing in JSON mode
-
-**Status:** Standing\
-**Surfaces:** BE\
-**Effort:** —\
-**Path:** Independent — backend audit pass B2's validation-mode check owns it.
-
-Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch
-(`fl_backend/app/shared/schemas/custom.py`), so `model_validate_json` accepts **any string** as an
-ObjectId while `model_validate` rejects it. Unreachable through FastAPI, which validates
-already-parsed dicts — which is precisely why the existing tests certify a guarantee that holds in the
-Python mode alone. If anything ever routes through `model_validate_json`, an arbitrary string reaches
-a Mongo `_id` filter. Found 2026-07-30.
-
-### 15 · BE-14 — The certainty walk gives up in a group of six or more
+### 13 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -643,7 +599,7 @@ deduplicated, but inside a transaction, whose lifetime is bounded.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 16 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 14 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -682,7 +638,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 17 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 15 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -727,7 +683,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately — which is exactly the distinction that cost time this round.
 
-### 18 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 16 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -761,7 +717,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a chapter added to the standard under a prefix the patterns do not carry, or
 the first page that needs a metadata block indented.
 
-### 19 · DOC-4 — A stamp is required by a path and owed by a claim
+### 17 · DOC-4 — A stamp is required by a path and owed by a claim
 
 **Status:** Standing\
 **Surfaces:** Docs\

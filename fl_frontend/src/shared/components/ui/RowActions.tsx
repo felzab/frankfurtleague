@@ -7,6 +7,7 @@ import { ArrowRotateLeft, Copy, Pencil, TrashBin } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 
 import { IconTooltip } from "./IconTooltip";
+import { ROW_ACTION_SIZE } from "./rowActionSize";
 
 import type { ReactNode } from "react";
 
@@ -23,18 +24,16 @@ import type { ReactNode } from "react";
  * `label` and `ariaLabel` are two different things and both are required. `label` is the
  * tooltip, which react-aria wires as `aria-describedby` — a description, announced after the name
  * and dropped entirely by screen readers in forms mode. It never names the control. `ariaLabel`
- * carries the record name so the five icons in a row are distinguishable from each other and from
- * the same five icons in every other row.
+ * carries the record name so the icons in a row are distinguishable from each other and from the
+ * same icons in every other row.
  *
  * Neither class carries a focus style. The `<Button>` actions take HeroUI's ring and the `<Link>`
  * actions take the matching base-layer outline, both in `var(--focus)` — a per-site ring here is
  * what made the row actions look different from everything else.
  */
-const ACTION_CLASS =
-  "text-foreground-muted hover:bg-muted/40 hover:text-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors";
+const ACTION_CLASS = `text-foreground-muted hover:bg-muted/40 hover:text-brand flex ${ROW_ACTION_SIZE} shrink-0 items-center justify-center rounded-xl transition-colors`;
 
-const DANGER_CLASS =
-  "text-foreground-muted hover:bg-danger/10 hover:text-danger flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors";
+const DANGER_CLASS = `text-foreground-muted hover:bg-danger/10 hover:text-danger flex ${ROW_ACTION_SIZE} shrink-0 items-center justify-center rounded-xl transition-colors`;
 
 export function RowActionLink({
   href,
