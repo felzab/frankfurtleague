@@ -596,7 +596,9 @@ else
       git config core.autocrlf false
       mkdir -p docs/audit docs/_standard/chapters scripts src \
         fl_frontend/src/app fl_frontend/src/features .vscode
-      printf 'docs/audit/\n.vscode/\n' > .gitignore
+      # certs/ is here because the real repository ignores it: without that line the credential
+      # override never decides a certs path in the fixture, and the probes on it cannot fail.
+      printf 'docs/audit/\n.vscode/\ncerts/\n' > .gitignore
       for tracked in notes.md scripts/verify.sh scripts/check_docs.py src/tracked.py \
         fl_frontend/package.json fl_frontend/src/app.ts fl_frontend/src/clean.ts \
         fl_frontend/src/features/keep.ts docs/_standard/rules-index.md \
@@ -675,6 +677,7 @@ else
     # Short names so the case table below stays scannable.
     hb=guard-branch-bash.sh;   hs=guard-standard-bash.sh;   ht=guard-branch.sh
     he=guard-standard-edit.sh; hc=guard-local-compose.sh;   hk=guard-stale-type-class.sh
+    hp=guard-branch-powershell.sh
 
     # --- guard-branch.sh on main: the tool route -------------------------------------------------
 
@@ -706,16 +709,24 @@ else
     probe "$ht" denied  file "${hook_root}/docs/audit/tracked-note.md" 'branch guard: ignored but tracked'
 
     # The credential override, checked before the exemption and beating it. Nothing is written: the
-    # hook decides from the payload, so a name is all a probe needs. The last case is a DIRECTORY.
-    for cred in .env .env.local server.pem id_rsa credentials.json kubeconfig .env.d/note.md; do
+    # hook decides from the payload, so a name is all a probe needs. Two cases name a DIRECTORY
+    # rather than a file, which a basename test would miss.
+    for cred in .env .env.local server.pem server.key bundle.p12 id_rsa credentials.json \
+      gcp-service-account.json kubeconfig .env.d/note.md certs/ca.crt; do
       probe "$ht" denied file "${hook_root}/docs/audit/${cred}" "branch guard: ${cred} under a gitignored dir"
     done
+    # The segment test's negative, and the reason it is a segment test: a directory whose name merely
+    # ends in the word carries no credential, and a bare substring would refuse it.
+    probe "$ht" allowed file "${hook_root}/docs/audit/my-certs/notes.md" 'branch guard: a name ending in certs is not a certs directory'
 
     # --- guard-branch-bash.sh on main: the shell route -------------------------------------------
 
     # Exempt: one simple command, a program writing only where its arguments say, every path-like
     # token outside the tree or gitignored and untracked. `git checkout -b` matches no write shape.
     probe "$hb" allowed cmd 'git log --oneline -5'                             'bash guard: a read'
+    # ADR-0060's posture on this route: a payload nobody could read is a question nobody answered,
+    # and the other two guards answer the same input the same way.
+    probe "$hb" denied  raw 'not json'                                         'bash guard: unparseable payload'
     probe "$hb" denied  cmd 'sed -i s/a/b/ scripts/verify.sh'                  'bash guard: sed -i on a tracked file'
     probe "$hb" denied  cmd 'printf x > scripts/verify.sh'                     'bash guard: redirect into a tracked file'
     probe "$hb" allowed cmd 'printf x > docs/audit/note.md'                    'bash guard: write an ignored path'
@@ -732,6 +743,10 @@ else
     probe "$hb" denied  cmd 'touch docs/audit/server.pem'                      'bash guard: a pem in an ignored dir'
     probe "$hb" denied  cmd 'touch docs/audit/id_rsa_backup'                   'bash guard: an id_rsa in an ignored dir'
     probe "$hb" denied  cmd 'touch docs/audit/kubeconfig'                      'bash guard: a kubeconfig in an ignored dir'
+    probe "$hb" denied  cmd 'touch docs/audit/server.key'                      'bash guard: a key in an ignored dir'
+    probe "$hb" denied  cmd 'touch docs/audit/gcp-service-account.json'        'bash guard: a service-account json in an ignored dir'
+    probe "$hb" denied  cmd 'touch docs/audit/certs/ca.crt'                    'bash guard: under a certs directory'
+    probe "$hb" allowed cmd 'touch docs/audit/my-certs/notes.md'               'bash guard: a name ending in certs is not a certs directory'
     probe "$hb" denied  cmd 'printf x > docs/audit/log.txt && pnpm format'     'bash guard: chain with &&, second writes'
     probe "$hb" denied  cmd 'printf x > docs/audit/log.txt ; pnpm format'      'bash guard: chain with ;'
     probe "$hb" denied  cmd 'echo hi | tee docs/audit/log.txt'                 'bash guard: pipe'
@@ -879,6 +894,52 @@ else
     probe "$hb" allowed cmd 'ls -la'                                           'bash guard: a plain read'
     probe "$hb" allowed cmd 'git status --short'                               'bash guard: a plain git read'
 
+    # --- guard-branch-powershell.sh on main: the second shell route ------------------------------
+
+    # One probe per decision this guard makes, not per spelling: each refusal below is a
+    # write-through an earlier revision allowed, and each permission is the capability half, which
+    # a tightening breaks silently while every refusal here stays green.
+    probe "$hp" denied  cmd 'Set-Content -Path fl_frontend/src/app.ts -Value x' 'powershell guard: a tracked write on main'
+    # Names a path the exemption WOULD release, so the probe fails the day a hand adds the verb to
+    # a write list. Aimed at a tracked tree it would refuse for being tracked instead.
+    probe "$hp" denied  cmd 'Remove-Item docs/audit/note.md'                    'powershell guard: a deletion has no exemption'
+    # PowerShell expands a variable inside double quotes and this guard cannot, so the literal it
+    # judges and the file that gets written are two different paths.
+    # shellcheck disable=SC2016
+    probe "$hp" denied  cmd 'Set-Content -Path "docs/audit/$null../../notes.md" -Value x' 'powershell guard: a variable expands past the exempt tree'
+    # The one command string the two shell guards once answered differently, which is what made the
+    # composite refusal luck rather than depth.
+    probe "$hp" denied  cmd 'git diff --output=notes.md'                        'powershell guard: a read subcommand that writes'
+    # A junction is a second name for the tracked tree — the shape guard-branch-bash.sh drops ln for.
+    probe "$hp" denied  cmd 'New-Item -ItemType Junction -Path docs/audit/j -Value src' 'powershell guard: a link out of the exempt tree'
+    # Both cmdlets fall back to the CURRENT directory when nothing binds -Destination, and write a
+    # basename the command never spells.
+    probe "$hp" denied  cmd 'Copy-Item docs/audit/note.md'                      'powershell guard: a copy with no destination'
+    # Under the ignored tree deliberately: at the repository root the same name refuses for not
+    # being ignored, so the probe would stay green with the credential list emptied.
+    probe "$hp" denied  cmd 'Set-Content -Path docs/audit/server.key -Value y'  'powershell guard: a credential shape beats the exemption'
+    # The second copy of the segment regex. The list above it is a different test, so a probe on a
+    # name shape would leave this route's `certs/` arm the one nothing runs.
+    probe "$hp" denied  cmd 'Set-Content -Path docs/audit/certs/ca.crt -Value y' 'powershell guard: under a certs directory'
+    probe "$hp" allowed cmd 'Get-Content notes.md'                              'powershell guard: a read'
+    # The guard's stated premise, which nothing else here holds: it enumerates reads and refuses
+    # what it does not recognise. This carries no dollar, no semicolon and no path, so the program
+    # list is the only thing that can be refusing it.
+    probe "$hp" denied  cmd 'Get-Random'                                        'powershell guard: a program the list does not name'
+    probe "$hp" allowed cmd 'Set-Content -Path docs/audit/x.md -Value y'        'powershell guard: the gitignored exemption'
+    # Braces are banned as structure, and reach that ban only if the lexer stops stripping single
+    # quotes — which is the whole of the .vscode half of the required capability.
+    probe "$hp" allowed cmd "Set-Content -Path .vscode/settings.json -Value '{}'" 'powershell guard: quoted content is not structure'
+    probe "$hp" allowed cmd 'Write-Output y > docs/audit/note.md'               'powershell guard: a redirect into the exempt tree'
+    # Named rather than positional, so the POSITIONS table is what releases it: the positional
+    # spelling reaches its verdict by the route the probe below already holds, and would restate it.
+    probe "$hp" allowed cmd 'Copy-Item -Path docs/audit/a.md -Destination docs/audit/b.md' 'powershell guard: a named copy inside the exempt tree'
+    # A switch missing from the guard's set reads as value-taking and swallows the destination, so
+    # this refuses the day PowerShell's own set moves and nobody re-reads it off Get-Command.
+    probe "$hp" allowed cmd 'Copy-Item -Force docs/audit/a.md docs/audit/b.md'  'powershell guard: the switch set is current'
+    # The matcher names both shells, so this hook is handed Bash payloads it must never answer for.
+    probe "$hp" allowed raw '{"tool_name":"Bash","tool_input":{"command":"rm -rf src"}}' 'powershell guard: another tool payload'
+
     # --- guard-standard-bash.sh: the sign-off gate on every branch -------------------------------
     probe "$hs" asked   cmd 'printf x > docs/_standard/x.md'                   'standard bash guard: a plain write'
     probe "$hs" asked   cmd 'cp /tmp/x docs/_standard/y.md >/dev/null'         'standard bash guard: null device'
@@ -936,6 +997,12 @@ else
         probe "$hb" allowed cmd  "sed -i s/a/b/ ${hook_root//\//\\}\\docs\\audit\\note.md" 'bash guard: drive letter and backslashes, ignored'
         probe "$hb" allowed cmd  "sed -i s/a/b/ ${hook_msys}/docs/audit/note.md" 'bash guard: MSYS /c/ spelling, ignored'
         probe "$hb" denied  cmd  'cp docs/audit/note.md scripts\verify.sh'     'bash guard: backslashes, tracked'
+        # The spellings that separate the class from a collapsed one and from a colonless one. A
+        # forward-slash probe sees neither, and on Linux the branch rule refuses these tokens whatever the
+        # class holds — so only a Windows run can.
+        probe "$hb" denied  cmd  'touch docs\audit\certs\ca.crt'               'bash guard: a certs directory, backslashes'
+        probe "$hb" denied  cmd  'touch C:certs\a.md'                          'bash guard: a certs directory, drive-relative'
+        probe "$hp" denied  cmd  'Set-Content -Path C:certs\a.md -Value y'     'powershell guard: a certs directory, drive-relative'
         probe "$hb" denied  cmd  "cp docs/audit/note.md ${hook_root//\//\\}\\scripts\\verify.sh" 'bash guard: drive letter, tracked'
         probe "$hb" denied  cmd  "cp docs/audit/note.md ${hook_msys}/scripts/verify.sh" 'bash guard: MSYS /c/ spelling, tracked'
         probe "$hs" asked   cmd  "printf x > ${hook_msys}/docs/_standard/x.md" 'standard bash guard: MSYS /c/ spelling'

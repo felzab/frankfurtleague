@@ -62,16 +62,23 @@ branch="$(git branch --show-current 2>/dev/null)"
 cmd="$(node -e '
 let s = "";
 process.stdin.on("data", (d) => (s += d)).on("end", () => {
+  let p;
   try {
-    process.stdout.write(JSON.parse(s).tool_input?.command || "");
-  } catch {}
+    p = JSON.parse(s);
+  } catch {
+    process.exit(1);
+  }
+  if (p === null || typeof p !== "object") process.exit(1);
+  const c = p.tool_input ? p.tool_input.command : undefined;
+  if (typeof c !== "string") process.exit(1);
+  process.stdout.write(c);
 });
 ' 2>/dev/null)"
 read_status=$?
 
-# node absent or crashed answers nothing, and ADR-0060's posture is to refuse a question nobody
-# answered rather than to fall silent over every shell write at once. An empty command is a real
-# answer and exits: there is no command to guard.
+# A payload node could not read is a question nobody answered, and refusing one is ADR-0060's
+# posture — the same status node absent or crashed leaves. A command that is the empty string is a
+# real answer and exits: there is nothing to guard.
 [ "$read_status" -eq 0 ] || deny
 [ -n "$cmd" ] || exit 0
 
@@ -224,9 +231,13 @@ const decide = (input) => {
     .map((w) => w.replace(ESCAPED, "").replace(QUOTES, ""));
 
   // Ahead of the flag skip below, because a credential name glued into a flag is the same file.
-  const CREDS = [".env", ".pem", "id_rsa", "credentials.json", "kubeconfig", "service-account"];
+  const CREDS = [".env", ".pem", ".key", ".p12", "id_rsa", "credentials.json", "kubeconfig", "service-account"];
+  // certs/ is a whole-segment match on either separator and on the colon: a bare substring would
+  // refuse my-certs/notes.md, which holds no credential, and dropping the colon would miss
+  // C:certs\a.md, which is drive-relative and names the same directory.
+  const CERT_DIR = /(^|[\\/:])certs[\\/]/;
   const lower = words.map((w) => w.toLowerCase());
-  if (lower.some((w) => CREDS.some((c) => w.indexOf(c) >= 0))) return "refuse";
+  if (lower.some((w) => CREDS.some((c) => w.indexOf(c) >= 0) || CERT_DIR.test(w))) return "refuse";
 
   const prog = path.basename(words[0]);
   const sub = words.length > 1 ? words[1] : "";
