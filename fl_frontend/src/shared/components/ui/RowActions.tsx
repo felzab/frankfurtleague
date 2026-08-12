@@ -24,8 +24,8 @@ import type { ReactNode } from "react";
  * `label` and `ariaLabel` are two different things and both are required. `label` is the
  * tooltip, which react-aria wires as `aria-describedby` — a description, announced after the name
  * and dropped entirely by screen readers in forms mode. It never names the control. `ariaLabel`
- * carries the record name so the five icons in a row are distinguishable from each other and from
- * the same five icons in every other row.
+ * carries the record name so the icons in a row are distinguishable from each other and from the
+ * same icons in every other row.
  *
  * Neither class carries a focus style. The `<Button>` actions take HeroUI's ring and the `<Link>`
  * actions take the matching base-layer outline, both in `var(--focus)` — a per-site ring here is
