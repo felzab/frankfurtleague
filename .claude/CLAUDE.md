@@ -357,6 +357,7 @@ decision nobody ratified. Each row is one never-clause; the argument lives in `d
 | 0060 | Compare the branch guard's paths as text; allow a target it cannot place                  |
 | 0061 | Add a `callbackUrl` to the sign-in redirect without the allowlist first                   |
 | 0063 | Drop a forfeit from the cancellation count; merge it into the scoring lookup              |
+| 0062 | Split the group swap into two writes; relax the move lock to serve it                     |
 | 0064 | Widen the bot exemption past an exact identity pair or its three rules                    |
 | 0065 | Let the gate write a formatted file; merge a partly-staged file's halves                  |
 | 0066 | Collapse a refusal into a failure; move one half of the exit contract alone               |

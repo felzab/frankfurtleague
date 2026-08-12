@@ -807,6 +807,134 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
     return None
 
 
+# A group SWAP: two clubs exchanging groups inside one season (ADR-0062).
+
+# Beside the entry codes rather than among them, because a swap is neither an entry nor the move
+# `REQ-ENTER-004` locks: each group keeps its size and every drawn fixture keeps its opponents.
+
+# The two ids do not name two clubs of this season standing in different groups: one club named twice, a
+# club holding no junction row, or two clubs of one group.
+
+# One code for the three, because the remedy is the same -- the control offers only pairs that ARE a
+# swap, so a request carrying one is stale or racing another admin.
+SWAP_NOT_A_SWAP = "REQ-SWAP-001"
+
+# The knockout rounds have started, so the standings these groups produce have already been consumed
+# by the seeding (ADR-0035). Exchanging the groups behind that rewrites what its slots meant.
+SWAP_KNOCKOUT_STARTED = "REQ-SWAP-002"
+
+# A `past` season, frozen for the reason `REQ-RULES-005` freezes its scoring rules (decided
+# 2026-08-11): both are inputs the finished table is computed from on every read.
+SWAP_SAISON_FINISHED = "REQ-SWAP-003"
+
+# Either club has taken part in its group's round robin (decided 2026-08-11). Every club plays every
+# other club of its group, so one that has played inside a group cannot be moved out of it.
+SWAP_GRUPPENPHASE_PLAYED = "REQ-SWAP-004"
+
+# The exchange would leave a club standing in two matches of one Spieltag (ADR-0042, decided
+# 2026-08-11). Group sides move and bracket sides do not, so a Spieltag holding both can double a club.
+SWAP_SPIELTAG_CLASH = "REQ-SWAP-005"
+
+
+def find_gruppe_swap_refusal(
+    *,
+    is_same_team: bool,
+    team1_gruppe: str | None,
+    team2_gruppe: str | None,
+    saison_status: str,
+    played_knockout_fixtures: int,
+    played_gruppenphase_fixtures: int,
+    clashing_spieltage: int,
+) -> tuple[str, str] | None:
+    """
+    Why exchanging these two clubs' groups must be refused, as `(error_code, detail)` -- or `None`.
+
+    Each `gruppe` is what that club's `saison_teams` row holds for the season, and `None` means the club
+    holds no row in it at all.
+
+    **Both counts are taken over one predicate, `app.api.saisons.admin_router._has_taken_place`:** a
+    fixture carrying an `ergebnis`, one called off, or one holding a goal count on either side. A
+    called-off match here is a forfeit and counts as a real game, which is the repository's own reading
+    (`app.api.saisons.services.unplayed_spiel_nrs`); and a fixture can hold one side's goals with no
+    `ergebnis` at all, which is a match somebody has already started recording. So a club with either
+    behind it has taken part in its round robin, and a knockout fixture with either had its slot filled
+    from a group placing exactly as a played one did. The two counts differ only in which phase they read.
+
+    `played_gruppenphase_fixtures` is narrowed to fixtures fielding one of THESE TWO clubs, because
+    `REQ-SWAP-004` is about their own participation; `played_knockout_fixtures` counts the season's,
+    because `REQ-SWAP-002` is about the bracket having consumed a standing whoever it named.
+
+    `clashing_spieltage` is `app.api.saisons.admin_router._spieltag_clashes` over the same two snapshots:
+    the Spieltage that would hold one of the two clubs twice once the exchange lands, which ADR-0042
+    forbids and no validator or index can express.
+
+    **Five rules, and the order is the argument.** A pair that is not a swap describes nothing this
+    season could do, so it is answered as that before anything about the season is consulted. The season
+    being over comes next, for `find_rules_refusal`'s reason, stated in its own first comment: where the
+    whole operation is refused anyway, naming a bound that merely also applies sends an admin to look at
+    the wrong thing. A `past` season is refused whatever its bracket holds, so answering `REQ-SWAP-002`
+    there would name a reason contingent on a refusal that has already happened. Then the bracket, then
+    the round robin -- narrowing from the season to the two clubs.
+
+    **`REQ-SWAP-005` is last, and it is last because it is the only one an admin can act on.** The four
+    above are terminal: nothing an operator does reopens a played bracket or an unplayed round robin. A
+    Spieltag clash is repairable -- move one of the two fixtures, or clear the manual pick feeding the
+    bracket side -- so naming it while a terminal refusal also applies would send somebody to do work
+    that changes nothing. That is the `REQ-SWAP-003`-before-`REQ-SWAP-002` argument one step further out.
+
+    Deliberately silent about `ENTRY_GRUPPE_LOCKED`, which refuses a MOVE for a club whose fixtures are
+    drawn. That lock's own message names this operation as the defensible one, so a swap neither routes
+    through it nor relaxes it (ADR-0062).
+    """
+
+    if is_same_team:
+        return (SWAP_NOT_A_SWAP, "both ids name one club; a swap exchanges two of them")
+
+    missing = [label for label, gruppe in (("team1", team1_gruppe), ("team2", team2_gruppe)) if gruppe is None]
+    if missing:
+        return (
+            SWAP_NOT_A_SWAP,
+            f"no saison_teams row for {' and '.join(missing)}; a swap exchanges two clubs that are both entered in the season",
+        )
+
+    if team1_gruppe == team2_gruppe:
+        return (SWAP_NOT_A_SWAP, f"both clubs stand in gruppe {team1_gruppe}; a swap exchanges two different groups")
+
+    if saison_status == "past":
+        return (
+            SWAP_SAISON_FINISHED,
+            "season is past; its groups are frozen because the league table is derived from them on every read",
+        )
+
+    if played_knockout_fixtures > 0:
+        noun = "fixture has" if played_knockout_fixtures == 1 else "fixtures have"
+
+        return (
+            SWAP_KNOCKOUT_STARTED,
+            f"{played_knockout_fixtures} knockout {noun} already been played or called off; the bracket has been seeded from these groups",
+        )
+
+    if played_gruppenphase_fixtures > 0:
+        noun = "fixture has" if played_gruppenphase_fixtures == 1 else "fixtures have"
+
+        return (
+            SWAP_GRUPPENPHASE_PLAYED,
+            f"{played_gruppenphase_fixtures} gruppenphase {noun} already been played or called off for these two clubs; "
+            "a club that has played inside its group cannot leave it without leaving a round robin that is not one",
+        )
+
+    if clashing_spieltage > 0:
+        noun = "spieltag would" if clashing_spieltage == 1 else "spieltage would"
+
+        return (
+            SWAP_SPIELTAG_CLASH,
+            f"{clashing_spieltage} {noun} field one of the two clubs twice after the exchange; "
+            "a club plays at most one match per spieltag, and a bracket side does not move with the swap",
+        )
+
+    return None
+
+
 # A club still entered in a season that is running or planned: retiring it pulls it out of every picker
 # while its fixtures are played or drawn -- the state the soft delete exists to prevent, reached through
 # the soft delete itself (ADR-0026).

@@ -6,7 +6,7 @@
  *
  * All of these use `authType: "admin"`; the backend's admin router rejects the base key.
  *
- * **Three writes and no delete.** A season that is over is `past`: deleting one would orphan every
+ * **Four writes and no delete.** A season that is over is `past`: deleting one would orphan every
  * spiel, spieltag and junction row carrying its id, none of which cascades (ADR-0026). There is no
  * `patchSaisonStatus` either, and there cannot be — `activateSaison` is the only path to `active`.
  *
@@ -16,7 +16,12 @@
 
 import { apiClient } from "@/core/api";
 
-import { FLActivateSaisonResponseSchema, FLPatchSaisonResponseSchema, FLPostSaisonResponseSchema } from "./schemas";
+import {
+  FLActivateSaisonResponseSchema,
+  FLPatchSaisonResponseSchema,
+  FLPostSaisonResponseSchema,
+  FLSwapGruppenResponseSchema,
+} from "./schemas";
 
 import type {
   FLActivateSaisonPayload,
@@ -25,6 +30,8 @@ import type {
   FLPatchSaisonResponse,
   FLPostSaisonPayload,
   FLPostSaisonResponse,
+  FLSwapGruppenPayload,
+  FLSwapGruppenResponse,
 } from "./schemas";
 
 // The one create whose payload carries its own id: `saisons._id` is the four-character string every
@@ -61,5 +68,26 @@ export async function activateSaison({ id }: FLActivateSaisonPayload): Promise<F
   return apiClient<FLActivateSaisonResponse>(`/saisons/${id}/activate`, FLActivateSaisonResponseSchema, {
     method: "POST",
     authType: "admin",
+  });
+}
+
+/**
+ * The group swap: two clubs of this season exchange groups, in one transaction on the backend.
+ *
+ * **One request and not two junction PATCHes** (ADR-0062). Two calls have a window in which one group is
+ * a club short and the other a club over, and a failure after the first leaves the season in that state
+ * permanently. The same transaction also rewrites the two clubs' drawn Gruppenphase sides, which is
+ * further out of reach of a client still.
+ *
+ * Five refusals, each mapped to its own message by `swapGruppenAction`: a pair that is not a swap
+ * (`REQ-SWAP-001`), a `past` season (`REQ-SWAP-003`), a knockout round already under way
+ * (`REQ-SWAP-002`), either club having played inside its group (`REQ-SWAP-004`), and an exchange that
+ * would leave a club standing in two matches of one Spieltag (`REQ-SWAP-005`).
+ */
+export async function swapGruppen({ saison_id, ...teams }: FLSwapGruppenPayload): Promise<FLSwapGruppenResponse> {
+  return apiClient<FLSwapGruppenResponse>(`/saisons/${saison_id}/gruppen/swap`, FLSwapGruppenResponseSchema, {
+    method: "POST",
+    authType: "admin",
+    body: JSON.stringify(teams),
   });
 }
