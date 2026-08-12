@@ -27,12 +27,17 @@ import type { CalendarDate, Time } from "@internationalized/date";
  * A plain button rather than a react-aria one: it lives inside the group whose focus styling is
  * keyed off `:focus-within` in `globals.css`, and a `Button` would add press/hover state machinery
  * for what is a single synchronous state reset.
+ *
+ * `data-field-clear` is the hook that stylesheet needs to hand it a focus outline back. The group
+ * strips one from every button inside it because its own border already says focus is in the field
+ * — but this button is one tab stop among the segments, and the border cannot tell them apart.
  */
 function ClearFieldButton({ label, onClear }: { label: string; onClear: () => void }) {
   return (
     <button
       type="button"
       aria-label={label}
+      data-field-clear="true"
       onClick={onClear}
       className="text-foreground-muted hover:text-foreground flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors">
       <Xmark className="size-4" />
