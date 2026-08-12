@@ -181,6 +181,13 @@ SHELLCHECK_VERSION="0.11.0"
 shellcheck_available() { command -v shellcheck >/dev/null 2>&1 || docker version >/dev/null 2>&1; }
 actionlint_available() { command -v actionlint >/dev/null 2>&1 || docker version >/dev/null 2>&1; }
 
+# Git Bash mounts %TEMP% at /tmp, so a checkout there makes `/$REPO_ROOT` bind an unrelated
+# directory and shellcheck blames the scripts for files it cannot read. cygpath resolves it,
+# as verify.sh already does for the pool's shell.
+mount_source() {
+  cygpath -w "$REPO_ROOT" 2>/dev/null || printf '/%s' "$REPO_ROOT"
+}
+
 run_shellcheck() {
   if command -v shellcheck >/dev/null 2>&1; then
     shellcheck -e SC1091 "$@"
@@ -188,7 +195,7 @@ run_shellcheck() {
   fi
   # No local binary: the pinned official image, which is how shellcheck is reachable on a Windows dev
   # machine. MSYS_NO_PATHCONV stops Git Bash rewriting the container path into a Windows one.
-  MSYS_NO_PATHCONV=1 docker run --rm -v "/${REPO_ROOT}:/mnt" -w /mnt \
+  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/mnt" -w /mnt \
     "koalaman/shellcheck:v${SHELLCHECK_VERSION}" -e SC1091 "$@"
 }
 
@@ -200,7 +207,7 @@ run_actionlint() {
   # 1.7.8 is the floor: earlier versions reject `using: node24`, which GitHub documents and
   # supports. Nothing bumps this automatically — dependabot's github-actions ecosystem covers
   # `uses:` references, and this is a `docker run`.
-  MSYS_NO_PATHCONV=1 docker run --rm -v "/${REPO_ROOT}:/repo" -w /repo rhysd/actionlint:1.7.12
+  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/repo" -w /repo rhysd/actionlint:1.7.12
 }
 
 # Both read files this run never writes, and each is the slowest thing in the step it belongs to, so
