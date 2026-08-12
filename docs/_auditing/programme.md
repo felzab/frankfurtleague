@@ -243,11 +243,13 @@ classes that pass a partial gate and break the built image.
 Report the script's **actual output and exit code**. Never the word "passing", never a hand-typed
 substitute chain.
 
-### 4.2 Handle what the gate rewrote
+### 4.2 Read what the formatter changed
 
-The gate mutates the tree — the formatter runs in write mode first. Commit what it reformats, and
-**read the post-gate diff**: the formatter can corrupt a conditional class string, and nothing else
-in the gate sees that.
+The gate writes nothing, so no run of it leaves a diff to commit. Formatting happens at commit time:
+`.githooks/pre-commit` formats the staged files and re-stages them
+([ADR-0065](../_decisions/0065-formatting-happens-at-commit-time.md)), which puts every reformat
+inside one of the wave's own commits. **Read those hunks** — the formatter can corrupt a conditional
+class string, and nothing else in the gate sees that.
 
 ### 4.3 Confirm the exit gate and the guardrails
 

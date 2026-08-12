@@ -19,6 +19,11 @@ on:
       - "fl_frontend/**"
       - "fl_backend/**"
       - ".github/workflows/codeql.yml"
+      # The mapping script the `changes` job below runs, and the library it sources. Without them a
+      # pull request that breaks the mapping runs the verify gate and never this workflow, so the
+      # breakage first shows as a red run on main, attributed to the change after it.
+      - "scripts/ci_scopes.sh"
+      - "scripts/_lib.sh"
   push:
     branches: [main]
   # Query packs are updated upstream, so a scheduled run finds newly published queries against code
@@ -47,7 +52,7 @@ jobs:
       frontend: ${{ steps.map.outputs.frontend }}
       backend: ${{ steps.map.outputs.backend }}
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Same reasoning as verify.yml: the token is not needed after checkout, and leaving it in
           # .git/config exposes it to every later step.
@@ -78,11 +83,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Initialise CodeQL
-        uses: github/codeql-action/init@v4.37.4
+        uses: github/codeql-action/init@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           languages: javascript-typescript
           build-mode: none
@@ -90,7 +95,7 @@ jobs:
           # roughly equal measure, so start quiet and escalate on evidence. To escalate, add
           # `queries: security-extended` here.
       - name: Analyse
-        uses: github/codeql-action/analyze@v4.37.4
+        uses: github/codeql-action/analyze@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
 
   analyze-python:
     needs: changes
@@ -98,14 +103,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Initialise CodeQL
-        uses: github/codeql-action/init@v4.37.4
+        uses: github/codeql-action/init@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           languages: python
           build-mode: none
           # Same reasoning as the JavaScript job: default suite, escalate on evidence.
       - name: Analyse
-        uses: github/codeql-action/analyze@v4.37.4
+        uses: github/codeql-action/analyze@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
