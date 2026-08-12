@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `2a0eb0d`, 2026-08-12\
+**Verified against:** `b3ea116`, 2026-08-12\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
@@ -82,6 +82,7 @@ chosen by feel.
 | 19  | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs   | S      | Open     | —          |
 | 20  | OPS-56 | The git stepper reads one `git`, on one line            | Ops         | S      | Open     | —          |
 | 21  | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops         | M      | Open     | —          |
+| 22  | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops         | S      | Open     | —          |
 
 **No entry in this file blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1033,3 +1034,34 @@ re-opens ADR-0066's eleven measured rank/finding/exit combinations.
 about 60s, at which point `frontend` at 57s becomes the new floor and the next lever is `next
 build`. **OPS-19's linter cache buys nothing on wall clock** — it targets `format` at 45s, which is
 already hidden inside `scripts`.
+
+### 22 · OPS-61 — The commit hook builds its scratch at a path git cannot open
+
+**Status:** Open**Surfaces:** Ops**Effort:** S**Path:** Independent. One line, and the idiom it needs is already in two other files.
+
+**`.githooks/pre-commit` takes its working directory from `mktemp -d`, which on Git Bash answers
+with the MSYS alias `/tmp/tmp.XXXXXX`.** The hook then hands that path to `git hash-object -w`, and
+Git for Windows cannot open it from a worktree — so the commit dies after prettier has already
+reformatted and re-staged the files, leaving the index written and the commit unmade.
+
+**Measured on 2026-08-12**, committing a merge resolution inside
+`.claude/worktrees/agent-ade030eb4e1f34b6e`:
+
+```
+pre-commit hook: prettier reformatted 3 file(s); staging them from the index:
+fatal: could not open '/tmp/tmp.ax2X4kHqIt/formatted' for reading: No such file or directory
+```
+
+`mktemp -d` answered `/tmp/tmp.dcSn130oAT`; exporting `TMPDIR=C:/Users/felix/AppData/Local/Temp`
+made the same commit succeed on the next attempt with nothing else changed. **That is the whole
+diagnosis and the whole fix.**
+
+**It fails loudly, which is the right direction, and it still blocks work** — a commit cannot be
+made at all from a worktree until the caller happens to know about `TMPDIR`. The main checkout is
+unaffected, which is why it survived a fifty-five commit series without showing itself.
+
+**A sibling of the mount-source defect closed on the same day**, and the same repair: `cygpath -w`
+resolves the alias, and it is already how `scripts/verify.sh` spells the pool's own shell and how
+`scripts/selfcheck.sh` builds its container bind. **Three files now reach for a Windows path from a
+POSIX-looking one; two do it correctly.** Worth considering whether the third should share a helper
+rather than a third spelling.
