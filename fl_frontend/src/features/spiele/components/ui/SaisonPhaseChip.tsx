@@ -1,6 +1,7 @@
 import { Chip } from "@heroui/react";
 
 import { PHASE_LABELS } from "@/features/saisons/constants";
+import { PILL_RADIUS } from "@/shared/components/ui/badges";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 
@@ -144,9 +145,7 @@ export function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase })
   return (
     <Chip
       size="sm"
-      /* `rounded-md` overrides HeroUI's `rounded-2xl` on `.chip`: one radius for every pill in the
-         app. A utility beats the component layer, so no `!` is needed. */
-      className={`rounded-md border-none px-1.5 py-0.5 ${PHASE_CLASSES[saisonPhase]}`}>
+      className={`${PILL_RADIUS} border-none px-1.5 py-0.5 ${PHASE_CLASSES[saisonPhase]}`}>
       <div className="fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
         {PHASE_ICONS[saisonPhase]}
         {PHASE_LABELS[saisonPhase]}

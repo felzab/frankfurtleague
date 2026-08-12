@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `8944e3e`, 2026-08-12
+**Verified against:** `d6dd386`, 2026-08-12
 
 Every item that has left [`open-items.md`](open-items.md) has a row here. This is a log: nothing in
 it is waiting for anything, and a regression is a new item with a new ID rather than an edit to a
@@ -64,4 +64,5 @@ the rule that the row is a pointer while the closing commit's body is the record
 | FE-6  | The error page logged everything and offered its reader no way to say what they were doing         | FE          | S      | —                            | [`11497ba`](https://github.com/felzab/frankfurtleague/commit/11497ba) |
 | DOC-1 | A stamp-only markdown edit re-armed the branch-impact check on every page citing the restamped one | Docs        | S      | —                            | [`e578e0e`](https://github.com/felzab/frankfurtleague/commit/e578e0e) |
 | BE-6  | `CustomObjectId` accepted any string in JSON mode and converted one in Python mode                 | BE          | —      | —                            | [`f8d9955`](https://github.com/felzab/frankfurtleague/commit/f8d9955) |
+| FE-3  | The team page's progress line named no milestone, and nothing public said why a team was out       | FE          | M      | —                            | [`43cd0ae`](https://github.com/felzab/frankfurtleague/commit/43cd0ae) |
 | FB-15 | A mid-season group change was defensible only as a swap, and no endpoint offered one               | FE, BE      | M      | —                            | [`e7c8163`](https://github.com/felzab/frankfurtleague/commit/e7c8163) |
