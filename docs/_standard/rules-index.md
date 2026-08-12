@@ -1,6 +1,6 @@
 # Rules index
 
-**Verified against:** `0a21c75`, 2026-08-12
+**Verified against:** `bbb5182`, 2026-08-12
 
 Every rule in one line each; the chapter heading links to the file the full rules live in.
 

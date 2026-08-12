@@ -1,6 +1,6 @@
 # Scripts
 
-**Verified against:** `0a21c75`, 2026-08-11\
+**Verified against:** `bbb5182`, 2026-08-11\
 **Folder purpose:** the operational scripts for building, testing, running and deploying
 Frankfurt-League, plus the checkers the verification gate runs.
 

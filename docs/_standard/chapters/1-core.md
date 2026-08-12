@@ -1,6 +1,6 @@
 # Core rules
 
-**Verified against:** `8944e3e`, 2026-08-12\
+**Verified against:** `4cc32fa`, 2026-08-12\
 **Applies to:** every written artifact — module headers, symbol docs, inline comments, `docs/`
 pages, ADRs, prompts, command files, commit messages and pull request bodies.
 
