@@ -75,7 +75,9 @@ if (( RUN_OPS || RUN_IMAGES )); then
 fi
 PY=""
 if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
-  PY="$(venv_python)"
+  # The failure is the caller's, for the reason `scripts/_lib.sh :: venv_python` records.
+  PY="$(venv_python)" \
+    || die "No fl_backend virtualenv found. Create it with:  cd fl_backend && uv sync --dev"
 fi
 
 # The scopes this run covers, settled before anything runs. Stated up front and read back by the

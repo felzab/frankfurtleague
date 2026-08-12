@@ -575,8 +575,9 @@ refuse() {
 # silence. The three values are passed in at the moment the trap fires, which is what makes them
 # accurate.
 
-# `$LINENO` must be passed as an argument — referenced inside the trap body it reports where the
-# trap was defined, which is this file rather than the script that failed.
+# `$2` is the line a reader should open — a helper reporting for call sites it does not own passes
+# the caller's, and the ERR trap passes `$LINENO`, which inside the trap body would name this file
+# rather than the script that failed.
 on_error() {
   local rc="$1" line="$2" cmd="$3"
   # The open section failed, whatever its steps had reached: a row still reading `pass` beside a
@@ -642,20 +643,24 @@ See scripts/README.md for which script belongs to which environment."
 
 # Absolute path to fl_backend's virtualenv interpreter. The venv layout differs by platform --
 # Scripts/python.exe on Windows, bin/python on Linux -- and verify.sh runs on both.
+
+# Returns 1 rather than dying, because every caller reads it through `$( )`: a `die` there exits the
+# subshell alone, the caller's assignment then fails, and the ERR trap prints a stack block under
+# the message that already said what to do.
 venv_python() {
   local win="${REPO_ROOT}/fl_backend/.venv/Scripts/python.exe"
   local nix="${REPO_ROOT}/fl_backend/.venv/bin/python"
   if   [[ -x "$win" ]]; then printf '%s' "$win"
   elif [[ -x "$nix" ]]; then printf '%s' "$nix"
-  else die "No fl_backend virtualenv found. Create it with:  cd fl_backend && uv sync --dev"
+  else return 1
   fi
 }
 
 # Any interpreter able to run the stdlib-only checkers in scripts/: the backend venv's where it
 # exists, otherwise whatever is on PATH. Prints nothing and returns 1 when there is none.
 
-# Deliberately not `venv_python`, which dies: the scope check runs on every verify.sh invocation,
-# `--frontend` included, and failing that for a missing backend virtualenv buys a prerequisite for
+# Deliberately wider than `venv_python`: the scope check runs on every verify.sh invocation,
+# `--frontend` included, and skipping it for a missing backend virtualenv buys a prerequisite for
 # nothing. The caller decides what an absent one means.
 any_python() {
   local win="${REPO_ROOT}/fl_backend/.venv/Scripts/python.exe"
