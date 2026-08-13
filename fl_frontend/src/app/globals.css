@@ -728,6 +728,47 @@ html:has([data-app-shell]) {
    Deliberately unlayered: unlayered rules outrank every @layer, including HeroUI's `components` and
    Tailwind's `utilities`, so neither a library default nor a stray per-site class can reintroduce a
    ring. That also means this is the ONE place any of them can be changed -- which is the point. */
+/* A PLACEHOLDER too long for its field ends in an ellipsis rather than mid-word. Declared once,
+   never as a class per input: the population is every field in the app, and a control that gains a
+   placeholder later joins it by existing. `clip` is `text-overflow`'s initial value and nothing in
+   this app or in HeroUI sets it, so what this replaces is the CSS default and not a decision.
+
+   BOTH selectors are load-bearing, and each covers engines the other misses. `text-overflow` does
+   not inherit, so the placeholder box takes it from the input only where a UA stylesheet forwards
+   it — Blink's `html.css` and Gecko's `forms.css` both say `text-overflow: inherit` there, while
+   WebKit's `input::placeholder` block sets `white-space`, `word-wrap`, `overflow` and `line-height`
+   and nothing else. So on Safari the first arm compiles and does nothing, and the second reaches
+   the box directly: WebKit applies no property allowlist to this pseudo-element
+   (`Style::propertyAllowlistForPseudoElement`), and an engine that does restrict it drops that arm
+   silently while keeping the one it already answers to.
+
+   `input` and not `textarea`: a textarea's placeholder wraps, and `text-overflow` acts only on
+   inline overflow, so a rule covering them would be one nothing could make true. */
+input[placeholder],
+input[placeholder]::placeholder {
+  text-overflow: ellipsis;
+}
+
+/* AN EMPTY SEARCH FIELD GIVES ITS WHOLE WIDTH TO THE PLACEHOLDER — the clear control takes none.
+   HeroUI's `search-field.css` hides that control on the empty state with `pointer-events-none
+   opacity-0`, which leaves it in flow holding `size-7` from `dismissControl`, the `me-2` its own
+   rule gives it and the flex gap in front of it. On `SearchBar` that is 48px of a 122px chrome
+   budget, reserved on every screen width for a control with nothing to clear — at exactly the
+   moment the placeholder is the thing being cut off. `display` is what reclaims it: `visibility`
+   or a zero width would leave the gap standing.
+
+   Nothing is stranded. `useSearchField` gives the control `excludeFromTabOrder` and
+   `preventFocusOnPress` and focuses the input from `onPressStart`, so focus has already left before
+   the value empties (react-aria 3.51). What goes is HeroUI's fade, and that is the intended trade:
+   a phone-width field cannot spend 48px on a 150ms transition.
+
+   Unlayered, because HeroUI's empty-state rule is in `@layer components` and matches at equal
+   specificity. It reaches every search field in the app — the shared `SearchBar`, the filter
+   panel's facet search and the two picker popovers — which is the point of declaring it here. */
+[data-slot="search-field"][data-empty="true"] [data-slot="search-field-clear-button"] {
+  display: none;
+}
+
 /* iOS Safari zooms the whole page into any focused control whose computed font-size is under
    16px, and several field styles resolve below that on a phone (`fluid-sm` bottoms out around
    14px). The cure is the control's font-size, never `maximum-scale` in the viewport tag — that
