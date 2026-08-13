@@ -164,7 +164,12 @@ class TestAMatchdayBelongsToAPhaseTheSeasonPlays:
         )
 
     def test_a_phase_the_bracket_never_reaches_is_refused(self):
-        """A9 §2.2 measured this accepted: an `achtelfinale` row whose `anzahl_spiele` reads 0."""
+        """
+        The row this refusal exists for: an `achtelfinale` matchday whose `anzahl_spiele` reads 0.
+
+        `app/api/saisons/schedule.py :: schedule_for` lists no `achtelfinale` for an eight-qualifier
+        season, so `expected_matches` answers 0 and the matchday reports a round with no matches in it.
+        """
 
         refusal = find_spieltag_create_refusal(
             implied_in_phase=0,

@@ -57,9 +57,10 @@ def total_group_matches(number_of_groups: int, teams_per_group: int) -> int:
     """
     Every group-phase match: `C(n, 2)` per group.
 
-    Stated separately from matchdays x matches-per-matchday because the two agree only for an even group.
-    An ODD group's last round is short -- the schedule reserves a slot for the team on its bye -- so
-    multiplying would over-count. This is the figure to trust.
+    Stated from the combination rather than as matchdays x matches-per-matchday. The two agree at every
+    group size -- an odd group's extra round exactly offsets its smaller rounds, so the bye's empty slot
+    never lands in the product -- but they agree by that cancellation, and the combination says the
+    number outright.
     """
 
     if teams_per_group < 2:
