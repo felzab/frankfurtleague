@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `9f04f46`, 2026-08-12\
+**Verified against:** `b0a8430`, 2026-08-13\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -51,15 +51,16 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 
 ## The path at a glance
 
-| #   | ID    | Item                                                  | Surfaces    | Effort | Status   | Depends on |
-| --- | ----- | ----------------------------------------------------- | ----------- | ------ | -------- | ---------- |
-| 1   | FB-16 | Nothing announces that a season rollover is due       | BE, Ops     | M      | Open     | —          |
-| 2   | BE-15 | Nothing records who changed what, or what it replaced | FE, BE, DB  | L      | Open     | —          |
-| 3   | FE-1  | A fixture carries one date, not a play window         | FE, BE      | XL     | Open     | —          |
-| 4   | LOG-2 | A cached read's call joins to no render               | FE, BE, Ops | L      | Open     | —          |
-| 5   | BE-12 | Nothing purges a row whose `inactive_since` is old    | BE, DB      | M      | Open     | —          |
-| 6   | BE-7  | `typing` imports instead of `collections.abc`         | BE          | —      | Standing | —          |
-| 7   | BE-14 | The certainty walk gives up in a group of six or more | BE          | —      | Standing | —          |
+| #   | ID    | Item                                                       | Surfaces        | Effort | Status   | Depends on |
+| --- | ----- | ---------------------------------------------------------- | --------------- | ------ | -------- | ---------- |
+| 1   | BE-15 | Nothing records who changed what, or what it replaced      | FE, BE, DB      | L      | Open     | —          |
+| 2   | FB-16 | Nothing announces that a season rollover is due            | BE, Ops         | M      | Open     | —          |
+| 3   | FB-17 | Season setup is hand-run, and only an admin enters a squad | FE, BE, DB, Ops | XL     | Open     | —          |
+| 4   | FE-1  | A fixture carries one date, not a play window              | FE, BE          | XL     | Open     | —          |
+| 5   | LOG-2 | A cached read's call joins to no render                    | FE, BE, Ops     | L      | Open     | —          |
+| 6   | BE-12 | Nothing purges a row whose `inactive_since` is old         | BE, DB          | M      | Open     | —          |
+| 7   | BE-7  | `typing` imports instead of `collections.abc`              | BE              | —      | Standing | —          |
+| 8   | BE-14 | The certainty walk gives up in a group of six or more      | BE              | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -69,50 +70,7 @@ own `Path` line.
 
 ## The items in rank order
 
-### 1 · FB-16 — Nothing announces that a season rollover is due
-
-**Status:** Open\
-**Surfaces:** BE, Ops\
-**Effort:** M\
-**Path:** Independent — what ranks it first is that it settles where a scheduled job can run here at
-all, which BE-12 leans on for its own "what runs it".
-
-**Deferred by me on 2026-08-12: not worth building yet.** The trigger that turns it into work is a
-rollover actually being missed.
-
-**Every step of a rollover has a page; the sequence has nothing.** `/admin/saisons` creates the
-season, the Umstellung panel on `/admin/saisons/[saison_id]` activates it
-([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)), the team and player editors
-carry the junction rows, and `/admin/spieltage` builds the skeleton
-([ADR-0050](../_decisions/0050-a-matchday-list-is-the-seasons-skeleton.md)). Each clears its own
-caches as it saves. What no surface does is notice that the sequence has not started, or that it
-stopped half-way: nothing prompts for a step that is skipped.
-
-**The failure is silent in a specific way.** An omitted step leaves the site serving last season as
-though it were this one, and every read of it is a correct read of stale data.
-
-**A reminder is a scheduled job, not a surface** — nothing renders it, nobody navigates to it, and it
-has to run when no admin is present. This repository runs **no application-level scheduler**: there
-is no queue, no worker, each image's `CMD` starts its one server and nothing else, and nothing
-`scripts/deploy.sh` starts is a scheduler either. What runs on a clock here is
-`.github/workflows/codeql.yml`, which carries a weekly `schedule: cron` and analyses source — so the
-mechanism exists in CI and reaches nothing inside the running application. That, rather than the
-message, is the actual scope.
-
-**What has to be settled when it is worked:**
-
-- **What triggers it.** A season's `end_date` is the obvious clock and is the wrong one on its own — a
-  season is over when its fixtures are played, and an early rollover is legitimate (ADR-0026). The
-  honest trigger is probably a date approaching with the next season absent.
-- **What runs it.** A container with a cron, a scheduled GitHub Actions workflow hitting a guarded
-  endpoint, or the host's own crontab. The workflow needs no new runtime and is already proven here by
-  `codeql.yml`, which neither the container nor the host crontab is; the container needs no public
-  surface. The trade is where the credential lives.
-- **What it says.** The value is the checklist, not the alarm: a reminder naming which steps are
-  already done is a different message from one saying a date passed, and only the first is worth
-  reading twice.
-
-### 2 · BE-15 — Nothing records who changed what, or what a write replaced
+### 1 · BE-15 — Nothing records who changed what, or what a write replaced
 
 **Status:** Open\
 **Surfaces:** FE, BE, DB\
@@ -160,7 +118,222 @@ and never backwards, so every write made before it lands is one nobody can recon
 raises the value of doing it meanwhile: the client-held undo makes the gap visible on the one surface
 an admin uses most.
 
-### 3 · FE-1 — A fixture carries one date, and a play window cannot be expressed
+### 2 · FB-16 — Nothing announces that a season rollover is due
+
+**Status:** Open\
+**Surfaces:** BE, Ops\
+**Effort:** M\
+**Path:** Independent — its leverage is that it settles where a scheduled job can run here at all,
+which BE-12 leans on for its own "what runs it".
+
+**Deferred by me on 2026-08-12: not worth building yet.** The trigger that turns it into work is a
+rollover actually being missed.
+
+**Every step of a rollover has a page; the sequence has nothing.** `/admin/saisons` creates the
+season, the Umstellung panel on `/admin/saisons/[saison_id]` activates it
+([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)), the team and player editors
+carry the junction rows, and `/admin/spieltage` builds the skeleton
+([ADR-0050](../_decisions/0050-a-matchday-list-is-the-seasons-skeleton.md)). Each clears its own
+caches as it saves. What no surface does is notice that the sequence has not started, or that it
+stopped half-way: nothing prompts for a step that is skipped.
+
+**The failure is silent in a specific way.** An omitted step leaves the site serving last season as
+though it were this one, and every read of it is a correct read of stale data.
+
+**A reminder is a scheduled job, not a surface** — nothing renders it, nobody navigates to it, and it
+has to run when no admin is present. This repository runs **no application-level scheduler**: there
+is no queue, no worker, each image's `CMD` starts its one server and nothing else, and nothing
+`scripts/deploy.sh` starts is a scheduler either. What runs on a clock here is
+`.github/workflows/codeql.yml`, which carries a weekly `schedule: cron` and analyses source — so the
+mechanism exists in CI and reaches nothing inside the running application. That, rather than the
+message, is the actual scope.
+
+**What has to be settled when it is worked:**
+
+- **What triggers it.** A season's `end_date` is the obvious clock and is the wrong one on its own — a
+  season is over when its fixtures are played, and an early rollover is legitimate (ADR-0026). The
+  honest trigger is probably a date approaching with the next season absent.
+- **What runs it.** A container with a cron, a scheduled GitHub Actions workflow hitting a guarded
+  endpoint, or the host's own crontab. The workflow needs no new runtime and is already proven here by
+  `codeql.yml`, which neither the container nor the host crontab is; the container needs no public
+  surface. The trade is where the credential lives.
+- **What it says.** The value is the checklist, not the alarm: a reminder naming which steps are
+  already done is a different message from one saying a date passed, and only the first is worth
+  reading twice.
+
+### 3 · FB-17 — Setting up a season is a hand-run sequence, and only an admin can enter a squad
+
+**Status:** Open\
+**Surfaces:** FE, BE, DB, Ops\
+**Effort:** XL\
+**Path:** Waits on the matchday-model question below, because until that is settled the generation
+half is being built against a model that may move. BE-15 ahead of it is an ordering preference and
+not a block. It changes what FB-16's reminder would have to say and removes no part of the need for
+one.
+
+**My item, 2026-08-13.** The Saison create form becomes a guided workflow that takes an admin through
+a whole new season — its dates, which clubs play it, which clubs are new, and the rules it runs
+under — and the season is then built behind that flow, as automatically as it can be. Beside it, an
+admin page of the school and team representatives: each is told their team is in the new season and
+given a link or a code to paste into that team's group chat. The link leads to a page, also new,
+where the players of that team enter themselves with their position, squad number and the rest — a
+returning player recognised rather than duplicated, a number clash raised rather than stored. The
+Saison page and its editor change with it.
+
+**What ranks it is the rollover.** Everything here is worth having before the next season is set up
+and worth much less after: a season set up by hand is a season this work does nothing for, and its
+squads are typed by one person either way. That is the test — a clock — that separates it from FE-1,
+which carries no date. It ranks under BE-15 because BE-15's cost is the unrecoverable one, and
+because this entry is the largest new source of writes on the page: writes made before an action log
+exists are writes nobody can reconstruct.
+
+**It is a programme, and its parts are not one change.**
+
+| Part                                                        | Needs first                                   | Could ship alone |
+| ----------------------------------------------------------- | --------------------------------------------- | ---------------- |
+| The guided creation flow, as a page over the create payload | —                                             | Yes              |
+| Generating the season's structure behind it                 | the matchday-model question                   | No               |
+| A representatives-and-contacts admin surface                | somewhere to keep a contact                   | Yes              |
+| Telling a representative their team is in                   | the contacts surface                          | No               |
+| A shareable link or code, and what it authorises            | a ruling on the authorisation model           | No               |
+| The public self-registration page                           | the link, and a public write path             | No               |
+| Recognising a returning player                              | the registration page                         | No               |
+| Raising a squad-number clash                                | the registration page; the reissue hole below | The hole, alone  |
+| Rework of the Saison page and its editor                    | whichever of the above lands                  | Yes              |
+
+**Half of "generate the season fully" is arithmetic that already exists.**
+`fl_backend/app/api/saisons/schedule.py :: schedule_for` takes a season's rules and returns, per
+phase the season actually plays, how many matchdays it takes and how many matches each holds;
+`:: expected_matches` is what a matchday's `anzahl_spiele` reports.
+[ADR-0052](../_decisions/0052-a-seasons-schedule-is-derived-from-its-rules.md) stores none of it and
+refuses a rules combination that cannot be played
+(`fl_backend/app/api/saisons/services.py :: find_rules_refusal`). So the shape of a season is already
+a pure function of what a create form collects, and the guided flow's structural half is a matter of
+showing that function's answer while the admin is still choosing.
+
+**The missing half is the draw, and its absence is a ratified decision rather than a gap.** `/spiele`
+has no `POST` and no `DELETE`:
+[ADR-0037](../_decisions/0037-a-seasons-fixtures-are-created-once.md) settled that a season's matches
+are drawn once, outside the API, that correcting a draw means editing the database directly, and that
+a `POST` would need a `spiel_nr` nobody can safely choose — the draw assigns it, and
+[ADR-0034](../_decisions/0034-a-result-entry-resolves-the-whole-bracket.md) wires the bracket through
+that number rather than through document ids. **Generating a season "fully" therefore means writing a
+draw**, which is the largest single piece of new backend here and the one that runs straight at
+ADR-0037. Whether the flow does that at all, or stops at a season whose structure is ready and leaves
+the draw where ADR-0037 put it, is a ruling this entry needs before the work starts.
+
+**Ending the flow by making the season live is the one thing it must not do.**
+`POST /saisons/{saison_id}/activate` is the only code path in the system that writes `status`, a
+created season is always `future`, and creating and activating are two steps **on purpose** — a
+single "create it and make it live" call turns a typo in a four-character season id into a silent
+rollover of the running season, produced by a form field (ADR-0026). A guided workflow that finishes
+by making the season current is exactly that call with a wizard in front of it. The flow ends at a
+season that is ready and `future`; the rollover stays the panel on `/admin/saisons/[saison_id]`,
+where the outgoing season's unfinished fixtures are listed rather than counted (ADR-0050).
+
+**The load-bearing question: a matchday row is created by hand, and whether it should be is open.**
+`/admin/spieltage` creates one at a time, and what a row supplies is its phase and its date span —
+its position, its name and its match count have each already left the document
+([ADR-0051](../_decisions/0051-a-matchdays-position-is-derived-not-stored.md), ADR-0052). My
+direction is that the rows should follow from the rules as well. **If they do, generating a season
+stops being a feature and becomes a consequence**, because building the structure is then only
+applying the rules — and the flow's generation half is a read of `schedule_for` rather than a writer
+of anything. That is why the ordering matters: building the guided flow first means building
+generation against a model that is about to change, and rewriting it afterwards. The question is not
+free either — ADR-0051 keeps a knockout round splittable across several matchdays, and ADR-0037
+leaves `spiele.spieltag_id` with no fixture-level create or delete to move a fixture off a row a
+narrowing would remove.
+
+**A public write into application data would be the first of its kind here.** Every write that
+touches the league's own data sits behind `verify_access_admin`, declared at router level and
+inherited by the endpoints under it
+([ADR-0027](../_decisions/0027-the-write-path-is-resource-first-in-a-second-router.md)); the browser
+side of that is an email allowlist checked at sign-in and re-derived on every session read
+(`fl_frontend/src/core/auth.ts`). The public unauthenticated writes that exist touch no application
+data — the sign-in action, which triggers an outbound email and writes into the Auth.js store alone
+([ADR-0007](../_decisions/0007-authjs-owns-a-direct-mongoclient.md)), and
+`fl_frontend/src/app/api/client-error/route.ts`, which writes a log line — and each has its own
+`limit_req_zone` in `nginx/prod.conf`, keyed so that only the POST is limited. A self-registration
+page is the first that inserts a person. What that opens is listed under the undecided questions
+below rather than answered here.
+
+**Recognising a returning player has a shape already, and ADR-0025 refused the tempting version of
+it.** `spieler` holds the person and the `saison_spieler` junction holds everything a squad list
+shows; `uniq_spieler_id_saison_id` gives a person one row per season, so bringing back somebody who
+already has a retired row for that season is
+`POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate` and never a second create.
+[ADR-0025](../_decisions/0025-soft-deletion-is-a-date-not-a-flag.md) rejected making a create
+idempotent on a natural key because a two-letter shorthand cannot distinguish the same club returning
+from a different one wanting those letters, and getting it wrong repoints history silently. **A typed
+name is a weaker key than a shorthand**, so the same argument binds harder here: matching on a name
+has to propose a candidate rather than resolve one, and the resolution belongs to somebody who can be
+wrong out loud. `is_nachgetragen` is the field that already records a squad entry arriving after the
+season began, derived from the chosen season's status rather than asked
+(`fl_frontend/src/features/spieler/components/forms/AdminCreateSpielerForm.tsx`), and a
+self-registration into a running season is precisely that case.
+
+**The squad-number rule has a hole this work has to close rather than avoid.**
+`fl_backend/app/api/spieler/services.py :: find_squad_refusal` refuses a number a write would newly
+take from another player in the same squad and season (`REQ-SQUAD-002`), and the set it compares
+against is read with `inactive_since: None` — see
+`fl_backend/app/api/spieler/admin_router.py :: post_saison_spieler` and `:: patch_saison_spieler`. So
+a retired row's number is free to reissue, and `:: reactivate_saison_spieler` clears the stamp
+without consulting the rule at all: reissue a retired player's number, reactivate their row, and two
+live players wear it with nothing reporting it. The rule also lets a row resubmit its own stored
+number whatever else holds it, which is deliberate — it keeps an existing duplicate editable by the
+edit that would resolve it. A page that lets a whole team enter itself multiplies every write that
+reaches this rule, so the reissue path is work this entry owns rather than a hazard it can route
+around.
+
+**What the Saison page and its editor inherit.** The create form is a dialog today
+(`fl_frontend/src/features/saisons/components/modals/AdminCreateSaisonModal.tsx` over
+`fl_frontend/src/features/saisons/components/forms/AdminCreateSaisonForm.tsx`), and
+[ADR-0040](../_decisions/0040-a-form-that-outgrows-a-dialog-becomes-a-page.md) already fixes what
+happens when a form outgrows one: it becomes a page at its own route, with panels per section, a
+field judged when it is left, one save bar, a discard guard and an undo route handler. A flow that
+also picks clubs and creates them passes that threshold by a distance, so the guided workflow is a
+page rather than a larger modal, and the pattern to copy is on
+`/admin/saisons/[saison_id]` — `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx`
+and the Zeitraum, Regeln, Gruppentausch and rollover sections beside it. The editor is where a wrong
+answer from the flow is corrected, so every field the flow collects has to be editable afterwards,
+and the narrowing refusals ADR-0052 lists are what the flow has to state while a value is still being
+chosen.
+
+**Undecided, and each needs a ruling before the part depending on it starts:**
+
+- **What the link authorises, and what a leaked one can do.** A code per team per season, or a signed
+  URL; whether it expires with the registration window; whether it can be revoked and reissued; and
+  whether it identifies the team alone or the team and the person. A link pasted into a group chat is
+  a link that leaves the group chat.
+- **Whether a self-registered entry is live on submission or waits to be admitted.** A squad list is a
+  public page, so a public write that lands straight in one is public text written by an
+  unauthenticated stranger — the trust `teams.description` and a disqualification's `grund` already
+  carry, extended to somebody the league has not authenticated.
+- **What the form may ask for, and where the notice saying so lives.** `stufe` is the Hessen
+  Oberstufe ([ADR-0048](../_decisions/0048-position-and-stufe-are-closed-sets.md)), so the people
+  typing into this page are school pupils. The public route group
+  `fl_frontend/src/app/(public)/(meta)/` holds `about`, `kontakt` and `team`.
+- **Where a representative's contact is kept.** `fl_backend/app/api/teams/schemas.py :: FLTeamRecord`
+  carries a club's name, shorthand, description, site and address and no person, so this is a new
+  collection or a new embedded record — and a new collection is a member of
+  `fl_backend/app/core/collections.py :: Collection`, a hand-written `$jsonSchema` and its indexes in
+  `fl_backend/app/core/constraints.py`, and a row in every table that mirrors them
+  ([ADR-0020](../_decisions/0020-the-database-enforces-its-own-invariants.md),
+  [ADR-0024](../_decisions/0024-the-third-copy-of-the-schema-is-checked-not-generated.md),
+  [ADR-0054](../_decisions/0054-one-declaration-of-the-collection-names.md)).
+- **What sends the notification.** Resend is already the transport for the sign-in link, reached
+  through Auth.js's provider rather than as a service anything else can call
+  (`fl_frontend/src/core/auth.ts`, `fl_frontend/src/core/authEmail.ts`). A second sender is either a
+  second call site against the same API or a reason to lift the transport out from under the provider.
+- **Whether the flow may enter a club it has just created.** A club never leaves a season once it is
+  entered: `saison_teams` has a POST and a PATCH and no DELETE, and the way out is disqualification
+  (ADR-0026). A club entered by a misclick in a wizard is therefore disqualified rather than removed,
+  which is a heavy consequence for a step in a flow designed to be fast.
+- **What a rate limit for this surface should be.** The existing zones are sized for a person signing
+  in and for a crashing browser; a whole squad filling a form in one break is a different shape of
+  traffic on the same edge.
+
+### 4 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -185,7 +358,7 @@ ausstehend/heute/vergangen ternary genuinely harder, and that ADR's intent (a fi
 window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives ADR-0058's definitions under ranges.
 
-### 4 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
+### 5 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -254,7 +427,7 @@ validated or replaced the same way.
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
 
-### 5 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+### 6 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -293,7 +466,7 @@ than rediscovered.
 ([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)), so neither can accumulate a
 row to purge.
 
-### 6 · BE-7 — `typing` imports instead of `collections.abc`
+### 7 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -306,7 +479,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 7 · BE-14 — The certainty walk gives up in a group of six or more
+### 8 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
