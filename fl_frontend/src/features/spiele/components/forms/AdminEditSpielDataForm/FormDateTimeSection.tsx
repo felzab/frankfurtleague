@@ -4,6 +4,7 @@ import { Xmark } from "@gravity-ui/icons";
 
 import { Calendar, DateField, DatePicker, FieldError, TimeField } from "@heroui/react";
 
+import { dismissControl } from "@/core/dismissControl";
 import {
   DATE_PICKER_CALENDAR,
   DATE_PICKER_PLACEMENT,
@@ -26,6 +27,11 @@ import type { RefObject } from "react";
  * per Backspace, so "kein Termin mehr" — a legitimate value, the stored `null` the pickers render as
  * TBD — otherwise costs one press per segment plus the knowledge that it was possible at all.
  * Rendered only while there is something to clear, exactly like the pickers' own clear buttons.
+ *
+ * **Only the markup and the handlers are local; the treatment is `dismissControl`'s**, which is where
+ * every X on the site gets its size, corner, colour and hover fill. A class list written out here is
+ * one clear control that answers to nothing when that recipe moves, which is how a hover fill goes
+ * missing from exactly one X and nothing reports it.
  *
  * A plain button rather than a react-aria one: it lives inside the group whose focus styling is
  * keyed off `:focus-within` in `globals.css`, and a `Button` would add press/hover state machinery
@@ -78,15 +84,20 @@ function ClearFieldButton({
   return (
     <button
       type="button"
-      aria-label={label}
+      {...dismissControl({
+        label,
+        // A plain `<button>`, so react-aria writes no `data-hovered` and the centring and the
+        // interactive cursor HeroUI's own controls get from their component CSS are this host's.
+        hover: "css",
+        className: "flex cursor-pointer items-center justify-center",
+      })}
       data-field-clear="true"
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => {
         groupRef.current?.focus();
         onClear();
-      }}
-      className="text-foreground-muted hover:text-foreground flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors">
-      <Xmark className="size-4" />
+      }}>
+      <Xmark />
     </button>
   );
 }
