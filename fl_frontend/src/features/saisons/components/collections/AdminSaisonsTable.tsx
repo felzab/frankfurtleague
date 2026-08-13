@@ -197,12 +197,12 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
         </Table>
 
         {/* The same bars the fallback drew, over the shell for the render in which react-aria's
-            collection is still empty. Two conditions, and both are needed: `tbody` says the collection
-            has not landed, and the gate says the wait has run long enough to be worth reporting -- a
-            pass shorter than the threshold is an artefact, not a load (`tableCollectionFloor.ts`). */}
+            collection is still empty, and for the rest of the minimum once it lands. `tbody` says the
+            collection has not landed, the gate says the wait was worth reporting, and the hold keeps
+            the answer up long enough to read -- multiplied, so a shut gate wins over both. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl opacity-(--admin-placeholder-gate) group-has-[tbody]:hidden">
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl opacity-(--admin-placeholder-gate) group-has-[tbody]:opacity-[calc(var(--admin-placeholder-gate)*var(--admin-placeholder-hold))]">
           <AdminTableSkeletonRows />
         </div>
       </div>
