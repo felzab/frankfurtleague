@@ -519,6 +519,20 @@
      dot that is 2.5px of travel, invisible for the moment the loader is on screen. */
   --animate-loader-dot: loader-dot 0.6s infinite ease-in-out;
 
+  /* THE ADMIN PLACEHOLDER GATE. One origin for both placeholders on an admin CRUD route, because
+     they answer one question -- has this been loading long enough to say so -- from two sides of a
+     Suspense boundary that carries no signal across it. The shell mounts when the navigation starts
+     and runs this; the fallback and each table's continuity overlay read it. Measured from the SHELL
+     and not from either placeholder's own mount, which is the whole point: the overlay mounts when
+     the boundary RESOLVES, so a delay of its own would start after the wait it is reporting.
+
+     Zero duration and a backwards fill, exactly as the fallback's own step: the value is 0 through
+     the delay and there is no active phase to interpolate across, so a reader gets absent or whole
+     and never a partial. `initial-value: 1` is deliberate -- if this animation never runs the gate
+     reads open, which is the behaviour before it existed rather than a placeholder nothing can
+     reveal. */
+  --animate-admin-placeholder-gate: admin-placeholder-gate 0s linear var(--motion-base) backwards;
+
   @keyframes loader-dot {
     0%,
     100% {
@@ -1411,6 +1425,18 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   }
   .bracket-sweep > *:nth-child(n + 4) {
     animation-delay: 150ms;
+  }
+}
+
+@property --admin-placeholder-gate {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
+@keyframes admin-placeholder-gate {
+  from {
+    --admin-placeholder-gate: 0;
   }
 }
 

@@ -31,7 +31,9 @@ export function AdminCrudShell({
   children: ReactNode;
 }) {
   return (
-    <div className="max-w-page mx-auto flex w-full flex-col gap-8 p-6 sm:p-8">
+    // The placeholder gate runs HERE because this mounts when the navigation starts, which is the one
+    // clock both placeholders below the boundary can share (`globals.css`). It paints nothing itself.
+    <div className="animate-admin-placeholder-gate max-w-page mx-auto flex w-full flex-col gap-8 p-6 sm:p-8">
       {/* One row at EVERY width (decided 2026-08-07): neither half depends on the resource list, so
           the whole row paints before the table streams in. Below `sm` the two are one joined
           control — the search bar with the create trigger as its bare-plus continuation (no gap,

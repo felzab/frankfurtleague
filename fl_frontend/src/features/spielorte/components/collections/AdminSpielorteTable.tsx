@@ -217,13 +217,13 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           </Table.ScrollContainer>
         </Table>
 
-        {/* The same bars the Suspense fallback drew, held over the shell for the one render in which
-            react-aria's collection is still empty. `tbody` is the discriminator and it is exact: absent
-            during that pass, present with rows once populated, present carrying the empty state when
-            there genuinely are none. See `tableCollectionFloor.ts` for why the pass exists. */}
+        {/* The same bars the fallback drew, over the shell for the render in which react-aria's
+            collection is still empty. Two conditions, and both are needed: `tbody` says the collection
+            has not landed, and the gate says the wait has run long enough to be worth reporting -- a
+            pass shorter than the threshold is an artefact, not a load (`tableCollectionFloor.ts`). */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl group-has-[tbody]:hidden">
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl opacity-(--admin-placeholder-gate) group-has-[tbody]:hidden">
           <AdminTableSkeletonRows />
         </div>
       </div>

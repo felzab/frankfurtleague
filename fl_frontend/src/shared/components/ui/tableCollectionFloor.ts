@@ -29,8 +29,12 @@
  * and a reversal is what the eye catches, while three pixels over is absorbed by the growth into the
  * real rows that follows.
  *
+ * **It lasts exactly as long as the pass it covers.** `group-has-[tbody]:min-h-0` releases it the
+ * moment the collection lands, so a table filtered down to four rows sizes to four rows. Held past
+ * that it would be a minimum on every table forever, which is empty space under a short result.
+ *
  * **A floor, never a height.** `min-height` only ever raises the used height, so a filled table grows
  * past it freely. It is deliberately absent from the `md:hidden` card branch, which maps its rows
  * directly rather than through a collection and so has no empty pass to survive.
  */
-export const TABLE_COLLECTION_FLOOR = "min-h-[28.5rem]";
+export const TABLE_COLLECTION_FLOOR = "min-h-[28.5rem] group-has-[tbody]:min-h-0";
