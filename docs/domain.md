@@ -154,11 +154,13 @@ symbols have in common:
 - each refusal reaches the client as a **code** it maps to German, with an English `detail` that goes only
   to the log ([`logging/error-codes.md`](logging/error-codes.md))
 
-**A rule's return type is not uniform, so read the signature before assuming one.** Most hand back
-`(error_code, detail)` or `None`; some return a `WriteRefusal`; some return the detail alone, with the code
-supplied at the call site; and `judge_spieltag_occupancy` returns a `SpieltagVerdict` that carries a refusal
-beside the moves it plans. A uniform `is_valid(operation) -> bool` cannot express that last outcome, which is
-why there is no central evaluator (ADR-0053).
+**A rule returns one shape**, `fl_backend/app/core/exceptions.py :: WriteRefusal` or `None` — the code and
+the English detail as a named pair, so the rule that decides a refusal is also what names it, and
+`DocumentConflictException.from_refusal` is the only route from one to a response.
+`judge_spieltag_occupancy` is the one signature that differs: it returns a `SpieltagVerdict` carrying a
+`WriteRefusal` beside the moves it plans, because a clash against a manual side is resolved rather than
+refused. A uniform `is_valid(operation) -> bool` cannot express that outcome, which is why there is no
+central evaluator (ADR-0053).
 
 **`RULES` is not the whole list of what a match write does.** The bracket resolution backs no row in it and
 **rewrites** fixtures the request never named (ADR-0034).

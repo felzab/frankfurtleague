@@ -22,6 +22,7 @@ from app.api.saisons.schedule import expected_matches
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import PHASE_RANK, FLSaisonPhase
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
+from app.core.exceptions import WriteRefusal
 
 
 def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
@@ -105,9 +106,9 @@ SPIELTAG_OVER_ITS_PHASE = "REQ-SPIELTAG-002"
 SPIELTAG_BELOW_IMPLIED_COUNT = "REQ-RETIRE-005"
 
 
-def find_spieltag_retire_refusal(*, played_count: int, live_in_phase: int, implied_in_phase: int) -> tuple[str, str] | None:
+def find_spieltag_retire_refusal(*, played_count: int, live_in_phase: int, implied_in_phase: int) -> WriteRefusal | None:
     """
-    Why retiring this matchday must be refused, as `(error_code, detail)` -- or `None`.
+    Why retiring this matchday must be refused, as a `WriteRefusal` -- or `None`.
 
     `played_count` is how many of its fixtures carry an `ergebnis`, counted by the caller inside its own
     read. A fixture with no result does not block: an empty or unplayed matchday is exactly the one
@@ -136,7 +137,7 @@ def find_spieltag_retire_refusal(*, played_count: int, live_in_phase: int, impli
             else f"{played_count} played matches; retiring it would remove their results"
         )
 
-        return (SPIELTAG_HOLDS_PLAYED, f"the matchday holds {subject} from the public Spielplan")
+        return WriteRefusal(error_code=SPIELTAG_HOLDS_PLAYED, message=f"the matchday holds {subject} from the public Spielplan")
 
     # A phase the bracket never reaches has no floor to cross, so falling short of it is arithmetic on
     # a row that was already retired rather than a gap the rules can name.
@@ -145,9 +146,9 @@ def find_spieltag_retire_refusal(*, played_count: int, live_in_phase: int, impli
     would_fall_short = live_in_phase - 1 < implied_in_phase
 
     if has_a_floor and satisfied_the_floor and would_fall_short:
-        return (
-            SPIELTAG_BELOW_IMPLIED_COUNT,
-            f"the phase holds {live_in_phase} live matchday(s) and these rules imply {implied_in_phase}; "
+        return WriteRefusal(
+            error_code=SPIELTAG_BELOW_IMPLIED_COUNT,
+            message=f"the phase holds {live_in_phase} live matchday(s) and these rules imply {implied_in_phase}; "
             "retiring this one would leave the season short of matchdays it still has to play",
         )
 
@@ -170,9 +171,9 @@ def find_spieltag_unplayed_phase_refusal(
     stored_phase: FLSaisonPhase,
     proposed_phase: FLSaisonPhase,
     implied_in_proposed: int,
-) -> tuple[str, str] | None:
+) -> WriteRefusal | None:
     """
-    Why moving this matchday into the proposed round must be refused, as `(error_code, detail)` (ADR-0075).
+    Why moving this matchday into the proposed round must be refused, as a `WriteRefusal` (ADR-0075).
 
     The edit path's mirror of `REQ-SPIELTAG-004`. `implied_in_proposed` is `implied_matchdays` for the
     PROPOSED phase, and zero means the season's rules produce no such round -- so the row would report a
@@ -191,9 +192,9 @@ def find_spieltag_unplayed_phase_refusal(
     if stored_phase == proposed_phase or implied_in_proposed > 0:
         return None
 
-    return (
-        SPIELTAG_MOVED_TO_UNPLAYED_PHASE,
-        f"these rules produce no {proposed_phase}; a matchday cannot be moved into a round the season never plays",
+    return WriteRefusal(
+        error_code=SPIELTAG_MOVED_TO_UNPLAYED_PHASE,
+        message=f"these rules produce no {proposed_phase}; a matchday cannot be moved into a round the season never plays",
     )
 
 
@@ -203,9 +204,9 @@ def find_spieltag_boundary_refusal(
     proposed_phase: FLSaisonPhase,
     fixtures_on_stored_side: int,
     fixtures_on_proposed_side: int,
-) -> tuple[str, str] | None:
+) -> WriteRefusal | None:
     """
-    Why this matchday may not cross the gruppenphase/knockout boundary, as `(error_code, detail)` (ADR-0075).
+    Why this matchday may not cross the gruppenphase/knockout boundary, as a `WriteRefusal` (ADR-0075).
 
     `saison_phase` is an editable input on purpose (ADR-0052) -- which matchday is the quarter-final is a
     scheduling decision. What ADR-0052 never asked is whether every transition should be reachable, and
@@ -236,17 +237,17 @@ def find_spieltag_boundary_refusal(
     stored_side = "gruppenphase" if stored_phase == "gruppenphase" else "knockout"
     proposed_side = "gruppenphase" if proposed_phase == "gruppenphase" else "knockout"
 
-    return (
-        SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY,
-        f"the matchday holds {fixtures_on_stored_side} {stored_side} fixture(s) and no {proposed_side} one; "
+    return WriteRefusal(
+        error_code=SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY,
+        message=f"the matchday holds {fixtures_on_stored_side} {stored_side} fixture(s) and no {proposed_side} one; "
         f"moving it to {proposed_phase} would leave those fixtures on the other side of the bracket "
         "boundary from their own matchday, and nothing here can move them across",
     )
 
 
-def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int, expected_in_stored_phase: int) -> tuple[str, str] | None:
+def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int, expected_in_stored_phase: int) -> WriteRefusal | None:
     """
-    Why this matchday's phase must be refused, as `(error_code, detail)` -- or `None`.
+    Why this matchday's phase must be refused, as a `WriteRefusal` -- or `None`.
 
     `expected_count` is `schedule_for`'s answer for the PROPOSED phase, `expected_in_stored_phase` is the
     same answer for the phase the matchday holds now, and `attached_count` is how many fixtures already
@@ -270,9 +271,9 @@ def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int, exp
     would_not_fit = attached_count > expected_count
 
     if narrows_the_count and would_not_fit:
-        return (
-            SPIELTAG_OVER_ITS_PHASE,
-            f"the matchday holds {attached_count} fixtures and this phase accounts for {expected_count}; "
+        return WriteRefusal(
+            error_code=SPIELTAG_OVER_ITS_PHASE,
+            message=f"the matchday holds {attached_count} fixtures and this phase accounts for {expected_count}; "
             "a single round robin per group fixes that number",
         )
 
@@ -301,9 +302,9 @@ def find_spieltag_span_refusal(
     saison_start: str,
     saison_end: str,
     fixture_dates: Sequence[str],
-) -> tuple[str, str] | None:
+) -> WriteRefusal | None:
     """
-    Why this matchday's span must be refused, as `(error_code, detail)` -- or `None`.
+    Why this matchday's span must be refused, as a `WriteRefusal` -- or `None`.
 
     Two checks in one function because they are one question asked twice: does this span sit inside its
     season, and does it still cover its own fixtures. `fixture_dates` is every DATED fixture of the
@@ -315,17 +316,17 @@ def find_spieltag_span_refusal(
     """
 
     if beginn < saison_start or ende > saison_end:
-        return (
-            SPIELTAG_OUTSIDE_SAISON,
-            f"the matchday runs {beginn} to {ende} and its season runs {saison_start} to {saison_end}; "
+        return WriteRefusal(
+            error_code=SPIELTAG_OUTSIDE_SAISON,
+            message=f"the matchday runs {beginn} to {ende} and its season runs {saison_start} to {saison_end}; "
             "a matchday is a block of that season's fixtures",
         )
 
     outside = sorted(datum for datum in fixture_dates if datum < beginn or datum > ende)
     if outside:
-        return (
-            SPIELTAG_SPAN_BELOW_FIXTURES,
-            f"{len(outside)} of the matchday's fixtures fall outside {beginn} to {ende} (first: {outside[0]}); "
+        return WriteRefusal(
+            error_code=SPIELTAG_SPAN_BELOW_FIXTURES,
+            message=f"{len(outside)} of the matchday's fixtures fall outside {beginn} to {ende} (first: {outside[0]}); "
             "widen the span or move those fixtures",
         )
 
@@ -349,9 +350,9 @@ def find_spieltag_create_refusal(
     saison_phase: FLSaisonPhase,
     earliest_knockout_beginn: str | None,
     today: str,
-) -> tuple[str, str] | None:
+) -> WriteRefusal | None:
     """
-    Why creating a matchday in this season must be refused, as `(error_code, detail)` -- or `None`.
+    Why creating a matchday in this season must be refused, as a `WriteRefusal` -- or `None`.
 
     `implied_in_phase` is `implied_matchdays` for the proposed phase; zero means the season's rules
     produce no such round at all, which is `REQ-SPIELTAG-004`. **A non-zero figure is not a quota** --
@@ -374,16 +375,16 @@ def find_spieltag_create_refusal(
     # First, because it is a property of the rules and the payload alone: a phase nobody plays is wrong
     # whatever the calendar says, and saying so names the season's rules rather than a date.
     if implied_in_phase == 0:
-        return (
-            SPIELTAG_PHASE_NOT_PLAYED,
-            f"these rules produce no {saison_phase}; a matchday cannot belong to a round the season never plays",
+        return WriteRefusal(
+            error_code=SPIELTAG_PHASE_NOT_PLAYED,
+            message=f"these rules produce no {saison_phase}; a matchday cannot belong to a round the season never plays",
         )
 
     if earliest_knockout_beginn is None or earliest_knockout_beginn > today:
         return None
 
-    return (
-        SPIELTAG_KNOCKOUT_STARTED,
-        f"the knockout phase began on {earliest_knockout_beginn} and today is {today}; "
+    return WriteRefusal(
+        error_code=SPIELTAG_KNOCKOUT_STARTED,
+        message=f"the knockout phase began on {earliest_knockout_beginn} and today is {today}; "
         "a season's matchdays are created before its bracket is under way",
     )

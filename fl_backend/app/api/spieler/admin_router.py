@@ -224,8 +224,7 @@ async def post_saison_spieler(
     ) > 0
     squad_refusal = find_squad_refusal(team_in_saison=team_in_saison)
     if squad_refusal is not None:
-        error_code, detail = squad_refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(squad_refusal)
 
     document = {
         "spieler_id": spieler_id,
@@ -265,8 +264,7 @@ async def patch_saison_spieler(
     ) > 0
     squad_refusal = find_squad_refusal(team_in_saison=team_in_saison)
     if squad_refusal is not None:
-        error_code, detail = squad_refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(squad_refusal)
 
     updated_raw = await patch_one_in_db(
         collection=saison_spieler_collection,

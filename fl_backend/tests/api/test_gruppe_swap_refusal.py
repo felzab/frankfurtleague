@@ -60,7 +60,7 @@ class TestWhatCountsAsASwap:
         refusal = swap(is_same_team=True, team2_gruppe="A")
 
         assert refusal is not None
-        assert refusal[0] == SWAP_NOT_A_SWAP
+        assert refusal.error_code == SWAP_NOT_A_SWAP
 
     @pytest.mark.parametrize(
         ("team1_gruppe", "team2_gruppe", "named"),
@@ -77,8 +77,8 @@ class TestWhatCountsAsASwap:
         refusal = swap(team1_gruppe=team1_gruppe, team2_gruppe=team2_gruppe)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_NOT_A_SWAP
-        assert named in refusal[1]
+        assert refusal.error_code == SWAP_NOT_A_SWAP
+        assert named in refusal.message
 
     @pytest.mark.parametrize("gruppe", ["A", "D"])
     def test_two_clubs_of_one_group_are_refused(self, gruppe):
@@ -87,8 +87,8 @@ class TestWhatCountsAsASwap:
         refusal = swap(team1_gruppe=gruppe, team2_gruppe=gruppe)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_NOT_A_SWAP
-        assert gruppe in refusal[1]
+        assert refusal.error_code == SWAP_NOT_A_SWAP
+        assert gruppe in refusal.message
 
 
 class TestTheKnockoutClosesTheWindow:
@@ -107,7 +107,7 @@ class TestTheKnockoutClosesTheWindow:
         refusal = swap(played_knockout_fixtures=1)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_KNOCKOUT_STARTED
+        assert refusal.error_code == SWAP_KNOCKOUT_STARTED
 
     def test_the_refusal_says_how_much_has_taken_place(self):
         """The count is what tells an admin whether this is the first fixture or a finished bracket."""
@@ -115,7 +115,7 @@ class TestTheKnockoutClosesTheWindow:
         refusal = swap(played_knockout_fixtures=4)
 
         assert refusal is not None
-        assert "4" in refusal[1]
+        assert "4" in refusal.message
 
     def test_the_message_names_a_called_off_fixture_as_one_that_took_place(self):
         """
@@ -128,7 +128,7 @@ class TestTheKnockoutClosesTheWindow:
         refusal = swap(played_knockout_fixtures=1)
 
         assert refusal is not None
-        assert "called off" in refusal[1]
+        assert "called off" in refusal.message
 
     def test_a_pair_that_is_not_a_swap_is_refused_as_that_first(self):
         """
@@ -141,7 +141,7 @@ class TestTheKnockoutClosesTheWindow:
         refusal = swap(is_same_team=True, team2_gruppe="A", played_knockout_fixtures=6)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_NOT_A_SWAP
+        assert refusal.error_code == SWAP_NOT_A_SWAP
 
     def test_it_still_fires_where_no_group_fixture_has_been_played(self):
         """
@@ -156,7 +156,7 @@ class TestTheKnockoutClosesTheWindow:
         refusal = swap(played_knockout_fixtures=3, played_gruppenphase_fixtures=0)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_KNOCKOUT_STARTED
+        assert refusal.error_code == SWAP_KNOCKOUT_STARTED
 
 
 class TestAFinishedSeasonIsFrozen:
@@ -179,7 +179,7 @@ class TestAFinishedSeasonIsFrozen:
         refusal = swap(saison_status="past")
 
         assert refusal is not None
-        assert refusal[0] == SWAP_SAISON_FINISHED
+        assert refusal.error_code == SWAP_SAISON_FINISHED
 
     def test_an_abandoned_past_season_is_refused_too(self):
         """
@@ -193,7 +193,7 @@ class TestAFinishedSeasonIsFrozen:
         refusal = swap(saison_status="past", played_knockout_fixtures=0, played_gruppenphase_fixtures=0)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_SAISON_FINISHED
+        assert refusal.error_code == SWAP_SAISON_FINISHED
 
     def test_being_over_is_answered_before_either_window_inside_it(self):
         """
@@ -206,7 +206,7 @@ class TestAFinishedSeasonIsFrozen:
         refusal = swap(saison_status="past", played_knockout_fixtures=6, played_gruppenphase_fixtures=12)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_SAISON_FINISHED
+        assert refusal.error_code == SWAP_SAISON_FINISHED
 
 
 class TestTheRoundRobinClosesTheWindow:
@@ -229,7 +229,7 @@ class TestTheRoundRobinClosesTheWindow:
         refusal = swap(played_gruppenphase_fixtures=1)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_GRUPPENPHASE_PLAYED
+        assert refusal.error_code == SWAP_GRUPPENPHASE_PLAYED
 
     def test_the_refusal_says_how_much_has_been_played(self):
         """The count is what tells an admin whether this is one result or a group phase most of the way through."""
@@ -237,7 +237,7 @@ class TestTheRoundRobinClosesTheWindow:
         refusal = swap(played_gruppenphase_fixtures=5)
 
         assert refusal is not None
-        assert "5" in refusal[1]
+        assert "5" in refusal.message
 
     def test_the_bracket_is_answered_before_the_round_robin(self):
         """
@@ -250,7 +250,7 @@ class TestTheRoundRobinClosesTheWindow:
         refusal = swap(played_knockout_fixtures=1, played_gruppenphase_fixtures=6)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_KNOCKOUT_STARTED
+        assert refusal.error_code == SWAP_KNOCKOUT_STARTED
 
 
 class TestASpieltagNeverHoldsAClubTwice:
@@ -272,7 +272,7 @@ class TestASpieltagNeverHoldsAClubTwice:
         refusal = swap(clashing_spieltage=1)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_SPIELTAG_CLASH
+        assert refusal.error_code == SWAP_SPIELTAG_CLASH
 
     def test_the_refusal_says_how_many_spieltage_it_found(self):
         """The count is what tells an admin whether this is one fixture to move or a schedule to rethink."""
@@ -280,7 +280,7 @@ class TestASpieltagNeverHoldsAClubTwice:
         refusal = swap(clashing_spieltage=3)
 
         assert refusal is not None
-        assert "3" in refusal[1]
+        assert "3" in refusal.message
 
     @pytest.mark.parametrize(
         ("terminal", "code"),
@@ -302,7 +302,7 @@ class TestASpieltagNeverHoldsAClubTwice:
         refusal = swap(clashing_spieltage=2, **terminal)
 
         assert refusal is not None
-        assert refusal[0] == code
+        assert refusal.error_code == code
 
 
 # Two clubs and the fixtures between them, in the shape `pull_many_from_db` hands the handler.
@@ -424,9 +424,9 @@ class TestASwapNeverFieldsADisqualifiedClub:
         refusal = swap(disqualified_fixtures=2)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_FIELDS_DISQUALIFIED
+        assert refusal.error_code == SWAP_FIELDS_DISQUALIFIED
         # The two-step escape is what makes a guard with an override acceptable (ADR-0069's test).
-        assert "lift the disqualification" in refusal[1]
+        assert "lift the disqualification" in refusal.message
 
     def test_every_terminal_refusal_is_answered_first(self):
         """It is the more expensive repair of the two an admin can act on, so it is named last."""
@@ -440,4 +440,4 @@ class TestASwapNeverFieldsADisqualifiedClub:
             refusal = swap(disqualified_fixtures=1, **terminal)
 
             assert refusal is not None
-            assert refusal[0] == expected
+            assert refusal.error_code == expected

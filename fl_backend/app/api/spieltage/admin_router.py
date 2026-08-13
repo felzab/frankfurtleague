@@ -97,8 +97,7 @@ async def post_spieltag(
         today=today,
     )
     if create_refusal is not None:
-        error_code, detail = create_refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(create_refusal)
 
     # Then the span, which has to sit inside the season it names (`REQ-DATE-002`). A new matchday has no
     # fixtures, so the second half of that rule has nothing to check yet.
@@ -110,8 +109,7 @@ async def post_spieltag(
         fixture_dates=[],
     )
     if span_refusal is not None:
-        error_code, detail = span_refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(span_refusal)
 
     post_operation = await post_one_to_db(
         collection=spieltage_collection,
@@ -182,8 +180,7 @@ async def patch_spieltag(
         implied_in_proposed=implied_matchdays(rules, spieltag_data.saison_phase),
     )
     if unplayed_refusal is not None:
-        error_code, detail = unplayed_refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(unplayed_refusal)
 
     refusal = find_spieltag_phase_refusal(
         attached_count=attached,
@@ -193,8 +190,7 @@ async def patch_spieltag(
         expected_in_stored_phase=expected_matches(rules, stored_raw["saison_phase"]),
     )
     if refusal is not None:
-        error_code, detail = refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(refusal)
 
     # Last of the three, because it is the widest statement: the count rule above names two numbers an
     # admin can compare, where this one is about the join the whole bracket is drawn from (ADR-0075).
@@ -205,8 +201,7 @@ async def patch_spieltag(
         fixtures_on_proposed_side=on_group_side if spieltag_data.saison_phase == "gruppenphase" else attached_knockout,
     )
     if boundary_refusal is not None:
-        error_code, detail = boundary_refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(boundary_refusal)
 
     # The span, against the season above and against this matchday's own fixtures. Undated fixtures are
     # filtered out rather than passed as nulls: one constrains nothing, and a season being scheduled is
@@ -222,8 +217,7 @@ async def patch_spieltag(
         fixture_dates=fixture_dates,
     )
     if span_refusal is not None:
-        error_code, detail = span_refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(span_refusal)
 
     updated_raw = await patch_one_in_db(
         collection=spieltage_collection,
@@ -292,8 +286,7 @@ async def delete_spieltag(
         implied_in_phase=implied_matchdays(rules, stored_raw["saison_phase"]),
     )
     if refusal is not None:
-        error_code, detail = refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(refusal)
 
     updated_raw = await patch_one_in_db(
         collection=spieltage_collection,
@@ -341,8 +334,7 @@ async def reactivate_spieltag(
         fixture_dates=[],
     )
     if span_refusal is not None:
-        error_code, detail = span_refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(span_refusal)
 
     updated_raw = await patch_one_in_db(
         collection=spieltage_collection,

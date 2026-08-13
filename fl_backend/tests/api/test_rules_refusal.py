@@ -24,6 +24,7 @@ from app.api.saisons.services import (
     RULES_SAISON_FINISHED,
     find_rules_refusal,
 )
+from app.core.exceptions import WriteRefusal
 
 
 def rules(*, groups: int = 4, per_group: int = 4, qualifiers: int = 2, win: int = 3, draw: int = 1) -> FLSaisonRules:
@@ -47,7 +48,7 @@ def judge(
     occupancy: dict[str, int] | None = None,
     platz: int = 0,
     attached: dict[str, int] | None = None,
-) -> tuple[str, str] | None:
+) -> WriteRefusal | None:
     return find_rules_refusal(
         saison_status=status,
         stored=rules() if stored is None else stored,
@@ -76,7 +77,7 @@ class TestTheBracketMustHaveAShape:
         refusal = judge(proposed=rules(groups=groups, qualifiers=qualifiers, per_group=8))
 
         assert refusal is not None
-        assert refusal[0] == RULES_BRACKET_IMPOSSIBLE
+        assert refusal.error_code == RULES_BRACKET_IMPOSSIBLE
 
     def test_refuses_a_field_larger_than_the_phase_set_can_hold(self):
         """
@@ -89,7 +90,7 @@ class TestTheBracketMustHaveAShape:
         refusal = judge(proposed=rules(groups=4, per_group=8, qualifiers=8))
 
         assert refusal is not None
-        assert refusal[0] == RULES_BRACKET_IMPOSSIBLE
+        assert refusal.error_code == RULES_BRACKET_IMPOSSIBLE
 
     def test_applies_on_a_create_where_there_is_nothing_to_strand(self):
         """`stored=None` is the create. The bracket rule is a property of the proposed rules alone."""
@@ -103,7 +104,7 @@ class TestTheBracketMustHaveAShape:
         )
 
         assert refusal is not None
-        assert refusal[0] == RULES_BRACKET_IMPOSSIBLE
+        assert refusal.error_code == RULES_BRACKET_IMPOSSIBLE
 
     def test_a_create_is_refused_by_nothing_else(self):
         """Nothing exists yet to strand, and nothing is frozen, so a legal bracket is the whole test."""
@@ -136,8 +137,8 @@ class TestNarrowingTheGroupCount:
         )
 
         assert refusal is not None
-        assert refusal[0] == RULES_GROUPS_IN_USE
-        assert "C, D" in refusal[1]
+        assert refusal.error_code == RULES_GROUPS_IN_USE
+        assert "C, D" in refusal.message
 
     def test_permits_dropping_a_group_nobody_is_in(self):
         """A season being set up narrows freely — the guard is about stranding, not about the number."""
@@ -162,7 +163,7 @@ class TestNarrowingTheGroupCount:
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), occupancy={"D": 1})
 
         assert refusal is not None
-        assert refusal[0] == RULES_GROUPS_IN_USE
+        assert refusal.error_code == RULES_GROUPS_IN_USE
 
 
 class TestNarrowingTheCapacity:
@@ -172,8 +173,8 @@ class TestNarrowingTheCapacity:
         refusal = judge(stored=rules(per_group=6), proposed=rules(per_group=4), occupancy={"A": 6, "B": 2})
 
         assert refusal is not None
-        assert refusal[0] == RULES_CAPACITY_BELOW_USE
-        assert "6" in refusal[1]
+        assert refusal.error_code == RULES_CAPACITY_BELOW_USE
+        assert "6" in refusal.message
 
     def test_permits_a_capacity_that_still_fits(self):
         assert judge(stored=rules(per_group=6), proposed=rules(per_group=4), occupancy={"A": 4, "B": 2}) is None
@@ -194,7 +195,7 @@ class TestNarrowingTheQualifiers:
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=1), platz=2)
 
         assert refusal is not None
-        assert refusal[0] == RULES_QUALIFIERS_BELOW_WIRING
+        assert refusal.error_code == RULES_QUALIFIERS_BELOW_WIRING
 
     def test_permits_a_count_that_still_covers_the_wiring(self):
         assert judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=2), platz=2) is None
@@ -221,8 +222,8 @@ class TestAFinishedSeasonFreezes:
         refusal = judge(status="past", stored=rules(), proposed=rules(**changed))
 
         assert refusal is not None
-        assert refusal[0] == RULES_SAISON_FINISHED
-        assert field in refusal[1]
+        assert refusal.error_code == RULES_SAISON_FINISHED
+        assert field in refusal.message
 
     @pytest.mark.parametrize("status", ["active", "future"])
     def test_permits_the_same_change_on_a_season_that_is_not_over(self, status):
@@ -269,7 +270,7 @@ class TestAFinishedSeasonFreezes:
         )
 
         assert refusal is not None
-        assert refusal[0] == RULES_SAISON_FINISHED
+        assert refusal.error_code == RULES_SAISON_FINISHED
 
 
 class TestNarrowingBelowAMatchdaysFixtures:
@@ -303,7 +304,7 @@ class TestNarrowingBelowAMatchdaysFixtures:
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8})
 
         assert refusal is not None
-        assert refusal[0] == RULES_MATCHDAY_OVER_ITS_PHASE
+        assert refusal.error_code == RULES_MATCHDAY_OVER_ITS_PHASE
 
     def test_shortening_the_ladder_strands_a_knockout_matchday(self):
         """
@@ -317,7 +318,7 @@ class TestNarrowingBelowAMatchdaysFixtures:
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=1), attached={"viertelfinale": 4})
 
         assert refusal is not None
-        assert refusal[0] == RULES_MATCHDAY_OVER_ITS_PHASE
+        assert refusal.error_code == RULES_MATCHDAY_OVER_ITS_PHASE
 
     def test_widening_is_always_accepted(self):
         """More matches expected than are attached is a season still being set up, which is legal."""
@@ -335,9 +336,9 @@ class TestNarrowingBelowAMatchdaysFixtures:
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8})
 
         assert refusal is not None
-        assert "gruppenphase" in refusal[1]
-        assert "8" in refusal[1]
-        assert "4" in refusal[1]
+        assert "gruppenphase" in refusal.message
+        assert "8" in refusal.message
+        assert "4" in refusal.message
 
     def test_a_stranding_narrowing_is_reported_before_this_one(self):
         """
@@ -356,7 +357,7 @@ class TestNarrowingBelowAMatchdaysFixtures:
         )
 
         assert refusal is not None
-        assert refusal[0] == RULES_GROUPS_IN_USE
+        assert refusal.error_code == RULES_GROUPS_IN_USE
 
 
 class TestAGroupCannotQualifyMoreThanItHolds:
@@ -380,7 +381,7 @@ class TestAGroupCannotQualifyMoreThanItHolds:
         refusal = judge(proposed=rules(qualifiers=8, per_group=4))
 
         assert refusal is not None
-        assert refusal[0] == RULES_QUALIFIERS_ABOVE_GROUP
+        assert refusal.error_code == RULES_QUALIFIERS_ABOVE_GROUP
 
     def test_it_applies_on_a_create(self):
         """A property of the proposed rules alone, so it needs nothing stored — like the bracket rule."""
@@ -394,7 +395,7 @@ class TestAGroupCannotQualifyMoreThanItHolds:
         )
 
         assert refusal is not None
-        assert refusal[0] == RULES_QUALIFIERS_ABOVE_GROUP
+        assert refusal.error_code == RULES_QUALIFIERS_ABOVE_GROUP
 
     def test_it_is_reported_before_the_bracket_rule(self):
         """
@@ -407,11 +408,11 @@ class TestAGroupCannotQualifyMoreThanItHolds:
         refusal = judge(proposed=rules(groups=4, qualifiers=5, per_group=4))
 
         assert refusal is not None
-        assert refusal[0] == RULES_QUALIFIERS_ABOVE_GROUP
+        assert refusal.error_code == RULES_QUALIFIERS_ABOVE_GROUP
 
     def test_the_refusal_names_both_numbers(self):
         refusal = judge(proposed=rules(qualifiers=8, per_group=4))
 
         assert refusal is not None
-        assert "8" in refusal[1]
-        assert "4" in refusal[1]
+        assert "8" in refusal.message
+        assert "4" in refusal.message

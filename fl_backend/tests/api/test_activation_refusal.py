@@ -106,7 +106,7 @@ class TestTheOutgoingSeasonMustBeFinished:
         refusal = find_activation_refusal(outgoing_unplayed=unplayed)
 
         assert refusal is not None
-        assert refusal[0] == ACTIVATE_SAISON_UNFINISHED
+        assert refusal.error_code == ACTIVATE_SAISON_UNFINISHED
 
     def test_the_refusal_names_the_fixtures(self):
         """
@@ -119,7 +119,7 @@ class TestTheOutgoingSeasonMustBeFinished:
         refusal = find_activation_refusal(outgoing_unplayed=[3, 7])
 
         assert refusal is not None
-        assert "3, 7" in refusal[1]
+        assert "3, 7" in refusal.message
 
     def test_a_long_list_is_summarised_rather_than_printed(self):
         """
@@ -132,5 +132,5 @@ class TestTheOutgoingSeasonMustBeFinished:
         refusal = find_activation_refusal(outgoing_unplayed=list(range(1, 12)))
 
         assert refusal is not None
-        assert "1, 2, 3, 4, 5 and 6 more" in refusal[1]
-        assert "11 unplayed fixtures" in refusal[1]
+        assert "1, 2, 3, 4, 5 and 6 more" in refusal.message
+        assert "11 unplayed fixtures" in refusal.message

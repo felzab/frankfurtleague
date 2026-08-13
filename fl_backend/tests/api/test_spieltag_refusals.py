@@ -56,7 +56,7 @@ class TestRetiringAMatchday:
         refusal = find_spieltag_retire_refusal(played_count=played, **ABOVE_THE_FLOOR)
 
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_HOLDS_PLAYED
+        assert refusal.error_code == SPIELTAG_HOLDS_PLAYED
 
     def test_the_refusal_names_the_count(self):
         """
@@ -69,7 +69,7 @@ class TestRetiringAMatchday:
         refusal = find_spieltag_retire_refusal(played_count=3, **ABOVE_THE_FLOOR)
 
         assert refusal is not None
-        assert "3" in refusal[1]
+        assert "3" in refusal.message
 
 
 class TestAPhaseKeepsTheMatchdaysItsRulesImply:
@@ -95,7 +95,7 @@ class TestAPhaseKeepsTheMatchdaysItsRulesImply:
         refusal = find_spieltag_retire_refusal(played_count=0, live_in_phase=3, implied_in_phase=3)
 
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_BELOW_IMPLIED_COUNT
+        assert refusal.error_code == SPIELTAG_BELOW_IMPLIED_COUNT
 
     def test_a_phase_already_below_the_floor_retires_freely(self):
         """
@@ -121,7 +121,7 @@ class TestAPhaseKeepsTheMatchdaysItsRulesImply:
 
         refusal = find_spieltag_retire_refusal(played_count=0, live_in_phase=1, implied_in_phase=1)
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_BELOW_IMPLIED_COUNT
+        assert refusal.error_code == SPIELTAG_BELOW_IMPLIED_COUNT
 
     def test_a_phase_the_bracket_never_reaches_retires_freely(self):
         """Floor 0, so a row for a round nobody plays can always be cleaned up."""
@@ -136,14 +136,14 @@ class TestAPhaseKeepsTheMatchdaysItsRulesImply:
         refusal = find_spieltag_retire_refusal(played_count=2, live_in_phase=3, implied_in_phase=3)
 
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_HOLDS_PLAYED
+        assert refusal.error_code == SPIELTAG_HOLDS_PLAYED
 
     def test_the_refusal_names_both_numbers(self):
         refusal = find_spieltag_retire_refusal(played_count=0, live_in_phase=3, implied_in_phase=3)
 
         assert refusal is not None
-        assert "3 live matchday(s)" in refusal[1]
-        assert "imply 3" in refusal[1]
+        assert "3 live matchday(s)" in refusal.message
+        assert "imply 3" in refusal.message
 
 
 class TestAMatchdayBelongsToAPhaseTheSeasonPlays:
@@ -184,8 +184,8 @@ class TestAMatchdayBelongsToAPhaseTheSeasonPlays:
         )
 
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_PHASE_NOT_PLAYED
-        assert "achtelfinale" in refusal[1]
+        assert refusal.error_code == SPIELTAG_PHASE_NOT_PLAYED
+        assert "achtelfinale" in refusal.message
 
     def test_it_is_judged_before_the_window(self):
         """
@@ -203,7 +203,7 @@ class TestAMatchdayBelongsToAPhaseTheSeasonPlays:
         )
 
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_PHASE_NOT_PLAYED
+        assert refusal.error_code == SPIELTAG_PHASE_NOT_PLAYED
 
     def test_the_implied_count_is_not_treated_as_a_quota(self):
         """
@@ -270,8 +270,8 @@ class TestWhichPhaseChangesAreLegitimate:
         refusal = find_spieltag_unplayed_phase_refusal(stored_phase="viertelfinale", proposed_phase="achtelfinale", implied_in_proposed=0)
 
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_MOVED_TO_UNPLAYED_PHASE
-        assert "achtelfinale" in refusal[1]
+        assert refusal.error_code == SPIELTAG_MOVED_TO_UNPLAYED_PHASE
+        assert "achtelfinale" in refusal.message
 
     def test_a_move_out_of_an_unplayed_round_is_the_repair_and_is_allowed(self):
         """
@@ -302,8 +302,8 @@ class TestWhichPhaseChangesAreLegitimate:
         )
 
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY
-        assert "4" in refusal[1]
+        assert refusal.error_code == SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY
+        assert "4" in refusal.message
 
     @pytest.mark.parametrize(("stored", "proposed"), [("viertelfinale", "gruppenphase"), ("gruppenphase", "halbfinale")])
     def test_an_empty_matchday_crosses_freely(self, stored, proposed):
@@ -407,9 +407,9 @@ class TestWhichPhaseChangesAreLegitimate:
         )
 
         assert unplayed is not None
-        assert unplayed[0] == SPIELTAG_MOVED_TO_UNPLAYED_PHASE
+        assert unplayed.error_code == SPIELTAG_MOVED_TO_UNPLAYED_PHASE
         assert boundary is not None
-        assert boundary[0] == SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY
+        assert boundary.error_code == SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY
 
     def test_the_two_codes_are_distinct(self):
         """Different advice — change the season's rules, against move the fixtures — so different codes."""
@@ -448,7 +448,7 @@ class TestChangingThePhase:
         refusal = find_spieltag_phase_refusal(attached_count=2, expected_count=1, expected_in_stored_phase=2)
 
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_OVER_ITS_PHASE
+        assert refusal.error_code == SPIELTAG_OVER_ITS_PHASE
 
     def test_a_narrowing_the_fixtures_still_fit_is_legal(self):
         """The move is refused on the fixtures, not on the narrowing: one fixture fits a Finale."""
@@ -466,7 +466,7 @@ class TestChangingThePhase:
         refusal = find_spieltag_phase_refusal(attached_count=2, expected_count=0, expected_in_stored_phase=1)
 
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_OVER_ITS_PHASE
+        assert refusal.error_code == SPIELTAG_OVER_ITS_PHASE
 
     def test_an_empty_matchday_in_an_unreached_phase_is_legal(self):
         """
@@ -499,7 +499,7 @@ class TestChangingThePhase:
         refusal = find_spieltag_phase_refusal(attached_count=9, expected_count=1, expected_in_stored_phase=8)
 
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_OVER_ITS_PHASE
+        assert refusal.error_code == SPIELTAG_OVER_ITS_PHASE
 
     def test_the_two_refusals_are_distinct(self):
         """Different advice — cancel or enter results, against move fixtures — so different codes."""
@@ -549,13 +549,13 @@ class TestCreatingAMatchday:
         refusal = find_spieltag_create_refusal(**A_PLAYED_PHASE, earliest_knockout_beginn=self.TODAY, today=self.TODAY)
 
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_KNOCKOUT_STARTED
+        assert refusal.error_code == SPIELTAG_KNOCKOUT_STARTED
 
     def test_a_knockout_phase_in_the_past_is_refused(self):
         refusal = find_spieltag_create_refusal(**A_PLAYED_PHASE, earliest_knockout_beginn="2026-06-12", today=self.TODAY)
 
         assert refusal is not None
-        assert refusal[0] == SPIELTAG_KNOCKOUT_STARTED
+        assert refusal.error_code == SPIELTAG_KNOCKOUT_STARTED
 
     def test_the_refusal_names_both_dates(self):
         """Which date closed the window and what today is -- the comparison, stated so it can be checked."""
@@ -563,8 +563,8 @@ class TestCreatingAMatchday:
         refusal = find_spieltag_create_refusal(**A_PLAYED_PHASE, earliest_knockout_beginn="2026-06-12", today=self.TODAY)
 
         assert refusal is not None
-        assert "2026-06-12" in refusal[1]
-        assert self.TODAY in refusal[1]
+        assert "2026-06-12" in refusal.message
+        assert self.TODAY in refusal.message
 
     def test_the_comparison_is_lexicographic_across_a_month_boundary(self):
         """

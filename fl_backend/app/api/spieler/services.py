@@ -15,6 +15,7 @@ from typing import Any, Mapping
 
 from app.api.spieler.schemas import FLSpielerFilterParams
 from app.core.collections import Collection
+from app.core.exceptions import WriteRefusal
 
 AS_NAME = "saison_data"
 
@@ -180,9 +181,9 @@ def normalised_nummer(nummer: str | None) -> str | None:
     return stripped or None
 
 
-def find_squad_refusal(*, team_in_saison: bool) -> tuple[str, str] | None:
+def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
     """
-    Why this squad row must be refused, as `(error_code, detail)` -- or `None`.
+    Why this squad row must be refused, as a `WriteRefusal` -- or `None`.
 
     `team_in_saison` is whether the named team holds a junction row for the season, read by the caller.
 
@@ -192,9 +193,9 @@ def find_squad_refusal(*, team_in_saison: bool) -> tuple[str, str] | None:
     """
 
     if not team_in_saison:
-        return (
-            SQUAD_TEAM_NOT_IN_SAISON,
-            "the named team holds no saison_teams row for this season; a squad entry needs the club to be entered first",
+        return WriteRefusal(
+            error_code=SQUAD_TEAM_NOT_IN_SAISON,
+            message="the named team holds no saison_teams row for this season; a squad entry needs the club to be entered first",
         )
 
     return None

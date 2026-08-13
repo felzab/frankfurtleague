@@ -27,6 +27,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpiel
 from app.api.teams.schemas import FLGruppen, FLGruppenNames, FLTeam, FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 from app.core.collections import Collection
+from app.core.exceptions import WriteRefusal
 from app.shared.schemas.custom import CustomObjectId
 
 SPIELE_COLLECTION_NAME = "spiele"
@@ -757,9 +758,9 @@ def offered_gruppen(number_of_groups: int) -> tuple[FLGruppenNames, ...]:
     return get_args(FLGruppenNames)[:number_of_groups]
 
 
-def find_gruppe_move_refusal(*, saison_status: str, fixtures_drawn: int) -> tuple[str, str] | None:
+def find_gruppe_move_refusal(*, saison_status: str, fixtures_drawn: int) -> WriteRefusal | None:
     """
-    Why moving this team to another group must be refused, as `(error_code, detail)` -- or `None`.
+    Why moving this team to another group must be refused, as a `WriteRefusal` -- or `None`.
 
     **The legal window is "the season is `future`, OR the team has no fixture in it yet"** (decided
     2026-08-08), which the admin page applies as well. Both halves are needed: a `future` season may
@@ -775,18 +776,18 @@ def find_gruppe_move_refusal(*, saison_status: str, fixtures_drawn: int) -> tupl
     if saison_status != "future" and fixtures_drawn > 0:
         noun = "fixture" if fixtures_drawn == 1 else "fixtures"
 
-        return (
-            ENTRY_GRUPPE_LOCKED,
-            f"season is {saison_status} and the team already has {fixtures_drawn} {noun} in it; "
+        return WriteRefusal(
+            error_code=ENTRY_GRUPPE_LOCKED,
+            message=f"season is {saison_status} and the team already has {fixtures_drawn} {noun} in it; "
             "a group change would leave them played against the group it left",
         )
 
     return None
 
 
-def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> tuple[str, str] | None:
+def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> WriteRefusal | None:
     """
-    Why entering this team into the season must be refused, as `(error_code, detail)` -- or `None`.
+    Why entering this team into the season must be refused, as a `WriteRefusal` -- or `None`.
 
     Three rules, checked in the order an admin can act on them (decided 2026-08-07): the season must
     be `future`, the group must be one the season offers, and the group must have space. `occupied`
@@ -796,13 +797,17 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
     """
 
     if saison_status != "future":
-        return (ENTRY_SAISON_NOT_FUTURE, f"season is {saison_status}; a team enters a season only while it is future")
+        return WriteRefusal(
+            error_code=ENTRY_SAISON_NOT_FUTURE, message=f"season is {saison_status}; a team enters a season only while it is future"
+        )
 
     if gruppe not in offered_gruppen(rules.number_of_groups):
-        return (ENTRY_GRUPPE_NOT_OFFERED, f"gruppe {gruppe} is not offered; this season runs {rules.number_of_groups} group(s)")
+        return WriteRefusal(
+            error_code=ENTRY_GRUPPE_NOT_OFFERED, message=f"gruppe {gruppe} is not offered; this season runs {rules.number_of_groups} group(s)"
+        )
 
     if occupied >= rules.teams_per_group:
-        return (ENTRY_GRUPPE_FULL, f"gruppe {gruppe} is full ({occupied}/{rules.teams_per_group} teams)")
+        return WriteRefusal(error_code=ENTRY_GRUPPE_FULL, message=f"gruppe {gruppe} is full ({occupied}/{rules.teams_per_group} teams)")
 
     return None
 
@@ -897,9 +902,9 @@ def find_gruppe_swap_refusal(
     played_gruppenphase_fixtures: int,
     clashing_spieltage: int,
     disqualified_fixtures: int,
-) -> tuple[str, str] | None:
+) -> WriteRefusal | None:
     """
-    Why exchanging these two clubs' groups must be refused, as `(error_code, detail)` -- or `None`.
+    Why exchanging these two clubs' groups must be refused, as a `WriteRefusal` -- or `None`.
 
     Each `gruppe` is what that club's `saison_teams` row holds for the season, and `None` means the club
     holds no row in it at all.
@@ -945,56 +950,60 @@ def find_gruppe_swap_refusal(
     """
 
     if is_same_team:
-        return (SWAP_NOT_A_SWAP, "both ids name one club; a swap exchanges two of them")
+        return WriteRefusal(error_code=SWAP_NOT_A_SWAP, message="both ids name one club; a swap exchanges two of them")
 
     missing = [label for label, gruppe in (("team1", team1_gruppe), ("team2", team2_gruppe)) if gruppe is None]
     if missing:
-        return (
-            SWAP_NOT_A_SWAP,
-            f"no saison_teams row for {' and '.join(missing)}; a swap exchanges two clubs that are both entered in the season",
+        return WriteRefusal(
+            error_code=SWAP_NOT_A_SWAP,
+            message=f"no saison_teams row for {' and '.join(missing)}; a swap exchanges two clubs that are both entered in the season",
         )
 
     if team1_gruppe == team2_gruppe:
-        return (SWAP_NOT_A_SWAP, f"both clubs stand in gruppe {team1_gruppe}; a swap exchanges two different groups")
+        return WriteRefusal(
+            error_code=SWAP_NOT_A_SWAP, message=f"both clubs stand in gruppe {team1_gruppe}; a swap exchanges two different groups"
+        )
 
     if saison_status == "past":
-        return (
-            SWAP_SAISON_FINISHED,
-            "season is past; its groups are frozen because the league table is derived from them on every read",
+        return WriteRefusal(
+            error_code=SWAP_SAISON_FINISHED,
+            message="season is past; its groups are frozen because the league table is derived from them on every read",
         )
 
     if played_knockout_fixtures > 0:
         noun = "fixture has" if played_knockout_fixtures == 1 else "fixtures have"
 
-        return (
-            SWAP_KNOCKOUT_STARTED,
-            f"{played_knockout_fixtures} knockout {noun} already been played or called off; the bracket has been seeded from these groups",
+        return WriteRefusal(
+            error_code=SWAP_KNOCKOUT_STARTED,
+            message=(
+                f"{played_knockout_fixtures} knockout {noun} already been played or called off; the bracket has been seeded from these groups"
+            ),
         )
 
     if played_gruppenphase_fixtures > 0:
         noun = "fixture has" if played_gruppenphase_fixtures == 1 else "fixtures have"
 
-        return (
-            SWAP_GRUPPENPHASE_PLAYED,
-            f"{played_gruppenphase_fixtures} gruppenphase {noun} already been played or called off for these two clubs; "
+        return WriteRefusal(
+            error_code=SWAP_GRUPPENPHASE_PLAYED,
+            message=f"{played_gruppenphase_fixtures} gruppenphase {noun} already been played or called off for these two clubs; "
             "a club that has played inside its group cannot leave it without leaving a round robin that is not one",
         )
 
     if clashing_spieltage > 0:
         noun = "spieltag would" if clashing_spieltage == 1 else "spieltage would"
 
-        return (
-            SWAP_SPIELTAG_CLASH,
-            f"{clashing_spieltage} {noun} field one of the two clubs twice after the exchange; "
+        return WriteRefusal(
+            error_code=SWAP_SPIELTAG_CLASH,
+            message=f"{clashing_spieltage} {noun} field one of the two clubs twice after the exchange; "
             "a club plays at most one match per spieltag, and a bracket side does not move with the swap",
         )
 
     if disqualified_fixtures > 0:
         noun = "fixture" if disqualified_fixtures == 1 else "fixtures"
 
-        return (
-            SWAP_FIELDS_DISQUALIFIED,
-            f"the exchange would field a disqualified club in {disqualified_fixtures} {noun} dated on or after its "
+        return WriteRefusal(
+            error_code=SWAP_FIELDS_DISQUALIFIED,
+            message=f"the exchange would field a disqualified club in {disqualified_fixtures} {noun} dated on or after its "
             "disqualification; lift the disqualification, swap, then re-apply it",
         )
 
@@ -1007,9 +1016,9 @@ def find_gruppe_swap_refusal(
 RETIRE_BLOCKED = "REQ-RETIRE-001"
 
 
-def find_retire_refusal(saison_statuses: Iterable[str]) -> str | None:
+def find_retire_refusal(saison_statuses: Iterable[str]) -> WriteRefusal | None:
     """
-    Why retiring this club must be refused, or `None` when it may be retired.
+    Why retiring this club must be refused, as a `WriteRefusal` -- or `None` when it may be retired.
 
     One rule (decided 2026-08-07): a club whose seasons are all `past` -- or that is in no season at
     all -- may be retired; a club entered in an `active` or `future` season may not. The message is
@@ -1020,4 +1029,7 @@ def find_retire_refusal(saison_statuses: Iterable[str]) -> str | None:
     if not blocking:
         return None
 
-    return f"club is entered in a season with status {'/'.join(blocking)}; only a club whose seasons are all past may be retired"
+    return WriteRefusal(
+        error_code=RETIRE_BLOCKED,
+        message=f"club is entered in a season with status {'/'.join(blocking)}; only a club whose seasons are all past may be retired",
+    )

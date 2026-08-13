@@ -240,8 +240,7 @@ async def post_saison(
         highest_wired_platz=0,
     )
     if refusal is not None:
-        error_code, detail = refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(refusal)
 
     # After the rules, because an impossible bracket makes the implied matchday count meaningless. No
     # matchdays exist yet, so the containment half of this function has nothing to read.
@@ -252,8 +251,7 @@ async def post_saison(
         spieltag_spans=[],
     )
     if span_refusal is not None:
-        error_code, detail = span_refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(span_refusal)
 
     post_operation = await post_one_to_db(
         collection=saisons_collection,
@@ -350,8 +348,7 @@ async def patch_saison(
         attached_by_phase=attached_by_phase,
     )
     if refusal is not None:
-        error_code, detail = refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(refusal)
 
     # The span, against the season's own matchdays (`REQ-DATE-004`). Retired ones are excluded:
     # retiring is how a mis-dated matchday leaves the schedule, so one must not block the repair of
@@ -367,8 +364,7 @@ async def patch_saison(
         spieltag_spans=spieltag_spans,
     )
     if span_refusal is not None:
-        error_code, detail = span_refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(span_refusal)
 
     updated_document_raw = await patch_one_in_db(
         collection=saisons_collection,
@@ -432,8 +428,7 @@ async def activate_saison(
         )
         refusal = find_activation_refusal(outgoing_unplayed=unplayed)
         if refusal is not None:
-            error_code, detail = refusal
-            raise DocumentConflictException(error_code=error_code, message=detail)
+            raise DocumentConflictException.from_refusal(refusal)
 
     async with await db.start_session() as session:
         async with session.start_transaction():
@@ -612,8 +607,7 @@ async def swap_gruppen(
             ),
         )
         if refusal is not None:
-            error_code, detail = refusal
-            raise DocumentConflictException(error_code=error_code, message=detail)
+            raise DocumentConflictException.from_refusal(refusal)
 
         rewritten = await _rewrite_gruppenphase_sides(
             spiele=gruppenphase_spiele,

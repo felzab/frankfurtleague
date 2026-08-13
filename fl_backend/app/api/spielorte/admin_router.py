@@ -135,8 +135,7 @@ async def delete_spielort(
     )
     refusal = find_venue_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in booked))
     if refusal is not None:
-        error_code, detail = refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(refusal)
 
     updated_document_raw = await patch_one_in_db(
         collection=spielorte_collection,

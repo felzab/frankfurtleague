@@ -252,7 +252,7 @@ async def patch_spiel_data(
         # prevents these, so a request carrying one is stale or raced.
         wiring_refusal = find_wiring_refusal(spiel_id, spiel_data, season)
         if wiring_refusal is not None:
-            raise DocumentConflictException(error_code="REQ-WIRING-001", message=wiring_refusal)
+            raise DocumentConflictException.from_refusal(wiring_refusal)
 
         # The occupants, which the wiring rules deliberately say nothing about (ADR-0042). The junction
         # is read through the session on the write path, so a disqualification committed by this same
@@ -260,17 +260,17 @@ async def patch_spiel_data(
         membership = await pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=saison_id, session=session)
         eligibility_refusal = find_eligibility_refusal(spiel_id, spiel_data, season, membership)
         if eligibility_refusal is not None:
-            raise DocumentConflictException(error_code=eligibility_refusal.error_code, message=eligibility_refusal.message)
+            raise DocumentConflictException.from_refusal(eligibility_refusal)
 
         # Before the occupancy judgement, because it is the narrower and more concrete answer: a side that
         # cannot be emptied is a fact about this fixture, where a clash is a fact about its neighbours.
         removal_refusal = find_result_removal_refusal(spiel_id, spiel_data, season)
         if removal_refusal is not None:
-            raise DocumentConflictException(error_code=removal_refusal.error_code, message=removal_refusal.message)
+            raise DocumentConflictException.from_refusal(removal_refusal)
 
         verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
         if verdict.refusal is not None:
-            raise DocumentConflictException(error_code=verdict.refusal.error_code, message=verdict.refusal.message)
+            raise DocumentConflictException.from_refusal(verdict.refusal)
 
         # The fixture's own date against its matchday's span (`REQ-DATE-001`). Read through the session,
         # so a matchday widened by a concurrent write is seen. `spieltag_id` is on no payload, so this
@@ -292,8 +292,7 @@ async def patch_spiel_data(
                     spieltag_ende=str(spieltag_raw["ende"]),
                 )
                 if date_refusal is not None:
-                    error_code, detail = date_refusal
-                    raise DocumentConflictException(error_code=error_code, message=detail)
+                    raise DocumentConflictException.from_refusal(date_refusal)
 
         # The venue and the referee, across EVERY season rather than this one: a ground is double-booked by
         # two fixtures at one time whether or not they belong to the same competition. Only the same day is
@@ -330,8 +329,7 @@ async def patch_spiel_data(
 
             clash_refusal = find_clash_refusal(datum=spiel_data.datum, uhrzeit=spiel_data.uhrzeit, booked=claims)
             if clash_refusal is not None:
-                error_code, detail = clash_refusal
-                raise DocumentConflictException(error_code=error_code, message=detail)
+                raise DocumentConflictException.from_refusal(clash_refusal)
 
         return season, verdict.releases
 

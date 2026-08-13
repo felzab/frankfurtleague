@@ -112,8 +112,7 @@ async def delete_schiedsrichter(
     )
     refusal = find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned))
     if refusal is not None:
-        error_code, detail = refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(refusal)
 
     updated_document_raw = await patch_one_in_db(
         collection=schiedsrichter_collection,

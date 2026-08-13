@@ -35,7 +35,6 @@ from app.api.teams.schemas import (
     FLTeamWriteResponse,
 )
 from app.api.teams.services import (
-    RETIRE_BLOCKED,
     build_team_memberships_pipeline,
     find_entry_refusal,
     find_gruppe_move_refusal,
@@ -200,7 +199,7 @@ async def delete_team(
 
     refusal = find_retire_refusal(str(row["status"]) for row in saison_rows)
     if refusal is not None:
-        raise DocumentConflictException(error_code=RETIRE_BLOCKED, message=refusal)
+        raise DocumentConflictException.from_refusal(refusal)
 
     updated_raw = await patch_one_in_db(
         collection=teams_collection,
@@ -281,8 +280,7 @@ async def post_saison_team(
         occupied=len(occupied_rows),
     )
     if refusal is not None:
-        error_code, detail = refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(refusal)
 
     await post_one_to_db(
         collection=saison_teams_collection,
@@ -352,8 +350,7 @@ async def patch_saison_team(
         )
         move_refusal = find_gruppe_move_refusal(saison_status=str(saison_raw["status"]), fixtures_drawn=fixtures_drawn)
         if move_refusal is not None:
-            error_code, detail = move_refusal
-            raise DocumentConflictException(error_code=error_code, message=detail)
+            raise DocumentConflictException.from_refusal(move_refusal)
 
         occupied_rows = await pull_many_from_db(
             collection=saison_teams_collection,
@@ -369,8 +366,7 @@ async def patch_saison_team(
             occupied=len(occupied_rows),
         )
         if refusal is not None:
-            error_code, detail = refusal
-            raise DocumentConflictException(error_code=error_code, message=detail)
+            raise DocumentConflictException.from_refusal(refusal)
 
     updated_raw = await patch_one_in_db(
         collection=saison_teams_collection,

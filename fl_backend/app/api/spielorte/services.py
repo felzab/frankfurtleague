@@ -10,6 +10,7 @@ the retired ones for reactivation while every public read sees only what is live
 from typing import Any, Sequence
 
 from app.api.spielorte.schemas import FLSpielorteFilterParams
+from app.core.exceptions import WriteRefusal
 
 
 def build_spielorte_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
@@ -39,9 +40,9 @@ def build_spielorte_filter(filters: FLSpielorteFilterParams) -> dict[str, Any]:
 VENUE_STILL_BOOKED = "REQ-RETIRE-003"
 
 
-def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> tuple[str, str] | None:
+def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:
     """
-    Why retiring this venue must be refused, as `(error_code, detail)` -- or `None`.
+    Why retiring this venue must be refused, as a `WriteRefusal` -- or `None`.
 
     `upcoming_spiel_nrs` is every fixture referencing it that has no result and is not cancelled -- the
     same definition of "not played yet" the rollover gate uses (`unplayed_spiel_nrs`), so the two rules
@@ -54,8 +55,8 @@ def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> tuple[str
     named = ", ".join(str(nr) for nr in upcoming_spiel_nrs[:5])
     rest = f" and {len(upcoming_spiel_nrs) - 5} more" if len(upcoming_spiel_nrs) > 5 else ""
 
-    return (
-        VENUE_STILL_BOOKED,
-        f"{len(upcoming_spiel_nrs)} unplayed fixture(s) are booked here (spiel_nr {named}{rest}); "
+    return WriteRefusal(
+        error_code=VENUE_STILL_BOOKED,
+        message=f"{len(upcoming_spiel_nrs)} unplayed fixture(s) are booked here (spiel_nr {named}{rest}); "
         "move them to another venue or cancel them first",
     )

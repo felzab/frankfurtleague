@@ -37,25 +37,25 @@ class TestEnteringASeason:
     def test_the_active_season_is_refused(self):
         refusal = find_entry_refusal(saison_status="active", gruppe="A", rules=RULES, occupied=0)
         assert refusal is not None
-        assert refusal[0] == ENTRY_SAISON_NOT_FUTURE
+        assert refusal.error_code == ENTRY_SAISON_NOT_FUTURE
 
     def test_a_past_season_is_refused(self):
         refusal = find_entry_refusal(saison_status="past", gruppe="A", rules=RULES, occupied=0)
         assert refusal is not None
-        assert refusal[0] == ENTRY_SAISON_NOT_FUTURE
+        assert refusal.error_code == ENTRY_SAISON_NOT_FUTURE
 
     def test_a_group_the_season_does_not_run_is_refused(self):
         refusal = find_entry_refusal(saison_status="future", gruppe="C", rules=RULES, occupied=0)
         assert refusal is not None
-        assert refusal[0] == ENTRY_GRUPPE_NOT_OFFERED
+        assert refusal.error_code == ENTRY_GRUPPE_NOT_OFFERED
 
     def test_a_full_group_is_refused(self):
         refusal = find_entry_refusal(saison_status="future", gruppe="B", rules=RULES, occupied=4)
         assert refusal is not None
-        assert refusal[0] == ENTRY_GRUPPE_FULL
+        assert refusal.error_code == ENTRY_GRUPPE_FULL
 
     def test_the_season_gate_outranks_the_group_gates(self):
         """The first rule an admin can act on is named first: a past season's full group reports the season."""
         refusal = find_entry_refusal(saison_status="past", gruppe="C", rules=RULES, occupied=4)
         assert refusal is not None
-        assert refusal[0] == ENTRY_SAISON_NOT_FUTURE
+        assert refusal.error_code == ENTRY_SAISON_NOT_FUTURE
