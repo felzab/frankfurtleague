@@ -1,19 +1,19 @@
 "use client";
 
 /**
- * SHARED · the filter panel, one definition for two filter controls
+ * SHARED · the filter panel
  *
- * The sheet a filter control opens: its width, its scroller, and one bordered cell per facet.
- * `FilterBar` renders every facet through it while `FilterLeiste` renders only the dimensions its row
- * could not promote, which is why what is shown and what the counts read against are separate props.
+ * The surface a filter control opens: its width, its scroller, and one bordered cell per facet. The add
+ * control opens it over the dimensions that are not filtering and a pill over its own, which is why
+ * what is SHOWN and what the counts read against are separate props.
  *
  * Invariants:
  * - Nothing here owns state; the selection and both callbacks belong to whichever control opened it.
  * - Counts are read against every facet of the surface, never against the subset on screen.
+ * - `FilterPanelBody` is the same cells with no dialog and no width, for a host that brings its own.
  *
  * See:
- * - `FilterBar.tsx :: FilterBar` — the trigger, the chips, and the whole facet set
- * - `FilterLeiste.tsx :: FilterLeiste` — one trigger per dimension, and this for what overflows
+ * - `FilterLeiste.tsx :: FilterLeiste` — one pill per filtered dimension, and this for their options
  */
 import { useEffect, useRef, useState } from "react";
 
@@ -111,9 +111,9 @@ function fold(text: string): string {
 /**
  * One facet's box inside the panel: its heading, its reset, and its options.
  *
- * **The query is `useState` HERE and must not be lifted.** `FilterBar` renders inside `AdminCrudView`,
- * whose collection-identity constraint means a state change above this component re-renders the table
- * once per keystroke. Local state costs nothing above the cell.
+ * **The query is `useState` HERE and must not be lifted.** This renders inside `AdminCrudView`, whose
+ * collection-identity constraint means a state change above this component re-renders the table once
+ * per keystroke. Local state costs nothing above the cell.
  *
  * **The width STARTS from this cell's own longest option** (`w-max`), which is what CSS Grid cannot
  * express: a grid track's width is shared by every cell in it, so the sixteen-club Team facet would pad
@@ -256,7 +256,7 @@ function FacetCell<TItem>({
   );
 }
 
-/** What a panel and a sheet both need to draw their cells; the geometry around them is not shared. */
+/** What the panel and its bare body both need; the geometry around the cells is not shared. */
 type FilterPanelContent<TItem> = {
   /**
    * Every dimension the surface offers. The counts read against all of them, so a panel showing part of
@@ -275,12 +275,11 @@ type FilterPanelContent<TItem> = {
 /**
  * The scroller and its cells, with no dialog and no width of their own.
  *
- * **For a host that is already a dialog** — the phone's filter sheet is a `Drawer`, which brings its own
- * dialog, its drag-to-dismiss and its own placement. Rendering `FilterPanel` inside one would nest a
- * second dialog in the first and hand the sheet a width meant for a popover hanging off a row.
+ * **For a host that brings its own dialog.** `FilterPanel` is a `Popover.Dialog`, so a host that is
+ * already one would nest a second dialog inside the first and inherit a width computed for a panel
+ * hanging off a row. This is the same cells with neither, so the host decides both.
  *
- * It sets no width deliberately: a sheet is as wide as the drawer that holds it, and `70vh` remains the
- * scroller's own ceiling, which is what a sheet wants too.
+ * `70vh` stays, because it bounds the scroller rather than the surface around it.
  */
 export function FilterPanelBody<TItem>({ facets, shown = facets, items, selection, onSelect, onClear }: FilterPanelContent<TItem>) {
   return (

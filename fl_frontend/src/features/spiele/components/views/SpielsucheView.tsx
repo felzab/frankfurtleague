@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 
-import { FilterExperiment } from "@/shared/components/ui/FilterExperiment";
+import { FilterLeiste } from "@/shared/components/ui/FilterLeiste";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { SearchBar } from "@/shared/components/ui/SearchBar";
 import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
@@ -102,7 +102,7 @@ export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLS
         {/* Counted over the season's whole fixture list, so an option says what it would leave rather
             than what the current query already left. */}
         <div className="max-w-toolbar flex w-full flex-row justify-start">
-          <FilterExperiment
+          <FilterLeiste
             facets={facets}
             items={processedSpiele}
           />

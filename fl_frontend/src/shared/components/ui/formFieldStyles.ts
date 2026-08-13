@@ -169,7 +169,7 @@ export const DATE_PICKER_CALENDAR = "w-72 max-w-72 p-3 sm:w-84 sm:max-w-84 sm:p-
  * HeroUI's `DatePicker.Popover` defaults to `"bottom"`, which centres the panel on the trigger — and the
  * calendar is far wider than the trigger it hangs from, so a centred panel overhangs the field on both
  * sides and reads as unanchored. `start` puts its leading edge where the field's is, which is the edge a
- * reader is already tracking down the form. `FilterBar`'s popover is placed the same way for the same
+ * reader is already tracking down the form. The filter panel is placed the same way for the same
  * reason, so the app has one answer to "where does a panel open" rather than one per control.
  *
  * Deliberately not `"bottom end"`: every one of these pickers sits in a two-column grid from `sm` up, so

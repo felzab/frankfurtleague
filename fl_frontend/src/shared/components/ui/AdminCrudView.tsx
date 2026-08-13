@@ -7,7 +7,7 @@ import { useFuzzySearch } from "../../hooks/useFuzzySearch";
 import { useUrlFilters } from "../../hooks/useUrlFilters";
 import { applyFacets } from "../../utils/facets";
 import { AdminCrudFallback } from "./AdminCrudFallback";
-import { FilterExperiment } from "./FilterExperiment";
+import { FilterLeiste } from "./FilterLeiste";
 import { PLACEHOLDER_BOX } from "./placeholderBox";
 
 import type { ReactNode } from "react";
@@ -105,7 +105,7 @@ export function AdminCrudView<TItem extends { id: string }>({
     <div className={`group relative flex flex-col gap-4 ${isCollection ? PLACEHOLDER_BOX : ""}`}>
       {/* Counted over the UNFILTERED rows, so each option answers what it would leave rather than what
           the current selection already left. */}
-      <FilterExperiment
+      <FilterLeiste
         facets={facets}
         items={items}
       />

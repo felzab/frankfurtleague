@@ -235,9 +235,9 @@ describe("every facet set in the app", () => {
 
   it("never claims a parameter the search field or the season selector already owns", () => {
     // `q`, `saison_id` and `section` belong to the search field, the season selector and the
-    // action-required strip; `filterui` is `FilterExperiment`'s switch. A facet claiming one fights a
-    // control on the same page, invisibly until somebody filters.
-    const reserved = new Set(["q", "saison_id", "section", "filterui"]);
+    // action-required strip. A facet claiming one fights a control on the same page, invisibly until
+    // somebody filters.
+    const reserved = new Set(["q", "saison_id", "section"]);
 
     for (const [name, facets] of discovered) {
       for (const facet of facets) {

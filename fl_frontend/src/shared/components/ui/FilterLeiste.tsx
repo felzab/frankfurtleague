@@ -163,28 +163,22 @@ function FilterPill<TItem>({
 }
 
 /**
- * The filter control: a row of pills on a screen with room for one, a single control and a sheet below
- * that.
+ * The app's filter control: one pill per filtered dimension, and one control that adds another.
  *
  * **The row's content is a function of what was chosen and of nothing else.** No dimension is present
  * until it is filtering, nothing is promoted or demoted by width, and no hidden copy of the row is
  * measured to decide any of it. Adding a filter moves nothing that was already there, and using one
  * cannot make it jump somewhere else.
  *
- * **Below `sm` the row is REPLACED rather than shrunk.** A phone has room for a filter surface or for
- * the list it filters, not both, so the whole row collapses to one control carrying a count and a sheet
- * holding every dimension at once. Shrinking the row instead is what the previous two rounds tried, and
- * each answer cost something real — a clipped club name, or a dimension hidden behind an overflow.
+ * **The add control stands outside the scroller and first**, so the control that adds a filter can
+ * never be the thing scrolled out of reach, and a pill appended after it displaces nothing.
  *
- * **The split is CSS, not a measurement.** Both surfaces are in the tree and `sm` decides which one is
- * displayed, so there is no hydration guess, no flash, and one breakpoint spelling shared with every
- * other responsive rule in the app. Neither surface holds state, so mounting both costs a box each.
+ * **Pills sit in the order the URL holds them**, which is the order they were added — `useUrlFilters`
+ * carries why that needs no second home. The add menu keeps the facets' declared order, which is the
+ * surface's own vocabulary rather than a history.
  *
- * **The sheet applies as it is touched and has no Apply button.** Every filter in this app is URL state
- * that takes effect at once; a surface that batched its changes would be the only one that did.
- *
- * **Both surfaces render `FilterPanel`** — the add control over the unfiltered dimensions, a pill over
- * its own, the sheet over all of them — so no two of them can drift into different answers.
+ * **Every options surface is `FilterPanel`** — the add control over the dimensions that are not
+ * filtering, a pill over its own — so no two of them can drift into different answers.
  */
 export function FilterLeiste<TItem>({
   facets,
@@ -264,9 +258,8 @@ export function FilterLeiste<TItem>({
           </IconTooltip>
         )}
 
-        {/* `FilterBar`'s own treatment, values included: 24px of shadow on a 40px strip, because the
-            shadow IS the affordance at this height — a scrollbar under the row would cost a quarter of
-            it. Two filter designs with two scroll treatments is the drift this shares a recipe to avoid. */}
+        {/* 24px of shadow on a 40px strip: the shadow IS the affordance at this height, where a
+            scrollbar under the row would cost a quarter of it. */}
         {filtered.length > 0 && (
           <ScrollShadow
             orientation="horizontal"

@@ -497,8 +497,8 @@ component the app grows would otherwise ask this same question from scratch.
 **Status:** Open\
 **Surfaces:** FE\
 **Effort:** S\
-**Path:** Independent — best taken in the change that removes `FilterExperiment.tsx` and the losing
-filter concept, which is owed once one is chosen.
+**Path:** Independent. Its stated window — the change that removed the losing filter concept — has
+passed, so it is now an ordinary standalone item.
 
 **One shape, in the two components every filtered surface is built from: a container takes a hook's
 whole machinery to read one of its outputs.**
@@ -513,8 +513,8 @@ anything. The input that gives the hook its purpose lives in `AdminCrudSearch`, 
 mount of it.
 
 **`useUrlFilters(facets)` is called twice per filtered surface** — once by the view
-(`AdminCrudView`, `SpielsucheView`) and once by whichever filter component is rendered
-(`FilterBar`, `FilterLeiste`). The performance argument for fixing that is gone:
+(`AdminCrudView`, `SpielsucheView`) and once by `FilterLeiste` inside it. The performance argument for
+fixing that is gone:
 `fl_frontend/src/shared/utils/facets.ts` memoises the read on a `WeakMap` keyed by the facet array,
 so the second call returns the first call's object. What is left is two subscribers to the same URL
 and two places a reader has to look to find where a selection came from.
