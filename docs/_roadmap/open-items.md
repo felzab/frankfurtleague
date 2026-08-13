@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `b0a8430`, 2026-08-13\
+**Verified against:** `9701106`, 2026-08-13\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -51,16 +51,21 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 
 ## The path at a glance
 
-| #   | ID    | Item                                                       | Surfaces        | Effort | Status   | Depends on |
-| --- | ----- | ---------------------------------------------------------- | --------------- | ------ | -------- | ---------- |
-| 1   | BE-15 | Nothing records who changed what, or what it replaced      | FE, BE, DB      | L      | Open     | —          |
-| 2   | FB-16 | Nothing announces that a season rollover is due            | BE, Ops         | M      | Open     | —          |
-| 3   | FB-17 | Season setup is hand-run, and only an admin enters a squad | FE, BE, DB, Ops | XL     | Open     | —          |
-| 4   | FE-1  | A fixture carries one date, not a play window              | FE, BE          | XL     | Open     | —          |
-| 5   | LOG-2 | A cached read's call joins to no render                    | FE, BE, Ops     | L      | Open     | —          |
-| 6   | BE-12 | Nothing purges a row whose `inactive_since` is old         | BE, DB          | M      | Open     | —          |
-| 7   | BE-7  | `typing` imports instead of `collections.abc`              | BE              | —      | Standing | —          |
-| 8   | BE-14 | The certainty walk gives up in a group of six or more      | BE              | —      | Standing | —          |
+| #   | ID    | Item                                                            | Surfaces        | Effort | Status   | Depends on |
+| --- | ----- | --------------------------------------------------------------- | --------------- | ------ | -------- | ---------- |
+| 1   | BE-15 | Nothing records who changed what, or what it replaced           | FE, BE, DB      | L      | Open     | —          |
+| 2   | BE-18 | Five permitted states the domain declaration does not name      | BE              | M      | Open     | —          |
+| 3   | FB-16 | Nothing announces that a season rollover is due                 | BE, Ops         | M      | Open     | —          |
+| 4   | FB-17 | Season setup is hand-run, and only an admin enters a squad      | FE, BE, DB, Ops | XL     | Open     | —          |
+| 5   | BE-17 | Every server-ordered name list sorts in byte order              | BE, FE          | M      | Open     | —          |
+| 6   | FE-15 | Vendored overlays enter at a scale the app's own set never uses | FE              | S      | Open     | —          |
+| 7   | FE-14 | The two loaders answer reduced motion in opposite directions    | FE              | S      | Open     | —          |
+| 8   | FE-16 | The filter hooks are mounted for machinery nobody reads          | FE              | S      | Open     | —          |
+| 9   | FE-1  | A fixture carries one date, not a play window                   | FE, BE          | XL     | Open     | —          |
+| 10  | LOG-2 | A cached read's call joins to no render                         | FE, BE, Ops     | L      | Open     | —          |
+| 11  | BE-12 | Nothing purges a row whose `inactive_since` is old              | BE, DB          | M      | Open     | —          |
+| 12  | BE-7  | `typing` imports instead of `collections.abc`                   | BE              | —      | Standing | —          |
+| 13  | BE-14 | The certainty walk gives up in a group of six or more           | BE              | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -118,7 +123,62 @@ and never backwards, so every write made before it lands is one nobody can recon
 raises the value of doing it meanwhile: the client-held undo makes the gap visible on the one surface
 an admin uses most.
 
-### 2 · FB-16 — Nothing announces that a season rollover is due
+### 2 · BE-18 — Five states the code permits are named by neither half of the domain declaration
+
+**Status:** Open\
+**Surfaces:** BE\
+**Effort:** M\
+**Path:** Independent — `fl_backend/app/core/domain.py` holds both halves and
+`fl_backend/tests/core/test_domain.py` is where a resolution is asserted.
+
+**`domain.py` is the answer to "may this happen?", in two lists.** `RULES` names every refusal the
+application implements, each pointing at the function that implements it and the test that covers
+it; `UNENFORCED` names every state the application permits **and has decided to permit**, each with
+the reason. `fl_backend/tests/core/test_domain.py` resolves `RULES` in both directions — a refusal
+with no row fails, and a row naming no refusal fails.
+
+**Five states are in neither list:**
+
+| The state                                                                                                                                                                                                    | Where                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `REQ-CLASH-001` compares only fixtures sharing a calendar date, so two bookings of one venue at 23:30 and 00:30 are sixty minutes apart and both pass                                                         | `fl_backend/app/api/spiele/services.py :: find_clash_refusal`, whose loop skips a slot on `if slot.datum != datum`                  |
+| A fixture being **cancelled** is still judged against `REQ-CLASH-001`, so cancelling one that clashes is refused and the admin has to move it first. The opposite direction is already right — the booking read filters `is_canceled: False`, so a cancelled fixture frees its slot | `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`, where the clash block is entered on the payload's `datum` alone   |
+| `advance_bracket_winners` writes both sides of a fixture without consulting `REQ-SPIELTAG-001`, so the resolution can field one club twice on a Spieltag — the state that rule exists to refuse on the request path | `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`; `judge_spieltag_occupancy` is reached from `patch_spiel_data` only |
+| `REQ-ENTER-003`'s count-then-insert is not transactional, so two concurrent entries can both pass a group's capacity check and take it over its cap                                                           | `fl_backend/app/api/teams/admin_router.py :: post_saison_team`                                                                      |
+| `PATCH /spiele/{spiel_id}` writes the payload's side back wholesale, `name` and `shorthand` included, so a caller can store a display name that disagrees with the club `team_id` points at                    | `fl_backend/app/api/spiele/schemas.py :: FLSpielTeamField`                                                                          |
+
+The last row is about the two copied display fields alone. A fixture's `mietpreis` and `payment` are
+per-fixture values rather than stale copies of a default
+([ADR-0021](../_decisions/0021-store-what-was-true-then-derive-what-is-true-now.md)), and the same
+`$set` is what makes them work.
+
+**One of the five has a date on it, and the date is this year.** `post_saison_team`'s docstring
+accepts its race in terms — "the count-then-insert is not transactional; the single-admin surface
+makes the race a non-concern, and the cost of losing it is one team over a planning bound rather
+than corrupt data". That reasoning is sound and it rests entirely on there being one writer. BE-15
+records that a second person will be writing in the season plan this year, confirmed 2026-08-12.
+When that lands the justification is gone and only the code is left, and nothing joins the two: the
+concession lives in a docstring rather than in `UNENFORCED`, where a reader looking for what this
+system tolerates would find it.
+
+**The same file's third list is short in a direction as well.** `FIELD_POLICIES` declares when each
+field may be written, and it is resolved one way only:
+`fl_backend/tests/core/test_domain.py :: test_every_field_policy_names_a_real_field` proves every
+declared policy names a real field, and nothing proves a real non-editable field carries a policy.
+`FIELD_POLICIES` names no field of `spielorte` or `schiedsrichter` at all, and no check reports that.
+
+**Each state is one of two answers: refuse it, or write it into `UNENFORCED` with the reason.** Both
+are cheap, and choosing is the work — which is why they are one entry rather than five. The
+precedent is set: the duplicate squad number in one team and season was answered by declaring it,
+because the live data already holds the state and refusing it would make those rows uneditable.
+
+**What makes this more than five edits is that nothing would have caught them.** An `Unenforced`
+entry is asserted only to carry a non-empty reason, so a state that is real, permitted and
+undeclared reads exactly like one somebody considered — and the whole value of the declaration is
+that those two are distinguishable. Making each half resolvable against the code, the way `RULES`
+already is, closes the class rather than the instances.
+
+### 3 · FB-16 — Nothing announces that a season rollover is due
 
 **Status:** Open\
 **Surfaces:** BE, Ops\
@@ -161,7 +221,7 @@ message, is the actual scope.
   already done is a different message from one saying a date passed, and only the first is worth
   reading twice.
 
-### 3 · FB-17 — Setting up a season is a hand-run sequence, and only an admin can enter a squad
+### 4 · FB-17 — Setting up a season is a hand-run sequence, and only an admin can enter a squad
 
 **Status:** Open\
 **Surfaces:** FE, BE, DB, Ops\
@@ -333,7 +393,140 @@ chosen.
   in and for a crashing browser; a whole squad filling a form in one break is a different shape of
   traffic on the same edge.
 
-### 4 · FE-1 — A fixture carries one date, and a play window cannot be expressed
+### 5 · BE-17 — Every server-ordered name list sorts in byte order, so a German name lands in the wrong place
+
+**Status:** Open\
+**Surfaces:** BE, FE\
+**Effort:** M\
+**Path:** Independent — the pipelines and the facet builders both exist, and neither waits on
+anything.
+
+**No `$sort` in the backend attaches a collation**, so every server-ordered list is ordered by
+Mongo's default binary collation: „Ö" sorts after „Z" rather than beside „O", and a lower-case
+initial sorts after every upper-case one. `grep -rn "collation" fl_backend/app` is the whole
+measurement, and it returns nothing.
+
+The sorts that decide what a reader sees: `fl_backend/app/api/teams/services.py ::
+build_team_pipeline` orders on the requested field and breaks ties on `name`;
+`:: build_team_memberships_pipeline` orders a season's clubs on `name`; and
+`fl_backend/app/api/spieler/services.py :: build_spieler_pipeline` breaks its own ties on `vorname`
+and `nachname`, which `:: build_spieler_memberships_pipeline` sorts a squad by outright.
+
+**The frontend disagrees with itself in the same place.**
+`fl_frontend/src/features/spiele/facets.ts` sorts its facet options with `localeCompare(…, "de")`;
+`fl_frontend/src/features/spieler/facets.ts :: buildSpielerFacets` maps the backend's order straight
+into options and sorts nothing. So the same clubs, in a facet carrying the same label, appear in one
+order on the Spielsuche and a different one on `/admin/spieler` — which is the version of this a
+person notices first, because the two are one navigation apart.
+
+**Two answers, and they are not the same answer.**
+
+- **Attach a `de` collation to the affected `$sort` stages.** It fixes every consumer at once,
+  including a paginated read, which is the case the frontend cannot reach. The cost is that a
+  collation changes which index a sort may use, so each affected stage needs re-checking against
+  `fl_backend/app/core/constraints.py`'s indexes rather than assumed.
+- **Sort in the frontend, where a German collator already exists.** Cheaper to write and provably
+  correct where the whole list is in hand — and wrong the moment a list is served in pages, because
+  a page sorted after it arrives is a page sorted against itself.
+
+**What ranks it here is that the cost is paid per site written before the answer.** Every new
+name-ordered pipeline or facet builder added meanwhile is another place to revisit, and the two ends
+are already inconsistent enough that a reader cannot tell which one is deliberate.
+
+### 6 · FE-15 — Vendored overlays enter at a scale the app's own motion set never uses
+
+**Status:** Open\
+**Surfaces:** FE\
+**Effort:** S\
+**Path:** Independent — [ADR-0013](../_decisions/0013-per-component-heroui-css.md) fixes where the
+vendored CSS is imported, so an app-side answer has a place to sit.
+
+**The app's arrival language carries no scale at all.** Every animation
+`fl_frontend/src/shared/components/ui/motion.ts` exports is a fade, with at most a lift, and nothing
+under `fl_frontend/src` spells a `zoom-in-*` class.
+
+**The installed HeroUI enters `popover`, `tooltip` and `dropdown` at a tenth under their size.** At
+`@heroui/styles` 3.2.4 each of those three vendored stylesheets applies `zoom-in-90` on its entering
+state, while the same package's `autocomplete`, `color-picker`, `combo-box`, `date-picker`,
+`date-range-picker` and `select` apply `zoom-in-95` — so the vendored set does not agree with itself
+either, and the widest of it is what `fl_frontend/src/app/globals.css` imports by name. Nothing
+app-side overrides them, so every popover, tooltip and menu on the site arrives with a gesture the
+app's own components never make.
+
+**What has to be decided is whether the app's motion language reaches vendored components at all** —
+matching them to the app, leaving them as the vendor ships them, or bringing only the three outliers
+into line with the vendor's own 95.
+
+**The change may be one rule rather than a sweep, and that is worth establishing before the work is
+scoped.** tw-animate-css reads its scale from the `--tw-enter-scale` custom property, which is
+exactly the lever `globals.css`'s reduced-motion block already pulls: it sets that property on `*`
+and turns every zoom entrance in the app, vendored ones included, into a plain fade. A rule after
+the three imports, on the same `[data-entering="true"]` selectors, is the cheap version of this
+entry. **Read from the vendored CSS and from the block that already uses the lever; not compiled** —
+so it is the first thing to try rather than a fact to build on.
+
+### 7 · FE-14 — The two loading indicators answer reduced motion in opposite directions
+
+**Status:** Open\
+**Surfaces:** FE\
+**Effort:** S\
+**Path:** Independent — the reduced-motion block in `fl_frontend/src/app/globals.css` is where the
+answer is recorded, and it already states the policy it would extend.
+
+**Both loaders are `role="status"`, and under `prefers-reduced-motion: reduce` one keeps moving and
+the other freezes.** `fl_frontend/src/shared/components/ui/ContentLoader.tsx` renders three
+`animate-loader-dot` spans under `aria-label="Inhalte werden geladen"`, and `globals.css`'s
+reduced-motion block lists `.animate-loader-dot` among the selectors it sets `animation: none
+!important` on. `fl_frontend/src/shared/components/ui/PageLoader.tsx` renders `animate-spin` inside
+an `animate-ping` halo, and the same block's comment exempts the spinner in terms — spinners are
+loading feedback rather than decoration. The halo does stop, so the reduced-motion page wait is the
+spinner alone, and the reduced-motion content wait is three static dots.
+
+**So the app tells a reduced-motion reader that a whole-page wait is in progress and says nothing
+about a content-area wait**, on two components that were deliberately given different shapes so the
+two waits are tellable apart.
+
+**It is a product call rather than a code one**, and there are two coherent answers: the dots are a
+readout, in which case they leave the block and keep moving for the reason the spinner does; or they
+are decoration, in which case `ContentLoader` needs a non-moving way to say it is waiting.
+
+**Whichever wins belongs at the block's own comment.** That comment already carries the policy in
+terms — "remove movement, keep fades" — and names the spinner exemption, so the third loading
+component the app grows would otherwise ask this same question from scratch.
+
+### 8 · FE-16 — The filter hooks are mounted for machinery their caller never reads
+
+**Status:** Open\
+**Surfaces:** FE\
+**Effort:** S\
+**Path:** Independent — best taken in the change that removes `FilterExperiment.tsx` and the losing
+filter concept, which is owed once one is chosen.
+
+**One shape, in the two components every filtered surface is built from: a container takes a hook's
+whole machinery to read one of its outputs.**
+
+**`AdminCrudView` mounts the search hook to read a string.**
+`fl_frontend/src/shared/components/ui/AdminCrudView.tsx` calls `useDebouncedUrlQuery()` for
+`urlValue` alone. `fl_frontend/src/shared/hooks/useDebouncedUrlQuery.ts` mounts a `useState` seeded
+from that same URL value, a mirror effect, and the debounce `setTimeout` whose body opens by
+returning when the two are equal. On this mount nothing ever calls the setter, so they are always
+equal: the timer is scheduled and cleared on every render of every admin table and can never do
+anything. The input that gives the hook its purpose lives in `AdminCrudSearch`, which is the other
+mount of it.
+
+**`useUrlFilters(facets)` is called twice per filtered surface** — once by the view
+(`AdminCrudView`, `SpielsucheView`) and once by whichever filter component is rendered
+(`FilterBar`, `FilterLeiste`). The performance argument for fixing that is gone:
+`fl_frontend/src/shared/utils/facets.ts` memoises the read on a `WeakMap` keyed by the facet array,
+so the second call returns the first call's object. What is left is two subscribers to the same URL
+and two places a reader has to look to find where a selection came from.
+
+**The fix is the same on both halves — give the reader what it asked for and leave the writer where
+the control is** — and both sites are shared components, so it reaches every admin table and the
+Spielsuche at once. That is the argument for doing it deliberately in the commit that is already
+going to rewrite these files, rather than opportunistically in one that is not.
+
+### 9 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -358,7 +551,7 @@ ausstehend/heute/vergangen ternary genuinely harder, and that ADR's intent (a fi
 window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives ADR-0058's definitions under ranges.
 
-### 5 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
+### 10 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -427,7 +620,7 @@ validated or replaced the same way.
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
 
-### 6 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+### 11 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -466,7 +659,7 @@ than rediscovered.
 ([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)), so neither can accumulate a
 row to purge.
 
-### 7 · BE-7 — `typing` imports instead of `collections.abc`
+### 12 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -479,7 +672,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 8 · BE-14 — The certainty walk gives up in a group of six or more
+### 13 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
