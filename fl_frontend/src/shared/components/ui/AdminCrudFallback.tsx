@@ -129,8 +129,8 @@ function TableFallback() {
       </div>
 
       <div className="hidden w-full md:block">
-        {/* The same box the real table wears, floor included: `h-fit` alone leaves this card at the
-            bars' own 447px against the table's 456px minimum, and nine pixels of shell is nine pixels
+        {/* The same box the real table wears, floor included. `h-fit` alone sizes this card to its own
+            bars while the table beneath carries a minimum, and any pixel between the two is a pixel
             the page moves at the handover. */}
         <div className={`${card()} ${TABLE_COLLECTION_FLOOR} h-fit w-full overflow-hidden p-0`}>
           <AdminTableSkeletonRows />
