@@ -18,7 +18,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 
-from app.api.saisons.schedule import expected_matches
+from app.api.saisons.schedule import expected_matches, implied_matchdays
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import KNOCKOUT_PHASES
 from app.api.spieltage.schemas import (
@@ -63,17 +63,21 @@ async def post_spieltag(
     is wrong, and correcting either moves it (ADR-0051). Its NAME follows from the same two facts, which is
     why the payload carries none (ADR-0051).
 
-    **Two refusals.** A season whose knockout phase is already under way takes no new matchdays at all
+    **Three refusals.** The phase has to be one the season's rules actually produce
+    (`REQ-SPIELTAG-004`, decided 2026-08-13) — a season sending eight teams into the bracket plays no
+    round of sixteen, so an `achtelfinale` matchday there belongs to a round nobody plays. **That is a
+    rule about WHICH phase and never about how many:** the matchday count a phase implies is a floor
+    rather than a quota, because a round split across two dates is two matchdays for one phase
+    (ADR-0051).
+
+    A season whose knockout phase is already under way takes no new matchdays at all
     (`REQ-SPIELTAG-003`, decided 2026-08-08) — "under way" meaning its earliest non-group matchday begins
     today or began earlier, which is a date rather than a result. And the span has to sit inside the
     season's own (`REQ-DATE-002`).
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": spieltag_data.saison_id})
-
-    # The window first: a season whose bracket is already under way takes no new matchdays
-    # (`REQ-SPIELTAG-003`). Before the span check, because it is a fact about the season rather than
-    # about this payload.
+    rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
     # The earliest non-group matchday's `beginn`, retired ones included: a retired knockout matchday is
     # still a date the bracket was scheduled to start on, and hiding it from a list does not un-start
@@ -84,6 +88,8 @@ async def post_spieltag(
         sort=[("beginn", 1)],
     )
     create_refusal = find_spieltag_create_refusal(
+        implied_in_phase=implied_matchdays(rules, spieltag_data.saison_phase),
+        saison_phase=spieltag_data.saison_phase,
         earliest_knockout_beginn=None if earliest_knockout is None else str(earliest_knockout["beginn"]),
         today=today,
     )
@@ -203,6 +209,16 @@ async def delete_spieltag(
     is not the same as visible: a retired matchday leaves `GET /spieltage`, and the public Spielplan joins
     fixtures onto the matchdays it received — so this retirement takes played results off that page. An
     unplayed matchday retires freely, which is the one somebody created by mistake.
+
+    **And it is refused while the phase would drop below the count its rules imply** (`REQ-RETIRE-005`,
+    decided 2026-08-13). Until this existed a season could be emptied of a phase it still had to play,
+    one unplayed matchday at a time, with nothing anywhere to refuse a single step. The derived figure
+    is a **floor, never a ceiling** — a phase may hold more rows than the rules imply, because a round
+    split across two dates is two matchdays (ADR-0051) — so a phase above the floor retires back down
+    to it and stops there.
+
+    **The floor governs this endpoint and `POST /spieltage`, and nothing watches `PATCH`**, which can
+    move a row between phases and so change both counts from a side neither refusal sees.
     """
 
     # Both reads before the write, the season's for the echo's derived count alone. Ahead of the stamp
@@ -213,7 +229,17 @@ async def delete_spieltag(
     rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
     played = await spiele_collection.count_documents({"spieltag_id": spieltag_id, "ergebnis": {"$ne": None}})
-    refusal = find_spieltag_retire_refusal(played_count=played)
+
+    # The phase's live rows as they stand, THIS matchday included -- the refusal subtracts it, so the
+    # count passed in is the state before the retirement rather than after it.
+    live_in_phase = await spieltage_collection.count_documents(
+        {"saison_id": stored_raw["saison_id"], "saison_phase": stored_raw["saison_phase"], "inactive_since": None}
+    )
+    refusal = find_spieltag_retire_refusal(
+        played_count=played,
+        live_in_phase=live_in_phase,
+        implied_in_phase=implied_matchdays(rules, stored_raw["saison_phase"]),
+    )
     if refusal is not None:
         error_code, detail = refusal
         raise DocumentConflictException(error_code=error_code, message=detail)

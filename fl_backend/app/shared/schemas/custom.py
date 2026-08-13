@@ -107,7 +107,11 @@ CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_
 
 
 # `fl_frontend/src/shared/schemas.ts :: PHONE_REGEX` mirrors this.
-PHONE_REGEX = r"^([+]?[\s0-9\-().]{3,20})$"
+#
+# A LITERAL SPACE, never `\s`: the class sits INSIDE the anchors, so a `\s` there let the value carry
+# the newlines and tabs the anchors were written to exclude -- `"\n\n1"` was a valid phone number. A
+# space is the only whitespace a dialled number holds.
+PHONE_REGEX = r"^([+]?[ 0-9\-().]{3,20})$"
 
 # Byte-for-byte the regex zod uses for `z.regexes.domain`, because `ExternalUrlSchema` tests the parsed
 # hostname against exactly this and both ends must accept or reject a value alike. Bare hosts and IP
@@ -115,6 +119,10 @@ PHONE_REGEX = r"^([+]?[\s0-9\-().]{3,20})$"
 DOMAIN_REGEX = re.compile(r"^([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$")
 
 EXTERNAL_URL_SCHEMES = frozenset({"http", "https"})
+
+# The three characters `urlsplit` discards before parsing, per WHATWG. Named here because what this
+# module RETURNS has to be what it validated, so the removal happens where the return value is.
+URL_STRIPPED_CHARACTERS = str.maketrans("", "", "\t\r\n")
 
 
 def validate_calendar_date(value: str) -> str:
@@ -177,8 +185,13 @@ def validate_external_url(value: str) -> str:
     Deliberately not pydantic's AnyHttpUrl: that normalises the value, and appending a trailing
     slash would silently rewrite what is already stored and served.
     """
+    # Stripped BEFORE parsing, so `parsed` is the exact text every check runs against and the exact
+    # text this returns. `geturl()` would also lowercase the scheme -- the rewriting of a stored value
+    # this function refuses `AnyHttpUrl` for.
+    parsed = value.translate(URL_STRIPPED_CHARACTERS)
+
     try:
-        parts = urlsplit(value)
+        parts = urlsplit(parsed)
         # Read `.port` for its side effect: urlsplit is lazy, so an invalid port only raises on access,
         # and without this the backend accepts a URL `new URL` refuses. Bound to a name because a bare
         # attribute access reads as dead code (ruff B018).
@@ -213,7 +226,7 @@ def validate_external_url(value: str) -> str:
     if not DOMAIN_REGEX.match(host):
         raise ValueError("URL must point at a domain name")
 
-    return value
+    return parsed
 
 
 CustomExternalUrl = Annotated[str, AfterValidator(validate_external_url)]

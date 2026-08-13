@@ -1,10 +1,10 @@
 # ADR-0026 — One active season, one path to it, and a team leaves a season only by disqualification
 
-**Status:** Accepted\
+**Status:** Superseded by ADR-0069\
 **Date:** 2026-08-02\
 **Surface:** backend\
 **Supersedes:** —\
-**Superseded by:** —\
+**Superseded by:** ADR-0069\
 **Source:** Open item BE-4, building the write path for the reference collections.
 
 ## Context

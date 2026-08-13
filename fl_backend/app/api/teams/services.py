@@ -835,6 +835,57 @@ SWAP_GRUPPENPHASE_PLAYED = "REQ-SWAP-004"
 # 2026-08-11). Group sides move and bracket sides do not, so a Spieltag holding both can double a club.
 SWAP_SPIELTAG_CLASH = "REQ-SWAP-005"
 
+# The exchange would move a disqualified club onto fixtures dated on or after its disqualification
+# (ADR-0074) -- the write `REQ-ELIGIBILITY-001` refuses. FORWARDS ONLY: enforcement leaves the past
+# alone (ADR-0042).
+SWAP_FIELDS_DISQUALIFIED = "REQ-SWAP-006"
+
+
+def fixtures_newly_fielding_a_disqualified_club(
+    *,
+    team1_id: Any,
+    team2_id: Any,
+    disqualified_since: Mapping[Any, str | None],
+    gruppenphase_spiele: Sequence[Mapping[str, Any]],
+) -> int:
+    """
+    How many group fixtures the exchange would move a disqualified club onto, after its disqualification.
+
+    The swap rewrites every Gruppenphase side holding one club to the other, so a fixture currently
+    fielding team2 will field team1 -- and if team1 is disqualified, that is `patch_spiel_data` writing a
+    disqualified club onto a fixture it was not on, which `REQ-ELIGIBILITY-001` refuses on its own path.
+
+    `disqualified_since` maps a club's id to the DAY its disqualification took effect, or `None` while it
+    competes; a club absent from it is not disqualified. Dates are `YYYY-MM-DD` and compare
+    lexicographically, as everywhere else here.
+
+    **Only fixtures dated ON OR AFTER that day count**, which is `find_eligibility_refusal`'s own
+    boundary and ADR-0042's rule that enforcement leaves the past alone. **An UNDATED fixture counts too**:
+    it can still be given a date after the disqualification, and the swap is what puts the club there.
+    """
+
+    arriving = {team1_id: team2_id, team2_id: team1_id}
+
+    offending = 0
+    for spiel in gruppenphase_spiele:
+        for slot in ("team1", "team2"):
+            standing = (spiel.get(slot) or {}).get("team_id")
+            # The club this side would hold once the exchange lands. A side holding neither club does
+            # not move, so it can field nobody new.
+            incoming = arriving.get(standing)
+            if incoming is None:
+                continue
+
+            effective_from = disqualified_since.get(incoming)
+            if effective_from is None:
+                continue
+
+            datum = spiel.get("datum")
+            if datum is None or str(datum) >= effective_from:
+                offending += 1
+
+    return offending
+
 
 def find_gruppe_swap_refusal(
     *,
@@ -845,6 +896,7 @@ def find_gruppe_swap_refusal(
     played_knockout_fixtures: int,
     played_gruppenphase_fixtures: int,
     clashing_spieltage: int,
+    disqualified_fixtures: int,
 ) -> tuple[str, str] | None:
     """
     Why exchanging these two clubs' groups must be refused, as `(error_code, detail)` -- or `None`.
@@ -881,6 +933,11 @@ def find_gruppe_swap_refusal(
     Spieltag clash is repairable -- move one of the two fixtures, or clear the manual pick feeding the
     bracket side -- so naming it while a terminal refusal also applies would send somebody to do work
     that changes nothing. That is the `REQ-SWAP-003`-before-`REQ-SWAP-002` argument one step further out.
+
+    `disqualified_fixtures` is `fixtures_newly_fielding_a_disqualified_club`'s count. `REQ-SWAP-006` is
+    answered after `REQ-SWAP-005` because it is the more expensive repair of the two an admin can act on:
+    a clash moves one fixture, where this one asks for the disqualification to be lifted and re-applied
+    around the swap. Naming the cheaper repair first is the same argument the order above is built on.
 
     Deliberately silent about `ENTRY_GRUPPE_LOCKED`, which refuses a MOVE for a club whose fixtures are
     drawn. That lock's own message names this operation as the defensible one, so a swap neither routes
@@ -930,6 +987,15 @@ def find_gruppe_swap_refusal(
             SWAP_SPIELTAG_CLASH,
             f"{clashing_spieltage} {noun} field one of the two clubs twice after the exchange; "
             "a club plays at most one match per spieltag, and a bracket side does not move with the swap",
+        )
+
+    if disqualified_fixtures > 0:
+        noun = "fixture" if disqualified_fixtures == 1 else "fixtures"
+
+        return (
+            SWAP_FIELDS_DISQUALIFIED,
+            f"the exchange would field a disqualified club in {disqualified_fixtures} {noun} dated on or after its "
+            "disqualification; lift the disqualification, swap, then re-apply it",
         )
 
     return None

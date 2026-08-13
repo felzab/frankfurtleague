@@ -16,6 +16,7 @@ See:
 - docs/domain.md — the editability matrix these rules implement
 """
 
+from datetime import date
 from typing import Any, Iterable, Mapping, Sequence
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, schedule_for
@@ -187,20 +188,40 @@ def find_rules_refusal(
 # container's side, as `REQ-DATE-001` pairs with `REQ-DATE-003`.
 SAISON_SPAN_BELOW_SPIELTAGE = "REQ-DATE-004"
 
+# The season is shorter than the schedule its rules imply (decided 2026-08-13). DERIVED, never an
+# arbitrary floor: no two matchdays share a day. A one-day MATCHDAY stays legal -- the live
+# `finale` is one -- so this bounds the season alone.
+SAISON_SPAN_BELOW_SCHEDULE = "REQ-DATE-005"
+
 
 def find_saison_span_refusal(
     *,
     start_date: str,
     end_date: str,
+    rules: FLSaisonRules,
     spieltag_spans: Sequence[tuple[str, str]],
 ) -> tuple[str, str] | None:
     """
     Why this season's span must be refused, as `(error_code, detail)` -- or `None`.
 
+    Two checks, in the order an admin can act on them. The first reads the payload alone -- the rules
+    and the two dates -- so it holds on a create, where the season has no matchdays yet. The second
+    needs stored data and is skipped by an empty `spieltag_spans` on that path.
+
     `spieltag_spans` is each LIVE matchday's `(beginn, ende)`. Retired matchdays are the caller's to
     exclude: retiring is how a mis-dated matchday is taken out of the schedule, so one blocking the
     repair of the very dates it was retired over would leave the season uneditable.
     """
+
+    # Inclusive: a season running 2026-05-01 to 2026-05-01 offers one day, not zero.
+    offered_days = (date.fromisoformat(end_date) - date.fromisoformat(start_date)).days + 1
+    required_days = sum(entry.matchdays for entry in schedule_for(rules))
+    if offered_days < required_days:
+        return (
+            SAISON_SPAN_BELOW_SCHEDULE,
+            f"the season runs {start_date} to {end_date}, which is {offered_days} day(s), and these rules "
+            f"imply {required_days} matchday(s); two matchdays cannot share a day",
+        )
 
     outside = sorted(span for span in spieltag_spans if span[0] < start_date or span[1] > end_date)
     if outside:

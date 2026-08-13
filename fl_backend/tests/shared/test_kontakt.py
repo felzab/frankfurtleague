@@ -31,6 +31,22 @@ def test_rejects_a_malformed_phone_number(kontakt, telefon):
         FLKontakt.model_validate(kontakt(telefon=telefon))
 
 
+@pytest.mark.parametrize(
+    "telefon",
+    ["+49 69 1234567\n", "\n\n1234567", "+49\t69\t1234567", "+49 69 1234567\r", "069 123\x0b4567"],
+)
+def test_rejects_a_phone_number_carrying_a_control_character(kontakt, telefon):
+    """
+    The anchors are only as strong as the class between them.
+
+    `PHONE_REGEX` matched `\\s` inside `^...$`, so the value could carry the very characters the anchors
+    were written to exclude and still match end to end. These five are stored as text and rendered as
+    text, and a newline in a referee's number is what that lets through.
+    """
+    with pytest.raises(ValidationError):
+        FLKontakt.model_validate(kontakt(telefon=telefon))
+
+
 @pytest.mark.parametrize("telefon", ["+49 69 1234567", "069 123 45-67", "(069) 1234567", "069.123.4567"])
 def test_accepts_the_phone_formats_in_use(kontakt, telefon):
     """The four separator styles real German numbers arrive in, and that the value is stored verbatim."""

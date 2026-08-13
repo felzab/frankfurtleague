@@ -11,7 +11,7 @@ Invariants:
 - `build_spieler_pipeline` flattens and `build_spieler_memberships_pipeline` does not (ADR-0027).
 """
 
-from typing import Any, Iterable, Mapping
+from typing import Any, Mapping
 
 from app.api.spieler.schemas import FLSpielerFilterParams
 from app.core.collections import Collection
@@ -158,10 +158,9 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
 # `REQ-ELIGIBILITY-002` refuses on the match side.
 SQUAD_TEAM_NOT_IN_SAISON = "REQ-SQUAD-001"
 
-# Two players in one team and one season wearing the same number. Refused only where the write
-# introduces the collision (decided 2026-08-08): a row nobody touches keeps its number, so existing
-# data is never made uneditable.
-SQUAD_NUMMER_TAKEN = "REQ-SQUAD-002"
+# Two players in one squad wearing one number is PERMITTED (decided 2026-08-13), declared in
+# `app/core/domain.py :: UNENFORCED`. Refusing it on two write paths while the reactivate consulted
+# no rule was one behaviour spelled three ways.
 
 
 def normalised_nummer(nummer: str | None) -> str | None:
@@ -181,24 +180,14 @@ def normalised_nummer(nummer: str | None) -> str | None:
     return stripped or None
 
 
-def find_squad_refusal(
-    *,
-    team_in_saison: bool,
-    proposed_nummer: str | None,
-    stored_nummer: str | None,
-    taken_nummern: Iterable[str | None],
-) -> tuple[str, str] | None:
+def find_squad_refusal(*, team_in_saison: bool) -> tuple[str, str] | None:
     """
     Why this squad row must be refused, as `(error_code, detail)` -- or `None`.
 
     `team_in_saison` is whether the named team holds a junction row for the season, read by the caller.
-    `taken_nummern` is every OTHER row's number in the same team and season; `stored_nummer` is what this
-    row holds today, and `None` on a create.
 
-    **The number rule fires only on a number this write introduces.** Resubmitting the stored value passes
-    even where it duplicates -- which is what keeps an existing duplicate editable, including by the edit
-    that would resolve it. A row with no number is never a collision: several players may have no shirt
-    assigned yet, and that is the ordinary state of a squad being filled in.
+    **One rule.** A duplicate shirt number is not refused here or anywhere (`SQUAD_NUMMER_SHARED`); it
+    is reported by `shared_nummer_wearers` and stays a fact somebody looks at.
     """
 
     if not team_in_saison:
@@ -206,12 +195,5 @@ def find_squad_refusal(
             SQUAD_TEAM_NOT_IN_SAISON,
             "the named team holds no saison_teams row for this season; a squad entry needs the club to be entered first",
         )
-
-    proposed = normalised_nummer(proposed_nummer)
-    if proposed is None or proposed == normalised_nummer(stored_nummer):
-        return None
-
-    if proposed in {normalised_nummer(taken) for taken in taken_nummern}:
-        return (SQUAD_NUMMER_TAKEN, f"number {proposed} is already worn in this squad; two players cannot share one")
 
     return None

@@ -34,7 +34,7 @@ from app.api.spieler.schemas import (
 )
 from app.api.spieler.services import build_spieler_memberships_pipeline, find_squad_refusal
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, post_one_to_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, post_one_to_db
 from app.core.dependencies import SaisonSpielerCollection, SaisonTeamsCollection, SpielerCollection, get_german_date_str
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
@@ -215,31 +215,14 @@ async def post_saison_spieler(
     overwrite the number and position the old row still carries.
     """
 
-    # The club has to be in the season, and the number has to be free (`REQ-SQUAD-001`/`002`). Read here
-    # rather than in a service, because both facts live in other collections.
+    # The club has to be in the season (`REQ-SQUAD-001`). Read here rather than in a service, because the
+    # fact lives in another collection.
     team_in_saison = (
         await saison_teams_collection.count_documents(
             {"saison_id": saison_spieler_data.saison_id, "team_id": saison_spieler_data.team_id}, limit=1
         )
     ) > 0
-    taken = [
-        row.get("nummer")
-        async for row in saison_spieler_collection.find(
-            {
-                "saison_id": saison_spieler_data.saison_id,
-                "team_id": saison_spieler_data.team_id,
-                "spieler_id": {"$ne": spieler_id},
-                "inactive_since": None,
-            },
-            {"nummer": 1},
-        )
-    ]
-    squad_refusal = find_squad_refusal(
-        team_in_saison=team_in_saison,
-        proposed_nummer=saison_spieler_data.nummer,
-        stored_nummer=None,
-        taken_nummern=taken,
-    )
+    squad_refusal = find_squad_refusal(team_in_saison=team_in_saison)
     if squad_refusal is not None:
         error_code, detail = squad_refusal
         raise DocumentConflictException(error_code=error_code, message=detail)
@@ -271,35 +254,16 @@ async def patch_saison_spieler(
 
     `position` and `stufe` are closed sets (ADR-0048), so a value outside either is a 422 rather than
     a second spelling of a position the league already has. `nummer` stays free TEXT — a squad number is
-    worn rather than counted — but it must not newly collide: `REQ-SQUAD-002` refuses a number this
-    write would take from another player in the same squad (decided 2026-08-08). Resubmitting the
-    stored number always passes, so an existing duplicate stays editable.
+    worn rather than counted — and **a duplicate is permitted rather than refused** (decided
+    2026-08-13, declared in `fl_backend/app/core/domain.py :: UNENFORCED`). The league fields four
+    goalkeepers wearing 1, and this endpoint answers the same way as the create and the reactivate.
     """
 
-    # What this row holds today, so the number rule can tell a NEW collision from an existing one.
-    stored_raw = await pull_one_from_db(
-        collection=saison_spieler_collection,
-        db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
-        projection=["nummer"],
-    )
-
-    # The two facts `find_squad_refusal` decides on, read here because both live in other collections.
+    # The one fact `find_squad_refusal` decides on, read here because it lives in another collection.
     team_in_saison = (
         await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": saison_spieler_data.team_id}, limit=1)
     ) > 0
-    taken = [
-        row.get("nummer")
-        async for row in saison_spieler_collection.find(
-            {"saison_id": saison_id, "team_id": saison_spieler_data.team_id, "spieler_id": {"$ne": spieler_id}, "inactive_since": None},
-            {"nummer": 1},
-        )
-    ]
-    squad_refusal = find_squad_refusal(
-        team_in_saison=team_in_saison,
-        proposed_nummer=saison_spieler_data.nummer,
-        stored_nummer=stored_raw.get("nummer"),
-        taken_nummern=taken,
-    )
+    squad_refusal = find_squad_refusal(team_in_saison=team_in_saison)
     if squad_refusal is not None:
         error_code, detail = squad_refusal
         raise DocumentConflictException(error_code=error_code, message=detail)

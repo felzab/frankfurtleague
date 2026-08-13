@@ -20,7 +20,7 @@ from typing import Any, Mapping, Sequence
 
 from app.api.saisons.schedule import expected_matches
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import PHASE_RANK
+from app.api.spiele.schemas import PHASE_RANK, FLSaisonPhase
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
 
 
@@ -99,8 +99,13 @@ SPIELTAG_HOLDS_PLAYED = "REQ-RETIRE-002"
 # round robin fixes the number (ADR-0052).
 SPIELTAG_OVER_ITS_PHASE = "REQ-SPIELTAG-002"
 
+# Retiring would leave the phase below the count its rules imply (decided 2026-08-13); nothing else
+# counts rows. The figure is a FLOOR, never a ceiling -- a split round is two rows for one phase
+# (ADR-0051) -- so only the step going below it is refused.
+SPIELTAG_BELOW_IMPLIED_COUNT = "REQ-RETIRE-005"
 
-def find_spieltag_retire_refusal(*, played_count: int) -> tuple[str, str] | None:
+
+def find_spieltag_retire_refusal(*, played_count: int, live_in_phase: int, implied_in_phase: int) -> tuple[str, str] | None:
     """
     Why retiring this matchday must be refused, as `(error_code, detail)` -- or `None`.
 
@@ -111,6 +116,11 @@ def find_spieltag_retire_refusal(*, played_count: int) -> tuple[str, str] | None
     Cancelled counts as played when a result was entered, and that is deliberate: a cancelled match with
     a result still counts for the league table (docs/glossary.md), so its scoreline is as public as any
     other. The caller decides that by what it counts, and it counts `ergebnis`.
+
+    `live_in_phase` INCLUDES this matchday -- it is the phase's live rows as they stand before the
+    retirement -- and `implied_in_phase` is `implied_matchdays` for that phase. A phase already holding
+    more rows than the rules imply retires down to the floor and no further, which is what keeps a
+    split round (ADR-0051) reducible back to one matchday but not to none.
     """
 
     if played_count > 0:
@@ -121,6 +131,13 @@ def find_spieltag_retire_refusal(*, played_count: int) -> tuple[str, str] | None
         )
 
         return (SPIELTAG_HOLDS_PLAYED, f"the matchday holds {subject} from the public Spielplan")
+
+    if live_in_phase - 1 < implied_in_phase:
+        return (
+            SPIELTAG_BELOW_IMPLIED_COUNT,
+            f"the phase holds {live_in_phase} live matchday(s) and these rules imply {implied_in_phase}; "
+            "retiring this one would leave the season short of matchdays it still has to play",
+        )
 
     return None
 
@@ -205,10 +222,26 @@ def find_spieltag_span_refusal(
 # question `REQ-RETIRE-002` asks.
 SPIELTAG_KNOCKOUT_STARTED = "REQ-SPIELTAG-003"
 
+# A matchday in a phase the bracket never reaches (decided 2026-08-13). The ONE count question with
+# an exact answer rather than a floor: a round never played cannot be split across dates. How many a
+# played phase holds is not refused (ADR-0051).
+SPIELTAG_PHASE_NOT_PLAYED = "REQ-SPIELTAG-004"
 
-def find_spieltag_create_refusal(*, earliest_knockout_beginn: str | None, today: str) -> tuple[str, str] | None:
+
+def find_spieltag_create_refusal(
+    *,
+    implied_in_phase: int,
+    saison_phase: FLSaisonPhase,
+    earliest_knockout_beginn: str | None,
+    today: str,
+) -> tuple[str, str] | None:
     """
     Why creating a matchday in this season must be refused, as `(error_code, detail)` -- or `None`.
+
+    `implied_in_phase` is `implied_matchdays` for the proposed phase; zero means the season's rules
+    produce no such round at all, which is `REQ-SPIELTAG-004`. **A non-zero figure is not a quota** --
+    nothing here compares it against how many rows the phase already holds, because a phase may
+    legitimately be split across more matchdays than the minimum (ADR-0051).
 
     `earliest_knockout_beginn` is the lowest `beginn` among the season's matchdays whose phase is not
     `gruppenphase`, or `None` where it has none -- a season still in its group phase, or one not drawn yet.
@@ -218,10 +251,18 @@ def find_spieltag_create_refusal(*, earliest_knockout_beginn: str | None, today:
     morning is under way, and a rule that waited until tomorrow would permit a matchday for a round already
     being played.
 
-    The refusal covers every phase rather than only the knockout ones — the stricter reading, chosen
-    deliberately. **The way past it is to move the knockout matchday's date**, which is a real change to
-    the schedule rather than a step in setting one up.
+    The window refusal covers every phase rather than only the knockout ones — the stricter reading,
+    chosen deliberately. **The way past it is to move the knockout matchday's date**, which is a real
+    change to the schedule rather than a step in setting one up.
     """
+
+    # First, because it is a property of the rules and the payload alone: a phase nobody plays is wrong
+    # whatever the calendar says, and saying so names the season's rules rather than a date.
+    if implied_in_phase == 0:
+        return (
+            SPIELTAG_PHASE_NOT_PLAYED,
+            f"these rules produce no {saison_phase}; a matchday cannot belong to a round the season never plays",
+        )
 
     if earliest_knockout_beginn is None or earliest_knockout_beginn > today:
         return None

@@ -118,6 +118,25 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
     return tuple(schedule)
 
 
+def implied_matchdays(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
+    """
+    How many matchdays of this phase the rules imply — a FLOOR on the live rows, never a ceiling.
+
+    A season needs at least this many to play the phase out and may legitimately hold more: a round
+    split across two dates is two matchday rows for one phase, which ADR-0051 ratified and composes
+    the `Viertelfinale (1)` / `Viertelfinale (2)` label for. So above this figure is a schedule
+    somebody chose, and below it is a gap.
+
+    Zero for a phase this season's bracket never reaches, which is the one case where the answer is
+    exact rather than a floor -- a round nobody plays cannot be split across dates either.
+    """
+
+    for entry in schedule_for(rules):
+        if entry.phase == phase:
+            return entry.matchdays
+    return 0
+
+
 def expected_matches(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
     """
     How many matches one matchday of this phase should hold.

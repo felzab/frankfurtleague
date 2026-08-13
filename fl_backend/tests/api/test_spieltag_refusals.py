@@ -14,20 +14,30 @@ Asserted on the code, never the message: the code is the contract the form reads
 import pytest
 
 from app.api.spieltage.services import (
+    SPIELTAG_BELOW_IMPLIED_COUNT,
     SPIELTAG_HOLDS_PLAYED,
     SPIELTAG_KNOCKOUT_STARTED,
     SPIELTAG_OVER_ITS_PHASE,
+    SPIELTAG_PHASE_NOT_PLAYED,
     find_spieltag_create_refusal,
     find_spieltag_phase_refusal,
     find_spieltag_retire_refusal,
 )
+
+# A phase holding one more live matchday than its rules imply, so `REQ-RETIRE-005` passes and the rule
+# under test is the only thing that can refuse.
+ABOVE_THE_FLOOR = {"live_in_phase": 4, "implied_in_phase": 3}
+
+# A phase the season's rules do produce, so `REQ-SPIELTAG-004` passes and the window rule is what the
+# create tests exercise.
+A_PLAYED_PHASE = {"implied_in_phase": 3, "saison_phase": "gruppenphase"}
 
 
 class TestRetiringAMatchday:
     def test_an_unplayed_matchday_retires_freely(self):
         """The matchday somebody created by mistake, which is what the control is mostly for."""
 
-        assert find_spieltag_retire_refusal(played_count=0) is None
+        assert find_spieltag_retire_refusal(played_count=0, **ABOVE_THE_FLOOR) is None
 
     @pytest.mark.parametrize("played", [1, 8])
     def test_a_matchday_holding_a_result_is_refused(self, played):
@@ -38,7 +48,7 @@ class TestRetiringAMatchday:
         and that happens at the first one.
         """
 
-        refusal = find_spieltag_retire_refusal(played_count=played)
+        refusal = find_spieltag_retire_refusal(played_count=played, **ABOVE_THE_FLOOR)
 
         assert refusal is not None
         assert refusal[0] == SPIELTAG_HOLDS_PLAYED
@@ -51,10 +61,152 @@ class TestRetiringAMatchday:
         difference between a mis-created row and a round that was played.
         """
 
-        refusal = find_spieltag_retire_refusal(played_count=3)
+        refusal = find_spieltag_retire_refusal(played_count=3, **ABOVE_THE_FLOOR)
 
         assert refusal is not None
         assert "3" in refusal[1]
+
+
+class TestAPhaseKeepsTheMatchdaysItsRulesImply:
+    """
+    `REQ-RETIRE-005`. The derived count is a FLOOR, never a ceiling.
+
+    Until this existed a season could be emptied of a phase it still had to play, one unplayed
+    matchday at a time, with nothing refusing a single step. What it must NOT do is cap the count: a
+    round split across two dates is two matchday rows for one phase, which ADR-0051 ratified and
+    composes `Viertelfinale (1)` / `Viertelfinale (2)` for. Both directions are asserted below,
+    because a rule that also refused the split round would pass every rejection test here.
+    """
+
+    def test_retiring_down_to_the_floor_is_allowed(self):
+        """4 live against a floor of 3: the step lands exactly on the floor, so it is permitted."""
+
+        assert find_spieltag_retire_refusal(played_count=0, live_in_phase=4, implied_in_phase=3) is None
+
+    def test_retiring_below_the_floor_is_refused(self):
+        """3 live against a floor of 3 — the boundary an off-by-one would put on the wrong side."""
+
+        refusal = find_spieltag_retire_refusal(played_count=0, live_in_phase=3, implied_in_phase=3)
+
+        assert refusal is not None
+        assert refusal[0] == SPIELTAG_BELOW_IMPLIED_COUNT
+
+    def test_the_last_matchday_of_a_phase_cannot_be_retired(self):
+        """A9 §2.3's extreme case: live group matchdays reduced to zero while the rules imply three."""
+
+        refusal = find_spieltag_retire_refusal(played_count=0, live_in_phase=1, implied_in_phase=3)
+
+        assert refusal is not None
+        assert refusal[0] == SPIELTAG_BELOW_IMPLIED_COUNT
+
+    def test_a_split_round_stays_reducible_to_one(self):
+        """
+        The capability this rule must not take away (ADR-0051).
+
+        A quarter-final split across two dates is 2 live rows against a floor of 1. Retiring one of
+        them is a schedule being consolidated rather than a gap, so it passes; retiring the survivor
+        does not.
+        """
+
+        assert find_spieltag_retire_refusal(played_count=0, live_in_phase=2, implied_in_phase=1) is None
+
+        refusal = find_spieltag_retire_refusal(played_count=0, live_in_phase=1, implied_in_phase=1)
+        assert refusal is not None
+        assert refusal[0] == SPIELTAG_BELOW_IMPLIED_COUNT
+
+    def test_a_phase_the_bracket_never_reaches_retires_freely(self):
+        """Floor 0, so a row for a round nobody plays can always be cleaned up."""
+
+        assert find_spieltag_retire_refusal(played_count=0, live_in_phase=1, implied_in_phase=0) is None
+
+    def test_a_played_matchday_is_refused_before_the_floor_is_consulted(self):
+        """Order matters: both apply here, and "enter or cancel the results" is the actionable advice."""
+
+        refusal = find_spieltag_retire_refusal(played_count=2, live_in_phase=1, implied_in_phase=3)
+
+        assert refusal is not None
+        assert refusal[0] == SPIELTAG_HOLDS_PLAYED
+
+    def test_the_refusal_names_both_numbers(self):
+        refusal = find_spieltag_retire_refusal(played_count=0, live_in_phase=3, implied_in_phase=3)
+
+        assert refusal is not None
+        assert "3 live matchday(s)" in refusal[1]
+        assert "imply 3" in refusal[1]
+
+
+class TestAMatchdayBelongsToAPhaseTheSeasonPlays:
+    """
+    `REQ-SPIELTAG-004`. The one count question with an exact answer rather than a floor.
+
+    A season sending eight teams into the bracket plays no round of sixteen, so `schedule_for` lists
+    no `achtelfinale` for it — and a round nobody plays cannot be split across dates either, which is
+    why refusing here contradicts nothing ADR-0051 ratified.
+    """
+
+    TODAY = "2026-08-08"
+
+    def test_a_phase_the_rules_produce_is_allowed(self):
+        assert (
+            find_spieltag_create_refusal(
+                implied_in_phase=1,
+                saison_phase="viertelfinale",
+                earliest_knockout_beginn=None,
+                today=self.TODAY,
+            )
+            is None
+        )
+
+    def test_a_phase_the_bracket_never_reaches_is_refused(self):
+        """A9 §2.2 measured this accepted: an `achtelfinale` row whose `anzahl_spiele` reads 0."""
+
+        refusal = find_spieltag_create_refusal(
+            implied_in_phase=0,
+            saison_phase="achtelfinale",
+            earliest_knockout_beginn=None,
+            today=self.TODAY,
+        )
+
+        assert refusal is not None
+        assert refusal[0] == SPIELTAG_PHASE_NOT_PLAYED
+        assert "achtelfinale" in refusal[1]
+
+    def test_it_is_judged_before_the_window(self):
+        """
+        A phase nobody plays is wrong whatever the calendar says.
+
+        Both rules fire here, and naming the rules rather than a date is what an admin can act on:
+        moving the bracket's start date would not make the round exist.
+        """
+
+        refusal = find_spieltag_create_refusal(
+            implied_in_phase=0,
+            saison_phase="achtelfinale",
+            earliest_knockout_beginn="2026-06-12",
+            today=self.TODAY,
+        )
+
+        assert refusal is not None
+        assert refusal[0] == SPIELTAG_PHASE_NOT_PLAYED
+
+    def test_the_implied_count_is_not_treated_as_a_quota(self):
+        """
+        The rule this one must not become (ADR-0051).
+
+        Nothing is passed here about how many rows the phase already holds, and that is the design: a
+        create is refused on WHICH phase and never on how many of that phase there are.
+        """
+
+        for floor in (1, 3, 5):
+            assert (
+                find_spieltag_create_refusal(
+                    implied_in_phase=floor,
+                    saison_phase="gruppenphase",
+                    earliest_knockout_beginn=None,
+                    today=self.TODAY,
+                )
+                is None
+            )
 
 
 class TestChangingThePhase:
@@ -128,7 +280,7 @@ class TestCreatingAMatchday:
     def test_a_season_with_no_knockout_matchday_permits_it(self):
         """A season still in its group phase, or one whose bracket is not drawn. Nothing has begun."""
 
-        assert find_spieltag_create_refusal(earliest_knockout_beginn=None, today=self.TODAY) is None
+        assert find_spieltag_create_refusal(**A_PLAYED_PHASE, earliest_knockout_beginn=None, today=self.TODAY) is None
 
     def test_a_knockout_phase_still_in_the_future_permits_it(self):
         """
@@ -138,7 +290,7 @@ class TestCreatingAMatchday:
         when a matchday is most likely to be missing.
         """
 
-        assert find_spieltag_create_refusal(earliest_knockout_beginn="2026-09-01", today=self.TODAY) is None
+        assert find_spieltag_create_refusal(**A_PLAYED_PHASE, earliest_knockout_beginn="2026-09-01", today=self.TODAY) is None
 
     def test_today_counts_as_under_way(self):
         """
@@ -148,13 +300,13 @@ class TestCreatingAMatchday:
         matchday for a round already being played.
         """
 
-        refusal = find_spieltag_create_refusal(earliest_knockout_beginn=self.TODAY, today=self.TODAY)
+        refusal = find_spieltag_create_refusal(**A_PLAYED_PHASE, earliest_knockout_beginn=self.TODAY, today=self.TODAY)
 
         assert refusal is not None
         assert refusal[0] == SPIELTAG_KNOCKOUT_STARTED
 
     def test_a_knockout_phase_in_the_past_is_refused(self):
-        refusal = find_spieltag_create_refusal(earliest_knockout_beginn="2026-06-12", today=self.TODAY)
+        refusal = find_spieltag_create_refusal(**A_PLAYED_PHASE, earliest_knockout_beginn="2026-06-12", today=self.TODAY)
 
         assert refusal is not None
         assert refusal[0] == SPIELTAG_KNOCKOUT_STARTED
@@ -162,7 +314,7 @@ class TestCreatingAMatchday:
     def test_the_refusal_names_both_dates(self):
         """Which date closed the window and what today is -- the comparison, stated so it can be checked."""
 
-        refusal = find_spieltag_create_refusal(earliest_knockout_beginn="2026-06-12", today=self.TODAY)
+        refusal = find_spieltag_create_refusal(**A_PLAYED_PHASE, earliest_knockout_beginn="2026-06-12", today=self.TODAY)
 
         assert refusal is not None
         assert "2026-06-12" in refusal[1]
@@ -176,5 +328,5 @@ class TestCreatingAMatchday:
         month's data, so both directions are asserted across a month boundary.
         """
 
-        assert find_spieltag_create_refusal(earliest_knockout_beginn="2026-09-01", today="2026-08-31") is None
-        assert find_spieltag_create_refusal(earliest_knockout_beginn="2026-08-31", today="2026-09-01") is not None
+        assert find_spieltag_create_refusal(**A_PLAYED_PHASE, earliest_knockout_beginn="2026-09-01", today="2026-08-31") is None
+        assert find_spieltag_create_refusal(**A_PLAYED_PHASE, earliest_knockout_beginn="2026-08-31", today="2026-09-01") is not None

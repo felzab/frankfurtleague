@@ -38,7 +38,7 @@ from app.api.saisons.schemas import (
 )
 from app.api.saisons.services import find_activation_refusal, find_rules_refusal, find_saison_span_refusal, unplayed_spiel_nrs, with_schedule
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
-from app.api.teams.services import find_gruppe_swap_refusal
+from app.api.teams.services import find_gruppe_swap_refusal, fixtures_newly_fielding_a_disqualified_club
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import DBClient, SaisonsCollection, SaisonTeamsCollection, SpieleCollection, SpieltageCollection, TeamsCollection
@@ -224,8 +224,12 @@ async def post_saison(
 
     The rules are refused if they describe a competition with no bracket — `number_of_groups x
     qualifiers_per_group` has to be a power of two the phase set can hold (`REQ-RULES-001`, ADR-0052),
-    and `REQ-RULES-007` refuses more qualifiers than a group holds. Every other rule reads stored data,
-    which a season with no teams and no fixtures has none of.
+    and `REQ-RULES-007` refuses more qualifiers than a group holds. Every other RULES rule reads stored
+    data, which a season with no teams and no fixtures has none of.
+
+    **The span has to be long enough to hold the schedule those rules imply** (`REQ-DATE-005`, decided
+    2026-08-13) — six matchdays need six days, because no two of them can be played on one. It is
+    derived from the rules rather than set as a floor, so widening the competition raises it.
     """
 
     refusal = find_rules_refusal(
@@ -237,6 +241,18 @@ async def post_saison(
     )
     if refusal is not None:
         error_code, detail = refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
+
+    # After the rules, because an impossible bracket makes the implied matchday count meaningless. No
+    # matchdays exist yet, so the containment half of this function has nothing to read.
+    span_refusal = find_saison_span_refusal(
+        start_date=saison_data.start_date,
+        end_date=saison_data.end_date,
+        rules=saison_data.rules,
+        spieltag_spans=[],
+    )
+    if span_refusal is not None:
+        error_code, detail = span_refusal
         raise DocumentConflictException(error_code=error_code, message=detail)
 
     post_operation = await post_one_to_db(
@@ -347,6 +363,7 @@ async def patch_saison(
     span_refusal = find_saison_span_refusal(
         start_date=saison_data.start_date,
         end_date=saison_data.end_date,
+        rules=saison_data.rules,
         spieltag_spans=spieltag_spans,
     )
     if span_refusal is not None:
@@ -532,10 +549,14 @@ async def swap_gruppen(
         rows = await pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": {"$in": both_ids}},
-            projection=["team_id", "gruppe"],
+            projection=["team_id", "gruppe", "disqualifikation"],
             session=session,
         )
         gruppe_of = {row["team_id"]: row["gruppe"] for row in rows}
+
+        # The day each club's disqualification took effect, or None while it competes (ADR-0047). Read
+        # from the same rows as the groups, so `REQ-SWAP-006` cannot judge a club against a stale record.
+        disqualified_since = {row["team_id"]: (row.get("disqualifikation") or {}).get("datum") for row in rows}
 
         # Read again in-session, and not from the 404 read above: `activate_saison` moves this field in a
         # transaction of its own, so a rollover committing between the two would leave this judging a
@@ -556,7 +577,7 @@ async def swap_gruppen(
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
-            projection=["spieltag_id", "team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "is_canceled"],
+            projection=["spieltag_id", "datum", "team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "is_canceled"],
             session=session,
         )
 
@@ -582,6 +603,12 @@ async def swap_gruppen(
                 team_ids=both_ids,
                 gruppenphase_spiele=gruppenphase_spiele,
                 knockout_spiele=knockout_spiele,
+            ),
+            disqualified_fixtures=fixtures_newly_fielding_a_disqualified_club(
+                team1_id=swap_data.team1_id,
+                team2_id=swap_data.team2_id,
+                disqualified_since=disqualified_since,
+                gruppenphase_spiele=gruppenphase_spiele,
             ),
         )
         if refusal is not None:

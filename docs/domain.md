@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `29c2a3d`, 2026-08-12
+**Verified against:** `3f15ba0`, 2026-08-13
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
@@ -137,7 +137,8 @@ than what a stored squad row holds ([ADR-0048](_decisions/0048-position-and-stuf
 unchanged and passes, which is precisely what keeps the dates repairable. The season's `start_date` and
 `end_date` sit on the season document rather than inside `rules`, and stay editable on a finished season —
 correcting a mistyped date changes nothing anybody competed for — provided the new span still covers every
-live matchday (`REQ-DATE-004`).
+live matchday (`REQ-DATE-004`) and is still long enough to hold the matchdays the rules imply
+(`REQ-DATE-005`).
 
 ---
 
