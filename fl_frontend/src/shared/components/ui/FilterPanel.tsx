@@ -87,20 +87,12 @@ export function useFilterPanelWidth(): [RefObject<HTMLDivElement | null>, number
  * by 0.9 while `clientWidth` beside it does not — cells then appear to need a tenth less room than the
  * line has, and a set that misses fitting by nine pixels is judged to fit.
  *
- * **Each line says whether it is known to hold its own cells**, and a line that is not keeps every cell's
- * ceiling. That is the guard, and it is deliberately independent of whether the measurement was right:
- * a line this cannot vouch for is one a flex row may still break, so a cell on it may still end up
- * alone — and a cell that ends up alone without a ceiling stretches to the full width, which is the one
- * shape this panel must never reach. An unmeasured panel says `false` for the same reason.
- *
  * Returns `null` until the first measurement, which is the caller's signal to draw one wrapping row —
  * the arrangement a flex row reaches unaided, and the one this improves on.
  */
-export type PanelLine = { cells: Line; fits: boolean };
-
-function useFilterPanelLines(shape: string, available: number | null): [RefObject<HTMLDivElement | null>, PanelLine[] | null] {
+function useFilterPanelLines(shape: string, available: number | null): [RefObject<HTMLDivElement | null>, Line[] | null] {
   const ref = useRef<HTMLDivElement>(null);
-  const [lines, setLines] = useState<PanelLine[] | null>(null);
+  const [lines, setLines] = useState<Line[] | null>(null);
 
   useLayoutEffect(() => {
     const column = ref.current;
@@ -129,12 +121,7 @@ function useFilterPanelLines(shape: string, available: number | null): [RefObjec
     }
 
     if (Number.isNaN(gap) || width === 0) return;
-    setLines(
-      balanceLastLine(naturals, width, gap).map((line) => ({
-        cells: line,
-        fits: line.reduce((total, index) => total + (naturals[index] ?? 0), 0) + (line.length - 1) * gap <= width,
-      })),
-    );
+    setLines(balanceLastLine(naturals, width, gap));
   }, [shape, available]);
 
   return [ref, lines];
@@ -400,14 +387,14 @@ export function FilterPanel<TItem>({
         <div
           ref={linesRef}
           className="flex flex-col gap-3">
-          {(lines ?? [{ cells: shown.map((_, index) => index), fits: false }]).map((line) => (
+          {(lines ?? [shown.map((_, index) => index)]).map((line) => (
             // `flex-wrap` on a line that was chosen to fit is the safety net, not the mechanism: it is
             // what a label growing after the measurement falls back to. No `items-start`, because the
             // default cross-axis stretch is what equalises a line's cells.
             <div
-              key={line.cells.join("-")}
+              key={line.join("-")}
               className="flex flex-row flex-wrap justify-center gap-3">
-              {line.cells.map((index) => {
+              {line.map((index) => {
                 const facet = shown[index];
                 if (facet === undefined) return null;
 
@@ -417,8 +404,7 @@ export function FilterPanel<TItem>({
                     facet={facet}
                     counts={countFacetOptions(items, facets, selection, facet)}
                     picked={selection[facet.param] ?? []}
-                    // A line that cannot be vouched for may still break, so its cells keep the ceiling.
-                    isAlone={line.cells.length === 1 || !line.fits}
+                    isAlone={line.length === 1}
                     onClear={() => {
                       onClear(facet.param);
                     }}
