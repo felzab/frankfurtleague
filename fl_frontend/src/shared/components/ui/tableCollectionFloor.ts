@@ -21,13 +21,12 @@
  * fills**, which is why removing this leaves the overlay with no height rather than merely undoing a
  * cosmetic minimum.
  *
- * **The number is `AdminCrudFallback`'s own `md+` box**, so the swap out of the skeleton moves
- * nothing: a header at `px-6 py-4` around a `fluid-xs` line, five rows at `px-6 py-4` around the
- * taller of a `fluid-sm`/`fluid-xs` stack and `ROW_ACTION_SIZE`, plus the row borders. That computes
- * to 434px at the `md` breakpoint and 453px from ~1360px, where both type steps clamp. Rounded up to
- * 456px so it is never under the skeleton at any width — under it the shell shrinks before it grows,
- * and a reversal is what the eye catches, while three pixels over is absorbed by the growth into the
- * real rows that follows.
+ * **The number is `AdminCrudFallback`'s own `md+` box**, which it also sizes, so the two cannot
+ * disagree: a header at `px-6 py-4` around a `fluid-xs` line, five rows at `py-4` around
+ * `ROW_ACTION_SIZE`, one header border and four separators. Only the header is fluid, the row being
+ * fixed at 72px, so the box runs 416.34px at the `md` breakpoint to **418px** from ~1320px where
+ * `fluid-xs` clamps. Set at 418px, the widest case, so it is never under the skeleton at any width —
+ * under it the shell shrinks before it grows, and a reversal is what the eye catches.
  *
  * **It lasts exactly as long as the bars over it.** Once the collection lands the box is worth only
  * what the hold is worth, so it falls to nothing the moment the placeholder is revealed and a table
@@ -46,8 +45,8 @@
  * directly rather than through a collection and so has no empty pass to survive.
  */
 export const TABLE_COLLECTION_FLOOR = [
-  "min-h-[28.5rem]",
-  "group-has-[tbody]:min-h-[calc(28.5rem*var(--admin-placeholder-hold))]",
-  "group-has-[tbody]:max-h-[calc(28.5rem*var(--admin-placeholder-hold)+100000px*(1-var(--admin-placeholder-hold)))]",
+  "min-h-[26.125rem]",
+  "group-has-[tbody]:min-h-[calc(26.125rem*var(--admin-placeholder-hold))]",
+  "group-has-[tbody]:max-h-[calc(26.125rem*var(--admin-placeholder-hold)+100000px*(1-var(--admin-placeholder-hold)))]",
   "group-has-[tbody]:overflow-hidden",
 ].join(" ");

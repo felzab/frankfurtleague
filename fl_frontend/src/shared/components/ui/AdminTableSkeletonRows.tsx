@@ -16,8 +16,18 @@ const TABLE_ROWS = [0, 1, 2, 3, 4];
  * **It claims a height and refuses to claim a column layout.** The five tables carry 4, 5, 5, 5 and 7
  * columns at two different interior paddings with widths their content decides, so any fixed set of
  * cells is in the wrong place on most of them. One bar per row and one block where the actions go
- * claims only what all five share: the outer padding, the header strip, the `py-4` rhythm and the
- * row's height.
+ * claims only what all five share: the outer padding, the header strip and the `py-4` rhythm.
+ *
+ * **Both heights are the SHORTEST real one, not an average, because the two errors are not
+ * equivalent.** Reserving under what arrives grows the page, which is the direction the eye forgives;
+ * reserving over it shrinks the page, and a reversal is what gets noticed. So a row is `py-4` around
+ * `ROW_ACTION_SIZE` — **72px**, the shortest row on any of the five (Spieler's) — and the header is
+ * `px-6 py-4` around a `fluid-xs` line, **53px at 1280**, the shortest header. Measured 2026-08-13,
+ * every other real row running from 83 to 163.
+ *
+ * **A single skeleton cannot match all five and is not trying to.** Spielorte alone runs 99 to 143
+ * *within one table*, because a two-line address is taller than a one-line one and none of that
+ * exists yet when this renders. The two taller headers are the same effect: a column label that wraps.
  */
 export function AdminTableSkeletonRows() {
   return (
@@ -34,16 +44,12 @@ export function AdminTableSkeletonRows() {
         <div
           key={row}
           className="border-border/50 flex items-center gap-6 border-b px-6 py-4 last:border-b-0">
-          {/* Two invisible line boxes carry the height and one bar is centred over them, the
-              `SpielCardSkeleton` treatment: three of the five tables carry a `fluid-sm` over a
-              `fluid-xs` at `gap-0.5`, which out-measures `ROW_ACTION_SIZE`. */}
-          <div className="relative flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="fluid-sm invisible block">&nbsp;</span>
-            <span className="fluid-xs invisible block">&nbsp;</span>
-            <span className={`${skeletonBlock()} fluid-sm absolute top-1/2 left-0 w-2/5 -translate-y-1/2 rounded`}>&nbsp;</span>
-          </div>
+          {/* One line, so `ROW_ACTION_SIZE` is the tallest thing in the row and `py-4` around it is
+              what the row measures: 72px, and fixed, since neither term is fluid. A `fluid-sm` bar
+              tops out at a 24px line box and cannot reach past it at any width. */}
+          <span className={`${skeletonBlock()} fluid-sm block w-2/5 rounded`}>&nbsp;</span>
 
-          <span className={`${skeletonBlock()} ${ROW_ACTION_SIZE} shrink-0 rounded-xl`} />
+          <span className={`${skeletonBlock()} ${ROW_ACTION_SIZE} ml-auto shrink-0 rounded-xl`} />
         </div>
       ))}
     </>
