@@ -157,7 +157,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             key={team.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4 ${team.inactive_since !== null ? "opacity-80" : ""}`}>
             <div className="flex w-full flex-row items-center gap-3">
-              <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-14 shrink-0 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
+              <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-14 shrink-0 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
                 {team.shorthand}
               </span>
               <div className="flex min-w-0 flex-col">
@@ -235,7 +235,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                         {/* Fixed width, sized to the widest pair: WW measures 54.4px at this font with
                         the old px-3 padding, so w-14 holds every combination and the column stops
                         wobbling between rows (decided 2026-08-07). */}
-                        <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-14 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
+                        <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-14 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
                           {team.shorthand}
                         </span>
                       </Table.Cell>

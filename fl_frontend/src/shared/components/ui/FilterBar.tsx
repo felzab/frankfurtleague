@@ -68,7 +68,7 @@ export function FilterBar<TItem>({
               height={16}
             />
             {triggerLabel}
-            {activeCount > 0 && <span className={`${COUNT_BADGE} bg-brand/50 text-foreground`}>{activeCount}</span>}
+            {activeCount > 0 && <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground`}>{activeCount}</span>}
           </Popover.Trigger>
 
           <Popover.Content

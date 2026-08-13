@@ -128,7 +128,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
             key={saison.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
             <div className="flex w-full flex-row items-center gap-3">
-              <span className="bg-brand/50 text-foreground fluid-xs inline-flex h-7 w-14 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide shadow-sm">
+              <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex h-7 w-14 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide shadow-sm">
                 {saison.id}
               </span>
               {renderStatusBadge(saison)}
@@ -173,9 +173,9 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                     id={saison.id}
                     className="border-border/50 border-b last:border-b-0">
                     <Table.Cell className="px-6 py-4">
-                      {/* The season id wears the same chip tint a team's Kürzel does: both are the short
+                      {/* The season id wears the same chip fill a team's Kürzel does: both are the short
                           identifier a reader scans a column for. */}
-                      <span className="bg-brand/50 text-foreground fluid-xs inline-flex h-7 w-14 items-center justify-center rounded-md font-extrabold tracking-wide shadow-sm">
+                      <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex h-7 w-14 items-center justify-center rounded-md font-extrabold tracking-wide shadow-sm">
                         {saison.id}
                       </span>
                     </Table.Cell>

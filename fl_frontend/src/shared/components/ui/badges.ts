@@ -8,7 +8,9 @@
  * and three shapes for one idea read as three ideas.
  *
  * **Colours stay the caller's, because colour is the meaning; shape is shared.** A count tinted
- * `danger` and a count tinted `success` are the same object saying different things.
+ * `danger` and a count tinted `success` are the same object saying different things. The BRAND pair is
+ * `bg-brand-solid text-brand-solid-foreground`, never an alpha on `brand`: that token flips per theme
+ * and an alpha composites against whatever the badge sits on, so one class becomes eight colours.
  *
  * Not to be confused with a `Chip`, which is a HeroUI component with its own padding and an icon slot
  * — `SpielStatusChip` and `SaisonPhaseChip` are the wrappers around one. These two are for a bare

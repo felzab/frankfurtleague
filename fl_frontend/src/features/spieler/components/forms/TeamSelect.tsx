@@ -84,8 +84,9 @@ export function TeamSelect({
               textValue={team.name}
               className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
               {team.name}
-              {/* The TeamCard's chip, so a Kürzel wears one tint across every surface that shows one. */}
-              <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide">
+              {/* The TeamCard's chip: a declared fill, so a Kürzel is one colour on every surface that
+                  shows one — this row's own hover is a ground an alpha would have shifted against. */}
+              <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide">
                 {team.shorthand}
               </span>
             </ListBox.Item>
