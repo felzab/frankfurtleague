@@ -3,12 +3,12 @@
 import { memo } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Calendar, Person } from "@gravity-ui/icons";
+import { Calendar, Pencil, Person } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
-import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { RowActionCopy, RowActionDelete, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatEuro } from "@/shared/utils/format";
@@ -26,12 +26,10 @@ import type { FLSchiedsrichter } from "../../schemas";
 export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   schiedsrichterQuery,
   filteredSchiedsrichter,
-  setEditingSchiedsrichter,
   setDeletingSchiedsrichter,
 }: {
   schiedsrichterQuery: string;
   filteredSchiedsrichter: FLSchiedsrichter[];
-  setEditingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
   setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
 }) {
   // The sidemenu's season rides along, so the fixture list opens on the season the admin is working
@@ -88,11 +86,18 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         ariaLabel={`Kontaktdaten von ${schiedsrichter.name} kopieren`}
         onPress={() => handleCopyKontakt(schiedsrichter)}
       />
-      <RowActionEdit
+      {/* A link rather than a press: the referee form edits on a page (ADR-0040), so the pencil is a
+          navigation and the shared view renders no edit overlay. */}
+      <RowActionLink
+        href={`/admin/schiedsrichter/${schiedsrichter.id}`}
         label="Bearbeiten"
-        ariaLabel={`Schiedsrichter ${schiedsrichter.name} bearbeiten`}
-        onPress={() => setEditingSchiedsrichter(schiedsrichter)}
-      />
+        ariaLabel={`Schiedsrichter ${schiedsrichter.name} bearbeiten`}>
+        <Pencil
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
       <RowActionDelete
         label="Löschen"
         ariaLabel={`Schiedsrichter ${schiedsrichter.name} löschen`}
@@ -113,7 +118,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     <>
       {/* The phone layout: one card per referee, no horizontal scrolling anywhere (decided 2026-08-07
           — the teams table's card pattern, applied here). The school column stays
-          table-only: on a card it read as an unlabeled stray line, and the edit dialog carries it. */}
+          table-only: on a card it read as an unlabeled stray line, and the edit page carries it. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
         {filteredSchiedsrichter.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
         {filteredSchiedsrichter.map((schiedsrichter) => (
