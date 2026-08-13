@@ -48,16 +48,16 @@ export const PAGE_RISE = "animate-in fade-in slide-in-from-bottom-2 duration-(--
  * **THE UNIT IS THE CARD, AND NEVER ANYTHING INSIDE ONE.** A card is a box a reader's eye stops on
  * and moves between, so sequencing cards sequences the act of reading the page; the contents of one
  * card are read as a single stop, and animating them apart takes a thing that arrives as one and
- * makes it assemble itself. That is the whole test for where this class goes, and it is why the
- * Saisontabelle sequences its four group panels rather than the rows inside them. A table standing
- * in no collection of cards therefore takes no cascade, rather than one keyed on its rows.
+ * makes it assemble itself. That is the whole test for where this class goes. A page whose cards
+ * each hold a whole table sequences the cards and leaves every table to arrive intact, and a table
+ * standing in no collection of cards takes no cascade at all rather than one keyed on its rows.
  *
- * For **any grid or list of cards**, whatever the card is — `SpielCard`, `SpielCardCompact`,
- * `TeamCard`, the Saisontabelle's group panels. It is keyed off `role="listitem"` rather than off a
- * card type precisely so a grid of teams arrives like a grid of matches; the shape of the collection
- * is what decides, not its contents. It goes on the `role="list"` container and the cards need no
- * class of their own — which means a collection that is not marked up as a list is a collection to
- * give the roles to, not a reason to widen the selector.
+ * For **any grid or list of cards**, whatever the card is — a fixture, a team, a panel carrying a
+ * standings table. It is keyed off `role="listitem"` rather than off a card type precisely so a grid
+ * of teams arrives like a grid of matches; the shape of the collection is what decides, not its
+ * contents. It goes on the `role="list"` container and the cards need no class of their own — which
+ * means a collection that is not marked up as a list is a collection to give the roles to, not a
+ * reason to widen the selector.
  *
  * The keyframes, the stagger and the reasoning live in `globals.css`; the short version is that a
  * block fade reads as the content *mutating in place* when each card lands exactly where the

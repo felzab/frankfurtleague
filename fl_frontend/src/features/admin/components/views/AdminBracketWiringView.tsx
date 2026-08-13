@@ -11,7 +11,7 @@ import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
@@ -153,10 +153,20 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
   return (
     /* `AdminCrudShell`'s page frame rather than the component, which would owe
        this page a create trigger. `px-3` below `sm` for the reason
-       `SaisontabelleView` uses it: page gutter is width a table row loses. */
-    <div className={`${PAGE_RISE} max-w-page mx-auto flex w-full flex-col gap-6 px-3 py-4 sm:p-8`}>
+       `SaisontabelleView` uses it: page gutter is width a table row loses.
+
+       The round panels are the collection this page renders, so they cascade and
+       each panel's table arrives whole; `CARDS_CASCADE`'s unit paragraph is what
+       decides that, one page over as much as here. No page rise beside it: this
+       container holds nothing but the panels, and the leading panel's own step is
+       the same 8px over the same 300ms on the same curve, so a rise here would
+       only make that one panel travel the distance twice. */
+    <div
+      role="list"
+      className={`${CARDS_CASCADE} max-w-page mx-auto flex w-full flex-col gap-6 px-3 py-4 sm:p-8`}>
       {rounds.map((round) => (
         <div
+          role="listitem"
           key={round.id}
           className={`${card()} flex w-full flex-col items-start gap-4 p-3 sm:p-6`}>
           <h2 className="fluid-lg text-foreground font-black tracking-tight">{labels.get(round.id)?.label}</h2>

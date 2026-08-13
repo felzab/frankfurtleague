@@ -1314,11 +1314,12 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    * opacity does not help, because duration is not the variable. Separating the cards in time is
    * what fixes it: the eye follows a sequence instead of catching a single flash.
    *
-   * It is the entrance for **every card collection**: the spielplan's panels, the landing page's two
-   * grids, spielsuche, the admin action-required panels, `TeamsGrid`, and the Saisontabelle's group
-   * panels. Grids of cards one nav click apart must arrive the same way, which is why this is keyed
-   * off `role="listitem"` rather than off a card type. Spielsuche leans on it hardest — it re-renders
-   * on every debounced keystroke, the same land-where-the-last-one-was situation as a tab switch.
+   * It is the entrance for **every card collection** — the spielplan's panels and spielsuche and the
+   * landing page's grids as much as a page whose cards each hold a whole table. Collections of cards
+   * one nav click apart must arrive the same way, which is why this is keyed off `role="listitem"`
+   * rather than off a card type, and why the membership test below is the sentence to read rather
+   * than a roster of views to keep current. Spielsuche leans on it hardest — it re-renders on every
+   * debounced keystroke, the same land-where-the-last-one-was situation as a tab switch.
    *
    * **The item is the card, and never anything inside one** — `motion.ts` states why on
    * `CARDS_CASCADE`, and that sentence is what decides where the class goes.
