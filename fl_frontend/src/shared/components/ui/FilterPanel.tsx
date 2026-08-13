@@ -93,6 +93,13 @@ export function useFilterPanelWidth(): [RefObject<HTMLDivElement | null>, number
  * alone — and a cell that ends up alone without a ceiling stretches to the full width, which is the one
  * shape this panel must never reach. An unmeasured panel says `false` for the same reason.
  *
+ * **It measures again whenever a cell's box changes, and that is not an optimisation.** A facet's option
+ * list commits after this effect first fires, so the opening read finds every cell at its `min-w-44`
+ * floor — four of them need 740px of a 1025px line and all appear to fit, which is one group and no
+ * second look. Observing the cells is what answers it: their boxes change exactly when their options
+ * arrive. A re-measure that agrees with the last answer sets no state, so the observer cannot feed
+ * itself, and the effect re-runs on each answer so the observer follows the cells a regrouping replaces.
+ *
  * Returns `null` until the first measurement, which is the caller's signal to draw one wrapping row —
  * the arrangement a flex row reaches unaided, and the one this improves on.
  */
@@ -101,41 +108,59 @@ export type PanelLine = { cells: Line; fits: boolean };
 function useFilterPanelLines(shape: string, available: number | null): [RefObject<HTMLDivElement | null>, PanelLine[] | null] {
   const ref = useRef<HTMLDivElement>(null);
   const [lines, setLines] = useState<PanelLine[] | null>(null);
+  // The answer already applied, so a re-measure that agrees with the last one sets no state — which is
+  // what stops the observer below from feeding its own notifications.
+  const applied = useRef("");
 
   useLayoutEffect(() => {
     const column = ref.current;
     if (column === null) return;
 
-    const cells = [...column.querySelectorAll<HTMLElement>("[data-facet-cell]")];
-    const firstRow = column.firstElementChild;
-    if (cells.length === 0 || firstRow === null) return;
+    const measure = () => {
+      const cells = [...column.querySelectorAll<HTMLElement>("[data-facet-cell]")];
+      const firstRow = column.firstElementChild;
+      if (cells.length === 0 || firstRow === null) return;
 
-    const gap = Number.parseFloat(getComputedStyle(firstRow).columnGap);
-    const width = column.clientWidth;
+      const gap = Number.parseFloat(getComputedStyle(firstRow).columnGap);
+      const width = column.clientWidth;
+      if (Number.isNaN(gap) || width === 0) return;
 
-    const saved = cells.map((cell) => cell.getAttribute("style"));
-    for (const cell of cells) {
-      cell.style.flexGrow = "0";
-      cell.style.flexShrink = "0";
-      cell.style.maxWidth = "none";
-    }
-    // `offsetWidth`, never a client rect: this runs while the popover is still playing HeroUI's
-    // `zoom-in-90`, and a rect is scaled by that transform where the layout box beside it is not.
-    const naturals = cells.map((cell) => cell.offsetWidth);
-    for (const [index, cell] of cells.entries()) {
-      const style = saved[index];
-      if (style === undefined || style === null) cell.removeAttribute("style");
-      else cell.setAttribute("style", style);
-    }
+      const saved = cells.map((cell) => cell.getAttribute("style"));
+      for (const cell of cells) {
+        cell.style.flexGrow = "0";
+        cell.style.flexShrink = "0";
+        cell.style.maxWidth = "none";
+      }
+      // `offsetWidth`, never a client rect: this can run while the popover is still playing HeroUI's
+      // `zoom-in-90`, and a rect is scaled by that transform where the layout box beside it is not.
+      const naturals = cells.map((cell) => cell.offsetWidth);
+      for (const [index, cell] of cells.entries()) {
+        const style = saved[index];
+        if (style === undefined || style === null) cell.removeAttribute("style");
+        else cell.setAttribute("style", style);
+      }
 
-    if (Number.isNaN(gap) || width === 0) return;
-    setLines(
-      balanceLastLine(naturals, width, gap).map((line) => ({
+      const next = balanceLastLine(naturals, width, gap).map((line) => ({
         cells: line,
         fits: line.reduce((total, index) => total + (naturals[index] ?? 0), 0) + (line.length - 1) * gap <= width,
-      })),
-    );
-  }, [shape, available]);
+      }));
+
+      const key = JSON.stringify(next);
+      if (key === applied.current) return;
+      applied.current = key;
+      setLines(next);
+    };
+
+    measure();
+
+    // A cell's own box is the only honest signal that its options have arrived, and the alternative is
+    // a timeout, which is a delay tuned on one machine and a race on every other.
+    const observer = new ResizeObserver(measure);
+    for (const cell of column.querySelectorAll<HTMLElement>("[data-facet-cell]")) observer.observe(cell);
+    return () => {
+      observer.disconnect();
+    };
+  }, [shape, available, lines]);
 
   return [ref, lines];
 }
