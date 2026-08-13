@@ -15,7 +15,7 @@
  * - `FilterBar.tsx :: FilterBar` — the trigger, the chips, and the whole facet set
  * - `FilterLeiste.tsx :: FilterLeiste` — one trigger per dimension, and this for what overflows
  */
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button, ListBox, Popover, SearchField } from "@heroui/react";
 
@@ -23,13 +23,11 @@ import { dismissControl } from "@/core/dismissControl";
 import { countFacetOptions } from "@/shared/utils/facets";
 
 import { COUNT_BADGE } from "./badges";
-import { balanceLastLine } from "./filterPanelLines";
 import { overlayPanel } from "./overlayPanel";
 
 import type { Facet, FacetOption, FacetSelection } from "@/shared/utils/facets";
 import type { Selection } from "@heroui/react";
 import type { CSSProperties, RefObject } from "react";
-import type { Line } from "./filterPanelLines";
 
 /** Above this many options a cell grows a type-to-filter field; at or below it, everything is visible. */
 const TYPE_TO_FILTER_THRESHOLD = 8;
@@ -70,56 +68,6 @@ export function useFilterPanelWidth(): [RefObject<HTMLDivElement | null>, number
   return [ref, width];
 }
 
-/**
- * The lines the panel's cells should be drawn in, measured from the cells themselves.
- *
- * **A cell's natural width does not depend on which line it lands on**, which is the whole reason this
- * is safe: the measurement is taken with growth and the width ceiling suspended, so it returns
- * `max-content` clamped by the cell's own floor whatever the current arrangement is. Re-running it
- * cannot therefore reach a different answer, and the arrangement it chooses cannot feed back into it.
- *
- * `useLayoutEffect` rather than `useEffect` so the browser never paints the packed arrangement before
- * the balanced one replaces it. It cannot run on a server render: the dialog this sits in is mounted
- * only while the popover is open.
- *
- * Returns `null` until the first measurement, which is the caller's signal to draw one wrapping row —
- * the arrangement a flex row reaches unaided, and the one this improves on.
- */
-function useFilterPanelLines(shape: string, available: number | null): [RefObject<HTMLDivElement | null>, Line[] | null] {
-  const ref = useRef<HTMLDivElement>(null);
-  const [lines, setLines] = useState<Line[] | null>(null);
-
-  useLayoutEffect(() => {
-    const column = ref.current;
-    if (column === null) return;
-
-    const cells = [...column.querySelectorAll<HTMLElement>("[data-facet-cell]")];
-    const firstRow = column.firstElementChild;
-    if (cells.length === 0 || firstRow === null) return;
-
-    const gap = Number.parseFloat(getComputedStyle(firstRow).columnGap);
-    const width = column.clientWidth;
-
-    const saved = cells.map((cell) => cell.getAttribute("style"));
-    for (const cell of cells) {
-      cell.style.flexGrow = "0";
-      cell.style.flexShrink = "0";
-      cell.style.maxWidth = "none";
-    }
-    const naturals = cells.map((cell) => cell.getBoundingClientRect().width);
-    for (const [index, cell] of cells.entries()) {
-      const style = saved[index];
-      if (style === undefined || style === null) cell.removeAttribute("style");
-      else cell.setAttribute("style", style);
-    }
-
-    if (Number.isNaN(gap) || width === 0) return;
-    setLines(balanceLastLine(naturals, width, gap));
-  }, [shape, available]);
-
-  return [ref, lines];
-}
-
 /** Case- and diacritic-insensitive, so „Göthe" is reached by typing „goe" as well as „gö". */
 function fold(text: string): string {
   return text
@@ -146,21 +94,18 @@ function fold(text: string): string {
  * number of pixels, so the differences the content set survive the growth — which a grid's equal tracks
  * are exactly what does not.
  *
- * **A cell sharing its line has no ceiling at all, and does not need one** (decided 2026-08-14): its
- * neighbour is the bound, growth is shared equally, and the line fills whatever the two started at. A
- * ceiling there would be actively wrong — two cells on a wide line both reach it and come out identical,
- * which is the equal-track look this cell exists to avoid, produced from the other direction.
+ * **The ceiling on that growth is half a line, never a fixed width** (decided 2026-08-14). Two cells at
+ * half a line each, plus the gap between them, is the line — so **any line holding two or more cells
+ * fills exactly**, by arithmetic rather than by luck, and no cell can reach a width that reads as a
+ * banner. The 26rem floor under it is what keeps a narrow line from clamping content: half of a phone's
+ * line is 157px, well under the widest cell the app produces on its own, and a cap below a cell's own
+ * content would truncate rather than limit growth.
  *
- * **A cell alone on its line is the only one that takes a ceiling**: half a line, floored at 26rem so a
- * phone's 157px half cannot clamp content that a cap below a cell's own width would truncate rather
- * than merely limit.
- *
- * **A cell left alone on a line is answered by moving one down to join it** — `filterPanelLines.ts`
- * chooses the lines and a flex row's own packing is only what it starts from. Where that cannot help,
- * because the final pair is too wide to share a line, the short line stays short and `justify-center`
- * puts its leftover on both sides rather than all at the right. Letting it stretch instead would give
- * one cell the width of three, and a band that wide holds an option several times further from its own
- * count than every other cell in the panel does.
+ * **One cell alone on a wrapped line is the case arithmetic cannot close**, and it is left short rather
+ * than stretched: `justify-center` puts its leftover on both sides, so a short line reads as deliberate
+ * instead of as a gap at the right. Filling it would give one cell the width of three; equal tracks would
+ * close it at the cost of every content difference on every other line. The row is centred rather than
+ * the cell, and that is free elsewhere — a line that fills has no leftover to distribute.
  *
  * **No cell is taller than `max-h-72`, and the option list is what gives way** (decided 2026-08-13).
  * The bound is on the CELL rather than on the list, so it holds whatever a cell contains: a facet
@@ -180,15 +125,12 @@ function FacetCell<TItem>({
   facet,
   counts,
   picked,
-  isAlone,
   onClear,
   onSelect,
 }: {
   facet: Facet<TItem>;
   counts: Record<string, number>;
   picked: readonly string[];
-  /** True where this cell has its line to itself, which is the only case a ceiling is needed for. */
-  isAlone: boolean;
   onClear: () => void;
   onSelect: (values: string[]) => void;
 }) {
@@ -201,12 +143,7 @@ function FacetCell<TItem>({
     isWide && query !== "" ? facet.options.filter((option) => fold(option.label).includes(fold(query))) : facet.options;
 
   return (
-    // `data-facet-cell` is how the line measurement finds these whatever it has already nested them in.
-    <div
-      data-facet-cell
-      className={`border-border/70 flex max-h-72 w-max min-w-44 grow flex-col gap-y-1 rounded-xl border p-1.5 ${
-        isAlone ? "max-w-[min(100%,max(26rem,calc((100%_-_0.75rem)/2)))]" : "max-w-full"
-      }`}>
+    <div className="border-border/70 flex max-h-72 w-max max-w-[min(100%,max(26rem,calc((100%_-_0.75rem)/2)))] min-w-44 grow flex-col gap-y-1 rounded-xl border p-1.5">
       {/* A FIXED height, because the reset appears only once something is picked (decided 2026-08-08).
           Its intrinsic height exceeded the label's, so the header row grew on the first selection and
           pushed every facet below it down — the popover appeared to jump while being used.
@@ -361,10 +298,6 @@ export function FilterPanel<TItem>({
   /** The trigger row's own width, from `useFilterPanelWidth`. Null until measured, and on a server render. */
   available?: number | null;
 }) {
-  // The facet params rather than the array: `FilterLeiste` rebuilds its overflowed slice on every
-  // render, and an array identity in the dependencies would re-measure on every one of them.
-  const [linesRef, lines] = useFilterPanelLines(shown.map((facet) => facet.param).join("|"), available);
-
   return (
     <Popover.Dialog
       // One 18rem column per facet, the gap between each pair, and the panel's own padding, held under
@@ -377,37 +310,25 @@ export function FilterPanel<TItem>({
       }
       className={`${overlayPanel()} w-[min(92vw,var(--filter-available,100vw),calc(var(--filter-columns)*18rem_+_(var(--filter-columns)_-_1)*0.75rem_+_1.5rem),var(--container-toolbar))] overflow-hidden p-0 outline-none`}>
       <div className="scrollbar-line max-h-[70vh] overflow-x-hidden overflow-y-auto p-3">
-        <div
-          ref={linesRef}
-          className="flex flex-col gap-3">
-          {(lines ?? [shown.map((_, index) => index)]).map((line) => (
-            // `flex-wrap` on a line that was chosen to fit is the safety net, not the mechanism: it is
-            // what a label growing after the measurement falls back to. No `items-start`, because the
-            // default cross-axis stretch is what equalises a line's cells.
-            <div
-              key={line.join("-")}
-              className="flex flex-row flex-wrap justify-center gap-3">
-              {line.map((index) => {
-                const facet = shown[index];
-                if (facet === undefined) return null;
+        {/* No `items-start`: the default cross-axis stretch is what equalises a line's cells, and
+            it is per LINE, so a phone's one-cell line stretches to itself and needs no exception.
 
-                return (
-                  <FacetCell
-                    key={facet.param}
-                    facet={facet}
-                    counts={countFacetOptions(items, facets, selection, facet)}
-                    picked={selection[facet.param] ?? []}
-                    isAlone={line.length === 1}
-                    onClear={() => {
-                      onClear(facet.param);
-                    }}
-                    onSelect={(values) => {
-                      onSelect(facet.param, values);
-                    }}
-                  />
-                );
-              })}
-            </div>
+            `justify-center` reaches only a line that cannot fill, which is a single capped cell —
+            everything else has no leftover to centre. */}
+        <div className="flex flex-row flex-wrap justify-center gap-3">
+          {shown.map((facet) => (
+            <FacetCell
+              key={facet.param}
+              facet={facet}
+              counts={countFacetOptions(items, facets, selection, facet)}
+              picked={selection[facet.param] ?? []}
+              onClear={() => {
+                onClear(facet.param);
+              }}
+              onSelect={(values) => {
+                onSelect(facet.param, values);
+              }}
+            />
           ))}
         </div>
       </div>
