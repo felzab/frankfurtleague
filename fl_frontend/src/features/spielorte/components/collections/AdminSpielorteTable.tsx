@@ -9,6 +9,7 @@ import { Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionDelete, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { TABLE_COLLECTION_FLOOR } from "@/shared/components/ui/tableCollectionFloor";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatAddressFull, formatEuro } from "@/shared/utils/format";
@@ -163,7 +164,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
       </div>
 
       <div className="hidden w-full md:block">
-        <Table className={`${card()} h-fit w-full p-0`}>
+        <Table className={`${card()} ${TABLE_COLLECTION_FLOOR} h-fit w-full p-0`}>
           <Table.ScrollContainer className="scrollbar-hide">
             <Table.Content aria-label="Tabelle aller Spielorte">
               <Table.Header>

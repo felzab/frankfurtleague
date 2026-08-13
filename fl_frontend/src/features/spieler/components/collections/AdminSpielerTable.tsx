@@ -12,6 +12,7 @@ import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
+import { TABLE_COLLECTION_FLOOR } from "@/shared/components/ui/tableCollectionFloor";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -230,7 +231,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       </div>
 
       <div className="hidden w-full md:block">
-        <Table className={`${card()} h-fit w-full p-0`}>
+        <Table className={`${card()} ${TABLE_COLLECTION_FLOOR} h-fit w-full p-0`}>
           <Table.ScrollContainer className="scrollbar-hide">
             <Table.Content aria-label="Tabelle aller Spieler">
               <Table.Header>
