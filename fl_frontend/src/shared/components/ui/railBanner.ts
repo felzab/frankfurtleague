@@ -43,9 +43,9 @@ const SEVERITY_RANK: Record<RailBanner["severity"], number> = { danger: 0, warni
  *
  * - **Specific before general.** Within one severity, a banner that supersedes another banner in the
  *   same list sorts ahead of it. Without that, an edge between two banners of equal severity fires
- *   only when the editor happened to push the narrower one first — four of the six edges this app
- *   declares are info-to-info, so `supersedes` has to be a statement about the banners rather than
- *   about the order of the file.
+ *   only when the editor happened to push the narrower one first — the matchday editor's retirement
+ *   pair and the venue editor's identity pair are both that shape, so `supersedes` has to be a
+ *   statement about the banners rather than about the order of the file.
  * - **Ties.** Everything still equal keeps the order the editor built them in, which ES2019's stable
  *   sort guarantees and which is the only tie-break a reader of `banners.ts` can predict.
  * - **Severity still outranks specificity**, so a low-grade banner cannot silence a high-grade one.

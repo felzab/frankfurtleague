@@ -18,7 +18,6 @@ import type { RailBanner } from "@/shared/components/ui/railBanner";
 
 export type TeamBannerId =
   | "team.retired"
-  | "team.not-in-saison"
   | "team.not-in-saison-future"
   | "team.not-in-saison-closed"
   | "team.dq-entering"
@@ -64,17 +63,8 @@ export function buildTeamBanners({
   }
 
   if (!isMember) {
-    // The general statement, and it is what survives if the two below ever stop covering every
-    // season status between them — a partition that quietly develops a hole degrades to this rather
-    // than to silence.
-    banners.push({
-      id: "team.not-in-saison",
-      severity: "info",
-      title: `In Saison ${saisonId} erscheint diese Mannschaft auf keiner Seite`,
-      body: "Weder eine Tabelle noch eine Auswahlliste dieser Saison führt sie.",
-      inline: null,
-    });
-
+    // Split on the season's status rather than stated once, because the two halves differ in what
+    // they ask of the admin: the future season has a remedy on this page and the other two do not.
     if (saisonStatus === "future") {
       banners.push({
         id: "team.not-in-saison-future",
@@ -82,7 +72,6 @@ export function buildTeamBanners({
         title: `In Saison ${saisonId} erscheint diese Mannschaft auf keiner Seite`,
         body: "Nimm sie unten mit einer Gruppe auf; sonst führt sie weder eine Tabelle noch eine Auswahlliste.",
         inline: "saison-eintritt",
-        supersedes: ["team.not-in-saison"],
       });
     } else {
       banners.push({
@@ -94,7 +83,6 @@ export function buildTeamBanners({
             ? "Aufnehmen lässt sich eine Mannschaft nur in eine geplante Saison, und diese läuft bereits."
             : "Aufnehmen lässt sich eine Mannschaft nur in eine geplante Saison, und diese ist beendet.",
         inline: "saison-gesperrt",
-        supersedes: ["team.not-in-saison"],
       });
     }
   }

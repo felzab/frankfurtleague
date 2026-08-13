@@ -1,15 +1,13 @@
 /**
  * TEAMS · club editor banner tests
  *
- * Two things nothing else can catch: a gate that never fires leaves no trace on the page, and a
- * `supersedes` edge that stops working shows up as the duplication the mechanism exists to remove
- * rather than as a failure. Both are asserted against the resolved list the rail actually renders.
+ * What nothing else can catch: a gate that never fires leaves no trace on the page and no failure
+ * anywhere else. So each situation this editor raises — and each one it must stay quiet about — is
+ * asserted against the list `buildTeamBanners` returns.
  */
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-
-import { resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
 
 import { buildTeamBanners } from "./banners.ts";
 
@@ -38,6 +36,9 @@ describe("buildTeamBanners", () => {
   it("names the season the club is missing from, in the title", () => {
     const [banner] = build({ isMember: false });
 
+    // Pinned by id as well, so the title below is asserted against a named banner rather than
+    // against whichever one the builder happens to push first.
+    assert.equal(banner?.id, "team.not-in-saison-future");
     assert.match(banner?.title ?? "", /Saison 2026/);
   });
 
@@ -53,15 +54,6 @@ describe("buildTeamBanners", () => {
 
     assert.match(closed("active"), /läuft bereits/);
     assert.match(closed("past"), /beendet/);
-  });
-
-  it("renders the general membership banner only once the panel-specific one is dropped from the rail", () => {
-    // Red without `resolveRailBanners`: the two say the same thing, and the general one is exactly
-    // what the reader does not need while the one carrying the remedy is on screen.
-    const built = build({ isMember: false });
-
-    assert.ok(ids(built).includes("team.not-in-saison"), "the general banner is authored");
-    assert.ok(!ids(resolveRailBanners(built)).includes("team.not-in-saison"), "and the rail does not render it");
   });
 
   it("tells entering a disqualification apart from lifting one", () => {
