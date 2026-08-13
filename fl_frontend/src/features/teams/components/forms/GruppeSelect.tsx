@@ -71,7 +71,7 @@ export function GruppeSelect({
                 id={gruppe}
                 textValue={`Gruppe ${gruppe}`}
                 isDisabled={isFull}
-                className="text-foreground-muted hover:bg-muted hover:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200 data-disabled:cursor-not-allowed data-disabled:opacity-40">
+                className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200 data-disabled:cursor-not-allowed data-disabled:opacity-40">
                 Gruppe {gruppe}
                 {/* The fill state, always: "3/8" answers "why is that one disabled" and "how much
                     room is left" in the same three characters. */}

@@ -99,7 +99,7 @@ export function ModalShell({
         <Modal.Dialog
           role={role}
           className={styles.dialog()}>
-          <Modal.CloseTrigger className="text-foreground-muted hover:text-foreground transition-colors" />
+          <Modal.CloseTrigger className="text-foreground-muted data-hovered:text-foreground transition-colors" />
 
           <Modal.Header className={styles.header()}>
             <div className="flex items-center gap-4">

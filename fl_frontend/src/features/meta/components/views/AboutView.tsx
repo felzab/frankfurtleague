@@ -62,7 +62,7 @@ export function AboutView() {
                 {/* No focus classes: `.accordion__trigger` already carries HeroUI's ring in
                     var(--focus). The old `outline-none` with nothing behind it was the whole defect
  — it suppressed the outline and left the ring unstyled. */}
-                <Accordion.Trigger className="fluid-base text-field-fg hover:bg-field-fg/5 flex w-full items-center justify-between gap-x-4 p-6 font-bold transition-colors">
+                <Accordion.Trigger className="fluid-base text-field-fg data-hovered:bg-hover-field flex w-full items-center justify-between gap-x-4 p-6 font-bold transition-colors">
                   <span>{item.q}</span>
 
                   <Accordion.Indicator className="text-field-fg/60 transition-transform duration-200">

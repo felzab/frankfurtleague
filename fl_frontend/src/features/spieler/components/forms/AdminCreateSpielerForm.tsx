@@ -139,7 +139,7 @@ export function AdminCreateSpielerForm({
                         key={option.saisonId}
                         id={option.saisonId}
                         textValue={`Saison ${option.saisonId}`}
-                        className="text-foreground-muted hover:bg-muted hover:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+                        className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
                         Saison {option.saisonId}
                       </ListBox.Item>
                     ))}

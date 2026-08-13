@@ -95,7 +95,7 @@ export function SpielCard({
                 /* The brand fill rather than `bg-muted`, and the only difference from the info button
                    beside it: same box, same radius, same position, so no layout moves. The pairing is
                    `-solid` plus its own foreground, like every other opaque fill. */
-                className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid/90 flex h-[35px] w-[35px] items-center justify-center rounded-xl shadow-sm transition-colors duration-200 md:h-[38px] md:w-[38px]">
+                className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid-hover flex h-[35px] w-[35px] items-center justify-center rounded-xl shadow-sm transition-colors duration-200 md:h-[38px] md:w-[38px]">
                 <PencilToSquare className="m-0 size-5" />
               </Link>
             </IconTooltip>
@@ -110,7 +110,7 @@ export function SpielCard({
               /* `flex` over HeroUI's `inline-flex`: the tooltip trigger is `inline-block`, and a line
                  box round an inline child leaves the trigger's height to the font's metrics rather
                  than to this control. The link beside it is block-level already. */
-              className="bg-muted text-foreground hover:bg-muted/80 flex h-[35px] w-[35px] rounded-xl p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
+              className="text-foreground data-hovered:bg-hover flex h-[35px] w-[35px] rounded-xl bg-transparent p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
               <CircleExclamation className="m-0 size-5" />
             </Button>
           </IconTooltip>

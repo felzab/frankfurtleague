@@ -82,7 +82,7 @@ export function TeamSelect({
               key={team.teamId}
               id={team.teamId}
               textValue={team.name}
-              className="text-foreground-muted hover:bg-muted hover:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+              className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
               {team.name}
               {/* The TeamCard's chip, so a Kürzel wears one tint across every surface that shows one. */}
               <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide">

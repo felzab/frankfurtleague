@@ -18,6 +18,9 @@ import type { ReactNode } from "react";
  * hover background and a focus ring, while the `<Button>` actions in the same row got none of the
  * three. They share one style here, so the targets match.
  *
+ * The shape stays one string for that reason; only the hover variant splits, because a `<Link>` emits
+ * no `data-hovered` and on a `Button` a plain `:hover` sticks after a tap. Both arms carry one tone.
+ *
  * The data columns are deliberately NOT shared — they genuinely differ per entity, and a
  * config-driven table is where that kind of abstraction stops paying (decided 2026-07-30).
  *
@@ -31,9 +34,13 @@ import type { ReactNode } from "react";
  * actions take the matching base-layer outline, both in `var(--focus)` — a per-site ring here is
  * what made the row actions look different from everything else.
  */
-const ACTION_CLASS = `text-foreground-muted hover:bg-muted/40 hover:text-brand flex ${ROW_ACTION_SIZE} shrink-0 items-center justify-center rounded-xl transition-colors`;
+const ACTION_SHAPE = `text-foreground-muted flex ${ROW_ACTION_SIZE} shrink-0 items-center justify-center rounded-xl transition-colors`;
 
-const DANGER_CLASS = `text-foreground-muted hover:bg-danger/10 hover:text-danger flex ${ROW_ACTION_SIZE} shrink-0 items-center justify-center rounded-xl transition-colors`;
+const ACTION_LINK_CLASS = `${ACTION_SHAPE} hover:bg-hover hover:text-brand`;
+
+const ACTION_BUTTON_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover data-hovered:text-brand`;
+
+const DANGER_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover-danger data-hovered:text-danger-strong`;
 
 export function RowActionLink({
   href,
@@ -54,7 +61,7 @@ export function RowActionLink({
         href={href}
         aria-label={ariaLabel}
         {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-        className={ACTION_CLASS}>
+        className={ACTION_LINK_CLASS}>
         {children}
       </Link>
     </IconTooltip>
@@ -68,7 +75,7 @@ export function RowActionCopy({ label, ariaLabel, onPress }: { label: string; ar
         isIconOnly
         aria-label={ariaLabel}
         variant="ghost"
-        className={ACTION_CLASS}
+        className={ACTION_BUTTON_CLASS}
         onPress={onPress}>
         <Copy
           aria-hidden="true"
@@ -87,7 +94,7 @@ export function RowActionEdit({ label, ariaLabel, onPress }: { label: string; ar
         isIconOnly
         aria-label={ariaLabel}
         variant="ghost"
-        className={ACTION_CLASS}
+        className={ACTION_BUTTON_CLASS}
         onPress={onPress}>
         <Pencil
           aria-hidden="true"
@@ -111,7 +118,7 @@ export function RowActionRestore({ label, ariaLabel, onPress }: { label: string;
         isIconOnly
         aria-label={ariaLabel}
         variant="ghost"
-        className={ACTION_CLASS}
+        className={ACTION_BUTTON_CLASS}
         onPress={onPress}>
         <ArrowRotateLeft
           aria-hidden="true"

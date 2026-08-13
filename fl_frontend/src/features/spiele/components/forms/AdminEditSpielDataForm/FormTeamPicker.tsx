@@ -374,7 +374,7 @@ export function FormTeamPicker({
             <ListBox.Item
               id={OPEN_SLOT_KEY}
               textValue={PLACEHOLDER.slot}
-              className="fluid-xs hover:bg-muted border-border text-foreground-muted mb-1 cursor-pointer rounded-lg border-b px-3 py-2 pb-2 font-semibold italic">
+              className="fluid-xs data-hovered:bg-hover border-border text-foreground-muted mb-1 cursor-pointer rounded-lg border-b px-3 py-2 pb-2 font-semibold italic">
               {PLACEHOLDER.slot}
             </ListBox.Item>
 
@@ -397,7 +397,7 @@ export function FormTeamPicker({
                   key={item.id}
                   id={item.id}
                   textValue={chip === null ? item.name : `${item.name} (${chip.text})`}
-                  className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
+                  className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
                   <span className="min-w-0 truncate">{item.name}</span>
                   {chip !== null && <span className={`${LABEL_BADGE} ml-auto shrink-0 ${chip.cls}`}>{chip.text}</span>}
                 </ListBox.Item>
@@ -451,7 +451,7 @@ export function FormTeamPicker({
                 // The marker rides in `textValue` as well as in the visible row, so the trigger and a
                 // screen reader both read the recommendation rather than only sighted users of the list.
                 textValue={item.key === recommendedChoice ? `${item.label} (empfohlen)` : item.label}
-                className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
+                className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                 {/* Success-tinted, not brand: brand text on a brand tint was the least readable chip
                     on the page, and a recommendation is a positive signal.
                     `ml-auto`, like every list chip — two lists parking the same chip in two places
@@ -500,7 +500,7 @@ export function FormTeamPicker({
                     key={name}
                     id={name}
                     textValue={`Gruppe ${name}`}
-                    className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
+                    className="fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2">
                     Gruppe {name}
                   </ListBox.Item>
                 ))}
@@ -547,7 +547,7 @@ export function FormTeamPicker({
                         key={platz}
                         id={String(platz)}
                         textValue={label}
-                        className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
+                        className="fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2">
                         {label}
                       </ListBox.Item>
                     );
@@ -600,7 +600,7 @@ export function FormTeamPicker({
                     key={spiel.id}
                     id={String(spiel.spiel_nr)}
                     textValue={isDirectlyPrecedingRound(spiel, spielData) ? `${describeFeeder(spiel)}, empfohlen` : describeFeeder(spiel)}
-                    className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
+                    className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                     <span className="min-w-0 truncate">{describeFeeder(spiel)}</span>
                     {isDirectlyPrecedingRound(spiel, spielData) && (
                       <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>Empfohlen</span>

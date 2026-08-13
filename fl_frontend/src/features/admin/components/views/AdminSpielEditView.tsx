@@ -88,7 +88,7 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
                 they try. This one goes through the discard guard, which is why it is not shared. */}
             <Button
               onPress={() => requestLeaveRef.current()}
-              className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+              className="bg-surface border-border text-foreground data-hovered:bg-hover fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
               <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
               <span>Zurück</span>
             </Button>

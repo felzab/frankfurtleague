@@ -1024,11 +1024,6 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     scale: none !important;
   }
 
-  /* The landing cards' arrows, which are the app's one remaining movement on hover. */
-  .group:hover .group-hover\:translate-x-1 {
-    translate: none !important;
-  }
-
   .animate-ping,
   .animate-pulse,
   .animate-bounce,

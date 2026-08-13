@@ -68,34 +68,34 @@ export default function LandingPage() {
             <Link
               href="/dashboard/teams#top"
               prefetch={false}
-              className={`${card({ interactive: true })} group relative flex items-center justify-between overflow-hidden p-5`}>
+              className={`${card({ interactive: true })} relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
                 <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Schulen & Kader</span>
                 <span className="fluid-sm text-foreground font-black">Alle Teams durchstöbern</span>
               </div>
-              <span className="fluid-sm text-brand relative z-10 font-bold transition-transform group-hover:translate-x-1">→</span>
+              <span className="fluid-sm text-brand relative z-10 font-bold">→</span>
             </Link>
 
             <Link
               href="/dashboard/saisontabelle#top"
               prefetch={false}
-              className={`${card({ interactive: true })} group relative flex items-center justify-between overflow-hidden p-5`}>
+              className={`${card({ interactive: true })} relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
                 <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Ranking</span>
                 <span className="fluid-sm text-foreground font-black">Tabellenstand & Platzierungen</span>
               </div>
-              <span className="fluid-sm text-brand relative z-10 font-bold transition-transform group-hover:translate-x-1">→</span>
+              <span className="fluid-sm text-brand relative z-10 font-bold">→</span>
             </Link>
 
             <Link
               href="/dashboard/spielplan#top"
               prefetch={false}
-              className={`${card({ interactive: true })} group relative flex items-center justify-between overflow-hidden p-5`}>
+              className={`${card({ interactive: true })} relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
                 <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Matchday</span>
                 <span className="fluid-sm text-foreground font-black">Ansetzungen & Ergebnisse</span>
               </div>
-              <span className="fluid-sm text-brand relative z-10 font-bold transition-transform group-hover:translate-x-1">→</span>
+              <span className="fluid-sm text-brand relative z-10 font-bold">→</span>
             </Link>
           </div>
         </div>

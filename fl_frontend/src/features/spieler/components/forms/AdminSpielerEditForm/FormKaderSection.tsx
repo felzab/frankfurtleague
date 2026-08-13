@@ -187,7 +187,7 @@ export function FormKaderSection({
                 name="is_captain"
                 isSelected={isCaptain}
                 onChange={onIsCaptainChange}
-                className="border-border bg-surface hover:bg-muted/40 w-full rounded-lg border px-3 py-2.5 transition-colors">
+                className="border-border bg-surface hover:bg-hover w-full rounded-lg border px-3 py-2.5 transition-colors">
                 <Switch.Content className="fluid-sm text-foreground flex w-full flex-row items-center justify-between gap-x-3 font-medium">
                   <span>Führt das Team in der Saison {saison.saisonId} als Kapitän an.</span>
                   <Switch.Control className={isCaptain ? "bg-brand-solid" : ""}>

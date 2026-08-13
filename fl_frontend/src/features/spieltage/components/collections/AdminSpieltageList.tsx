@@ -300,7 +300,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       {saisonId !== null && (
         <Link
           href={`/dashboard/spielplan?saison_id=${encodeURIComponent(saisonId)}`}
-          className="border-border bg-surface text-foreground hover:bg-muted fluid-xs flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+          className="border-border bg-surface text-foreground hover:bg-hover fluid-xs flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
           <Globe
             aria-hidden="true"
             width={16}

@@ -23,7 +23,7 @@ export function TopNavLinksDropdown({ children }: { children: React.ReactNode })
           button in a button. */}
       <Dropdown.Trigger
         aria-label="Navigationsmenü öffnen"
-        className="text-foreground hover:bg-muted rounded-md p-1 transition-colors">
+        className="text-foreground data-hovered:bg-hover rounded-md p-1 transition-colors">
         <Bars
           aria-hidden="true"
           height={28}

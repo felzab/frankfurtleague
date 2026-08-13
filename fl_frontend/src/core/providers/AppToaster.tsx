@@ -106,7 +106,7 @@ export function AppToaster() {
                   // The site's affirmative treatment, at the compact end of the scale. A toast's one
                   // action is always the way out of what it reported, so it takes the brand fill —
                   // never a severity colour, which would read as "this button is the danger".
-                  className="bg-brand-solid text-brand-solid-foreground fluid-xs hover:bg-brand-solid/90 mt-1 h-8 rounded-lg px-3.5 font-semibold transition-colors">
+                  className="bg-brand-solid text-brand-solid-foreground fluid-xs data-hovered:bg-brand-solid-hover mt-1 h-8 rounded-lg px-3.5 font-semibold transition-colors">
                   {actionProps.children}
                 </Toast.ActionButton>
               )}
@@ -118,7 +118,7 @@ export function AppToaster() {
                 WCAG 2.5.8 puts the floor at 24. */}
             <Toast.CloseButton
               aria-label="Benachrichtigung schließen"
-              className="text-foreground-muted hover:text-foreground hover:bg-muted relative inset-auto size-7 shrink-0 rounded-md border-0 bg-transparent transition-colors"
+              className="text-foreground-muted data-hovered:text-foreground data-hovered:bg-hover relative inset-auto size-7 shrink-0 rounded-md border-0 bg-transparent transition-colors"
             />
 
             {hasTimer && (

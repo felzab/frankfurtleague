@@ -96,7 +96,7 @@ export function Callout({
         <CloseButton
           aria-label={`${title} ausblenden`}
           onPress={onDismiss}
-          className="text-foreground-muted hover:text-foreground -mt-0.5 shrink-0 transition-colors"
+          className="text-foreground-muted data-hovered:text-foreground -mt-0.5 shrink-0 transition-colors"
         />
       )}
     </div>

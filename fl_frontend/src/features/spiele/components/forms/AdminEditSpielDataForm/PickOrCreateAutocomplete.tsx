@@ -159,7 +159,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
                   key={item.id}
                   id={item.id}
                   textValue={item.name}
-                  className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
+                  className="fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2">
                   {item.name}
                   <ListBox.ItemIndicator />
                 </ListBox.Item>

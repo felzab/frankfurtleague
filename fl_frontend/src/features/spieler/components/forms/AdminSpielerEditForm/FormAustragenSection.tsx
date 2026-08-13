@@ -108,7 +108,7 @@ export function FormAustragenSection({
               variant="secondary"
               isDisabled={isPending}
               onPress={() => run(() => deleteSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }), "Austragen fehlgeschlagen")}
-              className="border-danger/40 bg-surface text-danger hover:bg-danger/10 fluid-sm flex h-10 w-fit items-center rounded-lg border px-4 font-bold shadow-sm transition-colors">
+              className="border-danger/40 bg-surface text-danger data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-sm flex h-10 w-fit items-center rounded-lg border px-4 font-bold shadow-sm transition-colors">
               {isPending ? "Speichert..." : `Aus Kader ${saisonId} austragen`}
             </Button>
           </>
