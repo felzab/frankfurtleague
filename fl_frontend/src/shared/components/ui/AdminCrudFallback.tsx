@@ -44,13 +44,12 @@ function RowActionCluster({ slots, className }: { slots: readonly number[]; clas
  * as the table lunging, because `--motion-ease-enter` spends 90% of its travel in the first 37%.
  * What makes the swap smooth is that every box here is measured to what arrives, so nothing moves.
  *
- * **`--motion-base` passes before it paints, and then it paints at once — a STEP, never a ramp.**
- * `duration-0` is what makes it one: the delay holds the `from` state through `fill-mode-backwards`,
- * and an active phase of zero length cannot interpolate, so the block is absent and then whole with
- * no value in between. **Never give this a duration.** A hold carrying a fade is the void that was
- * reported before — a delay says paint nothing yet, a fade says paint something invisible, and only
- * the second is a defect. The threshold is the app's own span for a state change registering, so a
- * load beating it was one the reader read as instant and had nothing to report.
+ * **It waits for nothing, and the threshold it once carried now lives past the boundary.** A route
+ * placeholder stands where the page was, so holding this back leaves the reader looking at nothing at
+ * all; the shell's `--admin-placeholder-gate` still withholds the table's own overlay, which has
+ * something underneath it to wait on. **Were a delay ever added back here it is a step and never a
+ * ramp** — a delay paints nothing yet, a fade paints something invisible, and only the second was
+ * ever the defect.
  *
  * It reserves the boxes that arrive — the filter row above, then whichever of the two shapes below
  * `shape` names.
