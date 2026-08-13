@@ -29,6 +29,7 @@ import { SpielerRail } from "./SpielerRail";
 import type { FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { FLSpielerDraftFields } from "@/features/spieler/spielerDraftStatus";
 import type { SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
+import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { ReactNode } from "react";
 
@@ -116,7 +117,7 @@ export function AdminSpielerEditForm({
 
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
-  const [isConfirmingSave, setIsConfirmingSave] = useState(false);
+  const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   const {
@@ -186,7 +187,7 @@ export function AdminSpielerEditForm({
   // editor's reasoning, unchanged.
   const canSubmitRef = useRef(true);
   useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard && !isConfirmingSave && isDirty;
+    canSubmitRef.current = !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty;
   });
   useEffect(() => {
     const handleSaveShortcut = (event: KeyboardEvent) => {
@@ -237,10 +238,6 @@ export function AdminSpielerEditForm({
     newlySharedNummer,
   });
 
-  // What the save asks about first (ADR-0070). Resolved, so a banner the rail is not showing cannot
-  // be raised in a dialog the admin has no way to reconcile with the page behind it.
-  const blockingBanners = resolveBlockingBanners(banners);
-
   const leavePage = () => {
     // Blur first — see the match editor: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
@@ -290,8 +287,11 @@ export function AdminSpielerEditForm({
    * included.
    */
   const requestSave = () => {
-    if (blockingBanners.length > 0) {
-      setIsConfirmingSave(true);
+    // Snapshotted here rather than read live: the reader agrees to the list the gate stopped on,
+    // and a background revalidation re-deriving the banners under an open dialog would move it.
+    const blocking = resolveBlockingBanners(banners);
+    if (blocking !== null) {
+      setConfirmingBanners(blocking);
       return;
     }
     handleFormSubmit();
@@ -514,13 +514,12 @@ export function AdminSpielerEditForm({
       {/* Closed rather than unmounted on confirm, unlike the discard dialog: the write is awaited
           before anything navigates, so the exit animation has run long before the tree is left. */}
       <ConfirmSaveModal
-        isOpen={isConfirmingSave}
-        onClose={() => setIsConfirmingSave(false)}
+        banners={confirmingBanners}
+        onClose={() => setConfirmingBanners(null)}
         onConfirm={() => {
-          setIsConfirmingSave(false);
+          setConfirmingBanners(null);
           handleFormSubmit();
         }}
-        banners={blockingBanners}
       />
     </SpielerDraftStatusProvider>
   );

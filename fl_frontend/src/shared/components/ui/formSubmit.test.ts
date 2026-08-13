@@ -62,21 +62,29 @@ describe("every form holding a draft", () => {
     it(`${file} submits through runOnSubmit and passes no action`, () => {
       assert.ok(sources.get(file)?.includes("<Form"), `${file} calls useServerFieldErrors but renders no <Form>`);
       assert.ok(sources.get(file)?.includes("onSubmit={runOnSubmit("), `${file} does not submit through runOnSubmit`);
-      // The whole defect in one prop: React resets a form whose `action` is a function, and the reset
-      // reaches the draft through react-aria's per-field listeners. Matched at a prop position, so
-      // `onAction` and `data-action` are not mistaken for it.
+      // React resets a form whose `action` is a function, and the reset reaches the draft through
+      // react-aria's per-field listeners. Matched at a JSX prop position, so `onAction` and a
+      // `data-action` attribute are not mistaken for it.
       assert.ok(!/\saction=\{/.test(sources.get(file) ?? ""), `${file} passes an action to a form whose fields are controlled`);
     });
   }
 });
 
+/** The state atom holding the gate's snapshot, whatever the editor calls it. */
+const SNAPSHOT_STATE = /const \[(\w+), set\w+\] = useState<BlockingBanners \| null>\(null\)/;
+
 describe("every editor raising the save confirmation", () => {
   for (const file of filesContaining("<ConfirmSaveModal")) {
-    it(`${file} gates it on resolveBlockingBanners`, () => {
-      // One expression behind both, so the dialog cannot open on a list it then renders as empty
-      // (ADR-0070).
-      assert.ok(sources.get(file)?.includes("resolveBlockingBanners(banners)"), `${file} derives its gate some other way`);
-      assert.ok(sources.get(file)?.includes("banners={blockingBanners}"), `${file} renders the dialog on a different list`);
+    it(`${file} shows the snapshot the gate took, not a live derivation`, () => {
+      const source = sources.get(file) ?? "";
+
+      assert.ok(source.includes("resolveBlockingBanners(banners)"), `${file} derives its gate some other way`);
+
+      // The whole of ADR-0070's snapshot clause: the dialog's list has to be state, because a value
+      // recomputed each render can change while the admin is reading what they are agreeing to.
+      const held = SNAPSHOT_STATE.exec(source)?.[1];
+      assert.ok(held, `${file} holds no BlockingBanners snapshot in state`);
+      assert.ok(source.includes(`banners={${held}}`), `${file} renders the dialog on something other than its snapshot`);
     });
   }
 });

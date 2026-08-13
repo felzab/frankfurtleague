@@ -30,6 +30,7 @@ import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/features/saisons/sc
 import type { FLPatchSpieltagPayload } from "@/features/spieltage/schemas";
 import type { FLSpieltagDraftFields } from "@/features/spieltage/spieltagDraftStatus";
 import type { AdminSpieltagRow, SpieltagEditDraft } from "@/features/spieltage/types";
+import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { ReactNode } from "react";
 
 /**
@@ -98,7 +99,7 @@ export function AdminSpieltagEditForm({
 
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
-  const [isConfirmingSave, setIsConfirmingSave] = useState(false);
+  const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   const {
@@ -136,7 +137,7 @@ export function AdminSpieltagEditForm({
   // editor's reasoning, unchanged.
   const canSubmitRef = useRef(true);
   useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard && !isConfirmingSave && isDirty;
+    canSubmitRef.current = !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty;
   });
   useEffect(() => {
     const handleSaveShortcut = (event: KeyboardEvent) => {
@@ -177,10 +178,6 @@ export function AdminSpieltagEditForm({
     livePhaseCount,
     impliedPhaseCount,
   });
-
-  // What the save asks about first (ADR-0070). Resolved, so a banner the rail is not showing cannot
-  // be raised in a dialog the admin has no way to reconcile with the page behind it.
-  const blockingBanners = resolveBlockingBanners(banners);
 
   // The two facts `REQ-RETIRE-002` and `REQ-RETIRE-005` turn on, answered from what the page already
   // holds. The endpoint stays the authority: a fixture scored in another tab reaches it.
@@ -230,8 +227,11 @@ export function AdminSpieltagEditForm({
    * included.
    */
   const requestSave = () => {
-    if (blockingBanners.length > 0) {
-      setIsConfirmingSave(true);
+    // Snapshotted here rather than read live: the reader agrees to the list the gate stopped on,
+    // and a background revalidation re-deriving the banners under an open dialog would move it.
+    const blocking = resolveBlockingBanners(banners);
+    if (blocking !== null) {
+      setConfirmingBanners(blocking);
       return;
     }
     handleFormSubmit();
@@ -408,13 +408,12 @@ export function AdminSpieltagEditForm({
       {/* Closed rather than unmounted on confirm, unlike the discard dialog: the write is awaited
           before anything navigates, so the exit animation has run long before the tree is left. */}
       <ConfirmSaveModal
-        isOpen={isConfirmingSave}
-        onClose={() => setIsConfirmingSave(false)}
+        banners={confirmingBanners}
+        onClose={() => setConfirmingBanners(null)}
         onConfirm={() => {
-          setIsConfirmingSave(false);
+          setConfirmingBanners(null);
           handleFormSubmit();
         }}
-        banners={blockingBanners}
       />
     </SpieltagDraftStatusProvider>
   );

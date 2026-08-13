@@ -31,6 +31,7 @@ import { SaisonRail } from "./SaisonRail";
 import type { FLPatchSaisonPayload, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type { SaisonDraftFields, SaisonGruppenSwapContext, SaisonRolloverContext } from "@/features/saisons/types";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
+import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
 
@@ -108,7 +109,7 @@ export function AdminSaisonEditForm({
 
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
-  const [isConfirmingSave, setIsConfirmingSave] = useState(false);
+  const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   const {
@@ -153,7 +154,7 @@ export function AdminSaisonEditForm({
   // reasoning, unchanged.
   const canSubmitRef = useRef(true);
   useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard && !isConfirmingSave && isDirty;
+    canSubmitRef.current = !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty;
   });
   useEffect(() => {
     const handleSaveShortcut = (event: KeyboardEvent) => {
@@ -187,10 +188,6 @@ export function AdminSaisonEditForm({
     outgoingSaisonId: rollover.outgoingSaisonId,
     offeneSpieleCount: rollover.offeneSpiele.length,
   });
-
-  // What the save asks about first (ADR-0070). Resolved, so a banner the rail is not showing cannot
-  // be raised in a dialog the admin has no way to reconcile with the page behind it.
-  const blockingBanners = resolveBlockingBanners(banners);
 
   const leavePage = () => {
     // Blur first — see the match editor: react-aria's focus attribute survives a kept-alive tree.
@@ -252,8 +249,11 @@ export function AdminSaisonEditForm({
    * included.
    */
   const requestSave = () => {
-    if (blockingBanners.length > 0) {
-      setIsConfirmingSave(true);
+    // Snapshotted here rather than read live: the reader agrees to the list the gate stopped on,
+    // and a background revalidation re-deriving the banners under an open dialog would move it.
+    const blocking = resolveBlockingBanners(banners);
+    if (blocking !== null) {
+      setConfirmingBanners(blocking);
       return;
     }
     handleFormSubmit();
@@ -440,13 +440,12 @@ export function AdminSaisonEditForm({
       {/* Closed rather than unmounted on confirm, unlike the discard dialog: the write is awaited
           before anything navigates, so the exit animation has run long before the tree is left. */}
       <ConfirmSaveModal
-        isOpen={isConfirmingSave}
-        onClose={() => setIsConfirmingSave(false)}
+        banners={confirmingBanners}
+        onClose={() => setConfirmingBanners(null)}
         onConfirm={() => {
-          setIsConfirmingSave(false);
+          setConfirmingBanners(null);
           handleFormSubmit();
         }}
-        banners={blockingBanners}
       />
     </SaisonDraftStatusProvider>
   );

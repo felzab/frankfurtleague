@@ -46,6 +46,7 @@ import type {
 import type { ActionRequiredCategory } from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
+import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { ReactNode } from "react";
@@ -188,7 +189,7 @@ export function AdminEditSpielDataForm({
   // performs — at that moment the draft still differs from the `spielData` this render was given.
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
-  const [isConfirmingSave, setIsConfirmingSave] = useState(false);
+  const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
   // Latched by a confirmed discard, and it UNMOUNTS the dialog rather than closing it: closing
   // animates, and `router.back()` in the same tick freezes that exit on a tree the App Router keeps.
@@ -249,7 +250,7 @@ export function AdminEditSpielDataForm({
   // two routes to one submit must not answer differently.
   const canSubmitRef = useRef(true);
   useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard && !isConfirmingSave && isDirty;
+    canSubmitRef.current = !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty;
   });
   useEffect(() => {
     const handleSaveShortcut = (event: KeyboardEvent) => {
@@ -341,10 +342,6 @@ export function AdminEditSpielDataForm({
     voidedSpielNummern: voidPreview?.voided ?? [],
     releasedSpielNummern: voidPreview?.released ?? [],
   });
-
-  // What the save asks about first (ADR-0070). Resolved, so a banner the rail is not showing cannot
-  // be raised in a dialog the admin has no way to reconcile with the page behind it.
-  const blockingBanners = resolveBlockingBanners(banners);
 
   /**
    * Judges the named paths against the draft as it now stands. **For a control the user TYPES into,
@@ -457,8 +454,11 @@ export function AdminEditSpielDataForm({
    * included.
    */
   const requestSave = () => {
-    if (blockingBanners.length > 0) {
-      setIsConfirmingSave(true);
+    // Snapshotted here rather than read live: the reader agrees to the list the gate stopped on,
+    // and a background revalidation re-deriving the banners under an open dialog would move it.
+    const blocking = resolveBlockingBanners(banners);
+    if (blocking !== null) {
+      setConfirmingBanners(blocking);
       return;
     }
     handleFormSubmit();
@@ -746,13 +746,12 @@ export function AdminEditSpielDataForm({
       {/* Closed rather than unmounted on confirm, unlike the discard dialog: the write is awaited
           before anything navigates, so the exit animation has run long before the tree is left. */}
       <ConfirmSaveModal
-        isOpen={isConfirmingSave}
-        onClose={() => setIsConfirmingSave(false)}
+        banners={confirmingBanners}
+        onClose={() => setConfirmingBanners(null)}
         onConfirm={() => {
-          setIsConfirmingSave(false);
+          setConfirmingBanners(null);
           handleFormSubmit();
         }}
-        banners={blockingBanners}
       />
     </DraftStatusProvider>
   );

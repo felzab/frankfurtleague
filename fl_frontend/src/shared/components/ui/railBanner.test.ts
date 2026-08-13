@@ -112,27 +112,43 @@ describe("resolveRailBanners", () => {
 });
 
 describe("resolveBlockingBanners", () => {
-  it("returns nothing for a draft raising only info, so a clean save is never confirmed", () => {
+  /** Fails the test rather than the type check, so a `null` here reports as the assertion it is. */
+  const blockingOf = (banners: readonly RailBanner[]): readonly RailBanner[] => {
+    const blocking = resolveBlockingBanners(banners);
+
+    assert.notEqual(blocking, null, "expected these banners to stop a save");
+    return blocking ?? [];
+  };
+
+  it("answers null for a draft raising only info, so a clean save is never confirmed", () => {
     const clean = resolveBlockingBanners([banner("standing-fact", "info"), banner("another-standing-fact", "info")]);
 
-    assert.equal(clean.length, 0);
+    // Null rather than an empty list is what makes "open the dialog" and "there is something to show"
+    // one answer — the modal takes this value and cannot be handed a list with nothing in it.
+    assert.equal(clean, null);
   });
 
   it("returns the warning itself, so the dialog lists what it is asking about", () => {
-    const blocking = resolveBlockingBanners([banner("standing-fact", "info"), banner("name-changed", "warning")]);
+    const blocking = blockingOf([banner("standing-fact", "info"), banner("name-changed", "warning")]);
 
     assert.deepEqual(ids(blocking), ["name-changed"]);
     assert.equal(blocking[0]?.title, "name-changed");
   });
 
   it("keeps a danger ahead of a warning, as the rail shows them", () => {
-    assert.deepEqual(ids(resolveBlockingBanners([banner("w", "warning"), banner("d", "danger")])), ["d", "w"]);
+    assert.deepEqual(ids(blockingOf([banner("w", "warning"), banner("d", "danger")])), ["d", "w"]);
   });
 
   it("drops a warning a surviving banner supersedes, so one situation is never asked about twice", () => {
-    const blocking = resolveBlockingBanners([banner("general", "warning"), banner("specific", "warning", ["general"])]);
+    assert.deepEqual(ids(blockingOf([banner("general", "warning"), banner("specific", "warning", ["general"])])), ["specific"]);
+  });
 
-    assert.deepEqual(ids(blocking), ["specific"]);
+  it("leaves the input untouched", () => {
+    const input = [banner("i", "info"), banner("d", "danger")];
+
+    resolveBlockingBanners(input);
+
+    assert.deepEqual(ids(input), ["i", "d"]);
   });
 });
 

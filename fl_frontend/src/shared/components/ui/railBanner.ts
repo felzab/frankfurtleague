@@ -73,15 +73,30 @@ export function resolveRailBanners<B extends RailBanner>(banners: readonly B[]):
 }
 
 /**
- * The resolved list narrowed to what stops a save — ADR-0070's gate, in one place.
+ * What a save is confirmed against: at least one banner, never zero.
+ *
+ * A tuple rather than an array because `ConfirmSaveModal`'s body is this list and its sentence counts
+ * it — "0 Hinweise gelten für diesen Entwurf" is a sentence the type now refuses to let anyone
+ * render, rather than an invariant stated in a comment (ADR-0070).
+ */
+export type BlockingBanners<B extends RailBanner = RailBanner> = readonly [B, ...B[]];
+
+/**
+ * The resolved list narrowed to what stops a save, or `null` when nothing does — ADR-0070's gate, in
+ * one place.
  *
  * Named rather than spelt at each editor because two things read it and they must not be able to
- * disagree: the submit decides whether to confirm from its length, and `ConfirmSaveModal` renders it.
- * An `info` is a standing property of the record rather than a consequence of this edit, so it never
- * raises the dialog.
+ * disagree: the submit confirms exactly when this is non-null, and `ConfirmSaveModal` renders what it
+ * returned. An `info` is a standing property of the record rather than a consequence of this edit, so
+ * it never raises the dialog.
+ *
+ * `null` rather than an empty list: it is what makes "confirm" and "there is something to show" the
+ * same answer, so an editor cannot open the dialog on one and render the other.
  */
-export function resolveBlockingBanners<B extends RailBanner>(banners: readonly B[]): readonly B[] {
-  return resolveRailBanners(banners).filter((banner) => banner.severity !== "info");
+export function resolveBlockingBanners<B extends RailBanner>(banners: readonly B[]): BlockingBanners<B> | null {
+  const [first, ...rest] = resolveRailBanners(banners).filter((banner) => banner.severity !== "info");
+
+  return first === undefined ? null : [first, ...rest];
 }
 
 /**

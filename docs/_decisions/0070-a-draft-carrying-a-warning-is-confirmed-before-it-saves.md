@@ -40,8 +40,11 @@ and the fifteen-second undo stands in both cases.**
   "two Hinweise" would be one more thing to click past, which is the failure ADR-0041 named.
 - **`info` never raises it.** An informational banner is a standing property of the record — the
   season is the running one, the squad row is retired — rather than a consequence of this edit.
-- **It reads the resolved list**, so what the dialog shows and what the rail shows cannot disagree,
-  and a banner another banner supersedes is not raised twice under two wordings.
+- **It shows the resolved list as the gate found it** — snapshotted the moment the submit fires,
+  rather than re-derived while the dialog stands. What the dialog shows and what the rail shows
+  cannot disagree, and a banner another banner supersedes is not raised twice under two wordings.
+  The snapshot is what makes the question answerable at all: a list that can still change under a
+  reader is not one anybody can be said to have agreed to.
 - **This narrows ADR-0041 and ADR-0049; it reverses neither.** Undo remains the default and remains
   on every save. Neither ADR is superseded, and the condition ADR-0049 carries for reverting the
   undo handlers to server actions is untouched.
@@ -61,10 +64,10 @@ write; nothing about the write, the undo payloads or the toast changes on either
 form's action, so the confirmation only ever asks about a draft that would actually be written — it
 cannot become a second complaint about a field that is already flagged.
 
-**A new page-owned editor gets this by wiring two lines** — the `blockingBanners` filter and the
-modal — which is the same shape all four editors carry, and it is one more thing a new editor can
-forget. What makes it visible is that the modal is shared: an editor with no `ConfirmSaveModal` in
-its tree is a `grep` away.
+**A new page-owned editor gets this by wiring the gate's snapshot and the modal that reads it** —
+the same shape all seven editors carry, and it is one more thing a new editor can forget. What makes
+it visible is that the modal is shared: an editor with no `ConfirmSaveModal` in its tree is a `grep`
+away.
 
 **The admin can still save a draft every banner warns about**, and that is deliberate. Several of
 the warnings describe legal, intentional states — a Wertung is a cancelled fixture with a decided

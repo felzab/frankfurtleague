@@ -4,11 +4,13 @@ import { TriangleExclamation } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
+import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
+
 import { Callout } from "./Callout";
 import { formButton, MODAL_FOOTER } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
-import type { RailBanner } from "./railBanner";
+import type { BlockingBanners } from "./railBanner";
 
 /**
  * "This draft still carries these warnings — save anyway?"
@@ -24,6 +26,10 @@ import type { RailBanner } from "./railBanner";
  * through, and the fifteen-second undo stands either way — the confirmation narrows ADR-0041's rule
  * rather than replacing its safety net.
  *
+ * **`banners` is the snapshot the gate took, and it is also what opens the dialog** — one value, so
+ * there is no second state that could say "open" while the list says "nothing to show". `null` is
+ * closed; anything else is at least one banner, because `BlockingBanners` is a non-empty tuple.
+ *
  * `size="form"` rather than the `confirm` size the other two share: this body is a list whose length
  * is the draft's, and `confirm` was deliberately narrowed to a dialog carrying one sentence and two
  * buttons. Its scrolling body is what keeps the tallest case inside the viewport.
@@ -32,24 +38,26 @@ import type { RailBanner } from "./railBanner";
  * so what the admin is being asked to accept would never reach a screen reader.
  */
 export function ConfirmSaveModal({
-  isOpen,
   onClose,
   onConfirm,
   banners,
 }: {
-  isOpen: boolean;
   /** Stay on the page and keep editing. */
   onClose: () => void;
   /** Run the save the submit was about to run. */
   onConfirm: () => void;
-  /** The resolved rail list, filtered to what earns a stop — never empty when this is open. */
-  banners: readonly RailBanner[];
+  /** What the gate stopped on, frozen when it fired, or `null` for a dialog that is not raised. */
+  banners: BlockingBanners | null;
 }) {
-  const count = banners.length;
+  // The list has to outlive the prop going null, or the body blanks while the dialog animates out.
+  const shown = useRetainedValue(banners);
+  if (shown === null) return null;
+
+  const count = shown.length;
 
   return (
     <ModalShell
-      isOpen={isOpen}
+      isOpen={banners !== null}
       onClose={onClose}
       heading="Speichern trotz Hinweisen?"
       size="form"
@@ -69,7 +77,7 @@ export function ConfirmSaveModal({
         </p>
 
         <div className="mt-4 flex w-full flex-col gap-y-3">
-          {banners.map((banner) => (
+          {shown.map((banner) => (
             <Callout
               key={banner.id}
               severity={banner.severity}
