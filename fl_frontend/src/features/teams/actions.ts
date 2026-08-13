@@ -300,7 +300,7 @@ export async function postSaisonTeamAction(
 
     // The `teams` pair only. The new row changes which clubs the season's team reads return; it
     // cannot change a match, because the row is seeded with `disqualifikation: null` and the join
-    // reads nothing else from it (I32).
+    // reads nothing else from it (backend spec I32).
     invalidateSeasonScoped("teams", validated.data.saison_id);
 
     return {

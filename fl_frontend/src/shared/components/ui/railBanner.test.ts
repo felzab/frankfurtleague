@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { inlineBannersAt, resolveRailBanners } from "./railBanner.ts";
+import { inlineBannersAt, resolveBlockingBanners, resolveRailBanners } from "./railBanner.ts";
 
 import type { RailBanner } from "./railBanner.ts";
 
@@ -108,6 +108,31 @@ describe("resolveRailBanners", () => {
     resolveRailBanners(input);
 
     assert.deepEqual(ids(input), ["i", "d"]);
+  });
+});
+
+describe("resolveBlockingBanners", () => {
+  it("returns nothing for a draft raising only info, so a clean save is never confirmed", () => {
+    const clean = resolveBlockingBanners([banner("standing-fact", "info"), banner("another-standing-fact", "info")]);
+
+    assert.equal(clean.length, 0);
+  });
+
+  it("returns the warning itself, so the dialog lists what it is asking about", () => {
+    const blocking = resolveBlockingBanners([banner("standing-fact", "info"), banner("name-changed", "warning")]);
+
+    assert.deepEqual(ids(blocking), ["name-changed"]);
+    assert.equal(blocking[0]?.title, "name-changed");
+  });
+
+  it("keeps a danger ahead of a warning, as the rail shows them", () => {
+    assert.deepEqual(ids(resolveBlockingBanners([banner("w", "warning"), banner("d", "danger")])), ["d", "w"]);
+  });
+
+  it("drops a warning a surviving banner supersedes, so one situation is never asked about twice", () => {
+    const blocking = resolveBlockingBanners([banner("general", "warning"), banner("specific", "warning", ["general"])]);
+
+    assert.deepEqual(ids(blocking), ["specific"]);
   });
 });
 

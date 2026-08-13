@@ -8,6 +8,7 @@ import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFi
 import { appToast } from "@/shared/utils/appToast";
 
 import { formButton, MODAL_FOOTER } from "./formButtons";
+import { runOnSubmit } from "./formSubmit";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
@@ -17,7 +18,7 @@ type SubmitResult = { success: boolean; message?: string; error?: string; fieldE
 
 /**
  * The create/edit form skeleton, once. `AdminCreate*Form` and `AdminEdit*Form` came in four files
- * that were 76–78% identical: the same `useTransition`, the same `<Form action>`, the same
+ * that were 76–78% identical: the same `useTransition`, the same submit wiring, the same
  * draft state, the same toast handling and the same button pair. Only the initial draft, the server
  * action, its success guard and the success string ever differed.
  *
@@ -92,7 +93,7 @@ export function EntityForm<TDraft>({
       // on, so an absent attribute already means no marks.
       data-required-marks={marksRequired ? "on" : undefined}
       className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
-      action={handleSubmit}>
+      onSubmit={runOnSubmit(handleSubmit)}>
       {/* No entrance animation: this mounts inside a modal that is already animating in, so its own
           fade+slide ran on top of the modal's and read as a double entrance. Motion here is reserved
           for state changes the user triggers (see the inline-create panel swap). */}

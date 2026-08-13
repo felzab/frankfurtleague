@@ -10,7 +10,8 @@ import { FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/sc
 import { deriveSchiedsrichterDraftStatus } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
-import { resolveRailBanners } from "@/shared/components/ui/railBanner";
+import { runOnSubmit } from "@/shared/components/ui/formSubmit";
+import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
 import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
@@ -163,7 +164,7 @@ export function AdminSchiedsrichterEditForm({
 
   // What the save asks about first (ADR-0070). Resolved, so a banner the rail is not showing cannot
   // be raised in a dialog the admin has no way to reconcile with the page behind it.
-  const blockingBanners = resolveRailBanners(banners).filter((banner) => banner.severity !== "info");
+  const blockingBanners = resolveBlockingBanners(banners);
 
   const leavePage = () => {
     // Blur first — see the match editor: react-aria's focus attribute survives a kept-alive tree.
@@ -319,7 +320,7 @@ export function AdminSchiedsrichterEditForm({
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
-        action={() => requestSave()}>
+        onSubmit={runOnSubmit(requestSave)}>
         <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
           <div className="max-w-page mx-auto flex w-full flex-col">
             {pageHeader}

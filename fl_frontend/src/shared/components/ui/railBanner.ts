@@ -73,6 +73,18 @@ export function resolveRailBanners<B extends RailBanner>(banners: readonly B[]):
 }
 
 /**
+ * The resolved list narrowed to what stops a save — ADR-0070's gate, in one place.
+ *
+ * Named rather than spelt at each editor because two things read it and they must not be able to
+ * disagree: the submit decides whether to confirm from its length, and `ConfirmSaveModal` renders it.
+ * An `info` is a standing property of the record rather than a consequence of this edit, so it never
+ * raises the dialog.
+ */
+export function resolveBlockingBanners<B extends RailBanner>(banners: readonly B[]): readonly B[] {
+  return resolveRailBanners(banners).filter((banner) => banner.severity !== "info");
+}
+
+/**
  * The banners one panel spot renders, in the order the editor built them.
  *
  * Unresolved on purpose: superseding answers "what does the rail's list still need to say", and a
