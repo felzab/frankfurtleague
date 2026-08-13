@@ -50,9 +50,19 @@ function fold(text: string): string {
  * the sixteen-option Team facet, whose type-to-filter row measures 329px — so what it limits is growth.
  * A label long enough to reach it truncates, which is what a phone's narrower panel already does to one.
  *
- * **The option list is capped and scrolls internally.** Without a cap one long facet would set the
- * height of its whole line; with one, the tallest cell on a line is eight rows and the type-to-filter
- * field is how the rest is reached.
+ * **No cell is taller than `max-h-72`, and the option list is what gives way** (decided 2026-08-13).
+ * The bound is on the CELL rather than on the list, so it holds whatever a cell contains: a facet
+ * carrying a type-to-filter row spends 36px of the same budget and shows correspondingly fewer options,
+ * instead of standing 36px taller than every facet beside it.
+ *
+ * **288px is where the enumerated facets end.** The longest option list any `facets.ts` spells out is
+ * `STUFE_OPTIONS`' six, and six 36px rows on 4px gaps inside a 42px cell measure 286px — so every facet
+ * whose options are written in source shows all of them, and only a list built from the season's own
+ * documents scrolls. Those are the lists a reader expects to scroll, and past eight options they carry
+ * the field that reaches the rest.
+ *
+ * **It is a MAXIMUM and reserves nothing.** A panel whose facets are all short is exactly as tall as its
+ * tallest facet — a two-facet admin surface stands at 166px and never meets the bound at all.
  */
 function FacetCell<TItem>({
   facet,
@@ -76,11 +86,14 @@ function FacetCell<TItem>({
     isWide && query !== "" ? facet.options.filter((option) => fold(option.label).includes(fold(query))) : facet.options;
 
   return (
-    <div className="border-border/70 flex w-max max-w-[min(100%,26rem)] min-w-44 grow flex-col gap-y-1 rounded-xl border p-1.5">
+    <div className="border-border/70 flex max-h-72 w-max max-w-[min(100%,26rem)] min-w-44 grow flex-col gap-y-1 rounded-xl border p-1.5">
       {/* A FIXED height, because the reset appears only once something is picked (decided 2026-08-08).
           Its intrinsic height exceeded the label's, so the header row grew on the first selection and
-          pushed every facet below it down — the popover appeared to jump while being used. */}
-      <div className="flex h-6 flex-row items-center justify-between gap-x-2 px-1.5">
+          pushed every facet below it down — the popover appeared to jump while being used.
+
+          `shrink-0` is what makes that height survive the cell's own bound: the list below is the one
+          thing meant to give way, and without it the negative space is taken from all three. */}
+      <div className="flex h-6 shrink-0 flex-row items-center justify-between gap-x-2 px-1.5">
         <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
         {picked.length > 0 && (
           <Button
@@ -100,7 +113,7 @@ function FacetCell<TItem>({
           aria-label={`${facet.label} durchsuchen`}
           value={query}
           onChange={setQuery}
-          className="px-1.5">
+          className="shrink-0 px-1.5">
           <SearchField.Group className="bg-surface border-border flex h-8 w-full items-center gap-2 rounded-lg border px-2 transition-colors duration-(--motion-fast)">
             <SearchField.SearchIcon className="text-foreground-muted size-3.5 shrink-0" />
             <SearchField.Input
@@ -117,9 +130,9 @@ function FacetCell<TItem>({
       <ListBox
         aria-label={facet.label}
         selectionMode="multiple"
-        // The cap is the cell's, not the panel's: the panel already scrolls at `70vh`, and a cell that
-        // scrolls on its own is what keeps one long facet from setting its whole line's height.
-        className="scrollbar-line max-h-72 overflow-x-hidden overflow-y-auto"
+        // `min-h-0` is what lets the list absorb the cell's bound; a flex item's automatic minimum is
+        // its content, so without it the list refuses to shrink and the cell overflows instead.
+        className="scrollbar-line min-h-0 overflow-x-hidden overflow-y-auto"
         selectedKeys={picked}
         renderEmptyState={() => <p className="fluid-xs text-foreground-muted px-3 py-2 font-bold italic">Keine Option gefunden</p>}
         // `Selection` is `"all" | Set<Key>`; `"all"` is only reachable by passing `selectedKeys="all"`,
