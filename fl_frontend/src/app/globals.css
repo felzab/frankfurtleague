@@ -474,11 +474,17 @@
      invalid at computed-value time and falls back to the initial 0s, so the transition becomes
      instant with a green build and no warning (verified by compiling both).
 
-     The steps are counted off the app rather than chosen: 150ms is Tailwind's own transition default
-     and what 80 of the 113 transition sites already run at, 200ms is what 29 of the 37 explicit
-     `duration-*` classes say, and 300ms is what the shell rail and the card cascade already share.
-     There is deliberately no 100ms step: HeroUI's overlay exits use it and this app never spells it,
-     so a token would emit nothing and invite a value with no home.
+     The two state steps are counted off the app: 150ms is Tailwind's own transition default and what
+     80 of the 113 transition sites already run at, and 200ms is what 29 of the 37 explicit
+     `duration-*` classes say. There is deliberately no 100ms step: HeroUI's overlay exits use it and
+     this app never spells it, so a token would emit nothing and invite a value with no home.
+
+     --motion-slow is NOT a census answer, and the difference matters to anyone tempted to shorten
+     it. It is the value at which an entrance matches the card cascade's settling profile, which is
+     the one piece of motion here nobody has faulted; a census of what the code already does is
+     evidence about the code and none at all about what reads smoothly. 200ms was the counted answer
+     and was rejected on the screen (decided 2026-08-13, by the owner watching all three side by
+     side). Change this only against the cascade, never against the census.
 
      --motion-ease-enter is the card cascade's own curve, shared rather than a second one beside it.
      It is an emphasized-decelerate shape -- 90% of the travel is covered in the first 37% of the
