@@ -110,7 +110,10 @@ export function SpielCard({
               /* `flex` over HeroUI's `inline-flex`: the tooltip trigger is `inline-block`, and a line
                  box round an inline child leaves the trigger's height to the font's metrics rather
                  than to this control. The link beside it is block-level already. */
-              className="text-foreground data-hovered:bg-hover flex h-[35px] w-[35px] rounded-xl bg-transparent p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
+              /* `bg-hover-muted`, not `bg-hover`: this control rests on `bg-muted`, and the page-level
+                 hover fill sits between that and the card — 1.83 points off in the light theme, and
+                 the wrong way in the dark one. Measured at the token. */
+              className="bg-muted text-foreground data-hovered:bg-hover-muted flex h-[35px] w-[35px] rounded-xl p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
               <CircleExclamation className="m-0 size-5" />
             </Button>
           </IconTooltip>

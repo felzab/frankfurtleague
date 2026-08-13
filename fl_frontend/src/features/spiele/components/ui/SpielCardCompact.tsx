@@ -69,7 +69,9 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
                   /* `flex` here and on the span, over HeroUI's `inline-flex`: the span and HeroUI's
                      `inline-block` trigger each wrap this button, and a line box round an inline child
                      leaves each wrapper's height to the font's metrics rather than to the control. */
-                  className="text-foreground data-hovered:bg-hover flex h-[32px] w-[32px] bg-transparent p-0 transition-colors duration-200">
+                  /* The hover fill that answers to `bg-muted`, for the reason `SpielCard.tsx` gives at
+                     the same control: `bg-hover` sits between this rest fill and the card behind it. */
+                  className="bg-muted text-foreground data-hovered:bg-hover-muted flex h-[32px] w-[32px] p-0 transition-colors duration-200">
                   <CircleExclamation className="m-0 size-4" />
                 </Button>
               </IconTooltip>

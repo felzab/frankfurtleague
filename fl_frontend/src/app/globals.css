@@ -151,6 +151,13 @@
        controls take the -strong companion and not the plain accent (the rule at
        --accent-danger-strong below). */
     --bg-hover: #dfdfdf;
+    /* The same magnitude for a control whose REST fill is --bg-muted rather than the page's own
+       surface. --bg-hover cannot serve one: it sits BETWEEN the two, so from --bg-muted it measures
+       -1.83 here -- under the ~2-point floor -- and -2.09 in the dark theme, where every other hover
+       in the app moves the other way. --bg-muted's own L minus 6.7, taken to the nearest 8-bit grey:
+       92.19 -> 85.45, a -6.74 step. Carries --fg-base at 12.71, --fg-muted at 5.02 and
+       --accent-brand at 6.43. */
+    --bg-hover-muted: #cfcfcf;
     --bg-hover-danger: #f2d8d8;
     /* The green `(meta)` pages take the same step in their own palette: --field-card's L plus 6.7,
        hue and chroma untouched, white at 5.72 on it. Named --bg-hover-* and NOT --field-hover:
@@ -272,6 +279,10 @@
        6.38, --accent-brand at 4.47, and --accent-danger-strong at 5.89 on the danger fill. The two
        -solid- hovers do not flip, for the reason their rest fills do not. */
     --bg-hover: #212121;
+    /* --bg-muted's own L plus 6.7: 26.86 -> 33.68, a +6.82 step against the light theme's -6.74. It
+       is LIGHTER than --bg-hover above, and has to be -- the rest fill it answers to is lighter than
+       the page too. Carries --fg-base at 11.90 and --fg-muted at 4.72. */
+    --bg-hover-muted: #373737;
     --bg-hover-danger: #321919;
     --bg-hover-field: #29573e;
     --accent-brand-solid-hover: #982f2d;
@@ -363,6 +374,7 @@
      `-solid-hover` fills. Their values, and the one magnitude behind all of them, are declared once
      in @layer base above. A control's hover is a token here, never an alpha at a call site. */
   --color-hover: var(--bg-hover);
+  --color-hover-muted: var(--bg-hover-muted);
   --color-hover-danger: var(--bg-hover-danger);
   --color-hover-field: var(--bg-hover-field);
 
