@@ -15,6 +15,7 @@ import { overlayPanel } from "./overlayPanel";
 
 import type { Facet, FacetOption } from "@/shared/utils/facets";
 import type { Selection } from "@heroui/react";
+import type { CSSProperties } from "react";
 
 /** Above this many options a cell grows a type-to-filter field; at or below it, everything is visible. */
 const TYPE_TO_FILTER_THRESHOLD = 8;
@@ -34,11 +35,20 @@ function fold(text: string): string {
  * whose collection-identity constraint means a state change above this component re-renders the table
  * once per keystroke. Local state costs nothing above the cell.
  *
- * **The width comes from this cell's own longest option** (`w-max`), which is what CSS Grid cannot
+ * **The width STARTS from this cell's own longest option** (`w-max`), which is what CSS Grid cannot
  * express: a grid track's width is shared by every cell in it, so the sixteen-club Team facet would pad
  * out every short facet beneath it. Height is not set at all — flexbox stretches each wrapped LINE to
  * its own tallest cell, so cells match their neighbours without a two-option facet being padded to a
  * sixteen-option one's height (decided 2026-08-13).
+ *
+ * **From there each cell grows into its line's leftover** (`grow`, decided 2026-08-13), because a row of
+ * content-width cells leaves the rest of every line empty. Flexbox hands each cell on a line the SAME
+ * number of pixels, so the differences the content set survive the growth — which a grid's equal tracks
+ * are exactly what does not. The 26rem cap is the one case that needs a number: a cell left alone on a
+ * wrapped line would otherwise stretch across the whole panel, and an eight-character option with its
+ * count a hand's width away reads as a bug. It sits above the widest cell the app produces on its own —
+ * the sixteen-option Team facet, whose type-to-filter row measures 329px — so what it limits is growth.
+ * A label long enough to reach it truncates, which is what a phone's narrower panel already does to one.
  *
  * **The option list is capped and scrolls internally.** Without a cap one long facet would set the
  * height of its whole line; with one, the tallest cell on a line is eight rows and the type-to-filter
@@ -66,7 +76,7 @@ function FacetCell<TItem>({
     isWide && query !== "" ? facet.options.filter((option) => fold(option.label).includes(fold(query))) : facet.options;
 
   return (
-    <div className="border-border/70 flex w-max max-w-full min-w-44 flex-col gap-y-1 rounded-xl border p-1.5">
+    <div className="border-border/70 flex w-max max-w-[min(100%,26rem)] min-w-44 grow flex-col gap-y-1 rounded-xl border p-1.5">
       {/* A FIXED height, because the reset appears only once something is picked (decided 2026-08-08).
           Its intrinsic height exceeded the label's, so the header row grew on the first selection and
           pushed every facet below it down — the popover appeared to jump while being used. */}
@@ -158,6 +168,19 @@ function FacetCell<TItem>({
  * instead of scrolling when height-capped. A wrapping flex row sizes each cell from its own longest
  * option, gaps in both axes, and stretches each line's cells to that line's tallest.
  *
+ * **The panel is one 18rem column per facet, held under 92vw on a phone and under the search bar it opens
+ * beneath everywhere else** (decided 2026-08-13). The bar is `max-w-toolbar w-full`, so
+ * `--container-toolbar` is the ceiling — the token rather than the 75rem it happens to resolve to, or a
+ * reader who has enlarged their text gets a panel wider than the bar. 18rem is the SMALLEST whole column
+ * that still lets four of them reach that ceiling, and four is the public Spielsuche's own count: the
+ * surface the width was asked for on is the one that fixes the column.
+ *
+ * **The count scales the panel rather than switching it between two widths**, because the reason to hold
+ * a small facet set back is proportional and a threshold is not: two facets get 612px and cannot float in
+ * a metre of empty panel, three get 924px, and every count from four up meets the ceiling and wraps onto
+ * a second line. Taking the smallest column that satisfies four is what keeps a cell the same ~285px on
+ * every one of them, rather than making the small surfaces' cells fatter than Spielsuche's.
+ *
  * **Every count is computed with its own facet's selection removed** — see `countFacetOptions`. A number
  * beside an option answers "what would I get if I picked this too", which is the only question worth
  * answering there.
@@ -218,19 +241,16 @@ export function FilterBar<TItem>({
           <Popover.Content
             placement="bottom start"
             offset={8}>
-            {/* The widths track the SEARCH BAR's own. The bar is `max-w-toolbar w-full` (1200px), so the
-              panel is `92vw` on a phone — the bar's own width there — and grows toward the toolbar cap
-              on a desktop, never narrower than the control it opens under. A page with few facets gets
-              the narrow form, or two facets would float in a metre of empty panel.
-
-              The panel CLIPS its scroller (`overflow-hidden` outside, the scroll inside): the rounded
+            {/* The panel CLIPS its scroller (`overflow-hidden` outside, the scroll inside): the rounded
               corners are the panel's, and a rectangular scrollbar inside a rounded scroll container
               poked out of the curve at both ends. `scrollbar-line` rather than `data-scrollbar="thin"`,
               because the standard thin scrollbar still draws a track and, on Windows, arrow buttons. */}
             <Popover.Dialog
-              className={`${overlayPanel()} w-[92vw] overflow-hidden p-0 outline-none ${
-                facets.length >= 5 ? "sm:w-[min(92vw,44rem)] lg:w-[min(92vw,64rem)] xl:w-[min(92vw,75rem)]" : "sm:w-[min(92vw,40rem)]"
-              }`}>
+              // One 18rem column per facet, the gap between each pair, and the panel's own padding.
+              // `min()` picks the phone's 92vw or the toolbar token, so no breakpoint variant is
+              // needed; the cast is React's type carrying no custom property, not a widening.
+              style={{ "--filter-columns": facets.length } as CSSProperties}
+              className={`${overlayPanel()} w-[min(92vw,calc(var(--filter-columns)*18rem_+_(var(--filter-columns)_-_1)*0.75rem_+_1.5rem),var(--container-toolbar))] overflow-hidden p-0 outline-none`}>
               <div className="scrollbar-line max-h-[70vh] overflow-x-hidden overflow-y-auto p-3">
                 {/* No `items-start`: the default cross-axis stretch is what equalises a line's cells, and
                     it is per LINE, so a phone's one-cell line stretches to itself and needs no exception. */}
