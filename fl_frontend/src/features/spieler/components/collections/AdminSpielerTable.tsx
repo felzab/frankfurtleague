@@ -8,6 +8,7 @@ import { Pencil, Person } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
+import { AdminTableSkeletonRows } from "@/shared/components/ui/AdminTableSkeletonRows";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
@@ -230,7 +231,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         ))}
       </div>
 
-      <div className="hidden w-full md:block">
+      <div className="group relative hidden w-full md:block">
         <Table className={`${card()} ${TABLE_COLLECTION_FLOOR} h-fit w-full p-0`}>
           <Table.ScrollContainer className="scrollbar-hide">
             <Table.Content aria-label="Tabelle aller Spieler">
@@ -323,6 +324,16 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
             </Table.Content>
           </Table.ScrollContainer>
         </Table>
+
+        {/* The same bars the Suspense fallback drew, held over the shell for the one render in which
+            react-aria's collection is still empty. `tbody` is the discriminator and it is exact: absent
+            during that pass, present with rows once populated, present carrying the empty state when
+            there genuinely are none. See `tableCollectionFloor.ts` for why the pass exists. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl group-has-[tbody]:hidden">
+          <AdminTableSkeletonRows />
+        </div>
       </div>
     </>
   );

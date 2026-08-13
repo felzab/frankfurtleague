@@ -1,8 +1,8 @@
+import { AdminTableSkeletonRows } from "./AdminTableSkeletonRows";
 import { card } from "./card";
 import { ROW_ACTION_SIZE } from "./rowActionSize";
 import { skeletonBlock } from "./skeleton";
 
-const TABLE_ROWS = [0, 1, 2, 3, 4];
 const CARD_ROWS = [0, 1, 2];
 const SECTIONS = [0, 1];
 const TABLE_ROW_ACTIONS = [0, 1, 2, 3];
@@ -129,30 +129,7 @@ function TableFallback() {
 
       <div className="hidden w-full md:block">
         <div className={`${card()} h-fit w-full overflow-hidden p-0`}>
-          {/* `bg-background/90` and not `bg-muted`: `globals.css` paints `.table__column` that way
-              with an `!`, so it is what a header strip actually is however the tables spell it. */}
-          <div className="bg-background/90 border-border flex items-center gap-6 border-b px-6 py-4">
-            <span className={`${skeletonBlock()} fluid-xs block w-24 rounded`}>&nbsp;</span>
-            {/* Ended right, over the `text-right` Aktionen column every one of the five tables ends in. */}
-            <span className={`${skeletonBlock()} fluid-xs ml-auto block w-16 rounded`}>&nbsp;</span>
-          </div>
-
-          {TABLE_ROWS.map((row) => (
-            <div
-              key={row}
-              className="border-border/50 flex items-center gap-6 border-b px-6 py-4 last:border-b-0">
-              {/* Two invisible line boxes carry the height and one bar is centred over them, the
-                  `SpielCardSkeleton` treatment: three of the five tables carry a `fluid-sm` over a
-                  `fluid-xs` at `gap-0.5`, which out-measures `ROW_ACTION_SIZE`. */}
-              <div className="relative flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="fluid-sm invisible block">&nbsp;</span>
-                <span className="fluid-xs invisible block">&nbsp;</span>
-                <span className={`${skeletonBlock()} fluid-sm absolute top-1/2 left-0 w-2/5 -translate-y-1/2 rounded`}>&nbsp;</span>
-              </div>
-
-              <span className={`${skeletonBlock()} ${ROW_ACTION_SIZE} shrink-0 rounded-xl`} />
-            </div>
-          ))}
+          <AdminTableSkeletonRows />
         </div>
       </div>
     </>
