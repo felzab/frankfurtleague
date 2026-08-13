@@ -33,8 +33,8 @@ import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
  * first and "which kind of source?" second, which is the order an admin actually asks.
  *
  * - `gruppe` — seeded from the standings; the first knockout round's normal answer. It reads
- *   `saisons/constants.ts :: PHASE_TINTS` rather than spelling the token, because the slot comes from
- *   exactly the phase that entry names everywhere else in the app and the two must not drift.
+ *   `fl_frontend/src/features/saisons/constants.ts :: PHASE_TINTS` rather than spelling the token,
+ *   because the slot comes from exactly the phase that entry names everywhere else in the app.
  * - `spiel` — fed by an earlier match; every later round's normal answer.
  * - `manuell` — no source, so the slot is the admin's own and nothing fills it for them.
  * - `offen` — no source and no team. The triage list's `besetzung_missing`, whose urgency is
