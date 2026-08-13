@@ -213,6 +213,11 @@ function FacetCell<TItem>({
  * follows: the reader should see why a value cannot be picked instead of wondering where it went. An
  * option that is currently selected stays enabled whatever its count, or deselecting it would be
  * impossible.
+ *
+ * **The panel CLIPS its scroller** — `overflow-hidden` outside, the scroll inside. The rounded corners
+ * are the panel's, and a rectangular scrollbar inside a rounded scroll container poked out of the curve
+ * at both ends. `scrollbar-line` rather than `data-scrollbar="thin"`, because the standard thin
+ * scrollbar still draws a track and, on Windows, arrow buttons.
  */
 export function FilterPanel<TItem>({
   facets,
@@ -236,10 +241,6 @@ export function FilterPanel<TItem>({
   onClear: (param: string) => void;
 }) {
   return (
-    /* The panel CLIPS its scroller (`overflow-hidden` outside, the scroll inside): the rounded
-       corners are the panel's, and a rectangular scrollbar inside a rounded scroll container
-       poked out of the curve at both ends. `scrollbar-line` rather than `data-scrollbar="thin"`,
-       because the standard thin scrollbar still draws a track and, on Windows, arrow buttons. */
     <Popover.Dialog
       // One 18rem column per facet, the gap between each pair, and the panel's own padding.
       // `min()` picks the phone's 92vw or the toolbar token, so no breakpoint variant is

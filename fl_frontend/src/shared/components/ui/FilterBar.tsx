@@ -6,7 +6,7 @@ import { Button, Popover, ScrollShadow } from "@heroui/react";
 
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 
-import { COUNT_BADGE } from "./badges";
+import { COUNT_BADGE, PILL_RADIUS } from "./badges";
 import { FilterPanel } from "./FilterPanel";
 
 import type { Facet } from "@/shared/utils/facets";
@@ -61,7 +61,7 @@ export function FilterBar<TItem>({
         <Popover>
           <Popover.Trigger
             aria-label={activeCount === 0 ? triggerLabel : `${triggerLabel}, ${String(activeCount)} aktiv`}
-            className="border-border bg-surface text-foreground hover:bg-hover fluid-xs flex h-10 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-xl border px-3 font-bold shadow-sm transition-colors duration-(--motion-fast)">
+            className={`border-border bg-surface text-foreground hover:bg-hover ${PILL_RADIUS} fluid-xs flex h-10 shrink-0 cursor-pointer flex-row items-center gap-x-2 border px-3 font-bold shadow-sm transition-colors duration-(--motion-fast)`}>
             <Sliders
               aria-hidden="true"
               width={16}
@@ -94,7 +94,19 @@ export function FilterBar<TItem>({
             **The facet name is gone from the chip and kept in the `aria-label`** (decided 2026-08-08). On a
             phone the name doubled every chip's width for information the values mostly carry themselves —
             „Viertelfinale" does not need „Phase:" in front of it. A screen reader still hears which filter
-            it is, so the saving is visual only. */}
+            it is, so the saving is visual only.
+
+            **The fill is the declared brand solid, never a tint of it** (decided 2026-08-13). An alpha
+            composites against whatever is behind it, which is the failure `globals.css`'s hover-fill block
+            was written about: `bg-brand/10` lands as #f3e8e8 on the light page and #190c0c on the dark one,
+            1.20:1 and 1.08:1 against their own grounds — a chip too faint to read as an object, and pink
+            where it reads at all, because `--accent-brand` itself flips to a salmon in the dark theme.
+            `--accent-brand-solid` flips in neither, so one declared #82181a carries both themes at 10.03:1
+            under `--fg-on-brand`, and the strip cannot drift with the surface it sits on.
+
+            **One radius across the row**: the chips take `PILL_RADIUS`, the shape every chip and badge in
+            the app already carries, and the trigger takes it too — they touch, so a 12px control beside a
+            6px chip is the seam a reader sees first. */}
         {chips.length > 0 && (
           <ScrollShadow
             orientation="horizontal"
@@ -103,20 +115,12 @@ export function FilterBar<TItem>({
             className="min-w-0 flex-1">
             <div className="flex flex-row items-center gap-2">
               {chips.map(({ facet, value, label }) => (
-                // Value, a straight divider, then the x (decided 2026-08-08). The divider is its own
-                // element rather than a border on the button: HeroUI's Button brings a radius and its
-                // own box, so a `border-l` there renders kinked and the x rides off-centre.
                 <span
                   key={`${facet.param}:${value}`}
-                  // `h-10`, the trigger's own height (decided 2026-08-08): the chips and the button sit
+                  // `h-10` is the trigger's own height (decided 2026-08-08): the chips and the button sit
                   // in one row, and two heights in one row read as two controls that happen to touch.
-                  // The fill alone draws the boundary; a border beside it draws the same edge twice.
-                  className="bg-brand/10 flex h-10 shrink-0 flex-row items-stretch overflow-hidden rounded-xl">
-                  <span className="fluid-xs text-foreground flex items-center px-2.5 font-bold whitespace-nowrap">{label}</span>
-                  <span
-                    aria-hidden="true"
-                    className="bg-brand/25 w-px shrink-0"
-                  />
+                  className={`bg-brand-solid text-brand-solid-foreground ${PILL_RADIUS} flex h-10 shrink-0 flex-row items-center gap-x-1 py-0 pr-1 pl-2.5`}>
+                  <span className="fluid-xs font-semibold whitespace-nowrap">{label}</span>
                   <Button
                     variant="ghost"
                     aria-label={`Filter ${facet.label}: ${label} entfernen`}
@@ -125,9 +129,10 @@ export function FilterBar<TItem>({
                     onPress={() => {
                       toggle(facet.param, value);
                     }}
-                    // `w-7` is 28x40, above WCAG 2.2 SC 2.5.8's 24x24 floor and four pixels lighter than
-                    // the `w-8` it replaces.
-                    className="text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong flex h-full w-7 min-w-0 shrink-0 cursor-pointer items-center justify-center rounded-none p-0 transition-colors duration-(--motion-fast)">
+                    // 28px square, above WCAG 2.2 SC 2.5.8's 24x24 floor. Its hover is the fill's own
+                    // declared companion rather than the danger tint, which on this ground would be a
+                    // pale patch in one theme and a dark one in the other.
+                    className={`text-brand-solid-foreground data-hovered:bg-brand-solid-hover ${PILL_RADIUS} flex size-7 min-w-0 shrink-0 cursor-pointer items-center justify-center p-0 transition-colors duration-(--motion-fast)`}>
                     <Xmark
                       aria-hidden="true"
                       className="size-3.5 shrink-0"
