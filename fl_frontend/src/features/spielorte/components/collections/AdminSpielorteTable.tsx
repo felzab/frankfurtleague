@@ -3,12 +3,12 @@
 import { memo } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Calendar, Globe, MapPin } from "@gravity-ui/icons";
+import { Calendar, Globe, MapPin, Pencil } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
-import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { RowActionCopy, RowActionDelete, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatAddressFull, formatEuro } from "@/shared/utils/format";
@@ -39,12 +39,10 @@ import type { FLSpielort } from "../../schemas";
 export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   spielortQuery,
   filteredSpielorte,
-  setEditingOrt,
   setDeletingOrt,
 }: {
   spielortQuery: string;
   filteredSpielorte: FLSpielort[];
-  setEditingOrt: (ort: FLSpielort) => void;
   setDeletingOrt: (ort: FLSpielort) => void;
 }) {
   // The sidemenu's season rides along, so the fixture list opens on the season the admin is working
@@ -111,11 +109,18 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
         ariaLabel={`Adresse von ${ort.name} kopieren`}
         onPress={() => handleCopyAddress(ort)}
       />
-      <RowActionEdit
+      {/* A link rather than a press: the venue form edits on a page (ADR-0040), so the pencil is a
+          navigation and the shared view renders no edit overlay. */}
+      <RowActionLink
+        href={`/admin/spielorte/${ort.id}`}
         label="Bearbeiten"
-        ariaLabel={`Spielort ${ort.name} bearbeiten`}
-        onPress={() => setEditingOrt(ort)}
-      />
+        ariaLabel={`Spielort ${ort.name} bearbeiten`}>
+        <Pencil
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
       <RowActionDelete
         label="Löschen"
         ariaLabel={`Spielort ${ort.name} löschen`}
