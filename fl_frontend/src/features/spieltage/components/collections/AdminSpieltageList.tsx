@@ -268,7 +268,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                     <span className="fluid-xs text-foreground-muted">
                       {spieltag.beginn === spieltag.ende
                         ? formatSpielDatum(spieltag.beginn)
-                        : `${formatSpielDatum(spieltag.beginn)} bis ${formatSpielDatum(spieltag.ende)}`}
+                        : `${formatSpielDatum(spieltag.beginn)} – ${formatSpielDatum(spieltag.ende)}`}
                     </span>
                   </div>
                 </div>

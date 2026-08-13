@@ -47,15 +47,15 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
   };
 
   /**
-   * The season's span as two dates around a connective, shared by both layouts (decided 2026-08-08).
-   * The dates carry the weight and the connective recedes into a smaller, muted face; set in one face
-   * throughout, the span reads as a single grey ribbon and the word outweighs the dates. `tabular-nums`
-   * keeps the digits in columns, so two rows' spans line up under each other.
+   * The season's span as two dates around a bis-Strich, shared by both layouts (decided 2026-08-08).
+   * The dates carry the weight and the dash recedes: spelled as "bis", the span reads as one grey
+   * ribbon in which the word outweighs the dates it joins. `tabular-nums` keeps the digits in columns,
+   * so two rows' spans line up under each other.
    */
   const renderZeitraum = (saison: AdminSaisonRow) => (
     <span className="flex flex-row items-baseline gap-x-1.5 tabular-nums">
       <span className="fluid-sm text-foreground font-bold">{formatSpielDatum(saison.start_date)}</span>
-      <span className="fluid-xs text-foreground-muted font-medium">bis</span>
+      <span className="fluid-xs text-foreground-muted font-medium">–</span>
       <span className="fluid-sm text-foreground font-bold">{formatSpielDatum(saison.end_date)}</span>
     </span>
   );

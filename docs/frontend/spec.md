@@ -538,13 +538,30 @@ softening a refusal blurs which of the two the reader is looking at.
 hyphen standing between spaces. A dash that carried a real break is **rewritten**, most often into two
 sentences and sometimes into a comma or a colon. Deleting one is not rewriting it, because a sentence
 that reads worse without its dash has been cut rather than recast. The same holds for a dash doing a
-word's job: a span of dates reads `bis`, a pairing reads `gegen`, and an absent value is named in words
-rather than by a lone `—`.
+word's job: a pairing reads `gegen`, and an absent value is named in words rather than by a lone `—`.
 
 **A hyphen that connects stays**, and this is the half a find-and-replace destroys, so the sweep runs
 string by string. `Frankfurt-League`, `K.-o.-Runde`, `Carl-Schurz-Schule`, `E-Mail` and `Karten-Link`
 keep theirs, as does every club and venue name. The test is whether the character joins words into one
 term or separates one clause from another.
+
+**A range between two dates takes an en dash, and it is the only exception** (my rule, 2026-08-14):
+`01.09.2025 – 30.06.2026`, never `01.09.2025 bis 30.06.2026`. A span is scanned rather than read, and
+this is the one position where the dash carries what a word carries worse — `bis` sets a conjunction in
+the same weight as the dates it joins, so the span reads as one grey ribbon in which the connective
+outweighs its endpoints. The season selector also styles its span `uppercase`, which turns the word
+into `BIS` and leaves a dash untouched. Every span in the product uses it:
+`fl_frontend/src/features/saisons/components/collections/AdminSaisonsTable.tsx :: renderZeitraum`,
+`fl_frontend/src/features/saisons/components/ui/SaisonSelector.tsx :: timespan`,
+`fl_frontend/src/features/spieltage/components/collections/AdminSpieltageList.tsx` and
+`fl_frontend/src/features/spieltage/components/views/AdminSpieltagEditView.tsx`.
+
+**The exception reaches two dates and nothing else.** Not a range of numbers, which stays `von 2 bis
+16`; not a scoreline; not `format.ts :: PLACEHOLDER`'s `--:--` and `-:-`, which are digit masks and
+were never dashes in the first place. **It licenses no parenthetical, no aside and no substitute for a
+colon or a comma**, beside a span or anywhere else — a dash with prose on either side is the general
+case and still comes out. A range of some kind not named here is a question to ask, never an analogy
+to extend.
 
 **An interpolated noun must read correctly for every value it can take** (my rule, 2026-08-13): its
 article, its plural, and any pronoun agreeing with it. The instance that made the rule was the matchday
@@ -564,11 +581,20 @@ field that is not on screen, a sentence explaining how a value is stored or rege
 about when something is recalculated.** Cut the mechanism and keep the consequence sharp, because
 several of these strings exist precisely because something is irreversible.
 
-**Only the dash rule can be checked mechanically.** The characters it forbids stand between spaces or
-alone in a JSX text node, and the hyphen it permits has a word character on both sides, so a check
-separates them without knowing whether the string reaches a reader. The other three cannot be: a lint
-over the pronouns, over grammatical agreement, or over register would first have to know which string
-literals are user-facing, and nothing in the tree marks that. They hold by review.
+**Only the dash rule can be checked mechanically, and the date-range exception is checkable with it.**
+The characters the rule forbids stand between spaces or alone in a JSX text node, and the hyphen it
+permits has a word character on both sides, so a check separates those two without knowing whether the
+string reaches a reader. The exception is visible on the same terms: a permitted en dash has a date on
+each side, which in this codebase means a `formatSpielDatum` call or a literal `dd.mm.yyyy`, so a check
+would allow a dash flanked by those and flag every other one. **Two things such a check has to get
+right**: the flanking dates are siblings rather than neighbours in one string wherever a span is built
+from separate elements, as `renderZeitraum` in the seasons table builds it; and recognising a date by
+the name of the function that formats it couples the check to that name, so a second date formatter
+would need adding to it rather than being caught by it.
+
+The other three rules cannot be checked: a lint over the pronouns, over grammatical agreement, or over
+register would first have to know which string literals are user-facing, and nothing in the tree marks
+that. They hold by review.
 
 ### 1.13 Metadata and indexing
 
