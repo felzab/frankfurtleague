@@ -539,8 +539,10 @@
      reported rather than a motion duration, which is why it is not on that scale, and it is spelled
      beside the gate because the two are read together and would drift apart in separate files.
      `initial-value: 0` closes it, so a hold that never runs holds nothing. */
-  --animate-admin-placeholder-gate:
-    admin-placeholder-gate 0s linear var(--motion-base) backwards, admin-placeholder-hold 0s linear 500ms backwards;
+  /* No delay before the placeholder. A delay only helps where the previous view stays on screen
+     through it; this router unmounts the old page at once, so a gate paints a blank field for its
+     whole length. The hold alone carries the flicker: whatever is shown is shown long enough. */
+  --animate-admin-placeholder-gate: admin-placeholder-hold 0s linear 500ms backwards;
 
   @keyframes loader-dot {
     0%,

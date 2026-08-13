@@ -35,8 +35,19 @@
  * the overlay is `absolute inset-0`, so a shell that shrank to its rows underneath held bars would
  * clip them and show the rest of the table beside them.
  *
+ * **A ceiling for exactly as long as the floor.** While the bars are held the shell is pinned to their
+ * own height, or a collection of 362 rows would size the card to 26,000px behind an opaque overlay and
+ * the placeholder would sit at the top of a blank field. The `100000px` arm is "unbounded": at
+ * `--admin-placeholder-hold: 0` the ceiling is far past any table, so it binds nothing and the
+ * `overflow-hidden` beside it clips nothing.
+ *
  * **A floor, never a height.** `min-height` only ever raises the used height, so a filled table grows
  * past it freely. It is deliberately absent from the `md:hidden` card branch, which maps its rows
  * directly rather than through a collection and so has no empty pass to survive.
  */
-export const TABLE_COLLECTION_FLOOR = "min-h-[28.5rem] group-has-[tbody]:min-h-[calc(28.5rem*var(--admin-placeholder-hold))]";
+export const TABLE_COLLECTION_FLOOR = [
+  "min-h-[28.5rem]",
+  "group-has-[tbody]:min-h-[calc(28.5rem*var(--admin-placeholder-hold))]",
+  "group-has-[tbody]:max-h-[calc(28.5rem*var(--admin-placeholder-hold)+100000px*(1-var(--admin-placeholder-hold)))]",
+  "group-has-[tbody]:overflow-hidden",
+].join(" ");

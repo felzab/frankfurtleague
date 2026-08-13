@@ -60,8 +60,9 @@ export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sect
       role="status"
       aria-label="Daten werden geladen"
       /* `gap-4` is `AdminCrudView`'s own column gap, so the filter block and the list below it sit
-         where they will sit once the rows land. */
-      className="animate-in fade-in fill-mode-backwards flex flex-col gap-4 delay-(--motion-base) duration-0">
+         where they will sit once the rows land. It paints on its first frame: a delay would only help
+         where the previous view stays through it, and this router unmounts the old page at once. */
+      className="flex flex-col gap-4">
       {/* Every admin slice declares facets, so the filter control always renders its `h-10` row, and a
           fallback without it puts the list a row above the data. The row is `h-10` in both filter
           shapes; only how many controls sit in it differs, and a control's width shifts nothing
