@@ -36,16 +36,22 @@ const ICON_SHELL = `${CONTROL_BOX} text-foreground hover:bg-hover cursor-pointer
 const CLEAR_FACE = "flex h-full w-7 shrink-0 items-center justify-center rounded-none p-0";
 
 /**
- * The ceiling on a picked value, in `em` so it holds the same number of characters at every width.
+ * The ceiling on a picked value — one number at every width, in `em` so it holds the same count of
+ * characters whatever the type resolves to.
+ *
+ * **Read off the names rather than off the row.** The row scrolls, so nothing has to fit; what is left
+ * is how much of a name a reader needs. Venue names share a prefix — `Sportplatz Ost`,
+ * `Sportanlage Riederwald`, `Bezirkssportanlage Nord` — so a ceiling that truncates before the last
+ * word makes two of them identical, and the longest of those runs about 12em. 16em clears it, which
+ * leaves this bounding a pathological value rather than shaping the row.
  *
  * `min-w-0` is what makes it bite — a flex item's automatic minimum is its content, and it would
- * otherwise outrank the maximum and print the value in full. A media query rather than a measurement:
- * nothing here is laid out against a hidden copy of itself, so CSS can answer on its own.
+ * otherwise outrank the maximum and print the value in full.
  */
-const VALUE_CAP = "min-w-0 max-w-[5em] sm:max-w-[16em]";
+const VALUE_CAP = "min-w-0 max-w-[16em]";
 
-/** What the add control is called, in both its label and its tooltip. */
-const ADD_LABEL = "Filter hinzufügen";
+/** What the add control is called — painted from `md`, spoken at every width, one word for both. */
+const ADD_LABEL = "Filter";
 
 /** Reset-everything: `h-7` is the app's small control, and this is the row's only one. */
 const CLEAR_ALL_FACE =
@@ -172,7 +178,7 @@ export function FilterLeiste<TItem>({
   /** Every row before filtering, so each option can say what it would leave. */
   items: TItem[];
 }) {
-  const { selection, activeCount, setFacet, clearFacet, clearAll } = useUrlFilters(facets);
+  const { selection, paramOrder, activeCount, setFacet, clearFacet, clearAll } = useUrlFilters(facets);
 
   // The panel is bounded by this row rather than by the window: a viewport unit counts the sidemenu as
   // space the overlay may use, so an oversized panel gets slid left over the navigation.
@@ -181,13 +187,14 @@ export function FilterLeiste<TItem>({
   if (facets.length === 0) return null;
 
   const isFiltering = (facet: Facet<TItem>) => (selection[facet.param] ?? []).length > 0;
-  // Both halves in the facets' own declared order, so a pill's place in the row is fixed by the surface
-  // rather than by when it was added, and the add menu lists dimensions in the order the page names them.
-  const filtered = facets.filter(isFiltering);
+  // Pills in the URL's order, which is the order they were added: a new one lands at the end and no
+  // pill already drawn moves. A filtering facet is in the URL by construction, so neither `indexOf`
+  // can be -1. The menu keeps the declared order.
+  const filtered = facets.filter(isFiltering).sort((left, right) => paramOrder.indexOf(left.param) - paramOrder.indexOf(right.param));
   const unfiltered = facets.filter((facet) => !isFiltering(facet));
 
-  // `lg` is where the 310px sidemenu stops being a drawer and takes a column. The label is in the
-  // markup and hidden by CSS, so the accessible name is the `aria-label` at every width.
+  // `md` rather than `lg`: the 310px sidemenu is a drawer until `lg`, so the row is 704px there against
+  // 635 at `lg`. The label is in the markup and hidden by CSS, so the name is the `aria-label` either way.
   const addFace = (
     <>
       <Sliders
@@ -195,7 +202,7 @@ export function FilterLeiste<TItem>({
         width={16}
         height={16}
       />
-      <span className="max-lg:hidden">{ADD_LABEL}</span>
+      <span className="max-md:hidden">{ADD_LABEL}</span>
     </>
   );
 

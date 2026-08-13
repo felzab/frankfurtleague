@@ -29,8 +29,20 @@ import type { Facet, FacetOption, FacetSelection } from "@/shared/utils/facets";
 import type { Selection } from "@heroui/react";
 import type { CSSProperties, RefObject } from "react";
 
-/** Above this many options a cell grows a type-to-filter field; at or below it, everything is visible. */
-const TYPE_TO_FILTER_THRESHOLD = 8;
+/**
+ * How many option rows a cell shows before its list scrolls.
+ *
+ * It is also the type-to-filter threshold, and the two being ONE number is the rule rather than a
+ * coincidence: a field appears exactly where the list stops showing everything, so no facet needs
+ * naming and no count needs choosing. A list that fits entirely has nothing to search for.
+ */
+const VISIBLE_OPTIONS = 5;
+
+/**
+ * The cell's ceiling: `40k + 46` — `k` rows of 36px on 4px gaps, plus the header, its gap and the
+ * cell's own padding. At five rows that is 246px, which the `em` form keeps proportional to the type.
+ */
+const CELL_CAP = "max-h-[15.375rem]";
 
 /**
  * The width of the row a filter control occupies, for `FilterPanel`'s `available`.
@@ -107,16 +119,15 @@ function fold(text: string): string {
  * close it at the cost of every content difference on every other line. The row is centred rather than
  * the cell, and that is free elsewhere — a line that fills has no leftover to distribute.
  *
- * **No cell is taller than `max-h-72`, and the option list is what gives way** (decided 2026-08-13).
+ * **No cell is taller than `CELL_CAP`, and the option list is what gives way** (decided 2026-08-13).
  * The bound is on the CELL rather than on the list, so it holds whatever a cell contains: a facet
  * carrying a type-to-filter row spends 36px of the same budget and shows correspondingly fewer options,
  * instead of standing 36px taller than every facet beside it.
  *
- * **288px is where the enumerated facets end.** The longest option list any `facets.ts` spells out is
- * `STUFE_OPTIONS`' six, and six 36px rows on 4px gaps inside a 42px cell measure 286px — so every facet
- * whose options are written in source shows all of them, and only a list built from the season's own
- * documents scrolls. Those are the lists a reader expects to scroll, and past eight options they carry
- * the field that reaches the rest.
+ * **Five rows is what a cell shows, and the same five decide whether it carries a field.** A reader
+ * sees the same amount of every dimension, long or short, and the one number means no facet is named
+ * anywhere: a list of six scrolls and gains the field that reaches the rest, a list of five does not.
+ * The lists that grow with a season — clubs, venues, referees — are all on the scrolling side of it.
  *
  * **It is a MAXIMUM and reserves nothing.** A panel whose facets are all short is exactly as tall as its
  * tallest facet — a two-facet admin surface stands at 166px and never meets the bound at all.
@@ -136,14 +147,15 @@ function FacetCell<TItem>({
 }) {
   const [query, setQuery] = useState("");
 
-  const isWide = facet.options.length > TYPE_TO_FILTER_THRESHOLD;
+  const isWide = facet.options.length > VISIBLE_OPTIONS;
   // Counts stay computed over the WHOLE option list, so a hidden option's number is already correct
   // when the query is cleared.
   const shown: readonly FacetOption[] =
     isWide && query !== "" ? facet.options.filter((option) => fold(option.label).includes(fold(query))) : facet.options;
 
   return (
-    <div className="border-border/70 flex max-h-72 w-max max-w-[min(100%,max(26rem,calc((100%_-_0.75rem)/2)))] min-w-44 grow flex-col gap-y-1 rounded-xl border p-1.5">
+    <div
+      className={`border-border/70 ${CELL_CAP} flex w-max max-w-[min(100%,max(26rem,calc((100%_-_0.75rem)/2)))] min-w-44 grow flex-col gap-y-1 rounded-xl border p-1.5`}>
       {/* A FIXED height, because the reset appears only once something is picked (decided 2026-08-08).
           Its intrinsic height exceeded the label's, so the header row grew on the first selection and
           pushed every facet below it down — the popover appeared to jump while being used.
