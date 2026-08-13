@@ -16,7 +16,6 @@ import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
 export type SpieltagBannerId =
-  | "spieltag.retired"
   | "spieltag.retired-since"
   | "spieltag.phase-changed"
   | "spieltag.zeitraum-changed"
@@ -89,22 +88,14 @@ export function buildSpieltagBanners({
 }): readonly SpieltagBanner[] {
   const banners: SpieltagBanner[] = [];
 
+  // The retirement date leads the title, because it is what an admin checks the state against.
   if (inactiveSince !== null) {
-    banners.push({
-      id: "spieltag.retired",
-      severity: "info",
-      title: "Dieser Spieltag steht auf keinem öffentlichen Spielplan",
-      body: "Seine Spiele sind nicht verloren. Sobald Du ihn reaktivierst, sind sie wieder zu sehen.",
-      inline: null,
-    });
-
     banners.push({
       id: "spieltag.retired-since",
       severity: "info",
       title: `Stillgelegt seit ${formatSpielDatum(inactiveSince)}`,
       body: "Seine Spiele sind nicht verloren. Zum Reaktivieren muss sein Zeitraum noch in die Saison passen.",
       inline: "stilllegen",
-      supersedes: ["spieltag.retired"],
     });
   }
 

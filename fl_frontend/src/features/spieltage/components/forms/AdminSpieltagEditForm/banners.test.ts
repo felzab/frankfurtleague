@@ -10,8 +10,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
-
 import { buildSpieltagBanners } from "./banners.ts";
 
 import type { SpieltagBanner } from "./banners.ts";
@@ -103,12 +101,10 @@ describe("buildSpieltagBanners", () => {
     assert.ok(!retired.includes("spieltag.retire-blockiert-untergrenze"));
   });
 
-  it("drops the undated retirement banner from the rail once the dated one is present", () => {
-    // Red without `resolveRailBanners`.
+  it("dates the retirement in its title, which is the fact an admin checks the state against", () => {
     const built = build({ inactiveSince: "2026-04-02" });
 
-    assert.ok(ids(built).includes("spieltag.retired"));
-    assert.ok(!ids(resolveRailBanners(built)).includes("spieltag.retired"));
-    assert.ok(resolveRailBanners(built).some((banner) => /02\.04\.2026/.test(banner.title)));
+    assert.ok(ids(built).includes("spieltag.retired-since"));
+    assert.ok(built.some((banner) => /02\.04\.2026/.test(banner.title)));
   });
 });

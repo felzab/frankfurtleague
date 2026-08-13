@@ -1,9 +1,9 @@
 /**
  * SPIELORTE · venue editor banner tests
  *
- * The one `supersedes` edge on this editor points at a rail banner whose panel twin carries strictly
- * more — the derivation behind the maps link. Asserting it against the resolved list is what keeps a
- * broken edge from surfacing as two banners saying one thing rather than as a failure.
+ * The fan-out entry is the one an admin acts on, and both identity fields raise it. Asserting the two
+ * fields against each other is what keeps a rename and a moved address from drifting into two
+ * different warnings about one write.
  */
 
 import assert from "node:assert/strict";
@@ -36,12 +36,12 @@ describe("buildSpielortBanners", () => {
     assert.deepEqual(ids(build({ isNameChanged: true })), ids(build({ isAddressChanged: true })));
   });
 
-  it("drops the general fan-out banner from the rail once the derivation's twin is present", () => {
-    // Red without `resolveRailBanners`.
-    const built = build({ isNameChanged: true });
-
-    assert.ok(ids(built).includes("spielort.identity-changed"));
-    assert.ok(!ids(resolveRailBanners(built)).includes("spielort.identity-changed"));
+  it("states the fan-out exactly once, however many identity fields were touched", () => {
+    // An admin who changed both the name and the address is looking at one write, so two entries
+    // would be the same consequence read twice.
+    for (const touched of [{ isNameChanged: true }, { isAddressChanged: true }, { isNameChanged: true, isAddressChanged: true }]) {
+      assert.deepEqual(ids(build(touched)), ["spielort.maps-link-derived"]);
+    }
   });
 
   it("grades the fan-out as a warning, so a save stops on it", () => {

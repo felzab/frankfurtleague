@@ -44,8 +44,8 @@ describe("resolveRailBanners", () => {
   });
 
   it("fires an equal-severity edge whichever way round the editor authored the pair", () => {
-    // Four of this app's six edges are info-to-info, so an edge that only worked when the narrower
-    // banner happened to be pushed first would silently do nothing on most of them.
+    // An equal-severity edge is the shape with no severity gap to order it, so one that worked only
+    // when the narrower banner was pushed first would do nothing and report nothing.
     const generalFirst = resolveRailBanners([banner("general", "info"), banner("specific", "info", ["general"])]);
     const specificFirst = resolveRailBanners([banner("specific", "info", ["general"]), banner("general", "info")]);
 

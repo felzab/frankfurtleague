@@ -11,8 +11,7 @@
 
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-export type SpielortBannerId =
-  "spielort.identity-changed" | "spielort.maps-link-derived" | "spielort.miete-changed" | "spielort.kein-stadtteil";
+export type SpielortBannerId = "spielort.maps-link-derived" | "spielort.miete-changed" | "spielort.kein-stadtteil";
 
 /** The panel spots that render one of these inline. */
 export type SpielortBannerSpot = "adresse" | "miete";
@@ -33,25 +32,15 @@ export function buildSpielortBanners({
 }): readonly SpielortBanner[] {
   const banners: SpielortBanner[] = [];
 
-  // Both halves fan out together, so the banner is about the pair rather than about either field: the
-  // backend rewrites `ort.name` AND `ort.maps_link` on every Spiel held here, whichever of the two the
-  // admin actually touched.
+  // One entry for both fields, because they fan out together: the backend rewrites `ort.name` AND
+  // `ort.maps_link` on every Spiel held here, whichever of the two the admin actually touched.
   if (isNameChanged || isAddressChanged) {
-    banners.push({
-      id: "spielort.identity-changed",
-      severity: "warning",
-      title: "Jedes Spiel an diesem Ort ändert sich mit",
-      body: "Nach dem Speichern steht der neue Name an jedem Spiel hier, auch an längst gespielten.",
-      inline: null,
-    });
-
     banners.push({
       id: "spielort.maps-link-derived",
       severity: "warning",
       title: "Jedes Spiel an diesem Ort ändert sich mit",
       body: "Nach dem Speichern führt die Karte an jedem Spiel hier zur neuen Adresse, auch an längst gespielten.",
       inline: "adresse",
-      supersedes: ["spielort.identity-changed"],
     });
   }
 
