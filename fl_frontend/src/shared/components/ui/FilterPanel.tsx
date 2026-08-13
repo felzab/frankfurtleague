@@ -224,9 +224,63 @@ function FacetCell<TItem>({
   );
 }
 
+/** What a panel and a sheet both need to draw their cells; the geometry around them is not shared. */
+type FilterPanelContent<TItem> = {
+  /**
+   * Every dimension the surface offers. The counts read against all of them, so a panel showing part of
+   * the set still reports what the dimensions outside it have already narrowed.
+   */
+  facets: readonly Facet<TItem>[];
+  /** The subset to render. Defaults to the whole set, which is what a control with no overflow passes. */
+  shown?: readonly Facet<TItem>[];
+  /** Every row before filtering, so each option can say what it would leave. */
+  items: TItem[];
+  selection: FacetSelection;
+  onSelect: (param: string, values: string[]) => void;
+  onClear: (param: string) => void;
+};
+
+/**
+ * The scroller and its cells, with no dialog and no width of their own.
+ *
+ * **For a host that is already a dialog** — the phone's filter sheet is a `Drawer`, which brings its own
+ * dialog, its drag-to-dismiss and its own placement. Rendering `FilterPanel` inside one would nest a
+ * second dialog in the first and hand the sheet a width meant for a popover hanging off a row.
+ *
+ * It sets no width deliberately: a sheet is as wide as the drawer that holds it, and `70vh` remains the
+ * scroller's own ceiling, which is what a sheet wants too.
+ */
+export function FilterPanelBody<TItem>({ facets, shown = facets, items, selection, onSelect, onClear }: FilterPanelContent<TItem>) {
+  return (
+    <div className="scrollbar-line max-h-[70vh] overflow-x-hidden overflow-y-auto p-3">
+      {/* No `items-start`: the default cross-axis stretch is what equalises a line's cells, and
+          it is per LINE, so a phone's one-cell line stretches to itself and needs no exception.
+
+          `justify-center` reaches only a line that cannot fill, which is a single capped cell —
+          everything else has no leftover to centre. */}
+      <div className="flex flex-row flex-wrap justify-center gap-3">
+        {shown.map((facet) => (
+          <FacetCell
+            key={facet.param}
+            facet={facet}
+            counts={countFacetOptions(items, facets, selection, facet)}
+            picked={selection[facet.param] ?? []}
+            onClear={() => {
+              onClear(facet.param);
+            }}
+            onSelect={(values) => {
+              onSelect(facet.param, values);
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * The panel itself — a `Popover.Dialog`, so a caller supplies the `Popover` and the `Popover.Content`
- * that place it.
+ * that place it. A host that is a dialog already renders `FilterPanelBody` instead.
  *
  * **The panel wraps rather than columns** (decided 2026-08-13). CSS multi-column gave every cell exactly
  * one column of width whatever its content, had no common baseline, and spawned a sideways column
@@ -282,19 +336,7 @@ export function FilterPanel<TItem>({
   onSelect,
   onClear,
   available = null,
-}: {
-  /**
-   * Every dimension the surface offers. The counts read against all of them, so a panel showing part of
-   * the set still reports what the dimensions outside it have already narrowed.
-   */
-  facets: readonly Facet<TItem>[];
-  /** The subset to render. Defaults to the whole set, which is what a control with no overflow passes. */
-  shown?: readonly Facet<TItem>[];
-  /** Every row before filtering, so each option can say what it would leave. */
-  items: TItem[];
-  selection: FacetSelection;
-  onSelect: (param: string, values: string[]) => void;
-  onClear: (param: string) => void;
+}: FilterPanelContent<TItem> & {
   /** The trigger row's own width, from `useFilterPanelWidth`. Null until measured, and on a server render. */
   available?: number | null;
 }) {
@@ -309,29 +351,14 @@ export function FilterPanel<TItem>({
         } as CSSProperties
       }
       className={`${overlayPanel()} w-[min(92vw,var(--filter-available,100vw),calc(var(--filter-columns)*18rem_+_(var(--filter-columns)_-_1)*0.75rem_+_1.5rem),var(--container-toolbar))] overflow-hidden p-0 outline-none`}>
-      <div className="scrollbar-line max-h-[70vh] overflow-x-hidden overflow-y-auto p-3">
-        {/* No `items-start`: the default cross-axis stretch is what equalises a line's cells, and
-            it is per LINE, so a phone's one-cell line stretches to itself and needs no exception.
-
-            `justify-center` reaches only a line that cannot fill, which is a single capped cell —
-            everything else has no leftover to centre. */}
-        <div className="flex flex-row flex-wrap justify-center gap-3">
-          {shown.map((facet) => (
-            <FacetCell
-              key={facet.param}
-              facet={facet}
-              counts={countFacetOptions(items, facets, selection, facet)}
-              picked={selection[facet.param] ?? []}
-              onClear={() => {
-                onClear(facet.param);
-              }}
-              onSelect={(values) => {
-                onSelect(facet.param, values);
-              }}
-            />
-          ))}
-        </div>
-      </div>
+      <FilterPanelBody
+        facets={facets}
+        shown={shown}
+        items={items}
+        selection={selection}
+        onSelect={onSelect}
+        onClear={onClear}
+      />
     </Popover.Dialog>
   );
 }

@@ -4,11 +4,13 @@ import { Sliders, Xmark } from "@gravity-ui/icons";
 
 import { Button, Drawer, Popover } from "@heroui/react";
 
+import { dismissControl } from "@/core/dismissControl";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 
 import { COUNT_BADGE } from "./badges";
-import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
+import { FilterPanel, FilterPanelBody, useFilterPanelWidth } from "./FilterPanel";
 import { IconTooltip } from "./IconTooltip";
+import { overlayPanel } from "./overlayPanel";
 
 import type { Facet, FacetOption, FacetSelection } from "@/shared/utils/facets";
 
@@ -44,8 +46,15 @@ const CLEAR_FACE = "flex h-full w-7 shrink-0 items-center justify-center rounded
  */
 const VALUE_CAP = "min-w-0 max-w-[5em] sm:max-w-[16em]";
 
-/** What the add control and the sheet's own control are called, in both the label and the tooltip. */
+/** What the add control is called, in both its label and its tooltip. */
 const ADD_LABEL = "Filter hinzufügen";
+
+/** The word this control already goes by — `FilterBar`'s own default trigger label. */
+const FILTER_LABEL = "Filter";
+
+/** Reset-everything, one recipe for the row's own and the sheet's: `h-7` is the app's small control. */
+const CLEAR_ALL_FACE =
+  "border-border text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 rounded-lg border px-2.5 font-bold transition-colors duration-(--motion-fast)";
 
 /**
  * What is picked, in the FACET's own option order rather than the order it was clicked in.
@@ -65,12 +74,14 @@ function pickedOptions<TItem>(facet: Facet<TItem>, picked: readonly string[]): F
  * promoted, demoted or measured, so the row's content is a function of what was chosen and of nothing
  * else. That is what keeps a filter from moving the moment it is used.
  *
- * **The pill shows the value alone**, on the judgement that a value mostly identifies its own
- * dimension — `SV Bonames` is obviously a club and `Vergangen` obviously a status. Above one pick the
- * badge carries how many MORE are picked, so the label means one thing at every count.
+ * **The pill names its dimension, then its value.** A value identifies its own dimension only where a
+ * surface has one, and these have up to seven: `Kein Ort` reads as a venue beside `Sportplatz Ost`,
+ * `Lessing` is a club, a referee and a venue in a league of schools named after people, and `A` or `E1`
+ * says nothing at all. Above one pick the badge carries how many MORE are picked, so the label means one
+ * thing at every count.
  *
- * **The accessible name keeps the dimension**, because a reader hearing „Vergangen" alone learns
- * nothing about what it filters. That is not the same decision as the visual one and does not follow it.
+ * **The accessible name carries the dimension whatever the visible label does**, because a reader
+ * hearing „Vergangen" alone learns nothing about what it filters.
  */
 function FilterPill<TItem>({
   facet,
@@ -96,7 +107,8 @@ function FilterPill<TItem>({
       <Popover>
         <Popover.Trigger
           aria-label={`${facet.label}: ${chosen.map((option) => option.label).join(", ")} ändern`}
-          className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-2 pr-1.5 pl-3 whitespace-nowrap transition-colors duration-(--motion-fast)">
+          className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-1.5 pr-1.5 pl-3 whitespace-nowrap transition-colors duration-(--motion-fast)">
+          <span className="text-foreground-muted shrink-0">{facet.label}:</span>
           <span className={`text-brand truncate ${VALUE_CAP}`}>{chosen[0]?.label ?? ""}</span>
           {chosen.length > 1 && (
             <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>+{chosen.length - 1}</span>
@@ -205,41 +217,43 @@ export function FilterLeiste<TItem>({
             {activeCount > 0 && <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>{activeCount}</span>}
           </Drawer.Trigger>
           <Drawer.Backdrop>
-            <Drawer.Content placement="bottom">
-              {/* `FilterPanel` IS the dialog here, exactly as it is under a popover — one dialog rather
-                  than its own nested inside `Drawer.Dialog`. `available` is left unset so the sheet
-                  takes the phone's 92vw rather than the row's width, which is a control's width here. */}
-              <div className="flex flex-row items-center justify-between gap-2 px-4 py-3">
-                {activeCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    onPress={clearAll}
-                    className="border-border text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 rounded-lg border px-2.5 font-bold transition-colors duration-(--motion-fast)">
-                    <Xmark
-                      aria-hidden="true"
-                      className="size-3.5 shrink-0"
-                    />
-                    Alle Filter zurücksetzen
-                  </Button>
-                )}
-                <Drawer.CloseTrigger
-                  aria-label="Filter schließen"
-                  className="text-foreground-muted data-hovered:bg-hover data-hovered:text-foreground ml-auto flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg p-0 transition-colors duration-(--motion-fast)">
-                  <Xmark
-                    aria-hidden="true"
-                    className="size-4 shrink-0"
-                  />
-                </Drawer.CloseTrigger>
-              </div>
+            {/* `overlayPanel()` is the surface every panel in this app wears, `FilterPanel` included, so
+                the sheet and the panel it holds are one object. `rounded-b-none` is the one departure:
+                the recipe's lower corners would round against the viewport's own edge. */}
+            <Drawer.Content
+              placement="bottom"
+              className={`${overlayPanel()} rounded-b-none`}>
+              <Drawer.Dialog
+                aria-label={FILTER_LABEL}
+                className="flex flex-col outline-none">
+                {/* `p-3` is the body's own inset below it, so the heading and the cells share one
+                    margin. The rule is `border-border`, the one the app draws every separator in. */}
+                <div className="border-border flex shrink-0 flex-row items-center gap-2 border-b p-3">
+                  <span className="fluid-lg text-foreground font-extrabold tracking-tight">{FILTER_LABEL}</span>
+                  {activeCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      onPress={clearAll}
+                      className={CLEAR_ALL_FACE}>
+                      <Xmark
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0"
+                      />
+                      Alle Filter zurücksetzen
+                    </Button>
+                  )}
+                  <Drawer.CloseTrigger {...dismissControl({ label: "Filter schließen", className: "ml-auto" })} />
+                </div>
 
-              <FilterPanel
-                facets={facets}
-                shown={facets}
-                items={items}
-                selection={selection}
-                onSelect={setFacet}
-                onClear={clearFacet}
-              />
+                <FilterPanelBody
+                  facets={facets}
+                  shown={facets}
+                  items={items}
+                  selection={selection}
+                  onSelect={setFacet}
+                  onClear={clearFacet}
+                />
+              </Drawer.Dialog>
             </Drawer.Content>
           </Drawer.Backdrop>
         </Drawer>
@@ -300,7 +314,7 @@ export function FilterLeiste<TItem>({
           <Button
             variant="ghost"
             onPress={clearAll}
-            className="border-border text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 self-start rounded-lg border px-2.5 font-bold transition-colors duration-(--motion-fast)">
+            className={`${CLEAR_ALL_FACE} self-start`}>
             <Xmark
               aria-hidden="true"
               className="size-3.5 shrink-0"
