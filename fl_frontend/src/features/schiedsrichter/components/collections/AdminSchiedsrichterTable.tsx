@@ -99,8 +99,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         />
       </RowActionLink>
       <RowActionDelete
-        label="Löschen"
-        ariaLabel={`Schiedsrichter ${schiedsrichter.name} löschen`}
+        label="Stilllegen"
+        ariaLabel={`Schiedsrichter ${schiedsrichter.name} stilllegen`}
         onPress={() => setDeletingSchiedsrichter(schiedsrichter)}
       />
     </RowActions>

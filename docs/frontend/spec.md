@@ -514,11 +514,29 @@ string by string. `Frankfurt-League`, `K.-o.-Runde`, `Carl-Schurz-Schule`, `E-Ma
 keep theirs, as does every club and venue name. The test is whether the character joins words into one
 term or separates one clause from another.
 
-**Neither the pronoun rule nor the register rule is mechanical.** A lint over them would have to know
-which string literals are user-facing, and nothing in the tree marks that, so both hold by review. The
-dash rule is the one that could be checked: the characters it forbids appear only between spaces or
-inside a JSX text node, and the hyphen it permits has a word character on both sides, so the two are
-distinguishable without knowing whether the string reaches a reader.
+**An interpolated noun must read correctly for every value it can take** (my rule, 2026-08-13): its
+article, its plural, and any pronoun agreeing with it. The instance that made the rule was the matchday
+editor's retirement banner, which put `PHASE_LABELS[phase]` behind a hardcoded `Die` and a hardcoded
+plural, so a knockout round read "Die Halbfinale braucht mindestens 1 Spieltage" where every one of
+those rounds is neuter and the count was one. **Recast rather than adding a gender map beside the label
+map**: lead with the label as a tag, put the count in a readout instead of a sentence that has to agree
+with it, or give each count its own sentence. Two parallel maps for one noun set drift the moment a
+value is added.
+
+**Copy says what the reader should do or expect, never how the value is computed** (my rule,
+2026-08-13). The instance is the venue editor, which explained that the map link is composed from the
+name and the address and rebuilt on save. An admin does not need to know a link is derived. What they
+need is that changing this name changes where every fixture at this venue points, including the ones
+already played, and that is the whole of what the banner now says. **The tells are a sentence naming a
+field that is not on screen, a sentence explaining how a value is stored or regenerated, and a sentence
+about when something is recalculated.** Cut the mechanism and keep the consequence sharp, because
+several of these strings exist precisely because something is irreversible.
+
+**Only the dash rule can be checked mechanically.** The characters it forbids stand between spaces or
+alone in a JSX text node, and the hyphen it permits has a word character on both sides, so a check
+separates them without knowing whether the string reaches a reader. The other three cannot be: a lint
+over the pronouns, over grammatical agreement, or over register would first have to know which string
+literals are user-facing, and nothing in the tree marks that. They hold by review.
 
 ### 1.13 Metadata and indexing
 

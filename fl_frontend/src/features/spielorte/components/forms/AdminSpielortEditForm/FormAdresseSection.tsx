@@ -41,12 +41,12 @@ export function FormAdresseSection({
         <h2 className={panel.heading()}>
           Adresse
           <InfoHint label="Hinweis zur Adresse">
-            <p>Wohin der Karten-Link zeigt.</p>
+            <p>Wohin die Karte an jedem Spiel hier führt.</p>
             <ul>
               <li>
-                Der Link <strong>ergibt sich aus Name und Adresse</strong> und lässt sich nicht getrennt setzen.
+                Eine Korrektur gilt <strong>für jedes Spiel hier</strong>, auch für längst gespielte.
               </li>
-              <li>Der Stadtteil ist freiwillig und dient allein der Suche in der Spielort-Liste.</li>
+              <li>Der Stadtteil ist freiwillig und hilft nur beim Suchen in der Spielort-Liste.</li>
             </ul>
           </InfoHint>
         </h2>

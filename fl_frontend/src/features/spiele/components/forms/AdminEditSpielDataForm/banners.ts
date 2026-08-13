@@ -113,7 +113,7 @@ export function buildSpielBanners({
       severity: "danger",
       title:
         dependentSpielNummern.length === 1 ? `Die Absage lässt Spiel ${nummern} unbesetzt` : `Die Absage lässt die Spiele ${nummern} unbesetzt`,
-      body: "Wer dort antritt, ergibt sich aus dem Ausgang dieses Spiels, und auch die Runden darunter bleiben offen.",
+      body: "Ohne Ergebnis hier bleibt dort offen, wer antritt. Die Runden darunter ebenso.",
       inline: "absage-turnierbaum",
     });
   }
@@ -162,7 +162,7 @@ export function buildSpielBanners({
         releasedSpielNummern.length === 1
           ? `Eine Mannschaft wird aus Spiel ${nummern} entfernt`
           : `Mannschaften werden aus den Spielen ${nummern} entfernt`,
-      body: "Eine Mannschaft spielt höchstens einmal pro Spieltag, daher wird die Seite dort frei.",
+      body: "Die Seite wird dort frei, denn eine Mannschaft spielt höchstens einmal pro Spieltag.",
       inline: null,
     });
   }

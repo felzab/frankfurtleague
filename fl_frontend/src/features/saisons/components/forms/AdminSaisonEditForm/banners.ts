@@ -57,7 +57,7 @@ export function buildSaisonBanners({
       id: "saison.active",
       severity: "info",
       title: "Änderungen wirken sofort auf der ganzen Seite",
-      body: "Jede Seite ohne ausgewählte Saison zeigt diese Saison, und die Tabelle wird bei jedem Aufruf neu gerechnet.",
+      body: "Wer keine Saison auswählt, sieht diese. Eine Regeländerung wirkt sofort, auch auf längst gespielte Spiele.",
       inline: "regeln-status",
     });
   }
@@ -67,7 +67,7 @@ export function buildSaisonBanners({
       id: "saison.past",
       severity: "info",
       title: "Eine Regeländerung wirkt hier rückwirkend",
-      body: "Die Spiele und Tabellen dieser Saison bleiben abrufbar und werden bei jedem Aufruf neu gerechnet.",
+      body: "Die Tabellen dieser Saison ändern sich mit, obwohl sie längst gespielt ist.",
       inline: "regeln-status",
     });
   }
@@ -100,7 +100,7 @@ export function buildSaisonBanners({
       id: "saison.points-changed",
       severity: "warning",
       title: "Punkte wirken auf die ganze Saison",
-      body: "Die Tabelle wird bei jedem Aufruf neu gerechnet, also gelten die neuen Punkte auch für längst gespielte Spiele.",
+      body: "Auch längst gespielte Spiele zählen dann nach den neuen Punkten.",
       inline: null,
     });
   }

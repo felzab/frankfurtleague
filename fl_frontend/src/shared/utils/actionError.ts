@@ -51,10 +51,10 @@ export function toActionErrorResult(error: unknown): NonNullable<FormState> {
     if (error.statusCode === 409) {
       // The ordinary outcome of a create hitting a unique index (DB-COMMON-002, ADR-0025): the
       // record conflicts with one that exists -- possibly a retired row keeping its slot.
-      return { success: false, error: "Der Eintrag steht im Konflikt mit einem bereits vorhandenen Datensatz." };
+      return { success: false, error: "Der Eintrag steht im Konflikt mit einem, den es schon gibt." };
     }
     if (error.statusCode === 404) {
-      return { success: false, error: "Der Datensatz wurde nicht gefunden. Möglicherweise wurde er inzwischen gelöscht." };
+      return { success: false, error: "Der Eintrag wurde nicht gefunden. Vielleicht hat ihn jemand inzwischen gelöscht." };
     }
     return { success: false, error: "Der Server hat mit einem Fehler geantwortet. Versuche es erneut." };
   }
@@ -69,7 +69,7 @@ export function toActionErrorResult(error: unknown): NonNullable<FormState> {
   }
 
   if (error instanceof APIMalformedDataError) {
-    return { success: false, error: "Die Antwort des Servers war fehlerhaft." };
+    return { success: false, error: "Die Daten kamen fehlerhaft an. Versuche es erneut." };
   }
 
   return { success: false, error: "Ein unerwarteter Fehler ist aufgetreten." };

@@ -141,7 +141,7 @@ export async function deleteSchiedsrichterAction(
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: "Beim Löschen der Schiedsrichter-Daten ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: "Beim Stilllegen des Schiedsrichters ist ein unerwarteter Fehler aufgetreten" };
     }
 
     updateTag("schiedsrichter");
@@ -149,7 +149,7 @@ export async function deleteSchiedsrichterAction(
     return {
       success: Boolean(postOperation.acknowledged),
       updated_document: postOperation.updated_document,
-      message: "Schiedsrichter erfolgreich gelöscht!",
+      message: "Schiedsrichter stillgelegt. Seine Spiele bleiben erhalten.",
     };
   });
 }

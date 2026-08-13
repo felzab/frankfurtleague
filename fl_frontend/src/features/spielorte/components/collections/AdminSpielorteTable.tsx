@@ -122,8 +122,8 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
         />
       </RowActionLink>
       <RowActionDelete
-        label="Löschen"
-        ariaLabel={`Spielort ${ort.name} löschen`}
+        label="Stilllegen"
+        ariaLabel={`Spielort ${ort.name} stilllegen`}
         onPress={() => setDeletingOrt(ort)}
       />
     </RowActions>

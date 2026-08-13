@@ -138,7 +138,7 @@ export async function deleteSpielortAction(
     }
 
     if (!patchOperation.acknowledged) {
-      return { success: false, error: "Beim löschen der Spielort-Daten ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: "Beim Stilllegen des Spielorts ist ein unerwarteter Fehler aufgetreten" };
     }
 
     updateTag("spielorte");
@@ -146,7 +146,7 @@ export async function deleteSpielortAction(
     return {
       success: Boolean(patchOperation.acknowledged),
       updated_document: patchOperation.updated_document,
-      message: "Spielort erfolgreich gelöscht!",
+      message: "Spielort stillgelegt. Seine Spiele bleiben erhalten.",
     };
   });
 }

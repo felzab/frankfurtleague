@@ -35,7 +35,7 @@ export function buildSchiedsrichterBanners({
       id: "schiedsrichter.name-changed",
       severity: "warning",
       title: "Der neue Name ersetzt den alten in jedem Spiel",
-      body: "Jedes Spiel trägt eine Kopie des Namens. Beim Speichern wird sie überall überschrieben, auch bei längst gespielten Partien. Der alte Name steht danach nirgends mehr.",
+      body: "Auch längst gespielte Partien zeigen danach den neuen Namen. Der alte steht nirgends mehr.",
       inline: null,
     });
   }
@@ -45,7 +45,7 @@ export function buildSchiedsrichterBanners({
       id: "schiedsrichter.honorar-changed",
       severity: "info",
       title: "Bereits angesetzte Spiele behalten ihr Honorar",
-      body: "Das Standard-Honorar gilt für neue Ansetzungen. Was für ein Spiel vereinbart wurde, steht an diesem Spiel und bleibt dort stehen.",
+      body: "Der neue Betrag gilt nur für Spiele, die Du danach ansetzt.",
       inline: "honorar",
     });
   }
@@ -55,7 +55,7 @@ export function buildSchiedsrichterBanners({
       id: "schiedsrichter.no-kontakt",
       severity: "info",
       title: "Für diesen Schiedsrichter ist kein Kontakt hinterlegt",
-      body: "Weder E-Mail noch Telefon sind gespeichert. Beides ist freiwillig. Ohne eines von beiden erreichst Du ihn aber nicht, wenn ein Spiel verlegt wird.",
+      body: "Beides ist freiwillig. Ohne Kontakt erreichst Du ihn aber nicht, wenn ein Spiel verlegt wird.",
       inline: "kontakt",
     });
   }

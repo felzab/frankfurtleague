@@ -240,7 +240,7 @@ export function AdminSpielortEditForm({
       validation.clearVerdicts();
       setHasSaved(true);
 
-      offerUndo(undoPayload, identityTouched ? "Name und Karten-Link stehen ab sofort auch an jedem Spiel hier." : undefined);
+      offerUndo(undoPayload, identityTouched ? "Jedes Spiel an diesem Ort zeigt jetzt den neuen Namen und die neue Karte." : undefined);
 
       // AFTER the undo payload is built, which reads the props rather than these atoms — see the
       // match editor: leaving with typed values still in state is what let a save-then-undo reopen

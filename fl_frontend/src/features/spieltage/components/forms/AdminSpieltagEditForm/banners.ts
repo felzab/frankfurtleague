@@ -42,6 +42,18 @@ export function standsAtThePhaseFloor(livePhaseCount: number, impliedPhaseCount:
   return livePhaseCount - 1 < impliedPhaseCount && livePhaseCount >= impliedPhaseCount && impliedPhaseCount > 0;
 }
 
+/**
+ * The sentence about fixtures moving with the matchday, or nothing where there are none.
+ *
+ * Each count gets its own sentence rather than one with the number substituted: a fixed plural turns a
+ * lone fixture into "Seine 1 Spiele", and an empty matchday into a reassurance about nothing.
+ */
+function describeMitwandernd(spieleAngelegt: number): string {
+  if (spieleAngelegt === 0) return "";
+  if (spieleAngelegt === 1) return " Sein Spiel nimmt er mit.";
+  return ` Seine ${String(spieleAngelegt)} Spiele nimmt er mit.`;
+}
+
 export function buildSpieltagBanners({
   label,
   inactiveSince,
@@ -82,7 +94,7 @@ export function buildSpieltagBanners({
       id: "spieltag.retired",
       severity: "info",
       title: "Dieser Spieltag steht auf keinem öffentlichen Spielplan",
-      body: "Seine Spiele bleiben vollständig erhalten und auflösbar; sichtbar werden sie wieder, sobald Du ihn reaktivierst.",
+      body: "Seine Spiele sind nicht verloren. Sobald Du ihn reaktivierst, sind sie wieder zu sehen.",
       inline: null,
     });
 
@@ -90,7 +102,7 @@ export function buildSpieltagBanners({
       id: "spieltag.retired-since",
       severity: "info",
       title: `Stillgelegt seit ${formatSpielDatum(inactiveSince)}`,
-      body: "Der Spieltag steht auf keinem öffentlichen Spielplan, seine Spiele bleiben aber vollständig erhalten. Beim Reaktivieren wird geprüft, ob sein Zeitraum noch in die Saison passt.",
+      body: "Seine Spiele sind nicht verloren. Zum Reaktivieren muss sein Zeitraum noch in die Saison passen.",
       inline: "stilllegen",
       supersedes: ["spieltag.retired"],
     });
@@ -101,8 +113,8 @@ export function buildSpieltagBanners({
   banners.push({
     id: "spieltag.name-abgeleitet",
     severity: "info",
-    title: `Der Name „${label}“ ergibt sich von selbst`,
-    body: "Er folgt aus der Phase und der Position darin, und die Position folgt aus Phase und Beginn. Verschieben heißt also: das Datum ändern.",
+    title: `Der Name „${label}“ lässt sich nicht eintippen`,
+    body: "Er richtet sich nach Phase und Beginn. Ändere den Beginn, um den Spieltag zu verschieben.",
     inline: null,
   });
 
@@ -110,8 +122,8 @@ export function buildSpieltagBanners({
     banners.push({
       id: "spieltag.phase-changed",
       severity: "warning",
-      title: `Der Spieltag rückt in die ${PHASE_LABELS[draftPhase]}`,
-      body: `Mit der Phase ändert sich auch, wo er in der Saison steht, wie er heißt und wie viele Spiele von ihm erwartet werden. Seine ${String(spieleAngelegt)} angelegten Spiele wandern mit.`,
+      title: `Neue Phase: ${PHASE_LABELS[draftPhase]}`,
+      body: `Der Spieltag bekommt damit einen neuen Namen und eine neue Position in der Saison.${describeMitwandernd(spieleAngelegt)}`,
       inline: "phase",
     });
   }
@@ -120,8 +132,8 @@ export function buildSpieltagBanners({
     banners.push({
       id: "spieltag.zeitraum-changed",
       severity: "warning",
-      title: "Der neue Zeitraum entscheidet über die Reihenfolge",
-      body: "Innerhalb einer Phase wird nach Beginn sortiert, der Spieltag kann also seinen Platz und damit seinen Namen wechseln. Liegt ein bereits angelegtes Spiel außerhalb des neuen Zeitraums, lehnt der Server die Änderung ab.",
+      title: "Der Spieltag kann dadurch anders heißen",
+      body: "Innerhalb einer Phase entscheidet der Beginn über Reihenfolge und Namen. Speichern geht nur, wenn alle Spiele des Spieltags im neuen Zeitraum liegen.",
       inline: "zeitraum",
     });
   }
@@ -142,11 +154,10 @@ export function buildSpieltagBanners({
     banners.push({
       id: "spieltag.anzahl-offen",
       severity: "info",
-      title:
-        spieleAngelegt < anzahlSpiele
-          ? `${String(spieleAngelegt)} von ${String(anzahlSpiele)} erwarteten Spielen sind angelegt`
-          : `${String(spieleAngelegt)} Spiele sind angelegt, erwartet werden ${String(anzahlSpiele)}`,
-      body: "Die erwartete Zahl folgt aus den Regeln der Saison und dieser Phase. Eine Abweichung ist kein Fehler. Sie zeigt nur, wo der Spielplan noch nicht fertig ist.",
+      // The counts sit in the body as a readout rather than in a sentence: any sentence carrying them
+      // has to agree with both at once, and one of the two is 1 often enough to be the normal case.
+      title: spieleAngelegt < anzahlSpiele ? "Es fehlen noch Spiele" : "Es sind mehr Spiele angelegt als erwartet",
+      body: `Angelegt: ${String(spieleAngelegt)}. Erwartet: ${String(anzahlSpiele)}. Das ist kein Fehler, sondern der Stand des Spielplans. Die erwartete Zahl kommt aus den Regeln der Saison.`,
       inline: null,
     });
   }
@@ -159,7 +170,7 @@ export function buildSpieltagBanners({
         spieleGespielt === 1
           ? "1 Spiel dieses Spieltags hat ein Ergebnis"
           : `${String(spieleGespielt)} Spiele dieses Spieltags haben ein Ergebnis`,
-      body: "Stilllegen ist deshalb nicht möglich: Der Spieltag würde samt diesen Ergebnissen vom öffentlichen Spielplan verschwinden. Verschiebe die Spiele auf einen anderen Spieltag oder sage sie ab.",
+      body: "Stilllegen ist deshalb nicht möglich. Verschiebe die Spiele auf einen anderen Spieltag oder sage sie ab.",
       inline: "stilllegen",
     });
   }
@@ -170,8 +181,16 @@ export function buildSpieltagBanners({
     banners.push({
       id: "spieltag.retire-blockiert-untergrenze",
       severity: "info",
-      title: `Die ${PHASE_LABELS[storedPhase]} braucht mindestens ${String(impliedPhaseCount)} Spieltage`,
-      body: `Sie hat zurzeit ${String(livePhaseCount)}, Stilllegen ist deshalb nicht möglich. Lege zuerst einen weiteren Spieltag dieser Phase an, oder passe die Regeln der Saison an.`,
+      // The phase label leads as a tag rather than sitting in the sentence: "die Halbfinale" is what a
+      // fixed article makes of it, and every knockout round in `PHASE_LABELS` is neuter.
+      title:
+        impliedPhaseCount === 1
+          ? `${PHASE_LABELS[storedPhase]}: Dies ist der einzige Spieltag der Phase`
+          : `${PHASE_LABELS[storedPhase]}: Die Phase hat genau die ${String(impliedPhaseCount)} Spieltage, die sie mindestens braucht`,
+      body:
+        impliedPhaseCount === 1
+          ? "Stilllegen ist deshalb nicht möglich, denn die Phase stünde danach ohne Spieltag da. Lege zuerst einen weiteren Spieltag dieser Phase an, oder passe die Regeln der Saison an."
+          : "Stilllegen ist deshalb nicht möglich, denn danach wäre es einer zu wenig. Lege zuerst einen weiteren Spieltag dieser Phase an, oder passe die Regeln der Saison an.",
       inline: "stilllegen",
     });
   }

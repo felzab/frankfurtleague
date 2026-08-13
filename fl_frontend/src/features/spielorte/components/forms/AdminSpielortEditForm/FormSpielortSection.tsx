@@ -35,9 +35,8 @@ export function FormSpielortSection({
             <p>Der Name, unter dem der Ort auf jeder Spielkarte steht.</p>
             <ul>
               <li>
-                Eine Korrektur wird beim Speichern <strong>in jedem Spiel überschrieben</strong>, das hier ausgetragen wurde.
+                Eine Korrektur gilt <strong>für jedes Spiel hier</strong>, auch für längst gespielte.
               </li>
-              <li>Er geht außerdem in den Karten-Link ein, den die Adresse unten mitbestimmt.</li>
             </ul>
           </InfoHint>
         </h2>

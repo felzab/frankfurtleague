@@ -41,8 +41,8 @@ describe("buildSaisonBanners", () => {
   it("carries both live-season consequences in one entry, since neither follows from the other", () => {
     const [banner] = build({ saisonStatus: "active" });
 
-    assert.match(banner?.body ?? "", /ohne ausgewählte Saison/);
-    assert.match(banner?.body ?? "", /bei jedem Aufruf neu gerechnet/);
+    assert.match(banner?.body ?? "", /keine Saison auswählt/);
+    assert.match(banner?.body ?? "", /längst gespielte Spiele/);
   });
 
   it("grades both save-blocking rule breaches as danger", () => {

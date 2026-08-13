@@ -40,16 +40,16 @@ export function buildSpielortBanners({
     banners.push({
       id: "spielort.identity-changed",
       severity: "warning",
-      title: "Name und Karten-Link werden in jedem Spiel überschrieben",
-      body: "Jedes Spiel an diesem Ort trägt eine Kopie des Namens und des Karten-Links. Beim Speichern werden beide überall ersetzt, auch bei längst gespielten Partien.",
+      title: "Jedes Spiel an diesem Ort ändert sich mit",
+      body: "Nach dem Speichern steht der neue Name an jedem Spiel hier, auch an längst gespielten.",
       inline: null,
     });
 
     banners.push({
       id: "spielort.maps-link-derived",
       severity: "warning",
-      title: "Name und Karten-Link werden in jedem Spiel überschrieben",
-      body: "Den Karten-Link gibt es als Feld nicht: Er entsteht aus Name und Adresse und wird beim Speichern neu gebildet. Was Du hier änderst, entscheidet damit auch, wohin der Karten-Link jedes Spiels an diesem Ort zeigt, bei längst gespielten Partien ebenso.",
+      title: "Jedes Spiel an diesem Ort ändert sich mit",
+      body: "Nach dem Speichern führt die Karte an jedem Spiel hier zur neuen Adresse, auch an längst gespielten.",
       inline: "adresse",
       supersedes: ["spielort.identity-changed"],
     });
@@ -60,7 +60,7 @@ export function buildSpielortBanners({
       id: "spielort.miete-changed",
       severity: "info",
       title: "Bereits angesetzte Spiele behalten ihre Miete",
-      body: "Der Standard-Mietpreis gilt für neue Ansetzungen. Was für ein Spiel vereinbart wurde, steht an diesem Spiel und bleibt dort stehen.",
+      body: "Der neue Preis gilt nur für Spiele, die Du danach ansetzt.",
       inline: "miete",
     });
   }
@@ -70,7 +70,7 @@ export function buildSpielortBanners({
       id: "spielort.kein-stadtteil",
       severity: "info",
       title: "Für diesen Spielort ist kein Stadtteil hinterlegt",
-      body: "Der Stadtteil ist freiwillig. Er steht auf keiner öffentlichen Seite und dient allein der Suche in der Spielort-Liste.",
+      body: "Das Feld ist freiwillig. Es hilft nur beim Suchen in der Spielort-Liste.",
       inline: "adresse",
     });
   }
