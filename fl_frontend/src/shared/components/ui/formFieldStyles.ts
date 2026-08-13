@@ -134,10 +134,10 @@ export const FORM_SECTION_HEADING = "fluid-xxs text-foreground-muted font-bold t
  *
  * **`rounded-xl` is `overlayPanel`'s own corner, and the wrapper has to match it.** HeroUI gives
  * `.date-picker__popover` `min(32px, calc(var(--radius) * 2.5))` — 20px — together with `overflow-y: auto`,
- * which makes it a clipping box. With the padding gone the calendar fills that box exactly, so every corner
- * region between the panel's 12px arc and the wrapper's 20px one fell outside the clip: the panel's border
- * was cut at all four corners and `bg-overlay` showed through the gap. Matching the two radii is what fixes
- * it rather than dropping the wrapper's, because the same clip also swallows the calendar's `shadow-lg` —
+ * which makes it a clipping box. With no padding the calendar fills that box exactly, so any corner region
+ * between the panel's 12px arc and a larger arc on the wrapper falls outside the clip, taking the panel's
+ * border with it and letting `bg-overlay` through the gap. Matching the two radii is what answers that
+ * rather than dropping the wrapper's, because the same clip also swallows the calendar's `shadow-lg` —
  * `--shadow-overlay` on this wrapper is the picker's only visible elevation.
  *
  * **Both steps set a width AND a max-width, and dropping either does nothing.** HeroUI declares
