@@ -6,6 +6,9 @@ import { formButton } from "@/shared/components/ui/formButtons";
 
 import { useDraftStatus } from "./DraftStatusContext";
 
+/** One editor per page, so the id can be a constant rather than threaded through a hook. */
+const SAVE_HINT_ID = "spiel-speichern-hinweis";
+
 /**
  * Save, cancel, and the running state of the draft — the fixed bottom row of the editor's shell.
  *
@@ -40,10 +43,14 @@ export function FormActionBar({ isPending, onCancel }: { isPending: boolean; onC
   return (
     <div className="border-border bg-background w-full border-t px-4 py-3 sm:px-8">
       <div className="max-w-page mx-auto flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+        {/* Beside the buttons rather than at the bar's far edge, because the disabled Speichern
+            points at it: a reason sitting a screen-width from the control it explains is a reason
+            nobody connects to it. */}
         <p
+          id={SAVE_HINT_ID}
           role="status"
           aria-live="polite"
-          className="fluid-xs font-bold sm:mr-auto">
+          className="fluid-xs font-bold sm:ml-auto">
           {status.isDirty ? (
             <span className="text-warning-strong">
               {status.changed.length === 1 ? "1 nicht gespeicherte Änderung" : `${status.changed.length} nicht gespeicherte Änderungen`}
@@ -71,12 +78,15 @@ export function FormActionBar({ isPending, onCancel }: { isPending: boolean; onC
           {/* Strg+S submits too, and the form gates that path on the SAME `status.isDirty` — a
               shortcut that saved a clean draft while the button beside it was disabled would be two
               answers to one question. */}
+          {/* "Keine Änderungen" outlasts the press, unlike "Speichert...", so the label stops
+              promising a save and the status line beside it is what states the reason. */}
           <Button
             type="submit"
             variant="primary"
+            aria-describedby={!isPending && !status.isDirty ? SAVE_HINT_ID : undefined}
             isDisabled={isPending || !status.isDirty}
             className={`${formButton({ intent: "submit" })} flex-1 sm:flex-initial`}>
-            {isPending ? "Speichert..." : "Speichern"}
+            {isPending ? "Speichert..." : status.isDirty ? "Speichern" : "Nichts zu speichern"}
           </Button>
         </div>
       </div>

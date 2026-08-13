@@ -6,6 +6,9 @@ import { formButton } from "@/shared/components/ui/formButtons";
 
 import { useTeamDraftStatus } from "./TeamDraftStatusContext";
 
+/** One editor per page, so the id can be a constant rather than threaded through a hook. */
+const SAVE_HINT_ID = "team-speichern-hinweis";
+
 /**
  * Save, cancel and the running state of the club draft — the match editor's action bar over the
  * team editor's own status context. The reasoning lives on `FormActionBar`, unchanged here: the bar
@@ -19,9 +22,10 @@ export function TeamActionBar({ isPending, onCancel }: { isPending: boolean; onC
     <div className="border-border bg-background w-full border-t px-4 py-3 sm:px-8">
       <div className="max-w-page mx-auto flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
         <p
+          id={SAVE_HINT_ID}
           role="status"
           aria-live="polite"
-          className="fluid-xs font-bold sm:mr-auto">
+          className="fluid-xs font-bold sm:ml-auto">
           {status.isDirty ? (
             <span className="text-warning-strong">
               {status.changed.length === 1 ? "1 nicht gespeicherte Änderung" : `${status.changed.length} nicht gespeicherte Änderungen`}
@@ -49,9 +53,10 @@ export function TeamActionBar({ isPending, onCancel }: { isPending: boolean; onC
           <Button
             type="submit"
             variant="primary"
+            aria-describedby={!isPending && !status.isDirty ? SAVE_HINT_ID : undefined}
             isDisabled={isPending || !status.isDirty}
             className={`${formButton({ intent: "submit" })} flex-1 sm:flex-initial`}>
-            {isPending ? "Speichert..." : "Speichern"}
+            {isPending ? "Speichert..." : status.isDirty ? "Speichern" : "Nichts zu speichern"}
           </Button>
         </div>
       </div>
