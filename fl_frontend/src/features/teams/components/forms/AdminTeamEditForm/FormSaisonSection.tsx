@@ -396,9 +396,11 @@ export function FormSaisonSection({
                   <LockFill className="text-foreground-muted size-3.5 shrink-0" />
                   {gruppe ? `Gruppe ${gruppe}` : "—"}
                 </div>
-                <p className="fluid-xxs text-foreground-muted font-medium">{gruppeLock.reason}</p>
               </div>
 
+              {/* Why the row is locked is the swap control's to say: the lock is one condition where
+                  the swap grades four, so a second sentence here can only be the one that disagrees.
+                  It renders wherever the lock does — a locked group implies a membership. */}
               {self !== null && (
                 <GruppenTauschControl
                   saisonId={saison.saisonId}
