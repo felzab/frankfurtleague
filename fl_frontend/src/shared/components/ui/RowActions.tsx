@@ -6,6 +6,7 @@ import { ArrowRotateLeft, Copy, Pencil, TrashBin } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
+import { DisabledHint } from "./DisabledHint";
 import { IconTooltip } from "./IconTooltip";
 import { ROW_ACTION_SIZE } from "./rowActionSize";
 
@@ -40,7 +41,12 @@ const ACTION_LINK_CLASS = `${ACTION_SHAPE} hover:bg-hover hover:text-brand`;
 
 const ACTION_BUTTON_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover data-hovered:text-brand`;
 
-const DANGER_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover-danger data-hovered:text-danger-strong`;
+/**
+ * `disabled:pointer-events-none` is load-bearing rather than cosmetic: a disabled form control
+ * dispatches no pointer event and the event reaches no ancestor either, so `DisabledHint`'s wrapper
+ * only becomes the hit target once this makes the button transparent to the pointer.
+ */
+const DANGER_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover-danger data-hovered:text-danger-strong disabled:pointer-events-none`;
 
 export function RowActionLink({
   href,
@@ -130,38 +136,48 @@ export function RowActionRestore({ label, ariaLabel, onPress }: { label: string;
   );
 }
 
+/**
+ * `disabledReason` is what disables the control, rather than a boolean beside a reason: a row that can
+ * see a refusal can always say it, and the two cannot drift apart if there is only one prop. It reaches
+ * a phone, which `IconTooltip` cannot — see `DisabledHint`.
+ */
 export function RowActionDelete({
   label,
   ariaLabel,
   onPress,
-  isDisabled,
+  disabledReason,
 }: {
   label: string;
   ariaLabel: string;
   onPress: () => void;
-  /**
-   * For a refusal this row can already see. The tooltip carries the reason, so `label` is what changes —
-   * a disabled control with the same wording as a live one tells the reader nothing (decided 2026-08-08).
-   */
-  isDisabled?: boolean;
+  /** The refusal this row can already see, or null while the retirement is offered. */
+  disabledReason?: string | null;
 }) {
-  return (
+  const button = (
+    <Button
+      isIconOnly
+      aria-label={ariaLabel}
+      variant="ghost"
+      isDisabled={disabledReason != null}
+      className={DANGER_CLASS}
+      onPress={onPress}>
+      <TrashBin
+        aria-hidden="true"
+        width={18}
+        height={18}
+      />
+    </Button>
+  );
+
+  // The live control keeps `IconTooltip`: `label` names the act, which is a description rather than a
+  // refusal, and a press there opens the delete instead of an explanation.
+  return disabledReason != null ? (
+    <DisabledHint reason={disabledReason}>{button}</DisabledHint>
+  ) : (
     <IconTooltip
       label={label}
-      tone={isDisabled ? undefined : "danger"}>
-      <Button
-        isIconOnly
-        aria-label={ariaLabel}
-        variant="ghost"
-        isDisabled={isDisabled}
-        className={DANGER_CLASS}
-        onPress={onPress}>
-        <TrashBin
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </Button>
+      tone="danger">
+      {button}
     </IconTooltip>
   );
 }

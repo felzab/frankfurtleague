@@ -3,14 +3,13 @@
 import { memo, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Calendar, Globe, Pencil, Persons, TrashBin } from "@gravity-ui/icons";
+import { Calendar, Globe, Pencil, Persons } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
 import { reactivateTeamAction } from "@/features/teams/actions";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -125,24 +124,15 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           ariaLabel={`Team ${team.name} reaktivieren`}
           onPress={() => handleReactivate(team)}
         />
-      ) : team.isRetireable ? (
+      ) : (
         <RowActionDelete
+          disabledReason={
+            team.isRetireable ? null : "Stilllegen ist nur möglich, wenn das Team in keiner laufenden oder geplanten Saison spielt."
+          }
           label="Stilllegen"
           ariaLabel={`Team ${team.name} stilllegen`}
           onPress={() => setDeletingTeam(team)}
         />
-      ) : (
-        <IconTooltip label="Stilllegen ist nur möglich, wenn das Team in keiner laufenden oder geplanten Saison spielt.">
-          <span
-            aria-label={`Team ${team.name} kann nicht stillgelegt werden, solange es in einer laufenden oder geplanten Saison spielt`}
-            className="text-foreground-muted/40 flex h-10 w-10 shrink-0 cursor-not-allowed items-center justify-center rounded-xl">
-            <TrashBin
-              aria-hidden="true"
-              width={18}
-              height={18}
-            />
-          </span>
-        </IconTooltip>
       )}
     </RowActions>
   );

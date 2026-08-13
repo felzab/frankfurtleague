@@ -2,6 +2,7 @@
 
 import { Button } from "@heroui/react";
 
+import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { formButton } from "@/shared/components/ui/formButtons";
 
 import { useDraftStatus } from "./DraftStatusContext";
@@ -43,14 +44,13 @@ export function FormActionBar({ isPending, onCancel }: { isPending: boolean; onC
   return (
     <div className="border-border bg-background w-full border-t px-4 py-3 sm:px-8">
       <div className="max-w-page mx-auto flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-        {/* Beside the buttons rather than at the bar's far edge, because the disabled Speichern
-            points at it: a reason sitting a screen-width from the control it explains is a reason
-            nobody connects to it. */}
+        {/* At the bar's leading edge, where a reader's eye enters the row. The disabled Speichern
+            reaches it through `aria-describedby` rather than through proximity. */}
         <p
           id={SAVE_HINT_ID}
           role="status"
           aria-live="polite"
-          className="fluid-xs font-bold sm:ml-auto">
+          className="fluid-xs font-bold sm:mr-auto">
           {status.isDirty ? (
             <span className="text-warning-strong">
               {status.changed.length === 1 ? "1 nicht gespeicherte Änderung" : `${status.changed.length} nicht gespeicherte Änderungen`}
@@ -78,16 +78,20 @@ export function FormActionBar({ isPending, onCancel }: { isPending: boolean; onC
           {/* Strg+S submits too, and the form gates that path on the SAME `status.isDirty` — a
               shortcut that saved a clean draft while the button beside it was disabled would be two
               answers to one question. */}
-          {/* "Keine Änderungen" outlasts the press, unlike "Speichert...", so the label stops
-              promising a save and the status line beside it is what states the reason. */}
-          <Button
-            type="submit"
-            variant="primary"
-            aria-describedby={!isPending && !status.isDirty ? SAVE_HINT_ID : undefined}
-            isDisabled={isPending || !status.isDirty}
-            className={`${formButton({ intent: "submit" })} flex-1 sm:flex-initial`}>
-            {isPending ? "Speichert..." : status.isDirty ? "Speichern" : "Nichts zu speichern"}
-          </Button>
+          {/* The hint answers the standing block only. `isPending` ends by itself and the label
+              already says "Speichert...", so explaining it would describe a state nobody waits on. */}
+          <DisabledHint
+            reason={isPending || status.isDirty ? null : "Es gibt noch keine Änderung zu speichern. Ändere zuerst etwas im Formular."}
+            className="flex-1 sm:flex-initial">
+            <Button
+              type="submit"
+              variant="primary"
+              aria-describedby={!isPending && !status.isDirty ? SAVE_HINT_ID : undefined}
+              isDisabled={isPending || !status.isDirty}
+              className={`${formButton({ intent: "submit" })} w-full`}>
+              {isPending ? "Speichert..." : "Speichern"}
+            </Button>
+          </DisabledHint>
         </div>
       </div>
     </div>

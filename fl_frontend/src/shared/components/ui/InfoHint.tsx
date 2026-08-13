@@ -1,23 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
 import { CircleInfo } from "@gravity-ui/icons";
 
 import { Popover } from "@heroui/react";
 
+import { useHoverOpenOverlay } from "@/shared/hooks/useHoverOpenOverlay";
+
 import { overlayPanel } from "./overlayPanel";
 
-import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
-
-/** Pointer slack around the trigger and the dialog — wide enough to cross the 8px gap between them. */
-const HOVER_SLACK_PX = 12;
-
-const isNear = (el: HTMLElement | null, x: number, y: number): boolean => {
-  if (el === null) return false;
-  const r = el.getBoundingClientRect();
-  return x >= r.left - HOVER_SLACK_PX && x <= r.right + HOVER_SLACK_PX && y >= r.top - HOVER_SLACK_PX && y <= r.bottom + HOVER_SLACK_PX;
-};
+import type { ReactNode } from "react";
 
 /**
  * A short explanation of a surface, behind a small icon beside its title — the rich-content sibling
@@ -27,50 +18,20 @@ const isNear = (el: HTMLElement | null, x: number, y: number): boolean => {
  * focus but deliberately never on tap, so on a phone it is unreachable. A popover opens on press;
  * the hover half is added for pointer users.
  *
- * **Hover closes on pointer position, not on enter/leave pairs.** Whatever the overlay machinery
- * puts under the cursor while opening steals the hover and fires a leave, and a leave-driven close
- * re-fires an enter — the oscillation two earlier attempts hit. So entering the trigger opens the
- * hint and sets `isHovering`; while it is set, one effect-owned `mousemove` listener closes the hint
- * the moment the pointer is inside neither the trigger's nor the dialog's rectangle. The effect's
- * cleanup is the whole lifecycle: re-arm, unmount and press-open all fall out of it.
+ * **The hover half is `useHoverOpenOverlay`**, shared with `DisabledHint`, which answers the same
+ * question about a control rather than about a surface.
  *
  * `children` is a node: a hint long enough to need this surface needs structure (a lead, a list, a
  * bolded term), and the dialog styles those tags. `trigger` swaps the default icon — the change
  * list's operation icons ride the same mechanism.
  */
 export function InfoHint({ label, children, trigger }: { label: string; children: ReactNode; trigger?: ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
-
-  const triggerRef = useRef<HTMLElement | null>(null);
-  const dialogRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (!isHovering) return;
-
-    const handleMove = (event: MouseEvent) => {
-      if (isNear(triggerRef.current, event.clientX, event.clientY) || isNear(dialogRef.current, event.clientX, event.clientY)) return;
-      setIsHovering(false);
-      setIsOpen(false);
-    };
-
-    window.addEventListener("mousemove", handleMove);
-    return () => window.removeEventListener("mousemove", handleMove);
-  }, [isHovering]);
-
-  const openFromHover = (event: ReactMouseEvent) => {
-    triggerRef.current = event.currentTarget as HTMLElement;
-    setIsHovering(true);
-    setIsOpen(true);
-  };
+  const { isOpen, onOpenChange, openFromHover, captureDialog } = useHoverOpenOverlay();
 
   return (
     <Popover
       isOpen={isOpen}
-      onOpenChange={(open) => {
-        if (!open) setIsHovering(false);
-        setIsOpen(open);
-      }}>
+      onOpenChange={onOpenChange}>
       {/* `cursor-help` is the affordance: it says "this holds an explanation" where a bare icon
           does not.
 
@@ -96,7 +57,7 @@ export function InfoHint({ label, children, trigger }: { label: string; children
         placement="top"
         offset={8}>
         <Popover.Dialog
-          ref={dialogRef}
+          ref={captureDialog}
           className={`${overlayPanel()} fluid-xs text-foreground [&_strong]:text-foreground flex w-max max-w-88 flex-col gap-y-2 p-4 leading-normal font-medium outline-none [&_strong]:font-bold [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-y-1.5`}>
           {children}
         </Popover.Dialog>

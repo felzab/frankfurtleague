@@ -11,6 +11,7 @@ import { Button } from "@heroui/react";
 import { activateSaisonAction } from "@/features/saisons/actions";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
+import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
@@ -25,9 +26,6 @@ import type { SaisonBanner } from "./banners";
 
 /** How many unfinished fixtures the panel names before it stops listing and starts counting. */
 const LISTED_OFFENE_SPIELE = 8;
-
-/** One rollover panel per page, so the id can be a constant rather than derived from the season. */
-const BLOCKED_HINT_ID = "umstellung-hinweis";
 
 /**
  * The rollover: one button on `POST /saisons/{saison_id}/activate`, which promotes this season and
@@ -216,12 +214,14 @@ export function FormRolloverSection({
                 (`REQ-ACTIVATE-001`) and stays the authority — this only stops the page offering an act it
                 knows the answer to, which is the same division the season form's rules panel makes. The
                 list above is what makes the disabled state actionable. */}
-            <div className="flex w-full flex-col gap-y-1.5">
-              <div className="flex w-full flex-row flex-wrap items-center gap-3">
+            <div className="flex w-full flex-row flex-wrap items-center gap-3">
+              {/* The list above sits a screen away from the button, so the refusal is said again on
+                  the control itself. `isActivating` is left out: it ends by itself. */}
+              <DisabledHint
+                reason={!isActivating && isBlocked ? "Umstellen geht erst, wenn die laufende Saison keine offenen Spiele mehr hat." : null}>
                 <Button
                   type="button"
                   variant="primary"
-                  aria-describedby={!isActivating && isBlocked ? BLOCKED_HINT_ID : undefined}
                   isDisabled={isActivating || isBlocked}
                   onPress={handleActivate}
                   className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
@@ -232,35 +232,18 @@ export function FormRolloverSection({
                       height={18}
                     />
                   )}
-                  {/* A block that outlasts the press takes the label with it: a greyed control still
-                      naming the season promises an act it cannot make. */}
-                  {isActivating
-                    ? "Stellt um..."
-                    : isBlocked
-                      ? "Umstellung nicht möglich"
-                      : isConfirming
-                        ? `Ja, auf ${saisonId} umstellen`
-                        : `Saison ${saisonId} aktivieren`}
+                  {isActivating ? "Stellt um..." : isConfirming ? `Ja, auf ${saisonId} umstellen` : `Saison ${saisonId} aktivieren`}
                 </Button>
-                {isConfirming && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    isDisabled={isActivating}
-                    onPress={() => setIsConfirming(false)}
-                    className={formButton({ intent: "cancel" })}>
-                    Abbrechen
-                  </Button>
-                )}
-              </div>
-              {/* Adjacent to the control and pointed at by `aria-describedby` — the callout above
-                  carries the count and the remedy, but it sits a fixture list away from the button. */}
-              {!isActivating && isBlocked && (
-                <p
-                  id={BLOCKED_HINT_ID}
-                  className="fluid-xxs text-foreground-muted leading-normal font-medium">
-                  Erst wenn die laufende Saison keine offenen Spiele mehr hat.
-                </p>
+              </DisabledHint>
+              {isConfirming && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  isDisabled={isActivating}
+                  onPress={() => setIsConfirming(false)}
+                  className={formButton({ intent: "cancel" })}>
+                  Abbrechen
+                </Button>
               )}
             </div>
           </>

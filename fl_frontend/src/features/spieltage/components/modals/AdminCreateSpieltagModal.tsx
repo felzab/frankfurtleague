@@ -6,8 +6,10 @@ import { Button, useOverlayState } from "@heroui/react";
 
 import { AdminCreateSpieltagForm } from "@/features/spieltage/components/forms/AdminCreateSpieltagForm";
 import { Callout } from "@/shared/components/ui/Callout";
+import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FormModal } from "@/shared/components/ui/FormModal";
+import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
 
@@ -19,8 +21,8 @@ import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
  * (decided 2026-08-08). `saisonId` is null where the league has no seasons at all — a fresh database — and
  * the dialog says so rather than offering a form that cannot submit. And `REQ-SPIELTAG-003` refuses the
  * create once the season's knockout phase is under way, which the page can see: `knockoutBeginn` is the
- * earliest non-group matchday's start, so the trigger is disabled with the reason in its own label instead
- * of opening onto a 409.
+ * earliest non-group matchday's start, so the trigger is disabled with the reason on it rather than
+ * opening onto a 409.
  *
  * The endpoint remains the authority. A page left open past midnight, or a knockout matchday re-dated in
  * another tab, both reach it — and `mapSpieltagRefusal` answers in German when they do.
@@ -45,33 +47,34 @@ export function AdminCreateSpieltagModal({
 
   // Inclusive, matching `find_spieltag_create_refusal`: a bracket beginning today is under way. Both are
   // `YYYY-MM-DD`, which is why a string comparison is the right one.
-  const isKnockoutUnderWay = knockoutBeginn !== null && knockoutBeginn <= today;
+  const knockoutRefusal =
+    knockoutBeginn !== null && knockoutBeginn <= today
+      ? `Die KO-Runde dieser Saison läuft seit dem ${formatSpielDatum(knockoutBeginn)}. Danach lassen sich keine Spieltage mehr anlegen.`
+      : null;
 
   return (
     <>
-      {/* The full reason on a WRAPPER, not on the button. HeroUI's `Button` takes no `title`, and
-          react-aria fires no hover events on a disabled control -- so a tooltip component would never
-          open on the one state that needs explaining. A native title on the span does. */}
-      <span
-        title={
-          isKnockoutUnderWay
-            ? `Die KO-Runde dieser Saison läuft seit dem ${knockoutBeginn ?? ""}. Danach lassen sich keine Spieltage mehr anlegen.`
-            : undefined
-        }>
+      {/* Below the header row rather than above it: this trigger sits at the top of the page, where a
+          panel placed on top would open off-screen. */}
+      <DisabledHint
+        reason={knockoutRefusal}
+        placement="bottom"
+        // The wrapper is the header row's flex item now, and below `sm` this trigger is the search
+        // bar's own continuation: shrink it and the shared seam opens.
+        className="shrink-0">
         <Button
           onPress={modalState.open}
-          isDisabled={isKnockoutUnderWay}
+          isDisabled={knockoutRefusal !== null}
           className={formButton({ intent: "trigger" })}>
           <Plus
             width={18}
             height={18}
           />
-          {/* Below `sm` the trigger is the bare plus continuing the search bar (decided 2026-08-07). The
-              disabled label replaces it rather than sitting beside it: a disabled control whose wording is
-              unchanged says nothing about why. */}
-          <span className="hidden sm:inline">{isKnockoutUnderWay ? "KO-Runde läuft" : "Neuen Spieltag anlegen"}</span>
+          {/* Below `sm` the trigger is the bare plus continuing the search bar (decided 2026-08-07), so
+              the label is the one thing that cannot carry the refusal at that width. */}
+          <span className="hidden sm:inline">Neuen Spieltag anlegen</span>
         </Button>
-      </span>
+      </DisabledHint>
 
       <FormModal
         isOpen={modalState.isOpen}

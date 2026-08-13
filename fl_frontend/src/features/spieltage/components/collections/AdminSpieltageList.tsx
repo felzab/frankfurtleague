@@ -202,14 +202,13 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       ) : (
         <RowActionDelete
           // Not offered while the matchday holds a result: retiring it would take that result off the
-          // public Spielplan, which `REQ-RETIRE-002` refuses. The tooltip carries the reason, because a
-          // disabled control with the live wording explains nothing.
-          isDisabled={spieltag.spieleGespielt > 0}
-          label={
+          // public Spielplan, which `REQ-RETIRE-002` refuses.
+          disabledReason={
             spieltag.spieleGespielt > 0
-              ? `Nicht möglich: ${spieltag.spieleGespielt === 1 ? "1 Spiel hat" : `${String(spieltag.spieleGespielt)} Spiele haben`} schon ein Ergebnis`
-              : "Stilllegen"
+              ? `Stilllegen ist nicht möglich: ${spieltag.spieleGespielt === 1 ? "1 Spiel hat" : `${String(spieltag.spieleGespielt)} Spiele haben`} schon ein Ergebnis.`
+              : null
           }
+          label="Stilllegen"
           ariaLabel={`${spieltag.label} stilllegen`}
           onPress={() => onDelete(spieltag)}
         />

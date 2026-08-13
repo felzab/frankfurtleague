@@ -2,6 +2,7 @@
 
 import { Button } from "@heroui/react";
 
+import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { formButton } from "@/shared/components/ui/formButtons";
 
 import { useSpielerDraftStatus } from "./SpielerDraftStatusContext";
@@ -21,11 +22,13 @@ export function SpielerActionBar({ isPending, onCancel }: { isPending: boolean; 
   return (
     <div className="border-border bg-background w-full border-t px-4 py-3 sm:px-8">
       <div className="max-w-page mx-auto flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+        {/* At the bar's leading edge, where a reader's eye enters the row. The disabled Speichern
+            reaches it through `aria-describedby` rather than through proximity. */}
         <p
           id={SAVE_HINT_ID}
           role="status"
           aria-live="polite"
-          className="fluid-xs font-bold sm:ml-auto">
+          className="fluid-xs font-bold sm:mr-auto">
           {status.isDirty ? (
             <span className="text-warning-strong">
               {status.changed.length === 1 ? "1 nicht gespeicherte Änderung" : `${status.changed.length} nicht gespeicherte Änderungen`}
@@ -50,14 +53,18 @@ export function SpielerActionBar({ isPending, onCancel }: { isPending: boolean; 
             className={`${formButton({ intent: "cancel" })} flex-1 sm:flex-initial`}>
             Abbrechen
           </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            aria-describedby={!isPending && !status.isDirty ? SAVE_HINT_ID : undefined}
-            isDisabled={isPending || !status.isDirty}
-            className={`${formButton({ intent: "submit" })} flex-1 sm:flex-initial`}>
-            {isPending ? "Speichert..." : status.isDirty ? "Speichern" : "Nichts zu speichern"}
-          </Button>
+          <DisabledHint
+            reason={isPending || status.isDirty ? null : "Es gibt noch keine Änderung zu speichern. Ändere zuerst etwas im Formular."}
+            className="flex-1 sm:flex-initial">
+            <Button
+              type="submit"
+              variant="primary"
+              aria-describedby={!isPending && !status.isDirty ? SAVE_HINT_ID : undefined}
+              isDisabled={isPending || !status.isDirty}
+              className={`${formButton({ intent: "submit" })} w-full`}>
+              {isPending ? "Speichert..." : "Speichern"}
+            </Button>
+          </DisabledHint>
         </div>
       </div>
     </div>
