@@ -39,18 +39,21 @@ const CLEAR_FACE = "flex h-full w-7 shrink-0 items-center justify-center rounded
  * The ceiling on a picked value — one number at every width, in `em` so it holds the same count of
  * characters whatever the type resolves to.
  *
- * **Twelve characters, measured on a name rather than on the row.** `Carlo-Mierendorff` reaching
- * `Carlo-Miere…` is the target; that string plus the ellipsis measures about 7em at this weight.
+ * **Twelve characters on a phone, measured on a name rather than on the row.** `Carlo-Mierendorff`
+ * reaching `Carlo-Miere…` is the target; that string plus the ellipsis measures about 7em at this
+ * weight. Below the breakpoint it truncates venues before the word that tells them apart —
+ * `Sportanlage Riederwald` and `Bezirkssportanlage Nord` both lose their last word — which is the cost
+ * of a 343px row, paid where that row exists.
  *
- * **It truncates venues before the word that distinguishes them** — `Sportanlage Riederwald` and
- * `Bezirkssportanlage Nord` both lose their last word — which is a known cost rather than an
- * oversight: a pill is a control the reader has just set, and its full value is one press away inside
- * its own panel.
+ * **From `md` it clips nothing the league holds.** 16em clears the longest name by more than 3em, so
+ * the ceiling there bounds a pathological value and touches no real one. Two arms rather than one
+ * because they answer different questions — a phone clips because its row is 343px, and a desktop has
+ * no such number — and it is the label's own breakpoint rather than a third in this file.
  *
  * `min-w-0` is what makes it bite — a flex item's automatic minimum is its content, and it would
  * otherwise outrank the maximum and print the value in full.
  */
-const VALUE_CAP = "min-w-0 max-w-[7em]";
+const VALUE_CAP = "min-w-0 max-w-[7em] md:max-w-[16em]";
 
 /** What the add control paints from `md`. Short, because the row is a row of controls. */
 const ADD_LABEL = "Filter";
@@ -114,9 +117,12 @@ function FilterPill<TItem>({
   return (
     <div className={PILL_SHELL}>
       <Popover>
+        {/* `pr-0.5` because the visible gap is not this padding alone: the control beside it centres a
+            14px glyph in a 28px box, so 2px here reads as 9px — the 8px the pill already puts between
+            its own parts, plus one. The button keeps its 28px target whatever this is. */}
         <Popover.Trigger
           aria-label={`${facet.label}: ${chosen.map((option) => option.label).join(", ")} ändern`}
-          className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-2 pr-1.5 pl-3 whitespace-nowrap transition-colors duration-(--motion-fast)">
+          className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-2 pr-0.5 pl-3 whitespace-nowrap transition-colors duration-(--motion-fast)">
           <span className={`text-brand truncate ${VALUE_CAP}`}>{chosen[0]?.label ?? ""}</span>
           {chosen.length > 1 && (
             <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>+{chosen.length - 1}</span>

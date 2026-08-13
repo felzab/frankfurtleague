@@ -46,23 +46,17 @@ const VISIBLE_OPTIONS = 5;
  * paints its fill with a positioned indicator a list row has no equivalent of. HeroUI ships an EMPTY
  * selected block for `.list-box-item`, which is why a picked row draws nothing of its own.
  *
- * **A picked row still answers the pointer**, on `formButtons.ts`'s own pair: `--accent-brand-solid-hover`
- * is the app's one step off a brand-solid fill, so the hover cannot swallow the selection and the
- * selection cannot swallow the hover. The compound variants are what settle it — `data-hovered:bg-hover`
- * and `data-[selected=true]:bg-brand-solid` carry the SAME specificity, so source order would otherwise
- * decide which of them a hovered, picked row wears.
+ * **The tint comes off `--accent-brand-solid`, never `--accent-brand`.** Only the solid token holds one
+ * value in both themes, so an alpha over it composites predictably; the flipping one is what put
+ * `bg-brand/15` under `text-brand` at 1.81:1 in the dark theme.
+ *
+ * **A picked row still answers the pointer**: the tint steps once more and the ink turns brand, so the
+ * fill says selected and the ink says hovered and neither swallows the other. The compound variants are
+ * what settle it — `data-hovered:bg-hover` and the selected fill carry the SAME specificity, so source
+ * order would otherwise decide which a hovered, picked row wears.
  */
 const OPTION_SELECTED =
-  "data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground data-[selected=true]:data-hovered:bg-brand-solid-hover data-[selected=true]:data-hovered:text-brand-solid-foreground";
-
-/**
- * The count badge ON a picked row — the pair in
- * `fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx :: SELECTED_BADGE`,, which
- * exists for this exact collision: a solid-brand badge on a solid-brand fill is one shape, not two.
- *
- * Spelled here rather than imported, because `shared` may not reach into a feature (ADR-0008).
- */
-const BADGE_ON_SELECTED = "bg-brand-solid-foreground/20 text-brand-solid-foreground";
+  "data-[selected=true]:bg-brand-solid/20 data-[selected=true]:text-foreground data-[selected=true]:data-hovered:bg-brand-solid/30 data-[selected=true]:data-hovered:text-brand";
 
 /**
  * The cell's ceiling: `40k + 46` — `k` rows of 36px on 4px gaps, plus the header, its gap and the
@@ -253,11 +247,7 @@ function FacetCell<TItem>({
                 count === 0 ? "text-foreground-muted" : "text-foreground"
               }`}>
               <span className="min-w-0 truncate">{option.label}</span>
-              {/* Picked in JS rather than by a variant: both arms set the same two properties, so a
-                  variant would leave CSS order to decide which fill a picked row's badge wears. */}
-              <span className={`${COUNT_BADGE} shrink-0 ${isPicked ? BADGE_ON_SELECTED : "bg-brand-solid text-brand-solid-foreground"}`}>
-                {count}
-              </span>
+              <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>{count}</span>
             </ListBox.Item>
           );
         })}
@@ -392,7 +382,7 @@ export function FilterPanel<TItem>({
           ...(available === null ? {} : { "--filter-available": `${String(available)}px` }),
         } as CSSProperties
       }
-      className={`${overlayPanel()} w-[min(92vw,var(--filter-available,100vw),calc(var(--filter-columns)*18rem_+_(var(--filter-columns)_-_1)*0.75rem_+_1.5rem),var(--container-toolbar))] overflow-hidden p-0 outline-none`}>
+      className={`${overlayPanel()} w-[min(92vw,var(--filter-available,100vw),calc(var(--filter-columns)*18rem_+_(var(--filter-columns)_-_1)*0.75rem_+_1.5rem),var(--container-toolbar))] overflow-hidden p-0 outline-none max-sm:w-[calc(100vw-24px)]`}>
       <FilterPanelBody
         facets={facets}
         shown={shown}
