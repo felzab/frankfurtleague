@@ -7,7 +7,7 @@ import { Button, Form } from "@heroui/react";
 import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 
-import { formButton, MODAL_FOOTER } from "./formButtons";
+import { formButton, MODAL_FOOTER_ROW } from "./formButtons";
 import { runOnSubmit } from "./formSubmit";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -101,29 +101,27 @@ export function EntityForm<TDraft>({
 
       {/* The separator reaches the DIALOG's edges, not the form's — see `MODAL_FOOTER`, which owns
           the arithmetic against `ModalShell`'s padding. */}
-      <div className={MODAL_FOOTER}>
-        <div className="flex w-full flex-row items-center justify-evenly gap-3">
-          {/* Disabled while the mutation is in flight: pressing it unmounted the modal out
-              from under a running transition, whose `toast.success` and draft reset then fired against
-              a dead tree — so the record was created and the user was never told. */}
-          <Button
-            type="button"
-            variant="secondary"
-            isDisabled={isPending}
-            className={formButton({ intent: "cancel" })}
-            onPress={onClose}>
-            Abbrechen
-          </Button>
-          {/* No icon (decided 2026-08-07). A checkmark on a button that has not yet done anything
-              reads as "done" rather than "do it", and the label already says which action this is. */}
-          <Button
-            type="submit"
-            variant="primary"
-            isDisabled={isPending}
-            className={formButton({ intent: "submit" })}>
-            {isPending ? "Speichert..." : "Speichern"}
-          </Button>
-        </div>
+      <div className={MODAL_FOOTER_ROW}>
+        {/* Disabled while the mutation is in flight: pressing it unmounted the modal out
+            from under a running transition, whose `toast.success` and draft reset then fired against
+            a dead tree — so the record was created and the user was never told. */}
+        <Button
+          type="button"
+          variant="secondary"
+          isDisabled={isPending}
+          className={formButton({ intent: "cancel" })}
+          onPress={onClose}>
+          Abbrechen
+        </Button>
+        {/* No icon (decided 2026-08-07). A checkmark on a button that has not yet done anything
+            reads as "done" rather than "do it", and the label already says which action this is. */}
+        <Button
+          type="submit"
+          variant="primary"
+          isDisabled={isPending}
+          className={formButton({ intent: "submit" })}>
+          {isPending ? "Speichert..." : "Speichern"}
+        </Button>
       </div>
     </Form>
   );

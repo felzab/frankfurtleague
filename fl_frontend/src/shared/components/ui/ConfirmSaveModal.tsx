@@ -7,7 +7,7 @@ import { Button } from "@heroui/react";
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
 import { Callout } from "./Callout";
-import { formButton, MODAL_FOOTER } from "./formButtons";
+import { formButton, MODAL_FOOTER_STACK } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
 import type { BlockingBanners } from "./railBanner";
@@ -88,10 +88,9 @@ export function ConfirmSaveModal({
         </div>
 
         {/* The same footer band and the same one-solid-one-outline pair as the other two
-            confirmations. Stacked rather than side by side, because this pair is not symmetrical:
-            one of them accepts every consequence listed above it.
-            No width here — `MODAL_FOOTER` declares its own. */}
-        <div className={`${MODAL_FOOTER} mt-6 flex min-w-0 flex-col gap-2.5`}>
+            confirmations, in the stacked shape: this pair is not symmetrical either, because one of
+            them accepts every consequence listed above it. The band declares its own width. */}
+        <div className={`${MODAL_FOOTER_STACK} mt-6`}>
           <Button
             type="button"
             variant="primary"
