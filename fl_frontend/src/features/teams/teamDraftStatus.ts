@@ -105,7 +105,7 @@ const FIELD_DESCRIPTORS: readonly FieldDescriptor[] = [
       if (record === null) return null;
       // The date through the app's one date formatter, so the change row reads like every card.
       // An empty grund still renders a row — the mid-edit state the schema rejects on save.
-      return `${record.grund || "—"} (ab ${formatSpielDatum(record.datum, "—")})`;
+      return `${record.grund || "Kein Grund"} (ab ${formatSpielDatum(record.datum)})`;
     },
     errorPaths: ["disqualifikation", "disqualifikation.grund", "disqualifikation.datum"],
   },

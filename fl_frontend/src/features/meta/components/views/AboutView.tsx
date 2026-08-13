@@ -29,7 +29,7 @@ export function AboutView() {
     <div className={`${PAGE_RISE} relative flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8`}>
       <div className="flex flex-col items-center text-center">
         <h1 className="fluid-2xl lg:fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">About Frankfurt-League</h1>
-        <p className="fluid-sm text-field-fg/80 mt-2 font-medium">Alles auf dem Platz – von Schülern, für Schüler.</p>
+        <p className="fluid-sm text-field-fg/80 mt-2 font-medium">Alles auf dem Platz. Von Schülern, für Schüler.</p>
       </div>
 
       <section className="max-w-meta flex w-full flex-col gap-y-4">
@@ -42,7 +42,7 @@ export function AboutView() {
           <p className="fluid-sm text-field-fg/95 leading-relaxed font-medium text-pretty">
             Unser Ziel ist simpel: Die Finanzierung unserer Abschlussfeiern und Abibälle. Anstatt Geld über herkömmliche, wenig lukrative Wege
             zu sammeln, organisieren wir einen stadtweiten Ligabetrieb im Großfeldfußball. Jedes Spiel bringt durch Ticket- und Cateringverkäufe
-            direkte Einnahmen für den ausrichtenden Jahrgang. Alles wird auf dem Platz geklärt – von Schülern, für Schüler.
+            direkte Einnahmen für den ausrichtenden Jahrgang. Alles wird auf dem Platz geklärt. Von Schülern, für Schüler.
           </p>
         </div>
       </section>

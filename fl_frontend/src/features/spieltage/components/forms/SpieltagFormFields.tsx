@@ -170,9 +170,9 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
       <Callout
         severity="info"
         title="Name, Position und erwartete Spiele ergeben sich von selbst">
-        Der Spieltag heißt nach seiner Phase und seiner Position darin — in der Gruppenphase „1. Spieltag“, „2. Spieltag“, danach nach der
-        Runde. Einsortiert wird nach Phase und Beginn, also verschiebst Du ihn über sein Datum. Und wie viele Spiele er umfasst, folgt aus den
-        Regeln der Saison: bei einer einfachen Hin-Runde pro Gruppe steht die Zahl fest.
+        Der Spieltag heißt nach seiner Phase und seiner Position darin. In der Gruppenphase sind das „1. Spieltag“, „2. Spieltag“, danach ist es
+        der Name der Runde. Einsortiert wird nach Phase und Beginn, also verschiebst Du ihn über sein Datum. Und wie viele Spiele er umfasst,
+        folgt aus den Regeln der Saison: bei einer einfachen Hin-Runde pro Gruppe steht die Zahl fest.
       </Callout>
     </>
   );

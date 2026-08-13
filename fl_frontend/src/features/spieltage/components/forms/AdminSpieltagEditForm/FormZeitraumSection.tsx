@@ -62,7 +62,7 @@ export function FormZeitraumSection({
             <p>Wann der Spieltag gespielt wird.</p>
             <ul>
               <li>
-                Innerhalb einer Phase wird <strong>nach Beginn sortiert</strong> — verschieben heißt also: Datum ändern.
+                Innerhalb einer Phase wird <strong>nach Beginn sortiert</strong>. Verschieben heißt also: Datum ändern.
               </li>
               <li>Der Zeitraum muss innerhalb der Saison liegen; alles andere ist im Kalender ausgegraut.</li>
             </ul>

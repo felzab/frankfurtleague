@@ -111,7 +111,7 @@ export function buildSpieltagBanners({
       id: "spieltag.phase-changed",
       severity: "warning",
       title: `Der Spieltag rückt in die ${PHASE_LABELS[draftPhase]}`,
-      body: `Mit der Phase ändert sich auch, wo er in der Saison steht und wie er heißt — und wie viele Spiele von ihm erwartet werden. Seine ${String(spieleAngelegt)} angelegten Spiele wandern mit.`,
+      body: `Mit der Phase ändert sich auch, wo er in der Saison steht, wie er heißt und wie viele Spiele von ihm erwartet werden. Seine ${String(spieleAngelegt)} angelegten Spiele wandern mit.`,
       inline: "phase",
     });
   }
@@ -146,7 +146,7 @@ export function buildSpieltagBanners({
         spieleAngelegt < anzahlSpiele
           ? `${String(spieleAngelegt)} von ${String(anzahlSpiele)} erwarteten Spielen sind angelegt`
           : `${String(spieleAngelegt)} Spiele sind angelegt, erwartet werden ${String(anzahlSpiele)}`,
-      body: "Die erwartete Zahl folgt aus den Regeln der Saison und dieser Phase. Eine Abweichung ist kein Fehler — sie zeigt nur, wo der Spielplan noch nicht fertig ist.",
+      body: "Die erwartete Zahl folgt aus den Regeln der Saison und dieser Phase. Eine Abweichung ist kein Fehler. Sie zeigt nur, wo der Spielplan noch nicht fertig ist.",
       inline: null,
     });
   }

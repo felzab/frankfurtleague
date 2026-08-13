@@ -47,7 +47,7 @@ export function FormNotizSection({
         <h2 className={styles.heading()}>
           Notiz
           <InfoHint label="Hinweis zur Notiz">
-            <p>Eine optionale Anmerkung zum Spiel — besondere Momente, Besonderheiten der Partie.</p>
+            <p>Eine optionale Anmerkung zum Spiel, etwa besondere Momente oder Besonderheiten der Partie.</p>
             <ul>
               <li>
                 Sie ist <strong>öffentlich</strong> und erscheint in den Spieldetails.

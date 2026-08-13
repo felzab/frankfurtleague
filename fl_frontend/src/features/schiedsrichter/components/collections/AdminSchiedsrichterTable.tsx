@@ -188,7 +188,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
                     <Table.Cell className="px-6 py-4">
                       <span className="fluid-sm text-foreground">
-                        {schiedsrichter.schule || <span className="text-foreground-muted/50 italic">—</span>}
+                        {schiedsrichter.schule || <span className="text-foreground-muted/50 italic">Keine Schule</span>}
                       </span>
                     </Table.Cell>
 

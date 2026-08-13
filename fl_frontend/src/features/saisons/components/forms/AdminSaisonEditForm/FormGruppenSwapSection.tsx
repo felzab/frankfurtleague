@@ -76,7 +76,7 @@ function SwapTeamSelect({
       <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
         {/* From the prop rather than `Select.Value`: the collection can lag a render behind and would
             show HeroUI's English placeholder — `GruppeSelect`'s reason, and `SaisonSelector`'s. */}
-        <span className={value ? "" : "text-foreground-muted"}>{value ? `${value.name} — Gruppe ${value.gruppe}` : "Mannschaft wählen"}</span>
+        <span className={value ? "" : "text-foreground-muted"}>{value ? `${value.name} (Gruppe ${value.gruppe})` : "Mannschaft wählen"}</span>
         <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
       </Select.Trigger>
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-72 overflow-y-auto p-1.5`}>
@@ -267,7 +267,7 @@ export function FormGruppenSwapSection({
         <h2 className={panel.heading()}>
           Gruppentausch
           <InfoHint label="Hinweis zum Gruppentausch">
-            <p>Zwei Mannschaften tauschen ihre Gruppen — in einem Schritt, nicht in zwei.</p>
+            <p>Zwei Mannschaften tauschen ihre Gruppen. Das geschieht in einem Schritt, nicht in zwei.</p>
             <ul>
               <li>
                 Jede Gruppe behält ihre <strong>Größe</strong>. Die angesetzten Spiele tauschen mit: Jede Mannschaft übernimmt Gegner, Termine
@@ -280,7 +280,7 @@ export function FormGruppenSwapSection({
               </li>
               <li>
                 Spiele der KO-Runde tauschen <strong>nicht</strong> mit. Stünde eine Mannschaft dadurch zweimal an einem Spieltag, ist das Paar
-                nicht wählbar — verschiebe eines der beiden Spiele.
+                nicht wählbar. Verschiebe dann eines der beiden Spiele.
               </li>
               <li>
                 Ein <strong>einzelner</strong> Wechsel bleibt gesperrt, hier wie auf der Mannschaftsseite. Dort lässt sich derselbe Tausch mit
@@ -368,7 +368,7 @@ export function FormGruppenSwapSection({
                 severity="warning"
                 title="Das passiert beim Tausch">
                 <strong>{first.name}</strong> steht danach in Gruppe {second.gruppe}, <strong>{second.name}</strong> in Gruppe {first.gruppe}.
-                Beide übernehmen dabei die angesetzten Spiele der anderen — mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
+                Beide übernehmen dabei die angesetzten Spiele der anderen, mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
                 sofort.
               </Callout>
             )}

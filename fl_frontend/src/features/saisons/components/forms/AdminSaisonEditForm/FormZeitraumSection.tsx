@@ -61,7 +61,7 @@ export function FormZeitraumSection({
             <p>Der Zeitraum umschließt die Spieltage der Saison.</p>
             <ul>
               <li>
-                Alle <strong>Spieltage</strong> müssen im Zeitraum liegen — Tage, die einen Spieltag ausschließen würden, sind im Kalender
+                Alle <strong>Spieltage</strong> müssen im Zeitraum liegen. Tage, die einen Spieltag ausschließen würden, sind im Kalender
                 gesperrt.
               </li>
               <li>

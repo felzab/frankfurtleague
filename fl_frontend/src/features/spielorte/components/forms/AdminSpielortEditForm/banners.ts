@@ -49,7 +49,7 @@ export function buildSpielortBanners({
       id: "spielort.maps-link-derived",
       severity: "warning",
       title: "Name und Karten-Link werden in jedem Spiel überschrieben",
-      body: "Den Karten-Link gibt es als Feld nicht: Er entsteht aus Name und Adresse und wird beim Speichern neu gebildet. Was Du hier änderst, entscheidet damit auch, wohin der Karten-Link jedes Spiels an diesem Ort zeigt — bei längst gespielten Partien ebenso.",
+      body: "Den Karten-Link gibt es als Feld nicht: Er entsteht aus Name und Adresse und wird beim Speichern neu gebildet. Was Du hier änderst, entscheidet damit auch, wohin der Karten-Link jedes Spiels an diesem Ort zeigt, bei längst gespielten Partien ebenso.",
       inline: "adresse",
       supersedes: ["spielort.identity-changed"],
     });

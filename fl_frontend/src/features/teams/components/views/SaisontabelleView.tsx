@@ -44,8 +44,8 @@ function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
           the first sentence a cancellation on a full match count reads as a rendering fault; without
           the second, the number invites a subtraction the table would not survive. */}
       <p>
-        Ein abgesagtes Spiel kann trotzdem gewertet worden sein — dann zählt es in dieser Tabelle ganz normal mit. Ohne Wertung zählt es
-        nirgends mit, auch nicht als Niederlage.
+        Ein abgesagtes Spiel kann trotzdem gewertet worden sein. Dann zählt es in dieser Tabelle ganz normal mit. Ohne Wertung zählt es nirgends
+        mit, auch nicht als Niederlage.
       </p>
     </InfoHint>
   );
@@ -76,7 +76,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
 
         /* Numbered as a `Platz` is, not as a row index: the count walks past a disqualified team, so
              the ordinal is the number the bracket's derived "2. der Gruppe A" names. A row the count
-             passes over shows a dash. */
+             passes over reads `N/A`, the same as a club that has played nothing. */
         const platzByTeamId = computePlatzByTeamId(teamsData);
 
         return (
@@ -142,7 +142,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         {/* The colour is never the only carrier. A screen reader gets the same fact the
                             rule and the legend give a sighted reader, in the cell that states the place. */}
                         {qualifying.has(teamData.id) && <span className="sr-only">KO-Runden-Platz: </span>}
-                        {teamData.statistik.anzahl_gespielte_spiele === 0 ? "N/A" : (platzByTeamId.get(teamData.id) ?? "—")}
+                        {(teamData.statistik.anzahl_gespielte_spiele === 0 ? undefined : platzByTeamId.get(teamData.id)) ?? "N/A"}
                       </Table.Cell>
 
                       {/* `overflow-visible` stays — the DQ badge is translated outside this cell on
@@ -154,7 +154,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                           teamId={teamData.id}
                           teamIsDisqualified={teamData.disqualifikation !== null}>
                           <span className="fluid-xs text-foreground hover:text-brand hidden max-w-full min-w-0 truncate font-medium transition-colors lg:block">
-                            {`${teamData.name} - ${teamData.shorthand}`}
+                            {`${teamData.name} (${teamData.shorthand})`}
                           </span>
                           <span className="fluid-sm text-foreground hover:text-brand block font-medium transition-colors lg:hidden">
                             {teamData.shorthand}

@@ -123,7 +123,7 @@ export function buildSpielBanners({
       id: "spiel.canceled-decided",
       severity: "warning",
       title: "Das Ergebnis zählt trotz Absage für die Tabelle",
-      body: "Bei einer Wertung ist das beabsichtigt — prüfe sonst, ob das Ergebnis hier stehen bleiben soll.",
+      body: "Bei einer Wertung ist das beabsichtigt. Prüfe sonst, ob das Ergebnis hier stehen bleiben soll.",
       inline: "absage-wertung",
       supersedes: ["spiel.is-canceled"],
     });

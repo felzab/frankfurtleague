@@ -123,7 +123,7 @@ export function buildSaisonBanners({
         offeneSpieleCount === 1
           ? `1 Spiel der Saison ${outgoingSaisonId} hat noch kein Ergebnis`
           : `${String(offeneSpieleCount)} Spiele der Saison ${outgoingSaisonId} haben noch kein Ergebnis`,
-      body: `Solange das so ist, lässt sich Saison ${outgoingSaisonId} nicht abschließen. Trage die fehlenden Ergebnisse ein oder sage die Spiele ab — ein abgesagtes Spiel gilt als erledigt.`,
+      body: `Solange das so ist, lässt sich Saison ${outgoingSaisonId} nicht abschließen. Trage die fehlenden Ergebnisse ein oder sage die Spiele ab. Ein abgesagtes Spiel gilt als erledigt.`,
       inline: "umstellung",
     });
   }

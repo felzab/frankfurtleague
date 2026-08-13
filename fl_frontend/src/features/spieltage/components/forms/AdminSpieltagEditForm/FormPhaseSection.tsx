@@ -53,7 +53,7 @@ export function FormPhaseSection({
             <p>Die Runde, zu der dieser Spieltag gehört.</p>
             <ul>
               <li>
-                Sie entscheidet auch über <strong>Name und Position</strong> — beides ist abgeleitet und kein eigenes Feld.
+                Sie entscheidet auch über <strong>Name und Position</strong>. Beides ist abgeleitet und kein eigenes Feld.
               </li>
               <li>Wie viele Spiele die Phase umfasst, folgt aus den Regeln der Saison.</li>
             </ul>

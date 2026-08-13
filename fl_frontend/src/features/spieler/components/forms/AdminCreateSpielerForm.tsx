@@ -197,7 +197,7 @@ export function AdminCreateSpielerForm({
               <Callout
                 severity="warning"
                 title="Zwei Spieler tragen dann dieselbe Nummer">
-                Im gewählten Kader trägt bereits jemand die Nummer {draft.nummer?.trim()}. Das ist erlaubt — beide erscheinen mit ihr auf den
+                Im gewählten Kader trägt bereits jemand die Nummer {draft.nummer?.trim()}. Das ist erlaubt. Beide erscheinen mit ihr auf den
                 öffentlichen Seiten.
               </Callout>
             )}

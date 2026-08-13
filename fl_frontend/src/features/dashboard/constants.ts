@@ -45,7 +45,7 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
           points: [
             { term: "Gesucht wird in", detail: "Mannschaft, Ort, Datum, Spielnummer und Schiedsrichter." },
             { term: "Sofort", detail: "die Liste filtert beim Tippen, es gibt nichts abzuschicken." },
-            { term: "Filter", detail: "Status, Phase, Team und Ort — auch ganz ohne Suchbegriff, etwa für alle vergangenen Spiele." },
+            { term: "Filter", detail: "Status, Phase, Team und Ort. Sie wirken auch ganz ohne Suchbegriff, etwa für alle vergangenen Spiele." },
           ],
           note: "Gesucht wird nur innerhalb der gewählten Saison.",
         },

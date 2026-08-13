@@ -35,7 +35,7 @@ export function buildSchiedsrichterBanners({
       id: "schiedsrichter.name-changed",
       severity: "warning",
       title: "Der neue Name ersetzt den alten in jedem Spiel",
-      body: "Jedes Spiel trägt eine Kopie des Namens. Beim Speichern wird sie überall überschrieben, auch bei längst gespielten Partien — der alte Name steht danach nirgends mehr.",
+      body: "Jedes Spiel trägt eine Kopie des Namens. Beim Speichern wird sie überall überschrieben, auch bei längst gespielten Partien. Der alte Name steht danach nirgends mehr.",
       inline: null,
     });
   }
@@ -55,7 +55,7 @@ export function buildSchiedsrichterBanners({
       id: "schiedsrichter.no-kontakt",
       severity: "info",
       title: "Für diesen Schiedsrichter ist kein Kontakt hinterlegt",
-      body: "Weder E-Mail noch Telefon sind gespeichert. Beides ist freiwillig — ohne eines von beiden erreichst Du ihn aber nicht, wenn ein Spiel verlegt wird.",
+      body: "Weder E-Mail noch Telefon sind gespeichert. Beides ist freiwillig. Ohne eines von beiden erreichst Du ihn aber nicht, wenn ein Spiel verlegt wird.",
       inline: "kontakt",
     });
   }

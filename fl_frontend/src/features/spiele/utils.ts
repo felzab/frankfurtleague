@@ -521,7 +521,7 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
     // reference: what makes it a fault is their order, and the fixture's own date may be missing.
     case "disqualified_occupant":
       return fault.spiel_datum === null
-        ? `In Spiel ${fault.spiel_nr} steht ${fault.team_name}, disqualifiziert seit ${formatSpielDatum(fault.disqualifiziert_seit)} — das Spiel hat kein Datum, also ist nicht belegt, dass es vorher stattfand`
+        ? `In Spiel ${fault.spiel_nr} steht ${fault.team_name}, disqualifiziert seit ${formatSpielDatum(fault.disqualifiziert_seit)}. Das Spiel hat kein Datum, also ist nicht belegt, dass es vorher stattfand`
         : `Spiel ${fault.spiel_nr} am ${formatSpielDatum(fault.spiel_datum)} führt ${fault.team_name}, disqualifiziert seit ${formatSpielDatum(fault.disqualifiziert_seit)}`;
   }
 };
@@ -536,9 +536,9 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
 export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
   switch (fault.reason) {
     case "gruppe_too_small":
-      return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe} — so viele Plätze hat diese Gruppe nicht.`;
+      return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}. So viele Plätze hat diese Gruppe nicht.`;
     case "tie_unresolved":
-      return `Platz ${fault.platz} der Gruppe ${fault.gruppe} ist auch nach der Gruppenphase nicht entschieden — dieses Spiel bleibt deshalb offen.`;
+      return `Platz ${fault.platz} der Gruppe ${fault.gruppe} ist auch nach der Gruppenphase nicht entschieden. Dieses Spiel bleibt deshalb offen.`;
     case "spiel_missing":
       return `Verweist auf Spiel ${fault.quelle_spiel_nr}, das es in dieser Saison nicht gibt.`;
     case "reference_cycle":
@@ -547,7 +547,7 @@ export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
       return "Beide Seiten führen zur selben Mannschaft.";
     case "disqualified_occupant":
       return fault.spiel_datum === null
-        ? `${fault.team_name} ist seit dem ${formatSpielDatum(fault.disqualifiziert_seit)} disqualifiziert — ohne Spieldatum ist nicht belegt, dass vorher gespielt wurde.`
+        ? `${fault.team_name} ist seit dem ${formatSpielDatum(fault.disqualifiziert_seit)} disqualifiziert. Ohne Spieldatum ist nicht belegt, dass vorher gespielt wurde.`
         : `${fault.team_name} ist seit dem ${formatSpielDatum(fault.disqualifiziert_seit)} disqualifiziert, steht aber noch in diesem Spiel.`;
   }
 };

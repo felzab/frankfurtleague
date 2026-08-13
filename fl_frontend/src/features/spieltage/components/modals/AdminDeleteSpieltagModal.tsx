@@ -18,6 +18,20 @@ import type { AdminSpieltagRow } from "@/features/spieltage/types";
  * The count is in the sentence rather than a generic reassurance, because the number is what an admin can
  * check against the row they just pressed.
  */
+/**
+ * The consequence sentence for a given fixture count.
+ *
+ * One and many are separate sentences rather than one with the number substituted: a single fixture makes
+ * "Die 1 Spiele" out of any sentence carrying a fixed plural.
+ */
+function describeConsequence(spieleAngelegt: number): string {
+  if (spieleAngelegt === 0) return "Der Spieltag verschwindet aus den Listen und aus dem Spielplan.";
+  if (spieleAngelegt === 1) {
+    return "Das eine Spiel dieses Spieltags bleibt erhalten und bearbeitbar, verschwindet mit dem Spieltag aber aus dem öffentlichen Spielplan. Es hat noch kein Ergebnis, sonst wäre das Stilllegen nicht möglich.";
+  }
+  return `Die ${String(spieleAngelegt)} Spiele dieses Spieltags bleiben erhalten und bearbeitbar, verschwinden mit dem Spieltag aber aus dem öffentlichen Spielplan. Keines von ihnen hat ein Ergebnis, sonst wäre das Stilllegen nicht möglich.`;
+}
+
 export function AdminDeleteSpieltagModal({
   spieltagData,
   isOpen,
@@ -39,11 +53,7 @@ export function AdminDeleteSpieltagModal({
       heading="Spieltag stilllegen"
       entityLabel="den Spieltag"
       entityName={spieltag.label}
-      consequence={
-        spieltag.spieleAngelegt === 0
-          ? "Der Spieltag verschwindet aus den Listen und aus dem Spielplan."
-          : `Die ${String(spieltag.spieleAngelegt)} Spiele dieses Spieltags bleiben erhalten und bearbeitbar, verschwinden mit dem Spieltag aber aus dem öffentlichen Spielplan. Noch keines von ihnen hat ein Ergebnis — sonst wäre das Stilllegen nicht möglich.`
-      }
+      consequence={describeConsequence(spieltag.spieleAngelegt)}
       successMessage="Spieltag stillgelegt"
       onConfirm={() => deleteSpieltagAction({ id: spieltag.id })}
     />

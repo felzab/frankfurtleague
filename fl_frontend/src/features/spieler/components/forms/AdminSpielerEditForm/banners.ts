@@ -118,8 +118,8 @@ export function buildSpielerBanners({
       severity: "warning",
       title: "Zwei Spieler tragen dann dieselbe Nummer",
       body:
-        `Im gewählten Kader trägt bereits jemand die Nummer ${newlySharedNummer}. Das ist erlaubt — ` +
-        `beide erscheinen in der Saison ${saisonId} mit ihr auf den öffentlichen Seiten.`,
+        `Im gewählten Kader trägt bereits jemand die Nummer ${newlySharedNummer}. Das ist erlaubt. ` +
+        `Beide erscheinen in der Saison ${saisonId} mit ihr auf den öffentlichen Seiten.`,
       inline: null,
     });
   }

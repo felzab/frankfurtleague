@@ -502,8 +502,23 @@ about the value, and a FORM message is two with the action second. Field message
 "Bitte" stays ("Bitte gib einen Namen ein."): a field nudges toward input, a banner refuses it, and
 softening a refusal blurs which of the two the reader is looking at.
 
-**Nothing mechanical holds either rule.** A lint over the pronouns would have to know which string
-literals are user-facing, and nothing in the tree marks that, so both rules hold by review.
+**No dash is punctuation** (my rule, 2026-08-13): not the em dash `—`, not the en dash `–`, and not a
+hyphen standing between spaces. A dash that carried a real break is **rewritten**, most often into two
+sentences and sometimes into a comma or a colon. Deleting one is not rewriting it, because a sentence
+that reads worse without its dash has been cut rather than recast. The same holds for a dash doing a
+word's job: a span of dates reads `bis`, a pairing reads `gegen`, and an absent value is named in words
+rather than by a lone `—`.
+
+**A hyphen that connects stays**, and this is the half a find-and-replace destroys, so the sweep runs
+string by string. `Frankfurt-League`, `K.-o.-Runde`, `Carl-Schurz-Schule`, `E-Mail` and `Karten-Link`
+keep theirs, as does every club and venue name. The test is whether the character joins words into one
+term or separates one clause from another.
+
+**Neither the pronoun rule nor the register rule is mechanical.** A lint over them would have to know
+which string literals are user-facing, and nothing in the tree marks that, so both hold by review. The
+dash rule is the one that could be checked: the characters it forbids appear only between spaces or
+inside a JSX text node, and the hyphen it permits has a word character on both sides, so the two are
+distinguishable without knowing whether the string reaches a reader.
 
 ### 1.13 Metadata and indexing
 

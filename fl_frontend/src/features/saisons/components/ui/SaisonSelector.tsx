@@ -33,7 +33,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
   const activeSaisonData = saisons.find((saison) => saison.id === requestedSaisonId) ?? currentSaison;
   const activeSaisonId = activeSaisonData.id;
 
-  const timespan = `${formatSpielDatum(activeSaisonData.start_date)} - ${formatSpielDatum(activeSaisonData.end_date)}`;
+  const timespan = `${formatSpielDatum(activeSaisonData.start_date)} bis ${formatSpielDatum(activeSaisonData.end_date)}`;
 
   const handleSelectionChange = (key: Key | null) => {
     if (!key) return;

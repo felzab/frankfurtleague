@@ -93,7 +93,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       // A knockout slot the group phase has not filled has no team on that side — a normal state, so
       // the shared slot placeholder stands in. The provenance label is not resolved here: the
       // fixture's own page is where its wiring belongs.
-      paarung: `${spiel.team1?.name ?? PLACEHOLDER.slot} – ${spiel.team2?.name ?? PLACEHOLDER.slot}`,
+      paarung: `${spiel.team1?.name ?? PLACEHOLDER.slot} gegen ${spiel.team2?.name ?? PLACEHOLDER.slot}`,
     }))
     .sort((left, right) => left.spielNr - right.spielNr);
 
