@@ -144,10 +144,17 @@ changes what every public page shows to a visitor who named no season, for two s
 immediately, so there is no window in which it goes unnoticed. It confirms in place instead
 ([ADR-0050](../_decisions/0050-a-matchday-list-is-the-seasons-skeleton.md)).
 
-**The group swap on the same page also confirms in place, for a different reason: it is its own
-inverse** ([ADR-0062](../_decisions/0062-a-group-change-is-a-swap-or-it-is-refused.md)). Running it
-again on the same pair restores the season, so a fifteen-second window and a fifth route handler would
-be machinery for a reversal the panel states in a sentence.
+**The group swap also confirms in place, for a different reason: it is its own inverse**
+([ADR-0062](../_decisions/0062-a-group-change-is-a-swap-or-it-is-refused.md)). Running it again on the
+same pair restores the season, so a fifteen-second window and a fifth route handler would be machinery
+for a reversal the control states in a sentence.
+
+**That swap has two entry points and one write**
+([ADR-0071](../_decisions/0071-the-swap-gains-a-second-entry-point.md)): the season editor's panel,
+which asks for both clubs and is the operation's home, and the club editor's single picker beneath the
+locked Gruppe row, which fixes that page's club as one side. Both call `swapGruppenAction`, and both
+grade a pair through `fl_frontend/src/features/saisons/utils.ts :: findSwapPartnerRefusal`, so neither
+can offer a pair the other refuses.
 
 | Action                          | Slice          | Invalidates                                                          |
 | ------------------------------- | -------------- | -------------------------------------------------------------------- |

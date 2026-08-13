@@ -82,6 +82,7 @@ cited from code and the path must never move
 | [0066](0066-a-refusal-is-not-a-failure.md)                                        | A checker answers four exit codes, and a refusal is not a failure            | ops                    | Accepted | 2026-08-10 |
 | [0067](0067-a-command-is-exempted-only-when-every-token-clears.md)                | A command is exempted only when every token clears; the block stays a copy   | ops                    | Accepted | 2026-08-10 |
 | [0068](0068-the-docs-gate-is-a-package-behind-a-shim.md)                          | The documentation gate is a package behind a shim, not called `check_docs`   | ops                    | Accepted | 2026-08-10 |
+| [0071](0071-the-swap-gains-a-second-entry-point.md)                               | The group swap gains a second entry point, with one side fixed               | frontend               | Accepted | 2026-08-13 |
 
 ## Read next
 

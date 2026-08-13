@@ -70,9 +70,12 @@ function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     return { fieldErrors: { gruppe: "Diese Gruppe ist bereits voll." } };
   }
   if (error.serverErrorCode === "REQ-ENTER-004") {
+    // Names the route that is still open instead of stopping at the refusal (ADR-0071): the swap
+    // control sits under the locked Gruppe row on the page this message lands on, so the second
+    // sentence is reachable without leaving the screen.
     return {
       error:
-        "Für dieses Team sind in dieser Saison schon Spiele angelegt. Ein Gruppenwechsel ist nur möglich, solange die Saison geplant ist oder noch keine Spiele bestehen.",
+        "Für dieses Team sind in dieser Saison schon Spiele angelegt, deshalb kann es die Gruppe nicht allein wechseln. Tausche die Gruppe stattdessen mit einer zweiten Mannschaft, unter der gesperrten Gruppe auf dieser Seite.",
     };
   }
   return null;

@@ -14,6 +14,7 @@ import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { FLTeamRecord } from "@/features/teams/schemas";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 
@@ -32,6 +33,7 @@ export function AdminTeamEditView({
   saison,
   gruppeLocked,
   gruppeOffer,
+  swap,
   today,
 }: {
   team: FLTeamRecord;
@@ -39,6 +41,8 @@ export function AdminTeamEditView({
   gruppeLocked: boolean;
   /** The selected season's groups with their fill state, from `buildGruppeOffer`. */
   gruppeOffer: readonly GruppeOffer[];
+  /** The selected season's swap state, for the club editor's entry point into it (ADR-0071). */
+  swap: SaisonGruppenSwapContext;
   today: string;
 }) {
   const router = useRouter();
@@ -65,6 +69,7 @@ export function AdminTeamEditView({
         today={today}
         gruppeLocked={gruppeLocked}
         gruppeOffer={gruppeOffer}
+        swap={swap}
         registerRequestLeave={(requestLeave) => {
           requestLeaveRef.current = requestLeave;
         }}

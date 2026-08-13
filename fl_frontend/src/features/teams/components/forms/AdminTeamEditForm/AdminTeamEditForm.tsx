@@ -25,6 +25,7 @@ import { TeamActionBar } from "./TeamActionBar";
 import { TeamDraftStatusProvider } from "./TeamDraftStatusContext";
 import { TeamRail } from "./TeamRail";
 
+import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { FLGruppenNames, FLPatchSaisonTeamPayload, FLPatchTeamPayload, FLPostTeamPayload, FLTeamRecord } from "@/features/teams/schemas";
 import type { FLTeamDraftFields } from "@/features/teams/teamDraftStatus";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
@@ -93,6 +94,7 @@ export function AdminTeamEditForm({
   today,
   gruppeLocked,
   gruppeOffer,
+  swap,
   registerRequestLeave,
   pageHeader,
 }: {
@@ -104,6 +106,8 @@ export function AdminTeamEditForm({
   gruppeLocked: boolean;
   /** The selected season's groups with their fill state, from `buildGruppeOffer`. */
   gruppeOffer: readonly GruppeOffer[];
+  /** The selected season's swap state — the club editor's entry point into the swap (ADR-0071). */
+  swap: SaisonGruppenSwapContext;
   registerRequestLeave?: (requestLeave: () => void) => void;
   pageHeader?: ReactNode;
 }) {
@@ -503,14 +507,17 @@ export function AdminTeamEditForm({
                   gruppeOffer={gruppeOffer}
                   gruppeLock={{
                     locked: gruppeLocked,
+                    // Names the operation AND routes to it: the swap control sits directly under this
+                    // row, so "nur als Tausch" is an offer rather than a dead end (ADR-0071).
                     reason:
-                      "Gesperrt: Die Saison läuft bereits und die Mannschaft hat angesetzte Spiele. Ein Gruppenwechsel wäre nur als Tausch zweier Mannschaften vertretbar.",
+                      "Gesperrt: Die Saison läuft bereits und die Mannschaft hat angesetzte Spiele. Ein Gruppenwechsel ist jetzt nur noch als Tausch mit einer zweiten Mannschaft vertretbar — unten.",
                     draftChangesGruppe: isChanged("gruppe"),
                   }}
                   isMember={storedMembership !== null}
                   gruppe={gruppe}
                   onGruppeChange={setGruppe}
                   onValidateSelection={validateGruppeSelection}
+                  swap={swap}
                   teamId={team.id}
                 />
 
