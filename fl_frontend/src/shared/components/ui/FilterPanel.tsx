@@ -92,11 +92,20 @@ function fold(text: string): string {
  * **From there each cell grows into its line's leftover** (`grow`, decided 2026-08-13), because a row of
  * content-width cells leaves the rest of every line empty. Flexbox hands each cell on a line the SAME
  * number of pixels, so the differences the content set survive the growth — which a grid's equal tracks
- * are exactly what does not. The 26rem cap is the one case that needs a number: a cell left alone on a
- * wrapped line would otherwise stretch across the whole panel, and an eight-character option with its
- * count a hand's width away reads as a bug. It sits above the widest cell the app produces on its own —
- * the sixteen-option Team facet, whose type-to-filter row measures 329px — so what it limits is growth.
- * A label long enough to reach it truncates, which is what a phone's narrower panel already does to one.
+ * are exactly what does not.
+ *
+ * **The ceiling on that growth is half a line, never a fixed width** (decided 2026-08-14). Two cells at
+ * half a line each, plus the gap between them, is the line — so **any line holding two or more cells
+ * fills exactly**, by arithmetic rather than by luck, and no cell can reach a width that reads as a
+ * banner. The 26rem floor under it is what keeps a narrow line from clamping content: half of a phone's
+ * line is 157px, well under the widest cell the app produces on its own, and a cap below a cell's own
+ * content would truncate rather than limit growth.
+ *
+ * **One cell alone on a wrapped line is the case arithmetic cannot close**, and it is left short rather
+ * than stretched: `justify-center` puts its leftover on both sides, so a short line reads as deliberate
+ * instead of as a gap at the right. Filling it would give one cell the width of three; equal tracks would
+ * close it at the cost of every content difference on every other line. The row is centred rather than
+ * the cell, and that is free elsewhere — a line that fills has no leftover to distribute.
  *
  * **No cell is taller than `max-h-72`, and the option list is what gives way** (decided 2026-08-13).
  * The bound is on the CELL rather than on the list, so it holds whatever a cell contains: a facet
@@ -134,7 +143,7 @@ function FacetCell<TItem>({
     isWide && query !== "" ? facet.options.filter((option) => fold(option.label).includes(fold(query))) : facet.options;
 
   return (
-    <div className="border-border/70 flex max-h-72 w-max max-w-[min(100%,26rem)] min-w-44 grow flex-col gap-y-1 rounded-xl border p-1.5">
+    <div className="border-border/70 flex max-h-72 w-max max-w-[min(100%,max(26rem,calc((100%_-_0.75rem)/2)))] min-w-44 grow flex-col gap-y-1 rounded-xl border p-1.5">
       {/* A FIXED height, because the reset appears only once something is picked (decided 2026-08-08).
           Its intrinsic height exceeded the label's, so the header row grew on the first selection and
           pushed every facet below it down — the popover appeared to jump while being used.
@@ -302,8 +311,11 @@ export function FilterPanel<TItem>({
       className={`${overlayPanel()} w-[min(92vw,var(--filter-available,100vw),calc(var(--filter-columns)*18rem_+_(var(--filter-columns)_-_1)*0.75rem_+_1.5rem),var(--container-toolbar))] overflow-hidden p-0 outline-none`}>
       <div className="scrollbar-line max-h-[70vh] overflow-x-hidden overflow-y-auto p-3">
         {/* No `items-start`: the default cross-axis stretch is what equalises a line's cells, and
-            it is per LINE, so a phone's one-cell line stretches to itself and needs no exception. */}
-        <div className="flex flex-row flex-wrap gap-3">
+            it is per LINE, so a phone's one-cell line stretches to itself and needs no exception.
+
+            `justify-center` reaches only a line that cannot fill, which is a single capped cell —
+            everything else has no leftover to centre. */}
+        <div className="flex flex-row flex-wrap justify-center gap-3">
           {shown.map((facet) => (
             <FacetCell
               key={facet.param}
