@@ -7,7 +7,6 @@ import { useFuzzySearch } from "../../hooks/useFuzzySearch";
 import { useUrlFilters } from "../../hooks/useUrlFilters";
 import { applyFacets } from "../../utils/facets";
 import { FilterExperiment } from "./FilterExperiment";
-import { PAGE_RISE } from "./motion";
 
 import type { ReactNode } from "react";
 import type { Facet } from "../../utils/facets";
@@ -93,9 +92,9 @@ export function AdminCrudView<TItem extends { id: string }>({
   const filteredItems = useFuzzySearch({ items: narrowedItems, keys: searchKeys, query });
 
   return (
-    // Risen, not merely faded: the 8px is what the eye follows while a dense collection resolves
-    // (`motion.ts :: PAGE_RISE`), and it is a transform, so the box the fallback measured holds.
-    <div className={`${PAGE_RISE} flex flex-col gap-4`}>
+    // NO entrance: `AdminCrudFallback` reserves this box exactly, so the swap has nothing to
+    // reconcile. A fade and an 8px rise were each tried and each read worse — see its header.
+    <div className="flex flex-col gap-4">
       {/* Counted over the UNFILTERED rows, so each option answers what it would leave rather than what
           the current selection already left. */}
       <FilterExperiment

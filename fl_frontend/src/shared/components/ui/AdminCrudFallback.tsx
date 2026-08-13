@@ -37,24 +37,19 @@ function RowActionCluster({ slots, className }: { slots: readonly number[]; clas
  * for `useSearchParams` suspends too — pushing the bailout up to the boundary above and undoing the
  * split that keeps the static chrome outside the data hole.
  *
- * **It is held at `opacity: 0` for `--motion-base`, then fades in over `--motion-fast`.** The
- * threshold is perceptual, not arithmetic: showing this costs the reader no time at all, since the
- * arriving column plays its entrance whether or not a skeleton preceded it. What it costs below
- * `--motion-base` is a blink — the app's own span for a state change registering, so a thing that
- * arrives and leaves inside one never registers as having reported anything.
+ * **It paints on the frame it mounts, and it does not animate. Neither does what replaces it.** A
+ * delay before this appears is an empty box for as long as it lasts, and an entrance on the other
+ * side is the same void read from the other end — the arriving column is a grid of thin text, so
+ * until its opacity is most of the way up it carries far less ink than the bars it replaced, and
+ * that shortfall is seen as nothing being there rather than as something being faint.
  *
- * **`fill-mode-backwards` is what makes that a suppression rather than a pause.** Without it the
- * `from` state applies only once the animation starts, so the block would paint at full opacity for
- * the whole delay and the class would buy nothing. **The hold belongs on this root and nowhere
- * else** — moved onto either shape below, the other one flickers again at every width.
+ * **A hold, a fade and an 8px rise were each tried on this swap and each made it worse** — reported
+ * in turn as a blink, as a void, and as the table jumping at the reader, that last because
+ * `--motion-ease-enter` spends 90% of its travel in the first 37% of its duration. **Do not add one
+ * back.** What makes this smooth is not motion: it is that every box here is measured to what
+ * arrives, so the swap moves nothing and there is nothing for an animation to reconcile.
  *
- * **Nothing is held back but this.** `AdminCrudShell` renders the search field and the create trigger
- * outside the boundary and the admin bar carries the route's title, so the delay hands the reader a
- * populated page with one box still filling — never the empty one a whole-page fallback would.
- *
- * The other half of the swap is `AdminCrudView`, which rises into the geometry this already reserved
- * (`motion.ts :: PAGE_RISE`). Its 8px is a `transform` and reserves nothing, so every box measured
- * here still holds and the page does not move while it settles.
+ * The blink on a very fast load is the accepted cost and it is honest — it says something happened.
  *
  * It reserves the boxes that arrive — the filter row above, then whichever of the two shapes below
  * `shape` names.
@@ -66,7 +61,7 @@ export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sect
       aria-label="Daten werden geladen"
       /* `gap-4` is `AdminCrudView`'s own column gap, so the filter block and the list below it sit
          where they will sit once the rows land. */
-      className="animate-in fade-in fill-mode-backwards flex flex-col gap-4 delay-(--motion-base) duration-(--motion-fast) ease-(--motion-ease-enter)">
+      className="flex flex-col gap-4">
       {/* Every admin slice declares facets, so the filter control always renders its `h-10` row, and a
           fallback without it puts the list a row above the data. The row is `h-10` in both filter
           shapes; only how many controls sit in it differs, and a control's width shifts nothing

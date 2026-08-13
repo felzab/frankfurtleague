@@ -39,14 +39,11 @@
  * **Not for a reveal inside an already-open page** — that is `PANEL_REVEAL`, and the two are kept
  * apart on purpose.
  *
- * **A subtree taking a skeleton's place rises too** (decided 2026-08-13, replacing a travel-less
- * handover). A `Suspense` swap gives the arriving content one frame at zero opacity whatever it does,
- * because the fallback is removed and the children mount in the same commit — so travel is not what
- * empties the box, and withholding it only removes the one channel the eye can track. Sampled off the
- * curve below, a bare fade is 34% opaque one frame in and 90% by 75ms of its 200ms: nominally a fade,
- * perceptually a materialisation, which is what a dense collection appearing at once reads as. The
- * 8px is a `transform` and reserves nothing, so a fallback measured to the pixel still hands over
- * without the page moving.
+ * **Not for a subtree arriving behind a skeleton that already reserves its box** (decided
+ * 2026-08-13). Nothing is out of place for an entrance to reconcile there, and each one tried was
+ * read as a fault: a fade from zero as a void, because a grid of thin text carries far less ink than
+ * the bars it replaced until its opacity is most of the way up; this tier's travel as the content
+ * lunging, 90% of it being spent in the first 37%. `AdminCrudView` swaps plainly, and says why.
  */
 export const PAGE_RISE = "animate-in fade-in slide-in-from-bottom-2 duration-(--motion-slow) ease-(--motion-ease-enter)";
 
