@@ -110,6 +110,7 @@ export function buildSpielerFacets(teams: readonly SpielerTeamOption[]): readonl
     read: (spieler) => (spieler.selected === null ? [] : [spieler.selected.team_id]),
   };
 
-  // The team first: it is the narrowing an admin reaches for most often, and a popover reads top down.
-  return [teamFacet, ...SPIELER_FACETS];
+  // Kader, Team, Position lead: six facets wrap three and three, so the leading trio is the row that is
+  // always on screen. The owner ranked them; Stufe, Rolle and Person follow.
+  return [...SPIELER_FACETS.slice(0, 1), teamFacet, ...SPIELER_FACETS.slice(1)];
 }
