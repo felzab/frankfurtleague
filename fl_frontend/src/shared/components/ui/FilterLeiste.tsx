@@ -10,7 +10,7 @@ import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { countFacetOptions, splitPromotedFacets } from "@/shared/utils/facets";
 
 import { COUNT_BADGE } from "./badges";
-import { fitOverflow } from "./filterLeisteFit";
+import { fitOverflow, isNarrowRow } from "./filterLeisteFit";
 import { overlayPanel } from "./overlayPanel";
 
 import type { Facet, FacetSelection } from "@/shared/utils/facets";
@@ -18,6 +18,31 @@ import type { Selection } from "@heroui/react";
 
 /** `gap-2` between two triggers, in pixels, because the fit is arithmetic and CSS cannot report it. */
 const TRIGGER_GAP = 8;
+
+/**
+ * What every control in this row is, and the reason the row reads as one set of controls: the app's
+ * `h-10` box — a border, the surface fill, `shadow-sm` and `rounded-xl`, the recipe the back buttons,
+ * the Spieltage control and `AdminCrudFallback`'s own skeleton for THIS row all carry.
+ *
+ * **No state may leave it.** A dimension that is filtering says so in what the box CONTAINS; a box that
+ * changed its fill, its border or its radius would stop being one of the controls beside it, which is
+ * the one thing a row of peers cannot afford.
+ */
+const CONTROL_BOX = "border-border bg-surface fluid-xs flex h-10 shrink-0 flex-row rounded-xl border font-bold shadow-sm";
+
+/** `items-stretch` so the clear control is full height; `overflow-hidden` so its fill takes the corner. */
+const TRIGGER_SHELL = `${CONTROL_BOX} items-stretch overflow-hidden`;
+
+const OVERFLOW_SHELL = `${CONTROL_BOX} text-foreground cursor-pointer items-center gap-x-2 px-3 whitespace-nowrap`;
+
+/**
+ * The clear control's box, worn by the live button and by the hidden row's stand-in for it.
+ *
+ * **Sized by `w-7` rather than by its own padding**, because only one of the two wearing this is a
+ * HeroUI `Button`, and `.button svg` pulls an icon 2px in on each side — content sizing would leave the
+ * measured stand-in 4px wider than the control it stands in for.
+ */
+const CLEAR_FACE = "flex h-full w-7 shrink-0 items-center justify-center rounded-none p-0";
 
 /** One dimension's options, shared by an inline trigger's own menu and by the overflow's cells. */
 function FacetOptions<TItem>({
@@ -71,20 +96,35 @@ function FacetOptions<TItem>({
   );
 }
 
-/** What an inline trigger reads: the value itself when one is picked, the dimension and a count above that. */
+/**
+ * What an inline trigger reads: the picked value when exactly one is picked, the dimension otherwise.
+ *
+ * Above one pick the dimension keeps the words and the badge beside it carries the number — a count
+ * spelled into the label would be a second numeric idiom for what the app already has a badge for.
+ */
 function triggerLabel<TItem>(facet: Facet<TItem>, picked: readonly string[]): string {
-  if (picked.length === 0) return facet.label;
-  if (picked.length === 1) return facet.options.find((option) => option.value === picked[0])?.label ?? facet.label;
-  return `${facet.label} · ${String(picked.length)}`;
+  if (picked.length !== 1) return facet.label;
+  return facet.options.find((option) => option.value === picked[0])?.label ?? facet.label;
+}
+
+/** What the trigger is called aloud: the dimension, what it holds, and what pressing it does. */
+function triggerHint<TItem>(facet: Facet<TItem>, picked: readonly string[], label: string): string {
+  if (picked.length === 0) return `${facet.label} filtern`;
+  if (picked.length === 1) return `${facet.label}: ${label} ändern`;
+  return `${facet.label}: ${String(picked.length)} ausgewählt, ändern`;
 }
 
 /**
  * One dimension, as one control that carries its own state.
  *
- * **The trigger IS the chip.** An active one takes the chip's anatomy exactly — the value, a hairline,
- * a × that clears the dimension — with the label half now opening the menu rather than doing nothing.
- * That is the whole argument for this concept: the panel and the chip strip were two representations of
- * one state, and every constraint on the chips followed from the duplication.
+ * **A trigger stays a trigger.** The shell is `CONTROL_BOX` in both states, so an active dimension is
+ * still one of the controls beside it rather than a second kind of object in the row.
+ *
+ * **What being active changes is the CONTENT**: the picked value stands where the dimension's name
+ * stood, a count badge carries how many above one pick, and the trailing slot that opens the menu
+ * becomes the × that clears the dimension. Nothing about the box moves, so nothing reflows but the
+ * words. That is what makes a chip strip unnecessary rather than merely unwanted — the trigger IS the
+ * state, and a second drawing of it would be the duplication this control does without.
  *
  * `isStatic` renders the same box without a menu, for the hidden row that measures what fits.
  */
@@ -109,43 +149,49 @@ function FacetTrigger<TItem>({
   const isActive = picked.length > 0;
   const label = triggerLabel(facet, picked);
 
-  const shell = `fluid-xs flex h-10 shrink-0 flex-row items-stretch overflow-hidden rounded-xl font-bold ${
-    isActive ? "bg-brand/10" : "border-border bg-surface border shadow-sm"
+  // Both states come to the same width, so going active reflows nothing: 8 + 14 + 12 against 6 + 28.
+  // Colour is picked rather than appended — two colour utilities in one attribute are settled by
+  // CSS order, not by intent.
+  const face = `flex cursor-pointer flex-row items-center gap-x-2 pl-3 whitespace-nowrap transition-colors duration-(--motion-fast) ${
+    isActive ? "text-brand pr-1.5" : "text-foreground pr-3"
   }`;
-  const face =
-    "text-foreground flex cursor-pointer flex-row items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)";
+
+  const content = (
+    <>
+      {label}
+      {picked.length > 1 && <span className={`${COUNT_BADGE} bg-brand/50 text-foreground shrink-0`}>{picked.length}</span>}
+      {!isActive && (
+        <ChevronDown
+          aria-hidden="true"
+          className="size-3.5 shrink-0"
+        />
+      )}
+    </>
+  );
 
   if (isStatic) {
     return (
-      <div className={shell}>
-        <span className={face}>
-          {label}
-          <ChevronDown
-            aria-hidden="true"
-            className="size-3.5 shrink-0"
-          />
-        </span>
+      <div className={TRIGGER_SHELL}>
+        <span className={face}>{content}</span>
         {isActive && (
-          <>
-            <span className="bg-brand/25 w-px shrink-0" />
-            <span className="flex w-7 shrink-0 items-center justify-center" />
-          </>
+          <span className={CLEAR_FACE}>
+            <Xmark
+              aria-hidden="true"
+              className="size-3.5 shrink-0"
+            />
+          </span>
         )}
       </div>
     );
   }
 
   return (
-    <div className={shell}>
+    <div className={TRIGGER_SHELL}>
       <Popover>
         <Popover.Trigger
-          aria-label={isActive ? `${facet.label}: ${label} ändern` : `${facet.label} filtern`}
+          aria-label={triggerHint(facet, picked, label)}
           className={`${face} hover:bg-hover h-full`}>
-          {label}
-          <ChevronDown
-            aria-hidden="true"
-            className="size-3.5 shrink-0"
-          />
+          {content}
         </Popover.Trigger>
         <Popover.Content
           placement="bottom start"
@@ -162,23 +208,20 @@ function FacetTrigger<TItem>({
         </Popover.Content>
       </Popover>
 
+      {/* Inside the shell rather than in the menu: clearing one dimension is the commonest thing done to
+          an active filter, and a control reached by first opening the thing it undoes is not one. It
+          costs no width — it stands where the chevron stands on an idle trigger. */}
       {isActive && (
-        <>
-          <span
+        <Button
+          variant="ghost"
+          aria-label={`Filter ${facet.label} entfernen`}
+          onPress={onClear}
+          className={`${CLEAR_FACE} text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong min-w-0 cursor-pointer transition-colors duration-(--motion-fast)`}>
+          <Xmark
             aria-hidden="true"
-            className="bg-brand/25 w-px shrink-0"
+            className="size-3.5 shrink-0"
           />
-          <Button
-            variant="ghost"
-            aria-label={`Filter ${facet.label} entfernen`}
-            onPress={onClear}
-            className="text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong flex h-full w-7 min-w-0 shrink-0 cursor-pointer items-center justify-center rounded-none p-0 transition-colors duration-(--motion-fast)">
-            <Xmark
-              aria-hidden="true"
-              className="size-3.5 shrink-0"
-            />
-          </Button>
-        </>
+        </Button>
       )}
     </div>
   );
@@ -192,8 +235,24 @@ function overflowCount<TItem>(overflowed: readonly Facet<TItem>[]): string {
   return `Weitere Filter · ${String(overflowed.length)}`;
 }
 
-/** The overflow trigger's box, shared by the live control and by the hidden row that measures it. */
-function OverflowFace({ label }: { label: string }) {
+/**
+ * The overflow trigger's contents, shared by the live control and by the hidden row that measures it.
+ *
+ * **On a narrow row it is the icon and nothing else** — a square the width of its own height, where the
+ * words and the chevron would cost most of a phone's remaining room to say what the icon says. The live
+ * control's `aria-label` names the dimensions in every case, so that is what the control is called when
+ * there is no visible text left to read.
+ */
+function OverflowFace({ label, isNarrow }: { label: string; isNarrow: boolean }) {
+  if (isNarrow)
+    return (
+      <Sliders
+        aria-hidden="true"
+        width={16}
+        height={16}
+      />
+    );
+
   return (
     <>
       <Sliders
@@ -210,9 +269,6 @@ function OverflowFace({ label }: { label: string }) {
   );
 }
 
-const OVERFLOW_SHELL =
-  "border-border bg-surface text-foreground fluid-xs flex h-10 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-xl border px-3 font-bold whitespace-nowrap shadow-sm";
-
 /**
  * The filter control as one trigger per dimension: the Filterleiste.
  *
@@ -221,13 +277,15 @@ const OVERFLOW_SHELL =
  * scroll, the lighter fill, the grouping per facet) stop applying rather than get better answers.
  *
  * **`primary` names the dimensions this SURFACE keeps in the row**, and `splitPromotedFacets` carries
- * why that is explicit, why it belongs to the surface, and what an undeclared surface gets.
+ * why that is explicit, why it belongs to the surface, and what an undeclared surface gets. A narrow
+ * row keeps one fewer of them, and the surface's own declaration says which one it gives up.
  *
  * **How many actually sit in the row is measured, not declared.** A hidden copy of the candidates is
  * laid out at full size and the row takes as many as fit beside the promoted ones; what is left goes
  * behind one control that NAMES those dimensions whenever the remaining width allows, and counts them
  * only when it does not. Nothing about the fit feeds back into the hidden copy, so the measurement
- * cannot oscillate.
+ * cannot oscillate — and the row's own width, which decides the narrow case, is a width no promotion
+ * and no label form can change.
  *
  * **A surface with no overflow candidates renders no overflow control and no popover at all** — the
  * five surfaces carrying three facets or fewer are that case.
@@ -252,17 +310,22 @@ export function FilterLeiste<TItem>({
   const namesRulerRef = useRef<HTMLDivElement>(null);
   const countRulerRef = useRef<HTMLDivElement>(null);
 
-  const { inline, overflowable } = splitPromotedFacets(facets, primary, selection);
+  // Everything inline and nothing narrow until measured, so a first paint with room is already right
+  // and a narrow one scrolls for a frame rather than flashing a control. `Infinity` is "as many as
+  // there are", which this cannot count yet.
+  const [row, setRow] = useState<{ pulled: number; namesFit: boolean; isNarrow: boolean }>({
+    pulled: Infinity,
+    namesFit: true,
+    isNarrow: false,
+  });
 
-  // Everything inline until measured, so the first paint is already right wherever the row has room and
-  // the narrow case merely scrolls for one frame rather than showing an overflow control that vanishes.
-  const [fit, setFit] = useState<{ pulled: number; namesFit: boolean }>({ pulled: overflowable.length, namesFit: true });
+  const { inline, overflowable } = splitPromotedFacets(facets, primary, selection, row.isNarrow);
 
   const candidateCount = overflowable.length;
 
   useEffect(() => {
     const viewport = viewportRef.current;
-    if (viewport === null || candidateCount === 0) return;
+    if (viewport === null) return;
 
     const measure = () => {
       const candidates = [...(candidateRulerRef.current?.children ?? [])].map((node) => (node as HTMLElement).offsetWidth);
@@ -272,15 +335,18 @@ export function FilterLeiste<TItem>({
 
       const promotedWidth = promotedRef.current?.offsetWidth ?? 0;
 
-      setFit(
-        fitOverflow({
+      // Measured even where there is nothing to pull, because a surface can have no candidate at all
+      // until the row is narrow enough to demote one — which is a width, and this is where widths are.
+      setRow({
+        ...fitOverflow({
           available: viewport.clientWidth - promotedWidth - (promotedWidth > 0 ? TRIGGER_GAP : 0),
           candidates,
           namesWidths: names,
           countWidths: counts,
           gap: TRIGGER_GAP,
         }),
-      );
+        isNarrow: isNarrowRow(viewport.clientWidth),
+      });
     };
 
     measure();
@@ -294,9 +360,9 @@ export function FilterLeiste<TItem>({
 
   if (facets.length === 0) return null;
 
-  const pulled = overflowable.slice(0, Math.min(fit.pulled, candidateCount));
+  const pulled = overflowable.slice(0, Math.min(row.pulled, candidateCount));
   const overflowed = overflowable.slice(pulled.length);
-  const label = fit.namesFit ? overflowNames(overflowed) : overflowCount(overflowed);
+  const label = row.namesFit ? overflowNames(overflowed) : overflowCount(overflowed);
 
   const renderTrigger = (facet: Facet<TItem>, isStatic = false) => (
     <FacetTrigger
@@ -338,10 +404,15 @@ export function FilterLeiste<TItem>({
 
           {overflowed.length > 0 && (
             <Popover>
+              {/* The label names the dimensions whatever the row does with it, because on a narrow row
+                  it is the only name this control has. */}
               <Popover.Trigger
                 aria-label={`Weitere Filter: ${overflowNames(overflowed)}`}
                 className={`${OVERFLOW_SHELL} hover:bg-hover transition-colors duration-(--motion-fast)`}>
-                <OverflowFace label={label} />
+                <OverflowFace
+                  label={label}
+                  isNarrow={row.isNarrow}
+                />
               </Popover.Trigger>
               <Popover.Content
                 placement="bottom start"
@@ -395,7 +466,10 @@ export function FilterLeiste<TItem>({
               <span
                 key={index}
                 className={OVERFLOW_SHELL}>
-                <OverflowFace label={overflowNames(overflowable.slice(candidateCount - index - 1))} />
+                <OverflowFace
+                  label={overflowNames(overflowable.slice(candidateCount - index - 1))}
+                  isNarrow={row.isNarrow}
+                />
               </span>
             ))}
           </div>
@@ -406,7 +480,10 @@ export function FilterLeiste<TItem>({
               <span
                 key={index}
                 className={OVERFLOW_SHELL}>
-                <OverflowFace label={overflowCount(overflowable.slice(candidateCount - index - 1))} />
+                <OverflowFace
+                  label={overflowCount(overflowable.slice(candidateCount - index - 1))}
+                  isNarrow={row.isNarrow}
+                />
               </span>
             ))}
           </div>

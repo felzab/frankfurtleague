@@ -154,6 +154,12 @@ export function countActiveFacets(selection: FacetSelection): number {
  * make display order a silent contract, and the next person reordering a popover for visual reasons
  * would move a dimension out of the row with nothing to catch them.
  *
+ * **The declaration is in priority order, and a narrow row keeps all of it but the last entry.** A phone
+ * fits one dimension fewer than the surface asks for, and the surface is the only place that knows which
+ * of its own dimensions it would rather give up — an order it already writes says that, where a second
+ * list would be the same decision spelled twice. Display order is still the facets' own, so this order
+ * governs nothing but the narrow row.
+ *
  * **An undeclared surface promotes everything.** The unsafe fallback is the empty one — it would put a
  * page's whole vocabulary behind a word that does not say what is behind it. Promoting everything hides
  * nothing, and it is why the five surfaces carrying three facets or fewer need no declaration and get no
@@ -166,13 +172,20 @@ export function splitPromotedFacets<TItem>(
   facets: readonly Facet<TItem>[],
   primary: readonly string[] | undefined,
   selection: FacetSelection,
+  /** Whether the row is the narrow case — `filterLeisteFit.ts :: isNarrowRow` is what decides it. */
+  isNarrow = false,
 ): { inline: Facet<TItem>[]; overflowable: Facet<TItem>[] } {
+  // An undeclared surface is untouched: it has no priority order to trim, and trimming would invent
+  // the overflow control its whole-vocabulary row has none of. A surface down to one promoted
+  // dimension keeps it, for the same reason.
+  const promoted = isNarrow && primary !== undefined && primary.length > 1 ? primary.slice(0, -1) : primary;
+
   const inline: Facet<TItem>[] = [];
   const overflowable: Facet<TItem>[] = [];
 
   for (const facet of facets) {
     const isActive = (selection[facet.param] ?? []).length > 0;
-    if (primary === undefined || isActive || primary.includes(facet.param)) inline.push(facet);
+    if (promoted === undefined || isActive || promoted.includes(facet.param)) inline.push(facet);
     else overflowable.push(facet);
   }
   return { inline, overflowable };

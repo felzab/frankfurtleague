@@ -20,6 +20,10 @@ import type { AdminSpielerRow, SpielerTeamOption } from "./types";
  *
  * The club, whether there is a squad row at all, and whether the player is still active — the three an
  * admin opens this list to answer. Position, Stufe and Rolle narrow a list one already has.
+ *
+ * **Last is what a narrow row gives up** (`splitPromotedFacets`), and that is `status`: `kader` beside
+ * it already separates a retired squad row from a live one, so it is the one of the three whose question
+ * is partly answered without it.
  */
 export const SPIELER_PRIMARY_FACETS: readonly string[] = ["team", "kader", "status"];
 

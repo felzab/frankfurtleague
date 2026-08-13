@@ -212,6 +212,52 @@ describe("splitPromotedFacets", () => {
     );
   });
 
+  it("gives up the declaration's LAST entry on a narrow row", () => {
+    // The surface writes its promotion in priority order, so the phone row is the same declaration one
+    // shorter — and `gruppe`, which was already behind the control, stays behind it.
+    const { inline, overflowable } = splitPromotedFacets(FACETS, ["status", "stufe"], {}, true);
+
+    assert.deepEqual(
+      inline.map((facet) => facet.param),
+      ["status"],
+    );
+    assert.deepEqual(
+      overflowable.map((facet) => facet.param),
+      ["gruppe", "stufe"],
+    );
+  });
+
+  it("keeps an ACTIVE facet inline on a narrow row too", () => {
+    // The rule the whole control rests on: a dimension narrowing the list is never behind the overflow,
+    // whatever the width. `stufe` is the entry the narrow row would otherwise give up.
+    const { inline } = splitPromotedFacets(FACETS, ["status", "stufe"], { stufe: ["E1"] }, true);
+
+    assert.deepEqual(
+      inline.map((facet) => facet.param),
+      ["status", "stufe"],
+    );
+  });
+
+  it("leaves an undeclared surface whole on a narrow row", () => {
+    // It has no priority order to trim, and trimming would invent the overflow control it has none of.
+    const { inline, overflowable } = splitPromotedFacets(FACETS, undefined, {}, true);
+
+    assert.deepEqual(
+      inline.map((facet) => facet.param),
+      ["status", "gruppe", "stufe"],
+    );
+    assert.deepEqual(overflowable, []);
+  });
+
+  it("keeps a surface's last promoted dimension rather than emptying the row", () => {
+    const { inline } = splitPromotedFacets(FACETS, ["status"], {}, true);
+
+    assert.deepEqual(
+      inline.map((facet) => facet.param),
+      ["status"],
+    );
+  });
+
   it("holds both halves in the facets' own order", () => {
     const { inline, overflowable } = splitPromotedFacets(FACETS, ["stufe", "status"], {});
 
@@ -375,6 +421,14 @@ describe("every facet set in the app", () => {
       for (const param of primary) {
         assert.ok(params.has(param), `${name} promotes "${param}", which no facet in the ${slice} slice declares`);
       }
+    }
+  });
+
+  it("promotes more than one dimension, so a narrow row has one to give up", () => {
+    // A surface down to its last promoted dimension keeps it (`splitPromotedFacets`), so a declaration
+    // of one would quietly opt out of the narrow rule rather than fail anywhere.
+    for (const [name, , primary] of promotions) {
+      assert.ok(primary.length > 1, `${name} promotes ${String(primary.length)} dimension, so a narrow row has nothing to give up`);
     }
   });
 

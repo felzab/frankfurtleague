@@ -9,6 +9,8 @@
  * - More inline is always preferred to fewer, and naming the overflowed dimensions to counting them.
  * - Nothing this returns can change a width it was given — that is what keeps the measurement from
  *   oscillating between two answers.
+ * - `NARROW_ROW` is the one place a row width is called narrow, so the promotion the surface gives up
+ *   and the label the overflow control gives up cannot disagree about where that starts.
  */
 
 /** One candidate's width, both label forms, and the space they are competing for. All in CSS pixels. */
@@ -26,6 +28,23 @@ export type FitInput = {
 
 /** How many candidates the row takes, and whether the overflow control can afford to name the rest. */
 export type Fit = { pulled: number; namesFit: boolean };
+
+/**
+ * The row width at and above which the row is the wide case.
+ *
+ * Read off the ROW rather than the viewport, because the row is what has to hold the triggers and its
+ * width is already measured here — one number then decides both things that depend on it, the last
+ * promoted dimension stepping back into the overflow and the overflow control dropping to its icon.
+ *
+ * Tailwind's `sm` read in row pixels. A 375px phone leaves 343 after the page's own inset and the
+ * narrowest tablet layout leaves 704, so no layout in the app sits near the boundary.
+ */
+export const NARROW_ROW = 640;
+
+/** Whether a row of this width is the narrow case, so the comparison is written once. */
+export function isNarrowRow(width: number): boolean {
+  return width < NARROW_ROW;
+}
 
 function spanOf(widths: readonly number[], count: number, gap: number): number {
   return widths.slice(0, count).reduce((sum, width) => sum + width + gap, 0);

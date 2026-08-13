@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { fitOverflow } from "./filterLeisteFit";
+import { fitOverflow, isNarrowRow, NARROW_ROW } from "./filterLeisteFit";
 
 import type { FitInput } from "./filterLeisteFit";
 
@@ -85,5 +85,18 @@ describe("fitOverflow", () => {
     const fit = fitOverflow({ ...BASE, available: 400, namesWidths: [], countWidths: [] });
 
     assert.deepEqual(fit, { pulled: 0, namesFit: false });
+  });
+});
+
+describe("isNarrowRow", () => {
+  it("calls a phone's row narrow and a tablet's wide", () => {
+    // A 375px viewport leaves 343 after the page's own inset; the narrowest tablet layout leaves 704.
+    assert.equal(isNarrowRow(343), true);
+    assert.equal(isNarrowRow(704), false);
+  });
+
+  it("puts the boundary itself on the wide side", () => {
+    assert.equal(isNarrowRow(NARROW_ROW), false);
+    assert.equal(isNarrowRow(NARROW_ROW - 1), true);
   });
 });
