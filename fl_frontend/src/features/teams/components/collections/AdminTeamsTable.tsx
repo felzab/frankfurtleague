@@ -8,11 +8,9 @@ import { Calendar, Globe, Pencil, Persons } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateTeamAction } from "@/features/teams/actions";
-import { AdminTableSkeletonRows } from "@/shared/components/ui/AdminTableSkeletonRows";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
-import { TABLE_COLLECTION_FLOOR } from "@/shared/components/ui/tableCollectionFloor";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -177,8 +175,8 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         ))}
       </div>
 
-      <div className="group relative hidden w-full md:block">
-        <Table className={`${card()} ${TABLE_COLLECTION_FLOOR} h-fit w-full p-0`}>
+      <div className="hidden w-full md:block">
+        <Table className={`${card()} h-fit w-full p-0`}>
           <Table.ScrollContainer className="scrollbar-hide">
             <Table.Content aria-label="Tabelle aller Teams">
               <Table.Header>
@@ -256,16 +254,6 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             </Table.Content>
           </Table.ScrollContainer>
         </Table>
-
-        {/* The same bars the fallback drew, over the shell for the render in which react-aria's
-            collection is still empty, and for the rest of the minimum once it lands. `tbody` says the
-            collection has not landed, the gate says the wait was worth reporting, and the hold keeps
-            the answer up long enough to read -- multiplied, so a shut gate wins over both. */}
-        <div
-          aria-hidden="true"
-          className="bg-surface pointer-events-none absolute inset-0 overflow-hidden rounded-2xl opacity-(--admin-placeholder-gate) group-has-[tbody]:opacity-[calc(var(--admin-placeholder-gate)*var(--admin-placeholder-hold))]">
-          <AdminTableSkeletonRows />
-        </div>
       </div>
     </>
   );

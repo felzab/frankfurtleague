@@ -1,9 +1,8 @@
-import { AdminTableSkeletonRows } from "./AdminTableSkeletonRows";
 import { card } from "./card";
 import { ROW_ACTION_SIZE } from "./rowActionSize";
 import { skeletonBlock } from "./skeleton";
-import { TABLE_COLLECTION_FLOOR } from "./tableCollectionFloor";
 
+const TABLE_ROWS = [0, 1, 2, 3, 4];
 const CARD_ROWS = [0, 1, 2];
 const SECTIONS = [0, 1];
 const TABLE_ROW_ACTIONS = [0, 1, 2, 3];
@@ -44,12 +43,13 @@ function RowActionCluster({ slots, className }: { slots: readonly number[]; clas
  * as the table lunging, because `--motion-ease-enter` spends 90% of its travel in the first 37%.
  * What makes the swap smooth is that every box here is measured to what arrives, so nothing moves.
  *
- * **It waits for nothing, and the threshold it once carried now lives past the boundary.** A route
- * placeholder stands where the page was, so holding this back leaves the reader looking at nothing at
- * all; the shell's `--admin-placeholder-gate` still withholds the table's own overlay, which has
- * something underneath it to wait on. **Were a delay ever added back here it is a step and never a
- * ramp** — a delay paints nothing yet, a fade paints something invisible, and only the second was
- * ever the defect.
+ * **It waits for nothing.** A route placeholder stands where the page was, so holding it back leaves
+ * the reader looking at nothing at all. What survives of the old threshold is a MINIMUM on the other
+ * side — `AdminCrudView` keeps this on screen to 500ms once shown — because a placeholder taken away
+ * ten milliseconds after it appeared is the flicker, and one never shown is not.
+ *
+ * **This is the only placeholder.** The route's `loading.tsx`, the page's `Suspense` fallback and the
+ * view's own overlay all render it, so the reader crosses one visible change rather than three.
  *
  * It reserves the boxes that arrive — the filter row above, then whichever of the two shapes below
  * `shape` names.
@@ -77,6 +77,22 @@ export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sect
 }
 
 /**
+ * **It claims a height and refuses to claim a column layout.** The five tables carry 4, 5, 5, 5 and 7
+ * columns at two different interior paddings with widths their content decides, so any fixed set of
+ * cells is in the wrong place on most of them. One bar per row and one block where the actions go
+ * claims only what all five share: the outer padding, the header strip and the `py-4` rhythm.
+ *
+ * **Both heights are the SHORTEST real one, not an average, because the two errors are not
+ * equivalent.** Reserving under what arrives grows the page, which is the direction the eye forgives;
+ * reserving over it shrinks the page, and a reversal is what gets noticed. So a row is `py-4` around
+ * `ROW_ACTION_SIZE` — **72px**, the shortest row on any of the five (Spieler's) — and the header is
+ * `px-6 py-4` around a `fluid-xs` line, **53px at 1280**, the shortest header. Measured 2026-08-13,
+ * every other real row running from 83 to 163.
+ *
+ * **A single skeleton cannot match all five and is not trying to.** Spielorte alone runs 99 to 143
+ * *within one table*, because a two-line address is taller than a one-line one and none of that
+ * exists yet when this renders. The two taller headers are the same effect: a column label that wraps.
+ *
  * Saisons, Spieler, Schiedsrichter, Spielorte and Teams: a stack of cards below `md`, a table above
  * it.
  *
@@ -132,8 +148,27 @@ function TableFallback() {
         {/* The same box the real table wears, floor included. `h-fit` alone sizes this card to its own
             bars while the table beneath carries a minimum, and any pixel between the two is a pixel
             the page moves at the handover. */}
-        <div className={`${card()} ${TABLE_COLLECTION_FLOOR} h-fit w-full overflow-hidden p-0`}>
-          <AdminTableSkeletonRows />
+        <div className={`${card()} h-fit w-full overflow-hidden p-0`}>
+          {/* `bg-background/90` and not `bg-muted`: `globals.css` paints `.table__column` that way
+          with an `!`, so it is what a header strip actually is however the tables spell it. */}
+          <div className="bg-background/90 border-border flex items-center gap-6 border-b px-6 py-4">
+            <span className={`${skeletonBlock()} fluid-xs block w-24 rounded`}>&nbsp;</span>
+            {/* Ended right, over the `text-right` Aktionen column every one of the five tables ends in. */}
+            <span className={`${skeletonBlock()} fluid-xs ml-auto block w-16 rounded`}>&nbsp;</span>
+          </div>
+
+          {TABLE_ROWS.map((row) => (
+            <div
+              key={row}
+              className="border-border/50 flex items-center gap-6 border-b px-6 py-4 last:border-b-0">
+              {/* One line, so `ROW_ACTION_SIZE` is the tallest thing in the row and `py-4` around it is
+              what the row measures: 72px, and fixed, since neither term is fluid. A `fluid-sm` bar
+              tops out at a 24px line box and cannot reach past it at any width. */}
+              <span className={`${skeletonBlock()} fluid-sm block w-2/5 rounded`}>&nbsp;</span>
+
+              <span className={`${skeletonBlock()} ${ROW_ACTION_SIZE} ml-auto shrink-0 rounded-xl`} />
+            </div>
+          ))}
         </div>
       </div>
     </>

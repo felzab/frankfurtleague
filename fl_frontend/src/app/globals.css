@@ -519,30 +519,19 @@
      dot that is 2.5px of travel, invisible for the moment the loader is on screen. */
   --animate-loader-dot: loader-dot 0.6s infinite ease-in-out;
 
-  /* THE ADMIN PLACEHOLDER GATE. One origin for both placeholders on an admin CRUD route, because
-     they answer one question -- has this been loading long enough to say so -- from two sides of a
-     Suspense boundary that carries no signal across it. The shell mounts when the navigation starts
-     and runs this; the fallback and each table's continuity overlay read it. Measured from the SHELL
-     and not from either placeholder's own mount, which is the whole point: the overlay mounts when
-     the boundary RESOLVES, so a delay of its own would start after the wait it is reporting.
+  /* THE ADMIN PLACEHOLDER'S MINIMUM. Once a placeholder is on screen it stays until 500ms, so a load
+     landing just past the moment it appeared cannot show it for ten milliseconds and take it away.
+     There is deliberately NO delay in front of it: a delay only helps where the previous view stays
+     on screen through it, and this router unmounts the old page at once, so one would paint a blank
+     field for its whole length.
 
-     Zero duration and a backwards fill, exactly as the fallback's own step: the value is 0 through
-     the delay and there is no active phase to interpolate across, so a reader gets absent or whole
-     and never a partial. `initial-value: 1` is deliberate -- if this animation never runs the gate
-     reads open, which is the behaviour before it existed rather than a placeholder nothing can
-     reveal.
-
-     THE HOLD is the same shape one step later, and the pair is why neither half works alone: a
-     threshold on its own always leaves a band just past it, where a load finishing at 210ms shows
-     10ms of placeholder and moving the threshold only moves the band. So once the placeholder paints
-     it stays until 500ms from this same origin. That 500ms is a floor on a wait already being
-     reported rather than a motion duration, which is why it is not on that scale, and it is spelled
-     beside the gate because the two are read together and would drift apart in separate files.
-     `initial-value: 0` closes it, so a hold that never runs holds nothing. */
-  /* No delay before the placeholder. A delay only helps where the previous view stays on screen
-     through it; this router unmounts the old page at once, so a gate paints a blank field for its
-     whole length. The hold alone carries the flicker: whatever is shown is shown long enough. */
-  --animate-admin-placeholder-gate: admin-placeholder-hold 0s linear 500ms backwards;
+     Run by AdminCrudShell, which mounts when the navigation starts -- the region below the boundary
+     cannot time its own wait, because it mounts when that wait ENDS. Zero duration and a backwards
+     fill: the value is 1 through the delay and there is no active phase to interpolate across, so a
+     reader gets whole or absent and never a partial. `initial-value: 0` closes it, so a hold that
+     never runs holds nothing. The 500ms is a floor on a wait already being reported rather than a
+     motion duration, which is why it is not on that scale. */
+  --animate-admin-placeholder-hold: admin-placeholder-hold 0s linear 500ms backwards;
 
   @keyframes loader-dot {
     0%,
@@ -1439,22 +1428,10 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   }
 }
 
-@property --admin-placeholder-gate {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 1;
-}
-
 @property --admin-placeholder-hold {
   syntax: "<number>";
   inherits: true;
   initial-value: 0;
-}
-
-@keyframes admin-placeholder-gate {
-  from {
-    --admin-placeholder-gate: 0;
-  }
 }
 
 @keyframes admin-placeholder-hold {

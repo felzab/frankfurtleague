@@ -6,7 +6,9 @@ import { useDebouncedUrlQuery } from "../../hooks/useDebouncedUrlQuery";
 import { useFuzzySearch } from "../../hooks/useFuzzySearch";
 import { useUrlFilters } from "../../hooks/useUrlFilters";
 import { applyFacets } from "../../utils/facets";
+import { AdminCrudFallback } from "./AdminCrudFallback";
 import { FilterExperiment } from "./FilterExperiment";
+import { PLACEHOLDER_BOX } from "./placeholderBox";
 
 import type { ReactNode } from "react";
 import type { Facet } from "../../utils/facets";
@@ -55,6 +57,7 @@ export function AdminCrudView<TItem extends { id: string }>({
   items,
   searchKeys,
   facets = NO_FACETS,
+  isCollection = true,
   renderTable,
   renderEditModal,
   renderDeleteModal,
@@ -67,6 +70,11 @@ export function AdminCrudView<TItem extends { id: string }>({
    * reason `searchKeys` must be. An empty set renders no bar at all.
    */
   facets?: readonly Facet<TItem>[];
+  /**
+   * Whether `renderTable` returns a react-aria collection, which is what has an empty first pass to
+   * cover. False for the matchday list, whose sections are mapped markup and render complete at once.
+   */
+  isCollection?: boolean;
   renderTable: (args: { query: string; filteredItems: TItem[]; onEdit: (item: TItem) => void; onDelete: (item: TItem) => void }) => ReactNode;
   /**
    * Optional, because an editor is not necessarily a dialog: a resource whose form outgrew one edits
@@ -92,9 +100,9 @@ export function AdminCrudView<TItem extends { id: string }>({
   const filteredItems = useFuzzySearch({ items: narrowedItems, keys: searchKeys, query });
 
   return (
-    // NO entrance: `AdminCrudFallback` reserves this box exactly, so the swap has nothing to
-    // reconcile. A fade and an 8px rise were each tried and each read worse — see its header.
-    <div className="flex flex-col gap-4">
+    // NO entrance: the placeholder reserves this box exactly, so the swap has nothing to reconcile.
+    // A fade and an 8px rise were each tried and each read worse — see `AdminCrudFallback`'s header.
+    <div className={`group relative flex flex-col gap-4 ${isCollection ? PLACEHOLDER_BOX : ""}`}>
       {/* Counted over the UNFILTERED rows, so each option answers what it would leave rather than what
           the current selection already left. */}
       <FilterExperiment
@@ -106,6 +114,17 @@ export function AdminCrudView<TItem extends { id: string }>({
 
       {renderEditModal?.({ item: editingItem, isOpen: editingItem !== null, onClose: () => setEditingItem(null) })}
       {renderDeleteModal?.({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
+
+      {/* The SAME placeholder the route and the boundary already drew, over this whole region rather
+          than over the table alone — so the filter bar and the card below it are the placeholder's,
+          not a half-real composition, and the reader crosses one change instead of three. */}
+      {isCollection && (
+        <div
+          aria-hidden="true"
+          className="bg-background pointer-events-none absolute inset-0 group-has-[tbody]:opacity-(--admin-placeholder-hold)">
+          <AdminCrudFallback />
+        </div>
+      )}
     </div>
   );
 }

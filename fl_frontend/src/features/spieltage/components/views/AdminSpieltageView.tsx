@@ -41,6 +41,7 @@ export function AdminSpieltageView({
 }) {
   return (
     <AdminCrudView<AdminSpieltagRow>
+      isCollection={false}
       items={spieltage}
       searchKeys={SEARCH_KEYS}
       facets={SPIELTAG_FACETS}
