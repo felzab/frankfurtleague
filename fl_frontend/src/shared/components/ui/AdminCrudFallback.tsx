@@ -99,13 +99,6 @@ export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sect
  * The breakpoint is the tables' own — each renders a `md:hidden` card list beside a `hidden md:block`
  * table — so a fallback holding one shape at every width reserves the wrong box on one side of it.
  *
- * **The table half claims a height and refuses to claim a column layout**, and the refusal is what
- * makes it match. Those five tables carry 4, 5, 5, 5 and 7 columns, at `px-6` on the outer pair and
- * `px-3` between on three of them, with widths their content decides — so any fixed set of cells here
- * is in the wrong place on most of them, which is what reads as a wireframe of a different table
- * rather than as loading. One bar per row and one block where the actions go claims only what all
- * five share: the outer padding, the header strip, the `py-4` rhythm and the row's height.
- *
  * **The card half keeps its shapes and takes the same height rule.** A card is allowed to be shaped
  * where a table row is not — `SpielCardSkeleton` settles that — so what mattered here was the box
  * model: three children, as four of the five real cards have, each one measured by the classes the
