@@ -48,7 +48,16 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
   await connection();
   const spieltagId = await resolveSpieltagId(params);
 
-  const spieltag = (await getSpieltagById(spieltagId)).spieltag;
+  // Resolves null for "no such matchday" — the conversion lives inside the query, because a
+  // production build redacts an error thrown out of a "use cache" scope. Everything else still
+  // throws, so an outage never reads as a missing matchday.
+  const spieltagRes = await getSpieltagById(spieltagId);
+
+  if (!spieltagRes) {
+    notFound();
+  }
+
+  const spieltag = spieltagRes.spieltag;
 
   const [saisonsRes, siblingsRes, spieleRes] = await Promise.all([
     getSaisons(),

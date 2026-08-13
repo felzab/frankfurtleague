@@ -14,6 +14,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
+import { APIBadStatusError } from "@/core/errors";
 
 import { FLSpieltageListResponseSchema, FLSpieltageSingleResponseSchema } from "./schemas";
 
@@ -43,12 +44,22 @@ export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promi
  * (ADR-0001). It is a public read under the base key, so `"use cache"` is correct here — the rule
  * against caching is about ADMIN-scoped reads, which key on arguments rather than on caller identity
  * (ADR-0009).
+ *
+ * **Resolves `null` when the id matches no matchday, and the 404 → null conversion must stay INSIDE
+ * this function** — `getSpiel` carries the full reasoning: a production build redacts an error thrown
+ * out of a `"use cache"` scope to a digest-only `Error`, so a catch at the call site cannot recognise
+ * the 404. Only the 404 becomes a value; everything else still throws, so a backend outage never
+ * reads as a missing matchday. The `null` caches under the same base tag, which every matchday write
+ * clears, and introduces no tag of its own.
  */
-export async function getSpieltagById(spieltagId: string): Promise<FLSpieltageSingleResponse> {
+export async function getSpieltagById(spieltagId: string): Promise<FLSpieltageSingleResponse | null> {
   "use cache";
 
   cacheTag("spieltage");
   cacheLife("days");
 
-  return apiClient<FLSpieltageSingleResponse>(`/spieltage/${spieltagId}`, FLSpieltageSingleResponseSchema);
+  return apiClient<FLSpieltageSingleResponse>(`/spieltage/${spieltagId}`, FLSpieltageSingleResponseSchema).catch((error: unknown) => {
+    if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+    throw error;
+  });
 }
