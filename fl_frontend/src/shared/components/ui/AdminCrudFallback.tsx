@@ -2,10 +2,6 @@ import { card } from "./card";
 import { ROW_ACTION_SIZE } from "./rowActionSize";
 import { skeletonBlock } from "./skeleton";
 
-/** Header cells are label-width, body cells are content-width — enough variation to read as a table. */
-const HEADER_CELL_WIDTHS = ["w-28", "w-24", "w-32", "w-20"];
-const BODY_CELL_WIDTHS = ["w-40", "w-36", "w-44", "w-28"];
-
 const TABLE_ROWS = [0, 1, 2, 3, 4];
 const CARD_ROWS = [0, 1, 2];
 const SECTIONS = [0, 1];
@@ -13,11 +9,10 @@ const TABLE_ROW_ACTIONS = [0, 1, 2, 3];
 const SECTION_ROW_ACTIONS = [0, 1];
 
 /**
- * The targets a row ends in. How many there are decides only the cluster's width, and the cluster is
- * `ml-auto` against fixed-width cells, so a row carrying either side of `TABLE_ROW_ACTIONS` moves no
- * other box; how tall each one is comes from `ROW_ACTION_SIZE`, which `RowActions` reads too, and
- * that is what a row is tall. A matchday offers an edit and a retire; the longest table row is
- * Spielorte's — a maps link, a fixtures link, a copy, an edit and a delete.
+ * The targets a card ends in, for the two shapes that stack cards rather than tabulate them. How many
+ * there are decides only the cluster's width, and it is `ml-auto` or full-width in both, so a card
+ * carrying either count moves no other box; how tall each one is comes from `ROW_ACTION_SIZE`, which
+ * `RowActions` reads too. A matchday offers an edit and a retire.
  */
 function RowActionCluster({ slots, className }: { slots: readonly number[]; className: string }) {
   return (
@@ -42,11 +37,22 @@ function RowActionCluster({ slots, className }: { slots: readonly number[]; clas
  * for `useSearchParams` suspends too — pushing the bailout up to the boundary above and undoing the
  * split that keeps the static chrome outside the data hole.
  *
- * **It paints at once and it does not animate.** A held-back fallback leaves the interval between the
- * navigation and the data with nothing on screen at all, which is the wait the reader actually
- * notices; and an entrance here would still be mid-flight when the rows land on a fast one. What
- * makes the swap smooth instead is the other side: `AdminCrudView` fades in place over geometry this
- * already reserved (`motion.ts :: CONTENT_FADE`), so the two never move against each other.
+ * **It is held at `opacity: 0` for `--motion-base`, then fades in over `--motion-fast`.** The delay
+ * is the handover's own duration, and that is an arithmetic threshold rather than a taste: the swap
+ * out of here costs a `--motion-base` cross-fade (`motion.ts :: CONTENT_FADE`), so a skeleton painted
+ * for a load finishing inside that window buys the reader a wait *longer* than the one it was
+ * reporting. Below the threshold it is a flicker; above it, it is a loading state.
+ *
+ * **`fill-mode-backwards` is what makes that a suppression rather than a pause.** Without it the
+ * `from` state applies only once the animation starts, so the block would paint at full opacity for
+ * the whole delay and the class would buy nothing.
+ *
+ * **Nothing is held back but this.** `AdminCrudShell` renders the search field and the create trigger
+ * outside the boundary and the admin bar carries the route's title, so the delay hands the reader a
+ * populated page with one box still filling — never the empty one a whole-page fallback would.
+ *
+ * The other half of the swap is `AdminCrudView`, which fades in place over the geometry this already
+ * reserved and never travels, so the two do not move against each other.
  *
  * It reserves the boxes that arrive — the filter row above, then whichever of the two shapes below
  * `shape` names.
@@ -58,7 +64,7 @@ export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sect
       aria-label="Daten werden geladen"
       /* `gap-4` is `AdminCrudView`'s own column gap, so the filter block and the list below it sit
          where they will sit once the rows land. */
-      className="flex flex-col gap-4">
+      className="animate-in fade-in fill-mode-backwards flex flex-col gap-4 delay-(--motion-base) duration-(--motion-fast) ease-(--motion-ease-enter)">
       {/* Every admin slice declares facets, so the filter control always renders its `h-10` row, and a
           fallback without it puts the list a row above the data. The row is `h-10` in both filter
           shapes; only how many controls sit in it differs, and a control's width shifts nothing
@@ -78,6 +84,16 @@ export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sect
  *
  * The breakpoint is the tables' own — each renders a `md:hidden` card list beside a `hidden md:block`
  * table — so a fallback holding one shape at every width reserves the wrong box on one side of it.
+ *
+ * **The table half claims a height and refuses to claim a column layout**, and the refusal is what
+ * makes it match. Those five tables carry 4, 5, 5, 5 and 7 columns, at `px-6` on the outer pair and
+ * `px-3` between on three of them, with widths their content decides — so any fixed set of cells here
+ * is in the wrong place on most of them, which is what reads as a wireframe of a different table
+ * rather than as loading. One bar per row and one block where the actions go claims only what all
+ * five share: the outer padding, the header strip, the `py-4` rhythm and the row's height.
+ *
+ * Exact where it counts, vague everywhere else, and the height is built from the real classes rather
+ * than from numbers, exactly as `SpielCardSkeleton` builds a card's.
  */
 function TableFallback() {
   return (
@@ -108,34 +124,25 @@ function TableFallback() {
           {/* `bg-background/90` and not `bg-muted`: `globals.css` paints `.table__column` that way
               with an `!`, so it is what a header strip actually is however the tables spell it. */}
           <div className="bg-background/90 border-border flex items-center gap-6 border-b px-6 py-4">
-            {HEADER_CELL_WIDTHS.map((width) => (
-              <span
-                key={width}
-                className={`${skeletonBlock()} fluid-xs inline-block rounded ${width}`}>
-                &nbsp;
-              </span>
-            ))}
-            {/* Ended right, over the actions cluster the rows below end in. */}
-            <span className={`${skeletonBlock()} fluid-xs ml-auto inline-block w-16 rounded`}>&nbsp;</span>
+            <span className={`${skeletonBlock()} fluid-xs block w-24 rounded`}>&nbsp;</span>
+            {/* Ended right, over the `text-right` Aktionen column every one of the five tables ends in. */}
+            <span className={`${skeletonBlock()} fluid-xs ml-auto block w-16 rounded`}>&nbsp;</span>
           </div>
 
           {TABLE_ROWS.map((row) => (
             <div
               key={row}
               className="border-border/50 flex items-center gap-6 border-b px-6 py-4 last:border-b-0">
-              {BODY_CELL_WIDTHS.map((width) => (
-                <span
-                  key={width}
-                  className={`${skeletonBlock()} fluid-sm inline-block rounded ${width}`}>
-                  &nbsp;
-                </span>
-              ))}
-              {/* The actions cluster is what a row is as tall as: the cells' `py-4` around
-                  `ROW_ACTION_SIZE`, which outgrows any text in the row by half again. */}
-              <RowActionCluster
-                slots={TABLE_ROW_ACTIONS}
-                className="ml-auto shrink-0"
-              />
+              {/* Two invisible line boxes carry the height and one bar is centred over them, the
+                  `SpielCardSkeleton` treatment: three of the five tables carry a `fluid-sm` over a
+                  `fluid-xs` at `gap-0.5`, which out-measures `ROW_ACTION_SIZE`. */}
+              <div className="relative flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="fluid-sm invisible block">&nbsp;</span>
+                <span className="fluid-xs invisible block">&nbsp;</span>
+                <span className={`${skeletonBlock()} fluid-sm absolute top-1/2 left-0 w-2/5 -translate-y-1/2 rounded`}>&nbsp;</span>
+              </div>
+
+              <span className={`${skeletonBlock()} ${ROW_ACTION_SIZE} shrink-0 rounded-xl`} />
             </div>
           ))}
         </div>
