@@ -110,7 +110,7 @@ export function buildSpielerFacets(teams: readonly SpielerTeamOption[]): readonl
     read: (spieler) => (spieler.selected === null ? [] : [spieler.selected.team_id]),
   };
 
-  // Kader, Team, Position lead: six facets wrap three and three, so the leading trio is the row that is
-  // always on screen. The owner ranked them; Stufe, Rolle and Person follow.
+  // Kader, Team, Position lead: six facets wrap three and three in the panel, so the leading trio is the
+  // row that is always on screen. Stufe, Rolle and Person narrow a list one already has.
   return [...SPIELER_FACETS.slice(0, 1), teamFacet, ...SPIELER_FACETS.slice(1)];
 }
