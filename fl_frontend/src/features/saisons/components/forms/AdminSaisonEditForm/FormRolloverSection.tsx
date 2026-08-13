@@ -15,6 +15,7 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { PANEL_REVEAL } from "@/shared/components/ui/motion";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -200,7 +201,7 @@ export function FormRolloverSection({
             {isConfirming && (
               <div
                 role="alert"
-                className="animate-in fade-in slide-in-from-bottom-4 bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm duration-400">
+                className={`${PANEL_REVEAL} bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm`}>
                 <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
                   {outgoing === null

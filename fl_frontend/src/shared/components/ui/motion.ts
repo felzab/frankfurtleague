@@ -57,8 +57,9 @@ export const CARDS_CASCADE = "cards-cascade";
  * TIER 3 — the panel reveal. A section opening inside a page the reader is already looking at:
  * fade plus an 8px lift over 150ms.
  *
- * For a confirmation panel a control unfolds in place: `FormRolloverSection` and
- * `FormGruppenSwapSection` are the two sites it governs.
+ * For the confirmation panel a two-step control unfolds in place, which is what decides membership
+ * rather than the count: `FormRolloverSection`, `FormGruppenSwapSection` and the club editor's
+ * `FormSaisonSection`.
  *
  * **The shorter tier, and that is the whole reason this is not `PAGE_RISE`.** A page rise is a whole
  * view settling; this is a few hundred pixels unfolding in a region already in view, and it carries
