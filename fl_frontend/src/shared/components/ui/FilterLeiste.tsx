@@ -44,6 +44,22 @@ const OVERFLOW_SHELL = `${CONTROL_BOX} text-foreground cursor-pointer items-cent
  */
 const CLEAR_FACE = "flex h-full w-7 shrink-0 items-center justify-center rounded-none p-0";
 
+/**
+ * The ceiling on a picked value, in `em` so it holds the same number of characters at every width.
+ *
+ * **The narrow number is what the phone row leaves, not a taste.** A 375px viewport gives this row
+ * 343px. The public Spielsuche spends 273 of that on `Status`, `Phase`, the active trigger's own
+ * chrome, three gaps and the overflow icon, so 70px is the whole remainder — and 5em is 60.6px at that
+ * width, which lands the row at 334 with something to spare for a font wider than it was reckoned.
+ *
+ * **The wide number bounds the pathological case and clips no real name**: 16em is 223px at 1280px,
+ * where four capped triggers plus their gaps come to 1100 against a 1200px row, so the public surface
+ * cannot be made to scroll at all. `min-w-0` is what makes either cap bite — a flex item's automatic
+ * minimum is its content, and it would otherwise outrank the maximum and print the value in full.
+ */
+const VALUE_CAP_NARROW = "min-w-0 max-w-[5em]";
+const VALUE_CAP_WIDE = "min-w-0 max-w-[16em]";
+
 /** One dimension's options, shared by an inline trigger's own menu and by the overflow's cells. */
 function FacetOptions<TItem>({
   facet,
@@ -135,6 +151,7 @@ function FacetTrigger<TItem>({
   selection,
   onSelect,
   onClear,
+  isNarrow,
   isStatic = false,
 }: {
   facet: Facet<TItem>;
@@ -143,11 +160,16 @@ function FacetTrigger<TItem>({
   selection: FacetSelection;
   onSelect: (values: string[]) => void;
   onClear: () => void;
+  isNarrow: boolean;
   isStatic?: boolean;
 }) {
   const picked = selection[facet.param] ?? [];
   const isActive = picked.length > 0;
   const label = triggerLabel(facet, picked);
+
+  // Only a picked value is capped. A dimension's name is authored, closed and short; a club or venue
+  // name is data of no fixed length, and one long enough to push the row sideways is what this bounds.
+  const cap = picked.length === 1 ? (isNarrow ? VALUE_CAP_NARROW : VALUE_CAP_WIDE) : "";
 
   // Both states come to the same width, so going active reflows nothing: 8 + 14 + 12 against 6 + 28.
   // Colour is picked rather than appended — two colour utilities in one attribute are settled by
@@ -158,7 +180,10 @@ function FacetTrigger<TItem>({
 
   const content = (
     <>
-      {label}
+      {/* Clipped visually and never in the name: `triggerHint` builds the `aria-label` from the whole
+          string, and an `aria-label` is the accessible name outright, so what is announced is the value
+          in full whatever the ellipsis shows. */}
+      <span className={`truncate ${cap}`}>{label}</span>
       {picked.length > 1 && <span className={`${COUNT_BADGE} bg-brand/50 text-foreground shrink-0`}>{picked.length}</span>}
       {!isActive && (
         <ChevronDown
@@ -371,6 +396,7 @@ export function FilterLeiste<TItem>({
       items={items}
       facets={facets}
       selection={selection}
+      isNarrow={row.isNarrow}
       isStatic={isStatic}
       onSelect={(values) => {
         setFacet(facet.param, values);
