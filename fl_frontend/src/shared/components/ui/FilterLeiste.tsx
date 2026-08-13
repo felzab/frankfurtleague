@@ -11,7 +11,7 @@ import { countFacetOptions, splitPromotedFacets } from "@/shared/utils/facets";
 
 import { COUNT_BADGE } from "./badges";
 import { fitOverflow, isNarrowRow } from "./filterLeisteFit";
-import { FilterPanel } from "./FilterPanel";
+import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
 import { overlayPanel } from "./overlayPanel";
 
 import type { Facet, FacetOption, FacetSelection } from "@/shared/utils/facets";
@@ -348,6 +348,10 @@ export function FilterLeiste<TItem>({
 }) {
   const { selection, activeCount, setFacet, clearFacet, clearAll } = useUrlFilters(facets);
 
+  // The panel is bounded by this row rather than by the window: a viewport unit counts the sidemenu as
+  // space the overlay may use, so an oversized panel gets slid left over the navigation.
+  const [rowRef, rowWidth] = useFilterPanelWidth();
+
   const viewportRef = useRef<HTMLDivElement>(null);
   const facetRulerRef = useRef<HTMLDivElement>(null);
   const namesRulerRef = useRef<HTMLDivElement>(null);
@@ -436,7 +440,9 @@ export function FilterLeiste<TItem>({
   );
 
   return (
-    <div className="relative flex w-full flex-col gap-2">
+    <div
+      ref={rowRef}
+      className="relative flex w-full flex-col gap-2">
       {/* Sideways rather than wrapping, for `FilterBar`'s own reason: on Spielsuche this row sits in a
           sticky band, so a second line would cost viewport height for the whole scroll of the result
           list. The fit keeps it from ever being used except by dimensions that are filtering, which is
@@ -473,6 +479,7 @@ export function FilterLeiste<TItem>({
                 <FilterPanel
                   facets={facets}
                   shown={overflowed}
+                  available={rowWidth}
                   items={items}
                   selection={selection}
                   onSelect={setFacet}
