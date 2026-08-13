@@ -89,7 +89,7 @@ is one more entry in `PHASE_ORDER` and nothing else —
 capacity hardcoded beside the set fails rather than drifting.
 
 **The rules are held to a shape a competition can have, by five refusals.**
-`fl_backend/app/api/saisons/services.py :: find_rules_refusal` is pure and returns `(error_code, detail)`:
+`fl_backend/app/api/saisons/services.py :: find_rules_refusal` is pure and returns a `WriteRefusal`:
 
 | Code            | Refuses                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------- |
