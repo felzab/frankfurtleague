@@ -530,17 +530,8 @@
      the delay and there is no active phase to interpolate across, so a reader gets absent or whole
      and never a partial. `initial-value: 1` is deliberate -- if this animation never runs the gate
      reads open, which is the behaviour before it existed rather than a placeholder nothing can
-     reveal.
-
-     THE HOLD is the same shape one step later, and the pair is why neither half works alone: a
-     threshold on its own always leaves a band just past it, where a load finishing at 210ms shows
-     10ms of placeholder and moving the threshold only moves the band. So once the placeholder paints
-     it stays until 500ms from this same origin. That 500ms is a floor on a wait already being
-     reported rather than a motion duration, which is why it is not on that scale, and it is spelled
-     beside the gate because the two are read together and would drift apart in separate files.
-     `initial-value: 0` closes it, so a hold that never runs holds nothing. */
-  --animate-admin-placeholder-gate:
-    admin-placeholder-gate 0s linear var(--motion-base) backwards, admin-placeholder-hold 0s linear 500ms backwards;
+     reveal. */
+  --animate-admin-placeholder-gate: admin-placeholder-gate 0s linear var(--motion-base) backwards;
 
   @keyframes loader-dot {
     0%,
@@ -1443,21 +1434,9 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   initial-value: 1;
 }
 
-@property --admin-placeholder-hold {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0;
-}
-
 @keyframes admin-placeholder-gate {
   from {
     --admin-placeholder-gate: 0;
-  }
-}
-
-@keyframes admin-placeholder-hold {
-  from {
-    --admin-placeholder-hold: 1;
   }
 }
 
