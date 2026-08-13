@@ -53,13 +53,13 @@ export default function LandingPage() {
                 href="/dashboard/spielplan#top"
                 prefetch={false}
                 className={`${ctaButton({ intent: "primary", hover: "css" })} w-full`}>
-                Spielplan →
+                Spielplan
               </Link>
               <Link
                 href="/dashboard/saisontabelle#top"
                 prefetch={false}
                 className={`${ctaButton({ intent: "outline", hover: "css" })} w-full`}>
-                Tabelle →
+                Tabelle
               </Link>
             </div>
           </div>
