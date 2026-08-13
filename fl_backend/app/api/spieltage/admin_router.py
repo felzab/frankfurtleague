@@ -9,7 +9,7 @@ Invariants:
 - Deletion is soft: `spiele.spieltag_id` points here and nothing cascades.
 - Soft is not harmless — `REQ-RETIRE-002` refuses retiring a matchday holding a played match.
 - Nor is reactivating — `REQ-DATE-002` refuses one whose span the season no longer covers.
-- `anzahl_spiele` is derived (ADR-0052); `REQ-SPIELTAG-002` refuses a phase too small for its fixtures.
+- `anzahl_spiele` is derived (ADR-0052); `REQ-SPIELTAG-002` refuses a MOVE into a phase too small for it.
 - Every echo goes through `with_expected_matches`: the field is required and sits on no document.
 """
 
@@ -135,11 +135,16 @@ async def patch_spieltag(
     No fan-out: matches reference a matchday by id and embed no copy of it, so a renamed or re-dated
     matchday is picked up by every consumer on the next read.
 
-    **The phase is refused if the matchday already holds more fixtures than it accounts for**
+    **A phase accounting for fewer matches than the matchday already holds is refused**
     (`REQ-SPIELTAG-002`, ADR-0052). A single round robin per group fixes that number, so moving a matchday
     of eight group fixtures into a Finale would leave seven of them with nowhere to be played. The other
     direction -- fewer fixtures than expected -- is left alone, because that is every season part-way
     through being set up.
+
+    **What that refuses is the MOVE, never the state.** A matchday already holding more fixtures than its
+    phase accounts for got there from data this API never wrote (ADR-0037), and refusing a payload that
+    repeats its own phase would cost it its dates as well, over a mismatch no edit here can repair. Moving
+    one from that state into a narrower phase still is refused, because it makes the mismatch worse.
     """
 
     stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
@@ -153,6 +158,9 @@ async def patch_spieltag(
     refusal = find_spieltag_phase_refusal(
         attached_count=attached,
         expected_count=expected_matches(rules, spieltag_data.saison_phase),
+        # The stored phase's own figure, so the refusal judges the STEP: a payload repeating the phase the
+        # matchday already holds compares equal and is a dates-only edit, whatever the fixture count is.
+        expected_in_stored_phase=expected_matches(rules, stored_raw["saison_phase"]),
     )
     if refusal is not None:
         error_code, detail = refusal

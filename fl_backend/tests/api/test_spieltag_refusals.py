@@ -4,9 +4,9 @@ SPIELTAGE · what a matchday write refuses
 Pure functions, so all of it runs in the default tier. The retire and phase rules exist because a
 matchday is a container whose contents it does not know about: `REQ-RETIRE-002` refuses retiring one
 that holds a played match — the public Spielplan joins fixtures onto the matchdays it received, so
-the results would go with the container — and `REQ-SPIELTAG-002` refuses a phase accounting for
-fewer matches than the matchday already holds (ADR-0052). `REQ-SPIELTAG-003` is the create rule: a
-season whose knockout is under way takes no new matchday.
+the results would go with the container — and `REQ-SPIELTAG-002` refuses a move into a phase
+accounting for fewer matches than the matchday already holds (ADR-0052). `REQ-SPIELTAG-003` is the
+create rule: a season whose knockout is under way takes no new matchday.
 
 Asserted on the code, never the message: the code is the contract the form reads.
 """
@@ -216,8 +216,17 @@ class TestAMatchdayBelongsToAPhaseTheSeasonPlays:
 
 
 class TestChangingThePhase:
+    """
+    `REQ-SPIELTAG-002`. What it refuses is the MOVE into a phase too small, never the state of one.
+
+    A matchday can only be over its phase's count from data the API never wrote — no payload carries
+    `spieltag_id` and `/spiele` has no POST (ADR-0037) — so a refusal on the state would cost that
+    matchday its DATES as well, over a mismatch nothing on this endpoint can repair. Both directions are
+    asserted below, because a rule reading the state alone passes every rejection test here.
+    """
+
     def test_a_matchday_matching_its_phase_is_legal(self):
-        assert find_spieltag_phase_refusal(attached_count=8, expected_count=8) is None
+        assert find_spieltag_phase_refusal(attached_count=8, expected_count=8, expected_in_stored_phase=8) is None
 
     def test_a_matchday_still_being_filled_in_is_legal(self):
         """
@@ -227,16 +236,22 @@ class TestChangingThePhase:
         holding all of them (ADR-0052), so refusing here would refuse the setup rather than a mistake.
         """
 
-        assert find_spieltag_phase_refusal(attached_count=0, expected_count=8) is None
-        assert find_spieltag_phase_refusal(attached_count=7, expected_count=8) is None
+        assert find_spieltag_phase_refusal(attached_count=0, expected_count=8, expected_in_stored_phase=8) is None
+        assert find_spieltag_phase_refusal(attached_count=7, expected_count=8, expected_in_stored_phase=8) is None
 
     def test_one_fixture_too_many_is_refused(self):
         """A single round robin per group fixes the number exactly, so there is no slack to allow."""
 
-        refusal = find_spieltag_phase_refusal(attached_count=9, expected_count=8)
+        # Two fixtures out of a Halbfinale and into the Finale, which accounts for one.
+        refusal = find_spieltag_phase_refusal(attached_count=2, expected_count=1, expected_in_stored_phase=2)
 
         assert refusal is not None
         assert refusal[0] == SPIELTAG_OVER_ITS_PHASE
+
+    def test_a_narrowing_the_fixtures_still_fit_is_legal(self):
+        """The move is refused on the fixtures, not on the narrowing: one fixture fits a Finale."""
+
+        assert find_spieltag_phase_refusal(attached_count=1, expected_count=1, expected_in_stored_phase=8) is None
 
     def test_a_phase_this_season_does_not_reach_accounts_for_nothing(self):
         """
@@ -246,7 +261,7 @@ class TestChangingThePhase:
         fixtures have nowhere to be played.
         """
 
-        refusal = find_spieltag_phase_refusal(attached_count=2, expected_count=0)
+        refusal = find_spieltag_phase_refusal(attached_count=2, expected_count=0, expected_in_stored_phase=1)
 
         assert refusal is not None
         assert refusal[0] == SPIELTAG_OVER_ITS_PHASE
@@ -259,7 +274,30 @@ class TestChangingThePhase:
         the admin list reporting `0 / 0` says exactly that.
         """
 
-        assert find_spieltag_phase_refusal(attached_count=0, expected_count=0) is None
+        assert find_spieltag_phase_refusal(attached_count=0, expected_count=0, expected_in_stored_phase=0) is None
+
+    def test_a_matchday_already_over_its_phase_keeps_the_phase_it_has(self):
+        """
+        Nine group fixtures against a Gruppenphase of eight, with the payload repeating that phase.
+
+        This is a dates-only edit — the two figures are the same phase's — and refusing it would leave
+        the matchday's span uncorrectable while its nine fixtures stayed exactly where they are.
+        """
+
+        assert find_spieltag_phase_refusal(attached_count=9, expected_count=8, expected_in_stored_phase=8) is None
+
+    def test_a_matchday_already_over_its_phase_may_not_move_to_a_smaller_one(self):
+        """
+        The half that keeps the case above from being a blanket excuse.
+
+        A bad state is not a licence: those nine fixtures fit a Finale even less than they fit the
+        Gruppenphase, so the step that makes the mismatch worse is refused from there too.
+        """
+
+        refusal = find_spieltag_phase_refusal(attached_count=9, expected_count=1, expected_in_stored_phase=8)
+
+        assert refusal is not None
+        assert refusal[0] == SPIELTAG_OVER_ITS_PHASE
 
     def test_the_two_refusals_are_distinct(self):
         """Different advice — cancel or enter results, against move fixtures — so different codes."""

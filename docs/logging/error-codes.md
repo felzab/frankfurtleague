@@ -67,7 +67,7 @@ request would have succeeded against a different state of the database
 | `REQ-RETIRE-004`      | 409    | A referee still assigned to an unplayed fixture was asked to retire                                                                            |
 | `REQ-RETIRE-005`      | 409    | Retiring a matchday would take its phase below the count the season's rules imply (ADR-0051)                                                   |
 | `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved (ADR-0042)                                                       |
-| `REQ-SPIELTAG-002`    | 409    | A matchday's new phase accounts for fewer matches than the matchday already holds (ADR-0052)                                                   |
+| `REQ-SPIELTAG-002`    | 409    | A matchday was moved to a phase accounting for fewer matches than the one it holds now (ADR-0052)                                              |
 | `REQ-SPIELTAG-003`    | 409    | A season whose knockout phase has started was asked for a new matchday                                                                         |
 | `REQ-SPIELTAG-004`    | 409    | A matchday was created in a phase the season's rules never produce (ADR-0052)                                                                  |
 | `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                                                          |

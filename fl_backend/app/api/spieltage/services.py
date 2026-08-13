@@ -94,8 +94,8 @@ def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules)
 # this unpublishes results the league produced.
 SPIELTAG_HOLDS_PLAYED = "REQ-RETIRE-002"
 
-# The matchday would hold more fixtures than its phase accounts for. Too few is legal: a season being
-# set up passes through every count. Too many is a state no setup passes through, because a single
+# A matchday moved to a phase accounting for fewer matches than it holds. Too few is legal: a season
+# being set up passes through every count. Too many is a state no setup reaches, because a single
 # round robin fixes the number (ADR-0052).
 SPIELTAG_OVER_ITS_PHASE = "REQ-SPIELTAG-002"
 
@@ -154,19 +154,32 @@ def find_spieltag_retire_refusal(*, played_count: int, live_in_phase: int, impli
     return None
 
 
-def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int) -> tuple[str, str] | None:
+def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int, expected_in_stored_phase: int) -> tuple[str, str] | None:
     """
     Why this matchday's phase must be refused, as `(error_code, detail)` -- or `None`.
 
-    `expected_count` is `schedule_for`'s answer for the PROPOSED phase, and `attached_count` is how many
-    fixtures already carry this matchday's id. Only the over-full direction is refused, so a phase edit
-    that leaves a matchday still being filled in passes.
+    `expected_count` is `schedule_for`'s answer for the PROPOSED phase, `expected_in_stored_phase` is the
+    same answer for the phase the matchday holds now, and `attached_count` is how many fixtures already
+    carry this matchday's id. Only the over-full direction is refused, so a phase edit that leaves a
+    matchday still being filled in passes.
 
-    A phase whose expected count is 0 -- one this season's bracket does not reach -- therefore refuses
-    any attached fixture at all, which is the right answer: those fixtures have nowhere to be played.
+    A phase whose expected count is 0 -- one this season's bracket does not reach -- therefore refuses any
+    attached fixture moved into it, which is the right answer: those fixtures have nowhere to be played.
+
+    **What is refused is the STEP that narrows the count, never the state of already being over one.** A
+    season's fixtures are created outside the API (ADR-0037) and no payload carries `spieltag_id`, so a
+    matchday holding more than its phase accounts for was put there by data this endpoint never wrote --
+    and refusing every edit to it would take its DATES with them, by a rule about its phase, while leaving
+    the fixtures exactly where they were. A move into a phase narrower still is refused from that state
+    too: it is the one edit that makes the mismatch worse.
     """
 
-    if attached_count > expected_count:
+    # An unchanged phase compares equal, so a dates-only patch never reaches the refusal -- and a move to a
+    # roomier phase is a repair rather than the mistake this exists for.
+    narrows_the_count = expected_count < expected_in_stored_phase
+    would_not_fit = attached_count > expected_count
+
+    if narrows_the_count and would_not_fit:
         return (
             SPIELTAG_OVER_ITS_PHASE,
             f"the matchday holds {attached_count} fixtures and this phase accounts for {expected_count}; "

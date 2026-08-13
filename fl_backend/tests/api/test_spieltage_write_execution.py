@@ -1,11 +1,12 @@
 """
 SPIELTAGE · the write path against a real MongoDB (ADR-0023)
 
-Two things only a database proves. The SEQUENCE `REQ-DATE-002` is wired into on the way back in:
+Three things only a database proves. The SEQUENCE `REQ-DATE-002` is wired into on the way back in:
 retire a matchday, shrink the season past it -- which `PATCH /saisons/{saison_id}` permits, because
-`REQ-DATE-004` reads live matchdays only -- and then ask for it back. And the ECHO every write
+`REQ-DATE-004` reads live matchdays only -- and then ask for it back. The ECHO every write
 answers with, which carries a derived `anzahl_spiele` that sits on no document (ADR-0052), so a
-matchday created since that decision reaches validation without it.
+matchday created since that decision reaches validation without it. And WHICH PATCHES
+`REQ-SPIELTAG-002` reaches, which needs a real fixture count against a real season's rules.
 
 Each step runs through the handler that performs it, so the premise is proved rather than assumed.
 
@@ -29,7 +30,7 @@ from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.api.spieltage.admin_router import delete_spieltag, patch_spieltag, post_spieltag, reactivate_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload, FLPostSpieltagPayload
-from app.api.spieltage.services import SPIELTAG_OUTSIDE_SAISON
+from app.api.spieltage.services import SPIELTAG_OUTSIDE_SAISON, SPIELTAG_OVER_ITS_PHASE
 from app.core.exceptions import DocumentConflictException
 
 pytestmark = pytest.mark.db
@@ -370,3 +371,64 @@ class TestAWriteEchoesTheMatchdayItChanged:
 
         assert response.updated_document is not None
         assert response.updated_document.anzahl_spiele == GRUPPENPHASE_MATCHES
+
+
+class TestAMatchdayOverItsPhaseKeepsItsDatesEditable:
+    """
+    `REQ-SPIELTAG-002` against the state only the database can hold.
+
+    The fixture count comes from a real `spiele` collection, and the phase count from the season's own
+    rules, so the two figures the refusal compares are produced the way the endpoint produces them. That
+    is the whole case: the rule reads a phase, and the endpoint runs it on every patch — including one
+    whose payload repeats the phase the matchday already has.
+
+    A season's fixtures are created outside the API (ADR-0037), which is why nine of them can sit on a
+    matchday whose Gruppenphase accounts for eight, and why no edit here can move one out.
+    """
+
+    ATTACHED = GRUPPENPHASE_MATCHES + 1
+
+    async def _with_fixtures_attached(self, database: AsyncIOMotorDatabase) -> None:
+        """Nine fixtures on the seeded matchday, dateless so `REQ-DATE-003` has nothing to hold."""
+
+        for spiel_nr in range(1, self.ATTACHED + 1):
+            await database.spiele.insert_one({"saison_id": SAISON_ID, "spieltag_id": SPIELTAG_OID, "spiel_nr": spiel_nr})
+
+    def test_a_dates_only_patch_goes_through(self, mongo_container: Any):
+        """The payload repeats the stored phase, so there is no move for the phase rule to judge."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            await self._with_fixtures_attached(database)
+            return await patch_spieltag(
+                spieltag_id=SPIELTAG_OID,
+                spieltag_data=FLPatchSpieltagPayload(beginn=SPIELTAG_BEGINN, ende="2026-06-22", saison_phase="gruppenphase"),
+                spieltage_collection=database.spieltage,
+                saisons_collection=database.saisons,
+                spiele_collection=database.spiele,
+            )
+
+        response = on_a_database(mongo_container, body)
+
+        assert response.updated_document is not None
+        assert response.updated_document.ende == "2026-06-22"
+
+    def test_a_move_into_a_smaller_phase_is_still_refused(self, mongo_container: Any):
+        """The other half: from a bad state the step that makes it worse is refused as it always was."""
+
+        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+            await self._with_fixtures_attached(database)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await patch_spieltag(
+                    spieltag_id=SPIELTAG_OID,
+                    spieltag_data=FLPatchSpieltagPayload(beginn=SPIELTAG_BEGINN, ende=SPIELTAG_ENDE, saison_phase="finale"),
+                    spieltage_collection=database.spieltage,
+                    saisons_collection=database.saisons,
+                    spiele_collection=database.spiele,
+                )
+
+            return excinfo.value
+
+        refusal = on_a_database(mongo_container, body)
+
+        assert refusal.error_code == SPIELTAG_OVER_ITS_PHASE
