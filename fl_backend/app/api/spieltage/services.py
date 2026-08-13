@@ -118,9 +118,15 @@ def find_spieltag_retire_refusal(*, played_count: int, live_in_phase: int, impli
     other. The caller decides that by what it counts, and it counts `ergebnis`.
 
     `live_in_phase` INCLUDES this matchday -- it is the phase's live rows as they stand before the
-    retirement -- and `implied_in_phase` is `implied_matchdays` for that phase. A phase already holding
-    more rows than the rules imply retires down to the floor and no further, which is what keeps a
-    split round (ADR-0051) reducible back to one matchday but not to none.
+    retirement -- and `implied_in_phase` is `implied_matchdays` for that phase. A phase above the floor
+    retires down to it and no further, which is what keeps a split round (ADR-0051) reducible back to
+    one matchday but not to none.
+
+    **What is refused is the STEP across the floor, never the state below it.** A phase already short
+    was put there by a create or by a rules change rather than by a retirement, so refusing one there
+    would lock its rows in place without restoring the missing ones -- and a phase holding no matchdays
+    at all is where every season starts. Draining a phase that does satisfy its floor stays impossible,
+    because the first step out of it is the one refused.
     """
 
     if played_count > 0:
@@ -132,7 +138,13 @@ def find_spieltag_retire_refusal(*, played_count: int, live_in_phase: int, impli
 
         return (SPIELTAG_HOLDS_PLAYED, f"the matchday holds {subject} from the public Spielplan")
 
-    if live_in_phase - 1 < implied_in_phase:
+    # A phase the bracket never reaches has no floor to cross, so falling short of it is arithmetic on
+    # a row that was already retired rather than a gap the rules can name.
+    has_a_floor = implied_in_phase > 0
+    satisfied_the_floor = live_in_phase >= implied_in_phase
+    would_fall_short = live_in_phase - 1 < implied_in_phase
+
+    if has_a_floor and satisfied_the_floor and would_fall_short:
         return (
             SPIELTAG_BELOW_IMPLIED_COUNT,
             f"the phase holds {live_in_phase} live matchday(s) and these rules imply {implied_in_phase}; "

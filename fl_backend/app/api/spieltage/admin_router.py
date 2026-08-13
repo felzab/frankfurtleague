@@ -215,7 +215,8 @@ async def delete_spieltag(
     one unplayed matchday at a time, with nothing anywhere to refuse a single step. The derived figure
     is a **floor, never a ceiling** — a phase may hold more rows than the rules imply, because a round
     split across two dates is two matchdays (ADR-0051) — so a phase above the floor retires back down
-    to it and stops there.
+    to it and stops there. A phase already **below** the floor is not refused (`REQ-RETIRE-005`): no
+    retirement put it there, and the emptying above is still refused at its first step.
 
     **The floor governs this endpoint and `POST /spieltage`, and nothing watches `PATCH`**, which can
     move a row between phases and so change both counts from a side neither refusal sees.

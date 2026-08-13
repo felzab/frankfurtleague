@@ -17,7 +17,7 @@ import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
-import { buildSpieltagBanners } from "./banners";
+import { buildSpieltagBanners, standsAtThePhaseFloor } from "./banners";
 import { FormPhaseSection } from "./FormPhaseSection";
 import { FormStilllegenSection } from "./FormStilllegenSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
@@ -183,7 +183,7 @@ export function AdminSpieltagEditForm({
 
   // The two facts `REQ-RETIRE-002` and `REQ-RETIRE-005` turn on, answered from what the page already
   // holds. The endpoint stays the authority: a fixture scored in another tab reaches it.
-  const isRetireable = spieltag.spieleGespielt === 0 && livePhaseCount > impliedPhaseCount;
+  const isRetireable = spieltag.spieleGespielt === 0 && !standsAtThePhaseFloor(livePhaseCount, impliedPhaseCount);
 
   const leavePage = () => {
     // Blur first — see the match editor: react-aria's focus attribute survives a kept-alive tree.

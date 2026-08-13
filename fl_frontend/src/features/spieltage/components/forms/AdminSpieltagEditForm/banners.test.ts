@@ -77,10 +77,11 @@ describe("buildSpieltagBanners", () => {
   });
 
   it("mirrors the phase floor exactly as the endpoint computes it (REQ-RETIRE-005)", () => {
-    // The backend refuses when `live_in_phase - 1 < implied_in_phase`, with `live_in_phase` including
-    // this matchday — so four live against a floor of three retires, and three against three does not.
+    // The backend refuses the STEP across the floor, this matchday included — so four live against a
+    // floor of three retires, three against three does not, and one against three retires again.
     assert.ok(!ids(build({ livePhaseCount: 4, impliedPhaseCount: 3 })).includes("spieltag.retire-blockiert-untergrenze"));
     assert.ok(ids(build({ livePhaseCount: 3, impliedPhaseCount: 3 })).includes("spieltag.retire-blockiert-untergrenze"));
+    assert.ok(!ids(build({ livePhaseCount: 1, impliedPhaseCount: 3 })).includes("spieltag.retire-blockiert-untergrenze"));
   });
 
   it("lets a phase the season never plays retire down to nothing, which is the floor of zero", () => {

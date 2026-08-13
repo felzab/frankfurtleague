@@ -31,6 +31,17 @@ export type SpieltagBannerSpot = "phase" | "zeitraum" | "stilllegen";
 
 export type SpieltagBanner = RailBanner<SpieltagBannerId> & { inline: SpieltagBannerSpot | null };
 
+/**
+ * Whether the phase stands exactly on the floor `REQ-RETIRE-005` holds it to, this matchday included.
+ *
+ * Mirrors `find_spieltag_retire_refusal`: the endpoint refuses the STEP across the floor and never the
+ * state under it, so a phase already short retires and a phase with no floor always does. Exported
+ * because the banner and the button it explains would otherwise compute the same arithmetic twice.
+ */
+export function standsAtThePhaseFloor(livePhaseCount: number, impliedPhaseCount: number): boolean {
+  return livePhaseCount - 1 < impliedPhaseCount && livePhaseCount >= impliedPhaseCount && impliedPhaseCount > 0;
+}
+
 export function buildSpieltagBanners({
   label,
   inactiveSince,
@@ -155,7 +166,7 @@ export function buildSpieltagBanners({
 
   // The second retirement refusal, and the one nothing else on the admin surface can see: it is a
   // fact about the PHASE rather than about this matchday (`REQ-RETIRE-005`).
-  if (inactiveSince === null && spieleGespielt === 0 && livePhaseCount <= impliedPhaseCount) {
+  if (inactiveSince === null && spieleGespielt === 0 && standsAtThePhaseFloor(livePhaseCount, impliedPhaseCount)) {
     banners.push({
       id: "spieltag.retire-blockiert-untergrenze",
       severity: "info",

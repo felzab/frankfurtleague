@@ -69,13 +69,14 @@ class TestRetiringAMatchday:
 
 class TestAPhaseKeepsTheMatchdaysItsRulesImply:
     """
-    `REQ-RETIRE-005`. The derived count is a FLOOR, never a ceiling.
+    `REQ-RETIRE-005`. The derived count is a FLOOR, never a ceiling, and what crosses it is a STEP.
 
     Until this existed a season could be emptied of a phase it still had to play, one unplayed
-    matchday at a time, with nothing refusing a single step. What it must NOT do is cap the count: a
-    round split across two dates is two matchday rows for one phase, which ADR-0051 ratified and
-    composes `Viertelfinale (1)` / `Viertelfinale (2)` for. Both directions are asserted below,
-    because a rule that also refused the split round would pass every rejection test here.
+    matchday at a time, with nothing refusing a single step. Two things it must NOT do. Cap the count:
+    a round split across two dates is two matchday rows for one phase, which ADR-0051 ratified and
+    composes `Viertelfinale (1)` / `Viertelfinale (2)` for. And refuse a phase that is already short,
+    which is the state every season starts in and which no retirement produced. All three directions
+    are asserted below, because a rule failing either of the last two passes every rejection test here.
     """
 
     def test_retiring_down_to_the_floor_is_allowed(self):
@@ -91,13 +92,16 @@ class TestAPhaseKeepsTheMatchdaysItsRulesImply:
         assert refusal is not None
         assert refusal[0] == SPIELTAG_BELOW_IMPLIED_COUNT
 
-    def test_the_last_matchday_of_a_phase_cannot_be_retired(self):
-        """A9 §2.3's extreme case: live group matchdays reduced to zero while the rules imply three."""
+    def test_a_phase_already_below_the_floor_retires_freely(self):
+        """
+        1 live against a floor of 3 — a season part-way through setup, or one whose rules widened after.
 
-        refusal = find_spieltag_retire_refusal(played_count=0, live_in_phase=1, implied_in_phase=3)
+        Refusing here would lock the row in place without restoring either of the two that are missing,
+        and the state is reachable only by a create or a rules change. The emptying this rule exists to
+        stop is refused at its first step, which `test_retiring_below_the_floor_is_refused` asserts.
+        """
 
-        assert refusal is not None
-        assert refusal[0] == SPIELTAG_BELOW_IMPLIED_COUNT
+        assert find_spieltag_retire_refusal(played_count=0, live_in_phase=1, implied_in_phase=3) is None
 
     def test_a_split_round_stays_reducible_to_one(self):
         """
@@ -122,7 +126,9 @@ class TestAPhaseKeepsTheMatchdaysItsRulesImply:
     def test_a_played_matchday_is_refused_before_the_floor_is_consulted(self):
         """Order matters: both apply here, and "enter or cancel the results" is the actionable advice."""
 
-        refusal = find_spieltag_retire_refusal(played_count=2, live_in_phase=1, implied_in_phase=3)
+        # 3 against a floor of 3 rather than 1 against 3 — the floor arm has to actually fire, or this
+        # asserts precedence over a branch that was never in the running.
+        refusal = find_spieltag_retire_refusal(played_count=2, live_in_phase=3, implied_in_phase=3)
 
         assert refusal is not None
         assert refusal[0] == SPIELTAG_HOLDS_PLAYED
