@@ -2,15 +2,13 @@
 
 import { Sliders, Xmark } from "@gravity-ui/icons";
 
-import { Button, Drawer, Popover } from "@heroui/react";
+import { Button, Popover, ScrollShadow } from "@heroui/react";
 
-import { dismissControl } from "@/core/dismissControl";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 
 import { COUNT_BADGE } from "./badges";
-import { FilterPanel, FilterPanelBody, useFilterPanelWidth } from "./FilterPanel";
+import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
 import { IconTooltip } from "./IconTooltip";
-import { overlayPanel } from "./overlayPanel";
 
 import type { Facet, FacetOption, FacetSelection } from "@/shared/utils/facets";
 
@@ -49,10 +47,7 @@ const VALUE_CAP = "min-w-0 max-w-[5em] sm:max-w-[16em]";
 /** What the add control is called, in both its label and its tooltip. */
 const ADD_LABEL = "Filter hinzufügen";
 
-/** The word this control already goes by — `FilterBar`'s own default trigger label. */
-const FILTER_LABEL = "Filter";
-
-/** Reset-everything, one recipe for the row's own and the sheet's: `h-7` is the app's small control. */
+/** Reset-everything: `h-7` is the app's small control, and this is the row's only one. */
 const CLEAR_ALL_FACE =
   "border-border text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 rounded-lg border px-2.5 font-bold transition-colors duration-(--motion-fast)";
 
@@ -74,14 +69,11 @@ function pickedOptions<TItem>(facet: Facet<TItem>, picked: readonly string[]): F
  * promoted, demoted or measured, so the row's content is a function of what was chosen and of nothing
  * else. That is what keeps a filter from moving the moment it is used.
  *
- * **The pill names its dimension, then its value.** A value identifies its own dimension only where a
- * surface has one, and these have up to seven: `Kein Ort` reads as a venue beside `Sportplatz Ost`,
- * `Lessing` is a club, a referee and a venue in a league of schools named after people, and `A` or `E1`
- * says nothing at all. Above one pick the badge carries how many MORE are picked, so the label means one
- * thing at every count.
+ * **The pill shows the value alone.** Above one pick the badge carries how many MORE are picked, so the
+ * label means one thing at every count and the ceiling applies to all of them alike.
  *
  * **The accessible name carries the dimension whatever the visible label does**, because a reader
- * hearing „Vergangen" alone learns nothing about what it filters.
+ * hearing „Vergangen" alone learns nothing about what it filters. It is not the same decision.
  */
 function FilterPill<TItem>({
   facet,
@@ -107,8 +99,7 @@ function FilterPill<TItem>({
       <Popover>
         <Popover.Trigger
           aria-label={`${facet.label}: ${chosen.map((option) => option.label).join(", ")} ändern`}
-          className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-1.5 pr-1.5 pl-3 whitespace-nowrap transition-colors duration-(--motion-fast)">
-          <span className="text-foreground-muted shrink-0">{facet.label}:</span>
+          className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-2 pr-1.5 pl-3 whitespace-nowrap transition-colors duration-(--motion-fast)">
           <span className={`text-brand truncate ${VALUE_CAP}`}>{chosen[0]?.label ?? ""}</span>
           {chosen.length > 1 && (
             <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>+{chosen.length - 1}</span>
@@ -195,134 +186,99 @@ export function FilterLeiste<TItem>({
   const filtered = facets.filter(isFiltering);
   const unfiltered = facets.filter((facet) => !isFiltering(facet));
 
-  const filterIcon = (
-    <Sliders
-      aria-hidden="true"
-      width={16}
-      height={16}
-    />
+  // `lg` is where the 310px sidemenu stops being a drawer and takes a column. The label is in the
+  // markup and hidden by CSS, so the accessible name is the `aria-label` at every width.
+  const addFace = (
+    <>
+      <Sliders
+        aria-hidden="true"
+        width={16}
+        height={16}
+      />
+      <span className="max-lg:hidden">{ADD_LABEL}</span>
+    </>
   );
 
   return (
     <div
       ref={rowRef}
-      className="w-full">
-      {/* The phone's whole filter surface: one control, and a sheet holding every dimension. */}
-      <div className="sm:hidden">
-        <Drawer>
-          <Drawer.Trigger
-            aria-label={activeCount === 0 ? ADD_LABEL : `Filter, ${String(activeCount)} aktiv`}
-            className={ICON_SHELL}>
-            {filterIcon}
-            {activeCount > 0 && <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>{activeCount}</span>}
-          </Drawer.Trigger>
-          <Drawer.Backdrop>
-            {/* `overlayPanel()` is the surface every panel in this app wears, `FilterPanel` included, so
-                the sheet and the panel it holds are one object. `rounded-b-none` is the one departure:
-                the recipe's lower corners would round against the viewport's own edge. */}
-            <Drawer.Content
-              placement="bottom"
-              className={`${overlayPanel()} rounded-b-none`}>
-              <Drawer.Dialog
-                aria-label={FILTER_LABEL}
-                className="flex flex-col outline-none">
-                {/* `p-3` is the body's own inset below it, so the heading and the cells share one
-                    margin. The rule is `border-border`, the one the app draws every separator in. */}
-                <div className="border-border flex shrink-0 flex-row items-center gap-2 border-b p-3">
-                  <span className="fluid-lg text-foreground font-extrabold tracking-tight">{FILTER_LABEL}</span>
-                  {activeCount > 0 && (
-                    <Button
-                      variant="ghost"
-                      onPress={clearAll}
-                      className={CLEAR_ALL_FACE}>
-                      <Xmark
-                        aria-hidden="true"
-                        className="size-3.5 shrink-0"
-                      />
-                      Alle Filter zurücksetzen
-                    </Button>
-                  )}
-                  <Drawer.CloseTrigger {...dismissControl({ label: "Filter schließen", className: "ml-auto" })} />
-                </div>
-
-                <FilterPanelBody
+      className="flex w-full flex-col gap-2">
+      <div className="flex w-full flex-row items-center gap-2">
+        {/* Outside the scroller, and that is the point: the control that adds a filter may never be the
+            thing scrolled out of reach. It is also first, so a pill appended after it displaces nothing. */}
+        {unfiltered.length === 0 ? (
+          // Kept in place rather than removed once every dimension is filtering: taking it out would
+          // slide the whole row left, and the row moving is the one thing this design refuses.
+          <span
+            aria-disabled="true"
+            aria-label={ADD_LABEL}
+            className={`${ICON_SHELL} text-foreground-muted cursor-not-allowed opacity-50`}>
+            {addFace}
+          </span>
+        ) : (
+          <IconTooltip label={ADD_LABEL}>
+            <Popover>
+              <Popover.Trigger
+                aria-label={ADD_LABEL}
+                className={ICON_SHELL}>
+                {addFace}
+              </Popover.Trigger>
+              <Popover.Content
+                placement="bottom start"
+                offset={8}>
+                <FilterPanel
                   facets={facets}
-                  shown={facets}
+                  shown={unfiltered}
+                  available={rowWidth}
                   items={items}
                   selection={selection}
                   onSelect={setFacet}
                   onClear={clearFacet}
                 />
-              </Drawer.Dialog>
-            </Drawer.Content>
-          </Drawer.Backdrop>
-        </Drawer>
-      </div>
+              </Popover.Content>
+            </Popover>
+          </IconTooltip>
+        )}
 
-      {/* The row, from `sm` up. */}
-      <div className="flex w-full flex-col gap-2 max-sm:hidden">
-        <div className="flex w-full flex-row flex-wrap items-center gap-2">
-          {unfiltered.length === 0 ? (
-            // Kept in place rather than removed once every dimension is filtering: taking it out would
-            // slide the whole row left, and the row moving is the one thing this design refuses.
-            <span
-              aria-disabled="true"
-              aria-label={ADD_LABEL}
-              className={`${ICON_SHELL} text-foreground-muted cursor-not-allowed opacity-50`}>
-              {filterIcon}
-            </span>
-          ) : (
-            <IconTooltip label={ADD_LABEL}>
-              <Popover>
-                <Popover.Trigger
-                  aria-label={ADD_LABEL}
-                  className={ICON_SHELL}>
-                  {filterIcon}
-                </Popover.Trigger>
-                <Popover.Content
-                  placement="bottom start"
-                  offset={8}>
-                  <FilterPanel
-                    facets={facets}
-                    shown={unfiltered}
-                    available={rowWidth}
-                    items={items}
-                    selection={selection}
-                    onSelect={setFacet}
-                    onClear={clearFacet}
-                  />
-                </Popover.Content>
-              </Popover>
-            </IconTooltip>
-          )}
-
-          {filtered.map((facet) => (
-            <FilterPill
-              key={facet.param}
-              facet={facet}
-              facets={facets}
-              items={items}
-              selection={selection}
-              available={rowWidth}
-              onSelect={setFacet}
-              onClear={clearFacet}
-            />
-          ))}
-        </div>
-
-        {activeCount > 1 && (
-          <Button
-            variant="ghost"
-            onPress={clearAll}
-            className={`${CLEAR_ALL_FACE} self-start`}>
-            <Xmark
-              aria-hidden="true"
-              className="size-3.5 shrink-0"
-            />
-            Alle Filter zurücksetzen
-          </Button>
+        {/* `FilterBar`'s own treatment, values included: 24px of shadow on a 40px strip, because the
+            shadow IS the affordance at this height — a scrollbar under the row would cost a quarter of
+            it. Two filter designs with two scroll treatments is the drift this shares a recipe to avoid. */}
+        {filtered.length > 0 && (
+          <ScrollShadow
+            orientation="horizontal"
+            size={24}
+            hideScrollBar
+            className="min-w-0 flex-1">
+            <div className="flex flex-row items-center gap-2">
+              {filtered.map((facet) => (
+                <FilterPill
+                  key={facet.param}
+                  facet={facet}
+                  facets={facets}
+                  items={items}
+                  selection={selection}
+                  available={rowWidth}
+                  onSelect={setFacet}
+                  onClear={clearFacet}
+                />
+              ))}
+            </div>
+          </ScrollShadow>
         )}
       </div>
+
+      {activeCount > 1 && (
+        <Button
+          variant="ghost"
+          onPress={clearAll}
+          className={`${CLEAR_ALL_FACE} self-start`}>
+          <Xmark
+            aria-hidden="true"
+            className="size-3.5 shrink-0"
+          />
+          Alle Filter zurücksetzen
+        </Button>
+      )}
     </div>
   );
 }
