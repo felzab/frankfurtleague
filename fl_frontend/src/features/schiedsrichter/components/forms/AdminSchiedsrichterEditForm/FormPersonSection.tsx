@@ -43,7 +43,7 @@ export function FormPersonSection({
             <p>Wer der Schiedsrichter ist.</p>
             <ul>
               <li>
-                Der Name wird beim Speichern <strong>in jedem Spiel überschrieben</strong>, das ihn nennt.
+                Eine Korrektur gilt <strong>für jedes Spiel</strong>, das ihn nennt, auch für längst gespielte.
               </li>
               <li>Schule oder Verein ist freiwillig und steht auf keiner öffentlichen Seite.</li>
             </ul>

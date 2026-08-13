@@ -123,7 +123,7 @@ export function FormRolloverSection({
                 Die bisher laufende Saison wird im <strong>gleichen Schritt</strong> abgeschlossen.
               </li>
               <li>
-                Jede Seite ohne ausgewählte Saison zeigt danach <strong>diese</strong> Saison.
+                Wer keine Saison auswählt, sieht danach <strong>diese</strong>.
               </li>
               <li>Offene Spiele der alten Saison bleiben offen und bleiben bearbeitbar.</li>
             </ul>
@@ -186,9 +186,13 @@ export function FormRolloverSection({
                     </Link>
                   </li>
                 ))}
+                {/* Singular and plural spelled out: a remainder of one makes "1 weitere" out of a fixed plural. */}
                 {offene.length > LISTED_OFFENE_SPIELE && (
                   <li className="fluid-xxs text-foreground-muted px-3 py-2 font-medium">
-                    und {String(offene.length - LISTED_OFFENE_SPIELE)} weitere. Die vollständige Liste steht unter Handlungsbedarf.
+                    {offene.length - LISTED_OFFENE_SPIELE === 1
+                      ? "und ein weiteres."
+                      : `und ${String(offene.length - LISTED_OFFENE_SPIELE)} weitere.`}{" "}
+                    Die vollständige Liste steht unter Handlungsbedarf.
                   </li>
                 )}
               </ul>

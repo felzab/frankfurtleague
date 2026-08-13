@@ -120,7 +120,7 @@ export function FormKaderSection({
         <h2 className={panel.heading()}>
           Kader {saison.saisonId}
           <InfoHint label="Hinweis zum Kadereintrag">
-            <p>Dieser Bereich zeigt und bearbeitet die im Seitenmenü gewählte Saison.</p>
+            <p>Dieser Bereich gilt für die Saison, die im Seitenmenü ausgewählt ist.</p>
             <ul>
               <li>Um eine andere Saison zu bearbeiten, wähle sie im Seitenmenü aus.</li>
               <li>

@@ -52,7 +52,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             { term: "Anlegen", detail: "über die Schaltfläche oben rechts. Eine neue Saison ist immer geplant, nie laufend." },
             { term: "Bearbeiten", detail: "der Stift öffnet die Saisonseite mit Zeitraum, Regeln und Umstellung." },
             { term: "Umstellen", detail: "macht eine geplante Saison zur laufenden und schließt die bisherige ab." },
-            { term: "Punkte", detail: "gelten rückwirkend, weil die Tabelle bei jedem Aufruf neu gerechnet wird." },
+            { term: "Punkte", detail: "gelten rückwirkend, auch für längst gespielte Spiele." },
           ],
           note: "Eine Saison wird nie gelöscht. Eine gespielte Saison ist abgeschlossen und bleibt abrufbar.",
         },

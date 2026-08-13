@@ -155,8 +155,7 @@ function GruppenTauschControl({
           {self.gespielteGruppenSpiele === 1
             ? `Ein Spiel in Gruppe ${self.gruppe} wurde schon gespielt oder abgesagt.`
             : `${String(self.gespielteGruppenSpiele)} Spiele in Gruppe ${self.gruppe} wurden schon gespielt oder abgesagt.`}{" "}
-          Eine Gruppe ist ein Rundenturnier, in dem jede Mannschaft gegen jede andere ihrer Gruppe spielt — wer darin gespielt hat, gehört
-          dorthin.
+          Wer in einer Gruppe schon gespielt hat, bleibt in ihr.
         </Callout>
       ) : !hasAPartner ? (
         <Callout
@@ -168,7 +167,7 @@ function GruppenTauschControl({
       ) : (
         <>
           <p className="fluid-sm text-foreground font-medium">
-            <strong>{self.name}</strong> steht in Gruppe {self.gruppe}. Wähle die Mannschaft, mit der die Gruppe getauscht wird — beide wechseln
+            <strong>{self.name}</strong> steht in Gruppe {self.gruppe}. Wähle die Mannschaft, mit der die Gruppe getauscht wird. Beide wechseln
             in einem Schritt.
           </p>
 
@@ -185,7 +184,7 @@ function GruppenTauschControl({
                 {/* From the prop rather than `Select.Value`: the collection can lag a render behind and
                 would show HeroUI's English placeholder — `GruppeSelect`'s reason. */}
                 <span className={partner ? "" : "text-foreground-muted"}>
-                  {partner ? `${partner.name} — Gruppe ${partner.gruppe}` : "Mannschaft wählen"}
+                  {partner ? `${partner.name} (Gruppe ${partner.gruppe})` : "Mannschaft wählen"}
                 </span>
                 <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
               </Select.Trigger>
@@ -221,7 +220,7 @@ function GruppenTauschControl({
               severity="warning"
               title="Das passiert beim Tausch">
               <strong>{self.name}</strong> steht danach in Gruppe {partner.gruppe}, <strong>{partner.name}</strong> in Gruppe {self.gruppe}.
-              Beide übernehmen dabei die angesetzten Spiele der anderen — mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
+              Beide übernehmen dabei die angesetzten Spiele der anderen, mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
               sofort.
             </Callout>
           )}
@@ -366,7 +365,7 @@ export function FormSaisonSection({
         <h2 className={panel.heading()}>
           Saison {saison.saisonId}
           <InfoHint label="Hinweis zur Saison-Zugehörigkeit">
-            <p>Dieser Bereich zeigt und bearbeitet die im Seitenmenü gewählte Saison.</p>
+            <p>Dieser Bereich gilt für die Saison, die im Seitenmenü ausgewählt ist.</p>
             <ul>
               <li>
                 Eine <strong>andere Saison</strong> wählst Du im Seitenmenü aus.
@@ -394,7 +393,7 @@ export function FormSaisonSection({
                 <TeamFieldLabel path="gruppe">Gruppe</TeamFieldLabel>
                 <div className="border-border bg-muted/40 text-foreground fluid-sm flex h-10 w-full items-center gap-x-2 rounded-lg border px-3 font-bold sm:max-w-60">
                   <LockFill className="text-foreground-muted size-3.5 shrink-0" />
-                  {gruppe ? `Gruppe ${gruppe}` : "—"}
+                  {gruppe ? `Gruppe ${gruppe}` : "Keine Gruppe"}
                 </div>
               </div>
 

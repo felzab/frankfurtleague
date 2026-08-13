@@ -41,7 +41,7 @@ export function FormPersonSection({
             <p>Der Name gilt über alle Saisons hinweg.</p>
             <ul>
               <li>
-                Eine Korrektur ist <strong>sofort überall sichtbar</strong>, weil kein Spiel eine Kopie des Namens trägt.
+                Eine Korrektur ist <strong>sofort überall sichtbar</strong>.
               </li>
               <li>
                 Team, Nummer, Position und Stufe gehören zur Saison und stehen im Abschnitt <strong>Kader</strong>.

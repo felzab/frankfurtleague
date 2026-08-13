@@ -64,10 +64,10 @@ export function FormStilllegenSection({
             <p>Der Weg, einen Spieltag aus dem Spielplan zu nehmen.</p>
             <ul>
               <li>
-                Seine Spiele <strong>bleiben vollständig erhalten</strong> und sind weiterhin auflösbar.
+                Seine Spiele <strong>bleiben erhalten</strong> und sind weiter bearbeitbar.
               </li>
               <li>Sichtbar sind sie erst wieder, wenn Du den Spieltag reaktivierst.</li>
-              <li>Beim Reaktivieren wird geprüft, ob der Zeitraum noch in die Saison passt.</li>
+              <li>Reaktivieren geht nur, solange sein Zeitraum in die Saison passt.</li>
             </ul>
           </InfoHint>
         </h2>

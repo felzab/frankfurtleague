@@ -60,10 +60,10 @@ export function FormRegelnSection({
         <h2 className={panel.heading()}>
           Regeln
           <InfoHint label="Hinweis zu den Regeln">
-            <p>Diese Werte steuern den Wettbewerb, sie beschreiben ihn nicht.</p>
+            <p>Diese Werte legen fest, wie die Saison gespielt wird.</p>
             <ul>
               <li>
-                <strong>Punkte</strong> werden bei jedem Aufruf neu gerechnet. Es gibt nichts nachzutragen.
+                <strong>Punkte</strong> gelten rückwirkend, auch für längst gespielte Spiele.
               </li>
               <li>
                 <strong>Gruppen und Teams pro Gruppe</strong> begrenzen, wohin ein Team aufgenommen werden kann.
@@ -72,7 +72,7 @@ export function FormRegelnSection({
                 <strong>Qualifikanten</strong> ist die Zahl pro Gruppe, die die KO-Runde erreicht.
               </li>
               <li>
-                <strong>Stufen</strong> begrenzen nur die Auswahl in Formularen. Bestehende Kadereinträge bleiben, wie sie sind.
+                <strong>Stufen</strong> begrenzen nur, was Du künftig auswählen kannst. Bestehende Kadereinträge bleiben, wie sie sind.
               </li>
             </ul>
           </InfoHint>
