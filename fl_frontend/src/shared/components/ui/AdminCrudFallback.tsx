@@ -37,11 +37,11 @@ function RowActionCluster({ slots, className }: { slots: readonly number[]; clas
  * for `useSearchParams` suspends too — pushing the bailout up to the boundary above and undoing the
  * split that keeps the static chrome outside the data hole.
  *
- * **It is held at `opacity: 0` for `--motion-base`, then fades in over `--motion-fast`.** The delay
- * is the handover's own duration, and that is an arithmetic threshold rather than a taste: the swap
- * out of here costs a `--motion-base` cross-fade (`motion.ts :: CONTENT_FADE`), so a skeleton painted
- * for a load finishing inside that window buys the reader a wait *longer* than the one it was
- * reporting. Below the threshold it is a flicker; above it, it is a loading state.
+ * **It is held at `opacity: 0` for `--motion-base`, then fades in over `--motion-fast`.** The
+ * threshold is perceptual, not arithmetic: showing this costs the reader no time at all, since the
+ * arriving column plays its entrance whether or not a skeleton preceded it. What it costs below
+ * `--motion-base` is a blink — the app's own span for a state change registering, so a thing that
+ * arrives and leaves inside one never registers as having reported anything.
  *
  * **`fill-mode-backwards` is what makes that a suppression rather than a pause.** Without it the
  * `from` state applies only once the animation starts, so the block would paint at full opacity for
@@ -52,8 +52,9 @@ function RowActionCluster({ slots, className }: { slots: readonly number[]; clas
  * outside the boundary and the admin bar carries the route's title, so the delay hands the reader a
  * populated page with one box still filling — never the empty one a whole-page fallback would.
  *
- * The other half of the swap is `AdminCrudView`, which fades in place over the geometry this already
- * reserved and never travels, so the two do not move against each other.
+ * The other half of the swap is `AdminCrudView`, which rises into the geometry this already reserved
+ * (`motion.ts :: PAGE_RISE`). Its 8px is a `transform` and reserves nothing, so every box measured
+ * here still holds and the page does not move while it settles.
  *
  * It reserves the boxes that arrive — the filter row above, then whichever of the two shapes below
  * `shape` names.

@@ -7,7 +7,7 @@ import { useFuzzySearch } from "../../hooks/useFuzzySearch";
 import { useUrlFilters } from "../../hooks/useUrlFilters";
 import { applyFacets } from "../../utils/facets";
 import { FilterExperiment } from "./FilterExperiment";
-import { CONTENT_FADE } from "./motion";
+import { PAGE_RISE } from "./motion";
 
 import type { ReactNode } from "react";
 import type { Facet } from "../../utils/facets";
@@ -99,10 +99,9 @@ export function AdminCrudView<TItem extends { id: string }>({
   const filteredItems = useFuzzySearch({ items: narrowedItems, keys: searchKeys, query });
 
   return (
-    // Faded rather than risen, because this always takes `AdminCrudFallback`'s place
-    // (`motion.ts :: CONTENT_FADE`). `gap-4` rather than the shell's `gap-8`: the bar
-    // belongs to the table it narrows, and the fallback reserves the same column.
-    <div className={`${CONTENT_FADE} flex flex-col gap-4`}>
+    // Risen, not merely faded: the 8px is what the eye follows while a dense collection resolves
+    // (`motion.ts :: PAGE_RISE`), and it is a transform, so the box the fallback measured holds.
+    <div className={`${PAGE_RISE} flex flex-col gap-4`}>
       {/* Counted over the UNFILTERED rows, so each option answers what it would leave rather than what
           the current selection already left. */}
       <FilterExperiment
