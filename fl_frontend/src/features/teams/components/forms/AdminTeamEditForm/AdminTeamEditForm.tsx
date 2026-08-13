@@ -491,14 +491,7 @@ export function AdminTeamEditForm({
                 <FormSaisonSection
                   saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus }}
                   gruppeOffer={gruppeOffer}
-                  gruppeLock={{
-                    locked: gruppeLocked,
-                    // Names the operation AND routes to it: the swap control sits directly under this
-                    // row, so "nur als Tausch" is an offer rather than a dead end (ADR-0071).
-                    reason:
-                      "Gesperrt: Die Saison läuft bereits und die Mannschaft hat angesetzte Spiele. Tausche die Gruppe unten mit einer zweiten Mannschaft.",
-                    draftChangesGruppe: isChanged("gruppe"),
-                  }}
+                  gruppeLock={{ locked: gruppeLocked }}
                   isMember={storedMembership !== null}
                   gruppe={gruppe}
                   onGruppeChange={setGruppe}
