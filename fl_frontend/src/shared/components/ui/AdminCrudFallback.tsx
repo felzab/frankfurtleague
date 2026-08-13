@@ -37,19 +37,19 @@ function RowActionCluster({ slots, className }: { slots: readonly number[]; clas
  * for `useSearchParams` suspends too — pushing the bailout up to the boundary above and undoing the
  * split that keeps the static chrome outside the data hole.
  *
- * **It paints on the frame it mounts, and it does not animate. Neither does what replaces it.** A
- * delay before this appears is an empty box for as long as it lasts, and an entrance on the other
- * side is the same void read from the other end — the arriving column is a grid of thin text, so
- * until its opacity is most of the way up it carries far less ink than the bars it replaced, and
- * that shortfall is seen as nothing being there rather than as something being faint.
+ * **Nothing here is ever partly transparent, and nothing it hands to ever moves.** A fade and an 8px
+ * rise were each tried on this swap and each was read as a fault — as a void, because the arriving
+ * column is thin text and carries far less ink than these bars until its opacity is nearly up, and
+ * as the table lunging, because `--motion-ease-enter` spends 90% of its travel in the first 37%.
+ * What makes the swap smooth is that every box here is measured to what arrives, so nothing moves.
  *
- * **A hold, a fade and an 8px rise were each tried on this swap and each made it worse** — reported
- * in turn as a blink, as a void, and as the table jumping at the reader, that last because
- * `--motion-ease-enter` spends 90% of its travel in the first 37% of its duration. **Do not add one
- * back.** What makes this smooth is not motion: it is that every box here is measured to what
- * arrives, so the swap moves nothing and there is nothing for an animation to reconcile.
- *
- * The blink on a very fast load is the accepted cost and it is honest — it says something happened.
+ * **`--motion-base` passes before it paints, and then it paints at once — a STEP, never a ramp.**
+ * `duration-0` is what makes it one: the delay holds the `from` state through `fill-mode-backwards`,
+ * and an active phase of zero length cannot interpolate, so the block is absent and then whole with
+ * no value in between. **Never give this a duration.** A hold carrying a fade is the void that was
+ * reported before — a delay says paint nothing yet, a fade says paint something invisible, and only
+ * the second is a defect. The threshold is the app's own span for a state change registering, so a
+ * load beating it was one the reader read as instant and had nothing to report.
  *
  * It reserves the boxes that arrive — the filter row above, then whichever of the two shapes below
  * `shape` names.
@@ -61,7 +61,7 @@ export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sect
       aria-label="Daten werden geladen"
       /* `gap-4` is `AdminCrudView`'s own column gap, so the filter block and the list below it sit
          where they will sit once the rows land. */
-      className="flex flex-col gap-4">
+      className="animate-in fade-in fill-mode-backwards flex flex-col gap-4 delay-(--motion-base) duration-0">
       {/* Every admin slice declares facets, so the filter control always renders its `h-10` row, and a
           fallback without it puts the list a row above the data. The row is `h-10` in both filter
           shapes; only how many controls sit in it differs, and a control's width shifts nothing
