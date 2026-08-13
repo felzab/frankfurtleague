@@ -143,8 +143,25 @@ export function countActiveFacets(selection: FacetSelection): number {
 }
 
 /**
- * Which dimensions a one-trigger-per-facet bar keeps in the row, and which it may hide behind an
- * overflow control.
+ * The most dimensions any surface draws a trigger for, however wide the viewport.
+ *
+ * **Three, and it is the number the surfaces themselves already say.** Every `*_PRIMARY_FACETS`
+ * declaration in the app names exactly three params, and `facets.test.ts` holds them to it — so this
+ * cap does not overrule a surface, it stops WIDTH from overruling one. A fourth trigger could only ever
+ * be a dimension its own priority order left out, chosen because a desktop happened to have room.
+ *
+ * The five surfaces carrying three facets or fewer declare nothing and are under it either way.
+ */
+export const PROMOTION_CAP = 3;
+
+/**
+ * Which dimensions a one-trigger-per-facet bar may keep in its row, in the order it gives them up.
+ *
+ * **Three lists, because the row has three kinds of dimension.** `pinned` is filtering right now and is
+ * inline whatever the width — the control and the state are one object, so a dimension narrowing the
+ * list can never be the thing behind the overflow. `promotable` is what the surface asked for and the
+ * row keeps as much of as it can fit, LAST FIRST. `rest` is behind the control however much room there
+ * is, which is what makes the cap a cap rather than a preference.
  *
  * **`primary` belongs to the SURFACE, not to the facet.** `ansetzung` is the first thing an admin
  * reaches for on Spielsuche and does not exist on any other page, so the promotion cannot live beside
@@ -154,19 +171,21 @@ export function countActiveFacets(selection: FacetSelection): number {
  * make display order a silent contract, and the next person reordering a popover for visual reasons
  * would move a dimension out of the row with nothing to catch them.
  *
- * **The declaration is in priority order, and a narrow row keeps all of it but the last entry.** A phone
- * fits one dimension fewer than the surface asks for, and the surface is the only place that knows which
- * of its own dimensions it would rather give up — an order it already writes says that, where a second
- * list would be the same decision spelled twice. Display order is still the facets' own, so this order
- * governs nothing but the narrow row.
+ * **The declaration is in priority order**, which is what `promotable` is returned in and therefore what
+ * decides which dimension a row too narrow for all of them gives up. A narrow row starts one shorter
+ * still: the surface is the only place that knows which of its own dimensions it would rather lose, and
+ * the order it already writes says so where a second list would be the same decision spelled twice.
  *
  * **An undeclared surface promotes everything.** The unsafe fallback is the empty one — it would put a
  * page's whole vocabulary behind a word that does not say what is behind it. Promoting everything hides
- * nothing, and it is why the five surfaces carrying three facets or fewer need no declaration and get no
- * overflow control at all.
+ * nothing, and it is why the five surfaces carrying three facets or fewer get no overflow control at all.
  *
- * **An active facet is inline whatever its promotion**, so the control and the state stay one object:
- * a dimension that is narrowing the list can never be the thing behind the overflow.
+ * **The two limits reach different surfaces, and the difference is whether they need a priority order.**
+ * The cap is a ceiling, so it binds whoever is asking; where nothing was declared it can only fall back
+ * to the facets' own order, which `facets.test.ts` keeps unreachable by requiring a declaration from any
+ * surface offering more than the cap. The narrow trim does need a priority order — which dimension a
+ * surface would rather give up is precisely what an undeclared one has not said, and array order is not
+ * an answer to it — so that one reaches a declared surface only.
  */
 export function splitPromotedFacets<TItem>(
   facets: readonly Facet<TItem>[],
@@ -174,19 +193,18 @@ export function splitPromotedFacets<TItem>(
   selection: FacetSelection,
   /** Whether the row is the narrow case — `filterLeisteFit.ts :: isNarrowRow` is what decides it. */
   isNarrow = false,
-): { inline: Facet<TItem>[]; overflowable: Facet<TItem>[] } {
-  // An undeclared surface is untouched: it has no priority order to trim, and trimming would invent
-  // the overflow control its whole-vocabulary row has none of. A surface down to one promoted
-  // dimension keeps it, for the same reason.
-  const promoted = isNarrow && primary !== undefined && primary.length > 1 ? primary.slice(0, -1) : primary;
+): { pinned: Facet<TItem>[]; promotable: Facet<TItem>[]; rest: Facet<TItem>[] } {
+  const isActive = (facet: Facet<TItem>) => (selection[facet.param] ?? []).length > 0;
 
-  const inline: Facet<TItem>[] = [];
-  const overflowable: Facet<TItem>[] = [];
+  // A surface down to one promoted dimension keeps it, or a narrow row would be a control and nothing
+  // else. Which limit reaches which surface is the docstring's last paragraph.
+  const declared = (primary ?? facets.map((facet) => facet.param)).slice(0, PROMOTION_CAP);
+  const promoted = isNarrow && primary !== undefined && declared.length > 1 ? declared.slice(0, -1) : declared;
 
-  for (const facet of facets) {
-    const isActive = (selection[facet.param] ?? []).length > 0;
-    if (promoted === undefined || isActive || promoted.includes(facet.param)) inline.push(facet);
-    else overflowable.push(facet);
-  }
-  return { inline, overflowable };
+  const pinned = facets.filter(isActive);
+  // Priority order rather than the facets' own, because this is the order the row gives them up in.
+  const promotable = promoted.flatMap((param) => facets.filter((facet) => facet.param === param && !isActive(facet)));
+  const rest = facets.filter((facet) => !isActive(facet) && !promoted.includes(facet.param));
+
+  return { pinned, promotable, rest };
 }

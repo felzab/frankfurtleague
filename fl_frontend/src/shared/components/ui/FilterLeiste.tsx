@@ -11,9 +11,10 @@ import { countFacetOptions, splitPromotedFacets } from "@/shared/utils/facets";
 
 import { COUNT_BADGE } from "./badges";
 import { fitOverflow, isNarrowRow } from "./filterLeisteFit";
+import { FilterPanel } from "./FilterPanel";
 import { overlayPanel } from "./overlayPanel";
 
-import type { Facet, FacetSelection } from "@/shared/utils/facets";
+import type { Facet, FacetOption, FacetSelection } from "@/shared/utils/facets";
 import type { Selection } from "@heroui/react";
 
 /** `gap-2` between two triggers, in pixels, because the fit is arithmetic and CSS cannot report it. */
@@ -104,7 +105,7 @@ function FacetOptions<TItem>({
               count === 0 ? "text-foreground-muted" : "text-foreground"
             }`}>
             <span className="min-w-0 truncate">{option.label}</span>
-            <span className={`${COUNT_BADGE} bg-brand/50 text-foreground shrink-0`}>{count}</span>
+            <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>{count}</span>
           </ListBox.Item>
         );
       })}
@@ -113,21 +114,20 @@ function FacetOptions<TItem>({
 }
 
 /**
- * What an inline trigger reads: the picked value when exactly one is picked, the dimension otherwise.
+ * What is picked, in the FACET's own option order rather than the order it was clicked in.
  *
- * Above one pick the dimension keeps the words and the badge beside it carries the number — a count
- * spelled into the label would be a second numeric idiom for what the app already has a badge for.
+ * The trigger names the first of these, so reading from the facet is what makes one selection look the
+ * same however it was arrived at — and it drops a value the options no longer offer, so the count on the
+ * trigger can never disagree with the value beside it.
  */
-function triggerLabel<TItem>(facet: Facet<TItem>, picked: readonly string[]): string {
-  if (picked.length !== 1) return facet.label;
-  return facet.options.find((option) => option.value === picked[0])?.label ?? facet.label;
+function pickedOptions<TItem>(facet: Facet<TItem>, picked: readonly string[]): FacetOption[] {
+  return facet.options.filter((option) => picked.includes(option.value));
 }
 
-/** What the trigger is called aloud: the dimension, what it holds, and what pressing it does. */
-function triggerHint<TItem>(facet: Facet<TItem>, picked: readonly string[], label: string): string {
-  if (picked.length === 0) return `${facet.label} filtern`;
-  if (picked.length === 1) return `${facet.label}: ${label} ändern`;
-  return `${facet.label}: ${String(picked.length)} ausgewählt, ändern`;
+/** What the trigger is called aloud: the dimension, everything it holds, and what pressing it does. */
+function triggerHint<TItem>(facet: Facet<TItem>, chosen: readonly FacetOption[]): string {
+  if (chosen.length === 0) return `${facet.label} filtern`;
+  return `${facet.label}: ${chosen.map((option) => option.label).join(", ")} ändern`;
 }
 
 /**
@@ -136,11 +136,19 @@ function triggerHint<TItem>(facet: Facet<TItem>, picked: readonly string[], labe
  * **A trigger stays a trigger.** The shell is `CONTROL_BOX` in both states, so an active dimension is
  * still one of the controls beside it rather than a second kind of object in the row.
  *
- * **What being active changes is the CONTENT**: the picked value stands where the dimension's name
- * stood, a count badge carries how many above one pick, and the trailing slot that opens the menu
- * becomes the × that clears the dimension. Nothing about the box moves, so nothing reflows but the
- * words. That is what makes a chip strip unnecessary rather than merely unwanted — the trigger IS the
- * state, and a second drawing of it would be the duplication this control does without.
+ * **What being active changes is the CONTENT**: a picked value stands where the dimension's name stood,
+ * and the trailing slot that opens the menu becomes the × that clears the dimension. Nothing about the
+ * box moves, so nothing reflows but the words. That is what makes a chip strip unnecessary rather than
+ * merely unwanted — the trigger IS the state, and a second drawing of it would be the duplication this
+ * control does without.
+ *
+ * **One rule covers every active trigger: it names a value, and the badge says how many MORE are
+ * picked.** So the label means one thing at every count — always a value, never sometimes the dimension
+ * — the ceiling applies to all of them alike, and the badge answers one question rather than two. The
+ * rule it replaces read the value at one pick and the dimension plus a total above that, which is
+ * defensible and cannot be seen: two triggers side by side showed different KINDS of thing with nothing
+ * to say they followed one rule. `+2` rather than `3` because the value is already on screen, and a
+ * total would count it twice.
  *
  * `isStatic` renders the same box without a menu, for the hidden row that measures what fits.
  */
@@ -163,13 +171,13 @@ function FacetTrigger<TItem>({
   isNarrow: boolean;
   isStatic?: boolean;
 }) {
-  const picked = selection[facet.param] ?? [];
-  const isActive = picked.length > 0;
-  const label = triggerLabel(facet, picked);
+  const chosen = pickedOptions(facet, selection[facet.param] ?? []);
+  const isActive = chosen.length > 0;
+  const label = chosen[0]?.label ?? facet.label;
 
   // Only a picked value is capped. A dimension's name is authored, closed and short; a club or venue
   // name is data of no fixed length, and one long enough to push the row sideways is what this bounds.
-  const cap = picked.length === 1 ? (isNarrow ? VALUE_CAP_NARROW : VALUE_CAP_WIDE) : "";
+  const cap = isActive ? (isNarrow ? VALUE_CAP_NARROW : VALUE_CAP_WIDE) : "";
 
   // Both states come to the same width, so going active reflows nothing: 8 + 14 + 12 against 6 + 28.
   // Colour is picked rather than appended — two colour utilities in one attribute are settled by
@@ -184,7 +192,7 @@ function FacetTrigger<TItem>({
           string, and an `aria-label` is the accessible name outright, so what is announced is the value
           in full whatever the ellipsis shows. */}
       <span className={`truncate ${cap}`}>{label}</span>
-      {picked.length > 1 && <span className={`${COUNT_BADGE} bg-brand/50 text-foreground shrink-0`}>{picked.length}</span>}
+      {chosen.length > 1 && <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>+{chosen.length - 1}</span>}
       {!isActive && (
         <ChevronDown
           aria-hidden="true"
@@ -214,7 +222,7 @@ function FacetTrigger<TItem>({
     <div className={TRIGGER_SHELL}>
       <Popover>
         <Popover.Trigger
-          aria-label={triggerHint(facet, picked, label)}
+          aria-label={triggerHint(facet, chosen)}
           className={`${face} hover:bg-hover h-full`}>
           {content}
         </Popover.Trigger>
@@ -302,18 +310,22 @@ function OverflowFace({ label, isNarrow }: { label: string; isNarrow: boolean })
  * scroll, the lighter fill, the grouping per facet) stop applying rather than get better answers.
  *
  * **`primary` names the dimensions this SURFACE keeps in the row**, and `splitPromotedFacets` carries
- * why that is explicit, why it belongs to the surface, and what an undeclared surface gets. A narrow
- * row keeps one fewer of them, and the surface's own declaration says which one it gives up.
+ * why that is explicit, why it belongs to the surface, what an undeclared surface gets, and why no
+ * surface promotes more than `PROMOTION_CAP` of them at any width. A narrow row keeps one fewer still.
  *
- * **How many actually sit in the row is measured, not declared.** A hidden copy of the candidates is
- * laid out at full size and the row takes as many as fit beside the promoted ones; what is left goes
- * behind one control that NAMES those dimensions whenever the remaining width allows, and counts them
- * only when it does not. Nothing about the fit feeds back into the hidden copy, so the measurement
- * cannot oscillate — and the row's own width, which decides the narrow case, is a width no promotion
- * and no label form can change.
+ * **The row never scrolls, and that is an invariant rather than an outcome.** A hidden copy of every
+ * dimension is laid out at full size, and the row then gives up promoted dimensions from the end of the
+ * surface's priority order until what is left fits beside the control — down to none of them. The only
+ * thing beyond that reach is a dimension that is FILTERING, which is inline by definition; past two of
+ * those a phone genuinely runs out of row, and the sideways scroll is what happens then.
  *
- * **A surface with no overflow candidates renders no overflow control and no popover at all** — the
- * five surfaces carrying three facets or fewer are that case.
+ * **What is left goes behind one control** that NAMES those dimensions whenever the remaining width
+ * allows and counts them when it does not. Nothing about the fit feeds back into the hidden copy, which
+ * renders every facet whatever the row decides, so the measurement cannot oscillate — and the row's own
+ * width, which decides the narrow case, is a width no promotion and no label form can change.
+ *
+ * **A surface with nothing past the cap and room for all of it renders no overflow control and no
+ * popover at all** — the five surfaces carrying three facets or fewer are that case.
  *
  * **The overflow control is parked at the row's right edge by an auto margin**, so the triggers stay
  * grouped at the left with their own spacing. `justify-between` on the row would have spread those
@@ -331,14 +343,13 @@ export function FilterLeiste<TItem>({
   facets: readonly Facet<TItem>[];
   /** Every row before filtering, so each option can say what it would leave. */
   items: TItem[];
-  /** The params this surface keeps in the row. Undefined promotes every dimension. */
+  /** The params this surface keeps in the row, in priority order. Undefined promotes up to the cap. */
   primary?: readonly string[];
 }) {
   const { selection, activeCount, setFacet, clearFacet, clearAll } = useUrlFilters(facets);
 
   const viewportRef = useRef<HTMLDivElement>(null);
-  const promotedRef = useRef<HTMLDivElement>(null);
-  const candidateRulerRef = useRef<HTMLDivElement>(null);
+  const facetRulerRef = useRef<HTMLDivElement>(null);
   const namesRulerRef = useRef<HTMLDivElement>(null);
   const countRulerRef = useRef<HTMLDivElement>(null);
 
@@ -351,28 +362,29 @@ export function FilterLeiste<TItem>({
     isNarrow: false,
   });
 
-  const { inline, overflowable } = splitPromotedFacets(facets, primary, selection, row.isNarrow);
-
-  const candidateCount = overflowable.length;
+  const { pinned, promotable, rest } = splitPromotedFacets(facets, primary, selection, row.isNarrow);
 
   useEffect(() => {
     const viewport = viewportRef.current;
     if (viewport === null) return;
 
     const measure = () => {
-      const candidates = [...(candidateRulerRef.current?.children ?? [])].map((node) => (node as HTMLElement).offsetWidth);
+      const widths = [...(facetRulerRef.current?.children ?? [])].map((node) => (node as HTMLElement).offsetWidth);
       const names = [...(namesRulerRef.current?.children ?? [])].map((node) => (node as HTMLElement).offsetWidth);
       const counts = [...(countRulerRef.current?.children ?? [])].map((node) => (node as HTMLElement).offsetWidth);
-      if (candidates.length !== candidateCount) return;
+      if (widths.length !== facets.length) return;
 
-      const promotedWidth = promotedRef.current?.offsetWidth ?? 0;
+      // Split again HERE rather than closing over the render's own, so the promotion is decided by the
+      // width just measured instead of by the one the previous pass saw.
+      const measured = splitPromotedFacets(facets, primary, selection, isNarrowRow(viewport.clientWidth));
+      const widthOf = (facet: Facet<TItem>) => widths[facets.indexOf(facet)] ?? 0;
 
-      // Measured even where there is nothing to pull, because a surface can have no candidate at all
-      // until the row is narrow enough to demote one — which is a width, and this is where widths are.
       setRow({
         ...fitOverflow({
-          available: viewport.clientWidth - promotedWidth - (promotedWidth > 0 ? TRIGGER_GAP : 0),
-          candidates,
+          // What is filtering is inline whatever this decides, so it is spent before the fit begins.
+          available: viewport.clientWidth - measured.pinned.reduce((sum, facet) => sum + widthOf(facet) + TRIGGER_GAP, 0),
+          candidates: measured.promotable.map(widthOf),
+          alwaysOverflowed: measured.rest.length,
           namesWidths: names,
           countWidths: counts,
           gap: TRIGGER_GAP,
@@ -388,12 +400,21 @@ export function FilterLeiste<TItem>({
       observer.disconnect();
     };
     // The ruler's contents decide every width, so re-measuring keys on what it renders.
-  }, [candidateCount, facets, selection, items]);
+  }, [facets, primary, selection, items]);
 
   if (facets.length === 0) return null;
 
-  const pulled = overflowable.slice(0, Math.min(row.pulled, candidateCount));
-  const overflowed = overflowable.slice(pulled.length);
+  // `promotable` first and in priority order, so what the row gives up is always a SUFFIX of this — which
+  // is what lets one ruler carry every label the control could need.
+  const demotable = [...promotable, ...rest];
+  const kept = Math.min(row.pulled, promotable.length);
+  const overflowed = demotable.slice(kept);
+
+  // Drawn in the facets' own order, so activating a dimension changes what a trigger says and never
+  // where it stands.
+  const inlineParams = new Set([...pinned, ...promotable.slice(0, kept)].map((facet) => facet.param));
+  const inline = facets.filter((facet) => inlineParams.has(facet.param));
+
   const label = row.namesFit ? overflowNames(overflowed) : overflowCount(overflowed);
 
   const renderTrigger = (facet: Facet<TItem>, isStatic = false) => (
@@ -418,7 +439,8 @@ export function FilterLeiste<TItem>({
     <div className="relative flex w-full flex-col gap-2">
       {/* Sideways rather than wrapping, for `FilterBar`'s own reason: on Spielsuche this row sits in a
           sticky band, so a second line would cost viewport height for the whole scroll of the result
-          list. It is also the escape hatch when even the promoted dimensions outgrow a phone. */}
+          list. The fit keeps it from ever being used except by dimensions that are filtering, which is
+          the one thing it may not demote — past two of those a phone has no row left. */}
       <ScrollShadow
         orientation="horizontal"
         size={24}
@@ -427,13 +449,7 @@ export function FilterLeiste<TItem>({
         <div
           ref={viewportRef}
           className="flex w-full flex-row items-center gap-2">
-          <div
-            ref={promotedRef}
-            className="flex flex-row items-center gap-2">
-            {inline.map((facet) => renderTrigger(facet))}
-          </div>
-
-          {pulled.map((facet) => renderTrigger(facet))}
+          {inline.map((facet) => renderTrigger(facet))}
 
           {overflowed.length > 0 && (
             <Popover>
@@ -451,78 +467,65 @@ export function FilterLeiste<TItem>({
               <Popover.Content
                 placement="bottom start"
                 offset={8}>
-                <Popover.Dialog className={`${overlayPanel()} w-[92vw] overflow-hidden p-0 outline-none sm:w-[min(92vw,40rem)]`}>
-                  <div className="scrollbar-line max-h-[70vh] overflow-x-hidden overflow-y-auto p-3">
-                    <div className="flex flex-row flex-wrap gap-3">
-                      {overflowed.map((facet) => (
-                        <div
-                          key={facet.param}
-                          className="border-border/70 flex w-max max-w-full min-w-44 flex-col gap-y-1 rounded-xl border p-1.5">
-                          <span className="fluid-xxs text-foreground-muted px-1.5 font-bold tracking-widest uppercase">{facet.label}</span>
-                          <FacetOptions
-                            facet={facet}
-                            items={items}
-                            facets={facets}
-                            selection={selection}
-                            onSelect={(values) => {
-                              setFacet(facet.param, values);
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </Popover.Dialog>
+                {/* `facets` and `shown` are different sets on purpose: the counts have to read against
+                    every dimension of the surface, or a panel holding part of the set reports numbers
+                    that ignore what the triggers above it already narrowed. */}
+                <FilterPanel
+                  facets={facets}
+                  shown={overflowed}
+                  items={items}
+                  selection={selection}
+                  onSelect={setFacet}
+                  onClear={clearFacet}
+                />
               </Popover.Content>
             </Popover>
           )}
         </div>
       </ScrollShadow>
 
-      {/* The hidden row the fit is read from. It renders what the decision does NOT depend on — every
-          candidate at full width, and both label forms for every possible overflow — so collapsing the
-          live row can never change what was measured. */}
-      {candidateCount > 0 && (
+      {/* The hidden row the fit is read from. It renders what the decision does NOT depend on — EVERY
+          dimension at full width whatever the row did with it, and both label forms for every possible
+          overflow — so collapsing the live row can never change what was measured. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none invisible absolute h-0 overflow-hidden">
+        {/* Each row is a flex container so every child sizes to its OWN content — inside a plain block
+            they would all take the widest child's width and the measurement would say nothing. */}
         <div
-          aria-hidden="true"
-          className="pointer-events-none invisible absolute h-0 overflow-hidden">
-          {/* Each row is a flex container so every child sizes to its OWN content — inside a plain block
-              they would all take the widest child's width and the measurement would say nothing. */}
-          <div
-            ref={candidateRulerRef}
-            className="flex flex-row">
-            {overflowable.map((facet) => renderTrigger(facet, true))}
-          </div>
-          <div
-            ref={namesRulerRef}
-            className="flex flex-row">
-            {overflowable.map((_, index) => (
-              <span
-                key={index}
-                className={OVERFLOW_SHELL}>
-                <OverflowFace
-                  label={overflowNames(overflowable.slice(candidateCount - index - 1))}
-                  isNarrow={row.isNarrow}
-                />
-              </span>
-            ))}
-          </div>
-          <div
-            ref={countRulerRef}
-            className="flex flex-row">
-            {overflowable.map((_, index) => (
-              <span
-                key={index}
-                className={OVERFLOW_SHELL}>
-                <OverflowFace
-                  label={overflowCount(overflowable.slice(candidateCount - index - 1))}
-                  isNarrow={row.isNarrow}
-                />
-              </span>
-            ))}
-          </div>
+          ref={facetRulerRef}
+          className="flex flex-row">
+          {facets.map((facet) => renderTrigger(facet, true))}
         </div>
-      )}
+        <div
+          ref={namesRulerRef}
+          className="flex flex-row">
+          {demotable.map((_, index) => (
+            <span
+              key={index}
+              className={OVERFLOW_SHELL}>
+              <OverflowFace
+                label={overflowNames(demotable.slice(demotable.length - index - 1))}
+                isNarrow={row.isNarrow}
+              />
+            </span>
+          ))}
+        </div>
+        <div
+          ref={countRulerRef}
+          className="flex flex-row">
+          {demotable.map((_, index) => (
+            <span
+              key={index}
+              className={OVERFLOW_SHELL}>
+              <OverflowFace
+                label={overflowCount(demotable.slice(demotable.length - index - 1))}
+                isNarrow={row.isNarrow}
+              />
+            </span>
+          ))}
+        </div>
+      </div>
 
       {activeCount > 1 && (
         <Button

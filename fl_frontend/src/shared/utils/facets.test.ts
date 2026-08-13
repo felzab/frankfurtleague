@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { applyFacets, countActiveFacets, countFacetOptions, readFacetSelection, splitPromotedFacets } from "./facets";
+import { applyFacets, countActiveFacets, countFacetOptions, PROMOTION_CAP, readFacetSelection, splitPromotedFacets } from "./facets";
 
 import type { Facet } from "./facets";
 
@@ -162,113 +162,118 @@ describe("readFacetSelection", () => {
   });
 });
 
+/** A surface with more dimensions than any row may promote, for the cap. */
+const SIX_FACETS: readonly Facet<Row>[] = [
+  ...FACETS,
+  { param: "a", label: "A", options: [{ value: "1", label: "1" }], read: () => [] },
+  { param: "b", label: "B", options: [{ value: "1", label: "1" }], read: () => [] },
+  { param: "c", label: "C", options: [{ value: "1", label: "1" }], read: () => [] },
+];
+
+const params = <TItem>(facets: readonly Facet<TItem>[]) => facets.map((facet) => facet.param);
+
 describe("splitPromotedFacets", () => {
   it("promotes EVERYTHING when the surface declares nothing", () => {
     // The safe fallback: an undeclared surface hides no dimension behind a generic word, which is what
     // leaves the three-facet surfaces with no overflow control at all.
-    const { inline, overflowable } = splitPromotedFacets(FACETS, undefined, {});
+    const { pinned, promotable, rest } = splitPromotedFacets(FACETS, undefined, {});
 
-    assert.deepEqual(
-      inline.map((facet) => facet.param),
-      ["status", "gruppe", "stufe"],
-    );
-    assert.deepEqual(overflowable, []);
+    assert.deepEqual(pinned, []);
+    assert.deepEqual(params(promotable), ["status", "gruppe", "stufe"]);
+    assert.deepEqual(rest, []);
   });
 
-  it("keeps the declared params inline and offers the rest to the overflow", () => {
-    const { inline, overflowable } = splitPromotedFacets(FACETS, ["status"], {});
+  it("keeps the declared params promotable and puts the rest past the row entirely", () => {
+    const { promotable, rest } = splitPromotedFacets(FACETS, ["status"], {});
 
-    assert.deepEqual(
-      inline.map((facet) => facet.param),
-      ["status"],
-    );
-    assert.deepEqual(
-      overflowable.map((facet) => facet.param),
-      ["gruppe", "stufe"],
-    );
+    assert.deepEqual(params(promotable), ["status"]);
+    assert.deepEqual(params(rest), ["gruppe", "stufe"]);
   });
 
-  it("keeps an ACTIVE facet inline however it was declared", () => {
-    const { inline, overflowable } = splitPromotedFacets(FACETS, ["status"], { stufe: ["E1"] });
+  it("pins an ACTIVE facet, which is the one thing no width can demote", () => {
+    const { pinned, promotable, rest } = splitPromotedFacets(FACETS, ["status"], { stufe: ["E1"] });
 
-    assert.deepEqual(
-      inline.map((facet) => facet.param),
-      ["status", "stufe"],
-    );
-    assert.deepEqual(
-      overflowable.map((facet) => facet.param),
-      ["gruppe"],
-    );
+    assert.deepEqual(params(pinned), ["stufe"]);
+    assert.deepEqual(params(promotable), ["status"]);
+    assert.deepEqual(params(rest), ["gruppe"]);
   });
 
-  it("reads promotion off the declared params rather than the array's order", () => {
-    // The declaration names `stufe`, which sits last. Order decides where a trigger is drawn and nothing
-    // else, so reordering the facets for visual reasons cannot silently demote one.
-    const { inline } = splitPromotedFacets(FACETS, ["stufe"], {});
+  it("never offers a pinned facet twice", () => {
+    // `stufe` is declared AND active; it belongs to the row once, as the thing that cannot be demoted.
+    const { pinned, promotable, rest } = splitPromotedFacets(FACETS, ["status", "stufe"], { stufe: ["E1"] });
 
-    assert.deepEqual(
-      inline.map((facet) => facet.param),
-      ["stufe"],
-    );
+    assert.deepEqual(params(pinned), ["stufe"]);
+    assert.deepEqual(params(promotable), ["status"]);
+    assert.deepEqual(params(rest), ["gruppe"]);
+  });
+
+  it("reads promotion off the declared params rather than the facets' order", () => {
+    // The declaration names `stufe`, which sits last. Facet order decides where a trigger is drawn and
+    // nothing else, so reordering a popover for visual reasons cannot silently demote one.
+    const { promotable } = splitPromotedFacets(FACETS, ["stufe"], {});
+
+    assert.deepEqual(params(promotable), ["stufe"]);
+  });
+
+  it("returns the promotable set in the DECLARATION's order, which is the order it is given up in", () => {
+    const { promotable } = splitPromotedFacets(FACETS, ["stufe", "status"], {});
+
+    assert.deepEqual(params(promotable), ["stufe", "status"]);
+  });
+
+  it("promotes no more than the cap however many the surface declares", () => {
+    const { promotable, rest } = splitPromotedFacets(SIX_FACETS, ["status", "gruppe", "stufe", "a", "b"], {});
+
+    assert.equal(promotable.length, PROMOTION_CAP);
+    assert.deepEqual(params(promotable), ["status", "gruppe", "stufe"]);
+    assert.deepEqual(params(rest), ["a", "b", "c"]);
+  });
+
+  it("caps an undeclared surface too, because a ceiling needs no priority order", () => {
+    const { promotable, rest } = splitPromotedFacets(SIX_FACETS, undefined, {});
+
+    assert.equal(promotable.length, PROMOTION_CAP);
+    assert.deepEqual(params(rest), ["a", "b", "c"]);
   });
 
   it("gives up the declaration's LAST entry on a narrow row", () => {
     // The surface writes its promotion in priority order, so the phone row is the same declaration one
-    // shorter — and `gruppe`, which was already behind the control, stays behind it.
-    const { inline, overflowable } = splitPromotedFacets(FACETS, ["status", "stufe"], {}, true);
+    // shorter — and `gruppe`, which was already past the row, stays past it.
+    const { promotable, rest } = splitPromotedFacets(FACETS, ["status", "stufe"], {}, true);
 
-    assert.deepEqual(
-      inline.map((facet) => facet.param),
-      ["status"],
-    );
-    assert.deepEqual(
-      overflowable.map((facet) => facet.param),
-      ["gruppe", "stufe"],
-    );
+    assert.deepEqual(params(promotable), ["status"]);
+    assert.deepEqual(params(rest), ["gruppe", "stufe"]);
   });
 
-  it("keeps an ACTIVE facet inline on a narrow row too", () => {
+  it("pins an ACTIVE facet on a narrow row too", () => {
     // The rule the whole control rests on: a dimension narrowing the list is never behind the overflow,
     // whatever the width. `stufe` is the entry the narrow row would otherwise give up.
-    const { inline } = splitPromotedFacets(FACETS, ["status", "stufe"], { stufe: ["E1"] }, true);
+    const { pinned, promotable } = splitPromotedFacets(FACETS, ["status", "stufe"], { stufe: ["E1"] }, true);
 
-    assert.deepEqual(
-      inline.map((facet) => facet.param),
-      ["status", "stufe"],
-    );
+    assert.deepEqual(params(pinned), ["stufe"]);
+    assert.deepEqual(params(promotable), ["status"]);
   });
 
   it("leaves an undeclared surface whole on a narrow row", () => {
-    // It has no priority order to trim, and trimming would invent the overflow control it has none of.
-    const { inline, overflowable } = splitPromotedFacets(FACETS, undefined, {}, true);
+    // It has no priority order to trim, and its facets' array order is not one — trimming would read a
+    // priority nobody stated and invent the overflow control the surface has none of.
+    const { promotable, rest } = splitPromotedFacets(FACETS, undefined, {}, true);
 
-    assert.deepEqual(
-      inline.map((facet) => facet.param),
-      ["status", "gruppe", "stufe"],
-    );
-    assert.deepEqual(overflowable, []);
+    assert.deepEqual(params(promotable), ["status", "gruppe", "stufe"]);
+    assert.deepEqual(rest, []);
   });
 
   it("keeps a surface's last promoted dimension rather than emptying the row", () => {
-    const { inline } = splitPromotedFacets(FACETS, ["status"], {}, true);
+    const { promotable } = splitPromotedFacets(FACETS, ["status"], {}, true);
 
-    assert.deepEqual(
-      inline.map((facet) => facet.param),
-      ["status"],
-    );
+    assert.deepEqual(params(promotable), ["status"]);
   });
 
-  it("holds both halves in the facets' own order", () => {
-    const { inline, overflowable } = splitPromotedFacets(FACETS, ["stufe", "status"], {});
+  it("holds the pinned and the past-the-row sets in the facets' own order", () => {
+    const { pinned, rest } = splitPromotedFacets(SIX_FACETS, ["a"], { stufe: ["E1"], status: ["aktiv"] });
 
-    assert.deepEqual(
-      inline.map((facet) => facet.param),
-      ["status", "stufe"],
-    );
-    assert.deepEqual(
-      overflowable.map((facet) => facet.param),
-      ["gruppe"],
-    );
+    assert.deepEqual(params(pinned), ["status", "stufe"]);
+    assert.deepEqual(params(rest), ["gruppe", "b", "c"]);
   });
 });
 
@@ -421,6 +426,20 @@ describe("every facet set in the app", () => {
       for (const param of primary) {
         assert.ok(params.has(param), `${name} promotes "${param}", which no facet in the ${slice} slice declares`);
       }
+    }
+  });
+
+  it("declares a promotion wherever a surface offers more dimensions than a row may promote", () => {
+    // Past the cap the row must choose, and with nothing declared it falls back to the facets' array
+    // order — the silent contract this module exists to refuse. Below the cap there is no choice.
+    for (const [name, facets] of discovered) {
+      if (facets.length <= PROMOTION_CAP) continue;
+      const slice = name.split("/")[0];
+
+      assert.ok(
+        promotions.some(([, owner]) => owner === slice),
+        `${name} offers ${String(facets.length)} dimensions and declares no promotion, so the row would pick by array order`,
+      );
     }
   });
 

@@ -15,10 +15,17 @@
 
 /** One candidate's width, both label forms, and the space they are competing for. All in CSS pixels. */
 export type FitInput = {
-  /** Row width less whatever the always-inline dimensions already take, and their trailing gap. */
+  /** Row width less what the dimensions that are FILTERING already take, and their trailing gaps. */
   available: number;
-  /** Each overflow candidate's own width, in the order the row would draw them. */
+  /** Each candidate's own width, in the order the row gives them up — the last one goes first. */
   candidates: readonly number[];
+  /**
+   * How many dimensions sit behind the control however much room there is — the ones past the cap.
+   *
+   * This is what makes the control's presence independent of the fit: with any of these there is a
+   * control to pay for even when every candidate stays inline.
+   */
+  alwaysOverflowed: number;
   /** Index `k - 1` is the overflow control showing `k` dimensions BY NAME. */
   namesWidths: readonly number[];
   /** Index `k - 1` is the same control showing `k` as a count. */
@@ -53,21 +60,27 @@ function spanOf(widths: readonly number[], count: number, gap: number): number {
 /**
  * The most dimensions the row can show, and the widest overflow label that still fits beside them.
  *
- * Tried from the most inline downwards, so the first answer that fits is also the best one. When every
- * candidate fits there is no overflow control at all and its width never enters the sum — which is why
- * a surface whose dimensions all fit shows no control rather than an empty one.
+ * Tried from the most inline downwards, so the first answer that fits is also the best one. The search
+ * reaches zero, which is what makes never overflowing an invariant rather than a hope: a row too narrow
+ * for the dimensions its surface asked for gives them up one at a time until what is left fits beside
+ * the control, and only what is FILTERING is beyond its reach.
  *
- * The last resort is everything overflowed under a counted label: at that width the row scrolls
- * sideways, and a control that names nothing is still better than one that is not reachable.
+ * **No control at all is possible in exactly one case** — nothing forced behind one and every candidate
+ * inline. Its width then never enters the sum, which is why a surface whose dimensions all fit shows no
+ * control rather than an empty one.
+ *
+ * The last resort is everything overflowed under a counted label: at that width the row is down to the
+ * dimensions that are filtering, and a control that names nothing is still better than none at all.
  */
-export function fitOverflow({ available, candidates, namesWidths, countWidths, gap }: FitInput): Fit {
-  if (candidates.length === 0) return { pulled: 0, namesFit: true };
+export function fitOverflow({ available, candidates, alwaysOverflowed, namesWidths, countWidths, gap }: FitInput): Fit {
+  if (alwaysOverflowed === 0 && (candidates.length === 0 || spanOf(candidates, candidates.length, gap) <= available))
+    return { pulled: candidates.length, namesFit: true };
 
-  if (spanOf(candidates, candidates.length, gap) <= available) return { pulled: candidates.length, namesFit: true };
-
-  for (let pulled = candidates.length - 1; pulled >= 0; pulled--) {
+  // From `candidates.length` rather than one below it: with something already behind the control, every
+  // candidate staying inline is a real answer that still has to pay for the control beside them.
+  for (let pulled = candidates.length; pulled >= 0; pulled--) {
     const room = available - spanOf(candidates, pulled, gap) - gap;
-    const overflowed = candidates.length - pulled;
+    const overflowed = candidates.length - pulled + alwaysOverflowed;
 
     if ((namesWidths[overflowed - 1] ?? Infinity) <= room) return { pulled, namesFit: true };
     if ((countWidths[overflowed - 1] ?? Infinity) <= room) return { pulled, namesFit: false };

@@ -10,6 +10,7 @@ import type { FitInput } from "./filterLeisteFit";
 const BASE: FitInput = {
   available: 1000,
   candidates: [100, 100, 100, 100],
+  alwaysOverflowed: 0,
   namesWidths: [60, 120, 180, 240],
   countWidths: [90, 90, 90, 90],
   gap: 8,
@@ -71,6 +72,30 @@ describe("fitOverflow", () => {
     const fit = fitOverflow({ ...BASE, candidates: [], namesWidths: [], countWidths: [] });
 
     assert.deepEqual(fit, { pulled: 0, namesFit: true });
+  });
+
+  it("pays for the control even when every candidate fits, once a dimension is past the cap", () => {
+    // 4 x 108 = 432 of 1000 leaves 560 after the control's own gap, and naming five costs nothing this
+    // fixture refuses — the point is that `pulled` stays at 4 rather than dropping one to buy room.
+    const fit = fitOverflow({ ...BASE, alwaysOverflowed: 1, namesWidths: [60, 120, 180, 240, 300] });
+
+    assert.deepEqual(fit, { pulled: 4, namesFit: true });
+  });
+
+  it("counts the dimensions past the cap in the label it has to fit", () => {
+    // 3 inline = 324, leaving 68 after the gap. Two overflowed — one demoted, one always — cost 120 to
+    // name and 90 to count, so neither fits and the row gives up a second candidate.
+    const fit = fitOverflow({ ...BASE, available: 400, alwaysOverflowed: 1 });
+
+    assert.deepEqual(fit, { pulled: 2, namesFit: false });
+  });
+
+  it("gives up every candidate rather than overflow, and still asks for a control", () => {
+    // What makes never scrolling an invariant: at 100px of row there is no arrangement that fits, and
+    // the answer is the control alone rather than a candidate hanging off the edge.
+    const fit = fitOverflow({ ...BASE, available: 100, alwaysOverflowed: 2 });
+
+    assert.deepEqual(fit, { pulled: 0, namesFit: false });
   });
 
   it("survives a negative budget rather than pulling a candidate into it", () => {
