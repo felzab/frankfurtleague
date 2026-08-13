@@ -36,8 +36,9 @@ import type { RefObject } from "react";
  *
  * **Focus must not be on this button when the value is cleared**, because clearing removes it and a
  * browser fires no blur for an element it removes: `useFocusWithin` on the group never learns focus
- * left, `data-focus-within` stays set, and the field keeps its brand border while
- * `document.activeElement` is `<body>` and nothing can be typed into it.
+ * left and `data-focus-within` stays set while `document.activeElement` is `<body>` — a field
+ * claiming a focus nobody holds, nothing that can be typed into, and a Tab that resumes from the top
+ * of the document rather than from here.
  *
  * The CLICK handler is what holds that, and it holds it on both paths: it moves focus into the group
  * before clearing, the order `FormNotizSection`'s note delete also keeps, so a pointer press and the
@@ -54,9 +55,10 @@ import type { RefObject } from "react";
  * The group is the focus target because react-aria makes only the segments focusable —
  * `useDateSegment` gives each `tabIndex: 0`, `useDateField` leaves the group without one — and
  * HeroUI 3.2.3 exposes a `ref` on `DateField.Group` alone, never on `DateField.Segment` or
- * `DateField.Input`. Hence `tabIndex={-1}` on the group: it stays out of the tab order,
- * `:focus-within` still paints the field's brand border so the move is visible, and the next Tab
- * enters the field at its first segment.
+ * `DateField.Input`. Hence `tabIndex={-1}` on the group: it stays out of the tab order, focus lands
+ * on something real rather than on `<body>`, and the next Tab enters the field at its first segment.
+ * The group does not read as an edited field while it holds that focus — `globals.css` returns its
+ * border to the resting one and marks the keyboard path with the app's standard outline instead.
  *
  * **The keyboard path is closed by reasoning, not yet by observation.** Tab-then-Enter now runs the
  * same focus-then-clear handler, so it should end inside the field rather than on `<body>`; the

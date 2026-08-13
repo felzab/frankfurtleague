@@ -893,6 +893,56 @@ html:has([data-app-shell]) {
   border-color: var(--border-base);
 }
 
+/* The SAME group one state further on: it holds focus ITSELF, and nothing inside it does.
+   `FormDateTimeSection.tsx :: ClearFieldButton` puts it there deliberately — it moves focus to the
+   group before clearing, because a browser fires no blur for the button it is about to unmount and a
+   stranded focus would leave `document.activeElement` on `<body>`. The group carries `tabIndex={-1}`,
+   so what ends up focused is a container with no caret and nothing to type into. The rule above does
+   not reach it: what holds focus is the group, not `[data-slot="date-picker-trigger"]`.
+
+   `:not(:has(:focus))` is the whole discriminator, and it is exact rather than approximate — `:has()`
+   never matches its own subject, so the group is invisible to it while every element inside is not. A
+   caret in a date segment and a time field being typed into therefore keep their brand border, and
+   only a group focused in its own right loses it.
+
+   Both arms are load-bearing and they cover different halves. `:focus` is synchronous, and
+   `FIELD_GROUP` transitions border-color, so keying on the attribute alone would animate one brand
+   flash per clear; `[data-focus-within="true"]` is react-aria's, and covers the shape where the
+   attribute is left set over a focus the group never saw leave.
+
+   Specificity is (0,5,0) against (0,4,0) for the focus arm it overrides — `:is()` and `:has()` each
+   take their most specific argument — and both are unlayered. It sets `border-color` alone, exactly
+   as the two rules above do. */
+[data-slot="date-input-group"]:is(:focus, [data-focus-within="true"]):not(:has(:focus)):not(:has([aria-expanded="true"])):not(
+    [data-invalid="true"]
+  ) {
+  border-color: var(--border-base);
+}
+
+/* Focus is still SOMEWHERE, and a keyboard user has to see where. With the border reset above and the
+   focus arm's `outline: none` still in force, tabbing onto a clear control and pressing Enter would
+   leave focus on an element carrying no indicator at all (WCAG 2.4.7). This is the app's standard
+   outline, drawn on the element that actually holds it — the group is not a fill of its own, so
+   var(--focus) still answers to the surface behind, and the offset is the standard 2px.
+
+   react-aria's attribute rather than the browser's `:focus-visible`, because the two disagree on
+   exactly this control: `mousedown` is cancelled on it, so a pointer press leaves focus where it was
+   and the browser reads the scripted focus that follows as a continuation of THAT element's
+   focus-visible state — an outline for somebody using a mouse. react-aria keys on a global modality
+   the `pointerdown` has already flipped.
+
+   `:not(:has(:focus))` is what makes the attribute mean the group: it is
+   `useFocusRing({within: true})`'s, so a segment reached by Tab sets it too, and that segment already
+   draws its own fill.
+
+   Specificity is (0,5,0) against the (0,4,0) arm that zeroes the outline. An invalid group is left
+   out, exactly as it is above: its danger border is the field's own statement, and `[data-invalid]`
+   already owns the outline slot on every field in the app. */
+[data-slot="date-input-group"][data-focus-visible="true"]:not(:has(:focus)):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 /* Required asterisks belong to a form that CREATES something (decided 2026-08-07).
    On an edit every value is already present, so a column of red stars marks nothing the reader can
    act on; on a create each one is a genuine question.
