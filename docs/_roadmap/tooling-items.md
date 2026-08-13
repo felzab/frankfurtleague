@@ -45,24 +45,24 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 
 ## The path at a glance
 
-| #   | ID     | Item                                                    | Surfaces  | Effort | Status   | Depends on |
-| --- | ------ | ------------------------------------------------------- | --------- | ------ | -------- | ---------- |
-| 1   | OPS-56 | The git stepper reads one `git`, on one line            | Ops       | S      | Open     | —          |
-| 2   | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops       | S      | Open     | —          |
-| 3   | OPS-62 | A pin bump arms every page citing the workflow          | Ops, Docs | S      | Open     | —          |
-| 4   | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs | S      | Open     | —          |
-| 5   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops       | S      | Open     | —          |
-| 6   | OPS-63 | A comment claims two files hold one pattern, unchecked  | FE, BE, Ops | S    | Open     | —          |
-| 7   | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops       | M      | Open     | —          |
-| 8   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops   | S      | Open     | —          |
-| 9   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs      | M      | Open     | —          |
-| 10  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops   | S      | Open     | —          |
-| 11  | OPS-10 | The comment-only classifier costs a process per file    | Ops       | S      | Open     | —          |
-| 12  | DOC-8  | A later decision falsifies a fact an earlier ADR states | Docs      | —      | Standing | —          |
-| 13  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops       | —      | Standing | —          |
-| 14  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops       | —      | Standing | —          |
-| 15  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs      | —      | Standing | —          |
-| 16  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs      | —      | Standing | —          |
+| #   | ID     | Item                                                    | Surfaces    | Effort | Status   | Depends on |
+| --- | ------ | ------------------------------------------------------- | ----------- | ------ | -------- | ---------- |
+| 1   | OPS-56 | The git stepper reads one `git`, on one line            | Ops         | S      | Open     | —          |
+| 2   | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops         | S      | Open     | —          |
+| 3   | OPS-62 | A pin bump arms every page citing the workflow          | Ops, Docs   | S      | Open     | —          |
+| 4   | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs   | S      | Open     | —          |
+| 5   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
+| 6   | OPS-63 | A comment claims two files hold one pattern, unchecked  | FE, BE, Ops | S      | Open     | —          |
+| 7   | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops         | M      | Open     | —          |
+| 8   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
+| 9   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
+| 10  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops     | S      | Open     | —          |
+| 11  | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
+| 12  | DOC-8  | A later decision falsifies a fact an earlier ADR states | Docs        | —      | Standing | —          |
+| 13  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
+| 14  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
+| 15  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
+| 16  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -341,12 +341,15 @@ and **this entry does not propose moving it.**
 schema mirrors a backend constraint, and "looser here makes the client-side message a lie about what
 is allowed". Neither sentence is a comparison anything performs.
 
-**The claim is false in the tree as it stands.** The backend pattern spells a literal space inside
-its character class; the Zod one spells `\s`, which in JavaScript absorbs a trailing newline so that
-`$` still matches. The frontend is the looser end, so the failure mode is a form accepting a value
-the API answers with a 422 that nothing in the interface can explain, rather than a bad value being
-stored. Blast radius today is nil — no referee holds a phone number at all — which is what makes it
-worth a minute now and invisible later.
+**The two patterns agree today, and nothing holds them there.** They last diverged on the character
+class: a literal space on one side against `\s` on the other, which in JavaScript absorbs a trailing
+newline so `$` still matches. The frontend was the looser end, so the failure mode is a form
+accepting a value the API answers with a 422 that nothing in the interface can explain, rather than
+a bad value being stored — and it survived a review, a commit body asserting the two were identical,
+and a contract test that does not look at patterns. **What makes it worth an entry is that the same
+divergence can reappear the next time either side is edited, silently and in the same direction.**
+Blast radius is currently nil, since no referee holds a phone number at all, which is exactly what
+would make a recurrence invisible.
 
 **Three answers, and they are not equivalent.**
 
