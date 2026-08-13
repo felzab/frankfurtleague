@@ -93,7 +93,7 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
               <span>Zurück</span>
             </Button>
 
-            <header className="mb-6 flex w-full flex-col gap-y-1">
+            <header className="mb-6 flex w-full flex-col gap-y-2">
               <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
                 {/* `fluid-2xl`, one step above the `fluid-xl` the other pages use, and deliberately
                     so: on those pages the title tops a single card or grid, while here it has to
