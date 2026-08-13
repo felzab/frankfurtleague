@@ -900,22 +900,29 @@ html:has([data-app-shell]) {
    so what ends up focused is a container with no caret and nothing to type into. The rule above does
    not reach it: what holds focus is the group, not `[data-slot="date-picker-trigger"]`.
 
-   `:not(:has(:focus))` is the whole discriminator, and it is exact rather than approximate — `:has()`
-   never matches its own subject, so the group is invisible to it while every element inside is not. A
-   caret in a date segment and a time field being typed into therefore keep their brand border, and
-   only a group focused in its own right loses it.
+   The `:has()` is the whole discriminator, and it is exact rather than approximate — `:has()` never
+   matches its own subject, so the group is invisible to it while every element inside is not. A caret
+   in a date segment and a time field being typed into therefore keep their brand border.
+
+   **A clear control is excluded from it because it is not a caret either.** What this border says is
+   that the field is being edited; a dismiss affordance holding focus is the same nothing-to-type
+   position the group itself is, one element further in. Counting it kept the group brand for as long
+   as that button held focus, so releasing it — Enter, and the focus moves to the group — ran the
+   `transition-colors` on `FIELD_GROUP` and drew a 150ms brand fade out of a state that never meant
+   anything. Nothing is lost by dropping it: `button[data-field-clear="true"]:focus-visible` above
+   gives that control its own inset outline precisely because a shared border could never identify it.
 
    Both arms are load-bearing and they cover different halves. `:focus` is synchronous, and
    `FIELD_GROUP` transitions border-color, so keying on the attribute alone would animate one brand
    flash per clear; `[data-focus-within="true"]` is react-aria's, and covers the shape where the
    attribute is left set over a focus the group never saw leave.
 
-   Specificity is (0,5,0) against (0,4,0) for the focus arm it overrides — `:is()` and `:has()` each
-   take their most specific argument — and both are unlayered. It sets `border-color` alone, exactly
-   as the two rules above do. */
-[data-slot="date-input-group"]:is(:focus, [data-focus-within="true"]):not(:has(:focus)):not(:has([aria-expanded="true"])):not(
-    [data-invalid="true"]
-  ) {
+   Specificity is (0,6,0) against (0,4,0) for the focus arm it overrides — `:is()` and `:has()` each
+   take their most specific argument, and `:focus:not([data-field-clear="true"])` is two — both
+   unlayered. It sets `border-color` alone, exactly as the two rules above do. */
+[data-slot="date-input-group"]:is(:focus, [data-focus-within="true"]):not(:has(:focus:not([data-field-clear="true"]))):not(
+    :has([aria-expanded="true"])
+  ):not([data-invalid="true"]) {
   border-color: var(--border-base);
 }
 
@@ -934,6 +941,11 @@ html:has([data-app-shell]) {
    `:not(:has(:focus))` is what makes the attribute mean the group: it is
    `useFocusRing({within: true})`'s, so a segment reached by Tab sets it too, and that segment already
    draws its own fill.
+
+   **It counts a clear control's focus where the border rule above does not, and the asymmetry is the
+   point.** That rule asks whether a caret is in the field, and a dismiss affordance is not one; this
+   one asks whether anything inside already shows focus, and that control does — its own inset
+   outline. Excluding it here would ring the whole group around a button that is already ringed.
 
    Specificity is (0,5,0) against the (0,4,0) arm that zeroes the outline. An invalid group is left
    out, exactly as it is above: its danger border is the field's own statement, and `[data-invalid]`

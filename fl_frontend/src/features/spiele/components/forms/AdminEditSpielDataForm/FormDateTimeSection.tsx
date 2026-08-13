@@ -36,9 +36,10 @@ import type { RefObject } from "react";
  * A plain button rather than a react-aria one: it lives inside the group whose focus styling is
  * keyed off `:focus-within` in `globals.css`, and a `Button` would add press/hover state machinery
  * for what is a single synchronous state reset. `data-field-clear` is the hook that stylesheet needs
- * to hand it a focus outline back: the group strips one from every button inside it because its own
- * border already says focus is in the field, and this button is one tab stop among the segments,
- * which a single border cannot tell apart.
+ * twice over: the group strips a focus outline from every button inside it, because for the rest its
+ * own border already says focus is in the field, and this one gets an inset outline handed back as
+ * the only thing that can identify it. The same attribute is what keeps the border out of it —
+ * holding focus here is not editing the field, so the group reads as resting throughout.
  *
  * **Focus must not be on this button when the value is cleared**, because clearing removes it and a
  * browser fires no blur for an element it removes: `useFocusWithin` on the group never learns focus
