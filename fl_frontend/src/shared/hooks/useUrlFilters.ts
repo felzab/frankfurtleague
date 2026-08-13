@@ -13,7 +13,8 @@
  * - `replaceState`, never `pushState` — back should leave the list, not walk the facets.
  * - A write names its parameters and reads the live URL for the rest — never a stale snapshot.
  * - A value the facet does not offer is dropped on read.
- * - The returned selection is rebuilt per render and is not referentially stable.
+ * - The returned selection is referentially stable while the query string and the facets are —
+ *   `readFacetSelection` owns that guarantee and states what rests on it.
  */
 import { useCallback } from "react";
 import { usePathname, useSearchParams } from "next/navigation";

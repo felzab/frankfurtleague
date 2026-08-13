@@ -42,10 +42,14 @@ function RowActionCluster({ slots, className }: { slots: readonly number[]; clas
  * for `useSearchParams` suspends too — pushing the bailout up to the boundary above and undoing the
  * split that keeps the static chrome outside the data hole.
  *
- * Three things keep the hand-over from reading as a flicker: `AdminCrudView` animates in rather than
- * appearing; `delay-200 fill-mode-both` holds this at `opacity: 0` so a fast navigation never paints
- * it; and it reserves the boxes that arrive — the filter trigger above, then whichever of the two
- * shapes below `shape` names.
+ * **It paints at once and it does not animate.** A held-back fallback leaves the interval between the
+ * navigation and the data with nothing on screen at all, which is the wait the reader actually
+ * notices; and an entrance here would still be mid-flight when the rows land on a fast one. What
+ * makes the swap smooth instead is the other side: `AdminCrudView` fades in place over geometry this
+ * already reserved (`motion.ts :: CONTENT_FADE`), so the two never move against each other.
+ *
+ * It reserves the boxes that arrive — the filter row above, then whichever of the two shapes below
+ * `shape` names.
  */
 export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sections" }) {
   return (
@@ -54,10 +58,11 @@ export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sect
       aria-label="Daten werden geladen"
       /* `gap-4` is `AdminCrudView`'s own column gap, so the filter block and the list below it sit
          where they will sit once the rows land. */
-      className="animate-in fade-in fill-mode-both flex flex-col gap-4 delay-200 duration-150">
-      {/* Every admin slice declares facets, so `FilterBar` always renders its `h-10` trigger, and a
-          fallback without it puts the list a row above the data. Only its reset is unreserved — `h-7`
-          plus `gap-2`, from the second active facet. */}
+      className="flex flex-col gap-4">
+      {/* Every admin slice declares facets, so the filter control always renders its `h-10` row, and a
+          fallback without it puts the list a row above the data. The row is `h-10` in both filter
+          shapes; only how many controls sit in it differs, and a control's width shifts nothing
+          vertically. Its reset stays unreserved — `h-7` plus `gap-2`, from the second active facet. */}
       <div className="flex w-full flex-row items-center gap-2">
         <div className={`${skeletonBlock()} h-10 w-28 rounded-xl`} />
       </div>

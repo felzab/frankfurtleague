@@ -20,6 +20,23 @@ import { computeSpielStatus } from "./utils";
 import type { Facet, FacetOption } from "@/shared/utils/facets";
 import type { FLSpiel } from "./schemas";
 
+/**
+ * The dimensions the PUBLIC Spielsuche keeps in its filter row.
+ *
+ * A visitor arrives asking when, which round, and whose match; `ort` is the follow-up question and is
+ * the one that may sit behind the overflow on a narrow screen.
+ */
+export const SPIEL_PRIMARY_FACETS: readonly string[] = ["status", "phase", "team"];
+
+/**
+ * The dimensions the ADMIN Spielsuche keeps in its filter row.
+ *
+ * `ansetzung` is promoted over `phase` because nothing else in the app finds an incomplete fixture,
+ * which is the admin list's own job. It sits sixth in `buildSpielFacets` and is promoted anyway —
+ * naming the params rather than reading the array's order is what makes that possible.
+ */
+export const SPIEL_ADMIN_PRIMARY_FACETS: readonly string[] = ["status", "ansetzung", "team"];
+
 /** The five derived statuses, in the order a fixture passes through them. */
 const STATUS_OPTIONS: readonly FacetOption[] = [
   { value: "ausstehend", label: "Ausstehend" },

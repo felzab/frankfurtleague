@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
+
 import { Sliders, Xmark } from "@gravity-ui/icons";
 
-import { Button, ListBox, Popover, ScrollShadow } from "@heroui/react";
+import { Button, ListBox, Popover, ScrollShadow, SearchField } from "@heroui/react";
 
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { countFacetOptions } from "@/shared/utils/facets";
@@ -10,8 +12,138 @@ import { countFacetOptions } from "@/shared/utils/facets";
 import { COUNT_BADGE } from "./badges";
 import { overlayPanel } from "./overlayPanel";
 
-import type { Facet } from "@/shared/utils/facets";
+import type { Facet, FacetOption } from "@/shared/utils/facets";
 import type { Selection } from "@heroui/react";
+
+/** Above this many options a cell grows a type-to-filter field; at or below it, everything is visible. */
+const TYPE_TO_FILTER_THRESHOLD = 8;
+
+/** Case- and diacritic-insensitive, so „Göthe" is reached by typing „goe" as well as „gö". */
+function fold(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
+
+/**
+ * One facet's box inside the panel: its heading, its reset, and its options.
+ *
+ * **The query is `useState` HERE and must not be lifted.** `FilterBar` renders inside `AdminCrudView`,
+ * whose collection-identity constraint means a state change above this component re-renders the table
+ * once per keystroke. Local state costs nothing above the cell.
+ *
+ * **The width comes from this cell's own longest option** (`w-max`), which is what CSS Grid cannot
+ * express: a grid track's width is shared by every cell in it, so the sixteen-club Team facet would pad
+ * out every short facet beneath it. Height is not set at all — flexbox stretches each wrapped LINE to
+ * its own tallest cell, so cells match their neighbours without a two-option facet being padded to a
+ * sixteen-option one's height (decided 2026-08-13).
+ *
+ * **The option list is capped and scrolls internally.** Without a cap one long facet would set the
+ * height of its whole line; with one, the tallest cell on a line is eight rows and the type-to-filter
+ * field is how the rest is reached.
+ */
+function FacetCell<TItem>({
+  facet,
+  counts,
+  picked,
+  onClear,
+  onSelect,
+}: {
+  facet: Facet<TItem>;
+  counts: Record<string, number>;
+  picked: readonly string[];
+  onClear: () => void;
+  onSelect: (values: string[]) => void;
+}) {
+  const [query, setQuery] = useState("");
+
+  const isWide = facet.options.length > TYPE_TO_FILTER_THRESHOLD;
+  // Counts stay computed over the WHOLE option list, so a hidden option's number is already correct
+  // when the query is cleared.
+  const shown: readonly FacetOption[] =
+    isWide && query !== "" ? facet.options.filter((option) => fold(option.label).includes(fold(query))) : facet.options;
+
+  return (
+    <div className="border-border/70 flex w-max max-w-full min-w-44 flex-col gap-y-1 rounded-xl border p-1.5">
+      {/* A FIXED height, because the reset appears only once something is picked (decided 2026-08-08).
+          Its intrinsic height exceeded the label's, so the header row grew on the first selection and
+          pushed every facet below it down — the popover appeared to jump while being used. */}
+      <div className="flex h-6 flex-row items-center justify-between gap-x-2 px-1.5">
+        <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
+        {picked.length > 0 && (
+          <Button
+            variant="ghost"
+            aria-label={`${facet.label} zurücksetzen`}
+            onPress={onClear}
+            className="fluid-xxs text-foreground-muted data-hovered:text-foreground h-full shrink-0 cursor-pointer leading-none font-bold transition-colors duration-(--motion-fast)">
+            Zurücksetzen
+          </Button>
+        )}
+      </div>
+
+      {isWide && (
+        // `h-8` rather than the shared `FIELD_HEIGHT`: this is chrome inside a popover cell, not a form
+        // field, and a 40px input above a capped option list spends an eighth of the cell on itself.
+        <SearchField
+          aria-label={`${facet.label} durchsuchen`}
+          value={query}
+          onChange={setQuery}
+          className="px-1.5">
+          <SearchField.Group className="bg-surface border-border flex h-8 w-full items-center gap-2 rounded-lg border px-2 transition-colors duration-(--motion-fast)">
+            <SearchField.SearchIcon className="text-foreground-muted size-3.5 shrink-0" />
+            <SearchField.Input
+              placeholder="Suchen..."
+              className="fluid-xs w-full min-w-0 bg-transparent outline-none"
+            />
+            {/* `bg-transparent` because `.close-button--default` paints `--default` AT REST, so a hover
+                laid over it moves toward the panel in the dark theme instead of away from it. No
+                `transition-*` here: HeroUI's own list already names `transform`, which is what its press
+                animates, and a Tailwind list would replace it wholesale. */}
+            <SearchField.ClearButton className="text-foreground-muted data-hovered:bg-hover data-hovered:text-foreground size-6 shrink-0 bg-transparent" />
+          </SearchField.Group>
+        </SearchField>
+      )}
+
+      <ListBox
+        aria-label={facet.label}
+        selectionMode="multiple"
+        // The cap is the cell's, not the panel's: the panel already scrolls at `70vh`, and a cell that
+        // scrolls on its own is what keeps one long facet from setting its whole line's height.
+        className="scrollbar-line max-h-72 overflow-x-hidden overflow-y-auto"
+        selectedKeys={picked}
+        renderEmptyState={() => <p className="fluid-xs text-foreground-muted px-3 py-2 font-bold italic">Keine Option gefunden</p>}
+        // `Selection` is `"all" | Set<Key>`; `"all"` is only reachable by passing `selectedKeys="all"`,
+        // which this never does, so it maps to an empty selection rather than to a cast.
+        onSelectionChange={(keys: Selection) => {
+          onSelect(keys === "all" ? [] : [...keys].map(String));
+        }}>
+        {shown.map((option) => {
+          const count = counts[option.value] ?? 0;
+          const isPicked = picked.includes(option.value);
+
+          return (
+            <ListBox.Item
+              key={option.value}
+              id={option.value}
+              textValue={option.label}
+              // A selected option stays enabled whatever its count — disabling it would make it
+              // impossible to deselect, which is the one state this rule must not create.
+              isDisabled={count === 0 && !isPicked}
+              // `bg-hover` is the token the keyboard indicator in `globals.css` paints too, and the two
+              // being one colour is that rule's whole claim. The brand ink is the call site's own pair.
+              className={`fluid-sm data-hovered:bg-hover data-hovered:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-1.5 font-bold transition-colors duration-(--motion-fast) ${
+                count === 0 ? "text-foreground-muted" : "text-foreground"
+              }`}>
+              <span className="min-w-0 truncate">{option.label}</span>
+              <span className={`${COUNT_BADGE} bg-brand/50 text-foreground shrink-0`}>{count}</span>
+            </ListBox.Item>
+          );
+        })}
+      </ListBox>
+    </div>
+  );
+}
 
 /**
  * The filter control: one trigger, a popover of multi-selects, and the active choices as removable chips.
@@ -21,6 +153,11 @@ import type { Selection } from "@heroui/react";
  * dropdown per facet wraps badly past three and hides which values are excluded, and every option
  * rendered inline is a wall on the big surfaces. One trigger scales; the chips underneath are what keep
  * the current state visible, which is the thing a closed popover would otherwise cost.
+ *
+ * **The panel wraps rather than columns** (decided 2026-08-13). CSS multi-column gave every cell exactly
+ * one column of width whatever its content, had no common baseline, and spawned a sideways column
+ * instead of scrolling when height-capped. A wrapping flex row sizes each cell from its own longest
+ * option, gaps in both axes, and stretches each line's cells to that line's tallest.
  *
  * **Every count is computed with its own facet's selection removed** — see `countFacetOptions`. A number
  * beside an option answers "what would I get if I picked this too", which is the only question worth
@@ -69,7 +206,7 @@ export function FilterBar<TItem>({
         <Popover>
           <Popover.Trigger
             aria-label={activeCount === 0 ? triggerLabel : `${triggerLabel}, ${String(activeCount)} aktiv`}
-            className="border-border bg-surface text-foreground hover:bg-muted fluid-xs flex h-10 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-xl border px-3 font-bold shadow-sm transition-colors">
+            className="border-border bg-surface text-foreground hover:bg-hover fluid-xs flex h-10 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-xl border px-3 font-bold shadow-sm transition-colors duration-(--motion-fast)">
             <Sliders
               aria-hidden="true"
               width={16}
@@ -82,13 +219,7 @@ export function FilterBar<TItem>({
           <Popover.Content
             placement="bottom start"
             offset={8}>
-            {/* MASONRY columns, not a grid (decided 2026-08-08). A grid aligns cells into rows, so one tall
-              facet stretched its whole row and left holes under its shorter neighbours — the "chaotic"
-              read. CSS multi-column is what filter panels actually use for this: each facet keeps its
-              own height, the columns fill top to bottom with no gaps, and `break-inside-avoid` keeps a
-              facet from being sliced across two columns.
-
-              The widths track the SEARCH BAR's own. The bar is `max-w-toolbar w-full` (1200px), so the
+            {/* The widths track the SEARCH BAR's own. The bar is `max-w-toolbar w-full` (1200px), so the
               panel is `92vw` on a phone — the bar's own width there — and grows toward the toolbar cap
               on a desktop, never narrower than the control it opens under. A page with few facets gets
               the narrow form, or two facets would float in a metre of empty panel.
@@ -101,86 +232,24 @@ export function FilterBar<TItem>({
               className={`${overlayPanel()} w-[92vw] overflow-hidden p-0 outline-none ${
                 facets.length >= 5 ? "sm:w-[min(92vw,44rem)] lg:w-[min(92vw,64rem)] xl:w-[min(92vw,75rem)]" : "sm:w-[min(92vw,40rem)]"
               }`}>
-              {/* The SCROLLER and the COLUMNS are two elements, and merging them is the bug this
-                  split fixes (decided 2026-08-08): a height-capped multicol container does not scroll
-                  its overflow, it spawns ANOTHER column sideways — on a phone, `columns-1` plus
-                  `max-h` produced a second column off the right edge. Unconstrained, the columns
-                  balance to the content's own height and the scroller above them only scrolls down.
-                  On a phone that leaves a single unconstrained column: a plain vertical stack. */}
               <div className="scrollbar-line max-h-[70vh] overflow-x-hidden overflow-y-auto p-3">
-                <div
-                  className={`gap-x-3 ${facets.length >= 5 ? "columns-1 sm:columns-2 lg:columns-3 xl:columns-4" : "columns-1 sm:columns-2"}`}>
-                  {facets.map((facet) => {
-                    const counts = countFacetOptions(items, facets, selection, facet);
-                    const picked = selection[facet.param] ?? [];
-
-                    // A facet with many options still flows its OPTIONS in two columns (decided
-                    // 2026-08-08), so the Team facet is nine rows rather than seventeen — the cell itself
-                    // stays one masonry column wide, and the column layout absorbs whatever height remains.
-                    const isWide = facet.options.length > 8;
-
-                    return (
-                      <div
-                        key={facet.param}
-                        // `break-inside-avoid` is what multi-column layout is bought for: without it a
-                        // facet is sliced mid-option across two columns. `mb-3` rather than the parent's
-                        // gap, because multicol has no row-gap — the bottom margin is the vertical rhythm.
-                        className="border-border/70 mb-3 flex w-full min-w-0 break-inside-avoid flex-col gap-y-1 rounded-xl border p-1.5 last:mb-0">
-                        {/* A FIXED height, because the reset appears only once something is picked (decided
-                        2026-08-08). Its intrinsic height exceeded the label's, so the header row grew on the
-                        first selection and pushed every facet below it down — the popover appeared to jump
-                        while being used. Reserving the row lets the button come and go without reflow. */}
-                        <div className="flex h-6 flex-row items-center justify-between gap-x-2 px-1.5">
-                          <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
-                          {picked.length > 0 && (
-                            <Button
-                              variant="ghost"
-                              aria-label={`${facet.label} zurücksetzen`}
-                              onPress={() => clearFacet(facet.param)}
-                              className="fluid-xxs text-foreground-muted hover:text-foreground h-full shrink-0 cursor-pointer leading-none font-bold transition-colors">
-                              Zurücksetzen
-                            </Button>
-                          )}
-                        </div>
-
-                        <ListBox
-                          aria-label={facet.label}
-                          selectionMode="multiple"
-                          className={isWide ? "sm:grid sm:grid-cols-2 sm:gap-x-1" : undefined}
-                          selectedKeys={picked}
-                          // `Selection` is `"all" | Set<Key>`; `"all"` is only reachable by passing
-                          // `selectedKeys="all"`, which this never does, so it maps to an empty selection
-                          // rather than to a cast.
-                          onSelectionChange={(keys: Selection) => {
-                            setFacet(facet.param, keys === "all" ? [] : [...keys].map(String));
-                          }}>
-                          {facet.options.map((option) => {
-                            const count = counts[option.value] ?? 0;
-                            const isPicked = picked.includes(option.value);
-
-                            return (
-                              <ListBox.Item
-                                key={option.value}
-                                id={option.value}
-                                textValue={option.label}
-                                // A selected option stays enabled whatever its count — disabling it would make
-                                // it impossible to deselect, which is the one state this rule must not create.
-                                isDisabled={count === 0 && !isPicked}
-                                // The value carries the emphasis and its count carries the brand
-                                // (decided 2026-08-08): full-strength text for an option that would
-                                // match something, muted for one that would match nothing.
-                                className={`fluid-sm hover:bg-muted hover:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2 font-bold transition-colors ${
-                                  count === 0 ? "text-foreground-muted" : "text-foreground"
-                                }`}>
-                                <span className="min-w-0 truncate">{option.label}</span>
-                                <span className={`${COUNT_BADGE} bg-brand/50 text-foreground shrink-0`}>{count}</span>
-                              </ListBox.Item>
-                            );
-                          })}
-                        </ListBox>
-                      </div>
-                    );
-                  })}
+                {/* No `items-start`: the default cross-axis stretch is what equalises a line's cells, and
+                    it is per LINE, so a phone's one-cell line stretches to itself and needs no exception. */}
+                <div className="flex flex-row flex-wrap gap-3">
+                  {facets.map((facet) => (
+                    <FacetCell
+                      key={facet.param}
+                      facet={facet}
+                      counts={countFacetOptions(items, facets, selection, facet)}
+                      picked={selection[facet.param] ?? []}
+                      onClear={() => {
+                        clearFacet(facet.param);
+                      }}
+                      onSelect={(values) => {
+                        setFacet(facet.param, values);
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
             </Popover.Dialog>
@@ -191,19 +260,16 @@ export function FilterBar<TItem>({
             one removes exactly itself. Beside the trigger and scrolling sideways, so the control stays one
             row tall however many are active (decided 2026-08-08).
 
-            `ScrollShadow` at 16px rather than its 40px default: this is a 28px-tall strip, and a shadow the
-            height of the content reads as a gradient over the chips rather than as an edge. `hideScrollBar`
-            because the shadow IS the affordance here — a horizontal bar under a 28px row costs a third of it.
+            `ScrollShadow` at 24px on a 40px-tall strip: the shadow IS the affordance here, because a
+            horizontal scrollbar under the row costs a quarter of it.
 
             **The facet name is gone from the chip and kept in the `aria-label`** (decided 2026-08-08). On a
             phone the name doubled every chip's width for information the values mostly carry themselves —
-            „Viertelfinale“ does not need „Phase:“ in front of it. A screen reader still hears which filter
+            „Viertelfinale" does not need „Phase:" in front of it. A screen reader still hears which filter
             it is, so the saving is visual only. */}
         {chips.length > 0 && (
           <ScrollShadow
             orientation="horizontal"
-            // 24 rather than the 16 this shipped at (decided 2026-08-08): on a phone the shadow IS the
-            // only sign the strip scrolls, and at 16px over 28px-tall chips it read as anti-aliasing.
             size={24}
             hideScrollBar
             className="min-w-0 flex-1">
@@ -216,7 +282,8 @@ export function FilterBar<TItem>({
                   key={`${facet.param}:${value}`}
                   // `h-10`, the trigger's own height (decided 2026-08-08): the chips and the button sit
                   // in one row, and two heights in one row read as two controls that happen to touch.
-                  className="border-brand/25 bg-brand/10 flex h-10 shrink-0 flex-row items-stretch overflow-hidden rounded-xl border">
+                  // The fill alone draws the boundary; a border beside it draws the same edge twice.
+                  className="bg-brand/10 flex h-10 shrink-0 flex-row items-stretch overflow-hidden rounded-xl">
                   <span className="fluid-xs text-foreground flex items-center px-2.5 font-bold whitespace-nowrap">{label}</span>
                   <span
                     aria-hidden="true"
@@ -227,8 +294,12 @@ export function FilterBar<TItem>({
                     aria-label={`Filter ${facet.label}: ${label} entfernen`}
                     // `toggle`, not a filtered `setFacet`: it reads the live selection itself, so removing
                     // two chips quickly cannot have the second rebuild from a snapshot taken before the first.
-                    onPress={() => toggle(facet.param, value)}
-                    className="text-foreground-muted hover:bg-danger/15 hover:text-danger-strong flex h-full w-8 min-w-0 shrink-0 cursor-pointer items-center justify-center rounded-none p-0 transition-colors">
+                    onPress={() => {
+                      toggle(facet.param, value);
+                    }}
+                    // `w-7` is 28x40, above WCAG 2.2 SC 2.5.8's 24x24 floor and four pixels lighter than
+                    // the `w-8` it replaces.
+                    className="text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong flex h-full w-7 min-w-0 shrink-0 cursor-pointer items-center justify-center rounded-none p-0 transition-colors duration-(--motion-fast)">
                     <Xmark
                       aria-hidden="true"
                       className="size-3.5 shrink-0"
@@ -247,7 +318,7 @@ export function FilterBar<TItem>({
         <Button
           variant="ghost"
           onPress={clearAll}
-          className="border-border text-foreground-muted hover:border-danger/40 hover:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 self-start rounded-lg border px-2.5 font-bold transition-colors">
+          className="border-border text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 self-start rounded-lg border px-2.5 font-bold transition-colors duration-(--motion-fast)">
           <Xmark
             aria-hidden="true"
             className="size-3.5 shrink-0"

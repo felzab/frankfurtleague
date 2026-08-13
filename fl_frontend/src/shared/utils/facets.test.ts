@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { applyFacets, countActiveFacets, countFacetOptions, readFacetSelection } from "./facets";
+import { applyFacets, countActiveFacets, countFacetOptions, readFacetSelection, splitPromotedFacets } from "./facets";
 
 import type { Facet } from "./facets";
 
@@ -134,6 +134,96 @@ describe("readFacetSelection", () => {
   it("ignores an empty parameter and every parameter that is not a facet", () => {
     assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("gruppe=&q=helm&saison_id=2026")), {});
   });
+
+  it("reads a NON-EMPTY selection back as the same object while the query string is unchanged", () => {
+    // `applyFacets` returns its input by reference only while nothing is selected, so with a facet
+    // active the chain rests on this object instead: `AdminCrudView`'s memo, then the collection.
+    const first = readFacetSelection(FACETS, new URLSearchParams("status=aktiv&gruppe=A"));
+    const second = readFacetSelection(FACETS, new URLSearchParams("status=aktiv&gruppe=A"));
+
+    assert.equal(first, second);
+  });
+
+  it("reads a CHANGED query string as a new object", () => {
+    const before = readFacetSelection(FACETS, new URLSearchParams("status=aktiv"));
+    const after = readFacetSelection(FACETS, new URLSearchParams("status=stillgelegt"));
+
+    assert.notEqual(before, after);
+    assert.deepEqual(after, { status: ["stillgelegt"] });
+  });
+
+  it("keeps one facet array's reads apart from another's", () => {
+    // Two filtered surfaces render on one page, and one surface's query string must not answer the
+    // other's read.
+    const other: readonly Facet<Row>[] = [FACETS[0]!];
+
+    assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("status=aktiv&gruppe=A")), { status: ["aktiv"], gruppe: ["A"] });
+    assert.deepEqual(readFacetSelection(other, new URLSearchParams("status=aktiv&gruppe=A")), { status: ["aktiv"] });
+  });
+});
+
+describe("splitPromotedFacets", () => {
+  it("promotes EVERYTHING when the surface declares nothing", () => {
+    // The safe fallback: an undeclared surface hides no dimension behind a generic word, which is what
+    // leaves the three-facet surfaces with no overflow control at all.
+    const { inline, overflowable } = splitPromotedFacets(FACETS, undefined, {});
+
+    assert.deepEqual(
+      inline.map((facet) => facet.param),
+      ["status", "gruppe", "stufe"],
+    );
+    assert.deepEqual(overflowable, []);
+  });
+
+  it("keeps the declared params inline and offers the rest to the overflow", () => {
+    const { inline, overflowable } = splitPromotedFacets(FACETS, ["status"], {});
+
+    assert.deepEqual(
+      inline.map((facet) => facet.param),
+      ["status"],
+    );
+    assert.deepEqual(
+      overflowable.map((facet) => facet.param),
+      ["gruppe", "stufe"],
+    );
+  });
+
+  it("keeps an ACTIVE facet inline however it was declared", () => {
+    const { inline, overflowable } = splitPromotedFacets(FACETS, ["status"], { stufe: ["E1"] });
+
+    assert.deepEqual(
+      inline.map((facet) => facet.param),
+      ["status", "stufe"],
+    );
+    assert.deepEqual(
+      overflowable.map((facet) => facet.param),
+      ["gruppe"],
+    );
+  });
+
+  it("reads promotion off the declared params rather than the array's order", () => {
+    // The declaration names `stufe`, which sits last. Order decides where a trigger is drawn and nothing
+    // else, so reordering the facets for visual reasons cannot silently demote one.
+    const { inline } = splitPromotedFacets(FACETS, ["stufe"], {});
+
+    assert.deepEqual(
+      inline.map((facet) => facet.param),
+      ["stufe"],
+    );
+  });
+
+  it("holds both halves in the facets' own order", () => {
+    const { inline, overflowable } = splitPromotedFacets(FACETS, ["stufe", "status"], {});
+
+    assert.deepEqual(
+      inline.map((facet) => facet.param),
+      ["status", "stufe"],
+    );
+    assert.deepEqual(
+      overflowable.map((facet) => facet.param),
+      ["gruppe"],
+    );
+  });
 });
 
 describe("countActiveFacets", () => {
@@ -174,14 +264,32 @@ function isFacetArray(value: unknown): value is readonly Facet<never>[] {
 
 const discovered: [string, readonly Facet<never>[]][] = [];
 
+/** Every param a slice offers on any of its surfaces, for the promotion check below. */
+const paramsBySlice = new Map<string, Set<string>>();
+/** Every `*_PRIMARY_FACETS` declaration, paired with the slice whose params it must name. */
+const promotions: [string, string, readonly string[]][] = [];
+
+function isStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
 for (const slice of readdirSync(FEATURES_DIR, { withFileTypes: true })) {
   if (!slice.isDirectory()) continue;
   const file = path.join(FEATURES_DIR, slice.name, "facets.ts");
   if (!existsSync(file)) continue;
 
+  const params = new Set<string>();
+  const collect = (facets: readonly Facet<never>[]) => {
+    for (const facet of facets) params.add(facet.param);
+  };
+
   const loaded: Record<string, unknown> = await import(pathToFileURL(file).href);
   for (const [name, value] of Object.entries(loaded)) {
-    if (isFacetArray(value)) discovered.push([`${slice.name}/${name}`, value]);
+    if (isFacetArray(value)) {
+      discovered.push([`${slice.name}/${name}`, value]);
+      collect(value);
+    }
+    if (name.endsWith("_PRIMARY_FACETS") && isStringArray(value)) promotions.push([`${slice.name}/${name}`, slice.name, value]);
   }
 
   // The spieler slice's team facet is assembled per call, so the discovered constant does not contain it.
@@ -191,8 +299,25 @@ for (const slice of readdirSync(FEATURES_DIR, { withFileTypes: true })) {
     const built: unknown = (builder as (teams: readonly { teamId: string; name: string; shorthand: string }[]) => unknown)([
       { teamId: "6890a1b2c3d4e5f607190001", name: "Helmholtz", shorthand: "HE" },
     ]);
-    if (isFacetArray(built)) discovered.push([`${slice.name}/buildSpielerFacets(...)`, built]);
+    if (isFacetArray(built)) {
+      discovered.push([`${slice.name}/buildSpielerFacets(...)`, built]);
+      collect(built);
+    }
   }
+
+  // The spiele builder is called for its PARAMS only and stays out of `discovered`: with no fixtures to
+  // derive from, three of its facets legitimately offer nothing, which the option checks forbid.
+  const spielBuilder = loaded["buildSpielFacets"];
+  if (typeof spielBuilder === "function") {
+    const built: unknown = (spielBuilder as (args: { spiele: readonly never[]; today: string; isAdmin: boolean }) => unknown)({
+      spiele: [],
+      today: "2026-08-13",
+      isAdmin: true,
+    });
+    if (isFacetArray(built)) collect(built);
+  }
+
+  paramsBySlice.set(slice.name, params);
 }
 
 describe("every facet set in the app", () => {
@@ -208,10 +333,10 @@ describe("every facet set in the app", () => {
   });
 
   it("never claims a parameter the search field or the season selector already owns", () => {
-    // `q` is `useDebouncedUrlQuery`'s, `saison_id` is the sidemenu selector's and `section` is the
-    // action-required strip's. A facet taking any of them would fight a control on the same page, and the
-    // collision is invisible until somebody filters.
-    const reserved = new Set(["q", "saison_id", "section"]);
+    // `q`, `saison_id` and `section` belong to the search field, the season selector and the
+    // action-required strip; `filterui` is `FilterExperiment`'s switch. A facet claiming one fights a
+    // control on the same page, invisibly until somebody filters.
+    const reserved = new Set(["q", "saison_id", "section", "filterui"]);
 
     for (const [name, facets] of discovered) {
       for (const facet of facets) {
@@ -235,6 +360,20 @@ describe("every facet set in the app", () => {
 
         assert.ok(values.length > 0, `${name} facet "${facet.label}" offers nothing`);
         assert.equal(new Set(values).size, values.length, `${name} facet "${facet.label}" repeats an option value`);
+      }
+    }
+  });
+
+  it("promotes only params its own slice actually offers", () => {
+    // A promotion is a list of strings, so a typo or a renamed facet promotes nothing and the dimension
+    // quietly falls into the overflow. Nothing else in the toolchain can see that.
+    assert.ok(promotions.length > 0, "no *_PRIMARY_FACETS declaration was discovered at all");
+
+    for (const [name, slice, primary] of promotions) {
+      const params = paramsBySlice.get(slice) ?? new Set<string>();
+
+      for (const param of primary) {
+        assert.ok(params.has(param), `${name} promotes "${param}", which no facet in the ${slice} slice declares`);
       }
     }
   });

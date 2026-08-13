@@ -2,7 +2,8 @@
  * SHARED · entrance motion
  *
  * The app's three arrival animations, and there are only three (decided 2026-08-13, superseding a
- * set of two). The exports say which is which and, more importantly, when each is wrong.
+ * set of two), plus `CONTENT_FADE`, which is a handover rather than an arrival. The exports say which
+ * is which and, more importantly, when each is wrong.
  *
  * See:
  * - globals.css `@theme` — the duration scale and the two curves every string here reads
@@ -66,3 +67,18 @@ export const CARDS_CASCADE = "cards-cascade";
  * a confirmation panel, which is a change made for reasons that never applied to it.
  */
 export const PANEL_REVEAL = "animate-in fade-in slide-in-from-bottom-2 duration-(--motion-fast) ease-(--motion-ease-enter)";
+
+/**
+ * NOT A TIER — the handover. Content taking a skeleton's place: a fade over 200ms and no travel.
+ *
+ * For a `Suspense` subtree whose fallback reserved its geometry — today that is `AdminCrudView`
+ * behind `AdminCrudFallback`. **The absent travel is the whole point.** A fallback cannot animate
+ * out, so it is removed at full opacity in one frame; content that also travels arrives 8px low and
+ * transparent at that same frame, and the pair reads as the box emptying before it fills. Fading in
+ * place over identical geometry is the nearest thing to a cross-fade that a `Suspense` swap allows.
+ *
+ * **Not an arrival, and not a replacement for `PAGE_RISE`.** A view that mounts with nothing standing
+ * in for it has no handover to make and should rise. Use this only where a skeleton of matching
+ * geometry was on screen the frame before.
+ */
+export const CONTENT_FADE = "animate-in fade-in duration-(--motion-base) ease-(--motion-ease-enter)";
