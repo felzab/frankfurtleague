@@ -39,19 +39,30 @@ const CLEAR_FACE = "flex h-full w-7 shrink-0 items-center justify-center rounded
  * The ceiling on a picked value — one number at every width, in `em` so it holds the same count of
  * characters whatever the type resolves to.
  *
- * **Read off the names rather than off the row.** The row scrolls, so nothing has to fit; what is left
- * is how much of a name a reader needs. Venue names share a prefix — `Sportplatz Ost`,
- * `Sportanlage Riederwald`, `Bezirkssportanlage Nord` — so a ceiling that truncates before the last
- * word makes two of them identical, and the longest of those runs about 12em. 16em clears it, which
- * leaves this bounding a pathological value rather than shaping the row.
+ * **Twelve characters, measured on a name rather than on the row.** `Carlo-Mierendorff` reaching
+ * `Carlo-Miere…` is the target; that string plus the ellipsis measures about 7em at this weight.
+ *
+ * **It truncates venues before the word that distinguishes them** — `Sportanlage Riederwald` and
+ * `Bezirkssportanlage Nord` both lose their last word — which is a known cost rather than an
+ * oversight: a pill is a control the reader has just set, and its full value is one press away inside
+ * its own panel.
  *
  * `min-w-0` is what makes it bite — a flex item's automatic minimum is its content, and it would
  * otherwise outrank the maximum and print the value in full.
  */
-const VALUE_CAP = "min-w-0 max-w-[16em]";
+const VALUE_CAP = "min-w-0 max-w-[7em]";
 
-/** What the add control is called — painted from `md`, spoken at every width, one word for both. */
+/** What the add control paints from `md`. Short, because the row is a row of controls. */
 const ADD_LABEL = "Filter";
+
+/**
+ * What it is CALLED — the accessible name and the tooltip, carrying the verb the painted label drops.
+ *
+ * The two cannot collide: the name is this string on the trigger's `aria-label`, and `IconTooltip`'s
+ * own `aria-describedby` lands on its `role="presentation"` wrapper rather than on the control, so a
+ * reader is told this once and the painted word is not announced at all.
+ */
+const ADD_HINT = "Filter hinzufügen";
 
 /** Reset-everything: `h-7` is the app's small control, and this is the row's only one. */
 const CLEAR_ALL_FACE =
@@ -218,15 +229,15 @@ export function FilterLeiste<TItem>({
           // slide the whole row left, and the row moving is the one thing this design refuses.
           <span
             aria-disabled="true"
-            aria-label={ADD_LABEL}
+            aria-label={ADD_HINT}
             className={`${ICON_SHELL} text-foreground-muted cursor-not-allowed opacity-50`}>
             {addFace}
           </span>
         ) : (
-          <IconTooltip label={ADD_LABEL}>
+          <IconTooltip label={ADD_HINT}>
             <Popover>
               <Popover.Trigger
-                aria-label={ADD_LABEL}
+                aria-label={ADD_HINT}
                 className={ICON_SHELL}>
                 {addFace}
               </Popover.Trigger>

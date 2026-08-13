@@ -62,6 +62,8 @@ export function buildSpielFacets({
     left.label.localeCompare(right.label, "de"),
   );
 
+  // The order the filter surface draws its sections in: a visitor arrives asking when, which round and
+  // whose match, and `ort` is the follow-up. The admin branch below reorders it for its own surface.
   const facets: Facet<FLSpiel>[] = [
     {
       param: "status",
@@ -94,51 +96,57 @@ export function buildSpielFacets({
 
   if (!isAdmin) return facets;
 
-  return [
-    ...facets,
-    {
-      param: "ergebnis",
-      label: "Ergebnis",
-      options: [
-        { value: "gewertet", label: "Gewertet" },
-        { value: "offen", label: "Noch offen" },
-      ],
-      // `ergebnis === null` is the same rule the action-required list's `ergebnis_pending` uses and the
-      // same one the rollover panel counts: a cancelled fixture WITH a result is a forfeit and counts as
-      // played (ADR-0019).
-      read: (spiel) => [spiel.ergebnis === null ? "offen" : "gewertet"],
+  const ergebnis: Facet<FLSpiel> = {
+    param: "ergebnis",
+    label: "Ergebnis",
+    options: [
+      { value: "gewertet", label: "Gewertet" },
+      { value: "offen", label: "Noch offen" },
+    ],
+    // `ergebnis === null` is the same rule the action-required list's `ergebnis_pending` uses and the
+    // same one the rollover panel counts: a cancelled fixture WITH a result is a forfeit and counts as
+    // played (ADR-0019).
+    read: (spiel) => [spiel.ergebnis === null ? "offen" : "gewertet"],
+  };
+
+  const ansetzung: Facet<FLSpiel> = {
+    param: "ansetzung",
+    label: "Ansetzung",
+    // The negation leads: a narrow row clips the tail, and trailing "fehlt" left "Schiedsrichter
+    // fehlt" naming the Schiedsrichter facet. Not "Ohne" as the other facets use; `status`'s
+    // "Ohne Datum" excludes cancelled fixtures and `kein_datum` does not.
+    options: [
+      { value: "kein_datum", label: "Kein Datum" },
+      { value: "keine_uhrzeit", label: "Keine Uhrzeit" },
+      { value: "kein_ort", label: "Kein Ort" },
+      { value: "kein_schiedsrichter", label: "Kein Schiedsrichter" },
+      { value: "vollstaendig", label: "Vollständig" },
+    ],
+    // Multi-value on purpose: a fixture missing three of the four matches three options, so picking any
+    // one of them finds it. `vollstaendig` is the absence of all four and therefore exclusive with them.
+    read: (spiel) => {
+      const missing: string[] = [];
+      if (spiel.datum === null) missing.push("kein_datum");
+      if (spiel.uhrzeit === null) missing.push("keine_uhrzeit");
+      if (spiel.ort === null) missing.push("kein_ort");
+      if (spiel.schiedsrichter === null) missing.push("kein_schiedsrichter");
+      return missing.length === 0 ? ["vollstaendig"] : missing;
     },
-    {
-      param: "ansetzung",
-      label: "Ansetzung",
-      // The negation leads: a narrow row clips the tail, and trailing "fehlt" left "Schiedsrichter
-      // fehlt" naming the Schiedsrichter facet. Not "Ohne" as the other facets use; `status`'s
-      // "Ohne Datum" excludes cancelled fixtures and `kein_datum` does not.
-      options: [
-        { value: "kein_datum", label: "Kein Datum" },
-        { value: "keine_uhrzeit", label: "Keine Uhrzeit" },
-        { value: "kein_ort", label: "Kein Ort" },
-        { value: "kein_schiedsrichter", label: "Kein Schiedsrichter" },
-        { value: "vollstaendig", label: "Vollständig" },
-      ],
-      // Multi-value on purpose: a fixture missing three of the four matches three options, so picking any
-      // one of them finds it. `vollstaendig` is the absence of all four and therefore exclusive with them.
-      read: (spiel) => {
-        const missing: string[] = [];
-        if (spiel.datum === null) missing.push("kein_datum");
-        if (spiel.uhrzeit === null) missing.push("keine_uhrzeit");
-        if (spiel.ort === null) missing.push("kein_ort");
-        if (spiel.schiedsrichter === null) missing.push("kein_schiedsrichter");
-        return missing.length === 0 ? ["vollstaendig"] : missing;
-      },
-    },
-    {
-      param: "schiedsrichter",
-      label: "Schiedsrichter",
-      options: distinct(spiele, (spiel) =>
-        spiel.schiedsrichter ? { id: spiel.schiedsrichter.schiedsrichter_id, label: spiel.schiedsrichter.name } : null,
-      ),
-      read: (spiel) => (spiel.schiedsrichter === null ? [] : [spiel.schiedsrichter.schiedsrichter_id]),
-    },
-  ];
+  };
+
+  const schiedsrichter: Facet<FLSpiel> = {
+    param: "schiedsrichter",
+    label: "Schiedsrichter",
+    options: distinct(spiele, (spiel) =>
+      spiel.schiedsrichter ? { id: spiel.schiedsrichter.schiedsrichter_id, label: spiel.schiedsrichter.name } : null,
+    ),
+    read: (spiel) => (spiel.schiedsrichter === null ? [] : [spiel.schiedsrichter.schiedsrichter_id]),
+  };
+
+  const [status, phase, team, ort] = facets;
+
+  // The admin surface's own section order. `ansetzung` follows `status` because nothing else in the app
+  // finds an incomplete fixture, which is this list's job; `team` follows it for the reason it leads
+  // publicly. The tail carries no ranking.
+  return [status, ansetzung, team, phase, ort, ergebnis, schiedsrichter].filter((facet) => facet !== undefined);
 }
