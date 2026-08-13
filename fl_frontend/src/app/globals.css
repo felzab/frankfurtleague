@@ -1051,6 +1051,13 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   .cards-cascade [role="listitem"] {
     animation-delay: 0ms !important;
   }
+
+  /* The bracket sweep already moves nothing, so only the stagger is left to drop — dropped for the
+     cascade's reason and not a second one, since two collections resolving differently here would be
+     a difference nothing states. */
+  .bracket-sweep > * {
+    animation-delay: 0ms !important;
+  }
 }
 
 @layer components {
@@ -1253,7 +1260,8 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    *
    * Two collections are deliberate exceptions, both because their cards are positioned against
    * chrome that does not animate with them: the playoff bracket (CSS bracket lines) and
-   * `TeamSaisonSpieleTimeline` (a dashed rule with an absolutely-placed badge per row).
+   * `TeamSaisonSpieleTimeline` (a dashed rule with an absolutely-placed badge per row). The bracket
+   * arrives by `.bracket-sweep` below, which sequences whole columns and moves nothing.
    *
    * `[role="listitem"]`, not a child combinator: `SpielCardsList` wraps its cards in a
    * `display: contents` div, which removes the box but NOT the DOM node, so `>` would match the
@@ -1288,12 +1296,57 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   .cards-cascade [role="listitem"]:nth-child(n + 8) {
     animation-delay: 175ms;
   }
+
+  /**
+   * TIER 2 AT COLUMN SCOPE. The playoff bracket's entrance: one whole round per step, left to right.
+   * Its class string lives in `shared/components/ui/motion.ts` as `BRACKET_SWEEP` — **read that file
+   * before changing this one**, since the arrival tokens are one set and the call sites import from
+   * there.
+   *
+   * **It fades and it does not move, and that is forced rather than chosen.** Each gutter's connector
+   * is drawn as two halves owned by two different columns: the feeding round emits the elbow into the
+   * left 16px of the 32px gutter (`-right-4 w-4`) and the fed round emits the stub into the right
+   * 16px (`-left-4 w-4`), meeting at the midpoint. A line whose two ends belong to different columns
+   * cannot stay whole while those columns move relative to each other, so travel — and equally a
+   * scale, which moves a column's edges — would break every joint in the tree for the length of the
+   * stagger. That is the same defect the cascade is excluded from the bracket for, one level up.
+   * Opacity is the one channel that sequences the columns without moving an endpoint.
+   *
+   * **50ms a step, twice the cascade's 25ms, because a column is a far bigger unit than a card** and
+   * the per-card interval does not read as a sequence when it separates whole rounds. Four steps then
+   * a shared delay: `SAISON_PHASE_OPTIONS` holds five phases and the page asks for the four that are
+   * not `gruppenphase`, so four columns is the normal maximum, and a phase split over two dates is
+   * two matchdays and therefore a fifth column, which joins the last step rather than extending the
+   * run. The last step starts at 150ms, so the tree has settled at 450ms — inside
+   * the cascade's own 475ms, which is the bound that matters, since a bracket taking visibly longer
+   * to arrive than a card grid is wrong however correct each step is.
+   */
+  .bracket-sweep > * {
+    animation: bracket-phase-enter var(--motion-slow) var(--motion-ease-enter) both;
+  }
+  .bracket-sweep > *:nth-child(2) {
+    animation-delay: 50ms;
+  }
+  .bracket-sweep > *:nth-child(3) {
+    animation-delay: 100ms;
+  }
+  .bracket-sweep > *:nth-child(n + 4) {
+    animation-delay: 150ms;
+  }
 }
 
 @keyframes card-enter {
   from {
     opacity: 0;
     transform: translateY(var(--card-enter-shift, 0.5rem));
+  }
+}
+
+/* No transform beside the fade, and no `--bracket-phase-shift` to reinstate one: the reason is the
+   split connector documented on `.bracket-sweep`, not a reduced-motion allowance. */
+@keyframes bracket-phase-enter {
+  from {
+    opacity: 0;
   }
 }
 

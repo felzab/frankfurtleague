@@ -5,7 +5,7 @@ import { useState } from "react";
 import { SpielDetailsModal } from "@/features/spiele/components/modals/SpielDetailsModal";
 import { SpielCardUltraCompact } from "@/features/spiele/components/ui/SpielCardUltraCompact";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { BRACKET_SWEEP } from "@/shared/components/ui/motion";
 
 import { orderRoundsByWiring, spieltagLabels } from "../../utils";
 
@@ -44,15 +44,15 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
   const labels = spieltagLabels(playoffsSpieltage);
 
   return (
-    // The rise and not the card cascade: a bracket is a tree read column by column, and its cards are
-    // joined by CSS bracket lines that do not animate. Staggering the cards would slide them away
-    // from lines that stay put.
-    <div className={`${PAGE_RISE} flex w-full min-w-0 flex-1 flex-col items-center pt-4 pb-12`}>
+    // The sweep below is the whole arrival, so no rise here: a second fade over the same frames would
+    // compound with it, and the shell has nothing visible of its own to bring in.
+    <div className="flex w-full min-w-0 flex-1 flex-col items-center pt-4 pb-12">
       {/* Viewport scroller. `@container` + `cqw` below, never `vw`: a `vw` column claims a share of
           the VIEWPORT, which the content area does not have once the sidebar appears, so the bracket
           overflows its own scroller. `cqw` measures this element instead. */}
       <div className="scrollbar-hide @container w-full snap-x snap-mandatory overflow-x-auto px-4 md:px-8">
-        <div className="mx-auto flex h-fit w-max flex-row items-stretch gap-8">
+        {/* On the row and not the scroller: the sweep steps its direct children, which are the rounds. */}
+        <div className={`${BRACKET_SWEEP} mx-auto flex h-fit w-max flex-row items-stretch gap-8`}>
           {rounds.map((playoffsSpieltag, roundIndex) => (
             <div
               key={playoffsSpieltag.id}

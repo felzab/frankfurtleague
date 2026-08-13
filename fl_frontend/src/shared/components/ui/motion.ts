@@ -1,9 +1,13 @@
 /**
  * SHARED · entrance motion
  *
- * The app's three arrival animations, and there are only three (decided 2026-08-13, superseding a
- * set of two), plus `CONTENT_FADE`, which is a handover rather than an arrival. The exports say which
- * is which and, more importantly, when each is wrong.
+ * The app's four arrival animations, in three tiers (decided 2026-08-13, superseding a set of two),
+ * plus `CONTENT_FADE`, which is a handover rather than an arrival. The exports say which is which
+ * and, more importantly, when each is wrong.
+ *
+ * Tier 2 is the one tier with two forms: `CARDS_CASCADE` sequences a collection card by card, and
+ * `BRACKET_SWEEP` sequences the playoff tree column by column. They share a duration and a curve and
+ * differ in the unit they step and in whether they may travel; nothing else picks between them.
  *
  * See:
  * - globals.css `@theme` — the duration scale and the two curves every string here reads
@@ -12,9 +16,9 @@
 /**
  * TIER 1 — the page rise. A view settling into place: fade plus an 8px lift over 300ms.
  *
- * For an element that **mounts once per visit** and is the shell of a route: a tab root, a bracket,
- * a details page, an admin CRUD column. Named rather than spelled out at each call site, so a view
- * cannot quietly end up with no entrance while its siblings have one.
+ * For an element that **mounts once per visit** and is the shell of a route: a tab root, a details
+ * page, an admin CRUD column. Named rather than spelled out at each call site, so a view cannot
+ * quietly end up with no entrance while its siblings have one.
  *
  * **It takes the same duration and the same curve as `CARDS_CASCADE`, and the two must stay equal.**
  * They play side by side on `SpielplanView` — the rise on the `Tabs` root, the cascade on the grid
@@ -49,9 +53,31 @@ export const PAGE_RISE = "animate-in fade-in slide-in-from-bottom-2 duration-(--
  * **Two collections deliberately do not use it**, both because their items are positioned relative
  * to chrome that cannot animate with them: the playoff bracket, whose cards are joined by CSS
  * bracket lines, and `TeamSaisonSpieleTimeline`, whose cards hang off a dashed rule with an
- * absolutely-placed badge per row. Both take `PAGE_RISE` on the view instead.
+ * absolutely-placed badge per row. The timeline takes `PAGE_RISE` on the view; the bracket takes
+ * `BRACKET_SWEEP`, which is the same idea at a scope where the chrome does come along.
  */
 export const CARDS_CASCADE = "cards-cascade";
+
+/**
+ * TIER 2, AT COLUMN SCOPE — the bracket sweep. The playoff tree's rounds arrive in sequence, 50ms
+ * apart, left to right. **`PlayoffsView` is its only site**, and a second bracket would be a second
+ * site rather than a reason to generalise it.
+ *
+ * The keyframe, the stagger and the geometry live in `globals.css`; the short version is that a
+ * bracket is read column by column, so the column and not the card is the unit that arriving in
+ * sequence means anything for.
+ *
+ * **It fades and does not move, and that is the constraint rather than the taste.** Each gutter's
+ * connector is two halves owned by the two columns it joins, so a line's ends cannot stay together
+ * while its columns move relative to each other — travel and scale are both out, and opacity is the
+ * only channel left. **Do not add an 8px lift to bring it into line with the other tiers**: the
+ * other tiers move one box, and this one moves several that are tied to each other.
+ *
+ * **Not for a card grid**, which has no chrome tying its items together and should cascade properly,
+ * with the travel. And not a general "stagger any container" utility — it is keyed off the direct
+ * children of the element it is placed on, which is only safe because those children are the rounds.
+ */
+export const BRACKET_SWEEP = "bracket-sweep";
 
 /**
  * TIER 3 — the panel reveal. A section opening inside a page the reader is already looking at:
