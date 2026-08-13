@@ -223,7 +223,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
             the answer up long enough to read -- multiplied, so a shut gate wins over both. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl opacity-(--admin-placeholder-gate) group-has-[tbody]:opacity-[calc(var(--admin-placeholder-gate)*var(--admin-placeholder-hold))]">
+          className="bg-surface pointer-events-none absolute inset-0 overflow-hidden rounded-2xl opacity-(--admin-placeholder-gate) group-has-[tbody]:opacity-[calc(var(--admin-placeholder-gate)*var(--admin-placeholder-hold))]">
           <AdminTableSkeletonRows />
         </div>
       </div>
