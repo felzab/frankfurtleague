@@ -28,7 +28,7 @@ from app.api.schiedsrichter.services import find_referee_retire_refusal
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import SchiedsrichterCollection, SpieleCollection, get_german_date_str
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -82,7 +82,7 @@ async def patch_schiedsrichter(
         return_document=ReturnDocument.AFTER,
     )
     if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": schiedsrichter_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": schiedsrichter_id}, error_code=DOCUMENT_NOT_FOUND)
     updated_document = FLSchiedsrichter(**updated_document_raw)
 
     await patch_many_in_db(
@@ -122,7 +122,7 @@ async def delete_schiedsrichter(
         return_document=ReturnDocument.AFTER,
     )
     if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": schiedsrichter_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": schiedsrichter_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
 
@@ -145,6 +145,6 @@ async def reactivate_schiedsrichter(
         return_document=ReturnDocument.AFTER,
     )
     if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": schiedsrichter_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": schiedsrichter_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))

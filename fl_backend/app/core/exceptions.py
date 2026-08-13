@@ -7,14 +7,39 @@ failure rather than a status class. The codes are part of the API contract.
 Invariants:
 - A new failure mode gets a new error code, never a reused one.
 - The `Retry-After` and `WWW-Authenticate` headers on the two carrier exceptions are contract.
+- Every write-path refusal is a `WriteRefusal`, and reaches the client through `from_refusal`.
 
 See:
 - docs/logging/error-codes.md — the error-code table and the failure-body contract
 """
 
+from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
 from fastapi import HTTPException, status
+
+# The codes raised from more than one place. Named once because a literal repeated across files is a
+# literal a rename leaves behind at all but the one somebody remembered.
+DOCUMENT_NOT_FOUND = "DB-COMMON-001"
+NO_DATABASE_CLIENT = "DB-CONN-001"
+
+
+@dataclass(frozen=True)
+class WriteRefusal:
+    """
+    Why a write path refuses, as the one shape every `find_*_refusal` returns: the code, and the English detail.
+
+    The code is the whole channel. A failure body is `{error_code, correlation_id}` and nothing else
+    (`app/core/exception_handlers.py :: error_response`), so the message below is for the log and the code is
+    what the form reads to decide which field the refusal belongs to (ADR-0042).
+
+    A named pair rather than a `(str, str)` tuple, because both members are strings: a tuple built the other
+    way round type-checks, lints and passes any test asserting only that a refusal was produced, and ships
+    the English detail in the one field the client acts on.
+    """
+
+    error_code: str
+    message: str
 
 
 class BaseAPIException(HTTPException):
@@ -94,3 +119,14 @@ class DocumentConflictException(BaseAPIException):
             error_code=error_code,
             message=message,
         )
+
+    @classmethod
+    def from_refusal(cls, refusal: WriteRefusal) -> "DocumentConflictException":
+        """
+        The one route from a refused write to its response, so no endpoint spells a code of its own.
+
+        A rule owns its code beside the check that raises it; an endpoint that names one instead holds a copy
+        that a rename cannot reach and that no test compares against the original.
+        """
+
+        return cls(error_code=refusal.error_code, message=refusal.message)

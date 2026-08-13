@@ -42,7 +42,7 @@ from app.api.teams.services import find_gruppe_swap_refusal, fixtures_newly_fiel
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import DBClient, SaisonsCollection, SaisonTeamsCollection, SpieleCollection, SpieltageCollection, TeamsCollection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
 from app.core.security import verify_access_admin
 
 router = APIRouter(
@@ -180,7 +180,7 @@ async def _rewrite_gruppenphase_sides(
     # perform, and raising here aborts the transaction rather than writing half an exchange.
     for team_id in team_ids:
         if team_id not in identity_of:
-            raise DocumentNotFoundException(filter={"_id": team_id}, error_code="DB-COMMON-001")
+            raise DocumentNotFoundException(filter={"_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
 
     other_of = {team_ids[0]: team_ids[1], team_ids[1]: team_ids[0]}
 
@@ -377,7 +377,7 @@ async def patch_saison(
         return_document=ReturnDocument.AFTER,
     )
     if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": saison_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
     # After the write has landed: the cached copy of this season -- and of "current", if this is the
     # running season -- now describes rules or dates the database no longer holds (ADR-0056).
@@ -566,7 +566,7 @@ async def swap_gruppen(
         # match write path makes for a matchday, and for the same reason.
         saison_raw = await saisons_collection.find_one({"_id": saison_id}, {"status": 1}, session=session)
         if saison_raw is None:
-            raise DocumentNotFoundException(filter={"_id": saison_id}, error_code="DB-COMMON-001")
+            raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
         # Every Gruppenphase fixture fielding either club, LISTED rather than counted: one read answers
         # `REQ-SWAP-004` and supplies what the rewrite moves, so the two cannot disagree.
@@ -651,7 +651,7 @@ async def swap_gruppen(
             # rather than an error check -- and raising here aborts the transaction, taking the first
             # write back with it rather than leaving one group a club short.
             if written is None:
-                raise DocumentNotFoundException(filter={"saison_id": saison_id, "team_id": team_id}, error_code="DB-COMMON-001")
+                raise DocumentNotFoundException(filter={"saison_id": saison_id, "team_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
 
         return swapped
 

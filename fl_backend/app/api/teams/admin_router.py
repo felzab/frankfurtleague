@@ -50,7 +50,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -141,7 +141,7 @@ async def patch_team(
         return_document=ReturnDocument.AFTER,
     )
     if updated_raw is None:
-        raise DocumentNotFoundException(filter={"_id": team_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
 
     # Both slots, in two passes: a match embeds the team as either `team1` or `team2`, and one
     # `update_many` cannot write a different path per document.
@@ -209,7 +209,7 @@ async def delete_team(
         return_document=ReturnDocument.AFTER,
     )
     if updated_raw is None:
-        raise DocumentNotFoundException(filter={"_id": team_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return FLTeamWriteResponse(updated_document=FLTeamRecord.model_validate(updated_raw))
 
@@ -235,7 +235,7 @@ async def reactivate_team(
         return_document=ReturnDocument.AFTER,
     )
     if updated_raw is None:
-        raise DocumentNotFoundException(filter={"_id": team_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return FLTeamWriteResponse(updated_document=FLTeamRecord.model_validate(updated_raw))
 
@@ -379,7 +379,7 @@ async def patch_saison_team(
         return_document=ReturnDocument.AFTER,
     )
     if updated_raw is None:
-        raise DocumentNotFoundException(filter={"team_id": team_id, "saison_id": saison_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"team_id": team_id, "saison_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return FLSaisonTeamResponse(
         saison_id=saison_id,

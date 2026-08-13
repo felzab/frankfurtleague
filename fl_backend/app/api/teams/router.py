@@ -37,7 +37,7 @@ from app.api.teams.services import build_gruppen, build_team_pipeline
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db
 from app.core.dependencies import SaisonsCollection, SpieleCollection, TeamsCollection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_base
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -150,6 +150,6 @@ async def get_team(
         pipeline=build_team_pipeline(filters=pipeline_filters, rules=saison_rules, team_id=team_id),
     )
     if not teams_raw:
-        raise DocumentNotFoundException(filter={"_id": team_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return FLTeamsSingleResponse(team=FLTeam.model_validate(teams_raw[0]))

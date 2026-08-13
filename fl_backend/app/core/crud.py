@@ -20,7 +20,7 @@ from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollectio
 from pymongo import ReturnDocument
 from pymongo.results import InsertOneResult, UpdateResult
 
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 
 
 async def pull_one_from_db(
@@ -31,7 +31,7 @@ async def pull_one_from_db(
 
     doc = await collection.find_one(filter=db_filter, projection=projection or {})
     if doc is None:
-        raise DocumentNotFoundException(filter=db_filter, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
 
     return doc
 

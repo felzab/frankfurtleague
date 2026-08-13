@@ -65,7 +65,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
@@ -374,7 +374,7 @@ async def patch_spiel_data(
         if patched_spiel_raw is None:
             raise DocumentNotFoundException(
                 filter={"_id": spiel_id},
-                error_code="DB-COMMON-001",
+                error_code=DOCUMENT_NOT_FOUND,
             )
 
         # Before the resolution, not after: a slot this release opens can be refilled by the very

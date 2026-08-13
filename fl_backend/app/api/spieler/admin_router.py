@@ -36,7 +36,7 @@ from app.api.spieler.services import build_spieler_memberships_pipeline, find_sq
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, post_one_to_db
 from app.core.dependencies import SaisonSpielerCollection, SaisonTeamsCollection, SpielerCollection, get_german_date_str
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -144,7 +144,7 @@ async def patch_spieler(
         return_document=ReturnDocument.AFTER,
     )
     if updated_raw is None:
-        raise DocumentNotFoundException(filter={"_id": spieler_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": spieler_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return _as_single(updated_raw)
 
@@ -172,7 +172,7 @@ async def delete_spieler(
         return_document=ReturnDocument.AFTER,
     )
     if updated_raw is None:
-        raise DocumentNotFoundException(filter={"_id": spieler_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": spieler_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return _as_single(updated_raw)
 
@@ -191,7 +191,7 @@ async def reactivate_spieler(
         return_document=ReturnDocument.AFTER,
     )
     if updated_raw is None:
-        raise DocumentNotFoundException(filter={"_id": spieler_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": spieler_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return _as_single(updated_raw)
 
@@ -280,7 +280,7 @@ async def patch_saison_spieler(
         return_document=ReturnDocument.AFTER,
     )
     if updated_raw is None:
-        raise DocumentNotFoundException(filter={"spieler_id": spieler_id, "saison_id": saison_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"spieler_id": spieler_id, "saison_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return _as_junction(updated_raw)
 
@@ -307,7 +307,7 @@ async def delete_saison_spieler(
         return_document=ReturnDocument.AFTER,
     )
     if updated_raw is None:
-        raise DocumentNotFoundException(filter={"spieler_id": spieler_id, "saison_id": saison_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"spieler_id": spieler_id, "saison_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return _as_junction(updated_raw)
 
@@ -338,6 +338,6 @@ async def reactivate_saison_spieler(
         return_document=ReturnDocument.AFTER,
     )
     if updated_raw is None:
-        raise DocumentNotFoundException(filter={"spieler_id": spieler_id, "saison_id": saison_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"spieler_id": spieler_id, "saison_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return _as_junction(updated_raw)
