@@ -327,12 +327,25 @@ function OverflowFace({ label, isNarrow }: { label: string; isNarrow: boolean })
  * **A surface with nothing past the cap and room for all of it renders no overflow control and no
  * popover at all** — the five surfaces carrying three facets or fewer are that case.
  *
- * **The overflow control is parked at the row's right edge by an auto margin**, so the triggers stay
- * grouped at the left with their own spacing. `justify-between` on the row would have spread those
- * apart as well, and a `grow` spacer would be a flex item — the row's gap would land on both sides of
- * it and cost 8px more than the leftover it exists to distribute, precisely once the row has overflowed
- * and has no leftover at all. An auto margin resolves to zero there and leaves the gap untouched.
- * Nothing about it reaches the measurement: `offsetWidth` is a border box, so no margin was ever in it.
+ * **On a narrow row the overflow control is parked at the right edge by an auto margin**, so the
+ * triggers stay grouped at the left with their own spacing. `justify-between` on the row would have
+ * spread those apart as well, and a `grow` spacer would be a flex item — the row's gap would land on
+ * both sides of it and cost 8px more than the leftover it exists to distribute, precisely once the row
+ * has overflowed and has no leftover at all. An auto margin resolves to zero there instead.
+ *
+ * **Above that threshold it sits in the row's own gap, immediately after the last trigger.** The far
+ * edge is worth reaching for on a phone, where the row is full and the edge is where a thumb is; on a
+ * half-empty desktop row the same rule strands a lone button hundreds of pixels from the group it
+ * belongs to, which reads as unrelated to it. One threshold decides both, and no measurement sees
+ * either: `offsetWidth` is a border box, so no margin was ever in the sum.
+ *
+ * **The panel hangs from whichever edge the control was placed by** — `bottom end` while it is parked
+ * right, `bottom start` while it sits in the group. That is placement rather than width: an overlay
+ * anchored `start` on a right-parked control extends past the row, and react-aria then slides it left
+ * until it clears the WINDOW, which is a box the page's own columns have nothing to do with. Anchoring
+ * the end instead means the panel ends where the control ends and no slide is needed, which on a phone
+ * lands its left edge exactly on the page's gutter. `useFilterPanelWidth` bounds how wide it may be;
+ * this decides where that width is put.
  */
 export function FilterLeiste<TItem>({
   facets,
@@ -460,18 +473,18 @@ export function FilterLeiste<TItem>({
           {overflowed.length > 0 && (
             <Popover>
               {/* The label names the dimensions whatever the row does with it, because on a narrow row
-                  it is the only name this control has. `ml-auto` is the component docstring's; it is
-                  here and not in `OVERFLOW_SHELL` because the hidden rulers wear that too. */}
+                  it is the only name this control has. Where the control stands and which edge its
+                  panel hangs from are the component docstring's, and both are one threshold's. */}
               <Popover.Trigger
                 aria-label={`Weitere Filter: ${overflowNames(overflowed)}`}
-                className={`${OVERFLOW_SHELL} hover:bg-hover ml-auto transition-colors duration-(--motion-fast)`}>
+                className={`${OVERFLOW_SHELL} hover:bg-hover transition-colors duration-(--motion-fast) ${row.isNarrow ? "ml-auto" : ""}`}>
                 <OverflowFace
                   label={label}
                   isNarrow={row.isNarrow}
                 />
               </Popover.Trigger>
               <Popover.Content
-                placement="bottom start"
+                placement={row.isNarrow ? "bottom end" : "bottom start"}
                 offset={8}>
                 {/* `facets` and `shown` are different sets on purpose: the counts have to read against
                     every dimension of the surface, or a panel holding part of the set reports numbers
