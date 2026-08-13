@@ -105,10 +105,17 @@ export function SpielDetailsModal({
         <Modal.Dialog className="border-border bg-surface rounded-2xl border p-6 shadow-sm">
           {spielData && (
             <>
-              {/* The only modal a non-admin ever sees, and it had no close affordance at all —
-                  dismissable only by Escape or an outside press, which leaves a touch user with
-                  motor difficulty nothing to aim at. Same trigger the admin shell uses. */}
-              <Modal.CloseTrigger className="text-foreground-muted hover:text-foreground transition-colors" />
+              {/* The one modal a non-admin sees, so it carries a visible dismissal: Escape and an
+                  outside press leave a touch user with motor difficulty nothing to aim at. */}
+              <Modal.CloseTrigger
+                // HeroUI 3.2.4 hardcodes an English "Close" here and spreads `...rest` after it, so
+                // a caller's label wins.
+                aria-label="Dialog schließen"
+                // `bg-transparent` drops the fill HeroUI's default close-button variant paints, so
+                // the hover is the app's own step from the dialog's surface. `data-hovered:` is
+                // react-aria's flag, which a tap never sets. `transform` carries HeroUI's press.
+                className="text-foreground-muted data-hovered:bg-hover data-hovered:text-foreground bg-transparent transition-[color,background-color,transform] duration-(--motion-fast)"
+              />
 
               <Modal.Header className="gap-y-2 pb-4">
                 <div className="flex w-full flex-row items-center justify-start gap-x-2">
@@ -171,18 +178,23 @@ export function SpielDetailsModal({
                     <h4 className="text-foreground-muted font-semibold">Schiedsrichter</h4>
                     <p className="text-foreground font-bold">{spielData.schiedsrichter?.name ?? PLACEHOLDER.entity}</p>
                   </div>
-
-                  {/** Notiz — only when one exists: an empty "Notiz —" row would tell every visitor
-                       about a field that is blank on almost every match. Spans both columns, because
-                       prose does not belong in a half-width cell. `whitespace-pre-line` keeps the
-                       admin's line breaks without honouring stray indentation. */}
-                  {spielData.notiz !== null && spielData.notiz !== "" && (
-                    <div className="col-span-2">
-                      <h4 className="text-foreground-muted font-semibold">Notiz</h4>
-                      <p className="text-foreground font-medium whitespace-pre-line">{spielData.notiz}</p>
-                    </div>
-                  )}
                 </div>
+
+                {/* Its own block below the grid, not a cell in it: a note is prose of any length.
+                    `.trim()` is this field's emptiness rule (`draftStatus.ts :: notiz`); an empty
+                    "Notiz" would advertise a field blank on almost every match. */}
+                {spielData.notiz !== null && spielData.notiz.trim() !== "" && (
+                  <>
+                    <Separator className="bg-border my-4 h-[2px]" />
+                    {/* The teams panel's treatment, which is this dialog's idiom for a block that
+                        is not the metadata list. `pre-line`, not `pre-wrap`: it keeps the admin's
+                        line breaks and collapses the indentation a pasted note carries. */}
+                    <div className="bg-background border-border fluid-sm rounded-xl border p-4 shadow-inner">
+                      <h4 className="text-foreground-muted font-semibold">Notiz</h4>
+                      <p className="text-foreground mt-1 font-medium whitespace-pre-line">{spielData.notiz}</p>
+                    </div>
+                  </>
+                )}
               </Modal.Body>
             </>
           )}
