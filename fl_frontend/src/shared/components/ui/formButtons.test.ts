@@ -245,9 +245,9 @@ async function modalSources(): Promise<string[]> {
         continue;
       }
       if (!entry.name.endsWith(".tsx")) continue;
-      // Matched against the path BELOW `src`, never the absolute one: a checkout can sit in a directory
-      // called anything, including `modals`, and the folder this is looking for is the app's own.
-      // `EntityForm` is every create dialog's footer and lives beside the shared dialogs, in no such folder.
+      // Matched below `src`, never against the absolute path: a checkout can sit in a directory called
+      // anything, `modals` included. `EntityForm` is every create dialog's footer and sits beside the
+      // shared dialogs, in no such folder.
       const within = path.relative(SRC, full);
       if (within.split(path.sep).includes("modals") || /(Modal|EntityForm)\.tsx$/.test(entry.name)) found.push(full);
     }
