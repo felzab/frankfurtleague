@@ -1,28 +1,36 @@
 /**
  * SHARED · entrance motion
  *
- * The app's two arrival animations, and there are only two (decided 2026-08-02). The
- * exports say which is which and, more importantly, when each is wrong.
+ * The app's three arrival animations, and there are only three (decided 2026-08-13, superseding a
+ * set of two). The exports say which is which and, more importantly, when each is wrong.
+ *
+ * See:
+ * - globals.css `@theme` — the duration scale and the two curves every string here reads
  */
 
 /**
- * TIER 1 — the page rise. A view settling into place: fade plus a 16px lift over 400ms.
+ * TIER 1 — the page rise. A view settling into place: fade plus an 8px lift over 300ms.
  *
  * For an element that **mounts once per visit** and is the shell of a route: a tab root, a bracket,
  * a details page, an admin CRUD column. Named rather than spelled out at each call site, so a view
  * cannot quietly end up with no entrance while its siblings have one.
+ *
+ * **It takes the same duration and the same curve as `CARDS_CASCADE`, and the two must stay equal.**
+ * They play side by side on `SpielplanView` — the rise on the `Tabs` root, the cascade on the grid
+ * inside it — so any gap between them is visible as the page and its contents arriving at different
+ * moments. Sampled off the bézier, both reach 90% of their travel at 112ms of their 300ms and then
+ * settle under a pixel (measured 2026-08-13): prompt to read, without stopping abruptly. Giving this
+ * tier a shorter duration or a steeper curve than the cascade is what breaks that.
  *
  * **Not for a collection of cards** — see `CARDS_CASCADE` for why a block fade fails there. And not
  * on a container whose children already cascade, unless the two genuinely play at different moments:
  * `SpielplanView` is the one such case, where the root rises at mount and the panels cascade on
  * every later tab press.
  *
- * `FormRolloverSection` spells this same string out by hand and is deliberately **not** wired to
- * this constant. Its confirmation panel reveals inside an already-open page rather than arriving as
- * a route — a different class of motion that happens to look the same today. Binding it here would
- * mean a future change to the page rise silently moved it too.
+ * **Not for a reveal inside an already-open page** — that is `PANEL_REVEAL`, and the two are kept
+ * apart on purpose.
  */
-export const PAGE_RISE = "animate-in fade-in slide-in-from-bottom-4 duration-400";
+export const PAGE_RISE = "animate-in fade-in slide-in-from-bottom-2 duration-(--motion-slow) ease-(--motion-ease-enter)";
 
 /**
  * TIER 2 — the card cascade. Cards arrive in sequence, 25ms apart, rather than all at once.
@@ -35,7 +43,7 @@ export const PAGE_RISE = "animate-in fade-in slide-in-from-bottom-4 duration-400
  * The keyframes, the stagger and the reasoning live in `globals.css`; the short version is that a
  * block fade reads as the content *mutating in place* when each card lands exactly where the
  * previous set's card was, and only separating them in time fixes it. That is why this is not
- * interchangeable with `PAGE_RISE` even though both are 300-400ms fades.
+ * interchangeable with `PAGE_RISE` even though the two now share a duration and a curve.
  *
  * **Two collections deliberately do not use it**, both because their items are positioned relative
  * to chrome that cannot animate with them: the playoff bracket, whose cards are joined by CSS
@@ -43,3 +51,18 @@ export const PAGE_RISE = "animate-in fade-in slide-in-from-bottom-4 duration-400
  * absolutely-placed badge per row. Both take `PAGE_RISE` on the view instead.
  */
 export const CARDS_CASCADE = "cards-cascade";
+
+/**
+ * TIER 3 — the panel reveal. A section opening inside a page the reader is already looking at:
+ * fade plus an 8px lift over 150ms.
+ *
+ * For a confirmation panel a control unfolds in place: `FormRolloverSection` and
+ * `FormGruppenSwapSection` are the two sites it governs.
+ *
+ * **The shorter tier, and that is the whole reason this is not `PAGE_RISE`.** A page rise is a whole
+ * view settling; this is a few hundred pixels unfolding in a region already in view, and it carries
+ * a sentence that has just escalated — making the reader wait to read it is the one thing it must
+ * not do. Binding the two would also mean any future change to how a *route* arrives silently moved
+ * a confirmation panel, which is a change made for reasons that never applied to it.
+ */
+export const PANEL_REVEAL = "animate-in fade-in slide-in-from-bottom-2 duration-(--motion-fast) ease-(--motion-ease-enter)";

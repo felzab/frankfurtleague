@@ -134,7 +134,7 @@ async function ParticipatingTeamsDisplay() {
           teamId={teamData.id}
           teamIsDisqualified={teamData.disqualifikation !== null}>
           <span
-            className={`fluid-xxs sm:fluid-xs text-field-fg hover:scale-hover inline-flex items-center rounded-xl border px-3.5 py-1.5 font-bold tracking-wide uppercase shadow-sm transition-[scale,background-color,border-color] duration-200 active:scale-95 ${
+            className={`fluid-xxs sm:fluid-xs text-field-fg inline-flex items-center rounded-xl border px-3.5 py-1.5 font-bold tracking-wide uppercase shadow-sm transition-[scale,background-color,border-color] duration-200 active:scale-95 ${
               teamData.disqualifikation !== null
                 ? "bg-danger/80 border-danger/40"
                 : "border-field-fg/25 bg-field-fg/10 hover:border-field-fg/50 hover:bg-field-fg/20 backdrop-blur-md"

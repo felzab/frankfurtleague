@@ -124,6 +124,44 @@
     --fg-on-brand: #ffffff;
     --border-base: #d4d4d4;
 
+    /* THE HOVER FILLS -- one declared colour per fill family, and this block is the whole system.
+       A hover moves a control's fill ONE fixed perceptual step away from the page's own lightness:
+       darker in the light theme, lighter in the dark one, 6.7 OKLab L points in both. That number is
+       the mean of the app's own two existing steps (bg-surface -> bg-muted measures 4.82 in the light
+       theme and 8.64 in the dark), so one magnitude replaces two and a hover reads the same in either
+       theme instead of being 1.8x louder in the dark one.
+
+       Declared colours rather than an alpha on an existing token, and that is the point of the block.
+       An alpha composites against whatever sits behind it, so the SAME class lands differently per
+       surface (measured 2026-08-13): `bg-muted/40` gives -1.80 in the light theme, below the
+       ~2-point floor at which a flat-area step reads as a state change at all; `bg-muted/80` gives
+       +0.91 light and -1.67 dark; and `bg-brand-solid/90` moves the fill in OPPOSITE directions per
+       theme, +4.67 light against -2.25 dark, because it blends toward the page and not toward a
+       chosen colour.
+
+       The two -solid- hovers carry ONE value for both themes, because --accent-brand-solid and
+       --accent-danger-solid deliberately do not flip either: a hover on a fill that does not flip
+       must not flip. Measured against white, which is what both carry: 7.56 on the brand hover
+       (10.03 at rest) and 4.86 on the danger one (6.47 at rest). The danger figure is the tightest
+       value in this block and clears WCAG AA for normal text with 0.36 to spare -- re-measure it if
+       either half of the pair ever moves.
+
+       --bg-hover carries --fg-base at 14.86, --fg-muted at 5.86 and --accent-brand at 7.52 here;
+       --bg-hover-danger carries --accent-danger-strong at 4.80, which is why the destructive ghost
+       controls take the -strong companion and not the plain accent (the rule at
+       --accent-danger-strong below). */
+    --bg-hover: #dfdfdf;
+    --bg-hover-danger: #f2d8d8;
+    /* The green `(meta)` pages take the same step in their own palette: --field-card's L plus 6.7,
+       hue and chroma untouched, white at 5.72 on it. Named --bg-hover-* and NOT --field-hover:
+       every `--field-*` name is HeroUI's own (`themes/default/variables.css`), `--field-hover` is
+       what its eleven field stylesheets read for `bg-field-hover`, and this file's `@layer base`
+       outranks HeroUI's `theme.base` — so declaring that name here turns the hover background of
+       every input, select, autocomplete and textarea in the app green. */
+    --bg-hover-field: oklch(49.9% 0.095 166.913);
+    --accent-brand-solid-hover: #982f2d;
+    --accent-danger-solid-hover: #d13832;
+
     /* Accents & Feedback */
     --accent-brand: #82181a;
 
@@ -229,6 +267,16 @@
     --fg-on-brand: #ffffff;
     --border-base: #333333;
 
+    /* The same 6.7-point step in the other direction, so a hover reads identically in both themes:
+       +6.56 from --bg-surface here against -6.65 there. Carries --fg-base at 16.10, --fg-muted at
+       6.38, --accent-brand at 4.47, and --accent-danger-strong at 5.89 on the danger fill. The two
+       -solid- hovers do not flip, for the reason their rest fills do not. */
+    --bg-hover: #212121;
+    --bg-hover-danger: #321919;
+    --bg-hover-field: #29573e;
+    --accent-brand-solid-hover: #982f2d;
+    --accent-danger-solid-hover: #d13832;
+
     /* Accents & Feedback */
     /* Lightened for dark surfaces: the light value is 1.88:1 on --bg-surface, this is ~5.6:1. */
     --accent-brand: #e05b5e;
@@ -311,10 +359,17 @@
   --color-foreground: var(--fg-base);
   --color-foreground-muted: var(--fg-muted);
   --color-border: var(--border-base);
+  /* The hover fills, as utilities: `hover:bg-hover`, `data-hovered:bg-hover-danger` and the two
+     `-solid-hover` fills. Their values, and the one magnitude behind all of them, are declared once
+     in @layer base above. A control's hover is a token here, never an alpha at a call site. */
+  --color-hover: var(--bg-hover);
+  --color-hover-danger: var(--bg-hover-danger);
+  --color-hover-field: var(--bg-hover-field);
 
   /* brand = foreground (text/border/ring/tints), brand-solid = opaque fill behind text */
   --color-brand: var(--accent-brand);
   --color-brand-solid: var(--accent-brand-solid);
+  --color-brand-solid-hover: var(--accent-brand-solid-hover);
   --color-brand-solid-foreground: var(--fg-on-brand);
   /* Spelled `warning`, not `warn`: the utility sites all say `warning`, and this shadows
      HeroUI's own --color-warning rather than competing with it. */
@@ -329,6 +384,7 @@
   /* Opaque feedback fills and the foreground that goes on them, mirroring brand-solid. */
   --color-warning-solid: var(--accent-warn-solid);
   --color-danger-solid: var(--accent-danger-solid);
+  --color-danger-solid-hover: var(--accent-danger-solid-hover);
   --color-success-solid: var(--accent-success-solid);
   --color-warning-solid-foreground: var(--fg-on-warn);
   --color-danger-solid-foreground: var(--fg-on-danger);
@@ -411,8 +467,35 @@
   --height-modal: 90dvh;
   --width-sidemenu: 310px;
   --width-sidemenu-collapsed: 72px;
-  /* One hover magnitude for the whole app: spelled per call site, the app grows several. */
-  --scale-hover: 1.02;
+
+  /* THE MOTION SCALE. Three durations and two curves, and everything the app animates picks from
+     them. Spell a themed value with PARENTHESES -- `duration-(--motion-base)`. The bracket form
+     `duration-[--motion-base]` emits `transition-duration: --motion-base` with no var(), which is
+     invalid at computed-value time and falls back to the initial 0s, so the transition becomes
+     instant with a green build and no warning (verified by compiling both).
+
+     The steps are counted off the app rather than chosen: 150ms is Tailwind's own transition default
+     and what 80 of the 113 transition sites already run at, 200ms is what 29 of the 37 explicit
+     `duration-*` classes say, and 300ms is what the shell rail and the card cascade already share.
+     There is deliberately no 100ms step: HeroUI's overlay exits use it and this app never spells it,
+     so a token would emit nothing and invite a value with no home.
+
+     --motion-ease-enter is the card cascade's own curve, shared rather than a second one beside it.
+     It is an emphasized-decelerate shape -- 90% of the travel is covered in the first 37% of the
+     duration and the rest is a sub-pixel settle -- which is what lets one value answer both halves
+     of "must not feel slow, must not feel rough": the eye reads the arrival early while the fade
+     still runs long enough to be smooth. Tailwind's own `--ease-out` was the alternative and is
+     rejected: it is bit-for-bit Material's LEGACY decelerate, the curve M3 superseded, and it
+     spends the last 40% of its duration still visibly moving.
+
+     --motion-ease-state is bit-for-bit Tailwind's --default-transition-timing-function, so naming it
+     changes nothing on screen and makes the default a stated decision. A two-way state change --
+     hover, colour, width, a fold -- takes it; anything arriving or leaving takes the enter curve. */
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-slow: 300ms;
+  --motion-ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-ease-state: var(--ease-in-out);
 
   /* The content loader's dots. Tailwind's `animate-bounce` is 1s at translateY(-25%) -- on a 10px
      dot that is 2.5px of travel, invisible for the moment the loader is on screen. */
@@ -767,6 +850,31 @@ html:has([data-app-shell]) {
   border-color: var(--border-base);
 }
 
+/* A DATE PICKER's group is the same trade, and it CANNOT join the rule above.
+   `[data-slot="date-input-group"]` is a SHARED slot: `TimeField.Group` is the identical
+   `DateInputGroupRoot` component the date field uses (verified in @heroui/react 3.2.4,
+   `time-field/index.js`), and a time field has no open state — resetting it on focus would take away
+   the only indicator it has, which is exactly what the rule above forbids for a text field. Adding
+   the bare slot there would also drop the border while the caret is in a date segment, since every
+   segment is its own tab stop and puts the group in :focus-within with the popover closed: the same
+   DOM state the restored-focus case produces, and indistinguishable to that selector.
+
+   So this one is scoped by the CONTROL rather than by the slot — `:has()` on the picker's own
+   trigger, which only a DatePicker mounts. The one focus it cancels is the one react-aria hands back
+   to that trigger when the popover dismisses — without it, a control the user has clicked away from
+   holds a brand border until something else takes focus. Segments and the time field never match it.
+
+   A keyboard user is unaffected: `.date-picker__trigger` draws `status-focused` from
+   `[data-focus-visible]` (@heroui/styles 3.2.4 `date-picker.css`), and --tw-ring-shadow is
+   registered `inherits: false`, so the group zeroing its own ring does not reach the button inside.
+
+   Specificity is (0,5,0) against (0,4,0) for the focus arm it overrides — `:has()` takes its most
+   specific argument — and both are unlayered, so source order would settle it even if they tied.
+   It sets `border-color` alone, exactly as the rule above does. */
+[data-slot="date-input-group"]:has([data-slot="date-picker-trigger"]:focus):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
+  border-color: var(--border-base);
+}
+
 /* Required asterisks belong to a form that CREATES something (decided 2026-08-07).
    On an edit every value is already present, so a column of red stars marks nothing the reader can
    act on; on a create each one is a genuine question.
@@ -793,7 +901,9 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   --tw-ring-shadow: 0 0 #0000;
   border: 1px solid transparent;
   outline: none;
-  transition: border-color 150ms ease;
+  /* On the app's state curve rather than the bare `ease` keyword, which is a third curve nothing
+     else here uses. */
+  transition: border-color var(--motion-fast) var(--motion-ease-state);
 }
 
 [data-slot="switch"]:is(:hover, [data-hovered="true"]) [data-slot="switch-control"],
@@ -832,7 +942,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    than reintroducing one. Both ring custom properties have to be zeroed, not just the first: Tailwind
    composes `box-shadow` from `--tw-ring-shadow` AND `--tw-ring-offset-shadow`, so killing one leaves
    the 2px offset band behind, which is the white line itself. What remains to convey the option under
-   the pointer is each call site's own `hover:bg-muted`, which is all that is wanted there. */
+   the pointer is each call site's own hover fill, which is all that is wanted there. */
 [data-slot="list-box-item"],
 [data-slot="menu-item"] {
   --tw-ring-shadow: 0 0 #0000;
@@ -847,8 +957,10 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    onto the first match as you type and depends on no modality at all (verified in
    react-aria-components 1.19, `private/ListBox.mjs`, which writes both).
 
-   The fill is `--bg-muted`, the same background hovering gives — deliberately no more than that, and
-   no ring, which the rule above still suppresses. This closes the WCAG 2.4.7 gap that block recorded:
+   The fill is `--bg-hover`, the same background hovering gives — deliberately no more than that, and
+   no ring, which the rule above still suppresses. **It has to be whatever token the app's hover fill
+   is**, so if that one moves this moves with it; the two being the same colour is the whole claim.
+   This closes the WCAG 2.4.7 gap that block recorded:
    a keyboard user arrowing through an open list has an indicator inside the popover. Which attribute
    carries it differs by collection, and the rule below says why. */
 /* A MENU item keys on `data-focused`, because a menu moves focus with the pointer — react-aria's
@@ -863,7 +975,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    `SaisonSelector`, which tints the row and turns its text brand. */
 [data-slot="list-box-item"][data-focus-visible="true"],
 [data-slot="menu-item"][data-focused="true"] {
-  background-color: var(--bg-muted);
+  background-color: var(--bg-hover);
 }
 
 /* Number fields carry no vertical padding, anywhere. The group is a fixed height with a centred
@@ -885,8 +997,9 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    - The looping decorations (ping / pulse / bounce dots) stop entirely -- autonomous repeating
      motion is the classic vestibular trigger. `animate-spin` deliberately stays: spinners are
      loading feedback, not decoration.
-   - Hover scaling stops via its token (--scale-hover: 1) instead of a transition kill, so color
-     and opacity transitions remain smooth for everyone.
+   - The press gesture keeps its escape below. Hover moves no element, so there is nothing on the
+     hover side left to stop -- a hover changes a colour, and colour transitions stay smooth for
+     everyone here.
 
    Deliberately unlayered: unlayered rules outrank every @layer. */
 @media (prefers-reduced-motion: reduce) {
@@ -900,17 +1013,12 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     scroll-behavior: auto !important;
   }
 
-  :root {
-    --scale-hover: 1;
-  }
-
-  /* Belt for the two press/hover movement utilities, in case the theme token is baked rather than
-     var()-referenced, plus the landing arrows' slide. */
-  .hover\:scale-hover:hover,
+  /* Belt for the press gesture, in case a build bakes the scale rather than leaving it a var(). */
   .active\:scale-95:active {
     scale: none !important;
   }
 
+  /* The landing cards' arrows, which are the app's one remaining movement on hover. */
   .group:hover .group-hover\:translate-x-1 {
     translate: none !important;
   }
@@ -1122,10 +1230,13 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   }
 
   /**
-   * TIER 2 OF TWO. The entrance for a card grid: the cards arrive in sequence instead of all at
-   * once. Tier 1 is the page rise, which is a Tailwind class string rather than CSS and therefore
-   * lives in `shared/components/ui/motion.ts` — **read that file before changing this one**, since
-   * the two exist as a pair and the constants there are what the call sites import.
+   * TIER 2 OF THREE. The entrance for a card grid: the cards arrive in sequence instead of all at
+   * once. The other two are Tailwind class strings rather than CSS and therefore live in
+   * `shared/components/ui/motion.ts` — **read that file before changing this one**, since the three
+   * are one set and the constants there are what the call sites import.
+   *
+   * It shares `--motion-slow` and `--motion-ease-enter` with the page rise, and after that the two
+   * are the same motion at different scopes rather than two motions tuned to resemble each other.
    *
    * **The stagger is the whole mechanism; the timing is not.** On a tab switch every card lands at
    * the exact screen position the previous Spieltag's card occupied, so a simultaneous swap reads as
@@ -1153,7 +1264,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    * seconds. The last step starts at 175ms, so any grid has settled inside half a second.
    */
   .cards-cascade [role="listitem"] {
-    animation: card-enter 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: card-enter var(--motion-slow) var(--motion-ease-enter) both;
   }
   .cards-cascade [role="listitem"]:nth-child(2) {
     animation-delay: 25ms;
