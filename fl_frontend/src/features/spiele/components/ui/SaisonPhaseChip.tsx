@@ -1,21 +1,12 @@
 import { Chip } from "@heroui/react";
 
-import { PHASE_LABELS } from "@/features/saisons/constants";
+import { PHASE_LABELS, PHASE_TINTS } from "@/features/saisons/constants";
 import { PILL_RADIUS } from "@/shared/components/ui/badges";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 
 // Module scope, for the reason `SpielStatusChip` gives: the icon map allocates an
-// `<svg>` per phase and rebuilds all of them per render to read one. The tint is the
-// label colour at /10 -- at /15 it drops phases below AA in the light theme.
-const PHASE_CLASSES: Record<FLSaisonPhase, string> = {
-  gruppenphase: "bg-phase-gruppenphase/10 text-phase-gruppenphase",
-  achtelfinale: "bg-phase-achtelfinale/10 text-phase-achtelfinale",
-  viertelfinale: "bg-phase-viertelfinale/10 text-phase-viertelfinale",
-  halbfinale: "bg-phase-halbfinale/10 text-phase-halbfinale",
-  finale: "bg-phase-finale/10 text-phase-finale",
-};
-
+// `<svg>` per phase and rebuilds all of them per render to read one.
 const PHASE_ICONS: Record<FLSaisonPhase, React.ReactElement> = {
   gruppenphase: (
     <svg
@@ -145,7 +136,7 @@ export function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase })
   return (
     <Chip
       size="sm"
-      className={`${PILL_RADIUS} border-none px-1.5 py-0.5 ${PHASE_CLASSES[saisonPhase]}`}>
+      className={`${PILL_RADIUS} border-none px-1.5 py-0.5 ${PHASE_TINTS[saisonPhase]}`}>
       <div className="fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
         {PHASE_ICONS[saisonPhase]}
         {PHASE_LABELS[saisonPhase]}

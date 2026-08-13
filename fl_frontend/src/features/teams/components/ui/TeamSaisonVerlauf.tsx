@@ -15,7 +15,7 @@
 
 import { Chip } from "@heroui/react";
 
-import { PHASE_LABELS } from "@/features/saisons/constants";
+import { PHASE_LABELS, PHASE_TINTS } from "@/features/saisons/constants";
 import { PILL_RADIUS } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
@@ -26,21 +26,37 @@ import type { SaisonPhaseOutcome, SaisonPhaseVerlauf } from "../../utils";
 
 /**
  * Colour is the meaning, so a tint per outcome and none for decoration: a round come through, a run
- * that ended, one still open, and one whose tie this page may not break. Each is the `-strong` accent
- * on its own `/15` fill — the pairing the accent tokens were measured at, and the fill-grade accent
- * alone does not carry text this size on a light surface. `level` takes the amber the timeline's draw
- * marker already uses, so a drawn round reads the same on both halves of the page.
+ * that ended, and one whose tie this page may not break. Each is the `-strong` accent on its own `/15`
+ * fill — the pairing the accent tokens were measured at, and the fill-grade accent alone does not carry
+ * text this size on a light surface. `level` takes the amber the timeline's draw marker already uses,
+ * so a drawn round reads the same on both halves of the page.
+ *
+ * **`pending` is not here**: a round nobody has played yet is a statement about WHICH round, so it takes
+ * that round's own colour from `PHASE_TINTS` — see `chipTint` below.
  */
-const OUTCOME_TINTS: Record<SaisonPhaseOutcome, string> = {
+const OUTCOME_TINTS: Record<Exclude<SaisonPhaseOutcome, "pending">, string> = {
   won: "bg-success/15 text-success-strong",
   advanced: "bg-success/15 text-success-strong",
   out: "bg-danger/15 text-danger-strong",
-  pending: "bg-info/15 text-info-strong",
   level: "bg-warning/15 text-warning-strong",
   // The pairing the timeline's `?` dot uses for a fixture it cannot read, so grey means "nothing is
   // claimed" on both halves of this page rather than in a treatment invented here.
   unknown: "bg-muted text-foreground-muted",
 };
+
+/**
+ * An outcome chip keeps its semantic colour and a standing chip takes its round's.
+ *
+ * **The split is what the chip is about.** "Im Halbfinale ausgeschieden" reports how the round went, and
+ * red is that news; "Steht im Halbfinale" reports nothing about how anything went, so a feedback accent
+ * on it would colour a result the season does not have — the round is the only thing it names, and
+ * `PHASE_TINTS` is what names a round everywhere else in the app (`SaisonPhaseChip`).
+ *
+ * Every phase has an entry there, including `gruppenphase`, which `computeSaisonVerlauf` never resolves
+ * to `pending`: the map is keyed by the type rather than by that reachability, so no round can arrive
+ * here without a colour somebody chose.
+ */
+const chipTint = ({ phase, outcome }: SaisonPhaseVerlauf): string => (outcome === "pending" ? PHASE_TINTS[phase] : OUTCOME_TINTS[outcome]);
 
 /**
  * Each chip is a whole sentence about one round, because the row wraps: two chips can land on
@@ -93,7 +109,7 @@ export function TeamSaisonVerlauf({ teamSpiele, teamId }: { teamSpiele: FLSpiel[
             <li key={phaseVerlauf.phase}>
               <Chip
                 size="sm"
-                className={`${PILL_RADIUS} fluid-xxs border-none px-2 py-1 font-bold ${OUTCOME_TINTS[phaseVerlauf.outcome]}`}>
+                className={`${PILL_RADIUS} fluid-xxs border-none px-2 py-1 font-bold ${chipTint(phaseVerlauf)}`}>
                 {outcomeLabel(phaseVerlauf)}
               </Chip>
             </li>
