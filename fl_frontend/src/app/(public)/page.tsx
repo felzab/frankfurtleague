@@ -52,13 +52,13 @@ export default function LandingPage() {
               <Link
                 href="/dashboard/spielplan#top"
                 prefetch={false}
-                className={`${ctaButton({ intent: "primary" })} w-full`}>
+                className={`${ctaButton({ intent: "primary", hover: "css" })} w-full`}>
                 Spielplan →
               </Link>
               <Link
                 href="/dashboard/saisontabelle#top"
                 prefetch={false}
-                className={`${ctaButton({ intent: "outline" })} w-full`}>
+                className={`${ctaButton({ intent: "outline", hover: "css" })} w-full`}>
                 Tabelle →
               </Link>
             </div>
@@ -110,13 +110,13 @@ export default function LandingPage() {
             <Link
               href="/about"
               prefetch={false}
-              className={`${ctaButton({ intent: "primary", size: "sm" })} w-full lg:w-56`}>
+              className={`${ctaButton({ intent: "primary", size: "sm", hover: "css" })} w-full lg:w-56`}>
               Mehr über das Projekt
             </Link>
             <Link
               href="/kontakt"
               prefetch={false}
-              className={`${ctaButton({ intent: "outline", size: "sm" })} w-full lg:w-44`}>
+              className={`${ctaButton({ intent: "outline", size: "sm", hover: "css" })} w-full lg:w-44`}>
               Zum Kontakt
             </Link>
           </div>

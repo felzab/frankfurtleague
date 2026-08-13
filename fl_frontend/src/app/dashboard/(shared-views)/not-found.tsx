@@ -13,7 +13,7 @@ export default function TeamNotFound() {
       <Link
         href="/dashboard/teams"
         prefetch={false}
-        className={`${ctaButton({ intent: "primary" })} mt-2`}>
+        className={`${ctaButton({ intent: "primary", hover: "css" })} mt-2`}>
         Zur Team-Übersicht
       </Link>
     </div>

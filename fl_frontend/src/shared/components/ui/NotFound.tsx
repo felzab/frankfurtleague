@@ -29,7 +29,7 @@ export function NotFound() {
           variant="ghost"
           aria-label="Zurück zur vorherigen Seite"
           onPress={() => window.history.back()}
-          className={`${ctaButton({ intent: "outline" })} w-full px-8 sm:w-auto`}>
+          className={`${ctaButton({ intent: "outline", hover: "aria" })} w-full px-8 sm:w-auto`}>
           Zurück
         </Button>
 
@@ -37,7 +37,7 @@ export function NotFound() {
           title="Startseite"
           aria-label="Zur Startseite"
           href="/"
-          className={`${ctaButton({ intent: "primary" })} w-full px-8 sm:w-auto`}>
+          className={`${ctaButton({ intent: "primary", hover: "css" })} w-full px-8 sm:w-auto`}>
           Zur Startseite
         </Link>
       </div>

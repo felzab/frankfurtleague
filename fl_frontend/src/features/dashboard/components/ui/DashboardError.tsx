@@ -19,7 +19,7 @@ export function DashboardError({ error, retry }: { error: Error & { digest?: str
       digest={error.digest}>
       <Button
         onPress={() => retry()}
-        className={`${ctaButton({ intent: "outline" })} mt-8`}>
+        className={`${ctaButton({ intent: "outline", hover: "aria" })} mt-8`}>
         <ArrowRotateRight className="mr-2 h-4 w-4" />
         Ansicht neu laden
       </Button>

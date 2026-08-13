@@ -73,14 +73,14 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
           variant="ghost"
           onPress={handleRetry}
           isDisabled={isRetrying}
-          className={`${ctaButton({ intent: "outline" })} w-full`}>
+          className={`${ctaButton({ intent: "outline", hover: "aria" })} w-full`}>
           {isRetrying ? "Versucht erneut..." : "Erneut versuchen"}
         </Button>
 
         <Link
           title="Startseite"
           href="/"
-          className={`${ctaButton({ intent: "primary" })} w-full`}>
+          className={`${ctaButton({ intent: "primary", hover: "css" })} w-full`}>
           Zur Startseite
         </Link>
       </div>
