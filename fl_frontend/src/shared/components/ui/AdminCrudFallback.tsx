@@ -45,7 +45,8 @@ function RowActionCluster({ slots, className }: { slots: readonly number[]; clas
  *
  * **`fill-mode-backwards` is what makes that a suppression rather than a pause.** Without it the
  * `from` state applies only once the animation starts, so the block would paint at full opacity for
- * the whole delay and the class would buy nothing.
+ * the whole delay and the class would buy nothing. **The hold belongs on this root and nowhere
+ * else** — moved onto either shape below, the other one flickers again at every width.
  *
  * **Nothing is held back but this.** `AdminCrudShell` renders the search field and the create trigger
  * outside the boundary and the admin bar carries the route's title, so the delay hands the reader a
@@ -92,8 +93,13 @@ export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sect
  * rather than as loading. One bar per row and one block where the actions go claims only what all
  * five share: the outer padding, the header strip, the `py-4` rhythm and the row's height.
  *
- * Exact where it counts, vague everywhere else, and the height is built from the real classes rather
- * than from numbers, exactly as `SpielCardSkeleton` builds a card's.
+ * **The card half keeps its shapes and takes the same height rule.** A card is allowed to be shaped
+ * where a table row is not — `SpielCardSkeleton` settles that — so what mattered here was the box
+ * model: three children, as four of the five real cards have, each one measured by the classes the
+ * real card uses rather than by an `h-*` guess.
+ *
+ * Exact where it counts, vague everywhere else, and every height is built from the real classes
+ * rather than from numbers, exactly as `SpielCardSkeleton` builds a card's.
  */
 function TableFallback() {
   return (
@@ -103,14 +109,20 @@ function TableFallback() {
           <div
             key={row}
             className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
+            {/* The identity row, as tall as the chip that leads it — a `fluid-xs` line box inside
+                `py-1.5`, which is how three of the five spell theirs and what the other two's `h-7`
+                approximates. A non-breaking space inside the real type step is what carries it. */}
             <div className="flex w-full flex-row items-center gap-3">
-              <span className={`${skeletonBlock()} h-7 w-14 shrink-0 rounded-md`} />
-              <span className={`${skeletonBlock()} h-7 w-24 shrink-0 rounded-md`} />
+              <span className={`${skeletonBlock()} fluid-xs block w-14 shrink-0 rounded-md px-3 py-1.5`}>&nbsp;</span>
+              <span className={`${skeletonBlock()} fluid-sm block w-24 rounded`}>&nbsp;</span>
             </div>
-            {/* A non-breaking space inside the real type step, so a placeholder line is exactly as
-                tall as the line it stands in for and follows the fluid scale on its own. */}
-            <span className={`${skeletonBlock()} fluid-sm block w-3/4 rounded`}>&nbsp;</span>
-            <span className={`${skeletonBlock()} fluid-xs block w-1/2 rounded`}>&nbsp;</span>
+            {/* ONE child at `gap-0.5`, which is how every one of the five nests its detail lines —
+                as two siblings they took the card's `gap-y-3` between them instead, and 10px of a
+                gap the real card does not have is 10px the page moves when the rows land. */}
+            <div className="flex w-full flex-col gap-0.5">
+              <span className={`${skeletonBlock()} fluid-sm block w-3/4 rounded`}>&nbsp;</span>
+              <span className={`${skeletonBlock()} fluid-xs block w-1/2 rounded`}>&nbsp;</span>
+            </div>
             <RowActionCluster
               slots={TABLE_ROW_ACTIONS}
               className="border-border/50 -mx-1 border-t pt-2"
