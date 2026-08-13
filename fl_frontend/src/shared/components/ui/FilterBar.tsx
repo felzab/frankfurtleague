@@ -7,7 +7,7 @@ import { Button, Popover, ScrollShadow } from "@heroui/react";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 
 import { COUNT_BADGE, PILL_RADIUS } from "./badges";
-import { FilterPanel } from "./FilterPanel";
+import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
 
 import type { Facet } from "@/shared/utils/facets";
 
@@ -39,6 +39,8 @@ export function FilterBar<TItem>({
   triggerLabel?: string;
 }) {
   const { selection, activeCount, toggle, setFacet, clearFacet, clearAll } = useUrlFilters(facets);
+  // The row is the panel's ceiling; a viewport unit would count the sidemenu as space it may use.
+  const [rowRef, availableWidth] = useFilterPanelWidth();
 
   if (facets.length === 0) return null;
 
@@ -56,7 +58,9 @@ export function FilterBar<TItem>({
     // A column of two rows rather than one wrapping row (decided 2026-08-08): wrapping pushes the
     // list down the page by a row of chips per overflow, while scrolling them sideways keeps the
     // control one row tall whatever is selected.
-    <div className="flex w-full flex-col gap-2">
+    <div
+      ref={rowRef}
+      className="flex w-full flex-col gap-2">
       <div className="flex w-full flex-row items-center gap-2">
         <Popover>
           <Popover.Trigger
@@ -80,6 +84,7 @@ export function FilterBar<TItem>({
               selection={selection}
               onSelect={setFacet}
               onClear={clearFacet}
+              available={availableWidth}
             />
           </Popover.Content>
         </Popover>

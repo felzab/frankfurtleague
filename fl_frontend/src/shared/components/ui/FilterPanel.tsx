@@ -15,7 +15,7 @@
  * - `FilterBar.tsx :: FilterBar` — the trigger, the chips, and the whole facet set
  * - `FilterLeiste.tsx :: FilterLeiste` — one trigger per dimension, and this for what overflows
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button, ListBox, Popover, SearchField } from "@heroui/react";
 
@@ -27,10 +27,46 @@ import { overlayPanel } from "./overlayPanel";
 
 import type { Facet, FacetOption, FacetSelection } from "@/shared/utils/facets";
 import type { Selection } from "@heroui/react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, RefObject } from "react";
 
 /** Above this many options a cell grows a type-to-filter field; at or below it, everything is visible. */
 const TYPE_TO_FILTER_THRESHOLD = 8;
+
+/**
+ * The width of the row a filter control occupies, for `FilterPanel`'s `available`.
+ *
+ * **Measured rather than expressed in CSS, because the panel cannot see its own column.** The dialog is
+ * portalled to the document, so it has no ancestor to take a percentage or a container query from, and a
+ * viewport unit counts the sidemenu's 310px as space the panel may use. The row this ref goes on is
+ * inside the column, is the bar's own box on every surface, and needs no knowledge of the navigation —
+ * which is what makes one expression hold with the menu expanded, collapsed, or absent entirely.
+ *
+ * **Attach it to the control's outermost row**, the one the trigger sits at the left edge of. The panel
+ * is then exactly as wide as that row and starts where it starts.
+ *
+ * The state re-renders the control and nothing above it, so `AdminCrudView`'s collection-identity
+ * constraint is untouched: its table is a sibling call, not a child of this subtree.
+ */
+export function useFilterPanelWidth(): [RefObject<HTMLDivElement | null>, number | null] {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    const row = ref.current;
+    if (row === null) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const measured = entries[0]?.contentRect.width;
+      if (measured !== undefined) setWidth(measured);
+    });
+    observer.observe(row);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  return [ref, width];
+}
 
 /** Case- and diacritic-insensitive, so „Göthe" is reached by typing „goe" as well as „gö". */
 function fold(text: string): string {
@@ -188,12 +224,22 @@ function FacetCell<TItem>({
  * instead of scrolling when height-capped. A wrapping flex row sizes each cell from its own longest
  * option, gaps in both axes, and stretches each line's cells to that line's tallest.
  *
- * **The panel is one 18rem column per facet, held under 92vw on a phone and under the search bar it opens
- * beneath everywhere else** (decided 2026-08-13). The bar is `max-w-toolbar w-full`, so
- * `--container-toolbar` is the ceiling — the token rather than the 75rem it happens to resolve to, or a
- * reader who has enlarged their text gets a panel wider than the bar. 18rem is the SMALLEST whole column
- * that still lets four of them reach that ceiling, and four is the public Spielsuche's own count: the
- * surface the width was asked for on is the one that fixes the column.
+ * **The panel is one 18rem column per facet, bounded by the row it hangs from** (decided 2026-08-13).
+ * 18rem is the SMALLEST whole column that still lets four of them reach `--container-toolbar`, and four
+ * is the public Spielsuche's own count: the surface the width was asked for on is the one that fixes the
+ * column. The toolbar token is the ceiling rather than the 75rem it happens to resolve to, or a reader
+ * who has enlarged their text gets a panel wider than the bar.
+ *
+ * **`available` is the term that keeps it inside the content column, and it cannot be a viewport unit**
+ * (decided 2026-08-14). A signed-in route puts a 310px sidemenu beside `main`, so `92vw` measures 310px
+ * this panel does not have; the dialog is portalled to the document, so nothing in its own ancestry knows
+ * about the column either, and a container query has no container to ask. What it resolves to is a
+ * ceiling wider than the space beneath its trigger, and the overlay then slides the panel LEFT until it
+ * fits the window — across the navigation. The caller measures the row instead and passes its width,
+ * which is the bar's own box on every surface, with the menu expanded, collapsed or absent.
+ *
+ * **Unset, it falls back to `100vw` and the panel behaves as it did.** That is deliberate: a caller that
+ * has not adopted `useFilterPanelWidth` yet keeps today's geometry rather than collapsing to nothing.
  *
  * **The count scales the panel rather than switching it between two widths**, because the reason to hold
  * a small facet set back is proportional and a threshold is not: two facets get 612px and cannot float in
@@ -226,6 +272,7 @@ export function FilterPanel<TItem>({
   selection,
   onSelect,
   onClear,
+  available = null,
 }: {
   /**
    * Every dimension the surface offers. The counts read against all of them, so a panel showing part of
@@ -239,14 +286,20 @@ export function FilterPanel<TItem>({
   selection: FacetSelection;
   onSelect: (param: string, values: string[]) => void;
   onClear: (param: string) => void;
+  /** The trigger row's own width, from `useFilterPanelWidth`. Null until measured, and on a server render. */
+  available?: number | null;
 }) {
   return (
     <Popover.Dialog
-      // One 18rem column per facet, the gap between each pair, and the panel's own padding.
-      // `min()` picks the phone's 92vw or the toolbar token, so no breakpoint variant is
-      // needed; the cast is React's type carrying no custom property, not a widening.
-      style={{ "--filter-columns": shown.length } as CSSProperties}
-      className={`${overlayPanel()} w-[min(92vw,calc(var(--filter-columns)*18rem_+_(var(--filter-columns)_-_1)*0.75rem_+_1.5rem),var(--container-toolbar))] overflow-hidden p-0 outline-none`}>
+      // One 18rem column per facet, the gap between each pair, and the panel's own padding, held under
+      // the row's own width. The cast is React's type carrying no custom property, not a widening.
+      style={
+        {
+          "--filter-columns": shown.length,
+          ...(available === null ? {} : { "--filter-available": `${String(available)}px` }),
+        } as CSSProperties
+      }
+      className={`${overlayPanel()} w-[min(92vw,var(--filter-available,100vw),calc(var(--filter-columns)*18rem_+_(var(--filter-columns)_-_1)*0.75rem_+_1.5rem),var(--container-toolbar))] overflow-hidden p-0 outline-none`}>
       <div className="scrollbar-line max-h-[70vh] overflow-x-hidden overflow-y-auto p-3">
         {/* No `items-start`: the default cross-axis stretch is what equalises a line's cells, and
             it is per LINE, so a phone's one-cell line stretches to itself and needs no exception. */}
