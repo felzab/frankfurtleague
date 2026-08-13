@@ -10,17 +10,18 @@ import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
 import { NUMMER_MAX_LENGTH, POSITION_OPTIONS } from "@/features/spieler/constants";
 import { isSquadNummerTaken } from "@/features/spieler/utils";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
-import { Callout } from "@/shared/components/ui/Callout";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { appToast } from "@/shared/utils/appToast";
 
 import { SpielerFieldLabel } from "./SpielerFieldLabel";
 
 import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
+import type { SpielerBanner } from "./banners";
 
 /** The season's own state, said in one badge beside its id — the app's one wording and one palette. */
 function SaisonBadge({ status }: { status: SpielerSaisonContext["saisonStatus"] }) {
@@ -64,6 +65,7 @@ export function FormKaderSection({
   onValidateSelection,
   spielerId,
   storedNummer,
+  banners,
 }: {
   saison: SpielerSaisonContext & { erlaubteStufen: readonly FLSpielerStufe[] };
   /** The selected season's teams — what the picker may offer. */
@@ -84,6 +86,8 @@ export function FormKaderSection({
   spielerId: string;
   /** What this squad row holds today, so a resubmitted duplicate still passes. `null` before entry. */
   storedNummer: string | null;
+  /** The editor's whole Hinweis list; the two spots below take their own entries out of it. */
+  banners: readonly SpielerBanner[];
 }) {
   const panel = formPanel();
   const [isEntering, startEntering] = useTransition();
@@ -227,12 +231,10 @@ export function FormKaderSection({
           </>
         ) : (
           <div className="flex w-full flex-col gap-y-4">
-            <Callout
-              severity="info"
-              title={`Nicht im Kader der Saison ${saison.saisonId}`}>
-              Ohne Kadereintrag erscheint der Spieler in dieser Saison auf keiner Seite. Wähle ein Team und nimm ihn auf; Nummer, Position und
-              Stufe können danach jederzeit ergänzt werden.
-            </Callout>
+            <InlineBanners
+              banners={banners}
+              spot="kader-eintritt"
+            />
 
             <div className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,18rem)_auto]">
               <TeamSelect
@@ -253,13 +255,10 @@ export function FormKaderSection({
             {/* Coloured rather than muted (decided 2026-08-07): it announces a value the form is
                 choosing on the admin's behalf, which is exactly the kind of thing that must not read
                 as fine print. */}
-            {entryIsNachgetragen && (
-              <Callout
-                severity="info"
-                title="Wird als nachgetragen markiert">
-                Die Saison {saison.saisonId} läuft bereits, der Eintrag wird deshalb als nachgetragen gekennzeichnet.
-              </Callout>
-            )}
+            <InlineBanners
+              banners={banners}
+              spot="kader-nachgetragen"
+            />
           </div>
         )}
       </div>

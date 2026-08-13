@@ -21,7 +21,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
@@ -68,7 +68,7 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
 export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<NonNullable<FormState>> {
   return runAdminMutation("patchAdminSpielDataAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
@@ -142,7 +142,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
 export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<NonNullable<FormState>> {
   return runAdminMutation("previewAdminSpielDataAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);

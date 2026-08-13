@@ -11,11 +11,14 @@ import { patchSaisonAction } from "@/features/saisons/actions";
 import { deriveSaisonDraftStatus } from "@/features/saisons/saisonDraftStatus";
 import { FLPatchSaisonPayloadSchema } from "@/features/saisons/schemas";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
+import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
+import { resolveRailBanners } from "@/shared/components/ui/railBanner";
 import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
 import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
+import { buildSaisonBanners } from "./banners";
 import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
 import { FormRolloverSection } from "./FormRolloverSection";
@@ -29,13 +32,12 @@ import type { SaisonDraftFields, SaisonGruppenSwapContext, SaisonRolloverContext
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
-import type { SaisonRailBanner } from "./SaisonRail";
 
 /**
- * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). There is no
- * confirmation dialog on the SAVE for the same reason as the other editors: confirmation and undo
- * are alternatives, and undo is the one that helps the admin who was not paying attention. The rollover
- * is the exception and carries its own confirmation — see `FormRolloverSection` for why.
+ * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). It stands
+ * on every save, confirmed or not: a confirmation is the carve-out for a draft carrying a warning
+ * or a danger, and undo is what still helps the admin who was not paying attention (ADR-0070). The
+ * rollover is not a save at all and carries its own confirmation — see `FormRolloverSection` for why.
  */
 const UNDO_TIMEOUT_MS = 15000;
 
@@ -105,6 +107,7 @@ export function AdminSaisonEditForm({
 
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
+  const [isConfirmingSave, setIsConfirmingSave] = useState(false);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   const {
@@ -149,7 +152,7 @@ export function AdminSaisonEditForm({
   // reasoning, unchanged.
   const canSubmitRef = useRef(true);
   useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard && isDirty;
+    canSubmitRef.current = !isPending && !isConfirmingDiscard && !isConfirmingSave && isDirty;
   });
   useEffect(() => {
     const handleSaveShortcut = (event: KeyboardEvent) => {
@@ -172,54 +175,21 @@ export function AdminSaisonEditForm({
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
   const isEndBeforeStart = startDate !== null && endDate !== null && endDate.compare(startDate) < 0;
 
-  /** The rail's mirror of every warning shown inline somewhere on the page. */
-  const banners: SaisonRailBanner[] = [];
+  /** Every Hinweis this draft raises — the rail's list and the panels' inline callouts alike. */
+  const banners = buildSaisonBanners({
+    saisonStatus: saison.status,
+    isEndBeforeStart,
+    qualifiersPerGroup: rules.qualifiers_per_group,
+    teamsPerGroup: rules.teams_per_group,
+    isPointsChanged: isChanged("rules.win_points") || isChanged("rules.draw_points"),
+    isStufenChanged: isChanged("rules.erlaubte_stufen"),
+    outgoingSaisonId: rollover.outgoingSaisonId,
+    offeneSpieleCount: rollover.offeneSpiele.length,
+  });
 
-  if (saison.status === "active") {
-    banners.push({
-      severity: "info",
-      title: "Diese Saison läuft",
-      body: "Jede Seite ohne ausgewählte Saison zeigt sie, und eine Änderung an den Punkten ist sofort in jeder Tabelle sichtbar.",
-    });
-  }
-  if (saison.status === "past") {
-    banners.push({
-      severity: "info",
-      title: "Diese Saison ist abgeschlossen",
-      body: "Ihre Spiele und Tabellen bleiben abrufbar. Eine Regeländerung wirkt rückwirkend auf ihre Tabelle.",
-    });
-  }
-  if (isEndBeforeStart) {
-    banners.push({
-      severity: "danger",
-      title: "Das Ende liegt vor dem Beginn",
-      body: "So lässt sich die Saison nicht speichern. Meistens ist es ein Zahlendreher im Jahr.",
-    });
-  }
-  if (rules.qualifiers_per_group > rules.teams_per_group) {
-    banners.push({
-      severity: "danger",
-      title: "Mehr Qualifikanten als Teams pro Gruppe",
-      body: "So lässt sich die Saison nicht speichern. Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.",
-    });
-  }
-  // The one edit on this page whose effect is retroactive and invisible at the field: the league table
-  // is scored on every read rather than stored (ADR-0019), so the numbers move without a migration and
-  // without anything announcing that they did.
-  if (isChanged("rules.win_points") || isChanged("rules.draw_points")) {
-    banners.push({
-      severity: "warning",
-      title: "Punkte wirken auf die ganze Saison",
-      body: "Die Tabelle wird bei jedem Aufruf neu gerechnet, also gelten die neuen Punkte auch für längst gespielte Spiele.",
-    });
-  }
-  if (isChanged("rules.erlaubte_stufen")) {
-    banners.push({
-      severity: "info",
-      title: "Stufen begrenzen nur die Auswahl",
-      body: "Bestehende Kadereinträge behalten ihre Stufe, auch eine, die diese Saison nicht mehr anbietet.",
-    });
-  }
+  // What the save asks about first (ADR-0070). Resolved, so a banner the rail is not showing cannot
+  // be raised in a dialog the admin has no way to reconcile with the page behind it.
+  const blockingBanners = resolveRailBanners(banners).filter((banner) => banner.severity !== "info");
 
   const leavePage = () => {
     // Blur first — see the match editor: react-aria's focus attribute survives a kept-alive tree.
@@ -273,6 +243,19 @@ export function AdminSaisonEditForm({
       description: "Die Umstellung lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.",
     });
     return false;
+  };
+
+  /**
+   * What both submit routes reach first: a draft carrying a warning or a danger is confirmed, and a
+   * clean one saves straight through (ADR-0070). The write itself is unchanged either way, undo
+   * included.
+   */
+  const requestSave = () => {
+    if (blockingBanners.length > 0) {
+      setIsConfirmingSave(true);
+      return;
+    }
+    handleFormSubmit();
   };
 
   const handleFormSubmit = () => {
@@ -382,7 +365,7 @@ export function AdminSaisonEditForm({
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
-        action={() => handleFormSubmit()}>
+        action={() => requestSave()}>
         <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
           <div className="max-w-page mx-auto flex w-full flex-col">
             {pageHeader}
@@ -399,8 +382,8 @@ export function AdminSaisonEditForm({
                   endDate={endDate}
                   onEndDateChange={setEndDate}
                   onFieldLeft={validateFields}
-                  isEndBeforeStart={isEndBeforeStart}
                   spieltagBound={spieltagBound}
+                  banners={banners}
                 />
 
                 <FormRegelnSection
@@ -412,8 +395,8 @@ export function AdminSaisonEditForm({
                     validateStufen(next);
                   }}
                   stufenError={fieldErrors["rules.erlaubte_stufen"]}
-                  isLiveSaison={saison.status === "active"}
                   isFinishedSaison={saison.status === "past"}
+                  banners={banners}
                 />
 
                 {/* Above the rollover, and below the two field panels: a control rather than a field,
@@ -431,6 +414,7 @@ export function AdminSaisonEditForm({
                   saisonStatus={saison.status}
                   rollover={rollover}
                   onBeforeActivate={guardRolloverAgainstDraft}
+                  banners={banners}
                 />
               </div>
             </div>
@@ -451,6 +435,18 @@ export function AdminSaisonEditForm({
           changeCount={status.changed.length}
         />
       )}
+
+      {/* Closed rather than unmounted on confirm, unlike the discard dialog: the write is awaited
+          before anything navigates, so the exit animation has run long before the tree is left. */}
+      <ConfirmSaveModal
+        isOpen={isConfirmingSave}
+        onClose={() => setIsConfirmingSave(false)}
+        onConfirm={() => {
+          setIsConfirmingSave(false);
+          handleFormSubmit();
+        }}
+        banners={blockingBanners}
+      />
     </SaisonDraftStatusProvider>
   );
 }

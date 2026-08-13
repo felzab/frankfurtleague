@@ -42,6 +42,17 @@ import type { FormState } from "@/shared/types/types";
  */
 export const VALIDATION_FAILED = "Überprüfe Deine Eingaben.";
 
+/**
+ * What every admin write answers when the session carries no admin role, declared once beside the
+ * banner above and for the same reason: thirty-four guards across seven action modules and the four
+ * undo handlers say this one sentence, in an interface that is German everywhere else.
+ *
+ * It is reachable rather than theoretical — it becomes `FormState.error`, which every editor renders
+ * into a toast description. Signing in again is the admin's only remedy, so the sentence names that
+ * rather than the role that is absent.
+ */
+export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an.";
+
 export async function runAdminMutation<T extends { success: boolean }>(
   mutationName: string,
   fn: () => Promise<T>,

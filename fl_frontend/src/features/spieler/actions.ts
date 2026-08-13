@@ -22,7 +22,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import {
@@ -92,7 +92,7 @@ export async function postSpielerAction(
 ): Promise<{ success: boolean; spieler_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSpielerAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLCreateSpielerFormPayloadSchema.safeParse(rawPayload);
@@ -160,7 +160,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
 }> {
   return runAdminMutation("patchSpielerAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPatchSpielerPayloadSchema.safeParse(rawPayload);
@@ -191,7 +191,7 @@ export async function deleteSpielerAction(
 ): Promise<{ success: boolean; spieler?: FLSpielerSingleResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("deleteSpielerAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLDeleteSpielerPayloadSchema.safeParse(rawPayload);
@@ -220,7 +220,7 @@ export async function reactivateSpielerAction(
 ): Promise<{ success: boolean; spieler?: FLSpielerSingleResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("reactivateSpielerAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLReactivateSpielerPayloadSchema.safeParse(rawPayload);
@@ -251,7 +251,7 @@ export async function postSaisonSpielerAction(
 ): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSaisonSpielerAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPostSaisonSpielerPayloadSchema.safeParse(rawPayload);
@@ -295,7 +295,7 @@ export async function patchSaisonSpielerAction(
 ): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("patchSaisonSpielerAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPatchSaisonSpielerPayloadSchema.safeParse(rawPayload);
@@ -331,7 +331,7 @@ export async function deleteSaisonSpielerAction(
 ): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("deleteSaisonSpielerAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLSaisonSpielerKeyPayloadSchema.safeParse(rawPayload);
@@ -357,7 +357,7 @@ export async function reactivateSaisonSpielerAction(
 ): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("reactivateSaisonSpielerAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLSaisonSpielerKeyPayloadSchema.safeParse(rawPayload);

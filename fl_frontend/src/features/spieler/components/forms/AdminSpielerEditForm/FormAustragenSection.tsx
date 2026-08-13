@@ -5,12 +5,13 @@ import { useTransition } from "react";
 import { Button } from "@heroui/react";
 
 import { deleteSaisonSpielerAction, reactivateSaisonSpielerAction } from "@/features/spieler/actions";
-import { Callout } from "@/shared/components/ui/Callout";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { appToast } from "@/shared/utils/appToast";
-import { formatSpielDatum } from "@/shared/utils/format";
+
+import type { SpielerBanner } from "./banners";
 
 /**
  * Taking a player out of ONE season's squad — the editor's danger zone, in the same shape as the club
@@ -36,11 +37,14 @@ export function FormAustragenSection({
   spielerId,
   saisonId,
   rowInactiveSince,
+  banners,
 }: {
   spielerId: string;
   saisonId: string;
   /** The day the ROW was retired, or null — which of the two controls this panel offers. */
   rowInactiveSince: string | null;
+  /** The editor's whole Hinweis list; the spot below takes its own entry out of it. */
+  banners: readonly SpielerBanner[];
 }) {
   const styles = formPanel({ tone: "danger" });
   const [isPending, startWriting] = useTransition();
@@ -78,12 +82,10 @@ export function FormAustragenSection({
       <div className={styles.body()}>
         {isAusgetragen ? (
           <>
-            <Callout
-              severity="info"
-              title={`Ausgetragen seit ${formatSpielDatum(rowInactiveSince)}`}>
-              Der Spieler zählt in der Saison {saisonId} zu keinem Kader. Nummer, Position und Stufe sind gespeichert und kehren beim
-              Reaktivieren zurück.
-            </Callout>
+            <InlineBanners
+              banners={banners}
+              spot="austragen"
+            />
             <Button
               type="button"
               variant="primary"

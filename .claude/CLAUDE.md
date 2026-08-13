@@ -362,6 +362,7 @@ decision nobody ratified. Each row is one never-clause; the argument lives in `d
 | 0067 | Release a command on one token; source the shared write-shape block                            |
 | 0068 | Delete a shim re-export as unused; repoint a citation off it; name a package `check_docs`      |
 | 0069 | Write `status` outside the activate endpoint; DELETE a season row; drop the rollover guard     |
+| 0070 | Confirm a clean save; raise the dialog on `info`; drop the undo when the dialog appears        |
 | 0071 | Make the club editor the swap's home; grade a swap pair separately in each component           |
 | 0073 | Store a bracket fault; report a merely undecided placing; wrap a card without moving its role  |
 | 0074 | Reach the swap's disqualification refusal backwards; refuse a club standing on its own fixture |

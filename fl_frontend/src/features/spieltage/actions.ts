@@ -21,7 +21,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteSpieltag, patchSpieltag, postSpieltag, reactivateSpieltag } from "./mutations";
@@ -88,7 +88,7 @@ export async function postSpieltagAction(
 ): Promise<{ success: boolean; spieltag_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSpieltagAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPostSpieltagPayloadSchema.safeParse(rawPayload);
@@ -134,7 +134,7 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
 }> {
   return runAdminMutation("patchSpieltagAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPatchSpieltagPayloadSchema.safeParse(rawPayload);
@@ -176,7 +176,7 @@ export async function deleteSpieltagAction(rawPayload: FLSpieltagKeyPayload): Pr
 }> {
   return runAdminMutation("deleteSpieltagAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLSpieltagKeyPayloadSchema.safeParse(rawPayload);
@@ -219,7 +219,7 @@ export async function reactivateSpieltagAction(rawPayload: FLSpieltagKeyPayload)
 }> {
   return runAdminMutation("reactivateSpieltagAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLSpieltagKeyPayloadSchema.safeParse(rawPayload);

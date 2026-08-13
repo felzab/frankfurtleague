@@ -11,6 +11,7 @@ import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
+import type { SpielBanner } from "./banners";
 
 /**
  * Who plays: one source-first control per side.
@@ -43,6 +44,7 @@ export function FormMatchupSection({
   team2Quelle,
   onTeam2QuelleChange,
   onValidateSelection,
+  banners,
 }: {
   /** The fixture as it was opened — its phase gates the source controls, its stored sides anchor
    * both the result-toggle restore and the automatic sides' payload (ADR-0038). */
@@ -69,6 +71,8 @@ export function FormMatchupSection({
   team2Quelle: FLSpielQuelle | null;
   onTeam2QuelleChange: (value: FLSpielQuelle | null) => void;
   onValidateSelection: (paths: readonly string[], selected: Partial<FLPatchSpielDataPayload>) => void;
+  /** The editor's whole Hinweis list, passed through to each picker's two spots. */
+  banners: readonly SpielBanner[];
 }) {
   const styles = formPanel();
 
@@ -140,6 +144,7 @@ export function FormMatchupSection({
           knockoutTeamIds={knockoutTeamIds}
           otherDraftQuelle={team2Quelle}
           onValidateSelection={onValidateSelection}
+          banners={banners}
         />
 
         {/* Full-bleed across the body's own padding, so it reads like the header's border
@@ -163,6 +168,7 @@ export function FormMatchupSection({
           knockoutTeamIds={knockoutTeamIds}
           otherDraftQuelle={team1Quelle}
           onValidateSelection={onValidateSelection}
+          banners={banners}
         />
       </div>
     </section>

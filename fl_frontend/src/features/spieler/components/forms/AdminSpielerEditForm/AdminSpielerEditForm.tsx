@@ -9,11 +9,14 @@ import { patchSaisonSpielerAction, patchSpielerAction } from "@/features/spieler
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
 import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
+import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
+import { resolveRailBanners } from "@/shared/components/ui/railBanner";
 import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
 import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
+import { buildSpielerBanners } from "./banners";
 import { FormAustragenSection } from "./FormAustragenSection";
 import { FormKaderSection } from "./FormKaderSection";
 import { FormPersonSection } from "./FormPersonSection";
@@ -26,12 +29,11 @@ import type { FLSpielerDraftFields } from "@/features/spieler/spielerDraftStatus
 import type { SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { ReactNode } from "react";
-import type { SpielerRailBanner } from "./SpielerRail";
 
 /**
- * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). There is no
- * confirmation dialog on the SAVE for the same reason as the other editors: confirmation and
- * undo are alternatives, and undo is the one that helps the admin who was not paying attention.
+ * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). It stands
+ * on every save, confirmed or not: a confirmation is the carve-out for a draft carrying a warning
+ * or a danger, and undo is what still helps the admin who was not paying attention (ADR-0070).
  */
 const UNDO_TIMEOUT_MS = 15000;
 
@@ -112,6 +114,7 @@ export function AdminSpielerEditForm({
 
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
+  const [isConfirmingSave, setIsConfirmingSave] = useState(false);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   const {
@@ -181,7 +184,7 @@ export function AdminSpielerEditForm({
   // editor's reasoning, unchanged.
   const canSubmitRef = useRef(true);
   useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard && isDirty;
+    canSubmitRef.current = !isPending && !isConfirmingDiscard && !isConfirmingSave && isDirty;
   });
   useEffect(() => {
     const handleSaveShortcut = (event: KeyboardEvent) => {
@@ -206,47 +209,23 @@ export function AdminSpielerEditForm({
   const personDirty = status.changed.some((field) => field.group === "Person");
   const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Kader");
 
-  /** The rail's mirror of every warning shown inline somewhere on the page. */
-  const banners: SpielerRailBanner[] = [];
+  // The nachgetragen note is rail-only, which is what the rail is FOR (decided 2026-08-07): every
+  // standing remark about this player in one place, rather than a row inside a panel of editable
+  // fields where it read as a control somebody had disabled.
+  /** Every Hinweis this draft raises — the rail's list and the panels' inline callouts alike. */
+  const banners = buildSpielerBanners({
+    isRetired: spieler.inactive_since !== null,
+    saisonId: saison.saisonId,
+    saisonStatus: saison.saisonStatus,
+    isMember: storedMembership !== null,
+    rowInactiveSince: storedMembership?.inactive_since ?? null,
+    isNachgetragen,
+    isTeamChanged: isChanged("team_id"),
+  });
 
-  if (spieler.inactive_since !== null) {
-    banners.push({
-      severity: "info",
-      title: "Dieser Spieler ist stillgelegt",
-      body: "Er erscheint in keiner Auswahlliste. Seine Kadereinträge bleiben bestehen. Reaktivieren über den Kopf der Seite.",
-    });
-  }
-  if (storedMembership === null) {
-    banners.push({
-      severity: "info",
-      title: `Nicht im Kader der Saison ${saison.saisonId}`,
-      body: "Ohne Kadereintrag erscheint der Spieler in dieser Saison auf keiner Seite.",
-    });
-  }
-  if (storedMembership?.inactive_since != null) {
-    banners.push({
-      severity: "info",
-      title: "Kadereintrag ausgetragen",
-      body: "Der Spieler zählt in dieser Saison zu keinem Kader. Nummer, Position und Stufe bleiben erhalten.",
-    });
-  }
-  // The nachgetragen note lives in the rail, which is what the rail is FOR (decided 2026-08-07):
-  // every standing remark about this player in one place, rather than a row inside a panel of
-  // editable fields where it read as a control somebody had disabled.
-  if (isNachgetragen) {
-    banners.push({
-      severity: "info",
-      title: "Nachgetragen",
-      body: `Der Spieler kam erst nach dem Start der Saison ${saison.saisonId} dazu.`,
-    });
-  }
-  if (isChanged("team_id")) {
-    banners.push({
-      severity: "warning",
-      title: "Teamwechsel wirkt sofort",
-      body: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen, auch auf den öffentlichen Seiten.",
-    });
-  }
+  // What the save asks about first (ADR-0070). Resolved, so a banner the rail is not showing cannot
+  // be raised in a dialog the admin has no way to reconcile with the page behind it.
+  const blockingBanners = resolveRailBanners(banners).filter((banner) => banner.severity !== "info");
 
   const leavePage = () => {
     // Blur first — see the match editor: react-aria's focus attribute survives a kept-alive tree.
@@ -289,6 +268,19 @@ export function AdminSpielerEditForm({
     setIsConfirmingDiscard(false);
     setHasLeftViaDiscard(true);
     leavePage();
+  };
+
+  /**
+   * What both submit routes reach first: a draft carrying a warning or a danger is confirmed, and a
+   * clean one saves straight through (ADR-0070). The write itself is unchanged either way, undo
+   * included.
+   */
+  const requestSave = () => {
+    if (blockingBanners.length > 0) {
+      setIsConfirmingSave(true);
+      return;
+    }
+    handleFormSubmit();
   };
 
   const handleFormSubmit = () => {
@@ -436,7 +428,7 @@ export function AdminSpielerEditForm({
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
-        action={() => handleFormSubmit()}>
+        action={() => requestSave()}>
         <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
           <div className="max-w-page mx-auto flex w-full flex-col">
             {pageHeader}
@@ -471,6 +463,7 @@ export function AdminSpielerEditForm({
                   onValidateFields={validateSaisonFields}
                   onValidateSelection={validateTeamSelection}
                   spielerId={spieler.id}
+                  banners={banners}
                 />
 
                 {/* Last on the page and in the danger tone, beside the season it belongs to — the
@@ -482,6 +475,7 @@ export function AdminSpielerEditForm({
                     spielerId={spieler.id}
                     saisonId={saison.saisonId}
                     rowInactiveSince={storedMembership.inactive_since}
+                    banners={banners}
                   />
                 )}
               </div>
@@ -503,6 +497,18 @@ export function AdminSpielerEditForm({
           changeCount={status.changed.length}
         />
       )}
+
+      {/* Closed rather than unmounted on confirm, unlike the discard dialog: the write is awaited
+          before anything navigates, so the exit animation has run long before the tree is left. */}
+      <ConfirmSaveModal
+        isOpen={isConfirmingSave}
+        onClose={() => setIsConfirmingSave(false)}
+        onConfirm={() => {
+          setIsConfirmingSave(false);
+          handleFormSubmit();
+        }}
+        banners={blockingBanners}
+      />
     </SpielerDraftStatusProvider>
   );
 }

@@ -21,7 +21,7 @@ import { getAdminSession } from "@/core/auth";
 import { logger } from "@/core/logging";
 import { patchSaisonTeam, patchTeam } from "@/features/teams/mutations";
 import { FLPatchSaisonTeamPayloadSchema, FLPatchTeamPayloadSchema } from "@/features/teams/schemas";
-import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
 
 import type { NextRequest } from "next/server";
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
   const result = await runAdminMutation("undoAdminTeamEdit", async () => {
     if (!(await getAdminSession())) {
-      return { success: false as const, error: "Access Denied: Admin privileges missing" };
+      return { success: false as const, error: ADMIN_FORBIDDEN };
     }
 
     const body: unknown = await request.json().catch(() => null);

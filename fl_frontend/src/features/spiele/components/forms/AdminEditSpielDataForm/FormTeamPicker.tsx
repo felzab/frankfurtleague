@@ -5,8 +5,8 @@ import { Autocomplete, FieldError, Label, ListBox, SearchField, useFilter } from
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { formatQuelle, isDirectlyPrecedingRound, listFeederSpiele, quelleKey } from "@/features/spiele/utils";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
-import { Callout } from "@/shared/components/ui/Callout";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
@@ -15,6 +15,7 @@ import { FieldLabel } from "./FieldLabel";
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
+import type { SpielBanner } from "./banners";
 
 /**
  * The list entry that empties the side.
@@ -136,6 +137,7 @@ export function FormTeamPicker({
   knockoutTeamIds,
   otherDraftQuelle,
   onValidateSelection,
+  banners,
 }: {
   label: string;
   /**
@@ -180,6 +182,8 @@ export function FormTeamPicker({
    * asked to choose one.
    */
   onValidateSelection: (paths: readonly string[], selected: Partial<FLPatchSpielDataPayload>) => void;
+  /** The editor's whole Hinweis list; this side's two spots take their own entries out of it. */
+  banners: readonly SpielBanner[];
 }) {
   const { contains } = useFilter({ sensitivity: "base" });
 
@@ -615,32 +619,24 @@ export function FormTeamPicker({
         </Autocomplete>
       )}
 
-      {/* Danger whether the takeover happened just now or in an earlier session — the severity keys on
-          the STATE, not on who caused it. `isAnnounced` still keys on
-          the act: only the takeover performed in this edit is an event a screen reader should hear. It
-          deliberately does NOT claim other fixtures are affected — clearing a source changes this
-          slot's own maintenance and nothing else (ADR-0034). */}
-      {isManual && (
-        <Callout
-          severity="danger"
-          isAnnounced={hasJustBeenTakenOver}
-          title={`${label} pflegt das System nicht`}>
-          Ohne Herkunft bleibt diese Seite so stehen, wie Du sie einträgst. Kein späteres Ergebnis ändert sie.
-        </Callout>
-      )}
+      {/* Danger on the state rather than on who caused it, so a slot taken over in any edit carries
+          it. `isAnnounced` keys on the act instead: only a takeover performed in THIS edit is an
+          event a screen reader should hear. Neither claims other fixtures are affected — clearing a
+          source changes this slot's own maintenance and nothing else (ADR-0034). */}
+      <InlineBanners
+        banners={banners}
+        spot={`${fieldName}-manuell`}
+        isAnnounced={hasJustBeenTakenOver}
+      />
 
       {/* The qualification warning, beside the Manuell one it accompanies: the hand-picked team
           stands in no other bracket fixture, which is the client's honest signal that it may not
           have advanced at all (`collectKnockoutTeamIds` — ADR-0035 keeps re-deriving standings out
-          of the client). A warning, never a refusal, and mirrored in the rail's Hinweise. */}
-      {isManual && teamPayload !== null && !knockoutTeamIds.has(teamPayload.team_id) && (
-        <Callout
-          severity="warning"
-          title={`${teamPayload.name} ist nicht für diese Runde qualifiziert`}>
-          Laut Turnierbaum hat sich diese Mannschaft nicht für diese Runde qualifiziert. Prüfe vor dem Speichern, ob die Auswahl beabsichtigt
-          ist.
-        </Callout>
-      )}
+          of the client). A warning, never a refusal. */}
+      <InlineBanners
+        banners={banners}
+        spot={`${fieldName}-qualifikation`}
+      />
 
       {choice === "manuell" ? (
         teamPicker

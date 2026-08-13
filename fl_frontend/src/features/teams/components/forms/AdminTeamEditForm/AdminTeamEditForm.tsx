@@ -11,12 +11,14 @@ import { patchSaisonTeamAction, patchTeamAction } from "@/features/teams/actions
 import { FLPatchSaisonTeamPayloadSchema, FLPatchTeamPayloadSchema } from "@/features/teams/schemas";
 import { deriveTeamDraftStatus } from "@/features/teams/teamDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
+import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
+import { resolveRailBanners } from "@/shared/components/ui/railBanner";
 import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
 import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
-import { formatSpielDatum } from "@/shared/utils/format";
 
+import { buildTeamBanners } from "./banners";
 import { FormAdresseSection } from "./FormAdresseSection";
 import { FormDisqualifikationSection } from "./FormDisqualifikationSection";
 import { FormSaisonSection } from "./FormSaisonSection";
@@ -32,12 +34,11 @@ import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
-import type { TeamRailBanner } from "./TeamRail";
 
 /**
- * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). There is no
- * confirmation dialog on the SAVE for the same reason as the match editor: confirmation and undo
- * are alternatives, and undo is the one that helps the admin who was not paying attention.
+ * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). It stands
+ * on every save, confirmed or not: a confirmation is the carve-out for a draft carrying a warning
+ * or a danger, and undo is what still helps the admin who was not paying attention (ADR-0070).
  */
 const UNDO_TIMEOUT_MS = 15000;
 
@@ -135,6 +136,7 @@ export function AdminTeamEditForm({
 
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
+  const [isConfirmingSave, setIsConfirmingSave] = useState(false);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   const {
@@ -192,7 +194,7 @@ export function AdminTeamEditForm({
   // editor's reasoning, unchanged.
   const canSubmitRef = useRef(true);
   useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard && isDirty;
+    canSubmitRef.current = !isPending && !isConfirmingDiscard && !isConfirmingSave && isDirty;
   });
   useEffect(() => {
     const handleSaveShortcut = (event: KeyboardEvent) => {
@@ -217,51 +219,21 @@ export function AdminTeamEditForm({
   const clubDirty = status.changed.some((field) => field.group !== "Saison");
   const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Saison");
 
-  /** The rail's mirror of every warning shown inline somewhere on the page. */
-  const banners: TeamRailBanner[] = [];
+  /** Every Hinweis this draft raises — the rail's list and the panels' inline callouts alike. */
+  const banners = buildTeamBanners({
+    isRetired: team.inactive_since !== null,
+    saisonId: saison.saisonId,
+    saisonStatus: saison.saisonStatus,
+    isMember: storedMembership !== null,
+    storedDisqualifikation: storedMembership?.disqualifikation ?? null,
+    isDisqualified,
+    isGruppeLocked: gruppeLocked,
+    isGruppeChanged: isChanged("gruppe"),
+  });
 
-  if (team.inactive_since !== null) {
-    banners.push({
-      severity: "info",
-      title: "Dieses Team ist stillgelegt",
-      body: "Es erscheint in keiner Auswahlliste; sein Kürzel bleibt reserviert. Reaktivieren über den Kopf der Seite.",
-    });
-  }
-  if (storedMembership === null) {
-    banners.push({
-      severity: "info",
-      title: `Nicht in Saison ${saison.saisonId}`,
-      body: "Ohne Aufnahme erscheint die Mannschaft in dieser Saison auf keiner Seite.",
-    });
-  }
-  if (isDisqualified && storedMembership?.disqualifikation == null) {
-    banners.push({
-      severity: "danger",
-      title: "Der Grund wird veröffentlicht",
-      body: "Sobald Du speicherst, erscheint er als eingegebener Text auf der Teamseite und an jedem Spiel der Mannschaft.",
-    });
-  }
-  if (!isDisqualified && storedMembership?.disqualifikation != null) {
-    banners.push({
-      severity: "warning",
-      title: "Aufheben entfernt den Eintrag ersatzlos",
-      body: "Der gespeicherte Grund und das Datum sind danach nicht wiederherstellbar.",
-    });
-  }
-  if (isDisqualified && storedMembership?.disqualifikation != null) {
-    banners.push({
-      severity: "info",
-      title: `Disqualifiziert seit ${formatSpielDatum(storedMembership.disqualifikation.datum)}`,
-      body: storedMembership.disqualifikation.grund,
-    });
-  }
-  if (!gruppeLocked && isChanged("gruppe")) {
-    banners.push({
-      severity: "warning",
-      title: "Gruppenwechsel wirkt weit",
-      body: "Die Gruppe entscheidet, in welcher Tabelle die Mannschaft steht und welche Setzung sie speist.",
-    });
-  }
+  // What the save asks about first (ADR-0070). Resolved, so a banner the rail is not showing cannot
+  // be raised in a dialog the admin has no way to reconcile with the page behind it.
+  const blockingBanners = resolveRailBanners(banners).filter((banner) => banner.severity !== "info");
 
   const leavePage = () => {
     // Blur first — see the match editor: react-aria's focus attribute survives a kept-alive tree.
@@ -309,6 +281,19 @@ export function AdminTeamEditForm({
     setIsConfirmingDiscard(false);
     setHasLeftViaDiscard(true);
     leavePage();
+  };
+
+  /**
+   * What both submit routes reach first: a draft carrying a warning or a danger is confirmed, and a
+   * clean one saves straight through (ADR-0070). The write itself is unchanged either way, undo
+   * included.
+   */
+  const requestSave = () => {
+    if (blockingBanners.length > 0) {
+      setIsConfirmingSave(true);
+      return;
+    }
+    handleFormSubmit();
   };
 
   const handleFormSubmit = () => {
@@ -479,7 +464,7 @@ export function AdminTeamEditForm({
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
-        action={() => handleFormSubmit()}>
+        action={() => requestSave()}>
         <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
           <div className="max-w-page mx-auto flex w-full flex-col">
             {pageHeader}
@@ -519,6 +504,7 @@ export function AdminTeamEditForm({
                   onValidateSelection={validateGruppeSelection}
                   swap={swap}
                   teamId={team.id}
+                  banners={banners}
                 />
 
                 {storedMembership !== null && (
@@ -530,7 +516,7 @@ export function AdminTeamEditForm({
                       // draft state until the save sends the explicit null (ADR-0047).
                       if (next && datum === null) setDatum(parseDate(today));
                     }}
-                    storedRecord={storedMembership.disqualifikation}
+                    banners={banners}
                     grund={grund}
                     onGrundChange={setGrund}
                     datum={datum}
@@ -557,6 +543,18 @@ export function AdminTeamEditForm({
           changeCount={status.changed.length}
         />
       )}
+
+      {/* Closed rather than unmounted on confirm, unlike the discard dialog: the write is awaited
+          before anything navigates, so the exit animation has run long before the tree is left. */}
+      <ConfirmSaveModal
+        isOpen={isConfirmingSave}
+        onClose={() => setIsConfirmingSave(false)}
+        onConfirm={() => {
+          setIsConfirmingSave(false);
+          handleFormSubmit();
+        }}
+        banners={blockingBanners}
+      />
     </TeamDraftStatusProvider>
   );
 }

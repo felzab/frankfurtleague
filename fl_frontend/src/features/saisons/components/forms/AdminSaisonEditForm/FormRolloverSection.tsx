@@ -14,11 +14,13 @@ import { Callout } from "@/shared/components/ui/Callout";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
 import type { SaisonRolloverContext } from "@/features/saisons/types";
+import type { SaisonBanner } from "./banners";
 
 /** How many unfinished fixtures the panel names before it stops listing and starts counting. */
 const LISTED_OFFENE_SPIELE = 8;
@@ -47,6 +49,7 @@ export function FormRolloverSection({
   saisonStatus,
   rollover,
   onBeforeActivate,
+  banners,
 }: {
   saisonId: string;
   saisonStatus: FLSaisonStatus;
@@ -57,6 +60,8 @@ export function FormRolloverSection({
    * editing. Returning `false` cancels.
    */
   onBeforeActivate: () => boolean;
+  /** The editor's whole Hinweis list; the spot below takes its own entry out of it. */
+  banners: readonly SaisonBanner[];
 }) {
   const router = useRouter();
   const panel = formPanel({ tone: saisonStatus === "active" ? "neutral" : "danger" });
@@ -126,10 +131,13 @@ export function FormRolloverSection({
 
       <div className={panel.body()}>
         {isAlreadyActive ? (
+          // Panel-local, and deliberately not a banner: it answers "why can I not act HERE", which
+          // is a question only this control raises. That the season is the site-wide default is the
+          // rail's standing fact and is on screen already.
           <Callout
             severity="info"
-            title="Diese Saison ist die laufende">
-            Jede Seite ohne ausgewählte Saison zeigt sie. Umgestellt wird auf der Seite der Saison, die als nächste laufen soll.
+            title="Hier ist nichts umzustellen">
+            Diese Saison läuft bereits; umgestellt wird auf der Seite der Saison, die als nächste laufen soll.
           </Callout>
         ) : (
           <>
@@ -148,18 +156,10 @@ export function FormRolloverSection({
               )}
             </p>
 
-            {outgoing !== null && offene.length > 0 && (
-              <Callout
-                severity="danger"
-                title={
-                  offene.length === 1
-                    ? `1 Spiel der Saison ${outgoing} hat noch kein Ergebnis`
-                    : `${String(offene.length)} Spiele der Saison ${outgoing} haben noch kein Ergebnis`
-                }>
-                Solange das so ist, lässt sich Saison {outgoing} nicht abschließen. Trage die fehlenden Ergebnisse ein oder sage die Spiele ab —
-                ein abgesagtes Spiel gilt als erledigt.
-              </Callout>
-            )}
+            <InlineBanners
+              banners={banners}
+              spot="umstellung"
+            />
 
             {/* The list, not a number: the count alone tells the operator that something is open and
                 nothing about whether it matters. A finale without a result is a different decision from

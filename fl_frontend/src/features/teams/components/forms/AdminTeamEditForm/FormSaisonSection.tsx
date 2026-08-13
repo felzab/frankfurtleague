@@ -12,11 +12,11 @@ import { findSwapPartnerRefusal } from "@/features/saisons/utils";
 import { postSaisonTeamAction } from "@/features/teams/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
-import { Callout } from "@/shared/components/ui/Callout";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_LABEL, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PANEL_REVEAL } from "@/shared/components/ui/motion";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { appToast } from "@/shared/utils/appToast";
@@ -28,6 +28,7 @@ import type { SwapPartnerRefusal } from "@/features/saisons/utils";
 import type { FLGruppenNames } from "@/features/teams/schemas";
 import type { GruppeOffer, TeamGruppeLock, TeamSaisonContext } from "@/features/teams/types";
 import type { Key } from "@heroui/react";
+import type { TeamBanner } from "./banners";
 
 /** The sentence the disabled swap button is described by. This control renders at most once per page. */
 const SWAP_BUTTON_HINT_ID = "gruppentausch-team-hinweis";
@@ -316,9 +317,12 @@ export function FormSaisonSection({
   onValidateSelection,
   swap,
   teamId,
+  banners,
 }: {
   saison: TeamSaisonContext;
   gruppeLock: TeamGruppeLock;
+  /** The editor's whole Hinweis list; the three spots below take their own entries out of it. */
+  banners: readonly TeamBanner[];
   /** The season's groups with their fill state (`buildGruppeOffer`) — what the pickers may offer. */
   gruppeOffer: readonly GruppeOffer[];
   isMember: boolean;
@@ -363,8 +367,12 @@ export function FormSaisonSection({
           <InfoHint label="Hinweis zur Saison-Zugehörigkeit">
             <p>Dieser Bereich zeigt und bearbeitet die im Seitenmenü gewählte Saison.</p>
             <ul>
-              <li>Um eine andere Saison zu bearbeiten, wähle sie im Seitenmenü aus.</li>
-              <li>Eine Mannschaft verlässt eine Saison nie. Der einzige Weg hinaus ist die Disqualifikation unten.</li>
+              <li>
+                Eine <strong>andere Saison</strong> wählst Du im Seitenmenü aus.
+              </li>
+              <li>
+                Die <strong>Disqualifikation</strong> unten ist der einzige Weg aus einer Saison.
+              </li>
               <li>
                 Die <strong>Gruppe</strong> ist nur änderbar, solange die Saison nicht begonnen hat und keine Spiele angesetzt sind.
               </li>
@@ -416,23 +424,18 @@ export function FormSaisonSection({
                 </div>
               </div>
 
-              {gruppeLock.draftChangesGruppe && (
-                <Callout
-                  severity="warning"
-                  title="Gruppenwechsel wirkt weit">
-                  Die Gruppe entscheidet, in welcher Tabelle die Mannschaft steht und welche Setzung sie speist. Ein Wechsel ist nur vertretbar,
-                  solange nichts gespielt ist.
-                </Callout>
-              )}
+              <InlineBanners
+                banners={banners}
+                spot="gruppe"
+              />
             </>
           )
         ) : saison.saisonStatus === "future" ? (
           <div className="flex w-full flex-col gap-y-4">
-            <Callout
-              severity="info"
-              title={`Nicht in Saison ${saison.saisonId}`}>
-              Ohne Aufnahme erscheint das Team in dieser Saison auf keiner Seite, weder in einer Tabelle noch in einer Auswahlliste.
-            </Callout>
+            <InlineBanners
+              banners={banners}
+              spot="saison-eintritt"
+            />
             <div className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,15rem)_auto]">
               <GruppeSelect
                 value={gruppe}
@@ -452,12 +455,10 @@ export function FormSaisonSection({
         ) : (
           // No entry affordance at all outside a planned season (decided 2026-08-07): a season's
           // field is settled before it starts. The junction write refuses the same (REQ-ENTER-001).
-          <Callout
-            severity="info"
-            title={`Nicht in Saison ${saison.saisonId}`}>
-            Teams können nur in eine geplante Saison aufgenommen werden. Diese Saison
-            {saison.saisonStatus === "active" ? " läuft bereits" : " ist beendet"}, ihr Teilnehmerfeld steht fest.
-          </Callout>
+          <InlineBanners
+            banners={banners}
+            spot="saison-gesperrt"
+          />
         )}
       </div>
     </section>

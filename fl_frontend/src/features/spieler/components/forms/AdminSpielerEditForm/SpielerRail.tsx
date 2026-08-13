@@ -6,12 +6,12 @@ import { COUNT_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { DraftChangeList, operationOf } from "@/shared/components/ui/DraftChangeList";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { resolveRailBanners } from "@/shared/components/ui/railBanner";
 import { RailSection } from "@/shared/components/ui/RailSection";
 
 import { useSpielerDraftStatus } from "./SpielerDraftStatusContext";
 
-/** One warning the form also shows inline, mirrored into the rail — the match editor's rule. */
-export type SpielerRailBanner = { severity: "info" | "warning" | "danger"; title: string; body: string };
+import type { SpielerBanner } from "./banners";
 
 /**
  * The squad editor's summary rail — the club editor's rail over a player's draft, and identical in
@@ -19,18 +19,19 @@ export type SpielerRailBanner = { severity: "info" | "warning" | "danger"; title
  * so what remains is every inline warning mirrored into one place plus the unsaved changes by
  * section.
  */
-export function SpielerRail({ banners }: { banners: readonly SpielerRailBanner[] }) {
+export function SpielerRail({ banners }: { banners: readonly SpielerBanner[] }) {
   const status = useSpielerDraftStatus();
 
-  const SEVERITY_RANK: Record<SpielerRailBanner["severity"], number> = { danger: 0, warning: 1, info: 2 };
-  const sortedBanners = [...banners].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+  // The badge counts what is rendered rather than what was built, which is only the same number
+  // while nothing supersedes anything.
+  const visibleBanners = resolveRailBanners(banners);
 
   const bannerBySeverity = {
-    danger: banners.filter((banner) => banner.severity === "danger").length,
-    warning: banners.filter((banner) => banner.severity === "warning").length,
-    info: banners.filter((banner) => banner.severity === "info").length,
+    danger: visibleBanners.filter((banner) => banner.severity === "danger").length,
+    warning: visibleBanners.filter((banner) => banner.severity === "warning").length,
+    info: visibleBanners.filter((banner) => banner.severity === "info").length,
   };
-  const bannerCount = banners.length;
+  const bannerCount = visibleBanners.length;
 
   // Controlled exactly as the club editor's card is: shut when the last banner clears, open when one
   // arrives; in between the state is the admin's own toggle.
@@ -68,9 +69,9 @@ export function SpielerRail({ banners }: { banners: readonly SpielerRailBanner[]
         {bannerCount === 0 ? (
           <p className="fluid-xs text-foreground-muted font-medium">Keine Hinweise.</p>
         ) : (
-          sortedBanners.map((banner) => (
+          visibleBanners.map((banner) => (
             <Callout
-              key={banner.title}
+              key={banner.id}
               severity={banner.severity}
               title={banner.title}>
               {banner.body}
