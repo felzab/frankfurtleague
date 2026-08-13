@@ -167,8 +167,20 @@ function TableFallback() {
  * The matchday list, which is the one admin resource that is not a table at any width — phase-headed
  * sections of cards, so a heading's box has to be reserved between the groups (ADR-0050).
  *
- * Its card is the real one's shape, stacked below `md` and one row above it. Reserving the `md` row
- * means the phone case is under-reserved, which is the direction that only ever settles upward.
+ * Its card carries the real card's own responsive classes rather than standing in for one of the two
+ * arrangements, so it measures what arrives at both widths instead of on one side of the breakpoint.
+ *
+ * **It ends where the real list ends.** `AdminSpieltageList` closes on a link to the public Spielplan,
+ * and that link is not conditional wherever this shape is what arrives: `saisonId` is null only when
+ * the league holds no season at all, and that state returns an empty-state card instead of sections.
+ * The „Ohne aktiven Spieltag“ line beside it IS conditional and is deliberately not reserved — a
+ * season owing no matchday renders none, and reserving it would over-reserve the ordinary case.
+ *
+ * **How many sections and how many cards are the two things it cannot know**, both following from the
+ * season's phases and from whatever the search and the facets left. Two sections is the smallest
+ * count that still reads as sectioned rather than as one list, and three cards under each is below
+ * any real phase — so the shape stays legible while the total errs downward, which is the direction
+ * that settles upward rather than pulling the footer into view (`SpielCardSkeletonGrid`).
  */
 function SectionedFallback() {
   return (
@@ -207,6 +219,10 @@ function SectionedFallback() {
           ))}
         </div>
       ))}
+
+      {/* `h-10` is the real link's own declaration, not a measurement of one. Its `w-fit` is the
+          label's width, which nothing here can reproduce and nothing vertical depends on. */}
+      <span className={`${skeletonBlock()} h-10 w-64 rounded-xl`} />
     </div>
   );
 }
