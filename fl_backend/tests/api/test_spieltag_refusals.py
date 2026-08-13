@@ -13,15 +13,20 @@ Asserted on the code, never the message: the code is the contract the form reads
 
 import pytest
 
+from app.api.spiele.schemas import FLSaisonPhase
 from app.api.spieltage.services import (
     SPIELTAG_BELOW_IMPLIED_COUNT,
+    SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY,
     SPIELTAG_HOLDS_PLAYED,
     SPIELTAG_KNOCKOUT_STARTED,
+    SPIELTAG_MOVED_TO_UNPLAYED_PHASE,
     SPIELTAG_OVER_ITS_PHASE,
     SPIELTAG_PHASE_NOT_PLAYED,
+    find_spieltag_boundary_refusal,
     find_spieltag_create_refusal,
     find_spieltag_phase_refusal,
     find_spieltag_retire_refusal,
+    find_spieltag_unplayed_phase_refusal,
 )
 
 # A phase holding one more live matchday than its rules imply, so `REQ-RETIRE-005` passes and the rule
@@ -218,6 +223,198 @@ class TestAMatchdayBelongsToAPhaseTheSeasonPlays:
                 )
                 is None
             )
+
+
+class TestWhichPhaseChangesAreLegitimate:
+    """
+    `REQ-SPIELTAG-005` and `REQ-SPIELTAG-006` — the transition matrix (ADR-0075).
+
+    ADR-0052 kept `saison_phase` editable because which matchday is the quarter-final is a scheduling
+    decision, and correcting a mislabelled row is the ordinary case. It never asked whether EVERY
+    transition should be reachable. Two are not: a move into a round the season's rules never produce,
+    and a move that carries a matchday across the gruppenphase/knockout boundary away from the fixtures
+    it holds.
+
+    Both grade the STEP. The permits below matter as much as the refusals, because a rule reading the
+    row's state instead would pass every rejection test here and still trap a row nothing can repair —
+    the mistake `REQ-SPIELTAG-002` and `REQ-RETIRE-005` each had to have corrected out of them.
+    """
+
+    # A season whose bracket does reach the proposed round, so `REQ-SPIELTAG-005` passes and the boundary
+    # rule is the only thing that can refuse.
+    A_ROUND_THE_SEASON_PLAYS = {"implied_in_proposed": 1}
+
+    def test_a_dates_only_patch_is_never_judged_on_the_phase(self):
+        """
+        The payload repeats the phase the matchday holds, which is what a dates-only edit looks like.
+
+        Judged before either rule and with the worst numbers available — a round the rules do not
+        produce, holding fixtures on the far side of the boundary — because a row in that state still has
+        to be able to have its dates corrected.
+        """
+
+        assert find_spieltag_unplayed_phase_refusal(stored_phase="achtelfinale", proposed_phase="achtelfinale", implied_in_proposed=0) is None
+        assert (
+            find_spieltag_boundary_refusal(
+                stored_phase="gruppenphase",
+                proposed_phase="gruppenphase",
+                fixtures_on_stored_side=8,
+                fixtures_on_proposed_side=0,
+            )
+            is None
+        )
+
+    def test_a_move_into_a_round_the_season_never_plays_is_refused(self):
+        """The hole this closes: `REQ-SPIELTAG-004` refuses creating that row and the patch produced one."""
+
+        refusal = find_spieltag_unplayed_phase_refusal(stored_phase="viertelfinale", proposed_phase="achtelfinale", implied_in_proposed=0)
+
+        assert refusal is not None
+        assert refusal[0] == SPIELTAG_MOVED_TO_UNPLAYED_PHASE
+        assert "achtelfinale" in refusal[1]
+
+    def test_a_move_out_of_an_unplayed_round_is_the_repair_and_is_allowed(self):
+        """
+        The direction that must stay open, and the reason the rule reads the PROPOSED phase alone.
+
+        A row stranded in a round the bracket never reaches — created before the rules narrowed — is
+        exactly the one an admin has to be able to move somewhere real.
+        """
+
+        assert find_spieltag_unplayed_phase_refusal(stored_phase="achtelfinale", proposed_phase="viertelfinale", implied_in_proposed=1) is None
+
+    @pytest.mark.parametrize(("stored", "proposed"), [("viertelfinale", "gruppenphase"), ("gruppenphase", "viertelfinale")])
+    def test_a_matchday_carrying_fixtures_may_not_cross_the_boundary(self, stored, proposed):
+        """
+        The reported case and its mirror, refused in both directions for one reason.
+
+        `/dashboard/playoffs` selects its rounds by the MATCHDAY's phase and its fixtures by the
+        FIXTURE's, and no endpoint writes `spiele.saison_phase` (ADR-0037) — so after this move the four
+        fixtures sit on the far side of the join from their own matchday, with nothing able to bring
+        them across.
+        """
+
+        refusal = find_spieltag_boundary_refusal(
+            stored_phase=stored,
+            proposed_phase=proposed,
+            fixtures_on_stored_side=4,
+            fixtures_on_proposed_side=0,
+        )
+
+        assert refusal is not None
+        assert refusal[0] == SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY
+        assert "4" in refusal[1]
+
+    @pytest.mark.parametrize(("stored", "proposed"), [("viertelfinale", "gruppenphase"), ("gruppenphase", "halbfinale")])
+    def test_an_empty_matchday_crosses_freely(self, stored, proposed):
+        """
+        The capability this rule must not take away (ADR-0052).
+
+        A matchday created before its fixtures are drawn and given the wrong phase is the ordinary
+        setup mistake, and correcting it is the scheduling decision ADR-0052 deliberately kept editable.
+        Nothing is stranded, because there is nothing on the row to strand.
+        """
+
+        assert (
+            find_spieltag_boundary_refusal(
+                stored_phase=stored,
+                proposed_phase=proposed,
+                fixtures_on_stored_side=0,
+                fixtures_on_proposed_side=0,
+            )
+            is None
+        )
+
+    def test_a_move_towards_the_fixtures_is_the_repair_and_is_allowed(self):
+        """
+        The half that keeps the rule from reading the state instead of the step.
+
+        A `gruppenphase` matchday holding four knockout fixtures is already broken — the bracket shows
+        those fixtures under no round at all. Moving it to `viertelfinale` is what fixes that, so the
+        rule has to let the move it would otherwise refuse through when it runs the other way.
+        """
+
+        assert (
+            find_spieltag_boundary_refusal(
+                stored_phase="gruppenphase",
+                proposed_phase="viertelfinale",
+                fixtures_on_stored_side=0,
+                fixtures_on_proposed_side=4,
+            )
+            is None
+        )
+
+    def test_a_matchday_holding_both_kinds_is_left_alone_in_either_direction(self):
+        """
+        A row nothing can improve, so nothing is refused over it.
+
+        With fixtures on both sides every move strands something, and refusing would freeze the row's
+        phase permanently over a state no edit on this endpoint produced.
+        """
+
+        # Annotated rather than inferred: a bare tuple of `str` would widen past `FLSaisonPhase`, and
+        # `[tool.pyright]` covers `tests`.
+        both_ways: tuple[tuple[FLSaisonPhase, FLSaisonPhase], ...] = (
+            ("gruppenphase", "viertelfinale"),
+            ("viertelfinale", "gruppenphase"),
+        )
+        for stored, proposed in both_ways:
+            assert (
+                find_spieltag_boundary_refusal(
+                    stored_phase=stored,
+                    proposed_phase=proposed,
+                    fixtures_on_stored_side=3,
+                    fixtures_on_proposed_side=2,
+                )
+                is None
+            )
+
+    def test_relabelling_one_knockout_round_as_another_stays_open(self):
+        """
+        The cell ADR-0052's argument rests on, asserted so a later rule cannot quietly close it.
+
+        Which matchday is the quarter-final is a scheduling decision, and a knockout matchday keeps its
+        fixtures on the same side of the boundary whichever round it is called — so the count rule
+        (`REQ-SPIELTAG-002`) is the only thing that has anything to say about this move.
+        """
+
+        assert (
+            find_spieltag_boundary_refusal(
+                stored_phase="halbfinale",
+                proposed_phase="viertelfinale",
+                fixtures_on_stored_side=2,
+                fixtures_on_proposed_side=2,
+            )
+            is None
+        )
+
+    def test_one_move_can_trip_both_rules(self):
+        """
+        Eight group fixtures moved into a round the season never plays: both rules answer.
+
+        Which of the two an admin is told is the ENDPOINT's ordering, asserted at
+        `tests/api/test_spieltage_write_execution.py :: TestWhichPhaseChangesAreLegitimate`. What this
+        pins is that the ordering has something to order — a rule that quietly stopped firing here would
+        make that assertion pass while proving nothing.
+        """
+
+        unplayed = find_spieltag_unplayed_phase_refusal(stored_phase="gruppenphase", proposed_phase="achtelfinale", implied_in_proposed=0)
+        boundary = find_spieltag_boundary_refusal(
+            stored_phase="gruppenphase",
+            proposed_phase="achtelfinale",
+            fixtures_on_stored_side=8,
+            fixtures_on_proposed_side=0,
+        )
+
+        assert unplayed is not None
+        assert unplayed[0] == SPIELTAG_MOVED_TO_UNPLAYED_PHASE
+        assert boundary is not None
+        assert boundary[0] == SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY
+
+    def test_the_two_codes_are_distinct(self):
+        """Different advice — change the season's rules, against move the fixtures — so different codes."""
+
+        assert SPIELTAG_MOVED_TO_UNPLAYED_PHASE != SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY
 
 
 class TestChangingThePhase:

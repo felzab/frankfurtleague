@@ -70,6 +70,8 @@ request would have succeeded against a different state of the database
 | `REQ-SPIELTAG-002`    | 409    | A matchday was moved to a phase accounting for fewer matches than the one it holds now (ADR-0052)                                              |
 | `REQ-SPIELTAG-003`    | 409    | A season whose knockout phase has started was asked for a new matchday                                                                         |
 | `REQ-SPIELTAG-004`    | 409    | A matchday was created in a phase the season's rules never produce (ADR-0052)                                                                  |
+| `REQ-SPIELTAG-005`    | 409    | A matchday was moved into a round the season's rules never produce (ADR-0075)                                                                  |
+| `REQ-SPIELTAG-006`    | 409    | A matchday carrying fixtures was moved across the gruppenphase/knockout boundary, away from them (ADR-0075)                                    |
 | `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                                                          |
 | `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                                                                   |
 | `REQ-DATE-003`        | 409    | A matchday's span would shrink below a date one of its own fixtures holds                                                                      |

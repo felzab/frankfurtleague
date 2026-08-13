@@ -154,6 +154,96 @@ def find_spieltag_retire_refusal(*, played_count: int, live_in_phase: int, impli
     return None
 
 
+# A matchday MOVED into a round the season's rules never produce (decided 2026-08-13). The mirror of
+# `REQ-SPIELTAG-004` on the edit path: the create refuses that row, and until this existed the patch
+# could still produce one.
+SPIELTAG_MOVED_TO_UNPLAYED_PHASE = "REQ-SPIELTAG-005"
+
+# A matchday carrying fixtures MOVED across the gruppenphase/knockout boundary (ADR-0075). The
+# bracket selects rounds by the MATCHDAY's phase and fixtures by the FIXTURE's, so the move
+# strands one against the other.
+SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY = "REQ-SPIELTAG-006"
+
+
+def find_spieltag_unplayed_phase_refusal(
+    *,
+    stored_phase: FLSaisonPhase,
+    proposed_phase: FLSaisonPhase,
+    implied_in_proposed: int,
+) -> tuple[str, str] | None:
+    """
+    Why moving this matchday into the proposed round must be refused, as `(error_code, detail)` (ADR-0075).
+
+    The edit path's mirror of `REQ-SPIELTAG-004`. `implied_in_proposed` is `implied_matchdays` for the
+    PROPOSED phase, and zero means the season's rules produce no such round -- so the row would report a
+    round with no matches in it and sit in a bracket the season never reaches.
+
+    **Judged first among the phase rules**, because it is a property of the season's rules and the payload
+    alone: `find_spieltag_create_refusal` orders its two the same way, and for the same reason -- moving
+    fixtures around would not make the round exist, so naming the rules is the only actionable answer.
+
+    **It reads the PROPOSED phase alone, so moving OUT of an unplayed round stays open.** That is the
+    repair: a row stranded in a round the bracket never reaches, by a rules change or by a create that
+    predates `REQ-SPIELTAG-004`, is exactly the one an admin has to be able to move somewhere real.
+    """
+
+    # An unchanged phase is a dates-only edit, and this is not a statement about where the row sits.
+    if stored_phase == proposed_phase or implied_in_proposed > 0:
+        return None
+
+    return (
+        SPIELTAG_MOVED_TO_UNPLAYED_PHASE,
+        f"these rules produce no {proposed_phase}; a matchday cannot be moved into a round the season never plays",
+    )
+
+
+def find_spieltag_boundary_refusal(
+    *,
+    stored_phase: FLSaisonPhase,
+    proposed_phase: FLSaisonPhase,
+    fixtures_on_stored_side: int,
+    fixtures_on_proposed_side: int,
+) -> tuple[str, str] | None:
+    """
+    Why this matchday may not cross the gruppenphase/knockout boundary, as `(error_code, detail)` (ADR-0075).
+
+    `saison_phase` is an editable input on purpose (ADR-0052) -- which matchday is the quarter-final is a
+    scheduling decision. What ADR-0052 never asked is whether every transition should be reachable, and
+    this one is not once the matchday carries fixtures: the bracket selects its rounds by the MATCHDAY's
+    phase and its fixtures by the FIXTURE's, and no endpoint writes `spiele.saison_phase` (ADR-0037), so
+    after the move those fixtures sit on the far side of that join with nothing able to bring them across.
+
+    **The two counts split this matchday's fixtures by the FIXTURE's own phase**, on the one boundary the
+    bracket cares about: `gruppenphase` against every knockout round. Judged LAST of the phase rules,
+    because it is the widest statement -- `REQ-SPIELTAG-002` names two numbers an admin can compare.
+
+    **It grades the STEP, three times over.** A payload repeating the stored phase crosses nothing, so a
+    dates-only patch is never judged here. A move TOWARDS the fixtures is the repair and passes, which is
+    what keeps a mislabelled row correctable. And a matchday holding both kinds is left alone in either
+    direction: whichever way it goes something is stranded, so refusing would freeze a row's phase
+    permanently over a state no edit on this endpoint produced.
+
+    **An EMPTY matchday crosses freely.** Correcting one created before its fixtures were drawn is the
+    ordinary setup mistake, and there is nothing on the row to strand.
+    """
+
+    crosses_the_boundary = (stored_phase == "gruppenphase") != (proposed_phase == "gruppenphase")
+    if not crosses_the_boundary or fixtures_on_stored_side == 0 or fixtures_on_proposed_side > 0:
+        return None
+
+    # Named by SIDE rather than by phase: a fixture on the knockout side may hold any of the four rounds,
+    # and none of them is necessarily the matchday's own.
+    stored_side = "gruppenphase" if stored_phase == "gruppenphase" else "knockout"
+    proposed_side = "gruppenphase" if proposed_phase == "gruppenphase" else "knockout"
+
+    return (
+        SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY,
+        f"the matchday holds {fixtures_on_stored_side} {stored_side} fixture(s) and no {proposed_side} one; "
+        f"moving it to {proposed_phase} would leave those fixtures on the other side of the bracket "
+        "boundary from their own matchday, and nothing here can move them across",
+    )
+
+
 def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int, expected_in_stored_phase: int) -> tuple[str, str] | None:
     """
     Why this matchday's phase must be refused, as `(error_code, detail)` -- or `None`.

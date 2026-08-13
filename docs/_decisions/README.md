@@ -88,6 +88,7 @@ cited from code and the path must never move
 | [0072](0072-the-matchday-editor-becomes-a-page.md)                                | The matchday editor becomes a page, on what a form must say                  | frontend               | Accepted               | 2026-08-13 |
 | [0073](0073-a-bracket-fault-is-stated-on-the-card-it-names.md)                    | A bracket fault is derived on demand; its reason is stated on the card       | backend, frontend      | Accepted               | 2026-08-13 |
 | [0074](0074-the-group-swap-refuses-a-disqualified-club.md)                        | The group swap refuses moving a disqualified club forward                    | backend                | Accepted               | 2026-08-13 |
+| [0075](0075-a-matchdays-phase-moves-only-where-the-move-means-something.md)       | A matchday's phase moves only where the move means something                 | backend, frontend      | Accepted               | 2026-08-13 |
 
 ## Read next
 

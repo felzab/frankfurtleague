@@ -10,6 +10,7 @@ Invariants:
 - Soft is not harmless — `REQ-RETIRE-002` refuses retiring a matchday holding a played match.
 - Nor is reactivating — `REQ-DATE-002` refuses one whose span the season no longer covers.
 - `anzahl_spiele` is derived (ADR-0052); `REQ-SPIELTAG-002` refuses a MOVE into a phase too small for it.
+- A phase change is graded as a STEP, never as the state the row already sits in (ADR-0075).
 - Every echo goes through `with_expected_matches`: the field is required and sits on no document.
 """
 
@@ -28,10 +29,12 @@ from app.api.spieltage.schemas import (
     FLSpieltagWriteResponse,
 )
 from app.api.spieltage.services import (
+    find_spieltag_boundary_refusal,
     find_spieltag_create_refusal,
     find_spieltag_phase_refusal,
     find_spieltag_retire_refusal,
     find_spieltag_span_refusal,
+    find_spieltag_unplayed_phase_refusal,
     with_expected_matches,
 )
 from app.core.config import API_VERSION
@@ -145,6 +148,14 @@ async def patch_spieltag(
     phase accounts for got there from data this API never wrote (ADR-0037), and refusing a payload that
     repeats its own phase would cost it its dates as well, over a mismatch no edit here can repair. Moving
     one from that state into a narrower phase still is refused, because it makes the mismatch worse.
+
+    **Two transitions are refused outright, whatever the counts say** (ADR-0075). A move into a round the
+    season's rules never produce is `REQ-SPIELTAG-005`, the mirror of the create's `REQ-SPIELTAG-004`. And
+    a matchday carrying fixtures may not cross the gruppenphase/knockout boundary away from them
+    (`REQ-SPIELTAG-006`): the bracket selects rounds by the MATCHDAY's phase and fixtures by the
+    FIXTURE's, and no endpoint writes `spiele.saison_phase`, so the move would strand every one of them
+    with nothing able to repair it. **An EMPTY matchday crosses freely** — correcting a mislabelled row is
+    the scheduling decision ADR-0052 kept editable.
     """
 
     stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
@@ -155,6 +166,25 @@ async def patch_spieltag(
     rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
     attached = await spiele_collection.count_documents({"spieltag_id": spieltag_id})
+
+    # Split by the FIXTURE's own `saison_phase`, which this endpoint never writes and which need not
+    # agree with its matchday's -- so the transition rule can tell a move away from the fixtures from a
+    # move towards them (ADR-0075).
+    attached_knockout = await spiele_collection.count_documents({"spieltag_id": spieltag_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}})
+    on_group_side = attached - attached_knockout
+    stored_phase = stored_raw["saison_phase"]
+
+    # First of the three phase rules, matching how the create orders `REQ-SPIELTAG-004`: a round the
+    # season never plays is wrong whatever the matchday holds (ADR-0075).
+    unplayed_refusal = find_spieltag_unplayed_phase_refusal(
+        stored_phase=stored_phase,
+        proposed_phase=spieltag_data.saison_phase,
+        implied_in_proposed=implied_matchdays(rules, spieltag_data.saison_phase),
+    )
+    if unplayed_refusal is not None:
+        error_code, detail = unplayed_refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
+
     refusal = find_spieltag_phase_refusal(
         attached_count=attached,
         expected_count=expected_matches(rules, spieltag_data.saison_phase),
@@ -164,6 +194,18 @@ async def patch_spieltag(
     )
     if refusal is not None:
         error_code, detail = refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
+
+    # Last of the three, because it is the widest statement: the count rule above names two numbers an
+    # admin can compare, where this one is about the join the whole bracket is drawn from (ADR-0075).
+    boundary_refusal = find_spieltag_boundary_refusal(
+        stored_phase=stored_phase,
+        proposed_phase=spieltag_data.saison_phase,
+        fixtures_on_stored_side=on_group_side if stored_phase == "gruppenphase" else attached_knockout,
+        fixtures_on_proposed_side=on_group_side if spieltag_data.saison_phase == "gruppenphase" else attached_knockout,
+    )
+    if boundary_refusal is not None:
+        error_code, detail = boundary_refusal
         raise DocumentConflictException(error_code=error_code, message=detail)
 
     # The span, against the season above and against this matchday's own fixtures. Undated fixtures are

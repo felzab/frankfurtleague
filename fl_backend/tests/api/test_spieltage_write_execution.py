@@ -1,18 +1,18 @@
 """
 SPIELTAGE · the write path against a real MongoDB (ADR-0023)
 
-Three things only a database proves. The SEQUENCE `REQ-DATE-002` is wired into on the way back in:
-retire a matchday, shrink the season past it -- which `PATCH /saisons/{saison_id}` permits, because
-`REQ-DATE-004` reads live matchdays only -- and then ask for it back. The ECHO every write
-answers with, which carries a derived `anzahl_spiele` that sits on no document (ADR-0052), so a
-matchday created since that decision reaches validation without it. And WHICH PATCHES
-`REQ-SPIELTAG-002` reaches, which needs a real fixture count against a real season's rules.
+Four things only a database proves. The SEQUENCE `REQ-DATE-002` is wired into on the way back in:
+retire a matchday, shrink the season past it, then ask for it back. The ECHO every write answers
+with, carrying a derived `anzahl_spiele` that sits on no document (ADR-0052). WHICH PATCHES
+`REQ-SPIELTAG-002` reaches, which needs a real fixture count against a real season's rules. And the
+SPLIT the phase-transition rules read (ADR-0075), which counts a matchday's fixtures by the phase
+each of them stores rather than by the matchday's own.
 
 Each step runs through the handler that performs it, so the premise is proved rather than assumed.
 
 Invariants:
 - The season shrink is asserted to SUCCEED; a refusal there would leave the reactivate case vacuous.
-- The default seed carries no `anzahl_spiele`; the one case that seeds `99` asserts the echo ignores it.
+- The default seed carries no `anzahl_spiele`; the one case seeding `99` asserts the echo ignores it.
 - Every test is marked `db` and deselected by default (`fl_backend/tests/README.md`).
 
 See:
@@ -28,9 +28,15 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
+from app.api.spiele.schemas import FLSaisonPhase
 from app.api.spieltage.admin_router import delete_spieltag, patch_spieltag, post_spieltag, reactivate_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload, FLPostSpieltagPayload
-from app.api.spieltage.services import SPIELTAG_OUTSIDE_SAISON, SPIELTAG_OVER_ITS_PHASE
+from app.api.spieltage.services import (
+    SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY,
+    SPIELTAG_MOVED_TO_UNPLAYED_PHASE,
+    SPIELTAG_OUTSIDE_SAISON,
+    SPIELTAG_OVER_ITS_PHASE,
+)
 from app.core.exceptions import DocumentConflictException
 
 pytestmark = pytest.mark.db
@@ -432,3 +438,159 @@ class TestAMatchdayOverItsPhaseKeepsItsDatesEditable:
         refusal = on_a_database(mongo_container, body)
 
         assert refusal.error_code == SPIELTAG_OVER_ITS_PHASE
+
+
+class TestWhichPhaseChangesAreLegitimate:
+    """
+    `REQ-SPIELTAG-005` and `REQ-SPIELTAG-006` through the endpoint (ADR-0075).
+
+    What only a database proves here is the SPLIT the boundary rule reads. Its two side counts come from
+    two `count_documents` calls against a real `spiele` collection, keyed on the FIXTURE's own
+    `saison_phase` -- a stored field this endpoint never writes and which need not agree with its
+    matchday's. Seeding fixtures that carry it is the whole point: a unit test can be handed the two
+    figures, and only this can prove the endpoint derives them the way the rule expects.
+
+    It also pins the ORDER the three phase rules answer in, which belongs to the endpoint rather than to
+    any one of them.
+    """
+
+    async def _with_fixtures(self, database: AsyncIOMotorDatabase, saison_phase: str, count: int) -> None:
+        """Fixtures carrying their OWN phase, dateless so `REQ-DATE-003` has nothing to hold."""
+
+        for spiel_nr in range(1, count + 1):
+            await database.spiele.insert_one(
+                {"saison_id": SAISON_ID, "spieltag_id": SPIELTAG_OID, "spiel_nr": spiel_nr, "saison_phase": saison_phase}
+            )
+
+    async def _patch_to(self, database: AsyncIOMotorDatabase, saison_phase: FLSaisonPhase) -> Any:
+        return await patch_spieltag(
+            spieltag_id=SPIELTAG_OID,
+            spieltag_data=FLPatchSpieltagPayload(beginn=SPIELTAG_BEGINN, ende=SPIELTAG_ENDE, saison_phase=saison_phase),
+            spieltage_collection=database.spieltage,
+            saisons_collection=database.saisons,
+            spiele_collection=database.spiele,
+        )
+
+    def test_a_drawn_knockout_round_may_not_become_a_group_matchday(self, mongo_container: Any):
+        """
+        The reported case, end to end.
+
+        The row is moved to `viertelfinale` and its four fixtures seeded as `viertelfinale`, so matchday
+        and contents agree before the move under test. `REQ-SPIELTAG-002` cannot fire -- the Gruppenphase
+        accounts for eight and the row holds four -- which leaves the boundary rule as the only thing
+        that can refuse.
+        """
+
+        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+            await database.spieltage.update_one({"_id": SPIELTAG_OID}, {"$set": {"saison_phase": "viertelfinale"}})
+            await self._with_fixtures(database, "viertelfinale", 4)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await self._patch_to(database, "gruppenphase")
+
+            return excinfo.value
+
+        refusal = on_a_database(mongo_container, body)
+
+        assert refusal.error_code == SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY
+
+    def test_an_empty_knockout_matchday_still_becomes_a_group_matchday(self, mongo_container: Any):
+        """
+        The capability ADR-0052 keeps, from the same starting row with nothing on it.
+
+        This is the pair that makes the case above a rule about the FIXTURES rather than about the two
+        phases: identical move, identical row, opposite answer.
+        """
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            await database.spieltage.update_one({"_id": SPIELTAG_OID}, {"$set": {"saison_phase": "viertelfinale"}})
+            return await self._patch_to(database, "gruppenphase")
+
+        response = on_a_database(mongo_container, body)
+
+        assert response.updated_document is not None
+        assert response.updated_document.saison_phase == "gruppenphase"
+        assert response.updated_document.anzahl_spiele == GRUPPENPHASE_MATCHES
+
+    def test_a_matchday_may_be_moved_to_agree_with_the_fixtures_it_holds(self, mongo_container: Any):
+        """
+        The repair, which the same crossing has to allow in the other direction.
+
+        A `gruppenphase` row holding four `viertelfinale` fixtures shows them under no bracket round at
+        all. Moving it to `viertelfinale` is what fixes that, so a rule reading the crossing alone would
+        block the only edit that improves the state.
+        """
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            await self._with_fixtures(database, "viertelfinale", 4)
+            return await self._patch_to(database, "viertelfinale")
+
+        response = on_a_database(mongo_container, body)
+
+        assert response.updated_document is not None
+        assert response.updated_document.saison_phase == "viertelfinale"
+
+    def test_a_move_into_a_round_the_season_never_plays_is_refused(self, mongo_container: Any):
+        """Eight qualifiers play no round of sixteen, so `achtelfinale` is a round this season never reaches."""
+
+        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+            await database.spieltage.update_one({"_id": SPIELTAG_OID}, {"$set": {"saison_phase": "viertelfinale"}})
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await self._patch_to(database, "achtelfinale")
+
+            return excinfo.value
+
+        refusal = on_a_database(mongo_container, body)
+
+        assert refusal.error_code == SPIELTAG_MOVED_TO_UNPLAYED_PHASE
+
+    def test_a_row_stranded_in_an_unplayed_round_keeps_its_dates_and_its_way_out(self, mongo_container: Any):
+        """
+        Both halves of grading the step, from the state the rule must not punish.
+
+        A row sitting in `achtelfinale` -- put there by a rules narrowing, or by a create predating
+        `REQ-SPIELTAG-004` -- has its dates corrected and is then moved somewhere real. A rule reading
+        the row's own phase would refuse the first and leave nothing to reach the second with.
+        """
+
+        async def body(database: AsyncIOMotorDatabase) -> tuple[Any, Any]:
+            await database.spieltage.update_one({"_id": SPIELTAG_OID}, {"$set": {"saison_phase": "achtelfinale"}})
+
+            dates_only = await patch_spieltag(
+                spieltag_id=SPIELTAG_OID,
+                spieltag_data=FLPatchSpieltagPayload(beginn=SPIELTAG_BEGINN, ende="2026-06-22", saison_phase="achtelfinale"),
+                spieltage_collection=database.spieltage,
+                saisons_collection=database.saisons,
+                spiele_collection=database.spiele,
+            )
+
+            return dates_only, await self._patch_to(database, "viertelfinale")
+
+        dates_only, moved_out = on_a_database(mongo_container, body)
+
+        assert dates_only.updated_document is not None
+        assert dates_only.updated_document.ende == "2026-06-22"
+        assert moved_out.updated_document is not None
+        assert moved_out.updated_document.saison_phase == "viertelfinale"
+
+    def test_the_unplayed_round_is_answered_before_the_boundary(self, mongo_container: Any):
+        """
+        Both rules fire on this move, and the endpoint's order decides which the admin is told.
+
+        Eight group fixtures moved into `achtelfinale`: the round does not exist AND the fixtures would
+        be stranded. Naming the season's rules is the actionable half -- moving fixtures would not make
+        the round exist.
+        """
+
+        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+            await self._with_fixtures(database, "gruppenphase", GRUPPENPHASE_MATCHES)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await self._patch_to(database, "achtelfinale")
+
+            return excinfo.value
+
+        refusal = on_a_database(mongo_container, body)
+
+        assert refusal.error_code == SPIELTAG_MOVED_TO_UNPLAYED_PHASE
