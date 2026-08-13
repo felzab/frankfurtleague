@@ -62,9 +62,10 @@ describe("every form holding a draft", () => {
     it(`${file} submits through runOnSubmit and passes no action`, () => {
       assert.ok(sources.get(file)?.includes("<Form"), `${file} calls useServerFieldErrors but renders no <Form>`);
       assert.ok(sources.get(file)?.includes("onSubmit={runOnSubmit("), `${file} does not submit through runOnSubmit`);
-      // The whole defect in one token: React resets a form whose `action` is a function, and the
-      // reset reaches the draft through react-aria's per-field listeners.
-      assert.ok(!sources.get(file)?.includes("action={"), `${file} passes an action to a form whose fields are controlled`);
+      // The whole defect in one prop: React resets a form whose `action` is a function, and the reset
+      // reaches the draft through react-aria's per-field listeners. Matched at a JSX prop position, so
+      // `onAction` and a `data-action` attribute are not mistaken for it.
+      assert.ok(!/\saction=\{/.test(sources.get(file) ?? ""), `${file} passes an action to a form whose fields are controlled`);
     });
   }
 });
