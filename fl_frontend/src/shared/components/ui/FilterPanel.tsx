@@ -39,6 +39,32 @@ import type { CSSProperties, RefObject } from "react";
 const VISIBLE_OPTIONS = 5;
 
 /**
+ * A picked option's row.
+ *
+ * **`fl_frontend/src/features/saisons/components/forms/StufenPicker.tsx :: STUFE_CHIP`'s recipe rather than the tab strip's**, because that control answers
+ * the question this list does — several options on at once — where a tab strip holds exactly one and
+ * paints its fill with a positioned indicator a list row has no equivalent of. HeroUI ships an EMPTY
+ * selected block for `.list-box-item`, which is why a picked row draws nothing of its own.
+ *
+ * **A picked row still answers the pointer**, on `formButtons.ts`'s own pair: `--accent-brand-solid-hover`
+ * is the app's one step off a brand-solid fill, so the hover cannot swallow the selection and the
+ * selection cannot swallow the hover. The compound variants are what settle it — `data-hovered:bg-hover`
+ * and `data-[selected=true]:bg-brand-solid` carry the SAME specificity, so source order would otherwise
+ * decide which of them a hovered, picked row wears.
+ */
+const OPTION_SELECTED =
+  "data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground data-[selected=true]:data-hovered:bg-brand-solid-hover data-[selected=true]:data-hovered:text-brand-solid-foreground";
+
+/**
+ * The count badge ON a picked row — the pair in
+ * `fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx :: SELECTED_BADGE`,, which
+ * exists for this exact collision: a solid-brand badge on a solid-brand fill is one shape, not two.
+ *
+ * Spelled here rather than imported, because `shared` may not reach into a feature (ADR-0008).
+ */
+const BADGE_ON_SELECTED = "bg-brand-solid-foreground/20 text-brand-solid-foreground";
+
+/**
  * The cell's ceiling: `40k + 46` — `k` rows of 36px on 4px gaps, plus the header, its gap and the
  * cell's own padding. At five rows that is 246px, which the `em` form keeps proportional to the type.
  */
@@ -223,11 +249,15 @@ function FacetCell<TItem>({
               isDisabled={count === 0 && !isPicked}
               // `bg-hover` is the token the keyboard indicator in `globals.css` paints too, and the two
               // being one colour is that rule's whole claim. The brand ink is the call site's own pair.
-              className={`fluid-sm data-hovered:bg-hover data-hovered:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-1.5 font-bold transition-colors duration-(--motion-fast) ${
+              className={`${OPTION_SELECTED} fluid-sm data-hovered:bg-hover data-hovered:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-1.5 font-bold transition-colors duration-(--motion-fast) ${
                 count === 0 ? "text-foreground-muted" : "text-foreground"
               }`}>
               <span className="min-w-0 truncate">{option.label}</span>
-              <span className={`${COUNT_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>{count}</span>
+              {/* Picked in JS rather than by a variant: both arms set the same two properties, so a
+                  variant would leave CSS order to decide which fill a picked row's badge wears. */}
+              <span className={`${COUNT_BADGE} shrink-0 ${isPicked ? BADGE_ON_SELECTED : "bg-brand-solid text-brand-solid-foreground"}`}>
+                {count}
+              </span>
             </ListBox.Item>
           );
         })}
