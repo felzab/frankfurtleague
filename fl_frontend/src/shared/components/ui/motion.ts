@@ -29,8 +29,8 @@
  *
  * **Not for a collection of cards** — see `CARDS_CASCADE` for why a block fade fails there. On a
  * container whose children cascade, the test is whether the container has anything of its own to
- * bring in: chrome the cascade cannot reach — a tab strip, a masthead, a table's column headers —
- * or the empty state that stands in when the collection has no items. It is wrong on a bare wrapper,
+ * bring in: chrome the cascade cannot reach, such as the tab strip a panel's grid sits under, or the
+ * empty state that stands in when the collection has no items. It is wrong on a bare wrapper,
  * where the rise animates the pixels the cascade is already animating and the entrance is paid for
  * twice. **State that test rather than a count of the views passing it**, which is a sentence needing
  * an edit every time a shell gains a collection. What keeps a qualifying overlap one gesture rather
@@ -43,22 +43,28 @@
 export const PAGE_RISE = "animate-in fade-in slide-in-from-bottom-2 duration-(--motion-slow) ease-(--motion-ease-enter)";
 
 /**
- * TIER 2 — the cascade. A collection's items arrive in sequence, 25ms apart, rather than all at once.
+ * TIER 2 — the card cascade. Cards arrive in sequence, 25ms apart, rather than all at once.
+ *
+ * **THE UNIT IS THE CARD, AND NEVER ANYTHING INSIDE ONE.** A card is a box a reader's eye stops on
+ * and moves between, so sequencing cards sequences the act of reading the page; the contents of one
+ * card are read as a single stop, and animating them apart takes a thing that arrives as one and
+ * makes it assemble itself. That is the whole test for where this class goes, and it is why the
+ * Saisontabelle sequences its four group panels rather than the rows inside them. A table standing
+ * in no collection of cards therefore takes no cascade, rather than one keyed on its rows.
  *
  * For **any grid or list of cards**, whatever the card is — `SpielCard`, `SpielCardCompact`,
- * `TeamCard` — and equally for **a table's rows**, which is why the Saisontabelle's group tables
- * carry it on `Table.Body`. It is keyed off `role="listitem"` and `role="row"` rather than off a
- * card type precisely so a grid of teams arrives like a grid of matches and a league table arrives
- * like both; the shape of the collection is what decides, not its contents. It goes on the container
- * — the `role="list"` grid, or the `Table.Body` whose `<tbody>` holds the rows — and the items need
- * no class of their own.
+ * `TeamCard`, the Saisontabelle's group panels. It is keyed off `role="listitem"` rather than off a
+ * card type precisely so a grid of teams arrives like a grid of matches; the shape of the collection
+ * is what decides, not its contents. It goes on the `role="list"` container and the cards need no
+ * class of their own — which means a collection that is not marked up as a list is a collection to
+ * give the roles to, not a reason to widen the selector.
  *
  * The keyframes, the stagger and the reasoning live in `globals.css`; the short version is that a
- * block fade reads as the content *mutating in place* when each item lands exactly where the
- * previous set's item was, and only separating them in time fixes it. That is why this is not
+ * block fade reads as the content *mutating in place* when each card lands exactly where the
+ * previous set's card was, and only separating them in time fixes it. That is why this is not
  * interchangeable with `PAGE_RISE` even though the two now share a duration and a curve. The stagger
- * is capped at eight steps there, so a twenty-row table settles in the same 475ms an eight-card grid
- * does and no row count turns the entrance into a wait.
+ * is capped at eight steps there, so no collection turns the entrance into a wait: a grid of any
+ * length settles at 475ms, and four cards at 375ms.
  *
  * **Two collections deliberately do not use it**, both because their items are positioned relative
  * to chrome that cannot animate with them: the playoff bracket, whose cards are joined by CSS

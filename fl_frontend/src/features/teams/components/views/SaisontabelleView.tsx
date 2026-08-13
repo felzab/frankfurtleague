@@ -8,7 +8,7 @@ import { Badge, Table } from "@heroui/react";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
-import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import { computePlatzByTeamId, computeQualifyingTeamIds } from "../../utils";
@@ -64,10 +64,17 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
   }
 
   return (
-    /** The rise goes on the container rather than on each group panel (decided 2026-08-02): the
-        panels are a short stack, not a collection, and staggering two or three full-width tables
-        reads as the page assembling itself rather than arriving. */
-    <div className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8`}>
+    /** The group panels ARE the collection this page renders, so they cascade as a card grid does
+        and each panel's table arrives whole. No page rise beside it: this container holds nothing
+        but the panels, and the leading panel's step is the same 8px over the same 300ms on the same
+        curve, so a rise here would only make that one panel travel the distance twice.
+
+        `role="list"` and `role="listitem"` are what the cascade selects, and they are also what this
+        markup owes a screen reader — four group standings are a list of four, however they are
+        boxed. */
+    <div
+      role="list"
+      className={`${CARDS_CASCADE} relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8`}>
       {typedObjectEntries(gruppenData).map(([gruppe, teamsData]) => {
         /* The teams a bracket slot would seed from if the group ended now. Derived rather than
              taken as row indices: a disqualified team holds no place and one that has played nothing
@@ -81,6 +88,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
 
         return (
           <div
+            role="listitem"
             key={gruppe}
             className={`${card()} max-w-page mb-6 flex w-full flex-col items-start p-3 sm:p-6`}>
             <div className="flex flex-col gap-1 pb-6">
@@ -123,10 +131,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                   </Table.Column>
                 </Table.Header>
 
-                {/* A group's teams are a collection, so its rows sequence as a card grid's cards
-                    do. On the body rather than the table root, which would take the header row in. */}
                 <Table.Body
-                  className={CARDS_CASCADE}
                   renderEmptyState={() => (
                     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                       <p className="fluid-sm text-foreground-muted font-medium">Für diese Gruppe sind noch keine Teams eingeteilt.</p>

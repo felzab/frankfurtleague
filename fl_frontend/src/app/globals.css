@@ -1110,7 +1110,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     --card-enter-shift: 0;
   }
 
-  .cards-cascade :is([role="listitem"], [role="row"]) {
+  .cards-cascade [role="listitem"] {
     animation-delay: 0ms !important;
   }
 
@@ -1314,60 +1314,52 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    * opacity does not help, because duration is not the variable. Separating the cards in time is
    * what fixes it: the eye follows a sequence instead of catching a single flash.
    *
-   * It is the entrance for **every collection**: the spielplan's panels, the landing page's two
+   * It is the entrance for **every card collection**: the spielplan's panels, the landing page's two
    * grids, spielsuche, the admin action-required panels, `TeamsGrid`, and the Saisontabelle's group
-   * tables. Collections one nav click apart must arrive the same way, which is why this is keyed off
-   * a role rather than off a card type. Spielsuche leans on it hardest — it re-renders on
-   * every debounced keystroke, the same land-where-the-last-one-was situation as a tab switch.
+   * panels. Grids of cards one nav click apart must arrive the same way, which is why this is keyed
+   * off `role="listitem"` rather than off a card type. Spielsuche leans on it hardest — it re-renders
+   * on every debounced keystroke, the same land-where-the-last-one-was situation as a tab switch.
+   *
+   * **The item is the card, and never anything inside one** — `motion.ts` states why on
+   * `CARDS_CASCADE`, and that sentence is what decides where the class goes.
    *
    * Two collections are deliberate exceptions, both because their cards are positioned against
    * chrome that does not animate with them: the playoff bracket (CSS bracket lines) and
    * `TeamSaisonSpieleTimeline` (a dashed rule with an absolutely-placed badge per row). The bracket
    * arrives by `.bracket-sweep` below, which sequences whole columns and moves nothing.
    *
-   * **Two roles, one sequence.** `[role="listitem"]` is a card in a `role="list"` grid and
-   * `[role="row"]` is a row in a `Table.Body`; each is one item of whatever collection the class was
-   * placed on, so both step the same interval rather than a table earning a cascade of its own —
-   * a second rule tuned for rows would be a second answer to a question already settled here.
-   * `:is()` and not `:where()`: both roles are attribute selectors, so `:is()` holds the rule at the
-   * exact specificity a bare `[role="listitem"]` had and widening it settles nothing differently,
-   * where `:where()` would quietly drop it below every `@heroui/styles` class in this same layer.
-   *
-   * A descendant selector, not a child combinator: `SpielCardsList` wraps its cards in a
+   * `[role="listitem"]`, not a child combinator: `SpielCardsList` wraps its cards in a
    * `display: contents` div, which removes the box but NOT the DOM node, so `>` would match the
    * wrapper rather than the cards. `:nth-child` still counts correctly through it, because
-   * `display: contents` does not change parentage. A `<tbody>`'s rows count natively; placed on
-   * `Table.Body` rather than on the table root, the class leaves the header row out of the sequence.
+   * `display: contents` does not change parentage.
    *
-   * Eight steps, then a shared delay for the rest, and **the cap is what lets one interval serve
-   * both shapes**. The largest Spieltag holds eight matches, while a group's row count has no upper
-   * bound — the backend's `teams_per_group` is only `gt=0` — so an uncapped 25ms run would hold a
-   * twentieth row back by 475ms before it started, and spielsuche's hundredth card by two and a half
-   * seconds. Capped, the last step starts at 175ms and every collection, eight cards or twenty rows,
-   * has settled at 475ms.
+   * Eight steps, then a shared delay for the rest: the largest Spieltag holds eight matches, and an
+   * unbounded list (spielsuche) must not stagger a hundredth card by two and a half seconds. The last
+   * step starts at 175ms, so a grid of any length has settled at 475ms — four cards, well inside the
+   * cap, at 375ms.
    */
-  .cards-cascade :is([role="listitem"], [role="row"]) {
+  .cards-cascade [role="listitem"] {
     animation: card-enter var(--motion-slow) var(--motion-ease-enter) both;
   }
-  .cards-cascade :is([role="listitem"], [role="row"]):nth-child(2) {
+  .cards-cascade [role="listitem"]:nth-child(2) {
     animation-delay: 25ms;
   }
-  .cards-cascade :is([role="listitem"], [role="row"]):nth-child(3) {
+  .cards-cascade [role="listitem"]:nth-child(3) {
     animation-delay: 50ms;
   }
-  .cards-cascade :is([role="listitem"], [role="row"]):nth-child(4) {
+  .cards-cascade [role="listitem"]:nth-child(4) {
     animation-delay: 75ms;
   }
-  .cards-cascade :is([role="listitem"], [role="row"]):nth-child(5) {
+  .cards-cascade [role="listitem"]:nth-child(5) {
     animation-delay: 100ms;
   }
-  .cards-cascade :is([role="listitem"], [role="row"]):nth-child(6) {
+  .cards-cascade [role="listitem"]:nth-child(6) {
     animation-delay: 125ms;
   }
-  .cards-cascade :is([role="listitem"], [role="row"]):nth-child(7) {
+  .cards-cascade [role="listitem"]:nth-child(7) {
     animation-delay: 150ms;
   }
-  .cards-cascade :is([role="listitem"], [role="row"]):nth-child(n + 8) {
+  .cards-cascade [role="listitem"]:nth-child(n + 8) {
     animation-delay: 175ms;
   }
 
