@@ -1,12 +1,5 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-
-import { FilterBar } from "./FilterBar";
-import { FilterLeiste } from "./FilterLeiste";
-
-import type { Facet } from "@/shared/utils/facets";
-
 /**
  * SHARED · the filter A/B switch — SCAFFOLDING
  *
@@ -21,6 +14,12 @@ import type { Facet } from "@/shared/utils/facets";
  * - `FilterBar.tsx :: FilterBar` — the panel, reworked
  * - `FilterLeiste.tsx :: FilterLeiste` — one trigger per dimension
  */
+import { useSearchParams } from "next/navigation";
+
+import { FilterBar } from "./FilterBar";
+import { FilterLeiste } from "./FilterLeiste";
+
+import type { Facet } from "@/shared/utils/facets";
 
 /** Absent or anything else selects the panel, so an untouched URL is the shape the app already had. */
 export const FILTER_EXPERIMENT_PARAM = "filterui";
