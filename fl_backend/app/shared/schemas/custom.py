@@ -106,11 +106,9 @@ def parse_empty_string_to_none(value: Any) -> Any:
 CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_to_none)]
 
 
-# `fl_frontend/src/shared/schemas.ts :: PHONE_REGEX` mirrors this.
-#
-# A LITERAL SPACE, never `\s`: the class sits INSIDE the anchors, so a `\s` there let the value carry
-# the newlines and tabs the anchors were written to exclude -- `"\n\n1"` was a valid phone number. A
-# space is the only whitespace a dialled number holds.
+# A LITERAL SPACE, never `\s`: the class sits INSIDE the anchors, so `\s` there lets the value carry the
+# newlines and tabs they exclude. `fl_frontend/src/shared/schemas.ts :: PHONE_REGEX` repeats it by hand,
+# and nothing compares the two (ADR-0033).
 PHONE_REGEX = r"^([+]?[ 0-9\-().]{3,20})$"
 
 # Byte-for-byte the regex zod uses for `z.regexes.domain`, because `ExternalUrlSchema` tests the parsed

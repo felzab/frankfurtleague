@@ -6,6 +6,7 @@ import { Sliders, Xmark } from "@gravity-ui/icons";
 
 import { Button, ListBox, Popover, ScrollShadow, SearchField } from "@heroui/react";
 
+import { dismissControl } from "@/core/dismissControl";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { countFacetOptions } from "@/shared/utils/facets";
 
@@ -96,11 +97,9 @@ function FacetCell<TItem>({
               placeholder="Suchen..."
               className="fluid-xs w-full min-w-0 bg-transparent outline-none"
             />
-            {/* `bg-transparent` because `.close-button--default` paints `--default` AT REST, so a hover
-                laid over it moves toward the panel in the dark theme instead of away from it. No
-                `transition-*` here: HeroUI's own list already names `transform`, which is what its press
-                animates, and a Tailwind list would replace it wholesale. */}
-            <SearchField.ClearButton className="text-foreground-muted data-hovered:bg-hover data-hovered:text-foreground size-6 shrink-0 bg-transparent" />
+            {/* Named for the facet, not for the panel: the cells are all open at once, so a bare
+                „Suche zurücksetzen" would be one name repeated across every wide facet. */}
+            <SearchField.ClearButton {...dismissControl({ label: `${facet.label}-Suche zurücksetzen` })} />
           </SearchField.Group>
         </SearchField>
       )}

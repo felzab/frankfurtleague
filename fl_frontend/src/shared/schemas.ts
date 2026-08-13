@@ -13,7 +13,10 @@
 
 import { z } from "zod";
 
-const PHONE_REGEX = new RegExp(/^([+]?[\s0-9\-().]{3,20})$/);
+// A LITERAL SPACE, never `\s`: the class sits INSIDE the anchors, so `\s` there lets the value carry the
+// newlines and tabs they exclude. ADR-0033 keeps patterns out of the contract comparison, so nothing
+// catches this one drifting from the backend's.
+const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{3,20})$/);
 
 export const CustomDateStringSchema = z.iso.date({ error: "Bitte gib ein gültiges Datum ein." });
 

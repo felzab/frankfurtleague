@@ -2,6 +2,7 @@
 
 import { Autocomplete, FieldError, Label, ListBox, SearchField, useFilter } from "@heroui/react";
 
+import { dismissControl } from "@/core/dismissControl";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { formatQuelle, isDirectlyPrecedingRound, listFeederSpiele, quelleKey } from "@/features/spiele/utils";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
@@ -336,18 +337,17 @@ export function FormTeamPicker({
             what parks it at the trailing edge as the listbox rows do, so the clear button beside it
             does not move when a team is disqualified. */}
         {isSelectedDisqualified && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong ms-2 shrink-0`}>Disqualifiziert</span>}
-        {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. `size-7`
-            because the default is a 20px target on the control that is the PRIMARY way a group
-            fixture's side is emptied — too small to see and to hit. */}
         {/* Not offered while this side carries goals: emptying it would take them with it, and the
             composed `ergebnis` with them, which `REQ-RESULT-001` refuses (decided 2026-08-08). Switching
             the team stays available through the list, and that is the correction this control was being
             reached for anyway. */}
+        {/* `ms-2` here rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
+            truncated name ends against this button (I30 in `docs/frontend/spec.md`). `hover: "css"`
+            because HeroUI renders this one as a plain `<button>` (`core/dismissControl.ts`). */}
         {!hasStoredGoals && (
           <Autocomplete.ClearButton
             type="button"
-            aria-label={`${label}-Auswahl aufheben`}
-            className="text-foreground-muted hover:text-foreground ms-2 size-7 rounded-md [&_svg]:size-4"
+            {...dismissControl({ label: `${label}-Auswahl aufheben`, hover: "css", className: "ms-2" })}
           />
         )}
         <Autocomplete.Indicator />
@@ -365,7 +365,7 @@ export function FormTeamPicker({
                 placeholder="Team finden..."
                 className="bg-transparent outline-none"
               />
-              <SearchField.ClearButton />
+              <SearchField.ClearButton {...dismissControl({ label: `${label}-Suche zurücksetzen` })} />
             </SearchField.Group>
           </SearchField>
 
