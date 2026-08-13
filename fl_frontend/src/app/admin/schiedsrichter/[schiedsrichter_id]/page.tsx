@@ -29,10 +29,9 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   await connection();
   const schiedsrichterId = await resolveSchiedsrichterId(params);
 
-  // The list read rather than `GET /schiedsrichter/{id}`: it is already cached under the `schiedsrichter`
-  // tag every write on this page invalidates, so the editor costs no second cache entry. Retired
-  // referees are excluded by it, which is why this route answers not-found for one — they are in no
-  // list and behind no link either.
+  // The list read, not `GET /schiedsrichter/{id}`: already cached under the tag this page's write
+  // clears, so no second entry. It excludes retired referees — hence not-found for one, which is
+  // where every list and link already leaves them.
   const schiedsrichterRes = await getSchiedsrichter();
   const schiedsrichter = schiedsrichterRes.schiedsrichter.find((candidate) => candidate.id === schiedsrichterId);
   if (!schiedsrichter) {

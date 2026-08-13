@@ -179,8 +179,6 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     <AdminSpieltageView
       spieltage={rows}
       saisonId={saisonId}
-      saisonSpan={saison === null ? undefined : { start: saison.start_date, end: saison.end_date }}
-      saisonSchedule={saison?.schedule}
       phaseProgress={buildSpieltagPhaseProgress(saison?.schedule ?? [], spieltageRes.spieltage)}
     />
   );

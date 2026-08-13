@@ -29,10 +29,9 @@ async function AdminSpielortEditContent({ params }: { params: NextPageProps<{ sp
   await connection();
   const spielortId = await resolveSpielortId(params);
 
-  // The list read rather than `GET /spielorte/{id}`: it is already cached under the `spielorte` tag
-  // every write on this page invalidates, so the editor costs no second cache entry. Retired venues
-  // are excluded by it, which is why this route answers not-found for one — they are in no list and
-  // behind no link either.
+  // The list read, not `GET /spielorte/{id}`: already cached under the tag this page's write clears,
+  // so no second entry. It excludes retired venues — hence not-found for one, which is where every
+  // list and link already leaves them.
   const spielorteRes = await getSpielorte();
   const spielort = spielorteRes.spielorte.find((candidate) => candidate.id === spielortId);
   if (!spielort) {

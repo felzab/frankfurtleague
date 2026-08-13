@@ -342,7 +342,6 @@ decision nobody ratified. Each row is one never-clause; the argument lives in `d
 | 0047 | Add a disqualification boolean beside the record                                               |
 | 0048 | Widen `position` or `stufe` past their `Literal`s; drop `E2`                                   |
 | 0049 | Route-handle an undo outside a page-owned editor; revert before E592                           |
-| 0050 | Add a reorder endpoint for `spieltage`; move the rollover off its page                         |
 | 0051 | Store a `Spieltag`'s position or name; serve its label from the API                            |
 | 0052 | Store `anzahl_spiele`; hardcode the qualifier cap                                              |
 | 0053 | Import `app/core/domain.py` from `app/`; generate it; enforce it                               |
@@ -364,6 +363,7 @@ decision nobody ratified. Each row is one never-clause; the argument lives in `d
 | 0069 | Write `status` outside the activate endpoint; DELETE a season row; drop the rollover guard     |
 | 0070 | Confirm a clean save; raise the dialog on `info`; drop the undo when the dialog appears        |
 | 0071 | Make the club editor the swap's home; grade a swap pair separately in each component           |
+| 0072 | Add a reorder endpoint for `spieltage`; move the rollover off its page; re-sort its list       |
 | 0073 | Store a bracket fault; report a merely undecided placing; wrap a card without moving its role  |
 | 0074 | Reach the swap's disqualification refusal backwards; refuse a club standing on its own fixture |
 

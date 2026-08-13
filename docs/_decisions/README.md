@@ -63,7 +63,7 @@ cited from code and the path must never move
 | [0047](0047-a-disqualification-is-a-record-and-its-absence-is-the-null.md)        | A disqualification is a record, and its absence is the null                  | backend, frontend      | Accepted               | 2026-08-07 |
 | [0048](0048-position-and-stufe-are-closed-sets.md)                                | A player's position and stufe are closed sets                                | backend                | Accepted               | 2026-08-07 |
 | [0049](0049-every-page-owned-editors-undo-is-a-route-handler.md)                  | Every page-owned editor's undo is a route handler, until E592 is fixed       | frontend               | Accepted               | 2026-08-07 |
-| [0050](0050-a-matchday-list-is-the-seasons-skeleton.md)                           | A matchday list is the season's skeleton, and the rollover is on its page    | frontend               | Accepted               | 2026-08-07 |
+| [0050](0050-a-matchday-list-is-the-seasons-skeleton.md)                           | A matchday list is the season's skeleton, and the rollover is on its page    | frontend               | Superseded by ADR-0072 | 2026-08-07 |
 | [0051](0051-a-matchdays-position-is-derived-not-stored.md)                        | A matchday's position and name are derived, not stored                       | backend, frontend      | Accepted               | 2026-08-07 |
 | [0052](0052-a-seasons-schedule-is-derived-from-its-rules.md)                      | A season's schedule is derived from its rules, and the rules hold a shape    | backend, frontend      | Accepted               | 2026-08-07 |
 | [0053](0053-the-domain-model-is-declared-and-conformance-checked.md)              | The domain model is declared as data and conformance-checked, not evaluated  | backend                | Accepted               | 2026-08-07 |
@@ -85,6 +85,7 @@ cited from code and the path must never move
 | [0069](0069-the-activation-guard-has-an-override.md)                              | The activation guard stays on the endpoint; cancelling is its override       | backend                | Accepted               | 2026-08-13 |
 | [0070](0070-a-draft-carrying-a-warning-is-confirmed-before-it-saves.md)           | A draft carrying a warning is confirmed before it saves, and the undo stays  | frontend               | Accepted               | 2026-08-13 |
 | [0071](0071-the-swap-gains-a-second-entry-point.md)                               | The group swap gains a second entry point, with one side fixed               | frontend               | Accepted               | 2026-08-13 |
+| [0072](0072-the-matchday-editor-becomes-a-page.md)                                | The matchday editor becomes a page, on what a form must say                  | frontend               | Accepted               | 2026-08-13 |
 | [0073](0073-a-bracket-fault-is-stated-on-the-card-it-names.md)                    | A bracket fault is derived on demand; its reason is stated on the card       | backend, frontend      | Accepted               | 2026-08-13 |
 | [0074](0074-the-group-swap-refuses-a-disqualified-club.md)                        | The group swap refuses moving a disqualified club forward                    | backend                | Accepted               | 2026-08-13 |
 

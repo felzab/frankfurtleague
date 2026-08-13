@@ -133,7 +133,7 @@ rollover actually being missed.
 season, the Umstellung panel on `/admin/saisons/[saison_id]` activates it
 ([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)), the team and player editors
 carry the junction rows, and `/admin/spieltage` builds the skeleton
-([ADR-0050](../_decisions/0050-a-matchday-list-is-the-seasons-skeleton.md)). Each clears its own
+([ADR-0072](../_decisions/0072-the-matchday-editor-becomes-a-page.md)). Each clears its own
 caches as it saves. What no surface does is notice that the sequence has not started, or that it
 stopped half-way: nothing prompts for a step that is skipped.
 
@@ -229,7 +229,7 @@ single "create it and make it live" call turns a typo in a four-character season
 rollover of the running season, produced by a form field (ADR-0026). A guided workflow that finishes
 by making the season current is exactly that call with a wizard in front of it. The flow ends at a
 season that is ready and `future`; the rollover stays the panel on `/admin/saisons/[saison_id]`,
-where the outgoing season's unfinished fixtures are listed rather than counted (ADR-0050).
+where the outgoing season's unfinished fixtures are listed rather than counted (ADR-0072).
 
 **The load-bearing question: a matchday row is created by hand, and whether it should be is open.**
 `/admin/spieltage` creates one at a time, and what a row supplies is its phase and its date span —

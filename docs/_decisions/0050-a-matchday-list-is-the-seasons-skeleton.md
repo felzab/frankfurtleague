@@ -1,10 +1,10 @@
 # ADR-0050 — A matchday list is the season's skeleton, and the rollover belongs to the season's own page
 
-**Status:** Accepted\
+**Status:** Superseded by ADR-0072\
 **Date:** 2026-08-07\
 **Surface:** frontend\
 **Supersedes:** —\
-**Superseded by:** —\
+**Superseded by:** ADR-0072\
 **Source:** Open item FB-6, plus my question of 2026-08-07 — whether the admin surface needs a
 design of its own or should reuse the public Spielplan, which already works.
 

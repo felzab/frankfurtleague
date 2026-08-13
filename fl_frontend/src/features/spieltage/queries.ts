@@ -15,9 +15,9 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 
-import { FLSpieltageListResponseSchema } from "./schemas";
+import { FLSpieltageListResponseSchema, FLSpieltageSingleResponseSchema } from "./schemas";
 
-import type { FLSpieltageListResponse } from "./schemas";
+import type { FLSpieltageListResponse, FLSpieltageSingleResponse } from "./schemas";
 import type { FLSpieltageFilterParams } from "./types";
 
 export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promise<FLSpieltageListResponse> {
@@ -32,4 +32,23 @@ export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promi
   return apiClient<FLSpieltageListResponse>("/spieltage", FLSpieltageListResponseSchema, {
     params: filters,
   });
+}
+
+/**
+ * One matchday by its id, retired ones included — what the editor route resolves before it knows
+ * which season to ask about (ADR-0027 kept this endpoint for exactly that addressability).
+ *
+ * Base tag only, like the list beside it: every matchday write clears `spieltage`, and a granular tag
+ * per id would be one nothing invalidates on a write that moved a DIFFERENT matchday past this one
+ * (ADR-0001). It is a public read under the base key, so `"use cache"` is correct here — the rule
+ * against caching is about ADMIN-scoped reads, which key on arguments rather than on caller identity
+ * (ADR-0009).
+ */
+export async function getSpieltagById(spieltagId: string): Promise<FLSpieltageSingleResponse> {
+  "use cache";
+
+  cacheTag("spieltage");
+  cacheLife("days");
+
+  return apiClient<FLSpieltageSingleResponse>(`/spieltage/${spieltagId}`, FLSpieltageSingleResponseSchema);
 }

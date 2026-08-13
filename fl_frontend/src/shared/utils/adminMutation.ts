@@ -44,7 +44,7 @@ export const VALIDATION_FAILED = "Überprüfe Deine Eingaben.";
 
 /**
  * What every admin write answers when the session carries no admin role, declared once beside the
- * banner above and for the same reason: thirty-four guards across seven action modules and the four
+ * banner above and for the same reason: thirty-seven guards across seven action modules and the seven
  * undo handlers say this one sentence, in an interface that is German everywhere else.
  *
  * It is reachable rather than theoretical — it becomes `FormState.error`, which every editor renders
