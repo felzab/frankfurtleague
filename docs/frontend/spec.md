@@ -51,10 +51,10 @@ in would put pure functions inside a `"use cache"` module (ADR-0003). `facets.ts
 `constants.ts` because a facet carries a `read` function over the slice's row type — behaviour rather
 than copy — and because module scope is load-bearing: `AdminCrudView`'s memo and the react-aria
 collection behind it both key on the array's identity
-(`fl_frontend/src/features/teams/facets.ts :: TEAM_FACETS`). A slice whose page keeps only some of its
-dimensions in the filter row declares that beside them as a `*_PRIMARY_FACETS` list of params — one per
-surface rather than one per facet (`fl_frontend/src/shared/utils/facets.ts :: splitPromotedFacets`) —
-and `facets.test.ts` refuses a promoted param no facet in that slice offers.
+(`fl_frontend/src/features/teams/facets.ts :: TEAM_FACETS`). A slice declares every dimension its pages
+offer and no subset beside it: a filter control draws a pill for a dimension somebody chose to filter by
+and nothing for the rest, so which of them a page would rather show is a question no surface has to
+answer.
 
 ### 1.2 Cached reads
 

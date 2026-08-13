@@ -4,7 +4,7 @@ import { useMemo } from "react";
 
 import { AdminSpielerTable } from "@/features/spieler/components/collections/AdminSpielerTable";
 import { AdminDeleteSpielerModal } from "@/features/spieler/components/modals/AdminDeleteSpielerModal";
-import { buildSpielerFacets, SPIELER_PRIMARY_FACETS } from "@/features/spieler/facets";
+import { buildSpielerFacets } from "@/features/spieler/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import type { AdminSpielerRow, SpielerTeamOption } from "@/features/spieler/types";
@@ -47,7 +47,6 @@ export function AdminSpielerView({
       items={spieler}
       searchKeys={SEARCH_KEYS}
       facets={facets}
-      primaryFacets={SPIELER_PRIMARY_FACETS}
       renderTable={({ query, filteredItems, onDelete }) => (
         <AdminSpielerTable
           spielerQuery={query}

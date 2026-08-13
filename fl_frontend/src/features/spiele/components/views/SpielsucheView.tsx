@@ -10,7 +10,7 @@ import { useFuzzySearch } from "@/shared/hooks/useFuzzySearch";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { applyFacets } from "@/shared/utils/facets";
 
-import { buildSpielFacets, SPIEL_ADMIN_PRIMARY_FACETS, SPIEL_PRIMARY_FACETS } from "../../facets";
+import { buildSpielFacets } from "../../facets";
 import { formatQuelle } from "../../utils";
 import { SpielCardsList } from "../collections/SpielCardsList";
 
@@ -105,7 +105,6 @@ export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLS
           <FilterExperiment
             facets={facets}
             items={processedSpiele}
-            primary={isAdmin ? SPIEL_ADMIN_PRIMARY_FACETS : SPIEL_PRIMARY_FACETS}
           />
         </div>
       </div>

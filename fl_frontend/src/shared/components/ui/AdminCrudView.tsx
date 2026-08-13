@@ -56,7 +56,6 @@ export function AdminCrudView<TItem extends { id: string }>({
   items,
   searchKeys,
   facets = NO_FACETS,
-  primaryFacets,
   renderTable,
   renderEditModal,
   renderDeleteModal,
@@ -69,11 +68,6 @@ export function AdminCrudView<TItem extends { id: string }>({
    * reason `searchKeys` must be. An empty set renders no bar at all.
    */
   facets?: readonly Facet<TItem>[];
-  /**
-   * The params this page keeps in the filter row rather than behind an overflow control — a property of
-   * the page, not of the facet (`splitPromotedFacets`). Undeclared promotes every dimension.
-   */
-  primaryFacets?: readonly string[];
   renderTable: (args: { query: string; filteredItems: TItem[]; onEdit: (item: TItem) => void; onDelete: (item: TItem) => void }) => ReactNode;
   /**
    * Optional, because an editor is not necessarily a dialog: a resource whose form outgrew one edits
@@ -107,7 +101,6 @@ export function AdminCrudView<TItem extends { id: string }>({
       <FilterExperiment
         facets={facets}
         items={items}
-        primary={primaryFacets}
       />
 
       {renderTable({ query, filteredItems, onEdit: setEditingItem, onDelete: setDeletingItem })}

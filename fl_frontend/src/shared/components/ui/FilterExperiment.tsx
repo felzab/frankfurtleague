@@ -30,13 +30,10 @@ const LEISTE = "leiste";
 export function FilterExperiment<TItem>({
   facets,
   items,
-  primary,
   triggerLabel,
 }: {
   facets: readonly Facet<TItem>[];
   items: TItem[];
-  /** The Filterleiste's per-surface promotion. Carried through untouched; the panel has no use for it. */
-  primary?: readonly string[];
   triggerLabel?: string;
 }) {
   const searchParams = useSearchParams();
@@ -46,7 +43,6 @@ export function FilterExperiment<TItem>({
       <FilterLeiste
         facets={facets}
         items={items}
-        primary={primary}
       />
     );
   }
