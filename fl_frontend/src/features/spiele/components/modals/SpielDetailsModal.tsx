@@ -6,6 +6,7 @@ import { CircleInfo } from "@gravity-ui/icons";
 
 import { Modal, Separator } from "@heroui/react";
 
+import { dismissControl } from "@/core/dismissControl";
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { buildMapsSearchUrl, PLACEHOLDER } from "@/shared/utils/format";
 
@@ -107,15 +108,7 @@ export function SpielDetailsModal({
             <>
               {/* The one modal a non-admin sees, so it carries a visible dismissal: Escape and an
                   outside press leave a touch user with motor difficulty nothing to aim at. */}
-              <Modal.CloseTrigger
-                // HeroUI 3.2.4 hardcodes an English "Close" here and spreads `...rest` after it, so
-                // a caller's label wins.
-                aria-label="Dialog schließen"
-                // `bg-transparent` drops the fill HeroUI's default close-button variant paints, so
-                // the hover is the app's own step from the dialog's surface. `data-hovered:` is
-                // react-aria's flag, which a tap never sets. `transform` carries HeroUI's press.
-                className="text-foreground-muted data-hovered:bg-hover data-hovered:text-foreground bg-transparent transition-[color,background-color,transform] duration-(--motion-fast)"
-              />
+              <Modal.CloseTrigger {...dismissControl({ label: "Dialog schließen" })} />
 
               <Modal.Header className="gap-y-2 pb-4">
                 <div className="flex w-full flex-row items-center justify-start gap-x-2">

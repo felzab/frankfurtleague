@@ -18,6 +18,8 @@ import { tv } from "tailwind-variants";
 
 import { Spinner, Toast } from "@heroui/react";
 
+import { dismissControl } from "@/core/dismissControl";
+
 /**
  * Severity, carried by two thin marks and nothing else (decided 2026-08-06).
  *
@@ -114,12 +116,8 @@ export function AppToaster() {
 
             {/* `inset-auto` is load-bearing: HeroUI parks this control outside the shell's top-right
                 corner, and the redesign brings it back into the row. Its visibility is NOT set here —
-                see the `[data-frontmost]` note in `globals.css`. 28px is the smallest this may get:
-                WCAG 2.5.8 puts the floor at 24. */}
-            <Toast.CloseButton
-              aria-label="Benachrichtigung schließen"
-              className="text-foreground-muted data-hovered:text-foreground data-hovered:bg-hover relative inset-auto size-7 shrink-0 rounded-md border-0 bg-transparent transition-colors"
-            />
+                see the `[data-frontmost]` note in `globals.css`. */}
+            <Toast.CloseButton {...dismissControl({ label: "Benachrichtigung schließen", className: "relative inset-auto" })} />
 
             {hasTimer && (
               <span
