@@ -123,9 +123,8 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                   </Table.Column>
                 </Table.Header>
 
-                {/* The rows are this group's collection, so they sequence exactly as a card grid's
-                    cards do. On the body rather than on the table root, which would take the header
-                    row into the same sequence and leave the column labels arriving with row one. */}
+                {/* A group's teams are a collection, so its rows sequence as a card grid's cards
+                    do. On the body rather than the table root, which would take the header row in. */}
                 <Table.Body
                   className={CARDS_CASCADE}
                   renderEmptyState={() => (

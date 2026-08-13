@@ -11,7 +11,7 @@ import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
@@ -224,7 +224,9 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                 {/* No `renderEmptyState`, and the branch above is why. It is a render prop, which a
                     Server Component may not pass to a Client Component (frontend spec I13) — taking
                     it would make this a client boundary for a case a conditional already covers. */}
-                <Table.Body>
+                {/* A round's fixtures are a collection, so its rows sequence as a card grid's cards
+                    do. On the body rather than the table root, which would take the header row in. */}
+                <Table.Body className={CARDS_CASCADE}>
                   {[...round.spiele]
                     .sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)
                     .map((spiel) => (

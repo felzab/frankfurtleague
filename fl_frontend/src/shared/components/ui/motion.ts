@@ -27,10 +27,15 @@
  * settle under a pixel (measured 2026-08-13): prompt to read, without stopping abruptly. Giving this
  * tier a shorter duration or a steeper curve than the cascade is what breaks that.
  *
- * **Not for a collection of cards** — see `CARDS_CASCADE` for why a block fade fails there. And not
- * on a container whose children already cascade, unless the two genuinely play at different moments:
- * `SpielplanView` is the one such case, where the root rises at mount and the panels cascade on
- * every later tab press.
+ * **Not for a collection of cards** — see `CARDS_CASCADE` for why a block fade fails there. On a
+ * container whose children cascade, the test is whether the container has anything of its own to
+ * bring in: chrome the cascade cannot reach — a tab strip, a masthead, a table's column headers —
+ * or the empty state that stands in when the collection has no items. It is wrong on a bare wrapper,
+ * where the rise animates the pixels the cascade is already animating and the entrance is paid for
+ * twice. **State that test rather than a count of the views passing it**, which is a sentence needing
+ * an edit every time a shell gains a collection. What keeps a qualifying overlap one gesture rather
+ * than two is the pinned duration and curve above: the cascade's first step has no delay, so the
+ * leading item travels the container's 8px and its own on one curve over one 300ms.
  *
  * **Not for a reveal inside an already-open page** — that is `PANEL_REVEAL`, and the two are kept
  * apart on purpose.

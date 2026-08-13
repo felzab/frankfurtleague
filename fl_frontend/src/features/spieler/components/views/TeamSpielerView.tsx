@@ -8,7 +8,7 @@ import { Avatar, Button, Chip, Table } from "@heroui/react";
 
 import { PILL_RADIUS } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 
 import type { FLSpieler } from "../../schemas";
 
@@ -64,7 +64,10 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
               <Table.Column className="w-1 pr-2 pl-1 text-right whitespace-nowrap lg:px-4">Position</Table.Column>
             </Table.Header>
 
+            {/* A team's squad is a collection, so its rows sequence as a card grid's cards do. On
+                the body rather than the table root, which would take the header row in. */}
             <Table.Body
+              className={CARDS_CASCADE}
               renderEmptyState={() => (
                 <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                   <p className="fluid-sm text-foreground-muted font-medium">Für dieses Team ist noch kein Kader eingetragen.</p>
