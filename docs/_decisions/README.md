@@ -52,7 +52,7 @@ cited from code and the path must never move
 | [0036](0036-a-shoot-out-is-its-own-scoreline.md)                                  | A shoot-out is its own scoreline, read by the bracket alone                  | backend, frontend      | Accepted               | 2026-08-05 |
 | [0037](0037-a-seasons-fixtures-are-created-once.md)                               | A season's fixtures are created once — `/spiele` has no POST, no DELETE      | backend                | Accepted               | 2026-08-05 |
 | [0038](0038-the-write-path-refuses-wiring-the-season-cannot-hold.md)              | The write path refuses wiring the season cannot hold                         | backend, frontend      | Accepted               | 2026-08-05 |
-| [0039](0039-a-bracket-fault-is-derived-on-demand.md)                              | A bracket fault is derived on demand, and reaches a list an admin reads      | backend, frontend      | Accepted               | 2026-08-05 |
+| [0039](0039-a-bracket-fault-is-derived-on-demand.md)                              | A bracket fault is derived on demand, and reaches a list an admin reads      | backend, frontend      | Superseded by ADR-0073 | 2026-08-05 |
 | [0040](0040-a-form-that-outgrows-a-dialog-becomes-a-page.md)                      | A form that outgrows a dialog becomes a page, and judges a field on blur     | frontend               | Accepted               | 2026-08-06 |
 | [0041](0041-a-voided-result-is-named-before-it-is-lost.md)                        | A voided result is named by a dry run, and undone rather than confirmed      | backend, frontend      | Accepted               | 2026-08-06 |
 | [0042](0042-a-team-is-fielded-once-per-spieltag.md)                               | A team is fielded once per Spieltag; a clash moves or is refused             | backend, frontend      | Accepted               | 2026-08-06 |
@@ -84,6 +84,7 @@ cited from code and the path must never move
 | [0068](0068-the-docs-gate-is-a-package-behind-a-shim.md)                          | The documentation gate is a package behind a shim, not called `check_docs`   | ops                    | Accepted               | 2026-08-10 |
 | [0069](0069-the-activation-guard-has-an-override.md)                              | The activation guard stays on the endpoint; cancelling is its override       | backend                | Accepted               | 2026-08-13 |
 | [0071](0071-the-swap-gains-a-second-entry-point.md)                               | The group swap gains a second entry point, with one side fixed               | frontend               | Accepted               | 2026-08-13 |
+| [0073](0073-a-bracket-fault-is-stated-on-the-card-it-names.md)                    | A bracket fault is derived on demand; its reason is stated on the card       | backend, frontend      | Accepted               | 2026-08-13 |
 | [0074](0074-the-group-swap-refuses-a-disqualified-club.md)                        | The group swap refuses moving a disqualified club forward                    | backend                | Accepted               | 2026-08-13 |
 
 ## Read next
