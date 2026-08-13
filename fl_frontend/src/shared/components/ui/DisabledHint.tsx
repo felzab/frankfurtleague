@@ -65,9 +65,13 @@ export function DisabledHint({
         {children}
       </Popover.Trigger>
 
+      {/* The outer box contributes nothing: HeroUI's `.popover` draws an opaque fill, a shadow and a
+          radius up to 32px, which would ring the panel's own smaller corners. The panel below is the
+          one surface, shared with `IconTooltip`. */}
       <Popover.Content
         placement={placement}
-        offset={8}>
+        offset={8}
+        className="bg-transparent shadow-none">
         <Popover.Dialog
           ref={captureDialog}
           className={`${HINT_SURFACE} text-foreground leading-normal font-medium`}>

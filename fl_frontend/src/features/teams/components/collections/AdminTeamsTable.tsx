@@ -26,7 +26,7 @@ import type { AdminTeamRow } from "../../types";
  * season-scoped fields are edited by picking the season in the sidemenu first.
  *
  * **Retiring is offered only where the write path would allow it**: a club entered in a running or
- * planned season keeps its trash control visually present but inert, with the reason one hover
+ * planned season keeps its trash control present but disabled, with the reason a hover or a tap
  * away, so the rule is discoverable rather than a mystery. The backend refuses the same shape
  * (`REQ-RETIRE-001`), which stays the authoritative check.
  */
