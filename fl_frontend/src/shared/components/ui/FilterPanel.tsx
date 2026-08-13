@@ -82,11 +82,6 @@ export function useFilterPanelWidth(): [RefObject<HTMLDivElement | null>, number
  * the balanced one replaces it. It cannot run on a server render: the dialog this sits in is mounted
  * only while the popover is open.
  *
- * **Every width here is a layout box, and mixing in a client rect is the bug this reads for.** The
- * effect fires while the popover is still playing HeroUI's `zoom-in-90`, so a rect comes back scaled
- * by 0.9 while `clientWidth` beside it does not — cells then appear to need a tenth less room than the
- * line has, and a set that misses fitting by nine pixels is judged to fit.
- *
  * Returns `null` until the first measurement, which is the caller's signal to draw one wrapping row —
  * the arrangement a flex row reaches unaided, and the one this improves on.
  */
@@ -111,9 +106,7 @@ function useFilterPanelLines(shape: string, available: number | null): [RefObjec
       cell.style.flexShrink = "0";
       cell.style.maxWidth = "none";
     }
-    // `offsetWidth`, never a client rect: this runs while the popover is still playing HeroUI's
-    // `zoom-in-90`, and a rect is scaled by that transform where the layout box beside it is not.
-    const naturals = cells.map((cell) => cell.offsetWidth);
+    const naturals = cells.map((cell) => cell.getBoundingClientRect().width);
     for (const [index, cell] of cells.entries()) {
       const style = saved[index];
       if (style === undefined || style === null) cell.removeAttribute("style");
