@@ -68,19 +68,16 @@ function invalidateSpieler(): void {
 }
 
 /**
- * The two squad refusals (`REQ-SQUAD-001`/`002`), or `null` when the 409 is neither.
+ * The squad refusal (`REQ-SQUAD-001`), or `null` when the 409 is something else.
  *
- * Written to the shape stated in `fl_frontend/src/features/saisons/actions.ts`. Both land on the field
- * that caused them -- the team picker and the number input -- so both are one sentence about that value.
+ * Written to the shape stated in `fl_frontend/src/features/saisons/actions.ts`. It lands on the field
+ * that caused it -- the team picker -- so it is one sentence about that value.
  */
 function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   if (error.serverErrorCode === "REQ-SQUAD-001") {
     return { fieldErrors: { team_id: "Dieses Team ist in der gewählten Saison nicht dabei." } };
-  }
-  if (error.serverErrorCode === "REQ-SQUAD-002") {
-    return { fieldErrors: { nummer: "Diese Nummer trägt in diesem Kader schon jemand anderes." } };
   }
   return null;
 }
@@ -265,8 +262,8 @@ export async function postSaisonSpielerAction(
     // than a toast, because it is about what was submitted.
     let saisonSpieler;
     try {
-      // The club has to be in the season and the number has to be free (`REQ-SQUAD-001`/`002`). Both
-      // land on the field that caused them, in the form that is still open.
+      // The club has to be in the season (`REQ-SQUAD-001`). It lands on the field that caused it, in
+      // the form that is still open.
       saisonSpieler = await postSaisonSpieler(validated.data);
     } catch (error) {
       // Several different 409s reach this call and the code separates them. The named
@@ -304,7 +301,7 @@ export async function patchSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The same two squad rules as on the create (`REQ-SQUAD-001`/`002`), reaching the same fields.
+    // The same squad rule as on the create (`REQ-SQUAD-001`), reaching the same field.
     let saisonSpieler;
     try {
       saisonSpieler = await patchSaisonSpieler(validated.data);

@@ -939,7 +939,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "one was retired, unreactivatable. Refusing it on the create and the patch while the reactivate "
             "consulted no rule at all was the same rule answering three ways (decided 2026-08-13)."
         ),
-        surfaced_by="the squad list, which shows every member's number beside their name",
+        surfaced_by="the squad editor's Hinweise, which warn before a save introduces one and save anyway",
     ),
     Unenforced(
         subject="a bracket slot the resolution filled with a team later disqualified",

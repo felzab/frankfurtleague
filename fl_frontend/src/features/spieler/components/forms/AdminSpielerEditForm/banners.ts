@@ -18,7 +18,8 @@ export type SpielerBannerId =
   | "spieler.row-retired-since"
   | "spieler.nachgetragen"
   | "spieler.entry-nachgetragen"
-  | "spieler.team-changed";
+  | "spieler.team-changed"
+  | "spieler.nummer-geteilt";
 
 /** The panel spots that render one of these inline. */
 export type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "austragen";
@@ -33,6 +34,7 @@ export function buildSpielerBanners({
   rowInactiveSince,
   isNachgetragen,
   isTeamChanged,
+  newlySharedNummer,
 }: {
   isRetired: boolean;
   saisonId: string;
@@ -42,6 +44,8 @@ export function buildSpielerBanners({
   rowInactiveSince: string | null;
   isNachgetragen: boolean;
   isTeamChanged: boolean;
+  /** The shirt this draft would put a SECOND wearer on, or `null` — never a number already shared. */
+  newlySharedNummer: string | null;
 }): readonly SpielerBanner[] {
   const banners: SpielerBanner[] = [];
 
@@ -121,6 +125,21 @@ export function buildSpielerBanners({
       severity: "warning",
       title: "Teamwechsel wirkt sofort",
       body: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen, auch auf den öffentlichen Seiten.",
+      inline: null,
+    });
+  }
+
+  // A `warning` and never a refusal: the state is permitted on every write path
+  // (`fl_backend/app/core/domain.py :: UNENFORCED`), and the grade is what routes
+  // the save through the confirmation (ADR-0070).
+  if (newlySharedNummer !== null) {
+    banners.push({
+      id: "spieler.nummer-geteilt",
+      severity: "warning",
+      title: "Zwei Spieler tragen dann dieselbe Nummer",
+      body:
+        `Im gewählten Kader trägt bereits jemand die Nummer ${newlySharedNummer}. Das ist erlaubt — ` +
+        `beide erscheinen in der Saison ${saisonId} mit ihr auf den öffentlichen Seiten.`,
       inline: null,
     });
   }

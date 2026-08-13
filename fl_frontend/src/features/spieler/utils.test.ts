@@ -1,18 +1,18 @@
 /**
  * SPIELER · derivation tests
  *
- * Covers the squad-number rule, which is mirrored from the backend rather than invented here — so what
- * these pin is the agreement, not the behaviour. Three cases carry it: a number the write does not
- * introduce must PASS even where it duplicates, a retired row must not hold a number against anybody, and
- * `"07"` must not be read as `"7"`. Each is a case where a refusal in the browser would block a save the
- * endpoint accepts.
+ * Covers the shared-shirt derivation, which decides whether a WARNING is raised — no write path refuses
+ * the state, so nothing here can block a save. What the cases pin is that the warning fires on a state
+ * this draft introduces and stays silent on one already stored: a standing duplicate must raise nothing,
+ * a retired row must not count as a wearer, `"07"` must not be read as `"7"`, and an unchanged number
+ * carried into another team must raise it after all.
  */
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { collectTakenSquadNummern, isSquadNummerTaken, normaliseSquadNummer } from "./utils.ts";
+import { collectTakenSquadNummern, isSquadNummerNewlyShared, normaliseSquadNummer } from "./utils.ts";
 
 import type { FLSpielerWithMemberships } from "./schemas.ts";
 
@@ -55,31 +55,44 @@ describe("normaliseSquadNummer", () => {
   });
 });
 
-describe("isSquadNummerTaken", () => {
-  it("refuses a number another player in the squad already wears", () => {
-    assert.equal(isSquadNummerTaken({ proposed: "7", stored: "9", taken: ["7", "11"] }), true);
+describe("isSquadNummerNewlyShared", () => {
+  const storedInA = { teamId: TEAM_A, nummer: "9" };
+
+  it("reports a number another player in the squad already wears", () => {
+    assert.equal(isSquadNummerNewlyShared({ draft: { teamId: TEAM_A, nummer: "7" }, stored: storedInA, takenInDraftTeam: ["7", "11"] }), true);
   });
 
-  it("passes a number nobody else wears", () => {
-    assert.equal(isSquadNummerTaken({ proposed: "8", stored: "9", taken: ["7", "11"] }), false);
+  it("stays silent on a number nobody else wears", () => {
+    assert.equal(isSquadNummerNewlyShared({ draft: { teamId: TEAM_A, nummer: "8" }, stored: storedInA, takenInDraftTeam: ["7", "11"] }), false);
   });
 
-  // The case a naive check gets wrong, and the one that would lock a row nobody could then repair.
-  it("passes the stored value even where it already duplicates", () => {
-    assert.equal(isSquadNummerTaken({ proposed: "7", stored: "7", taken: ["7"] }), false);
+  // The sixteen live rows the API's declaration is about: standing, not caused by this edit.
+  it("stays silent on a duplicate the row already stands in", () => {
+    assert.equal(
+      isSquadNummerNewlyShared({ draft: { teamId: TEAM_A, nummer: "7" }, stored: { teamId: TEAM_A, nummer: "7" }, takenInDraftTeam: ["7"] }),
+      false,
+    );
   });
 
-  it("passes an empty number, which several players legitimately share", () => {
-    assert.equal(isSquadNummerTaken({ proposed: "", stored: null, taken: ["7"] }), false);
-    assert.equal(isSquadNummerTaken({ proposed: null, stored: null, taken: [] }), false);
+  // The case comparing numbers alone gets wrong: the placement moved even though the shirt did not.
+  it("reports an unchanged number carried into a team that already wears it", () => {
+    assert.equal(
+      isSquadNummerNewlyShared({ draft: { teamId: TEAM_B, nummer: "7" }, stored: { teamId: TEAM_A, nummer: "7" }, takenInDraftTeam: ["7"] }),
+      true,
+    );
+  });
+
+  it("stays silent on an empty number, which several players legitimately have", () => {
+    assert.equal(isSquadNummerNewlyShared({ draft: { teamId: TEAM_A, nummer: "" }, stored: null, takenInDraftTeam: ["7"] }), false);
+    assert.equal(isSquadNummerNewlyShared({ draft: { teamId: TEAM_A, nummer: null }, stored: null, takenInDraftTeam: [] }), false);
   });
 
   it("does not read 07 as 7", () => {
-    assert.equal(isSquadNummerTaken({ proposed: "07", stored: null, taken: ["7"] }), false);
+    assert.equal(isSquadNummerNewlyShared({ draft: { teamId: TEAM_A, nummer: "07" }, stored: null, takenInDraftTeam: ["7"] }), false);
   });
 
   it("ignores surrounding space on either side of the comparison", () => {
-    assert.equal(isSquadNummerTaken({ proposed: " 7", stored: null, taken: ["7 "] }), true);
+    assert.equal(isSquadNummerNewlyShared({ draft: { teamId: TEAM_A, nummer: " 7" }, stored: null, takenInDraftTeam: ["7 "] }), true);
   });
 });
 

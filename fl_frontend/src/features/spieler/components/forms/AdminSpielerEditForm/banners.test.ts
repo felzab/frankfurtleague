@@ -24,6 +24,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielerBanners>[0]> = {
     rowInactiveSince: null,
     isNachgetragen: false,
     isTeamChanged: false,
+    newlySharedNummer: null,
     ...overrides,
   });
 
@@ -57,10 +58,24 @@ describe("buildSpielerBanners", () => {
     assert.ok(!ids(build({ saisonStatus: "active" })).includes("spieler.entry-nachgetragen"));
   });
 
-  it("grades a transfer as the one warning on this editor", () => {
+  it("grades a transfer as a warning", () => {
     const [banner] = build({ isTeamChanged: true });
 
     assert.equal(banner?.id, "spieler.team-changed");
     assert.equal(banner?.severity, "warning");
+  });
+
+  // A `warning` is what routes it through the confirmation (ADR-0070); `info` would let the save pass
+  // it in silence, and the API refuses the state nowhere.
+  it("grades a newly shared shirt as a warning naming the number", () => {
+    const [banner] = build({ newlySharedNummer: "1" });
+
+    assert.equal(banner?.id, "spieler.nummer-geteilt");
+    assert.equal(banner?.severity, "warning");
+    assert.match(banner?.body ?? "", /Nummer 1\b/);
+  });
+
+  it("raises nothing for a duplicate the row already stands in", () => {
+    assert.deepEqual(ids(build({ newlySharedNummer: null })), []);
   });
 });

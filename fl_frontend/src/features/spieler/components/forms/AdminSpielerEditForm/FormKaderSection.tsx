@@ -8,7 +8,6 @@ import { postSaisonSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
 import { NUMMER_MAX_LENGTH, POSITION_OPTIONS } from "@/features/spieler/constants";
-import { isSquadNummerTaken } from "@/features/spieler/utils";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
@@ -64,7 +63,6 @@ export function FormKaderSection({
   onValidateFields,
   onValidateSelection,
   spielerId,
-  storedNummer,
   banners,
 }: {
   saison: SpielerSaisonContext & { erlaubteStufen: readonly FLSpielerStufe[] };
@@ -84,22 +82,11 @@ export function FormKaderSection({
   onValidateFields: (paths: readonly string[]) => void;
   onValidateSelection: (paths: readonly string[], selected: { team_id: string }) => void;
   spielerId: string;
-  /** What this squad row holds today, so a resubmitted duplicate still passes. `null` before entry. */
-  storedNummer: string | null;
   /** The editor's whole Hinweis list; the two spots below take their own entries out of it. */
   banners: readonly SpielerBanner[];
 }) {
   const panel = formPanel();
   const [isEntering, startEntering] = useTransition();
-
-  // The browser's half of `REQ-SQUAD-002`, judged on every keystroke rather than on blur: unlike the
-  // field's own bounds this is a fact about the squad, so the answer changes when the team picker
-  // moves and the number does not.
-  const nummerIsTaken = isSquadNummerTaken({
-    proposed: nummer,
-    stored: storedNummer,
-    taken: teams.find((team) => team.teamId === teamId)?.takenNummern ?? [],
-  });
 
   // A season that has already started means this player arrived late, which is exactly what the flag
   // records (decided 2026-08-07). Derived rather than asked, so it cannot be forgotten.
@@ -175,10 +162,6 @@ export function FormKaderSection({
                 <SpielerFieldLabel path="nummer">Nummer</SpielerFieldLabel>
                 <Input className={`${FIELD_INPUT} font-extrabold tracking-wider`} />
                 <FieldError className={FIELD_ERROR} />
-                {/* A FIELD message, one sentence about the value — the shape `saisons/actions.ts` states
-                    for a refusal an admin fixes in the input in front of them. Rendered beside the
-                    field's own errors rather than as a panel callout, because the remedy is this input. */}
-                {nummerIsTaken && <p className={FIELD_ERROR}>Diese Nummer trägt in diesem Kader schon jemand anderes.</p>}
               </TextField>
             </div>
 

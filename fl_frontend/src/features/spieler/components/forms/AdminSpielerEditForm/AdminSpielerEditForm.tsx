@@ -8,6 +8,7 @@ import { Form } from "@heroui/react";
 import { patchSaisonSpielerAction, patchSpielerAction } from "@/features/spieler/actions";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
 import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus";
+import { isSquadNummerNewlyShared } from "@/features/spieler/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { resolveRailBanners } from "@/shared/components/ui/railBanner";
@@ -206,6 +207,17 @@ export function AdminSpielerEditForm({
     saisonValidation.validatePaths({ ...buildSaisonPayload(), ...selected }, paths);
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
+
+  // Judged on every keystroke rather than on blur: unlike the field's own bounds this is a fact about
+  // the squad, so the answer changes when the team picker moves and the number does not.
+  const newlySharedNummer = isSquadNummerNewlyShared({
+    draft: { teamId, nummer },
+    stored: storedMembership === null ? null : { teamId: storedMembership.team_id, nummer: storedMembership.nummer },
+    takenInDraftTeam: teams.find((team) => team.teamId === teamId)?.takenNummern ?? [],
+  })
+    ? nummer.trim()
+    : null;
+
   const personDirty = status.changed.some((field) => field.group === "Person");
   const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Kader");
 
@@ -221,6 +233,7 @@ export function AdminSpielerEditForm({
     rowInactiveSince: storedMembership?.inactive_since ?? null,
     isNachgetragen,
     isTeamChanged: isChanged("team_id"),
+    newlySharedNummer,
   });
 
   // What the save asks about first (ADR-0070). Resolved, so a banner the rail is not showing cannot
@@ -452,7 +465,6 @@ export function AdminSpielerEditForm({
                   teamId={teamId}
                   onTeamIdChange={setTeamId}
                   nummer={nummer}
-                  storedNummer={storedMembership?.nummer ?? null}
                   onNummerChange={setNummer}
                   position={position}
                   onPositionChange={setPosition}

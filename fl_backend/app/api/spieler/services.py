@@ -165,7 +165,7 @@ SQUAD_TEAM_NOT_IN_SAISON = "REQ-SQUAD-001"
 
 def normalised_nummer(nummer: str | None) -> str | None:
     """
-    A squad number as the uniqueness rule compares it, or `None` where there is nothing to compare.
+    A squad number as any comparison of two reads them, or `None` where there is nothing to compare.
 
     `nummer` is a nullable free-text STRING because numbers are worn rather than counted, so "7" and " 7 "
     are one number and an empty string is no number at all. Leading zeros are NOT stripped: "07" is a shirt
@@ -186,8 +186,9 @@ def find_squad_refusal(*, team_in_saison: bool) -> tuple[str, str] | None:
 
     `team_in_saison` is whether the named team holds a junction row for the season, read by the caller.
 
-    **One rule.** A duplicate shirt number is not refused here or anywhere (`SQUAD_NUMMER_SHARED`); it
-    is reported by `shared_nummer_wearers` and stays a fact somebody looks at.
+    **One rule.** A shared shirt number is refused neither here nor on any other write path, and is
+    declared permitted in `app/core/domain.py :: UNENFORCED`. The squad editor warns about one this
+    save would introduce and writes it anyway.
     """
 
     if not team_in_saison:

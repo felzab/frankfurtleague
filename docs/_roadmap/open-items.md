@@ -332,18 +332,16 @@ season began, derived from the chosen season's status rather than asked
 (`fl_frontend/src/features/spieler/components/forms/AdminCreateSpielerForm.tsx`), and a
 self-registration into a running season is precisely that case.
 
-**The squad-number rule has a hole this work has to close rather than avoid.**
-`fl_backend/app/api/spieler/services.py :: find_squad_refusal` refuses a number a write would newly
-take from another player in the same squad and season (`REQ-SQUAD-002`), and the set it compares
-against is read with `inactive_since: None` — see
-`fl_backend/app/api/spieler/admin_router.py :: post_saison_spieler` and `:: patch_saison_spieler`. So
-a retired row's number is free to reissue, and `:: reactivate_saison_spieler` clears the stamp
-without consulting the rule at all: reissue a retired player's number, reactivate their row, and two
-live players wear it with nothing reporting it. The rule also lets a row resubmit its own stored
-number whatever else holds it, which is deliberate — it keeps an existing duplicate editable by the
-edit that would resolve it. A page that lets a whole team enter itself multiplies every write that
-reaches this rule, so the reissue path is work this entry owns rather than a hazard it can route
-around.
+**The squad number is reported rather than refused, and this page owes the same report.** A shared
+shirt is a permitted state on every write path (`fl_backend/app/core/domain.py :: UNENFORCED`), so
+nothing here has a refusal to inherit — what it inherits is the obligation to say so where the entry
+happens. The admin surfaces do that in two shapes:
+`fl_frontend/src/features/spieler/utils.ts :: isSquadNummerNewlyShared` decides only on a state the
+draft introduces, and the squad editor raises it as a `warning`, which routes the save through the
+confirmation ([ADR-0070](../_decisions/0070-a-draft-carrying-a-warning-is-confirmed-before-it-saves.md)).
+A page where a whole team enters itself multiplies those writes and has no admin reading them, so
+whether a self-registered player may take a shirt somebody in the squad already wears — and who is
+told — is a product call this entry owns.
 
 **What the Saison page and its editor inherit.** The create form is a dialog today
 (`fl_frontend/src/features/saisons/components/modals/AdminCreateSaisonModal.tsx` over

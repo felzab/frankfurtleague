@@ -110,13 +110,13 @@ export type SpielerTeamOption = {
    * Every live squad number already worn in this team this season, excluding the edited player's own.
    *
    * Carried on the team option rather than as a fourth prop down the chain, because "which shirts are
-   * taken" is a fact about this team in this season — the same thing the option already is. It is what
-   * lets the form refuse `REQ-SQUAD-002` before the request; the endpoint stays authoritative.
+   * worn" is a fact about this team in this season — the same thing the option already is. It is what
+   * lets a form say that a save would put a second wearer on one; no write path refuses that.
    *
    * **Optional, and absent means UNKNOWN rather than none.** The team facet reuses this shape to list
    * clubs and has no reason to read squad numbers, so it supplies none — and a consumer that treats an
-   * absent list as an empty one would refuse nothing, which is the safe direction. Refusing on a list
-   * that was never populated would block a save the endpoint accepts.
+   * absent list as an empty one says nothing, which is the safe direction: a warning built from a list
+   * that was never populated would name a wearer nobody can point at.
    */
   takenNummern?: readonly string[];
 };
