@@ -71,7 +71,7 @@ export function AdminSpielerEditView({
           <>
             <Button
               onPress={() => requestLeaveRef.current()}
-              className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+              className="bg-surface border-border text-foreground data-hovered:bg-hover fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
               <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
               <span>Zurück</span>
             </Button>
@@ -95,7 +95,7 @@ export function AdminSpielerEditView({
                   <Button
                     onPress={() => runStatusWrite(() => reactivateSpielerAction({ id: spieler.id }), "Reaktivieren fehlgeschlagen")}
                     isDisabled={isWritingStatus}
-                    className="border-border bg-surface text-foreground hover:bg-muted fluid-xs flex h-8 w-fit items-center rounded-lg border px-3 font-bold shadow-sm transition-colors">
+                    className="border-border bg-surface text-foreground data-hovered:bg-hover fluid-xs flex h-8 w-fit items-center rounded-lg border px-3 font-bold shadow-sm transition-colors">
                     {isWritingStatus ? "Speichert..." : "Spieler reaktivieren"}
                   </Button>
                 )}

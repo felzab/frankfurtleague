@@ -29,7 +29,7 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
     "",
     "[Beschreibe hier kurz, was Du gerade tun wolltest und was stattdessen passiert ist.]",
     "",
-    "— Technische Angaben, für die Zuordnung —",
+    "Technische Angaben, für die Zuordnung:",
     `Digest: ${error.digest ?? "keiner (Client-Fehler)"}`,
     `Route: ${pathname}`,
     `Zeitpunkt: ${occurredAt}`,
@@ -73,14 +73,14 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
           variant="ghost"
           onPress={handleRetry}
           isDisabled={isRetrying}
-          className={`${ctaButton({ intent: "outline" })} w-full`}>
+          className={`${ctaButton({ intent: "outline", hover: "aria" })} w-full`}>
           {isRetrying ? "Versucht erneut..." : "Erneut versuchen"}
         </Button>
 
         <Link
           title="Startseite"
           href="/"
-          className={`${ctaButton({ intent: "primary" })} w-full`}>
+          className={`${ctaButton({ intent: "primary", hover: "css" })} w-full`}>
           Zur Startseite
         </Link>
       </div>
@@ -92,7 +92,7 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
       <a
         href={reportHref}
         className="fluid-xs text-foreground-muted hover:text-foreground mt-6 underline underline-offset-4 transition-colors">
-        Fehler per E-Mail melden — die technischen Angaben sind schon ausgefüllt
+        Fehler per E-Mail melden. Die technischen Angaben sind schon ausgefüllt.
       </a>
     </StatusPanel>
   );

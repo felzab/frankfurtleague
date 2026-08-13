@@ -6,7 +6,8 @@ import { postSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
 import { NUMMER_MAX_LENGTH, POSITION_OPTIONS } from "@/features/spieler/constants";
-import { isSquadNummerTaken } from "@/features/spieler/utils";
+import { isSquadNummerNewlyShared } from "@/features/spieler/utils";
+import { Callout } from "@/shared/components/ui/Callout";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
@@ -62,12 +63,12 @@ export function AdminCreateSpielerForm({
         const teams = selectedOption?.teams ?? [];
 
         // `stored` is null: this player has no squad row yet, so every number the form offers is one
-        // the write would introduce (`REQ-SQUAD-002`). It re-answers when the season or the team
-        // changes, because a shirt free in one squad is taken in another.
-        const nummerIsTaken = isSquadNummerTaken({
-          proposed: draft.nummer,
+        // the write would introduce. It re-answers when the season or the team changes, because a
+        // shirt free in one squad is worn in another.
+        const nummerIsNewlyShared = isSquadNummerNewlyShared({
+          draft: { teamId: draft.team_id, nummer: draft.nummer },
           stored: null,
-          taken: teams.find((team) => team.teamId === draft.team_id)?.takenNummern ?? [],
+          takenInDraftTeam: teams.find((team) => team.teamId === draft.team_id)?.takenNummern ?? [],
         });
 
         return (
@@ -139,7 +140,7 @@ export function AdminCreateSpielerForm({
                         key={option.saisonId}
                         id={option.saisonId}
                         textValue={`Saison ${option.saisonId}`}
-                        className="text-foreground-muted hover:bg-muted hover:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+                        className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
                         Saison {option.saisonId}
                       </ListBox.Item>
                     ))}
@@ -167,9 +168,6 @@ export function AdminCreateSpielerForm({
                 <Label className={FIELD_LABEL}>Nummer</Label>
                 <Input className={`${FIELD_INPUT} font-extrabold tracking-wider`} />
                 <FieldError className={FIELD_ERROR} />
-                {/* One sentence about the value, which is the FIELD message shape — the remedy is this
-                    input, and the endpoint's own refusal says the same words. */}
-                {nummerIsTaken && <p className={FIELD_ERROR}>Diese Nummer trägt in diesem Kader schon jemand anderes.</p>}
               </TextField>
 
               <ClosedSetSelect
@@ -190,6 +188,19 @@ export function AdminCreateSpielerForm({
                 placeholder="Keine Angabe"
               />
             </div>
+
+            {/* A callout rather than a field message, and the dialog's answer to what the squad
+                editor raises in its rail: a shared shirt is permitted everywhere the API writes one
+                (`fl_backend/app/core/domain.py :: UNENFORCED`), so it is a consequence to read and
+                never a value to correct. */}
+            {nummerIsNewlyShared && (
+              <Callout
+                severity="warning"
+                title="Zwei Spieler tragen dann dieselbe Nummer">
+                Im gewählten Kader trägt bereits jemand die Nummer {draft.nummer?.trim()}. Das ist erlaubt. Beide erscheinen mit ihr auf den
+                öffentlichen Seiten.
+              </Callout>
+            )}
 
             {draft.is_nachgetragen && (
               <p className="fluid-xxs text-foreground-muted font-medium">

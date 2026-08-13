@@ -59,13 +59,17 @@ export function AdminSaisonEditView({
           <>
             <Button
               onPress={() => requestLeaveRef.current()}
-              className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+              className="bg-surface border-border text-foreground data-hovered:bg-hover fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
               <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
               <span>Zurück</span>
             </Button>
 
             <header className="mb-6 flex w-full flex-col gap-y-2">
-              <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">Saison {saison.id}</h2>
+              {/* The title row every editor's header opens with, kept even where this page has nothing
+                  to set beside the name — a chip added later lands where the other six put theirs. */}
+              <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
+                <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">Saison {saison.id}</h2>
+              </div>
               <p className="fluid-sm text-foreground-muted font-medium">Änderungen gelten erst, wenn Du speicherst.</p>
             </header>
           </>

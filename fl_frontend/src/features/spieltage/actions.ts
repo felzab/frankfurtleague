@@ -11,7 +11,7 @@
  * - Base tag only — the admin list and the public Spielplan span differently, so no granular tag
  *   names one write (ADR-0001).
  * - `spieltage` is the only resource invalidated — `GET /spiele` never joins `spieltage`.
- * - Five 409s and none is a unique index: three guard the matchday's contents and two its
+ * - Seven 409s and none is a unique index: four guard the matchday's contents and three its
  *   container; a matchday's place and name are derived, so there is nothing to claim (ADR-0051).
  *
  * See:
@@ -21,25 +21,25 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteSpieltag, patchSpieltag, postSpieltag, reactivateSpieltag } from "./mutations";
 import { FLPatchSpieltagPayloadSchema, FLPostSpieltagPayloadSchema, FLSpieltagKeyPayloadSchema } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLPatchSpieltagPayload, FLSpieltagKeyPayload, FLSpieltagWriteResponse } from "./schemas";
-import type { SpieltagCreateDraft } from "./types";
+import type { FLSpieltagKeyPayload, FLSpieltagWriteResponse } from "./schemas";
+import type { SpieltagCreateDraft, SpieltagEditDraft } from "./types";
 
 /**
- * The five matchday refusals in German, or `null` when the 409 is none of them.
+ * The seven matchday refusals in German, or `null` when the 409 is none of them.
  *
- * Written to the shapes stated in `fl_frontend/src/features/saisons/actions.ts`. Two land on a field and
- * are one sentence about that value: `REQ-SPIELTAG-002` on `saison_phase`, and `REQ-DATE-002` on `beginn`,
- * which is the earlier of the two dates and so the one to look at first. The other three have no field to
- * land on -- `REQ-RETIRE-002` is raised from a dialog rather than a form, `REQ-DATE-003` is about FIXTURES
- * this form does not show, and `REQ-SPIELTAG-003` is about the SEASON's own schedule -- so each is two
- * sentences with the action second.
+ * Written to the shapes stated in `fl_frontend/src/features/saisons/actions.ts`. Three land on a field and
+ * are one sentence about that value: `REQ-SPIELTAG-002` and `REQ-SPIELTAG-004` on `saison_phase`, and
+ * `REQ-DATE-002` on `beginn`, which is the earlier of the two dates and so the one to look at first. The
+ * others have no field to land on -- the two retirement refusals are raised from a control rather than a
+ * form, `REQ-DATE-003` is about FIXTURES this form does not show, and `REQ-SPIELTAG-003` is about the
+ * SEASON's own schedule -- so each is two sentences with the action second.
  *
  * **The `beginn` field error serves the create and the edit alone.** `reactivateSpieltagAction` answers the
  * same `REQ-DATE-002` from a row button with no form behind it, so it maps that code itself rather than
@@ -54,8 +54,19 @@ function mapSpieltagRefusal(error: unknown): { error?: string; fieldErrors?: Fie
         "Dieser Spieltag hat gespielte Partien und würde samt ihren Ergebnissen aus dem öffentlichen Spielplan verschwinden. Verschiebe die Spiele auf einen anderen Spieltag oder sage sie ab.",
     };
   }
+  // The phase's floor, refused from the container's side. No field to land on -- the count is a fact
+  // about the phase rather than about any control on the form.
+  if (error.serverErrorCode === "REQ-RETIRE-005") {
+    return {
+      error:
+        "Diese Phase hätte danach weniger Spieltage, als die Regeln der Saison vorsehen. Lege zuerst einen weiteren Spieltag dieser Phase an, oder passe die Regeln der Saison an.",
+    };
+  }
   if (error.serverErrorCode === "REQ-SPIELTAG-002") {
     return { fieldErrors: { saison_phase: "In dieser Phase sind weniger Spiele vorgesehen, als dieser Spieltag enthält." } };
+  }
+  if (error.serverErrorCode === "REQ-SPIELTAG-004") {
+    return { fieldErrors: { saison_phase: "Diese Runde spielt die Saison nach ihren Regeln gar nicht." } };
   }
   if (error.serverErrorCode === "REQ-SPIELTAG-003") {
     return {
@@ -88,7 +99,7 @@ export async function postSpieltagAction(
 ): Promise<{ success: boolean; spieltag_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSpieltagAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPostSpieltagPayloadSchema.safeParse(rawPayload);
@@ -125,7 +136,12 @@ export async function postSpieltagAction(
   });
 }
 
-export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): Promise<{
+export async function patchSpieltagAction(
+  // The DRAFT shape, not the parsed payload, exactly as the create takes: the page-owned editor may
+  // submit `saison_phase: null` from a cleared picker, and the schema below is what turns that into a
+  // field error rather than a type error.
+  rawPayload: SpieltagEditDraft,
+): Promise<{
   success: boolean;
   spieltag?: FLSpieltagWriteResponse;
   message?: string;
@@ -134,7 +150,7 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
 }> {
   return runAdminMutation("patchSpieltagAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPatchSpieltagPayloadSchema.safeParse(rawPayload);
@@ -176,7 +192,7 @@ export async function deleteSpieltagAction(rawPayload: FLSpieltagKeyPayload): Pr
 }> {
   return runAdminMutation("deleteSpieltagAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLSpieltagKeyPayloadSchema.safeParse(rawPayload);
@@ -219,7 +235,7 @@ export async function reactivateSpieltagAction(rawPayload: FLSpieltagKeyPayload)
 }> {
   return runAdminMutation("reactivateSpieltagAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLSpieltagKeyPayloadSchema.safeParse(rawPayload);

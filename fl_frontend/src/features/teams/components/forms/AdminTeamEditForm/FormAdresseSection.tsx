@@ -50,7 +50,7 @@ export function FormAdresseSection({
               aria-label="Eingegebene Adresse auf Google Maps öffnen"
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
                 isSearchable
-                  ? "text-foreground-muted hover:bg-muted/40 hover:text-brand cursor-pointer"
+                  ? "text-foreground-muted hover:bg-hover hover:text-brand cursor-pointer"
                   : "text-foreground-muted/40 cursor-not-allowed"
               }`}>
               {/* The same glyph the website field's follow-link uses, so "opens elsewhere" has

@@ -4,13 +4,14 @@ import { PencilToSquare } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
+import { PHASE_TINTS } from "@/features/saisons/constants";
 import { adminSpielEditHref, deriveSlotHerkunft, formatQuelle } from "@/features/spiele/utils";
 import { spieltagLabels } from "@/features/spieltage/utils";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
@@ -31,9 +32,9 @@ import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
  * a person, red for something no later result can fix. So the colour answers "does this need me?"
  * first and "which kind of source?" second, which is the order an admin actually asks.
  *
- * - `gruppe` — seeded from the standings; the first knockout round's normal answer. It takes
- *   `SaisonPhaseChip`'s Gruppenphase token at the `/10` that component measured, because the slot
- *   comes from exactly the phase that colour already names everywhere else in the app.
+ * - `gruppe` — seeded from the standings; the first knockout round's normal answer. It reads
+ *   `fl_frontend/src/features/saisons/constants.ts :: PHASE_TINTS` rather than spelling the token,
+ *   because the slot comes from exactly the phase that entry names everywhere else in the app.
  * - `spiel` — fed by an earlier match; every later round's normal answer.
  * - `manuell` — no source, so the slot is the admin's own and nothing fills it for them.
  * - `offen` — no source and no team. The triage list's `besetzung_missing`, whose urgency is
@@ -46,7 +47,7 @@ import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
  * danger chip would be two reds claiming to be opposite answers.
  */
 const HERKUNFT_CHIPS = {
-  gruppe: "bg-phase-gruppenphase/10 text-phase-gruppenphase",
+  gruppe: PHASE_TINTS.gruppenphase,
   spiel: "bg-info/15 text-info-strong",
   manuell: "bg-warning/15 text-warning-strong",
   offen: "bg-danger/15 text-danger-strong",
@@ -152,10 +153,20 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
   return (
     /* `AdminCrudShell`'s page frame rather than the component, which would owe
        this page a create trigger. `px-3` below `sm` for the reason
-       `SaisontabelleView` uses it: page gutter is width a table row loses. */
-    <div className={`${PAGE_RISE} max-w-page mx-auto flex w-full flex-col gap-6 px-3 py-4 sm:p-8`}>
+       `SaisontabelleView` uses it: page gutter is width a table row loses.
+
+       The round panels are the collection this page renders, so they cascade and
+       each panel's table arrives whole; `CARDS_CASCADE`'s unit paragraph is what
+       decides that, one page over as much as here. No page rise beside it: this
+       container holds nothing but the panels, and the leading panel's own step is
+       the same 8px over the same 300ms on the same curve, so a rise here would
+       only make that one panel travel the distance twice. */
+    <div
+      role="list"
+      className={`${CARDS_CASCADE} max-w-page mx-auto flex w-full flex-col gap-6 px-3 py-4 sm:p-8`}>
       {rounds.map((round) => (
         <div
+          role="listitem"
           key={round.id}
           className={`${card()} flex w-full flex-col items-start gap-4 p-3 sm:p-6`}>
           <h2 className="fluid-lg text-foreground font-black tracking-tight">{labels.get(round.id)?.label}</h2>
@@ -268,7 +279,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                               <Link
                                 href={adminSpielEditHref(spiel.id)}
                                 aria-label={`Spiel Nr.${spiel.spiel_nr} bearbeiten`}
-                                className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid/90 flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-xl shadow-sm transition-colors duration-200 md:h-[38px] md:w-[38px]">
+                                className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid-hover flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-xl shadow-sm transition-colors duration-200 md:h-[38px] md:w-[38px]">
                                 <PencilToSquare className="m-0 size-5" />
                               </Link>
                             </IconTooltip>

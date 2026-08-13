@@ -66,8 +66,8 @@ paired in every round, so a single round robin takes `n − 1` rounds. With an o
 opponent in each round — the **bye** — so the schedule needs `n` rounds to give every pairing its turn, and
 each round holds `floor(n / 2)` matches per group rather than `n / 2`. `group_matchdays` and
 `group_matches_per_matchday` each carry that case, and `total_group_matches` is `C(n, 2)` per group
-**directly**, never matchdays times matches per matchday: for odd `n` that product overcounts, because it
-counts the bye's empty slot as a fixture.
+**directly**, which the schedule meets at every size: five teams are 5 matchdays × 2 matches = 10 and six
+are 5 × 3 = 15, each exactly `C(n, 2)`, because the odd group's extra round offsets its smaller rounds.
 
 **`anzahl_spiele` is `ge=0`, and zero is a real answer.** A matchday whose phase this season's bracket does
 not reach expects no matches — a season sending eight teams into the knockout plays no round of sixteen. The
@@ -89,7 +89,7 @@ is one more entry in `PHASE_ORDER` and nothing else —
 capacity hardcoded beside the set fails rather than drifting.
 
 **The rules are held to a shape a competition can have, by five refusals.**
-`fl_backend/app/api/saisons/services.py :: find_rules_refusal` is pure and returns `(error_code, detail)`:
+`fl_backend/app/api/saisons/services.py :: find_rules_refusal` is pure and returns a `WriteRefusal`:
 
 | Code            | Refuses                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------- |

@@ -134,6 +134,32 @@ describe("readFacetSelection", () => {
   it("ignores an empty parameter and every parameter that is not a facet", () => {
     assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("gruppe=&q=helm&saison_id=2026")), {});
   });
+
+  it("reads a NON-EMPTY selection back as the same object while the query string is unchanged", () => {
+    // `applyFacets` returns its input by reference only while nothing is selected, so with a facet
+    // active the chain rests on this object instead: `AdminCrudView`'s memo, then the collection.
+    const first = readFacetSelection(FACETS, new URLSearchParams("status=aktiv&gruppe=A"));
+    const second = readFacetSelection(FACETS, new URLSearchParams("status=aktiv&gruppe=A"));
+
+    assert.equal(first, second);
+  });
+
+  it("reads a CHANGED query string as a new object", () => {
+    const before = readFacetSelection(FACETS, new URLSearchParams("status=aktiv"));
+    const after = readFacetSelection(FACETS, new URLSearchParams("status=stillgelegt"));
+
+    assert.notEqual(before, after);
+    assert.deepEqual(after, { status: ["stillgelegt"] });
+  });
+
+  it("keeps one facet array's reads apart from another's", () => {
+    // Two filtered surfaces render on one page, and one surface's query string must not answer the
+    // other's read.
+    const other: readonly Facet<Row>[] = [FACETS[0]!];
+
+    assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("status=aktiv&gruppe=A")), { status: ["aktiv"], gruppe: ["A"] });
+    assert.deepEqual(readFacetSelection(other, new URLSearchParams("status=aktiv&gruppe=A")), { status: ["aktiv"] });
+  });
 });
 
 describe("countActiveFacets", () => {
@@ -208,9 +234,9 @@ describe("every facet set in the app", () => {
   });
 
   it("never claims a parameter the search field or the season selector already owns", () => {
-    // `q` is `useDebouncedUrlQuery`'s, `saison_id` is the sidemenu selector's and `section` is the
-    // action-required strip's. A facet taking any of them would fight a control on the same page, and the
-    // collision is invisible until somebody filters.
+    // `q`, `saison_id` and `section` belong to the search field, the season selector and the
+    // action-required strip. A facet claiming one fights a control on the same page, invisibly until
+    // somebody filters.
     const reserved = new Set(["q", "saison_id", "section"]);
 
     for (const [name, facets] of discovered) {

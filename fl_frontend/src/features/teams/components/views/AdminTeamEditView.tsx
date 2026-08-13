@@ -14,6 +14,7 @@ import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { FLTeamRecord } from "@/features/teams/schemas";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 
@@ -32,6 +33,7 @@ export function AdminTeamEditView({
   saison,
   gruppeLocked,
   gruppeOffer,
+  swap,
   today,
 }: {
   team: FLTeamRecord;
@@ -39,6 +41,8 @@ export function AdminTeamEditView({
   gruppeLocked: boolean;
   /** The selected season's groups with their fill state, from `buildGruppeOffer`. */
   gruppeOffer: readonly GruppeOffer[];
+  /** The selected season's swap state, for the club editor's entry point into it (ADR-0071). */
+  swap: SaisonGruppenSwapContext;
   today: string;
 }) {
   const router = useRouter();
@@ -65,6 +69,7 @@ export function AdminTeamEditView({
         today={today}
         gruppeLocked={gruppeLocked}
         gruppeOffer={gruppeOffer}
+        swap={swap}
         registerRequestLeave={(requestLeave) => {
           requestLeaveRef.current = requestLeave;
         }}
@@ -72,7 +77,7 @@ export function AdminTeamEditView({
           <>
             <Button
               onPress={() => requestLeaveRef.current()}
-              className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+              className="bg-surface border-border text-foreground data-hovered:bg-hover fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
               <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
               <span>Zurück</span>
             </Button>
@@ -81,7 +86,7 @@ export function AdminTeamEditView({
               <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
                 <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">{team.name}</h2>
                 {/* The TeamCard's chip, so the Kürzel wears one colour everywhere (decided 2026-08-07). */}
-                <span className="bg-brand/50 text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold shadow-sm">
+                <span className="bg-brand-solid text-brand-solid-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold shadow-sm">
                   {team.shorthand}
                 </span>
                 {isRetired && (
@@ -93,7 +98,7 @@ export function AdminTeamEditView({
                   <Button
                     onPress={handleReactivate}
                     isDisabled={isReactivating}
-                    className="border-border bg-surface text-foreground hover:bg-muted fluid-xs flex h-8 w-fit items-center rounded-lg border px-3 font-bold shadow-sm transition-colors">
+                    className="border-border bg-surface text-foreground data-hovered:bg-hover fluid-xs flex h-8 w-fit items-center rounded-lg border px-3 font-bold shadow-sm transition-colors">
                     {isReactivating ? "Reaktiviert..." : "Reaktivieren"}
                   </Button>
                 )}

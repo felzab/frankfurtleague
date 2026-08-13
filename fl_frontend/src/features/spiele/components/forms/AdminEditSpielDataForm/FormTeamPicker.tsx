@@ -2,11 +2,12 @@
 
 import { Autocomplete, FieldError, Label, ListBox, SearchField, useFilter } from "@heroui/react";
 
+import { dismissControl } from "@/core/dismissControl";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { formatQuelle, isDirectlyPrecedingRound, listFeederSpiele, quelleKey } from "@/features/spiele/utils";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
-import { Callout } from "@/shared/components/ui/Callout";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
@@ -15,6 +16,7 @@ import { FieldLabel } from "./FieldLabel";
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
+import type { SpielBanner } from "./banners";
 
 /**
  * The list entry that empties the side.
@@ -136,6 +138,7 @@ export function FormTeamPicker({
   knockoutTeamIds,
   otherDraftQuelle,
   onValidateSelection,
+  banners,
 }: {
   label: string;
   /**
@@ -180,6 +183,8 @@ export function FormTeamPicker({
    * asked to choose one.
    */
   onValidateSelection: (paths: readonly string[], selected: Partial<FLPatchSpielDataPayload>) => void;
+  /** The editor's whole Hinweis list; this side's two spots take their own entries out of it. */
+  banners: readonly SpielBanner[];
 }) {
   const { contains } = useFilter({ sensitivity: "base" });
 
@@ -332,18 +337,17 @@ export function FormTeamPicker({
             what parks it at the trailing edge as the listbox rows do, so the clear button beside it
             does not move when a team is disqualified. */}
         {isSelectedDisqualified && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong ms-2 shrink-0`}>Disqualifiziert</span>}
-        {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. `size-7`
-            because the default is a 20px target on the control that is the PRIMARY way a group
-            fixture's side is emptied — too small to see and to hit. */}
         {/* Not offered while this side carries goals: emptying it would take them with it, and the
             composed `ergebnis` with them, which `REQ-RESULT-001` refuses (decided 2026-08-08). Switching
             the team stays available through the list, and that is the correction this control was being
             reached for anyway. */}
+        {/* `ms-2` here rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
+            truncated name ends against this button (I30 in `docs/frontend/spec.md`). `hover: "css"`
+            because HeroUI renders this one as a plain `<button>` (`core/dismissControl.ts`). */}
         {!hasStoredGoals && (
           <Autocomplete.ClearButton
             type="button"
-            aria-label={`${label}-Auswahl aufheben`}
-            className="text-foreground-muted hover:text-foreground ms-2 size-7 rounded-md [&_svg]:size-4"
+            {...dismissControl({ label: `${label}-Auswahl aufheben`, hover: "css", className: "ms-2" })}
           />
         )}
         <Autocomplete.Indicator />
@@ -361,7 +365,7 @@ export function FormTeamPicker({
                 placeholder="Team finden..."
                 className="bg-transparent outline-none"
               />
-              <SearchField.ClearButton />
+              <SearchField.ClearButton {...dismissControl({ label: `${label}-Suche zurücksetzen` })} />
             </SearchField.Group>
           </SearchField>
 
@@ -374,7 +378,7 @@ export function FormTeamPicker({
             <ListBox.Item
               id={OPEN_SLOT_KEY}
               textValue={PLACEHOLDER.slot}
-              className="fluid-xs hover:bg-muted border-border text-foreground-muted mb-1 cursor-pointer rounded-lg border-b px-3 py-2 pb-2 font-semibold italic">
+              className="fluid-xs data-hovered:bg-hover border-border text-foreground-muted mb-1 cursor-pointer rounded-lg border-b px-3 py-2 pb-2 font-semibold italic">
               {PLACEHOLDER.slot}
             </ListBox.Item>
 
@@ -397,7 +401,7 @@ export function FormTeamPicker({
                   key={item.id}
                   id={item.id}
                   textValue={chip === null ? item.name : `${item.name} (${chip.text})`}
-                  className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
+                  className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
                   <span className="min-w-0 truncate">{item.name}</span>
                   {chip !== null && <span className={`${LABEL_BADGE} ml-auto shrink-0 ${chip.cls}`}>{chip.text}</span>}
                 </ListBox.Item>
@@ -451,7 +455,7 @@ export function FormTeamPicker({
                 // The marker rides in `textValue` as well as in the visible row, so the trigger and a
                 // screen reader both read the recommendation rather than only sighted users of the list.
                 textValue={item.key === recommendedChoice ? `${item.label} (empfohlen)` : item.label}
-                className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
+                className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                 {/* Success-tinted, not brand: brand text on a brand tint was the least readable chip
                     on the page, and a recommendation is a positive signal.
                     `ml-auto`, like every list chip — two lists parking the same chip in two places
@@ -500,7 +504,7 @@ export function FormTeamPicker({
                     key={name}
                     id={name}
                     textValue={`Gruppe ${name}`}
-                    className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
+                    className="fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2">
                     Gruppe {name}
                   </ListBox.Item>
                 ))}
@@ -547,7 +551,7 @@ export function FormTeamPicker({
                         key={platz}
                         id={String(platz)}
                         textValue={label}
-                        className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
+                        className="fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2">
                         {label}
                       </ListBox.Item>
                     );
@@ -600,7 +604,7 @@ export function FormTeamPicker({
                     key={spiel.id}
                     id={String(spiel.spiel_nr)}
                     textValue={isDirectlyPrecedingRound(spiel, spielData) ? `${describeFeeder(spiel)}, empfohlen` : describeFeeder(spiel)}
-                    className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
+                    className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                     <span className="min-w-0 truncate">{describeFeeder(spiel)}</span>
                     {isDirectlyPrecedingRound(spiel, spielData) && (
                       <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>Empfohlen</span>
@@ -615,32 +619,24 @@ export function FormTeamPicker({
         </Autocomplete>
       )}
 
-      {/* Danger whether the takeover happened just now or in an earlier session — the severity keys on
-          the STATE, not on who caused it. `isAnnounced` still keys on
-          the act: only the takeover performed in this edit is an event a screen reader should hear. It
-          deliberately does NOT claim other fixtures are affected — clearing a source changes this
-          slot's own maintenance and nothing else (ADR-0034). */}
-      {isManual && (
-        <Callout
-          severity="danger"
-          isAnnounced={hasJustBeenTakenOver}
-          title={`${label} pflegt das System nicht`}>
-          Ohne Herkunft bleibt diese Seite so stehen, wie Du sie einträgst. Kein späteres Ergebnis ändert sie.
-        </Callout>
-      )}
+      {/* Danger on the state rather than on who caused it, so a slot taken over in any edit carries
+          it. `isAnnounced` keys on the act instead: only a takeover performed in THIS edit is an
+          event a screen reader should hear. Neither claims other fixtures are affected — clearing a
+          source changes this slot's own maintenance and nothing else (ADR-0034). */}
+      <InlineBanners
+        banners={banners}
+        spot={`${fieldName}-manuell`}
+        isAnnounced={hasJustBeenTakenOver}
+      />
 
       {/* The qualification warning, beside the Manuell one it accompanies: the hand-picked team
           stands in no other bracket fixture, which is the client's honest signal that it may not
           have advanced at all (`collectKnockoutTeamIds` — ADR-0035 keeps re-deriving standings out
-          of the client). A warning, never a refusal, and mirrored in the rail's Hinweise. */}
-      {isManual && teamPayload !== null && !knockoutTeamIds.has(teamPayload.team_id) && (
-        <Callout
-          severity="warning"
-          title={`${teamPayload.name} ist nicht für diese Runde qualifiziert`}>
-          Laut Turnierbaum hat sich diese Mannschaft nicht für diese Runde qualifiziert. Prüfe vor dem Speichern, ob die Auswahl beabsichtigt
-          ist.
-        </Callout>
-      )}
+          of the client). A warning, never a refusal. */}
+      <InlineBanners
+        banners={banners}
+        spot={`${fieldName}-qualifikation`}
+      />
 
       {choice === "manuell" ? (
         teamPicker

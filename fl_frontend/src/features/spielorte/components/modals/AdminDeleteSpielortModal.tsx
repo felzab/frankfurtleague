@@ -19,7 +19,7 @@ export function AdminDeleteSpielortModal({ ortData, isOpen, onClose }: { ortData
       heading="Spielort stilllegen"
       entityLabel="den Spielort"
       entityName={ort.name}
-      consequence="Bereits eingetragene Spiele behalten den hier hinterlegten Ort samt Maps-Link. Er steht künftig nur nicht mehr zur Auswahl."
+      consequence="Bereits eingetragene Spiele behalten diesen Ort. Er steht künftig nur nicht mehr zur Auswahl."
       successMessage="Spielort stillgelegt"
       onConfirm={() => deleteSpielortAction({ id: ort.id })}
     />

@@ -22,7 +22,7 @@ import type { AdminSpielerRow } from "../../types";
  * same box (decided 2026-08-07) — two hand-written copies would drift the moment either is touched.
  */
 const SHORTHAND_CHIP =
-  "bg-brand/50 text-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide";
+  "bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide";
 
 /**
  * Memoised, and load-bearing — see the collection-identity note in `AdminCrudView`: the `items` +
@@ -157,7 +157,9 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
    * the word for anyone who does not know the convention.
    */
   const renderCaptain = (spieler: AdminSpielerRow) =>
-    spieler.selected?.is_captain === true ? <span className={`${LABEL_BADGE} bg-brand/50 text-foreground shrink-0`}>Kapitän</span> : null;
+    spieler.selected?.is_captain === true ? (
+      <span className={`${LABEL_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>Kapitän</span>
+    ) : null;
 
   /** The phone layout's marker: the Kürzel chip's exact box, carrying the armband's letter. */
   const renderCaptainCompact = (spieler: AdminSpielerRow) =>
@@ -290,7 +292,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                         {spieler.selected?.teamName ? (
                           <div className="flex items-center gap-2">
                             {/* The TeamCard's chip colour, so a Kürzel wears one tint everywhere. */}
-                            <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide">
+                            <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide">
                               {spieler.selected.teamShorthand}
                             </span>
                             <span className="fluid-sm text-foreground truncate font-semibold">{spieler.selected.teamName}</span>

@@ -12,6 +12,7 @@
  *   facet reads zero, answering "what do I have" instead of "what would I get".
  * - Filtering runs BEFORE the fuzzy search — same result, smaller list for Fuse.
  * - A facet's `param` is unique per surface, never `q` or `saison_id` — `facets.test.ts` asserts it.
+ * - One query string read against one facet array yields one selection OBJECT, not an equal copy.
  */
 
 /** One choosable value of a facet. `count` is filled in by `countFacetOptions`, never by the caller. */
@@ -93,6 +94,14 @@ export function countFacetOptions<TItem>(
 }
 
 /**
+ * The last selection read for one facet array, so an unchanged query string reads back the same object.
+ *
+ * Keyed on the facet array, which every surface owns exactly one of, so a surface's entry dies with the
+ * surface and two surfaces on one page never share a slot. A miss only ever costs a fresh object.
+ */
+const lastReadSelection = new WeakMap<object, { search: string; selection: FacetSelection }>();
+
+/**
  * A selection read out of URL search parameters.
  *
  * **Comma-joined, one parameter per facet** — `?status=active,future` rather than a repeated key. Every
@@ -100,8 +109,19 @@ export function countFacetOptions<TItem>(
  * three copies of the same key. A value the facet does not offer is dropped rather than kept: the query
  * string is user-editable, and a selection naming an option the popover cannot show would leave the two
  * halves of the control disagreeing — the same reasoning `SaisonSelector` applies to `?saison_id=`.
+ *
+ * **The returned object is referentially stable for as long as the query string is**, which is the half
+ * of the collection-identity constraint `applyFacets`'s early return cannot cover. Every downstream memo
+ * — `AdminCrudView`'s, `SpielsucheView`'s — keys on this object, so an equal-but-fresh copy per render
+ * missed all of them the moment a facet was active, rebuilt the Fuse index and changed the react-aria
+ * collection's identity. Derivation is pure and total, so a cached object and a recomputed one differ in
+ * nothing but their reference.
  */
 export function readFacetSelection<TItem>(facets: readonly Facet<TItem>[], params: URLSearchParams): FacetSelection {
+  const search = params.toString();
+  const cached = lastReadSelection.get(facets);
+  if (cached !== undefined && cached.search === search) return cached.selection;
+
   const selection: Record<string, readonly string[]> = {};
 
   for (const facet of facets) {
@@ -112,6 +132,8 @@ export function readFacetSelection<TItem>(facets: readonly Facet<TItem>[], param
     const picked = raw.split(",").filter((value) => offered.has(value));
     if (picked.length > 0) selection[facet.param] = picked;
   }
+
+  lastReadSelection.set(facets, { search, selection });
   return selection;
 }
 

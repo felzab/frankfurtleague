@@ -2,15 +2,16 @@
 
 import { SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
-import { Callout } from "@/shared/components/ui/Callout";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
 import { SaisonFieldLabel } from "./SaisonFieldLabel";
 
 import type { FLSaisonRules } from "@/features/saisons/schemas";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
+import type { SaisonBanner } from "./banners";
 
 /**
  * The season's competition rules — the six fields of `rules`, and the only surface in the app that writes
@@ -34,8 +35,8 @@ export function FormRegelnSection({
   onFieldLeft,
   onStufenChange,
   stufenError,
-  isLiveSaison,
   isFinishedSaison,
+  banners,
 }: {
   rules: FLSaisonRules;
   onRulesChange: (next: FLSaisonRules) => void;
@@ -43,13 +44,13 @@ export function FormRegelnSection({
   /** Separate from `onRulesChange`, because a picked control is judged on change (ADR-0040). */
   onStufenChange: (next: FLSpielerStufe[]) => void;
   stufenError?: string;
-  /** Whether this season is the one currently being played, which is what makes a rules edit visible. */
-  isLiveSaison: boolean;
   /**
    * Whether this season is over, which freezes the three fields the league table is scored from
    * (`REQ-RULES-005`). The endpoint refuses a change to any of them; this stops the page offering one.
    */
   isFinishedSaison: boolean;
+  /** The editor's whole Hinweis list; the two spots below take their own entries out of it. */
+  banners: readonly SaisonBanner[];
 }) {
   const panel = formPanel();
 
@@ -59,10 +60,10 @@ export function FormRegelnSection({
         <h2 className={panel.heading()}>
           Regeln
           <InfoHint label="Hinweis zu den Regeln">
-            <p>Diese Werte steuern den Wettbewerb, sie beschreiben ihn nicht.</p>
+            <p>Diese Werte legen fest, wie die Saison gespielt wird.</p>
             <ul>
               <li>
-                <strong>Punkte</strong> werden bei jedem Aufruf neu gerechnet. Es gibt nichts nachzutragen.
+                <strong>Punkte</strong> gelten rückwirkend, auch für längst gespielte Spiele.
               </li>
               <li>
                 <strong>Gruppen und Teams pro Gruppe</strong> begrenzen, wohin ein Team aufgenommen werden kann.
@@ -71,7 +72,7 @@ export function FormRegelnSection({
                 <strong>Qualifikanten</strong> ist die Zahl pro Gruppe, die die KO-Runde erreicht.
               </li>
               <li>
-                <strong>Stufen</strong> begrenzen nur die Auswahl in Formularen. Bestehende Kadereinträge bleiben, wie sie sind.
+                <strong>Stufen</strong> begrenzen nur, was Du künftig auswählen kannst. Bestehende Kadereinträge bleiben, wie sie sind.
               </li>
             </ul>
           </InfoHint>
@@ -139,13 +140,10 @@ export function FormRegelnSection({
           {/* Refused by `REQ-RULES-007` (decided 2026-08-08), and said here as well because the two fields
               that cause it are the two directly above: the seeding walk asks each group for this many
               placings, and a group that cannot produce them leaves the bracket short. */}
-          {rules.qualifiers_per_group > rules.teams_per_group && (
-            <Callout
-              severity="danger"
-              title="Mehr Qualifikanten als Teams pro Gruppe">
-              So lässt sich die Saison nicht speichern. Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.
-            </Callout>
-          )}
+          <InlineBanners
+            banners={banners}
+            spot="regeln-qualifikanten"
+          />
         </div>
 
         <div className="flex w-full flex-col gap-y-3">
@@ -158,27 +156,21 @@ export function FormRegelnSection({
           />
         </div>
 
-        {/* Standing rather than announced: it is a property of the season and is true before the admin
-            touches anything. */}
-        {isLiveSaison && (
-          <Callout
-            severity="info"
-            title="Diese Saison läuft">
-            Eine Änderung an den Punkten ist sofort in jeder Tabelle sichtbar, weil die Tabelle bei jedem Aufruf neu gerechnet wird.
-          </Callout>
-        )}
+        {/* Standing rather than announced: what the season's status does to a rules edit is true
+            before the admin touches anything, and it is the same sentence the rail carries. */}
+        <InlineBanners
+          banners={banners}
+          spot="regeln-status"
+        />
 
-        {/* The other side of the same fact. The table is computed from these three on every read, so on a
-            finished season a change would rewrite who won it — which `REQ-RULES-005` refuses. Said here
-            because the three fields are directly above and now read-only; without this the reader sees
-            three inputs that will not take a value and no reason why. */}
+        {/* Panel-local, and deliberately not a banner: which of THESE fields are frozen is a fact
+            about the three inputs directly above, and on the rail it would describe controls the
+            reader cannot see. Without it they are three inputs that will not take a value and no
+            reason why. `REQ-RULES-005` is what refuses the change. */}
         {isFinishedSaison && (
-          <Callout
-            severity="info"
-            title="Diese Saison ist abgeschlossen">
-            Punkte und Qualifikanten sind festgeschrieben, weil die Tabelle daraus berechnet wird — eine Änderung würde das Ergebnis der Saison
-            nachträglich verändern. Gruppen, Teams pro Gruppe, Stufen und der Zeitraum bleiben änderbar.
-          </Callout>
+          <p className="fluid-xxs text-foreground-muted font-medium">
+            Punkte und Qualifikanten sind festgeschrieben. Gruppen, Teams pro Gruppe, Stufen und der Zeitraum bleiben änderbar.
+          </p>
         )}
       </div>
     </section>

@@ -6,6 +6,7 @@ import { ArrowRotateLeft, Copy, Pencil, TrashBin } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
+import { DisabledHint } from "./DisabledHint";
 import { IconTooltip } from "./IconTooltip";
 import { ROW_ACTION_SIZE } from "./rowActionSize";
 
@@ -17,6 +18,9 @@ import type { ReactNode } from "react";
  * interaction bug, not just duplication: the `<Link>` actions got a 40×40 hit area, a
  * hover background and a focus ring, while the `<Button>` actions in the same row got none of the
  * three. They share one style here, so the targets match.
+ *
+ * The shape stays one string for that reason; only the hover variant splits, because a `<Link>` emits
+ * no `data-hovered` and on a `Button` a plain `:hover` sticks after a tap. Both arms carry one tone.
  *
  * The data columns are deliberately NOT shared — they genuinely differ per entity, and a
  * config-driven table is where that kind of abstraction stops paying (decided 2026-07-30).
@@ -31,9 +35,18 @@ import type { ReactNode } from "react";
  * actions take the matching base-layer outline, both in `var(--focus)` — a per-site ring here is
  * what made the row actions look different from everything else.
  */
-const ACTION_CLASS = `text-foreground-muted hover:bg-muted/40 hover:text-brand flex ${ROW_ACTION_SIZE} shrink-0 items-center justify-center rounded-xl transition-colors`;
+const ACTION_SHAPE = `text-foreground-muted flex ${ROW_ACTION_SIZE} shrink-0 items-center justify-center rounded-xl transition-colors`;
 
-const DANGER_CLASS = `text-foreground-muted hover:bg-danger/10 hover:text-danger flex ${ROW_ACTION_SIZE} shrink-0 items-center justify-center rounded-xl transition-colors`;
+const ACTION_LINK_CLASS = `${ACTION_SHAPE} hover:bg-hover hover:text-brand`;
+
+const ACTION_BUTTON_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover data-hovered:text-brand`;
+
+/**
+ * `disabled:pointer-events-none` is load-bearing rather than cosmetic: a disabled form control
+ * dispatches no pointer event and the event reaches no ancestor either, so `DisabledHint`'s wrapper
+ * only becomes the hit target once this makes the button transparent to the pointer.
+ */
+const DANGER_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover-danger data-hovered:text-danger-strong disabled:pointer-events-none`;
 
 export function RowActionLink({
   href,
@@ -54,7 +67,7 @@ export function RowActionLink({
         href={href}
         aria-label={ariaLabel}
         {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-        className={ACTION_CLASS}>
+        className={ACTION_LINK_CLASS}>
         {children}
       </Link>
     </IconTooltip>
@@ -68,7 +81,7 @@ export function RowActionCopy({ label, ariaLabel, onPress }: { label: string; ar
         isIconOnly
         aria-label={ariaLabel}
         variant="ghost"
-        className={ACTION_CLASS}
+        className={ACTION_BUTTON_CLASS}
         onPress={onPress}>
         <Copy
           aria-hidden="true"
@@ -87,7 +100,7 @@ export function RowActionEdit({ label, ariaLabel, onPress }: { label: string; ar
         isIconOnly
         aria-label={ariaLabel}
         variant="ghost"
-        className={ACTION_CLASS}
+        className={ACTION_BUTTON_CLASS}
         onPress={onPress}>
         <Pencil
           aria-hidden="true"
@@ -111,7 +124,7 @@ export function RowActionRestore({ label, ariaLabel, onPress }: { label: string;
         isIconOnly
         aria-label={ariaLabel}
         variant="ghost"
-        className={ACTION_CLASS}
+        className={ACTION_BUTTON_CLASS}
         onPress={onPress}>
         <ArrowRotateLeft
           aria-hidden="true"
@@ -123,38 +136,48 @@ export function RowActionRestore({ label, ariaLabel, onPress }: { label: string;
   );
 }
 
+/**
+ * `disabledReason` is what disables the control, rather than a boolean beside a reason: a row that can
+ * see a refusal can always say it, and the two cannot drift apart if there is only one prop. It reaches
+ * a phone, which `IconTooltip` cannot — see `DisabledHint`.
+ */
 export function RowActionDelete({
   label,
   ariaLabel,
   onPress,
-  isDisabled,
+  disabledReason,
 }: {
   label: string;
   ariaLabel: string;
   onPress: () => void;
-  /**
-   * For a refusal this row can already see. The tooltip carries the reason, so `label` is what changes —
-   * a disabled control with the same wording as a live one tells the reader nothing (decided 2026-08-08).
-   */
-  isDisabled?: boolean;
+  /** The refusal this row can already see, or null while the retirement is offered. */
+  disabledReason?: string | null;
 }) {
-  return (
+  const button = (
+    <Button
+      isIconOnly
+      aria-label={ariaLabel}
+      variant="ghost"
+      isDisabled={disabledReason != null}
+      className={DANGER_CLASS}
+      onPress={onPress}>
+      <TrashBin
+        aria-hidden="true"
+        width={18}
+        height={18}
+      />
+    </Button>
+  );
+
+  // The live control keeps `IconTooltip`: `label` names the act, which is a description rather than a
+  // refusal, and a press there opens the delete instead of an explanation.
+  return disabledReason != null ? (
+    <DisabledHint reason={disabledReason}>{button}</DisabledHint>
+  ) : (
     <IconTooltip
       label={label}
-      tone={isDisabled ? undefined : "danger"}>
-      <Button
-        isIconOnly
-        aria-label={ariaLabel}
-        variant="ghost"
-        isDisabled={isDisabled}
-        className={DANGER_CLASS}
-        onPress={onPress}>
-        <TrashBin
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </Button>
+      tone="danger">
+      {button}
     </IconTooltip>
   );
 }

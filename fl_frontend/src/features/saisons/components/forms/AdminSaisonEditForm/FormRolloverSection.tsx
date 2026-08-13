@@ -11,14 +11,18 @@ import { Button } from "@heroui/react";
 import { activateSaisonAction } from "@/features/saisons/actions";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
+import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { PANEL_REVEAL } from "@/shared/components/ui/motion";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
 import type { SaisonRolloverContext } from "@/features/saisons/types";
+import type { SaisonBanner } from "./banners";
 
 /** How many unfinished fixtures the panel names before it stops listing and starts counting. */
 const LISTED_OFFENE_SPIELE = 8;
@@ -47,6 +51,7 @@ export function FormRolloverSection({
   saisonStatus,
   rollover,
   onBeforeActivate,
+  banners,
 }: {
   saisonId: string;
   saisonStatus: FLSaisonStatus;
@@ -57,6 +62,8 @@ export function FormRolloverSection({
    * editing. Returning `false` cancels.
    */
   onBeforeActivate: () => boolean;
+  /** The editor's whole Hinweis list; the spot below takes its own entry out of it. */
+  banners: readonly SaisonBanner[];
 }) {
   const router = useRouter();
   const panel = formPanel({ tone: saisonStatus === "active" ? "neutral" : "danger" });
@@ -116,7 +123,7 @@ export function FormRolloverSection({
                 Die bisher laufende Saison wird im <strong>gleichen Schritt</strong> abgeschlossen.
               </li>
               <li>
-                Jede Seite ohne ausgewählte Saison zeigt danach <strong>diese</strong> Saison.
+                Wer keine Saison auswählt, sieht danach <strong>diese</strong>.
               </li>
               <li>Offene Spiele der alten Saison bleiben offen und bleiben bearbeitbar.</li>
             </ul>
@@ -126,10 +133,13 @@ export function FormRolloverSection({
 
       <div className={panel.body()}>
         {isAlreadyActive ? (
+          // Panel-local, and deliberately not a banner: it answers "why can I not act HERE", which
+          // is a question only this control raises. That the season is the site-wide default is the
+          // rail's standing fact and is on screen already.
           <Callout
             severity="info"
-            title="Diese Saison ist die laufende">
-            Jede Seite ohne ausgewählte Saison zeigt sie. Umgestellt wird auf der Seite der Saison, die als nächste laufen soll.
+            title="Hier ist nichts umzustellen">
+            Diese Saison läuft bereits; umgestellt wird auf der Seite der Saison, die als nächste laufen soll.
           </Callout>
         ) : (
           <>
@@ -148,18 +158,10 @@ export function FormRolloverSection({
               )}
             </p>
 
-            {outgoing !== null && offene.length > 0 && (
-              <Callout
-                severity="danger"
-                title={
-                  offene.length === 1
-                    ? `1 Spiel der Saison ${outgoing} hat noch kein Ergebnis`
-                    : `${String(offene.length)} Spiele der Saison ${outgoing} haben noch kein Ergebnis`
-                }>
-                Solange das so ist, lässt sich Saison {outgoing} nicht abschließen. Trage die fehlenden Ergebnisse ein oder sage die Spiele ab —
-                ein abgesagtes Spiel gilt als erledigt.
-              </Callout>
-            )}
+            <InlineBanners
+              banners={banners}
+              spot="umstellung"
+            />
 
             {/* The list, not a number: the count alone tells the operator that something is open and
                 nothing about whether it matters. A finale without a result is a different decision from
@@ -184,9 +186,13 @@ export function FormRolloverSection({
                     </Link>
                   </li>
                 ))}
+                {/* Singular and plural spelled out: a remainder of one makes "1 weitere" out of a fixed plural. */}
                 {offene.length > LISTED_OFFENE_SPIELE && (
                   <li className="fluid-xxs text-foreground-muted px-3 py-2 font-medium">
-                    und {String(offene.length - LISTED_OFFENE_SPIELE)} weitere. Die vollständige Liste steht unter Handlungsbedarf.
+                    {offene.length - LISTED_OFFENE_SPIELE === 1
+                      ? "und ein weiteres."
+                      : `und ${String(offene.length - LISTED_OFFENE_SPIELE)} weitere.`}{" "}
+                    Die vollständige Liste steht unter Handlungsbedarf.
                   </li>
                 )}
               </ul>
@@ -197,7 +203,7 @@ export function FormRolloverSection({
             {isConfirming && (
               <div
                 role="alert"
-                className="animate-in fade-in slide-in-from-bottom-4 bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm duration-400">
+                className={`${PANEL_REVEAL} bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm`}>
                 <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
                   {outgoing === null
@@ -213,21 +219,26 @@ export function FormRolloverSection({
                 knows the answer to, which is the same division the season form's rules panel makes. The
                 list above is what makes the disabled state actionable. */}
             <div className="flex w-full flex-row flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="primary"
-                isDisabled={isActivating || isBlocked}
-                onPress={handleActivate}
-                className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
-                {!isConfirming && (
-                  <ArrowRightArrowLeft
-                    aria-hidden="true"
-                    width={18}
-                    height={18}
-                  />
-                )}
-                {isActivating ? "Stellt um..." : isConfirming ? `Ja, auf ${saisonId} umstellen` : `Saison ${saisonId} aktivieren`}
-              </Button>
+              {/* The list above sits a screen away from the button, so the refusal is said again on
+                  the control itself. `isActivating` is left out: it ends by itself. */}
+              <DisabledHint
+                reason={!isActivating && isBlocked ? "Umstellen geht erst, wenn die laufende Saison keine offenen Spiele mehr hat." : null}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  isDisabled={isActivating || isBlocked}
+                  onPress={handleActivate}
+                  className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
+                  {!isConfirming && (
+                    <ArrowRightArrowLeft
+                      aria-hidden="true"
+                      width={18}
+                      height={18}
+                    />
+                  )}
+                  {isActivating ? "Stellt um..." : isConfirming ? `Ja, auf ${saisonId} umstellen` : `Saison ${saisonId} aktivieren`}
+                </Button>
+              </DisabledHint>
               {isConfirming && (
                 <Button
                   type="button"

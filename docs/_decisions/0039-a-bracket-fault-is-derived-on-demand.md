@@ -1,10 +1,10 @@
 # ADR-0039 — A bracket fault is derived on demand, and all five reach the list an admin already reads
 
-**Status:** Accepted\
+**Status:** Superseded by ADR-0073\
 **Date:** 2026-08-05\
 **Surface:** backend, frontend\
 **Supersedes:** —\
-**Superseded by:** —\
+**Superseded by:** ADR-0073\
 **Source:** Open item FB-13, plus a re-reading of `resolve_bracket` on 2026-08-05 that found a third
 unreported fault where the item recorded two.
 

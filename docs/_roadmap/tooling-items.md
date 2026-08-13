@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `9f04f46`, 2026-08-12\
+**Verified against:** `9701106`, 2026-08-13\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -45,22 +45,24 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 
 ## The path at a glance
 
-| #   | ID     | Item                                                    | Surfaces  | Effort | Status   | Depends on |
-| --- | ------ | ------------------------------------------------------- | --------- | ------ | -------- | ---------- |
-| 1   | OPS-56 | The git stepper reads one `git`, on one line            | Ops       | S      | Open     | —          |
-| 2   | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops       | S      | Open     | —          |
-| 3   | OPS-62 | A pin bump arms every page citing the workflow          | Ops, Docs | S      | Open     | —          |
-| 4   | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs | S      | Open     | —          |
-| 5   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops       | S      | Open     | —          |
-| 6   | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops       | M      | Open     | —          |
-| 7   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops   | S      | Open     | —          |
-| 8   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs      | M      | Open     | —          |
-| 9   | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops   | S      | Open     | —          |
-| 10  | OPS-10 | The comment-only classifier costs a process per file    | Ops       | S      | Open     | —          |
-| 11  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops       | —      | Standing | —          |
-| 12  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops       | —      | Standing | —          |
-| 13  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs      | —      | Standing | —          |
-| 14  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs      | —      | Standing | —          |
+| #   | ID     | Item                                                    | Surfaces    | Effort | Status   | Depends on |
+| --- | ------ | ------------------------------------------------------- | ----------- | ------ | -------- | ---------- |
+| 1   | OPS-56 | The git stepper reads one `git`, on one line            | Ops         | S      | Open     | —          |
+| 2   | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops         | S      | Open     | —          |
+| 3   | OPS-62 | A pin bump arms every page citing the workflow          | Ops, Docs   | S      | Open     | —          |
+| 4   | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs   | S      | Open     | —          |
+| 5   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
+| 6   | OPS-63 | A comment claims two files hold one pattern, unchecked  | FE, BE, Ops | S      | Open     | —          |
+| 7   | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops         | M      | Open     | —          |
+| 8   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
+| 9   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
+| 10  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops     | S      | Open     | —          |
+| 11  | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
+| 12  | DOC-8  | A later decision falsifies a fact an earlier ADR states | Docs        | —      | Standing | —          |
+| 13  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
+| 14  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
+| 15  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
+| 16  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -315,7 +317,52 @@ separator, allowing a leading `sudo` or an environment assignment — still refu
 and `scripts/selfcheck.sh` asserts each. It already drives this hook for a bare invocation, for the
 local file named, and for a command that is not compose at all, so the probes have a home.
 
-### 6 · OPS-60 — The gate's wall clock is one scope, and that scope runs serially
+### 6 · OPS-63 — A comment claims two files hold the same pattern, and nothing holds them to it
+
+**Status:** Open\
+**Surfaces:** FE, BE, Ops\
+**Effort:** S\
+**Path:** Independent — both files exist and the suite that would host a check already reads the
+published document.
+
+**The two ends of the wire are resolved against each other in exactly one place, and patterns are
+outside it on purpose.** `fl_frontend/src/core/apiContract.test.ts` converts every exported Zod
+schema to JSON Schema, pairs it with its component in the committed `fl_backend/openapi.json`, and
+compares presence, required, nullable, primitive type and enum members. Its header states the
+boundary in terms: patterns, lengths, bounds and messages are deliberately not compared, because the
+two sides diverge there by design and comparing validation policy produces failures nobody can act
+on. That is [ADR-0033](../_decisions/0033-the-zod-mirror-is-checked-against-the-published-document.md),
+and **this entry does not propose moving it.**
+
+**What nothing checks is a narrower claim, made in prose, that one specific pair is the same text.**
+`fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX` carries the comment
+"`fl_frontend/src/shared/schemas.ts :: PHONE_REGEX` mirrors this", and
+`fl_frontend/src/shared/schemas.ts`'s own header states the invariant from the other side — each
+schema mirrors a backend constraint, and "looser here makes the client-side message a lie about what
+is allowed". Neither sentence is a comparison anything performs.
+
+**The two patterns agree today, and nothing holds them there.** They last diverged on the character
+class: a literal space on one side against `\s` on the other, which in JavaScript absorbs a trailing
+newline so `$` still matches. The frontend was the looser end, so the failure mode is a form
+accepting a value the API answers with a 422 that nothing in the interface can explain, rather than
+a bad value being stored — and it survived a review, a commit body asserting the two were identical,
+and a contract test that does not look at patterns. **What makes it worth an entry is that the same
+divergence can reappear the next time either side is edited, silently and in the same direction.**
+Blast radius is currently nil, since no referee holds a phone number at all, which is exactly what
+would make a recurrence invisible.
+
+**Three answers, and they are not equivalent.**
+
+- **Check the declared pairs.** A list of `(python symbol, typescript symbol)` pairs whose patterns
+  must be byte-identical, compared in the frontend suite that already reads across the boundary. It
+  says nothing about the pairs not on the list, which is what keeps it inside ADR-0033.
+- **Drop the claim.** Delete the mirroring sentence, let the two ends diverge like every other
+  validation policy, and accept the 422 as the contract. Cheapest, and it gives up the one property
+  that makes the frontend message trustworthy.
+- **Generate one end from the other.** Refused for the mirror as a whole (ADR-0033), and refusing it
+  for one constant is the same argument at a smaller scale.
+
+### 7 · OPS-60 — The gate's wall clock is one scope, and that scope runs serially
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -351,7 +398,7 @@ about 60s, at which point `frontend` at 57s becomes the new floor and the next l
 build`. **OPS-19's linter cache buys nothing on wall clock** — it targets `format` at 45s, which is
 already hidden inside `scripts`.
 
-### 7 · OPS-12 — Nothing checks a generated file against the generator that owns it
+### 8 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -387,7 +434,7 @@ the formatter has run over each side so the comparison is about content rather t
 and fails where it differs from the committed one, and the images are left to review with that
 exclusion written down rather than assumed.
 
-### 8 · DOC-2 — An enforcement claim is resolved in one direction only
+### 9 · DOC-2 — An enforcement claim is resolved in one direction only
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -419,7 +466,7 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 9 · OPS-19 — Both repository-wide linters re-read every file on every run
+### 10 · OPS-19 — Both repository-wide linters re-read every file on every run
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -494,7 +541,7 @@ that same sixteen-core machine on 2026-08-12. That is not the CI figure and must
 a standard GitHub-hosted runner has four cores, where worker startup and plugin loading can spend the
 whole win, so the flag is kept only if three CI runs beat the recorded baseline.
 
-### 10 · OPS-10 — Deciding whether a change is comments only costs a process per file
+### 11 · OPS-10 — Deciding whether a change is comments only costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -524,7 +571,45 @@ spawning it replaced.
 **Not measured:** what the spawns actually cost, and how much of a gate run is attributable to them.
 The mechanism above is read from the code; the magnitude is not.
 
-### 11 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 12 · DOC-8 — A later decision can falsify a fact an earlier ADR states, and nothing links the two
+
+**Status:** Standing\
+**Surfaces:** Docs\
+**Effort:** —\
+**Path:** Independent — no pass covers it, and only the trigger below reopens it.
+
+**One instance exists, and it is live.**
+[ADR-0037](../_decisions/0037-a-seasons-fixtures-are-created-once.md)'s Consequences names
+`spieltage.anzahl_spiele` as a stored count of the matches in a matchday, maintained by hand.
+[ADR-0052](../_decisions/0052-a-seasons-schedule-is-derived-from-its-rules.md) made that false: the
+count is derived from the season's rules and stored on no document.
+
+**Neither ADR points at the other, and both are right to be shaped that way.** ADR-0037's Status is
+`Accepted` with an empty `Superseded by`, which is correct — its decision, that `/spiele` has no
+`POST` and no `DELETE`, stands untouched. What moved is a supporting fact its reasoning leans on,
+inside a section a reader is invited to read as current.
+
+**The corpus rules leave no move, and that is deliberate rather than an oversight.** DEC-4 makes an
+ADR's reasoning immutable once merged; DEC-6's reversal is a new number plus exactly two lines in
+the old one, which is the procedure for a decision being reversed and not for a fact inside one
+going stale. Editing ADR-0037's Consequences to agree with ADR-0052 is precisely the edit DEC-4
+forbids, and it would also erase the record of what was believed when the decision was taken.
+
+**What it costs today is bounded, which is why this stands rather than being worked.** A reader
+reaching the field through the code has PRE-1's ladder, which puts the code above the ADR, and
+ADR-0052's never-clause sits in `.claude/CLAUDE.md` §7 where a session meets it before touching the
+field. The exposure is the reader who arrives at ADR-0037 on its own and takes its Consequences for
+current state.
+
+**What a decision would have to settle**, if a second instance makes it worth taking: whether a
+falsified supporting fact is recorded at all, and if so where — the superseding decision's own text
+is the one place that can carry it without touching what is immutable, and a rule saying so would
+have to be written into the decisions chapter rather than practised ad hoc.
+
+**Trigger to revisit:** a second ADR found stating a fact a later one falsified, or any change to
+what DEC-6's two lines carry.
+
+### 13 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -563,7 +648,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 12 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 14 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -608,7 +693,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 13 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 15 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -642,7 +727,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a chapter added to the standard under a prefix the patterns do not carry, or
 the first page that needs a metadata block indented.
 
-### 14 · DOC-4 — A stamp is required by a path and owed by a claim
+### 16 · DOC-4 — A stamp is required by a path and owed by a claim
 
 **Status:** Standing\
 **Surfaces:** Docs\

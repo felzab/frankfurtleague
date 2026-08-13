@@ -61,16 +61,11 @@ export function FieldLabel({ path, children }: { path: string; children: ReactNo
                 <CircleDashed className="size-3" />
               </span>
             }>
+            {/* No bolded `Fehlt.` in front: the trigger's own `aria-label` is that word, so a screen
+                reader announced it twice — and under the `Empfohlen` label the second one read as a
+                contradiction. Verb-first where there is something to do, bare where there is not. */}
             <p>
-              {status.expectedSeverity === "required" ? (
-                <>
-                  <strong>Fehlt.</strong> Nötig, damit das Spiel stattfinden kann.
-                </>
-              ) : (
-                <>
-                  <strong>Fehlt.</strong> Empfohlen, aber nicht zwingend.
-                </>
-              )}
+              {status.expectedSeverity === "required" ? "Trage es ein, damit das Spiel stattfinden kann." : "Empfohlen, aber nicht zwingend."}
             </p>
           </InfoHint>
         )}

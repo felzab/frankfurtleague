@@ -23,7 +23,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam } from "./mutations";
@@ -70,9 +70,12 @@ function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     return { fieldErrors: { gruppe: "Diese Gruppe ist bereits voll." } };
   }
   if (error.serverErrorCode === "REQ-ENTER-004") {
+    // Names the route that is still open instead of stopping at the refusal (ADR-0071): the swap
+    // control sits under the locked Gruppe row on the page this message lands on, so the second
+    // sentence is reachable without leaving the screen.
     return {
       error:
-        "Für dieses Team sind in dieser Saison schon Spiele angelegt. Ein Gruppenwechsel ist nur möglich, solange die Saison geplant ist oder noch keine Spiele bestehen.",
+        "Für dieses Team sind in dieser Saison schon Spiele angelegt, deshalb kann es die Gruppe nicht allein wechseln. Tausche die Gruppe stattdessen mit einer zweiten Mannschaft, unter der gesperrten Gruppe auf dieser Seite.",
     };
   }
   return null;
@@ -85,7 +88,7 @@ export async function postTeamAction(
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postTeamAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLCreateTeamFormPayloadSchema.safeParse(rawPayload);
@@ -151,7 +154,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
 }> {
   return runAdminMutation("patchTeamAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPatchTeamPayloadSchema.safeParse(rawPayload);
@@ -195,7 +198,7 @@ export async function deleteTeamAction(
 ): Promise<{ success: boolean; updated_document?: FLTeamRecord; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("deleteTeamAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLDeleteTeamPayloadSchema.safeParse(rawPayload);
@@ -239,7 +242,7 @@ export async function reactivateTeamAction(
 ): Promise<{ success: boolean; updated_document?: FLTeamRecord; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("reactivateTeamAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLReactivateTeamPayloadSchema.safeParse(rawPayload);
@@ -270,7 +273,7 @@ export async function postSaisonTeamAction(
 ): Promise<{ success: boolean; saison_team?: FLSaisonTeamResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSaisonTeamAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPostSaisonTeamPayloadSchema.safeParse(rawPayload);
@@ -297,7 +300,7 @@ export async function postSaisonTeamAction(
 
     // The `teams` pair only. The new row changes which clubs the season's team reads return; it
     // cannot change a match, because the row is seeded with `disqualifikation: null` and the join
-    // reads nothing else from it (I32).
+    // reads nothing else from it (backend spec I32).
     invalidateSeasonScoped("teams", validated.data.saison_id);
 
     return {
@@ -313,7 +316,7 @@ export async function patchSaisonTeamAction(
 ): Promise<{ success: boolean; saison_team?: FLSaisonTeamResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("patchSaisonTeamAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPatchSaisonTeamPayloadSchema.safeParse(rawPayload);

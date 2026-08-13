@@ -65,6 +65,14 @@ describe("FLKontaktSchema", () => {
     }
   });
 
+  // With `\s` inside `^...$` every one of these passed here and was refused by the API. ADR-0033 keeps
+  // patterns out of the contract comparison, so a unit test is what holds the two spellings together.
+  it("rejects a phone number carrying a control character, which the backend rejects too", () => {
+    for (const telefon of ["+49 69 1234567\n", "\n\n1234567", "+49\t69\t1234567", "+49 69 1234567\r", "069123\n456"]) {
+      assert.equal(FLKontaktSchema.safeParse({ telefon, email: null }).success, false, `expected ${JSON.stringify(telefon)} to be rejected`);
+    }
+  });
+
   // Both fields accept null (not supplied) and "" (supplied but cleared); the two are distinct
   // states in the admin forms, so both must stay valid.
   it("accepts null and empty string for both fields", () => {

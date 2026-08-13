@@ -74,7 +74,7 @@ export function AppTopBar({
           aria-expanded={isMobileOpen}
           aria-controls="app-sidemenu"
           aria-label="Menü öffnen"
-          className="text-foreground hover:bg-muted -ml-2 shrink-0 rounded-md p-1.5 transition-colors lg:hidden">
+          className="text-foreground hover:bg-hover -ml-2 shrink-0 rounded-md p-1.5 transition-colors lg:hidden">
           <Bars
             aria-hidden="true"
             width={24}

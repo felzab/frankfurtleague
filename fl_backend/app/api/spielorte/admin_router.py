@@ -28,7 +28,7 @@ from app.api.spielorte.services import find_venue_retire_refusal
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import SpieleCollection, SpielorteCollection, get_german_date_str
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -97,7 +97,7 @@ async def patch_spielort(
         return_document=ReturnDocument.AFTER,
     )
     if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": spielort_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": spielort_id}, error_code=DOCUMENT_NOT_FOUND)
     updated_document = FLSpielort(**updated_document_raw)
 
     await patch_many_in_db(
@@ -135,8 +135,7 @@ async def delete_spielort(
     )
     refusal = find_venue_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in booked))
     if refusal is not None:
-        error_code, detail = refusal
-        raise DocumentConflictException(error_code=error_code, message=detail)
+        raise DocumentConflictException.from_refusal(refusal)
 
     updated_document_raw = await patch_one_in_db(
         collection=spielorte_collection,
@@ -145,7 +144,7 @@ async def delete_spielort(
         return_document=ReturnDocument.AFTER,
     )
     if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": spielort_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": spielort_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return FLSpielortWriteResponse(updated_document=FLSpielort(**updated_document_raw))
 
@@ -164,6 +163,6 @@ async def reactivate_spielort(
         return_document=ReturnDocument.AFTER,
     )
     if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": spielort_id}, error_code="DB-COMMON-001")
+        raise DocumentNotFoundException(filter={"_id": spielort_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return FLSpielortWriteResponse(updated_document=FLSpielort(**updated_document_raw))

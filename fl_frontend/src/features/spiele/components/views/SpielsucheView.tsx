@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 
-import { FilterBar } from "@/shared/components/ui/FilterBar";
+import { FilterLeiste } from "@/shared/components/ui/FilterLeiste";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { SearchBar } from "@/shared/components/ui/SearchBar";
 import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
@@ -75,6 +75,17 @@ export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLS
   });
 
   const hasAsked = spielQuery !== "" || activeCount > 0;
+  // The grid below renders this rather than `filteredResults` directly, because `emptyQuery: "all"`
+  // answers "everything" for a page nobody has asked anything of yet.
+  const shown = hasAsked ? filteredResults : [];
+
+  const message = !hasAsked
+    ? "Noch keine Eingabe..."
+    : shown.length === 0
+      ? spielQuery === ""
+        ? "Keine Ergebnisse für diese Filter"
+        : `Keine Ergebnisse für "${spielQuery}"`
+      : null;
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center">
@@ -91,7 +102,7 @@ export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLS
         {/* Counted over the season's whole fixture list, so an option says what it would leave rather
             than what the current query already left. */}
         <div className="max-w-toolbar flex w-full flex-row justify-start">
-          <FilterBar
+          <FilterLeiste
             facets={facets}
             items={processedSpiele}
           />
@@ -99,26 +110,21 @@ export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLS
       </div>
 
       <div className="flex w-full flex-col items-center px-4 pb-4 sm:px-8">
-        {!hasAsked ? (
-          <p className="fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Noch keine Eingabe...</p>
-        ) : filteredResults.length === 0 ? (
-          <p className="fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">
-            {spielQuery === "" ? "Keine Ergebnisse für diese Filter" : `Keine Ergebnisse für "${spielQuery}"`}
-          </p>
-        ) : (
-          // The cascade does more work here: results are re-filtered on every debounced keystroke,
-          // so this grid re-enters constantly and a block fade reads as the previous set mutating
-          // in place, its cards landing where the last set's were.
-          <div
-            role="list"
-            className={`${CARDS_CASCADE} max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
-            <SpielCardsList
-              spiele={filteredResults}
-              today={today}
-              isAdmin={isAdmin}
-            />
-          </div>
-        )}
+        {message !== null && <p className="fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">{message}</p>}
+
+        {/* The grid is ALWAYS mounted, and an empty one is a zero-height box. A third branch beside the
+            two messages is unmounted and rebuilt whenever a query crosses between "nothing found" and
+            "something found", which replays every surviving card's entrance for a keystroke that
+            changed one row. The cascade is for cards that are genuinely new. */}
+        <div
+          role="list"
+          className={`${CARDS_CASCADE} max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
+          <SpielCardsList
+            spiele={shown}
+            today={today}
+            isAdmin={isAdmin}
+          />
+        </div>
       </div>
     </div>
   );

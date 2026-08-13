@@ -8,6 +8,9 @@ import { parseDate, parseTime } from "@internationalized/date";
 import { Form } from "@heroui/react";
 
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
+import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
+import { runOnSubmit } from "@/shared/components/ui/formSubmit";
+import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
 import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
@@ -17,6 +20,7 @@ import { patchAdminSpielDataAction } from "../../../actions";
 import { applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { buildUndoPayloads, collectKnockoutTeamIds, collectSpieltagTeamOccupancy, listDependentSpiele } from "../../../utils";
+import { buildSpielBanners } from "./banners";
 import { DraftRail } from "./DraftRail";
 import { DraftStatusProvider } from "./DraftStatusContext";
 import { FormActionBar } from "./FormActionBar";
@@ -42,10 +46,10 @@ import type {
 import type { ActionRequiredCategory } from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
+import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { ReactNode } from "react";
-import type { RailBanner } from "./DraftRail";
 
 /**
  * How long the undo offer stands after a save that destroyed something (ADR-0041).
@@ -54,10 +58,6 @@ import type { RailBanner } from "./DraftRail";
  * before the page's copy of the season is stale enough for the replay to be refused.
  */
 const UNDO_TIMEOUT_MS = 15000;
-
-/** A list of fixture numbers as German writes it: "29, 30 und 31", with "und" and no serial comma. */
-const joinGerman = (spielNummern: readonly number[]): string =>
-  new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(spielNummern.map(String));
 
 /**
  * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0049).
@@ -189,6 +189,7 @@ export function AdminEditSpielDataForm({
   // performs — at that moment the draft still differs from the `spielData` this render was given.
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
+  const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
   // Latched by a confirmed discard, and it UNMOUNTS the dialog rather than closing it: closing
   // animates, and `router.back()` in the same tick freezes that exit on a tree the App Router keeps.
@@ -249,7 +250,7 @@ export function AdminEditSpielDataForm({
   // two routes to one submit must not answer differently.
   const canSubmitRef = useRef(true);
   useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard && isDirty;
+    canSubmitRef.current = !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty;
   });
   useEffect(() => {
     const handleSaveShortcut = (event: KeyboardEvent) => {
@@ -311,92 +312,36 @@ export function AdminEditSpielDataForm({
     isEnabled: dependentSpiele.length > 0 || spieltagOccupancy.size > 0,
   });
 
-  /**
-   * The rail's mirror of every warning that appears inline somewhere in the form (fifth
-   * review): a warning an admin scrolled past still has one place that lists it. Built from the same
-   * state the inline callouts read, so the two can never tell different stories.
-   */
   const isKnockout = spielData.saison_phase !== "gruppenphase";
-  const extraBanners = [
-    { label: "Team 1", quelle: team1Quelle, team: team1Payload },
-    { label: "Team 2", quelle: team2Quelle, team: team2Payload },
-  ].flatMap((side): RailBanner[] => {
-    if (!isKnockout || side.quelle !== null) return [];
-
-    const banners: RailBanner[] = [
-      {
-        severity: "danger",
-        title: `${side.label} pflegt das System nicht`,
-        body: "Ohne Herkunft bleibt die Seite stehen, wie Du sie einträgst.",
-      },
-    ];
-    if (side.team !== null && !knockoutTeamIds.has(side.team.team_id)) {
-      banners.push({
-        severity: "warning",
-        title: `${side.team.name} ist nicht für diese Runde qualifiziert`,
-        body: "Laut Turnierbaum hat sich diese Mannschaft nicht für diese Runde qualifiziert. Prüfe die Auswahl.",
-      });
-    }
-    return banners;
-  });
-
-  if (isKnockout && spielIsCanceled && !spielData.is_canceled && dependentSpiele.length > 0) {
-    extraBanners.push({
-      severity: "danger",
-      title: "Dieses KO-Spiel speist andere Spiele",
-      body: "Ohne seinen Ausgang bleiben die davon abhängigen Spiele unbesetzt.",
-    });
-  }
 
   // A cancelled fixture with a DECIDED score is legal -- a Wertung is entered exactly like this and
-  // the table counts it (ADR-0019) -- but it is also the shape a mistaken cancellation takes, so it
-  // gets a warning rather than silence or a refusal.
+  // the table counts it (ADR-0019) -- but it is also the shape a mistaken cancellation takes.
   const tore1 = team1Payload?.tore ?? null;
   const tore2 = team2Payload?.tore ?? null;
   const hasDecidedErgebnis = tore1 !== null && tore2 !== null && !Number.isNaN(tore1) && !Number.isNaN(tore2) && tore1 !== tore2;
 
-  if (spielIsCanceled && hasDecidedErgebnis) {
-    extraBanners.push({
-      severity: "warning",
-      title: "Abgesagt, aber mit entschiedenem Ergebnis",
-      body: "Das kann beabsichtigt sein, etwa bei einer Wertung. Das Ergebnis zählt weiter für die Tabelle.",
-    });
-  }
-
   /**
-   * The void warning, and it names fixtures rather than possibilities (ADR-0041).
+   * Every Hinweis this draft raises — the rail's list and the panels' inline callouts alike.
    *
-   * The preview ran the actual resolution against this draft, so every number here is a fixture whose
-   * stored result **this save deletes** — not one that could lose it under some other edit. That is
-   * the whole difference from the note this replaces: a warning that fired whenever the fixture fed
-   * anything was right about the mechanism and wrong about the outcome most of the times it appeared,
-   * which is how an admin learns to scroll past it.
-   *
-   * `null` from the preview means "no answer yet", never "nothing would be lost", so nothing renders.
+   * **The void and release entries name fixtures rather than possibilities** (ADR-0041). The preview
+   * ran the actual resolution against this draft, so every number in them is a fixture whose stored
+   * result this save deletes, not one that could lose it under some other edit — which is why a
+   * `null` preview, meaning "no answer yet", contributes nothing rather than "nothing would be lost".
    */
-  if (voidPreview !== null && voidPreview.voided.length > 0) {
-    const spielNummern = joinGerman(voidPreview.voided);
-    extraBanners.push({
-      severity: "danger",
-      title:
-        voidPreview.voided.length === 1
-          ? `Speichern löscht das Ergebnis in Spiel ${spielNummern}`
-          : `Speichern löscht die Ergebnisse in den Spielen ${spielNummern}`,
-      body: "Die Tore wurden von einer Mannschaft erzielt, die danach nicht mehr in diesem Spiel steht.",
-    });
-  }
-
-  if (voidPreview !== null && voidPreview.released.length > 0) {
-    const spielNummern = joinGerman(voidPreview.released);
-    extraBanners.push({
-      severity: "warning",
-      title:
-        voidPreview.released.length === 1
-          ? `Eine Mannschaft wird aus Spiel ${spielNummern} entfernt`
-          : `Mannschaften werden aus den Spielen ${spielNummern} entfernt`,
-      body: "Eine Mannschaft spielt höchstens einmal pro Spieltag, daher wird die Seite dort frei.",
-    });
-  }
+  const banners = buildSpielBanners({
+    isKnockout,
+    sides: [
+      { fieldName: "team1", label: "Team 1", quelle: team1Quelle, team: team1Payload },
+      { fieldName: "team2", label: "Team 2", quelle: team2Quelle, team: team2Payload },
+    ],
+    knockoutTeamIds,
+    isBeingCalledOff: spielIsCanceled && !spielData.is_canceled,
+    isCanceled: spielIsCanceled,
+    dependentSpielNummern: dependentSpiele.map((spiel) => spiel.spiel_nr),
+    hasDecidedErgebnis,
+    voidedSpielNummern: voidPreview?.voided ?? [],
+    releasedSpielNummern: voidPreview?.released ?? [],
+  });
 
   /**
    * Judges the named paths against the draft as it now stands. **For a control the user TYPES into,
@@ -503,6 +448,22 @@ export function AdminEditSpielDataForm({
     leavePage();
   };
 
+  /**
+   * What both submit routes reach first: a draft carrying a warning or a danger is confirmed, and a
+   * clean one saves straight through (ADR-0070). The write itself is unchanged either way, undo
+   * included.
+   */
+  const requestSave = () => {
+    // Snapshotted here rather than read live: the reader agrees to the list the gate stopped on,
+    // and a background revalidation re-deriving the banners under an open dialog would move it.
+    const blocking = resolveBlockingBanners(banners);
+    if (blocking !== null) {
+      setConfirmingBanners(blocking);
+      return;
+    }
+    handleFormSubmit();
+  };
+
   const handleFormSubmit = () => {
     startTransition(async () => {
       const res = await patchAdminSpielDataAction(buildPayload(), spielData.saison_id);
@@ -542,14 +503,14 @@ export function AdminEditSpielDataForm({
   };
 
   /**
-   * The undo toast: fifteen seconds to take a save back (ADR-0041).
+   * The undo toast: fifteen seconds to take a save back (ADR-0041), offered on every save.
    *
-   * **No confirmation before a SAVE, and this is why.** Confirmation and undo are alternatives, not
-   * companions: a dialog interrupts every save to ask about a case that is usually harmless, and an
-   * admin who has dismissed thirty of them reads the thirty-first without seeing it. Undo costs
-   * nothing until it is wanted, and it is the only offer that helps the admin who was not paying
-   * attention — which is the case worth designing for. Discarding is a different question and keeps
-   * its own dialog (`ConfirmDiscardModal`), because nothing was written for an undo to take back.
+   * **The confirmation before a save is the carve-out, not the rule** (ADR-0070). A dialog on every
+   * save would interrupt the case that is usually harmless, and the thirty-first is read without
+   * being seen; undo costs nothing until it is wanted and is the only offer that helps the admin who
+   * was not paying attention. What earns the dialog is a draft that has already raised a warning or
+   * a danger, and it never replaces the undo. Discarding is a different question again and keeps its
+   * own dialog (`ConfirmDiscardModal`), because nothing was written for an undo to take back.
    *
    * `destroyedSomething` picks the grade rather than whether to appear. An ordinary save is a success
    * that happens to be reversible; a save that deleted a scoreline elsewhere is a warning that
@@ -684,7 +645,7 @@ export function AdminEditSpielDataForm({
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
-        action={() => handleFormSubmit()}>
+        onSubmit={runOnSubmit(requestSave)}>
         <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
           <div className="max-w-page mx-auto flex w-full flex-col">
             {pageHeader}
@@ -697,7 +658,7 @@ export function AdminEditSpielDataForm({
                 <DraftRail
                   previewSpiel={previewSpiel}
                   today={today}
-                  extraBanners={extraBanners}
+                  banners={banners}
                 />
               </div>
 
@@ -731,6 +692,7 @@ export function AdminEditSpielDataForm({
                   team2Quelle={team2Quelle}
                   onTeam2QuelleChange={setTeam2Quelle}
                   onValidateSelection={validateSelection}
+                  banners={banners}
                 />
 
                 <FormErgebnisSection
@@ -755,11 +717,9 @@ export function AdminEditSpielDataForm({
                 />
 
                 <FormCancelSection
-                  spielData={spielData}
                   spielIsCanceled={spielIsCanceled}
                   onSpielIsCanceledChange={setSpielIsCanceled}
-                  dependentSpiele={dependentSpiele}
-                  hasDecidedErgebnis={hasDecidedErgebnis}
+                  banners={banners}
                 />
               </div>
             </div>
@@ -782,6 +742,17 @@ export function AdminEditSpielDataForm({
           changeCount={status.changed.length}
         />
       )}
+
+      {/* Closed rather than unmounted on confirm, unlike the discard dialog: the write is awaited
+          before anything navigates, so the exit animation has run long before the tree is left. */}
+      <ConfirmSaveModal
+        banners={confirmingBanners}
+        onClose={() => setConfirmingBanners(null)}
+        onConfirm={() => {
+          setConfirmingBanners(null);
+          handleFormSubmit();
+        }}
+      />
     </DraftStatusProvider>
   );
 }

@@ -79,7 +79,7 @@ export function RailSection({
           aria-controls={contentId}
           aria-labelledby={headingId}
           onClick={toggle}
-          className="hover:bg-muted/40 absolute inset-0 cursor-pointer rounded-2xl transition-colors"
+          className="hover:bg-hover absolute inset-0 cursor-pointer rounded-2xl transition-colors"
         />
 
         {/* The hint lives INSIDE the heading, as an inline glyph on the text's own baseline — the

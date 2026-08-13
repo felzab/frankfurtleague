@@ -74,7 +74,7 @@ export function ClosedSetSelect<TValue extends string>({
             key={NONE}
             id={NONE}
             textValue={placeholder}
-            className="text-foreground-muted hover:bg-muted hover:text-brand fluid-sm border-border/50 flex flex-row items-center rounded-lg border-b px-3 py-2.5 font-bold transition-colors duration-200">
+            className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm border-border/50 flex flex-row items-center rounded-lg border-b px-3 py-2.5 font-bold transition-colors duration-200">
             Keine Angabe
           </ListBox.Item>
           {options.map((option) => (
@@ -82,7 +82,7 @@ export function ClosedSetSelect<TValue extends string>({
               key={option}
               id={option}
               textValue={option}
-              className="text-foreground-muted hover:bg-muted hover:text-brand fluid-sm flex flex-row items-center rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+              className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
               {option}
             </ListBox.Item>
           ))}

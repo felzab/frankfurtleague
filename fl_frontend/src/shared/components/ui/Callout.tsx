@@ -10,6 +10,8 @@ import { tv } from "tailwind-variants";
 
 import { CloseButton } from "@heroui/react";
 
+import { dismissControl } from "@/core/dismissControl";
+
 import type { ReactNode } from "react";
 
 const callout = tv({
@@ -94,9 +96,8 @@ export function Callout({
       </div>
       {onDismiss && (
         <CloseButton
-          aria-label={`${title} ausblenden`}
+          {...dismissControl({ label: `${title} ausblenden`, className: "-mt-0.5" })}
           onPress={onDismiss}
-          className="text-foreground-muted hover:text-foreground -mt-0.5 shrink-0 transition-colors"
         />
       )}
     </div>

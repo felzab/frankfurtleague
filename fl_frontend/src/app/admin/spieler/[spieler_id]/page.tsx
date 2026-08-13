@@ -85,9 +85,9 @@ async function AdminSpielerEditContent({
           },
   };
 
-  // Which shirts are already worn in each team this season, so the form can refuse `REQ-SQUAD-002`
-  // before the request rather than explain a 409 after it. The edited player's own rows are excluded:
-  // resubmitting a stored number is not a collision.
+  // Which shirts are already worn in each team this season, so the editor's rail can warn that a save
+  // would put a second wearer on one. The edited player's own rows are excluded: the shirt they are
+  // standing in is not one somebody else holds against them.
   const takenNummern = collectTakenSquadNummern({ spieler: membershipsRes.spieler, saisonId: selectedSaison.id, exceptSpielerId: spielerId });
 
   // What the team picker may offer: the selected season's own teams. A transfer is only meaningful

@@ -5,7 +5,7 @@ TEAMS · when two clubs may exchange groups inside a season
 keeps every group's size and every drawn fixture intact, which is why it exists beside the lock
 `REQ-ENTER-004` applies to a MOVE rather than relaxing it (ADR-0062).
 
-Five rules, and the order between them is asserted here as well as the rules themselves: a pair
+Six rules, and the order between them is asserted here as well as the rules themselves: a pair
 that is not a swap is refused as one before anything about the season is consulted, a season that
 is over is refused as that before either of the two windows inside it, and the one bound an admin
 can repair is named only once nothing terminal is refusing too.
@@ -14,12 +14,14 @@ can repair is named only once nothing terminal is refusing too.
 import pytest
 
 from app.api.teams.services import (
+    SWAP_FIELDS_DISQUALIFIED,
     SWAP_GRUPPENPHASE_PLAYED,
     SWAP_KNOCKOUT_STARTED,
     SWAP_NOT_A_SWAP,
     SWAP_SAISON_FINISHED,
     SWAP_SPIELTAG_CLASH,
     find_gruppe_swap_refusal,
+    fixtures_newly_fielding_a_disqualified_club,
 )
 
 
@@ -34,6 +36,7 @@ def swap(**overrides):
         "played_knockout_fixtures": 0,
         "played_gruppenphase_fixtures": 0,
         "clashing_spieltage": 0,
+        "disqualified_fixtures": 0,
     }
     payload.update(overrides)
 
@@ -57,7 +60,7 @@ class TestWhatCountsAsASwap:
         refusal = swap(is_same_team=True, team2_gruppe="A")
 
         assert refusal is not None
-        assert refusal[0] == SWAP_NOT_A_SWAP
+        assert refusal.error_code == SWAP_NOT_A_SWAP
 
     @pytest.mark.parametrize(
         ("team1_gruppe", "team2_gruppe", "named"),
@@ -74,8 +77,8 @@ class TestWhatCountsAsASwap:
         refusal = swap(team1_gruppe=team1_gruppe, team2_gruppe=team2_gruppe)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_NOT_A_SWAP
-        assert named in refusal[1]
+        assert refusal.error_code == SWAP_NOT_A_SWAP
+        assert named in refusal.message
 
     @pytest.mark.parametrize("gruppe", ["A", "D"])
     def test_two_clubs_of_one_group_are_refused(self, gruppe):
@@ -84,8 +87,8 @@ class TestWhatCountsAsASwap:
         refusal = swap(team1_gruppe=gruppe, team2_gruppe=gruppe)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_NOT_A_SWAP
-        assert gruppe in refusal[1]
+        assert refusal.error_code == SWAP_NOT_A_SWAP
+        assert gruppe in refusal.message
 
 
 class TestTheKnockoutClosesTheWindow:
@@ -104,7 +107,7 @@ class TestTheKnockoutClosesTheWindow:
         refusal = swap(played_knockout_fixtures=1)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_KNOCKOUT_STARTED
+        assert refusal.error_code == SWAP_KNOCKOUT_STARTED
 
     def test_the_refusal_says_how_much_has_taken_place(self):
         """The count is what tells an admin whether this is the first fixture or a finished bracket."""
@@ -112,7 +115,7 @@ class TestTheKnockoutClosesTheWindow:
         refusal = swap(played_knockout_fixtures=4)
 
         assert refusal is not None
-        assert "4" in refusal[1]
+        assert "4" in refusal.message
 
     def test_the_message_names_a_called_off_fixture_as_one_that_took_place(self):
         """
@@ -125,7 +128,7 @@ class TestTheKnockoutClosesTheWindow:
         refusal = swap(played_knockout_fixtures=1)
 
         assert refusal is not None
-        assert "called off" in refusal[1]
+        assert "called off" in refusal.message
 
     def test_a_pair_that_is_not_a_swap_is_refused_as_that_first(self):
         """
@@ -138,7 +141,7 @@ class TestTheKnockoutClosesTheWindow:
         refusal = swap(is_same_team=True, team2_gruppe="A", played_knockout_fixtures=6)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_NOT_A_SWAP
+        assert refusal.error_code == SWAP_NOT_A_SWAP
 
     def test_it_still_fires_where_no_group_fixture_has_been_played(self):
         """
@@ -153,7 +156,7 @@ class TestTheKnockoutClosesTheWindow:
         refusal = swap(played_knockout_fixtures=3, played_gruppenphase_fixtures=0)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_KNOCKOUT_STARTED
+        assert refusal.error_code == SWAP_KNOCKOUT_STARTED
 
 
 class TestAFinishedSeasonIsFrozen:
@@ -176,7 +179,7 @@ class TestAFinishedSeasonIsFrozen:
         refusal = swap(saison_status="past")
 
         assert refusal is not None
-        assert refusal[0] == SWAP_SAISON_FINISHED
+        assert refusal.error_code == SWAP_SAISON_FINISHED
 
     def test_an_abandoned_past_season_is_refused_too(self):
         """
@@ -190,7 +193,7 @@ class TestAFinishedSeasonIsFrozen:
         refusal = swap(saison_status="past", played_knockout_fixtures=0, played_gruppenphase_fixtures=0)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_SAISON_FINISHED
+        assert refusal.error_code == SWAP_SAISON_FINISHED
 
     def test_being_over_is_answered_before_either_window_inside_it(self):
         """
@@ -203,7 +206,7 @@ class TestAFinishedSeasonIsFrozen:
         refusal = swap(saison_status="past", played_knockout_fixtures=6, played_gruppenphase_fixtures=12)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_SAISON_FINISHED
+        assert refusal.error_code == SWAP_SAISON_FINISHED
 
 
 class TestTheRoundRobinClosesTheWindow:
@@ -226,7 +229,7 @@ class TestTheRoundRobinClosesTheWindow:
         refusal = swap(played_gruppenphase_fixtures=1)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_GRUPPENPHASE_PLAYED
+        assert refusal.error_code == SWAP_GRUPPENPHASE_PLAYED
 
     def test_the_refusal_says_how_much_has_been_played(self):
         """The count is what tells an admin whether this is one result or a group phase most of the way through."""
@@ -234,7 +237,7 @@ class TestTheRoundRobinClosesTheWindow:
         refusal = swap(played_gruppenphase_fixtures=5)
 
         assert refusal is not None
-        assert "5" in refusal[1]
+        assert "5" in refusal.message
 
     def test_the_bracket_is_answered_before_the_round_robin(self):
         """
@@ -247,7 +250,7 @@ class TestTheRoundRobinClosesTheWindow:
         refusal = swap(played_knockout_fixtures=1, played_gruppenphase_fixtures=6)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_KNOCKOUT_STARTED
+        assert refusal.error_code == SWAP_KNOCKOUT_STARTED
 
 
 class TestASpieltagNeverHoldsAClubTwice:
@@ -269,7 +272,7 @@ class TestASpieltagNeverHoldsAClubTwice:
         refusal = swap(clashing_spieltage=1)
 
         assert refusal is not None
-        assert refusal[0] == SWAP_SPIELTAG_CLASH
+        assert refusal.error_code == SWAP_SPIELTAG_CLASH
 
     def test_the_refusal_says_how_many_spieltage_it_found(self):
         """The count is what tells an admin whether this is one fixture to move or a schedule to rethink."""
@@ -277,7 +280,7 @@ class TestASpieltagNeverHoldsAClubTwice:
         refusal = swap(clashing_spieltage=3)
 
         assert refusal is not None
-        assert "3" in refusal[1]
+        assert "3" in refusal.message
 
     @pytest.mark.parametrize(
         ("terminal", "code"),
@@ -299,4 +302,142 @@ class TestASpieltagNeverHoldsAClubTwice:
         refusal = swap(clashing_spieltage=2, **terminal)
 
         assert refusal is not None
-        assert refusal[0] == code
+        assert refusal.error_code == code
+
+
+# Two clubs and the fixtures between them, in the shape `pull_many_from_db` hands the handler.
+HOME, AWAY, OTHER = "home", "away", "other"
+
+
+def fixture(team1, team2, datum: str | None = "2026-05-01"):
+    return {"datum": datum, "team1": {"team_id": team1}, "team2": {"team_id": team2}}
+
+
+class TestASwapNeverFieldsADisqualifiedClub:
+    """
+    `REQ-SWAP-006` (ADR-0074). The swap was a back door around `REQ-ELIGIBILITY-001`.
+
+    `_rewrite_gruppenphase_sides` writes fixture documents without passing `patch_spiel_data`, so it
+    could move a disqualified club onto fixtures that path would refuse. **Forwards only**: ADR-0042's
+    rule is that enforcement leaves the past alone, so a fixture dated before the disqualification is
+    untouched and stays a person's choice between a forfeit and a replacement.
+    """
+
+    def test_nothing_disqualified_counts_nothing(self):
+        """The positive baseline — without it every count below could pass on a broken fixture list."""
+
+        assert (
+            fixtures_newly_fielding_a_disqualified_club(
+                team1_id=HOME,
+                team2_id=AWAY,
+                disqualified_since={},
+                gruppenphase_spiele=[fixture(HOME, OTHER), fixture(AWAY, OTHER)],
+            )
+            == 0
+        )
+
+    def test_a_fixture_after_the_disqualification_counts(self):
+        """AWAY's fixture becomes HOME's, and HOME is out from 2026-04-01."""
+
+        assert (
+            fixtures_newly_fielding_a_disqualified_club(
+                team1_id=HOME,
+                team2_id=AWAY,
+                disqualified_since={HOME: "2026-04-01"},
+                gruppenphase_spiele=[fixture(AWAY, OTHER, datum="2026-05-01")],
+            )
+            == 1
+        )
+
+    def test_a_fixture_before_the_disqualification_does_not(self):
+        """ADR-0042's line, and the half that makes this rule defensible rather than a blanket refusal."""
+
+        assert (
+            fixtures_newly_fielding_a_disqualified_club(
+                team1_id=HOME,
+                team2_id=AWAY,
+                disqualified_since={HOME: "2026-04-01"},
+                gruppenphase_spiele=[fixture(AWAY, OTHER, datum="2026-03-01")],
+            )
+            == 0
+        )
+
+    def test_the_effective_day_itself_counts(self):
+        """Inclusive, matching `find_eligibility_refusal`'s "on or after" boundary."""
+
+        assert (
+            fixtures_newly_fielding_a_disqualified_club(
+                team1_id=HOME,
+                team2_id=AWAY,
+                disqualified_since={HOME: "2026-04-01"},
+                gruppenphase_spiele=[fixture(AWAY, OTHER, datum="2026-04-01")],
+            )
+            == 1
+        )
+
+    def test_an_undated_fixture_counts(self):
+        """It can still be given a date after the disqualification, and the swap is what puts the club there."""
+
+        assert (
+            fixtures_newly_fielding_a_disqualified_club(
+                team1_id=HOME,
+                team2_id=AWAY,
+                disqualified_since={HOME: "2026-04-01"},
+                gruppenphase_spiele=[fixture(AWAY, OTHER, datum=None)],
+            )
+            == 1
+        )
+
+    def test_a_club_staying_on_its_own_fixture_is_not_newly_fielded(self):
+        """
+        The clause that keeps the rule from refusing the state it is already in.
+
+        HOME is disqualified and stands on its OWN fixture. The swap moves that side to AWAY, so HOME
+        arrives nowhere new — and refusing here would make a disqualified club's season unswappable
+        for a reason the swap did not create.
+        """
+
+        assert (
+            fixtures_newly_fielding_a_disqualified_club(
+                team1_id=HOME,
+                team2_id=AWAY,
+                disqualified_since={HOME: "2026-04-01"},
+                gruppenphase_spiele=[fixture(HOME, OTHER, datum="2026-05-01")],
+            )
+            == 0
+        )
+
+    def test_a_fixture_holding_neither_club_is_ignored(self):
+        """It does not move, so it can field nobody new."""
+
+        assert (
+            fixtures_newly_fielding_a_disqualified_club(
+                team1_id=HOME,
+                team2_id=AWAY,
+                disqualified_since={HOME: "2026-04-01"},
+                gruppenphase_spiele=[fixture(OTHER, "fourth", datum="2026-05-01")],
+            )
+            == 0
+        )
+
+    def test_the_refusal_fires_and_names_the_repair(self):
+        refusal = swap(disqualified_fixtures=2)
+
+        assert refusal is not None
+        assert refusal.error_code == SWAP_FIELDS_DISQUALIFIED
+        # The two-step escape is what makes a guard with an override acceptable (ADR-0069's test).
+        assert "lift the disqualification" in refusal.message
+
+    def test_every_terminal_refusal_is_answered_first(self):
+        """It is the more expensive repair of the two an admin can act on, so it is named last."""
+
+        for terminal, expected in (
+            ({"saison_status": "past"}, SWAP_SAISON_FINISHED),
+            ({"played_knockout_fixtures": 1}, SWAP_KNOCKOUT_STARTED),
+            ({"played_gruppenphase_fixtures": 1}, SWAP_GRUPPENPHASE_PLAYED),
+            ({"clashing_spieltage": 1}, SWAP_SPIELTAG_CLASH),
+        ):
+            refusal = swap(disqualified_fixtures=1, **terminal)
+
+            assert refusal is not None
+            assert refusal.error_code == expected

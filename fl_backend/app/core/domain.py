@@ -358,7 +358,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SAISONS,
         "start_date",
         Editability.EDITABLE,
-        "editable even on a finished season, and refused only where the new span would stop covering a live matchday (`REQ-DATE-004`)",
+        "editable even on a finished season, and refused where the new span would stop covering a live matchday "
+        "(`REQ-DATE-004`) or fall short of the matchdays the rules imply (`REQ-DATE-005`)",
         "app.api.saisons.services.find_saison_span_refusal",
     ),
     FieldPolicy(
@@ -632,6 +633,14 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-DATE-005",
+        operation="POST /saisons · PATCH /saisons/{saison_id}",
+        aggregate="Saison",
+        summary="a season shorter than the matchdays its own rules imply is refused",
+        implemented_by="app.api.saisons.services.find_saison_span_refusal",
+        tested_by="tests/api/test_containment_refusals.py::TestASeasonIsLongEnoughForItsSchedule",
+    ),
+    Rule(
         code="REQ-ACTIVATE-001",
         operation="POST /saisons/{saison_id}/activate",
         aggregate="Saison",
@@ -720,6 +729,15 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-SWAP-006",
+        operation="POST /saisons/{saison_id}/swap_gruppen",
+        aggregate="Saison",
+        summary="a swap moving a disqualified club onto fixtures dated after its disqualification is refused",
+        implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
+        tested_by="tests/api/test_gruppe_swap_refusal.py::TestASwapNeverFieldsADisqualifiedClub",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-RETIRE-001",
         operation="DELETE /teams/{team_id}",
         aggregate="Team",
@@ -735,6 +753,15 @@ RULES: tuple[Rule, ...] = (
         summary="a season whose knockout phase has started takes no new matchdays",
         implemented_by="app.api.spieltage.services.find_spieltag_create_refusal",
         tested_by="tests/api/test_spieltag_refusals.py::TestCreatingAMatchday",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SPIELTAG-004",
+        operation="POST /spieltage",
+        aggregate="Spieltag",
+        summary="a matchday in a phase the season's rules never produce is refused",
+        implemented_by="app.api.spieltage.services.find_spieltag_create_refusal",
+        tested_by="tests/api/test_spieltag_refusals.py::TestAMatchdayBelongsToAPhaseTheSeasonPlays",
         multi_document=True,
     ),
     Rule(
@@ -765,12 +792,39 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-RETIRE-005",
+        operation="DELETE /spieltage/{spieltag_id}",
+        aggregate="Spieltag",
+        summary="retiring a matchday may not take its phase below the count the season's rules imply",
+        implemented_by="app.api.spieltage.services.find_spieltag_retire_refusal",
+        tested_by="tests/api/test_spieltag_refusals.py::TestAPhaseKeepsTheMatchdaysItsRulesImply",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-SPIELTAG-002",
         operation="PATCH /spieltage/{spieltag_id}",
         aggregate="Spieltag",
-        summary="a matchday's phase may not account for fewer matches than the matchday already holds",
+        summary="a matchday may not MOVE to a phase accounting for fewer matches than it already holds",
         implemented_by="app.api.spieltage.services.find_spieltag_phase_refusal",
         tested_by="tests/api/test_spieltag_refusals.py::TestChangingThePhase",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SPIELTAG-005",
+        operation="PATCH /spieltage/{spieltag_id}",
+        aggregate="Spieltag",
+        summary="a matchday may not MOVE into a round the season's rules never produce (ADR-0075)",
+        implemented_by="app.api.spieltage.services.find_spieltag_unplayed_phase_refusal",
+        tested_by="tests/api/test_spieltag_refusals.py::TestWhichPhaseChangesAreLegitimate",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SPIELTAG-006",
+        operation="PATCH /spieltage/{spieltag_id}",
+        aggregate="Spieltag",
+        summary="a matchday carrying fixtures may not CROSS the gruppenphase/knockout boundary away from them (ADR-0075)",
+        implemented_by="app.api.spieltage.services.find_spieltag_boundary_refusal",
+        tested_by="tests/api/test_spieltag_refusals.py::TestWhichPhaseChangesAreLegitimate",
         multi_document=True,
     ),
     Rule(
@@ -866,15 +920,6 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_containment_refusals.py::TestASquadEntry",
         multi_document=True,
     ),
-    Rule(
-        code="REQ-SQUAD-002",
-        operation="POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id}",
-        aggregate="Saison",
-        summary="a squad number this write would newly take from another player is refused",
-        implemented_by="app.api.spieler.services.find_squad_refusal",
-        tested_by="tests/api/test_containment_refusals.py::TestASquadEntry",
-        multi_document=True,
-    ),
 )
 
 
@@ -886,14 +931,6 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "`past` season (ADR-0020). It holds because `activate_saison` is the only writer and does both "
             "halves in one transaction."
         ),
-    ),
-    Unenforced(
-        subject="a rollover while the outgoing season still has unplayed matches",
-        reason=(
-            "An early rollover is a legitimate decision, and the one occasion somebody genuinely needs it "
-            "is when the data is not in the state a rule would have assumed (ADR-0026)."
-        ),
-        surfaced_by="the Umstellung panel on `/admin/saisons/[saison_id]`, which counts them and activates anyway",
     ),
     Unenforced(
         subject="a matchday retired while it still holds UNPLAYED fixtures",
@@ -913,9 +950,14 @@ UNENFORCED: tuple[Unenforced, ...] = (
         surfaced_by="`/admin/spieltage`, which shows attached over expected and tints a mismatch",
     ),
     Unenforced(
-        subject="a season whose end date precedes its start date",
-        reason="No schema and no endpoint holds the two in order, so a page refusing it would enforce a rule the API does not have.",
-        surfaced_by="the Zeitraum panel, which says so and saves anyway",
+        subject="two players in one team and one season wearing the same squad number",
+        reason=(
+            "A shirt number is worn rather than assigned, and the league already fields four goalkeepers "
+            "in one squad all wearing 1 -- so refusing the state would make live rows uneditable and, once "
+            "one was retired, unreactivatable. Refusing it on the create and the patch while the reactivate "
+            "consulted no rule at all was the same rule answering three ways (decided 2026-08-13)."
+        ),
+        surfaced_by="the squad editor's Hinweise, which warn before a save introduces one and save anyway",
     ),
     Unenforced(
         subject="a bracket slot the resolution filled with a team later disqualified",

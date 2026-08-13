@@ -8,20 +8,14 @@ import { COUNT_BADGE, LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { DraftChangeList, operationOf } from "@/shared/components/ui/DraftChangeList";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { resolveRailBanners } from "@/shared/components/ui/railBanner";
 import { RailSection } from "@/shared/components/ui/RailSection";
 
 import { useDraftStatus } from "./DraftStatusContext";
 import { SpielDraftPreview } from "./SpielDraftPreview";
 
 import type { FLSpielWithStoredSides } from "@/features/spiele/schemas";
-
-/**
- * One warning the form also shows inline, mirrored into the rail's warnings card — the rule
- *: a warning that appears anywhere on the page has a place in "Hinweise" too, so
- * scrolling past it never means missing it. The FORM builds these from the same state its inline
- * callouts read; this card only renders them.
- */
-export type RailBanner = { severity: "info" | "warning" | "danger"; title: string; body: string };
+import type { SpielBanner } from "./banners";
 
 /**
  * Everything the editor says about the fixture as a whole, rather than about one field.
@@ -42,40 +36,26 @@ export type RailBanner = { severity: "info" | "warning" | "danger"; title: strin
 export function DraftRail({
   previewSpiel,
   today,
-  extraBanners,
+  banners,
 }: {
   /** The fixture as it will stand once saved, from `applyDraftToSpiel`. */
   previewSpiel: FLSpielWithStoredSides;
   today: string;
-  /** The form's inline warnings, mirrored — see `RailBanner`. */
-  extraBanners: readonly RailBanner[];
+  /** Every Hinweis the draft raises, from `buildSpielBanners` — the same list the panels read. */
+  banners: readonly SpielBanner[];
 }) {
   const status = useDraftStatus();
 
-  // ONE list, then one sort, ranked by severity. **The void warning is the FORM's,
-  // not this card's** (ADR-0041): a dry run against the current draft names the
-  // fixtures a save takes a result from, not the larger set that might lose one.
-  const banners: RailBanner[] = [...extraBanners];
-
-  // A standing fact, so informational — and one sentence: what a reschedule needs becomes visible
-  // by itself the moment the Absage switch goes off.
-  if (previewSpiel.is_canceled) {
-    banners.push({
-      severity: "info",
-      title: "Dieses Spiel ist abgesagt",
-      body: "Es erscheint überall als abgesagt und wird nicht mehr angemahnt.",
-    });
-  }
-
-  const SEVERITY_RANK: Record<RailBanner["severity"], number> = { danger: 0, warning: 1, info: 2 };
-  const sortedBanners = [...banners].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+  // The badge counts what is rendered rather than what was built, which is only the same number
+  // while nothing supersedes anything.
+  const visibleBanners = resolveRailBanners(banners);
 
   const bannerBySeverity = {
-    danger: banners.filter((banner) => banner.severity === "danger").length,
-    warning: banners.filter((banner) => banner.severity === "warning").length,
-    info: banners.filter((banner) => banner.severity === "info").length,
+    danger: visibleBanners.filter((banner) => banner.severity === "danger").length,
+    warning: visibleBanners.filter((banner) => banner.severity === "warning").length,
+    info: visibleBanners.filter((banner) => banner.severity === "info").length,
   };
-  const bannerCount = banners.length;
+  const bannerCount = visibleBanners.length;
 
   // Controlled, because the count moves it: shut when the last banner clears, open
   // when one arrives. Only the TRANSITION drives it -- in between the state is the
@@ -121,9 +101,9 @@ export function DraftRail({
         {bannerCount === 0 ? (
           <p className="fluid-xs text-foreground-muted font-medium">Keine Hinweise.</p>
         ) : (
-          sortedBanners.map((banner) => (
+          visibleBanners.map((banner) => (
             <Callout
-              key={banner.title}
+              key={banner.id}
               severity={banner.severity}
               title={banner.title}>
               {banner.body}

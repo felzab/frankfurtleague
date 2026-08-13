@@ -9,13 +9,14 @@ Invariants:
 - An edit that would strand existing data is refused at the write (decided 2026-08-07).
 - A finished season's competitive rules are frozen — only the dates stay editable (decided 2026-08-07).
 - `MAX_QUALIFIERS` is `2 ** len(KNOCKOUT_PHASES)`: the rule widens by adding a phase (ADR-0052).
-- A refusal returns `(error_code, detail)` and never raises — the caller owns the status code.
+- A refusal returns a `WriteRefusal` and never raises — the caller owns the status code.
 - The checks run in the order an admin can act on them, like `find_entry_refusal`.
 
 See:
 - docs/domain.md — the editability matrix these rules implement
 """
 
+from datetime import date
 from typing import Any, Iterable, Mapping, Sequence
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, schedule_for
@@ -23,6 +24,7 @@ from app.api.saisons.schemas import FLSaisonRules, FLSaisonsFilterOptions
 from app.api.spiele.schemas import MAX_QUALIFIERS, FLSaisonPhase, FLSpiel
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
+from app.core.exceptions import WriteRefusal
 
 
 def with_schedule(saison_raw: Mapping[str, Any]) -> dict[str, Any]:
@@ -99,9 +101,9 @@ def find_rules_refusal(
     occupancy_by_gruppe: dict[FLGruppenNames, int],
     highest_wired_platz: int,
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
-) -> tuple[str, str] | None:
+) -> WriteRefusal | None:
     """
-    Why these rules must be refused, as `(error_code, detail)` -- or `None`.
+    Why these rules must be refused, as a `WriteRefusal` -- or `None`.
 
     `stored` is `None` on a create, where there is nothing to strand and nothing frozen: only the rules
     that read the proposed payload alone apply. `occupancy_by_gruppe` counts `saison_teams` rows per group, disqualified rows included,
@@ -118,26 +120,26 @@ def find_rules_refusal(
     if stored is not None and saison_status == "past":
         changed = [field for field in FROZEN_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if changed:
-            return (
-                RULES_SAISON_FINISHED,
-                f"season is past; {', '.join(changed)} cannot change because the league table is scored from rules on every read",
+            return WriteRefusal(
+                error_code=RULES_SAISON_FINISHED,
+                message=f"season is past; {', '.join(changed)} cannot change because the league table is scored from rules on every read",
             )
 
     # Before the bracket rule, because it is the narrower statement: it names two fields an admin can
     # compare, where the bracket's answer is a property of their product.
     if proposed.qualifiers_per_group > proposed.teams_per_group:
-        return (
-            RULES_QUALIFIERS_ABOVE_GROUP,
-            f"{proposed.qualifiers_per_group} qualifier(s) per group from groups of {proposed.teams_per_group}; "
+        return WriteRefusal(
+            error_code=RULES_QUALIFIERS_ABOVE_GROUP,
+            message=f"{proposed.qualifiers_per_group} qualifier(s) per group from groups of {proposed.teams_per_group}; "
             "a group cannot send more teams into the bracket than it holds",
         )
 
     # The bracket next, because it is a property of the proposed rules alone and needs no stored data.
     qualifiers = proposed.number_of_groups * proposed.qualifiers_per_group
     if not knockout_phases_for(qualifiers):
-        return (
-            RULES_BRACKET_IMPOSSIBLE,
-            f"{proposed.number_of_groups} group(s) x {proposed.qualifiers_per_group} qualifier(s) is {qualifiers}, "
+        return WriteRefusal(
+            error_code=RULES_BRACKET_IMPOSSIBLE,
+            message=f"{proposed.number_of_groups} group(s) x {proposed.qualifiers_per_group} qualifier(s) is {qualifiers}, "
             f"which is not a power of two between 2 and {MAX_QUALIFIERS}; a knockout bracket has no shape for it",
         )
 
@@ -148,23 +150,23 @@ def find_rules_refusal(
         offered = offered_gruppen(proposed.number_of_groups)
         stranded = sorted(gruppe for gruppe, held in occupancy_by_gruppe.items() if held > 0 and gruppe not in offered)
         if stranded:
-            return (
-                RULES_GROUPS_IN_USE,
-                f"gruppe {', '.join(stranded)} still holds teams; a season cannot stop running a group its teams are entered in",
+            return WriteRefusal(
+                error_code=RULES_GROUPS_IN_USE,
+                message=f"gruppe {', '.join(stranded)} still holds teams; a season cannot stop running a group its teams are entered in",
             )
 
     if proposed.teams_per_group < stored.teams_per_group:
         fullest = max(occupancy_by_gruppe.values(), default=0)
         if fullest > proposed.teams_per_group:
-            return (
-                RULES_CAPACITY_BELOW_USE,
-                f"a group already holds {fullest} teams; teams_per_group cannot drop below the fullest group",
+            return WriteRefusal(
+                error_code=RULES_CAPACITY_BELOW_USE,
+                message=f"a group already holds {fullest} teams; teams_per_group cannot drop below the fullest group",
             )
 
     if proposed.qualifiers_per_group < highest_wired_platz:
-        return (
-            RULES_QUALIFIERS_BELOW_WIRING,
-            f"a bracket slot names platz {highest_wired_platz}; qualifiers_per_group cannot drop below a placing already wired",
+        return WriteRefusal(
+            error_code=RULES_QUALIFIERS_BELOW_WIRING,
+            message=f"a bracket slot names platz {highest_wired_platz}; qualifiers_per_group cannot drop below a placing already wired",
         )
 
     # Last, because it is the only check that computes the whole schedule. Every phase, not just the
@@ -173,9 +175,9 @@ def find_rules_refusal(
     for phase, attached in sorted((attached_by_phase or {}).items()):
         expected = expected_matches(proposed, phase)
         if attached > expected:
-            return (
-                RULES_MATCHDAY_OVER_ITS_PHASE,
-                f"a {phase} matchday holds {attached} fixtures and these rules account for {expected}; "
+            return WriteRefusal(
+                error_code=RULES_MATCHDAY_OVER_ITS_PHASE,
+                message=f"a {phase} matchday holds {attached} fixtures and these rules account for {expected}; "
                 "the count follows from the rules, so lowering them would strand fixtures",
             )
 
@@ -187,26 +189,46 @@ def find_rules_refusal(
 # container's side, as `REQ-DATE-001` pairs with `REQ-DATE-003`.
 SAISON_SPAN_BELOW_SPIELTAGE = "REQ-DATE-004"
 
+# The season is shorter than the schedule its rules imply (decided 2026-08-13). DERIVED, never an
+# arbitrary floor: no two matchdays share a day. A one-day MATCHDAY stays legal -- the live
+# `finale` is one -- so this bounds the season alone.
+SAISON_SPAN_BELOW_SCHEDULE = "REQ-DATE-005"
+
 
 def find_saison_span_refusal(
     *,
     start_date: str,
     end_date: str,
+    rules: FLSaisonRules,
     spieltag_spans: Sequence[tuple[str, str]],
-) -> tuple[str, str] | None:
+) -> WriteRefusal | None:
     """
-    Why this season's span must be refused, as `(error_code, detail)` -- or `None`.
+    Why this season's span must be refused, as a `WriteRefusal` -- or `None`.
+
+    Two checks, in the order an admin can act on them. The first reads the payload alone -- the rules
+    and the two dates -- so it holds on a create, where the season has no matchdays yet. The second
+    needs stored data and is skipped by an empty `spieltag_spans` on that path.
 
     `spieltag_spans` is each LIVE matchday's `(beginn, ende)`. Retired matchdays are the caller's to
     exclude: retiring is how a mis-dated matchday is taken out of the schedule, so one blocking the
     repair of the very dates it was retired over would leave the season uneditable.
     """
 
+    # Inclusive: a season running 2026-05-01 to 2026-05-01 offers one day, not zero.
+    offered_days = (date.fromisoformat(end_date) - date.fromisoformat(start_date)).days + 1
+    required_days = sum(entry.matchdays for entry in schedule_for(rules))
+    if offered_days < required_days:
+        return WriteRefusal(
+            error_code=SAISON_SPAN_BELOW_SCHEDULE,
+            message=f"the season runs {start_date} to {end_date}, which is {offered_days} day(s), and these rules "
+            f"imply {required_days} matchday(s); two matchdays cannot share a day",
+        )
+
     outside = sorted(span for span in spieltag_spans if span[0] < start_date or span[1] > end_date)
     if outside:
-        return (
-            SAISON_SPAN_BELOW_SPIELTAGE,
-            f"{len(outside)} of the season's matchdays fall outside {start_date} to {end_date} "
+        return WriteRefusal(
+            error_code=SAISON_SPAN_BELOW_SPIELTAGE,
+            message=f"{len(outside)} of the season's matchdays fall outside {start_date} to {end_date} "
             f"(first: {outside[0][0]} to {outside[0][1]}); widen the span or move those matchdays",
         )
 
@@ -238,9 +260,9 @@ def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
     return sorted(spiel.spiel_nr for spiel in spiele if spiel.ergebnis is None and not spiel.is_canceled)
 
 
-def find_activation_refusal(*, outgoing_unplayed: Sequence[int]) -> tuple[str, str] | None:
+def find_activation_refusal(*, outgoing_unplayed: Sequence[int]) -> WriteRefusal | None:
     """
-    Why this rollover must be refused, as `(error_code, detail)` -- or `None`.
+    Why this rollover must be refused, as a `WriteRefusal` -- or `None`.
 
     `outgoing_unplayed` is `unplayed_spiel_nrs` over the fixtures of the season currently holding
     `active`, empty where there is no incumbent at all -- the first rollover of a fresh database, which
@@ -257,8 +279,8 @@ def find_activation_refusal(*, outgoing_unplayed: Sequence[int]) -> tuple[str, s
     named = ", ".join(str(nr) for nr in outgoing_unplayed[:_NAMED_UNPLAYED])
     rest = f" and {len(outgoing_unplayed) - _NAMED_UNPLAYED} more" if len(outgoing_unplayed) > _NAMED_UNPLAYED else ""
 
-    return (
-        ACTIVATE_SAISON_UNFINISHED,
-        f"the outgoing season has {len(outgoing_unplayed)} unplayed fixtures (spiel_nr {named}{rest}); "
+    return WriteRefusal(
+        error_code=ACTIVATE_SAISON_UNFINISHED,
+        message=f"the outgoing season has {len(outgoing_unplayed)} unplayed fixtures (spiel_nr {named}{rest}); "
         "enter their results or cancel them before closing the season",
     )

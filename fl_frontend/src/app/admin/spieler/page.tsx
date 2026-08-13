@@ -20,8 +20,8 @@ import type { NextPageProps } from "@/shared/types/types";
 /**
  * The teams entered in one season, as the pickers offer them: by name, with their Kürzel.
  *
- * `takenByTeam` carries which shirts are already worn in each of them, so the create form refuses a
- * duplicate number before the request (`REQ-SQUAD-002`) rather than explaining a 409 afterwards.
+ * `takenByTeam` carries which shirts are already worn in each of them, so the create form can say that
+ * the entry would put a second wearer on one — a state the API permits and never refuses.
  */
 function teamsInSaison(teams: FLTeamWithMemberships[], saisonId: string, takenByTeam: Record<string, string[]>): SpielerTeamOption[] {
   return teams

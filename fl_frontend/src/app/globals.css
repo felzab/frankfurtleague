@@ -124,6 +124,51 @@
     --fg-on-brand: #ffffff;
     --border-base: #d4d4d4;
 
+    /* THE HOVER FILLS -- one declared colour per fill family, and this block is the whole system.
+       A hover moves a control's fill ONE fixed perceptual step away from the page's own lightness:
+       darker in the light theme, lighter in the dark one, 6.7 OKLab L points in both. That number is
+       the mean of the app's own two existing steps (bg-surface -> bg-muted measures 4.82 in the light
+       theme and 8.64 in the dark), so one magnitude replaces two and a hover reads the same in either
+       theme instead of being 1.8x louder in the dark one.
+
+       Declared colours rather than an alpha on an existing token, and that is the point of the block.
+       An alpha composites against whatever sits behind it, so the SAME class lands differently per
+       surface (measured 2026-08-13): `bg-muted/40` gives -1.80 in the light theme, below the
+       ~2-point floor at which a flat-area step reads as a state change at all; `bg-muted/80` gives
+       +0.91 light and -1.67 dark; and `bg-brand-solid/90` moves the fill in OPPOSITE directions per
+       theme, +4.67 light against -2.25 dark, because it blends toward the page and not toward a
+       chosen colour.
+
+       The two -solid- hovers carry ONE value for both themes, because --accent-brand-solid and
+       --accent-danger-solid deliberately do not flip either: a hover on a fill that does not flip
+       must not flip. Measured against white, which is what both carry: 7.56 on the brand hover
+       (10.03 at rest) and 4.86 on the danger one (6.47 at rest). The danger figure is the tightest
+       value in this block and clears WCAG AA for normal text with 0.36 to spare -- re-measure it if
+       either half of the pair ever moves.
+
+       --bg-hover carries --fg-base at 14.86, --fg-muted at 5.86 and --accent-brand at 7.52 here;
+       --bg-hover-danger carries --accent-danger-strong at 4.80, which is why the destructive ghost
+       controls take the -strong companion and not the plain accent (the rule at
+       --accent-danger-strong below). */
+    --bg-hover: #dfdfdf;
+    /* The same magnitude for a control whose REST fill is --bg-muted rather than the page's own
+       surface. --bg-hover cannot serve one: it sits BETWEEN the two, so from --bg-muted it measures
+       -1.83 here -- under the ~2-point floor -- and -2.09 in the dark theme, where every other hover
+       in the app moves the other way. --bg-muted's own L minus 6.7, taken to the nearest 8-bit grey:
+       92.19 -> 85.45, a -6.74 step. Carries --fg-base at 12.71, --fg-muted at 5.02 and
+       --accent-brand at 6.43. */
+    --bg-hover-muted: #cfcfcf;
+    --bg-hover-danger: #f2d8d8;
+    /* The green `(meta)` pages take the same step in their own palette: --field-card's L plus 6.7,
+       hue and chroma untouched, white at 5.72 on it. Named --bg-hover-* and NOT --field-hover:
+       every `--field-*` name is HeroUI's own (`themes/default/variables.css`), `--field-hover` is
+       what its eleven field stylesheets read for `bg-field-hover`, and this file's `@layer base`
+       outranks HeroUI's `theme.base` — so declaring that name here turns the hover background of
+       every input, select, autocomplete and textarea in the app green. */
+    --bg-hover-field: oklch(49.9% 0.095 166.913);
+    --accent-brand-solid-hover: #982f2d;
+    --accent-danger-solid-hover: #d13832;
+
     /* Accents & Feedback */
     --accent-brand: #82181a;
 
@@ -229,6 +274,20 @@
     --fg-on-brand: #ffffff;
     --border-base: #333333;
 
+    /* The same 6.7-point step in the other direction, so a hover reads identically in both themes:
+       +6.56 from --bg-surface here against -6.65 there. Carries --fg-base at 16.10, --fg-muted at
+       6.38, --accent-brand at 4.47, and --accent-danger-strong at 5.89 on the danger fill. The two
+       -solid- hovers do not flip, for the reason their rest fills do not. */
+    --bg-hover: #212121;
+    /* --bg-muted's own L plus 6.7: 26.86 -> 33.68, a +6.82 step against the light theme's -6.74. It
+       is LIGHTER than --bg-hover above, and has to be -- the rest fill it answers to is lighter than
+       the page too. Carries --fg-base at 11.90 and --fg-muted at 4.72. */
+    --bg-hover-muted: #373737;
+    --bg-hover-danger: #321919;
+    --bg-hover-field: #29573e;
+    --accent-brand-solid-hover: #982f2d;
+    --accent-danger-solid-hover: #d13832;
+
     /* Accents & Feedback */
     /* Lightened for dark surfaces: the light value is 1.88:1 on --bg-surface, this is ~5.6:1. */
     --accent-brand: #e05b5e;
@@ -311,10 +370,18 @@
   --color-foreground: var(--fg-base);
   --color-foreground-muted: var(--fg-muted);
   --color-border: var(--border-base);
+  /* The hover fills, as utilities: `hover:bg-hover`, `data-hovered:bg-hover-danger` and the two
+     `-solid-hover` fills. Their values, and the one magnitude behind all of them, are declared once
+     in @layer base above. A control's hover is a token here, never an alpha at a call site. */
+  --color-hover: var(--bg-hover);
+  --color-hover-muted: var(--bg-hover-muted);
+  --color-hover-danger: var(--bg-hover-danger);
+  --color-hover-field: var(--bg-hover-field);
 
   /* brand = foreground (text/border/ring/tints), brand-solid = opaque fill behind text */
   --color-brand: var(--accent-brand);
   --color-brand-solid: var(--accent-brand-solid);
+  --color-brand-solid-hover: var(--accent-brand-solid-hover);
   --color-brand-solid-foreground: var(--fg-on-brand);
   /* Spelled `warning`, not `warn`: the utility sites all say `warning`, and this shadows
      HeroUI's own --color-warning rather than competing with it. */
@@ -329,6 +396,7 @@
   /* Opaque feedback fills and the foreground that goes on them, mirroring brand-solid. */
   --color-warning-solid: var(--accent-warn-solid);
   --color-danger-solid: var(--accent-danger-solid);
+  --color-danger-solid-hover: var(--accent-danger-solid-hover);
   --color-success-solid: var(--accent-success-solid);
   --color-warning-solid-foreground: var(--fg-on-warn);
   --color-danger-solid-foreground: var(--fg-on-danger);
@@ -411,12 +479,59 @@
   --height-modal: 90dvh;
   --width-sidemenu: 310px;
   --width-sidemenu-collapsed: 72px;
-  /* One hover magnitude for the whole app: spelled per call site, the app grows several. */
-  --scale-hover: 1.02;
+
+  /* THE MOTION SCALE. Three durations and two curves, and everything the app animates picks from
+     them. Spell a themed value with PARENTHESES -- `duration-(--motion-base)`. The bracket form
+     `duration-[--motion-base]` emits `transition-duration: --motion-base` with no var(), which is
+     invalid at computed-value time and falls back to the initial 0s, so the transition becomes
+     instant with a green build and no warning (verified by compiling both).
+
+     The two state steps are counted off the app: 150ms is Tailwind's own transition default and what
+     80 of the 113 transition sites already run at, and 200ms is what 29 of the 37 explicit
+     `duration-*` classes say. There is deliberately no 100ms step: HeroUI's overlay exits use it and
+     this app never spells it, so a token would emit nothing and invite a value with no home.
+
+     --motion-slow is NOT a census answer, and the difference matters to anyone tempted to shorten
+     it. It is the value at which an entrance matches the card cascade's settling profile, which is
+     the one piece of motion here nobody has faulted; a census of what the code already does is
+     evidence about the code and none at all about what reads smoothly. 200ms was the counted answer
+     and was rejected on the screen (decided 2026-08-13, by the owner watching all three side by
+     side). Change this only against the cascade, never against the census.
+
+     --motion-ease-enter is the card cascade's own curve, shared rather than a second one beside it.
+     It is an emphasized-decelerate shape -- 90% of the travel is covered in the first 37% of the
+     duration and the rest is a sub-pixel settle -- which is what lets one value answer both halves
+     of "must not feel slow, must not feel rough": the eye reads the arrival early while the fade
+     still runs long enough to be smooth. Tailwind's own `--ease-out` was the alternative and is
+     rejected: it is bit-for-bit Material's LEGACY decelerate, the curve M3 superseded, and it
+     spends the last 40% of its duration still visibly moving.
+
+     --motion-ease-state is bit-for-bit Tailwind's --default-transition-timing-function, so naming it
+     changes nothing on screen and makes the default a stated decision. A two-way state change --
+     hover, colour, width, a fold -- takes it; anything arriving or leaving takes the enter curve. */
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-slow: 300ms;
+  --motion-ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-ease-state: var(--ease-in-out);
 
   /* The content loader's dots. Tailwind's `animate-bounce` is 1s at translateY(-25%) -- on a 10px
      dot that is 2.5px of travel, invisible for the moment the loader is on screen. */
   --animate-loader-dot: loader-dot 0.6s infinite ease-in-out;
+
+  /* THE ADMIN PLACEHOLDER'S MINIMUM. Once a placeholder is on screen it stays until 500ms, so a load
+     landing just past the moment it appeared cannot show it for ten milliseconds and take it away.
+     There is deliberately NO delay in front of it: a delay only helps where the previous view stays
+     on screen through it, and this router unmounts the old page at once, so one would paint a blank
+     field for its whole length.
+
+     Run by AdminCrudShell, which mounts when the navigation starts -- the region below the boundary
+     cannot time its own wait, because it mounts when that wait ENDS. Zero duration and a backwards
+     fill: the value is 1 through the delay and there is no active phase to interpolate across, so a
+     reader gets whole or absent and never a partial. `initial-value: 0` closes it, so a hold that
+     never runs holds nothing. The 500ms is a floor on a wait already being reported rather than a
+     motion duration, which is why it is not on that scale. */
+  --animate-admin-placeholder-hold: admin-placeholder-hold 0s linear 500ms backwards;
 
   @keyframes loader-dot {
     0%,
@@ -613,6 +728,47 @@ html:has([data-app-shell]) {
    Deliberately unlayered: unlayered rules outrank every @layer, including HeroUI's `components` and
    Tailwind's `utilities`, so neither a library default nor a stray per-site class can reintroduce a
    ring. That also means this is the ONE place any of them can be changed -- which is the point. */
+/* A PLACEHOLDER too long for its field ends in an ellipsis rather than mid-word. Declared once,
+   never as a class per input: the population is every field in the app, and a control that gains a
+   placeholder later joins it by existing. `clip` is `text-overflow`'s initial value and nothing in
+   this app or in HeroUI sets it, so what this replaces is the CSS default and not a decision.
+
+   BOTH selectors are load-bearing, and each covers engines the other misses. `text-overflow` does
+   not inherit, so the placeholder box takes it from the input only where a UA stylesheet forwards
+   it — Blink's `html.css` and Gecko's `forms.css` both say `text-overflow: inherit` there, while
+   WebKit's `input::placeholder` block sets `white-space`, `word-wrap`, `overflow` and `line-height`
+   and nothing else. So on Safari the first arm compiles and does nothing, and the second reaches
+   the box directly: WebKit applies no property allowlist to this pseudo-element
+   (`Style::propertyAllowlistForPseudoElement`), and an engine that does restrict it drops that arm
+   silently while keeping the one it already answers to.
+
+   `input` and not `textarea`: a textarea's placeholder wraps, and `text-overflow` acts only on
+   inline overflow, so a rule covering them would be one nothing could make true. */
+input[placeholder],
+input[placeholder]::placeholder {
+  text-overflow: ellipsis;
+}
+
+/* AN EMPTY SEARCH FIELD GIVES ITS WHOLE WIDTH TO THE PLACEHOLDER — the clear control takes none.
+   HeroUI's `search-field.css` hides that control on the empty state with `pointer-events-none
+   opacity-0`, which leaves it in flow holding `size-7` from `dismissControl`, the `me-2` its own
+   rule gives it and the flex gap in front of it. On `SearchBar` that is 48px of a 122px chrome
+   budget, reserved on every screen width for a control with nothing to clear — at exactly the
+   moment the placeholder is the thing being cut off. `display` is what reclaims it: `visibility`
+   or a zero width would leave the gap standing.
+
+   Nothing is stranded. `useSearchField` gives the control `excludeFromTabOrder` and
+   `preventFocusOnPress` and focuses the input from `onPressStart`, so focus has already left before
+   the value empties (react-aria 3.51). What goes is HeroUI's fade, and that is the intended trade:
+   a phone-width field cannot spend 48px on a 150ms transition.
+
+   Unlayered, because HeroUI's empty-state rule is in `@layer components` and matches at equal
+   specificity. It reaches every search field in the app — the shared `SearchBar`, the filter
+   panel's facet search and the two picker popovers — which is the point of declaring it here. */
+[data-slot="search-field"][data-empty="true"] [data-slot="search-field-clear-button"] {
+  display: none;
+}
+
 /* iOS Safari zooms the whole page into any focused control whose computed font-size is under
    16px, and several field styles resolve below that on a phone (`fluid-sm` bottoms out around
    14px). The cure is the control's font-size, never `maximum-scale` in the viewport tag — that
@@ -767,6 +923,93 @@ html:has([data-app-shell]) {
   border-color: var(--border-base);
 }
 
+/* A DATE PICKER's group is the same trade, and it CANNOT join the rule above.
+   `[data-slot="date-input-group"]` is a SHARED slot: `TimeField.Group` is the identical
+   `DateInputGroupRoot` component the date field uses (verified in @heroui/react 3.2.4,
+   `time-field/index.js`), and a time field has no open state — resetting it on focus would take away
+   the only indicator it has, which is exactly what the rule above forbids for a text field. Adding
+   the bare slot there would also drop the border while the caret is in a date segment, since every
+   segment is its own tab stop and puts the group in :focus-within with the popover closed: the same
+   DOM state the restored-focus case produces, and indistinguishable to that selector.
+
+   So this one is scoped by the CONTROL rather than by the slot — `:has()` on the picker's own
+   trigger, which only a DatePicker mounts. The one focus it cancels is the one react-aria hands back
+   to that trigger when the popover dismisses — without it, a control the user has clicked away from
+   holds a brand border until something else takes focus. Segments and the time field never match it.
+
+   A keyboard user is unaffected: `.date-picker__trigger` draws `status-focused` from
+   `[data-focus-visible]` (@heroui/styles 3.2.4 `date-picker.css`), and --tw-ring-shadow is
+   registered `inherits: false`, so the group zeroing its own ring does not reach the button inside.
+
+   Specificity is (0,5,0) against (0,4,0) for the focus arm it overrides — `:has()` takes its most
+   specific argument — and both are unlayered, so source order would settle it even if they tied.
+   It sets `border-color` alone, exactly as the rule above does. */
+[data-slot="date-input-group"]:has([data-slot="date-picker-trigger"]:focus):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
+  border-color: var(--border-base);
+}
+
+/* The SAME group one state further on: it holds focus ITSELF, and nothing inside it does.
+   `FormDateTimeSection.tsx :: ClearFieldButton` puts it there deliberately — it moves focus to the
+   group before clearing, because a browser fires no blur for the button it is about to unmount and a
+   stranded focus would leave `document.activeElement` on `<body>`. The group carries `tabIndex={-1}`,
+   so what ends up focused is a container with no caret and nothing to type into. The rule above does
+   not reach it: what holds focus is the group, not `[data-slot="date-picker-trigger"]`.
+
+   The `:has()` is the whole discriminator, and it is exact rather than approximate — `:has()` never
+   matches its own subject, so the group is invisible to it while every element inside is not. A caret
+   in a date segment and a time field being typed into therefore keep their brand border.
+
+   **A clear control is excluded from it because it is not a caret either.** What this border says is
+   that the field is being edited; a dismiss affordance holding focus is the same nothing-to-type
+   position the group itself is, one element further in. Counting it kept the group brand for as long
+   as that button held focus, so releasing it — Enter, and the focus moves to the group — ran the
+   `transition-colors` on `FIELD_GROUP` and drew a 150ms brand fade out of a state that never meant
+   anything. Nothing is lost by dropping it: `button[data-field-clear="true"]:focus-visible` above
+   gives that control its own inset outline precisely because a shared border could never identify it.
+
+   Both arms are load-bearing and they cover different halves. `:focus` is synchronous, and
+   `FIELD_GROUP` transitions border-color, so keying on the attribute alone would animate one brand
+   flash per clear; `[data-focus-within="true"]` is react-aria's, and covers the shape where the
+   attribute is left set over a focus the group never saw leave.
+
+   Specificity is (0,6,0) against (0,4,0) for the focus arm it overrides — `:is()` and `:has()` each
+   take their most specific argument, and `:focus:not([data-field-clear="true"])` is two — both
+   unlayered. It sets `border-color` alone, exactly as the two rules above do. */
+[data-slot="date-input-group"]:is(:focus, [data-focus-within="true"]):not(:has(:focus:not([data-field-clear="true"]))):not(
+    :has([aria-expanded="true"])
+  ):not([data-invalid="true"]) {
+  border-color: var(--border-base);
+}
+
+/* Focus is still SOMEWHERE, and a keyboard user has to see where. With the border reset above and the
+   focus arm's `outline: none` still in force, tabbing onto a clear control and pressing Enter would
+   leave focus on an element carrying no indicator at all (WCAG 2.4.7). This is the app's standard
+   outline, drawn on the element that actually holds it — the group is not a fill of its own, so
+   var(--focus) still answers to the surface behind, and the offset is the standard 2px.
+
+   react-aria's attribute rather than the browser's `:focus-visible`, because the two disagree on
+   exactly this control: `mousedown` is cancelled on it, so a pointer press leaves focus where it was
+   and the browser reads the scripted focus that follows as a continuation of THAT element's
+   focus-visible state — an outline for somebody using a mouse. react-aria keys on a global modality
+   the `pointerdown` has already flipped.
+
+   `:not(:has(:focus))` is what makes the attribute mean the group: it is
+   `useFocusRing({within: true})`'s, so a segment reached by Tab sets it too, and that segment already
+   draws its own fill.
+
+   **It counts a clear control's focus where the border rule above does not, and the asymmetry is the
+   point.** That rule asks whether a caret is in the field, and a dismiss affordance is not one; this
+   one asks whether anything inside already shows focus, and that control does — its own inset
+   outline. Excluding it here would ring the whole group around a button that is already ringed.
+
+   Specificity is (0,5,0) against the (0,4,0) arm that zeroes the outline. An invalid group is left
+   out, exactly as it is above: its danger border is the field's own statement, and `[data-invalid]`
+   already owns the outline slot on every field in the app. */
+[data-slot="date-input-group"][data-focus-visible="true"]:not(:has(:focus)):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 /* Required asterisks belong to a form that CREATES something (decided 2026-08-07).
    On an edit every value is already present, so a column of red stars marks nothing the reader can
    act on; on a create each one is a genuine question.
@@ -793,7 +1036,9 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   --tw-ring-shadow: 0 0 #0000;
   border: 1px solid transparent;
   outline: none;
-  transition: border-color 150ms ease;
+  /* On the app's state curve rather than the bare `ease` keyword, which is a third curve nothing
+     else here uses. */
+  transition: border-color var(--motion-fast) var(--motion-ease-state);
 }
 
 [data-slot="switch"]:is(:hover, [data-hovered="true"]) [data-slot="switch-control"],
@@ -832,7 +1077,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    than reintroducing one. Both ring custom properties have to be zeroed, not just the first: Tailwind
    composes `box-shadow` from `--tw-ring-shadow` AND `--tw-ring-offset-shadow`, so killing one leaves
    the 2px offset band behind, which is the white line itself. What remains to convey the option under
-   the pointer is each call site's own `hover:bg-muted`, which is all that is wanted there. */
+   the pointer is each call site's own hover fill, which is all that is wanted there. */
 [data-slot="list-box-item"],
 [data-slot="menu-item"] {
   --tw-ring-shadow: 0 0 #0000;
@@ -847,8 +1092,10 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    onto the first match as you type and depends on no modality at all (verified in
    react-aria-components 1.19, `private/ListBox.mjs`, which writes both).
 
-   The fill is `--bg-muted`, the same background hovering gives — deliberately no more than that, and
-   no ring, which the rule above still suppresses. This closes the WCAG 2.4.7 gap that block recorded:
+   The fill is `--bg-hover`, the same background hovering gives — deliberately no more than that, and
+   no ring, which the rule above still suppresses. **It has to be whatever token the app's hover fill
+   is**, so if that one moves this moves with it; the two being the same colour is the whole claim.
+   This closes the WCAG 2.4.7 gap that block recorded:
    a keyboard user arrowing through an open list has an indicator inside the popover. Which attribute
    carries it differs by collection, and the rule below says why. */
 /* A MENU item keys on `data-focused`, because a menu moves focus with the pointer — react-aria's
@@ -863,7 +1110,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    `SaisonSelector`, which tints the row and turns its text brand. */
 [data-slot="list-box-item"][data-focus-visible="true"],
 [data-slot="menu-item"][data-focused="true"] {
-  background-color: var(--bg-muted);
+  background-color: var(--bg-hover);
 }
 
 /* Number fields carry no vertical padding, anywhere. The group is a fixed height with a centred
@@ -885,8 +1132,9 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    - The looping decorations (ping / pulse / bounce dots) stop entirely -- autonomous repeating
      motion is the classic vestibular trigger. `animate-spin` deliberately stays: spinners are
      loading feedback, not decoration.
-   - Hover scaling stops via its token (--scale-hover: 1) instead of a transition kill, so color
-     and opacity transitions remain smooth for everyone.
+   - The press gesture keeps its escape below. Hover moves no element, so there is nothing on the
+     hover side left to stop -- a hover changes a colour, and colour transitions stay smooth for
+     everyone here.
 
    Deliberately unlayered: unlayered rules outrank every @layer. */
 @media (prefers-reduced-motion: reduce) {
@@ -900,19 +1148,9 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     scroll-behavior: auto !important;
   }
 
-  :root {
-    --scale-hover: 1;
-  }
-
-  /* Belt for the two press/hover movement utilities, in case the theme token is baked rather than
-     var()-referenced, plus the landing arrows' slide. */
-  .hover\:scale-hover:hover,
+  /* Belt for the press gesture, in case a build bakes the scale rather than leaving it a var(). */
   .active\:scale-95:active {
     scale: none !important;
-  }
-
-  .group:hover .group-hover\:translate-x-1 {
-    translate: none !important;
   }
 
   .animate-ping,
@@ -940,6 +1178,13 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   }
 
   .cards-cascade [role="listitem"] {
+    animation-delay: 0ms !important;
+  }
+
+  /* The bracket sweep already moves nothing, so only the stagger is left to drop — dropped for the
+     cascade's reason and not a second one, since two collections resolving differently here would be
+     a difference nothing states. */
+  .bracket-sweep > * {
     animation-delay: 0ms !important;
   }
 }
@@ -1122,10 +1367,13 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   }
 
   /**
-   * TIER 2 OF TWO. The entrance for a card grid: the cards arrive in sequence instead of all at
-   * once. Tier 1 is the page rise, which is a Tailwind class string rather than CSS and therefore
-   * lives in `shared/components/ui/motion.ts` — **read that file before changing this one**, since
-   * the two exist as a pair and the constants there are what the call sites import.
+   * TIER 2 OF THREE. The entrance for a collection: its items arrive in sequence instead of all at
+   * once. The other two are Tailwind class strings rather than CSS and therefore live in
+   * `shared/components/ui/motion.ts` — **read that file before changing this one**, since the three
+   * are one set and the constants there are what the call sites import.
+   *
+   * It shares `--motion-slow` and `--motion-ease-enter` with the page rise, and after that the two
+   * are the same motion at different scopes rather than two motions tuned to resemble each other.
    *
    * **The stagger is the whole mechanism; the timing is not.** On a tab switch every card lands at
    * the exact screen position the previous Spieltag's card occupied, so a simultaneous swap reads as
@@ -1133,27 +1381,33 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    * opacity does not help, because duration is not the variable. Separating the cards in time is
    * what fixes it: the eye follows a sequence instead of catching a single flash.
    *
-   * It is the entrance for **every card collection**: the spielplan's panels, the landing page's two
-   * grids, spielsuche, the admin action-required panels, and `TeamsGrid`. Grids of
-   * cards one nav click apart must arrive the same way, which is why this is keyed off
-   * `role="listitem"` rather than off a card type. Spielsuche leans on it hardest — it re-renders on
-   * every debounced keystroke, the same land-where-the-last-one-was situation as a tab switch.
+   * It is the entrance for **every card collection** — the spielplan's panels and spielsuche and the
+   * landing page's grids as much as a page whose cards each hold a whole table. Collections of cards
+   * one nav click apart must arrive the same way, which is why this is keyed off `role="listitem"`
+   * rather than off a card type, and why the membership test below is the sentence to read rather
+   * than a roster of views to keep current. Spielsuche leans on it hardest — it re-renders on every
+   * debounced keystroke, the same land-where-the-last-one-was situation as a tab switch.
+   *
+   * **The item is the card, and never anything inside one** — `motion.ts` states why on
+   * `CARDS_CASCADE`, and that sentence is what decides where the class goes.
    *
    * Two collections are deliberate exceptions, both because their cards are positioned against
    * chrome that does not animate with them: the playoff bracket (CSS bracket lines) and
-   * `TeamSaisonSpieleTimeline` (a dashed rule with an absolutely-placed badge per row).
+   * `TeamSaisonSpieleTimeline` (a dashed rule with an absolutely-placed badge per row). The bracket
+   * arrives by `.bracket-sweep` below, which sequences whole columns and moves nothing.
    *
    * `[role="listitem"]`, not a child combinator: `SpielCardsList` wraps its cards in a
    * `display: contents` div, which removes the box but NOT the DOM node, so `>` would match the
    * wrapper rather than the cards. `:nth-child` still counts correctly through it, because
    * `display: contents` does not change parentage.
    *
-   * Eight steps, then a shared delay for the rest: the largest Spieltag holds eight matches, and the
-   * an unbounded list (spielsuche) must not stagger a hundredth card by two and a half
-   * seconds. The last step starts at 175ms, so any grid has settled inside half a second.
+   * Eight steps, then a shared delay for the rest: the largest Spieltag holds eight matches, and an
+   * unbounded list (spielsuche) must not stagger a hundredth card by two and a half seconds. The last
+   * step starts at 175ms, so a grid of any length has settled at 475ms — four cards, well inside the
+   * cap, at 375ms.
    */
   .cards-cascade [role="listitem"] {
-    animation: card-enter 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: card-enter var(--motion-slow) var(--motion-ease-enter) both;
   }
   .cards-cascade [role="listitem"]:nth-child(2) {
     animation-delay: 25ms;
@@ -1176,12 +1430,69 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   .cards-cascade [role="listitem"]:nth-child(n + 8) {
     animation-delay: 175ms;
   }
+
+  /**
+   * TIER 2 AT COLUMN SCOPE. The playoff bracket's entrance: one whole round per step, left to right.
+   * Its class string lives in `shared/components/ui/motion.ts` as `BRACKET_SWEEP` — **read that file
+   * before changing this one**, since the arrival tokens are one set and the call sites import from
+   * there.
+   *
+   * **It fades and it does not move, and that is forced rather than chosen.** Each gutter's connector
+   * is drawn as two halves owned by two different columns: the feeding round emits the elbow into the
+   * left 16px of the 32px gutter (`-right-4 w-4`) and the fed round emits the stub into the right
+   * 16px (`-left-4 w-4`), meeting at the midpoint. A line whose two ends belong to different columns
+   * cannot stay whole while those columns move relative to each other, so travel — and equally a
+   * scale, which moves a column's edges — would break every joint in the tree for the length of the
+   * stagger. That is the same defect the cascade is excluded from the bracket for, one level up.
+   * Opacity is the one channel that sequences the columns without moving an endpoint.
+   *
+   * **50ms a step, twice the cascade's 25ms, because a column is a far bigger unit than a card** and
+   * the per-card interval does not read as a sequence when it separates whole rounds. Four steps then
+   * a shared delay: `SAISON_PHASE_OPTIONS` holds five phases and the page asks for the four that are
+   * not `gruppenphase`, so four columns is the normal maximum, and a phase split over two dates is
+   * two matchdays and therefore a fifth column, which joins the last step rather than extending the
+   * run. The last step starts at 150ms, so the tree has settled at 450ms — inside
+   * the cascade's own 475ms, which is the bound that matters, since a bracket taking visibly longer
+   * to arrive than a card grid is wrong however correct each step is.
+   */
+  .bracket-sweep > * {
+    animation: bracket-phase-enter var(--motion-slow) var(--motion-ease-enter) both;
+  }
+  .bracket-sweep > *:nth-child(2) {
+    animation-delay: 50ms;
+  }
+  .bracket-sweep > *:nth-child(3) {
+    animation-delay: 100ms;
+  }
+  .bracket-sweep > *:nth-child(n + 4) {
+    animation-delay: 150ms;
+  }
+}
+
+@property --admin-placeholder-hold {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@keyframes admin-placeholder-hold {
+  from {
+    --admin-placeholder-hold: 1;
+  }
 }
 
 @keyframes card-enter {
   from {
     opacity: 0;
     transform: translateY(var(--card-enter-shift, 0.5rem));
+  }
+}
+
+/* No transform beside the fade, and no `--bracket-phase-shift` to reinstate one: the reason is the
+   split connector documented on `.bracket-sweep`, not a reduced-motion allowance. */
+@keyframes bracket-phase-enter {
+  from {
+    opacity: 0;
   }
 }
 

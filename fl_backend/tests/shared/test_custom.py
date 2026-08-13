@@ -119,6 +119,38 @@ def test_rejects_non_http_schemes_and_bare_hosts(value):
         _Url.model_validate({"value": value})
 
 
+@pytest.mark.parametrize(
+    ("stored", "expected"),
+    [
+        ("https://exa\nmple.com", "https://example.com"),
+        ("https://example.com\n", "https://example.com"),
+        ("\thttps://example.com", "https://example.com"),
+        ("https://example.com\r\n", "https://example.com"),
+    ],
+)
+def test_returns_the_text_it_validated_rather_than_the_raw_value(stored, expected):
+    """
+    The value stored is now the value validated.
+
+    `urlsplit` discards tabs and newlines before parsing, so the host that passed `DOMAIN_REGEX` was
+    never the string being stored — `https://exa\\nmple.com` validated as `example.com` and kept its
+    newline. What is returned is now the text the checks ran against.
+    """
+    assert _Url.model_validate({"value": stored}).value == expected
+
+
+def test_normalises_nothing_beyond_those_three_characters():
+    """
+    The counterpart to the test above, and the reason it is not written with `geturl()`.
+
+    Reassembling from the parsed parts would lowercase the scheme, rewriting a stored value on a READ
+    model — which is what `AnyHttpUrl` was rejected for. Everything except a tab or a newline survives
+    byte for byte.
+    """
+    for value in ("HTTPS://EXAMPLE.COM", "https://user@example.com", "https://example.com:8443/x?a=b#c"):
+        assert _Url.model_validate({"value": value}).value == value
+
+
 # The frontend accepts these because `new URL` punycodes the host before zod tests it. urlsplit does
 # not, so without encoding first an ordinary German umlaut domain is rejected here -- on the READ
 # path, taking down every route that lists teams.

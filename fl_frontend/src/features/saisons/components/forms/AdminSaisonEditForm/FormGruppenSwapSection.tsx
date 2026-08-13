@@ -8,16 +8,31 @@ import { ArrowRightArrowLeft } from "@gravity-ui/icons";
 import { Button, Label, ListBox, Select } from "@heroui/react";
 
 import { swapGruppenAction } from "@/features/saisons/actions";
+import { findSwapPartnerRefusal } from "@/features/saisons/utils";
 import { Callout } from "@/shared/components/ui/Callout";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { PANEL_REVEAL } from "@/shared/components/ui/motion";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
+import type { SwapPartnerRefusal } from "@/features/saisons/utils";
 import type { Key } from "@heroui/react";
+
+/** The pair's accessible name, and the sentence the disabled button points at. Both render once here. */
+const PAIR_LABEL_ID = "gruppentausch-paar";
+const BUTTON_HINT_ID = "gruppentausch-hinweis";
+
+/** This panel's wording for each refusal `findSwapPartnerRefusal` returns, short enough to sit in a row. */
+const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
+  self: "bereits gewählt",
+  sameGruppe: "gleiche Gruppe",
+  played: "hat schon gespielt",
+  spieltagClash: "zweimal am Spieltag",
+};
 
 /**
  * One side of the swap: a club picker listing every club of the season with the group it holds.
@@ -61,7 +76,7 @@ function SwapTeamSelect({
       <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
         {/* From the prop rather than `Select.Value`: the collection can lag a render behind and would
             show HeroUI's English placeholder — `GruppeSelect`'s reason, and `SaisonSelector`'s. */}
-        <span className={value ? "" : "text-foreground-muted"}>{value ? `${value.name} — Gruppe ${value.gruppe}` : "Mannschaft wählen"}</span>
+        <span className={value ? "" : "text-foreground-muted"}>{value ? `${value.name} (Gruppe ${value.gruppe})` : "Mannschaft wählen"}</span>
         <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
       </Select.Trigger>
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-72 overflow-y-auto p-1.5`}>
@@ -74,7 +89,7 @@ function SwapTeamSelect({
                 id={team.id}
                 textValue={team.name}
                 isDisabled={reason !== undefined}
-                className="text-foreground-muted hover:bg-muted hover:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200 data-disabled:cursor-not-allowed data-disabled:opacity-40">
+                className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-base) data-disabled:cursor-not-allowed data-disabled:opacity-40">
                 <span className="min-w-0 truncate">{team.name}</span>
                 <span className="fluid-xs text-foreground-muted shrink-0 font-semibold">{reason ?? `Gruppe ${team.gruppe}`}</span>
               </ListBox.Item>
@@ -87,29 +102,34 @@ function SwapTeamSelect({
 }
 
 /**
- * Whether exchanging these two clubs would leave one of them in two matches of one Spieltag.
+ * The exchange itself, drawn between the two pickers rather than beside them.
  *
- * **`REQ-SWAP-005` said in the form (ADR-0038), mirroring `_spieltag_clashes` on the server.** A swap
- * moves each club's Gruppenphase fixtures to the other and leaves the bracket ones where they are, so
- * afterwards a club stands in its OWN `koSpieleProSpieltag` plus the OTHER's `gruppenSpieleProSpieltag`.
- * A club plays at most one match per Spieltag (ADR-0042).
+ * **This is what makes the pair read as one operation.** Two selects and a button below them are three
+ * controls a reader has to assemble; a connective carrying the two group letters is the operation
+ * stated in the middle of its own operands — the origin/destination pattern airline search uses, minus
+ * its reverse control, because a swap is symmetric and reversing the two sides would change nothing.
  *
- * **Only a Spieltag the exchange BREAKS counts, never one already broken.** The server draws the line in
- * the same place, because enforcement leaves stored breaches alone (ADR-0042) — and a stricter client
- * would hide a swap the endpoint accepts, which is ADR-0038's failure in the other direction.
+ * `aria-hidden`, because it restates the two triggers plus the outcome callout below, and a screen
+ * reader arriving at a third copy of the same fact learns nothing.
  */
-function wouldFieldAClubTwice(first: SaisonSwapTeam, second: SaisonSwapTeam): boolean {
-  const breaksASpieltag = (keeps: SaisonSwapTeam, gives: SaisonSwapTeam) =>
-    // Its own bracket Spieltage plus the ones it inherits — every Spieltag its count can move on.
-    [...Object.keys(keeps.koSpieleProSpieltag), ...Object.keys(gives.gruppenSpieleProSpieltag)].some((spieltagId) => {
-      const bleibt = keeps.koSpieleProSpieltag[spieltagId] ?? 0;
-      const vorher = bleibt + (keeps.gruppenSpieleProSpieltag[spieltagId] ?? 0);
-      const nachher = bleibt + (gives.gruppenSpieleProSpieltag[spieltagId] ?? 0);
-
-      return nachher > 1 && vorher <= 1;
-    });
-
-  return breaksASpieltag(first, second) || breaksASpieltag(second, first);
+function SwapConnective({ first, second }: { first: SaisonSwapTeam | null; second: SaisonSwapTeam | null }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="bg-muted text-foreground-muted fluid-xs flex h-10 shrink-0 items-center justify-center gap-x-1.5 justify-self-center rounded-full px-3 font-bold">
+      {/* Vertical between two stacked pickers, horizontal once the grid puts them side by side. */}
+      <ArrowRightArrowLeft
+        className="size-4 shrink-0 rotate-90 sm:rotate-0"
+        width={16}
+        height={16}
+      />
+      {first !== null && second !== null && (
+        <span>
+          {first.gruppe} ⇄ {second.gruppe}
+        </span>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -122,8 +142,9 @@ function wouldFieldAClubTwice(first: SaisonSwapTeam, second: SaisonSwapTeam): bo
  * opponents it was drawn against, and that lock's own message names this as the case that would be
  * defensible.
  *
- * **On the season and not on the club.** The club editor addresses one club, so a two-club operation
- * would sit there as an act on somebody who is not the subject of the page.
+ * **This panel is the swap's home, and the club editor's control is a second entry point into the same
+ * write** (ADR-0071). Here both sides are open, which is where an admin who has not yet decided which
+ * two clubs to exchange belongs; the club editor fixes one side because its page has already named it.
  *
  * **A control rather than a field.** It writes the moment it is confirmed and never joins the save bar,
  * which is the shape the rollover takes above it and the retire controls take on the other editors.
@@ -140,8 +161,7 @@ function wouldFieldAClubTwice(first: SaisonSwapTeam, second: SaisonSwapTeam): bo
  * **A club that has already played in its group is offered and refused in place** (`REQ-SWAP-004`), a
  * pair that would double a club on one Spieltag is refused on the second picker (`REQ-SWAP-005`), and a
  * finished season closes the panel outright (`REQ-SWAP-003`). Each is the endpoint's rule said in the
- * form, so the panel offers only pairs the write path takes. What counts as having taken place is the
- * season editor page's `hasTakenPlace`; both counts below arrive already taken over it.
+ * form, so the panel offers only pairs the write path takes.
  */
 export function FormGruppenSwapSection({
   saisonId,
@@ -178,24 +198,21 @@ export function FormGruppenSwapSection({
    */
   const unpickable = new Map<string, string>();
   for (const team of swap.teams) {
-    if (team.gespielteGruppenSpiele > 0) unpickable.set(team.id, "hat schon gespielt");
+    if (team.gespielteGruppenSpiele > 0) unpickable.set(team.id, PARTNER_REFUSAL_LABEL.played);
   }
 
   /**
-   * What the SECOND picker may not take on top of that.
+   * What the SECOND picker may not take on top of that, from the shared per-candidate rule.
    *
-   * The first two exclusions are `REQ-SWAP-001` said in the form (ADR-0038): a club cannot exchange
-   * groups with itself, and two clubs of one group exchange nothing. The third is `REQ-SWAP-005`, and it
-   * is the reason this map is rebuilt against `first` rather than computed once — a Spieltag clash is a
-   * property of the PAIR, so no club is unpickable on its own account. Offering any of them would be
-   * offering a request the write path answers with a 409.
+   * It is rebuilt against `first` rather than computed once because a Spieltag clash is a property of
+   * the PAIR (`REQ-SWAP-005`), so no club is unpickable on its own account. Offering any of them would
+   * be offering a request the write path answers with a 409 (ADR-0038).
    */
   const unpickableForSecond = new Map(unpickable);
   if (first) {
     for (const team of swap.teams) {
-      if (team.id === first.id) unpickableForSecond.set(team.id, "bereits gewählt");
-      else if (team.gruppe === first.gruppe) unpickableForSecond.set(team.id, "gleiche Gruppe");
-      else if (wouldFieldAClubTwice(first, team)) unpickableForSecond.set(team.id, "zweimal am Spieltag");
+      const refusal = findSwapPartnerRefusal(first, team);
+      if (refusal !== null) unpickableForSecond.set(team.id, PARTNER_REFUSAL_LABEL[refusal]);
     }
   }
 
@@ -204,7 +221,7 @@ export function FormGruppenSwapSection({
     setIsConfirming(false);
     // Cleared rather than kept: the new first pick can make the standing second one illegal, and a
     // disabled row left selected is a pair the button would send and the endpoint would refuse.
-    if (second && (second.id === team.id || second.gruppe === team.gruppe || wouldFieldAClubTwice(team, second))) setSecond(null);
+    if (second && findSwapPartnerRefusal(team, second) !== null) setSecond(null);
   };
 
   const handleSecondChange = (team: SaisonSwapTeam) => {
@@ -238,13 +255,19 @@ export function FormGruppenSwapSection({
     });
   };
 
+  // The sentence the disabled button is described by, rendered only while it is disabled for a
+  // reason a reader can act on — `FormErgebnisSection`'s shape. A swap in flight names nothing,
+  // because the label already says so.
+  const missingPickHint = first === null ? "Wähle zwei Mannschaften aus zwei verschiedenen Gruppen." : "Wähle noch die zweite Mannschaft.";
+  const isMissingAPick = first === null || second === null;
+
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Gruppentausch
           <InfoHint label="Hinweis zum Gruppentausch">
-            <p>Zwei Mannschaften tauschen ihre Gruppen — in einem Schritt, nicht in zwei.</p>
+            <p>Zwei Mannschaften tauschen ihre Gruppen. Das geschieht in einem Schritt, nicht in zwei.</p>
             <ul>
               <li>
                 Jede Gruppe behält ihre <strong>Größe</strong>. Die angesetzten Spiele tauschen mit: Jede Mannschaft übernimmt Gegner, Termine
@@ -257,9 +280,12 @@ export function FormGruppenSwapSection({
               </li>
               <li>
                 Spiele der KO-Runde tauschen <strong>nicht</strong> mit. Stünde eine Mannschaft dadurch zweimal an einem Spieltag, ist das Paar
-                nicht wählbar — verschiebe eines der beiden Spiele.
+                nicht wählbar. Verschiebe dann eines der beiden Spiele.
               </li>
-              <li>Ein einzelner Wechsel ist nicht vorgesehen. Dafür ist die Mannschaftsseite zuständig, und dort ist er gesperrt.</li>
+              <li>
+                Ein <strong>einzelner</strong> Wechsel bleibt gesperrt, hier wie auf der Mannschaftsseite. Dort lässt sich derselbe Tausch mit
+                der geöffneten Mannschaft als einer Seite starten; hier wählst Du beide Seiten selbst.
+              </li>
             </ul>
           </InfoHint>
         </h2>
@@ -297,22 +323,35 @@ export function FormGruppenSwapSection({
           </Callout>
         ) : (
           <>
-            <p className="fluid-sm text-foreground font-medium">
+            <p
+              id={PAIR_LABEL_ID}
+              className="fluid-sm text-foreground font-medium">
               Wähle die beiden Mannschaften, die ihre Gruppen tauschen sollen. Beide müssen in dieser Saison stehen, in zwei verschiedenen
               Gruppen, und dürfen in ihrer Gruppe noch nicht gespielt haben.
             </p>
 
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* One group rather than two fields: the exchange is a single decision over two operands,
+                and the connective between them is where it is stated. `items-end` rather than a margin
+                on the connective — both pickers end in a 40px trigger, so aligning the row's bottoms
+                puts the chip on the triggers' line whatever height the fluid label resolves to. */}
+            <div
+              role="group"
+              aria-labelledby={PAIR_LABEL_ID}
+              className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
               <SwapTeamSelect
-                label="Erste Mannschaft"
+                label="Mannschaft"
                 value={first}
                 onChange={handleFirstChange}
                 teams={swap.teams}
                 unpickable={unpickable}
                 isDisabled={isSwapping}
               />
+              <SwapConnective
+                first={first}
+                second={second}
+              />
               <SwapTeamSelect
-                label="Zweite Mannschaft"
+                label="Tauscht Gruppen mit"
                 value={second}
                 onChange={handleSecondChange}
                 teams={swap.teams}
@@ -329,7 +368,7 @@ export function FormGruppenSwapSection({
                 severity="warning"
                 title="Das passiert beim Tausch">
                 <strong>{first.name}</strong> steht danach in Gruppe {second.gruppe}, <strong>{second.name}</strong> in Gruppe {first.gruppe}.
-                Beide übernehmen dabei die angesetzten Spiele der anderen — mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
+                Beide übernehmen dabei die angesetzten Spiele der anderen, mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
                 sofort.
               </Callout>
             )}
@@ -339,7 +378,7 @@ export function FormGruppenSwapSection({
             {isConfirming && first !== null && second !== null && (
               <div
                 role="alert"
-                className="animate-in fade-in slide-in-from-bottom-4 bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm duration-400">
+                className={`${PANEL_REVEAL} bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm`}>
                 <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
                   Der Tausch gilt sofort und ist auf jeder Tabelle dieser Saison sichtbar. Rückgängig machst Du ihn, indem Du dieselben beiden
@@ -348,31 +387,44 @@ export function FormGruppenSwapSection({
               </div>
             )}
 
-            <div className="flex w-full flex-row flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="primary"
-                isDisabled={isSwapping || first === null || second === null}
-                onPress={handleSwap}
-                className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
-                {!isConfirming && (
-                  <ArrowRightArrowLeft
-                    aria-hidden="true"
-                    width={18}
-                    height={18}
-                  />
-                )}
-                {isSwapping ? "Tauscht..." : isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen"}
-              </Button>
-              {isConfirming && (
+            <div className="flex w-full flex-col gap-y-1.5">
+              <div className="flex w-full flex-row flex-wrap items-center gap-3">
                 <Button
                   type="button"
-                  variant="secondary"
-                  isDisabled={isSwapping}
-                  onPress={() => setIsConfirming(false)}
-                  className={formButton({ intent: "cancel" })}>
-                  Abbrechen
+                  variant="primary"
+                  aria-describedby={!isSwapping && isMissingAPick ? BUTTON_HINT_ID : undefined}
+                  isDisabled={isSwapping || isMissingAPick}
+                  onPress={handleSwap}
+                  className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
+                  {!isConfirming && (
+                    <ArrowRightArrowLeft
+                      aria-hidden="true"
+                      width={18}
+                      height={18}
+                    />
+                  )}
+                  {isSwapping ? "Tauscht..." : isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen"}
                 </Button>
+                {isConfirming && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    isDisabled={isSwapping}
+                    onPress={() => setIsConfirming(false)}
+                    className={formButton({ intent: "cancel" })}>
+                    Abbrechen
+                  </Button>
+                )}
+              </div>
+              {/* Adjacent to the control it describes, and pointed at by `aria-describedby` — the
+                  treatment `FormErgebnisSection` established for a control disabled for a reason the
+                  page already shows. */}
+              {!isSwapping && isMissingAPick && (
+                <p
+                  id={BUTTON_HINT_ID}
+                  className="fluid-xxs text-foreground-muted leading-normal font-medium">
+                  {missingPickHint}
+                </p>
               )}
             </div>
           </>

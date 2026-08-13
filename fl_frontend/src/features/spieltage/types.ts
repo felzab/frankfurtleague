@@ -8,7 +8,7 @@
  */
 
 import type { FLSaisonPhase } from "../saisons/schemas";
-import type { FLPostSpieltagPayload } from "./schemas";
+import type { FLPatchSpieltagPayload, FLPostSpieltagPayload } from "./schemas";
 
 // `natural` is the derived order the backend applies and the default: the phase in bracket order,
 // then `beginn`, then `_id` (ADR-0051). `anzahl_spiele` is not sortable — derived on read rather
@@ -37,6 +37,18 @@ export type FLSpieltageFilterParams = {
  * from it (ADR-0051) — so the one field the form must not guess is the one that positions the row.
  */
 export type SpieltagCreateDraft = Omit<FLPostSpieltagPayload, "saison_phase"> & {
+  saison_phase: FLSaisonPhase | null;
+};
+
+/**
+ * The edit form's draft, widened the same way and for the same reason.
+ *
+ * A stored matchday always HAS a phase, so this is not about the initial value — it is about keeping
+ * one shape across the draft, the schema that judges it as the picker is used, and the payload the
+ * action parses (ADR-0040). Without it the editor would hold `FLSaisonPhase | null` and cast on the
+ * way out, which is the assertion the create form was written to avoid.
+ */
+export type SpieltagEditDraft = Omit<FLPatchSpieltagPayload, "saison_phase"> & {
   saison_phase: FLSaisonPhase | null;
 };
 

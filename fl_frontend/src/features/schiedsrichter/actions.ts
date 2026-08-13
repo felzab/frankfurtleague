@@ -18,7 +18,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter } from "./mutations";
@@ -49,7 +49,7 @@ export async function postSchiedsrichterAction(
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPostSchiedsrichterPayloadSchema.safeParse(rawPayload);
@@ -82,7 +82,7 @@ export async function patchSchiedsrichterAction(
 ): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("patchSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPatchSchiedsrichterPayloadSchema.safeParse(rawPayload);
@@ -116,7 +116,7 @@ export async function deleteSchiedsrichterAction(
 ): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("deleteSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLDeleteSchiedsrichterPayloadSchema.safeParse(rawPayload);
@@ -141,7 +141,7 @@ export async function deleteSchiedsrichterAction(
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: "Beim Löschen der Schiedsrichter-Daten ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: "Beim Stilllegen des Schiedsrichters ist ein unerwarteter Fehler aufgetreten" };
     }
 
     updateTag("schiedsrichter");
@@ -149,7 +149,7 @@ export async function deleteSchiedsrichterAction(
     return {
       success: Boolean(postOperation.acknowledged),
       updated_document: postOperation.updated_document,
-      message: "Schiedsrichter erfolgreich gelöscht!",
+      message: "Schiedsrichter stillgelegt. Seine Spiele bleiben erhalten.",
     };
   });
 }

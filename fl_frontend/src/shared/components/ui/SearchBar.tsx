@@ -2,6 +2,8 @@
 
 import { SearchField } from "@heroui/react";
 
+import { dismissControl } from "@/core/dismissControl";
+
 /**
  * The app's search input. Three views hand-rolled this from a `<div>` + icon + bare `Input` while
  * the same codebase used HeroUI's `SearchField` correctly three times. The hand-built
@@ -49,7 +51,9 @@ export function SearchBar({
           placeholder={placeholder}
           className="fluid-sm w-full bg-transparent outline-none"
         />
-        <SearchField.ClearButton />
+        {/* The generic wording: `label` is a whole phrase ("Spiele suchen"), so a name derived from it
+            would read as broken German rather than as the field it clears. */}
+        <SearchField.ClearButton {...dismissControl({ label: "Suche zurücksetzen" })} />
       </SearchField.Group>
     </SearchField>
   );

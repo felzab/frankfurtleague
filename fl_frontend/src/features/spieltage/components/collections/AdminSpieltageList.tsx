@@ -3,7 +3,7 @@
 import { memo, useTransition } from "react";
 import Link from "next/link";
 
-import { Globe } from "@gravity-ui/icons";
+import { Globe, Pencil } from "@gravity-ui/icons";
 
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
@@ -11,7 +11,7 @@ import { reactivateSpieltagAction } from "@/features/spieltage/actions";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
-import { RowActionDelete, RowActionEdit, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
+import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -59,7 +59,6 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   filteredSpieltage,
   saisonId,
   phaseProgress,
-  onEdit,
   onDelete,
 }: {
   spieltageQuery: string;
@@ -68,7 +67,6 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   saisonId: string | null;
   /** Each phase's live matchday count against what the season's rules imply. Absent where no season is. */
   phaseProgress?: readonly SpieltagPhaseProgress[];
-  onEdit: (spieltag: AdminSpieltagRow) => void;
   onDelete: (spieltag: AdminSpieltagRow) => void;
 }) {
   const [, startReactivating] = useTransition();
@@ -183,11 +181,18 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
 
   const renderActions = (spieltag: AdminSpieltagRow) => (
     <RowActions>
-      <RowActionEdit
+      {/* A link rather than a press: the matchday form edits on a page (ADR-0072), so the pencil is
+          a navigation and the shared view renders no edit overlay. */}
+      <RowActionLink
+        href={`/admin/spieltage/${spieltag.id}`}
         label="Bearbeiten"
-        ariaLabel={`${spieltag.label} bearbeiten`}
-        onPress={() => onEdit(spieltag)}
-      />
+        ariaLabel={`${spieltag.label} bearbeiten`}>
+        <Pencil
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
       {spieltag.inactive_since !== null ? (
         <RowActionRestore
           label="Reaktivieren"
@@ -197,14 +202,13 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       ) : (
         <RowActionDelete
           // Not offered while the matchday holds a result: retiring it would take that result off the
-          // public Spielplan, which `REQ-RETIRE-002` refuses. The tooltip carries the reason, because a
-          // disabled control with the live wording explains nothing.
-          isDisabled={spieltag.spieleGespielt > 0}
-          label={
+          // public Spielplan, which `REQ-RETIRE-002` refuses.
+          disabledReason={
             spieltag.spieleGespielt > 0
-              ? `Nicht möglich: ${spieltag.spieleGespielt === 1 ? "1 Spiel hat" : `${String(spieltag.spieleGespielt)} Spiele haben`} schon ein Ergebnis`
-              : "Stilllegen"
+              ? `Stilllegen ist nicht möglich: ${spieltag.spieleGespielt === 1 ? "1 Spiel hat" : `${String(spieltag.spieleGespielt)} Spiele haben`} schon ein Ergebnis.`
+              : null
           }
+          label="Stilllegen"
           ariaLabel={`${spieltag.label} stilllegen`}
           onPress={() => onDelete(spieltag)}
         />
@@ -250,7 +254,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                 <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"
-                    className="bg-brand/50 text-foreground fluid-sm flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold shadow-sm">
+                    className="bg-brand-solid text-brand-solid-foreground fluid-sm flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold shadow-sm">
                     {spieltag.ordinal}
                   </span>
 
@@ -264,7 +268,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                     <span className="fluid-xs text-foreground-muted">
                       {spieltag.beginn === spieltag.ende
                         ? formatSpielDatum(spieltag.beginn)
-                        : `${formatSpielDatum(spieltag.beginn)} bis ${formatSpielDatum(spieltag.ende)}`}
+                        : `${formatSpielDatum(spieltag.beginn)} – ${formatSpielDatum(spieltag.ende)}`}
                     </span>
                   </div>
                 </div>
@@ -300,7 +304,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       {saisonId !== null && (
         <Link
           href={`/dashboard/spielplan?saison_id=${encodeURIComponent(saisonId)}`}
-          className="border-border bg-surface text-foreground hover:bg-muted fluid-xs flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+          className="border-border bg-surface text-foreground hover:bg-hover fluid-xs flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
           <Globe
             aria-hidden="true"
             width={16}

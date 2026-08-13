@@ -33,7 +33,8 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
   const activeSaisonData = saisons.find((saison) => saison.id === requestedSaisonId) ?? currentSaison;
   const activeSaisonId = activeSaisonData.id;
 
-  const timespan = `${formatSpielDatum(activeSaisonData.start_date)} - ${formatSpielDatum(activeSaisonData.end_date)}`;
+  // A bis-Strich rather than the word, which the trigger's `uppercase` renders as "BIS".
+  const timespan = `${formatSpielDatum(activeSaisonData.start_date)} – ${formatSpielDatum(activeSaisonData.end_date)}`;
 
   const handleSelectionChange = (key: Key | null) => {
     if (!key) return;
@@ -87,7 +88,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
           // No `aria-expanded:border-brand` here: `select-trigger` is in the field-focus block in
           // `globals.css`, which already paints it for every field-shaped control. A second copy at
           // one call site is how fields end up with the treatment while others lack it.
-          className={`border-border/60 bg-surface/50 hover:bg-surface hover:border-border aria-expanded:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-200 ${
+          className={`border-border/60 bg-surface/50 data-hovered:bg-hover data-hovered:border-border aria-expanded:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-200 ${
             isSwitching ? "opacity-60" : ""
           }`}>
           <div className="flex flex-col items-start gap-0.5 text-left">
@@ -111,7 +112,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
                 key={saison.id}
                 id={saison.id}
                 textValue={`Saison ${saison.id}`}
-                className="text-foreground-muted hover:bg-muted hover:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+                className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
                 Saison {saison.id}
               </ListBox.Item>
             ))}

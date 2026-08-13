@@ -25,7 +25,7 @@ from motor.motor_asyncio import (
 from app.core.collections import Collection
 from app.core.config import BackendConfig, get_config
 from app.core.constraints import apply_constraints
-from app.core.exceptions import DatabaseUnavailableException
+from app.core.exceptions import NO_DATABASE_CLIENT, DatabaseUnavailableException
 from app.core.logging import fl_logger
 
 
@@ -66,7 +66,7 @@ async def lifespan(app: FastAPI):
 
 async def get_db_client(request: Request) -> AsyncIOMotorClient:
     if not hasattr(request.app.state, "db_client"):
-        raise DatabaseUnavailableException(error_code="DB-CONN-001")
+        raise DatabaseUnavailableException(error_code=NO_DATABASE_CLIENT)
     return request.app.state.db_client
 
 
@@ -78,7 +78,7 @@ async def get_database(
     # that database name. Reading the global would resolve every collection dependency against the
     # real one.
     if not hasattr(request.app.state, "db_client"):
-        raise DatabaseUnavailableException(error_code="DB-CONN-001")
+        raise DatabaseUnavailableException(error_code=NO_DATABASE_CLIENT)
     return request.app.state.db_client[config.db_base_name]
 
 

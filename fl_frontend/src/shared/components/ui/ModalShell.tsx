@@ -4,6 +4,8 @@ import { tv } from "tailwind-variants";
 
 import { Modal } from "@heroui/react";
 
+import { dismissControl } from "@/core/dismissControl";
+
 import type { ReactNode } from "react";
 
 /**
@@ -99,7 +101,9 @@ export function ModalShell({
         <Modal.Dialog
           role={role}
           className={styles.dialog()}>
-          <Modal.CloseTrigger className="text-foreground-muted hover:text-foreground transition-colors" />
+          {/* One label for every admin dialog: this shell is the base of all of them, and none can say
+              anything more specific than which kind of thing is being dismissed. */}
+          <Modal.CloseTrigger {...dismissControl({ label: "Dialog schließen" })} />
 
           <Modal.Header className={styles.header()}>
             <div className="flex items-center gap-4">

@@ -55,6 +55,15 @@ export const FLSpieltageListResponseSchema = BaseAPIResponseSchema.extend({
 export type FLSpieltageListResponse = z.infer<typeof FLSpieltageListResponseSchema>;
 
 /**
+ * One matchday addressed by its id — retired ones included, because a caller holding an id was given
+ * it by something. `anzahl_spiele` is derived from the addressed matchday's OWN season (ADR-0052).
+ */
+export const FLSpieltageSingleResponseSchema = BaseAPIResponseSchema.extend({
+  spieltag: FLSpieltagSchema,
+});
+export type FLSpieltageSingleResponse = z.infer<typeof FLSpieltageSingleResponseSchema>;
+
+/**
  * The fields both write payloads carry. German messages: these bind the matchday form's inputs
  * directly, judged in the browser with the schema the action parses (ADR-0040).
  *

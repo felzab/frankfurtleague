@@ -117,7 +117,7 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
                    group: an admin should see why a phase cannot be picked rather than wonder where it
                    went. The endpoint refuses the same shape (`REQ-SPIELTAG-002`). */
                 isDisabled={!fits}
-                className="text-foreground-muted hover:bg-muted hover:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200 data-disabled:cursor-not-allowed data-disabled:opacity-40">
+                className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200 data-disabled:cursor-not-allowed data-disabled:opacity-40">
                 {PHASE_LABELS[phase]}
                 {/* The expected count, always: it answers "why is that one disabled" and "how many
                     matches does this phase hold" in the same two characters. */}
@@ -170,9 +170,9 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
       <Callout
         severity="info"
         title="Name, Position und erwartete Spiele ergeben sich von selbst">
-        Der Spieltag heißt nach seiner Phase und seiner Position darin — in der Gruppenphase „1. Spieltag“, „2. Spieltag“, danach nach der
-        Runde. Einsortiert wird nach Phase und Beginn, also verschiebst Du ihn über sein Datum. Und wie viele Spiele er umfasst, folgt aus den
-        Regeln der Saison: bei einer einfachen Hin-Runde pro Gruppe steht die Zahl fest.
+        Der Spieltag heißt nach seiner Phase und seiner Position darin. In der Gruppenphase sind das „1. Spieltag“, „2. Spieltag“, danach ist es
+        der Name der Runde. Einsortiert wird nach Phase und Beginn, also verschiebst Du ihn über sein Datum. Und wie viele Spiele er umfasst,
+        folgt aus den Regeln der Saison: bei einer einfachen Hin-Runde pro Gruppe steht die Zahl fest.
       </Callout>
     </>
   );

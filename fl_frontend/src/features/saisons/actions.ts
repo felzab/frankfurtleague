@@ -22,7 +22,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { activateSaison, patchSaison, postSaison, swapGruppen } from "./mutations";
@@ -132,7 +132,7 @@ export async function postSaisonAction(
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSaisonAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPostSaisonPayloadSchema.safeParse(rawPayload);
@@ -181,7 +181,7 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
 }> {
   return runAdminMutation("patchSaisonAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLPatchSaisonPayloadSchema.safeParse(rawPayload);
@@ -232,7 +232,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
 }> {
   return runAdminMutation("activateSaisonAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLActivateSaisonPayloadSchema.safeParse(rawPayload);
@@ -294,7 +294,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
 }> {
   return runAdminMutation("swapGruppenAction", async () => {
     if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
+      return { success: false, error: ADMIN_FORBIDDEN };
     }
 
     const validated = FLSwapGruppenPayloadSchema.safeParse(rawPayload);
@@ -319,35 +319,26 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
         if (error.serverErrorCode === "REQ-SWAP-003") {
           return {
             success: false,
-            error:
-              "Diese Saison ist inzwischen abgeschlossen. Eine abgeschlossene Saison wird nicht mehr verändert — " +
-              "ihre Tabellen bleiben so, wie sie am Saisonende standen.",
+            error: "Diese Saison ist inzwischen abgeschlossen. Lade die Seite neu.",
           };
         }
         if (error.serverErrorCode === "REQ-SWAP-002") {
           return {
             success: false,
-            error:
-              "In der KO-Runde dieser Saison wurde schon gespielt oder abgesagt, deshalb lässt sich keine Gruppe mehr tauschen. " +
-              "Die Setzung ist aus diesen Gruppen entstanden und würde sonst etwas anderes bedeuten.",
+            error: "In der KO-Runde dieser Saison wurde inzwischen gespielt oder abgesagt. Lade die Seite neu.",
           };
         }
         if (error.serverErrorCode === "REQ-SWAP-004") {
           return {
             success: false,
-            error:
-              "Mindestens eine der beiden Mannschaften hat in ihrer Gruppe inzwischen gespielt. " +
-              "Eine Gruppe ist ein Rundenturnier, in dem jede Mannschaft gegen jede andere ihrer Gruppe spielt — " +
-              "wer darin gespielt hat, gehört dorthin. Lade die Seite neu.",
+            error: "Mindestens eine der beiden Mannschaften hat in ihrer Gruppe inzwischen gespielt. Lade die Seite neu.",
           };
         }
         if (error.serverErrorCode === "REQ-SWAP-005") {
           return {
             success: false,
             error:
-              "Durch den Tausch stünde eine der beiden Mannschaften zweimal an einem Spieltag. " +
-              "Eine Mannschaft spielt höchstens ein Spiel pro Spieltag, und die Spiele der KO-Runde tauschen nicht mit — " +
-              "verschiebe eines der beiden Spiele. Lade die Seite neu.",
+              "Durch den Tausch stünde eine Mannschaft zweimal an einem Spieltag. Verschiebe eines der beiden Spiele und lade die Seite neu.",
           };
         }
       }

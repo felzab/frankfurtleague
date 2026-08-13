@@ -45,8 +45,8 @@ appealing for a real reason: it makes the rules enumerable, which is the whole c
 
 **An invariant is enforced at the aggregate boundary, and the aggregate boundary is the write endpoint.**
 That is the textbook answer — Evans's aggregate is defined as the unit that enforces its own invariants — and
-it is what this repository already does: every rule is a pure `find_*_refusal` returning
-`(error_code, detail)`, called by the endpoint that owns the write.
+it is what this repository already does: every rule is a pure `find_*_refusal` returning a
+`WriteRefusal`, called by the endpoint that owns the write.
 
 **A central evaluator is rejected, and the reason is that it is bypassable.** A registry each write must
 remember to consult is a rule with an opt-out, and the opt-out is silent: a new endpoint that forgets the

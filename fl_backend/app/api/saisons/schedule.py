@@ -57,9 +57,10 @@ def total_group_matches(number_of_groups: int, teams_per_group: int) -> int:
     """
     Every group-phase match: `C(n, 2)` per group.
 
-    Stated separately from matchdays x matches-per-matchday because the two agree only for an even group.
-    An ODD group's last round is short -- the schedule reserves a slot for the team on its bye -- so
-    multiplying would over-count. This is the figure to trust.
+    Stated from the combination rather than as matchdays x matches-per-matchday. The two agree at every
+    group size -- an odd group's extra round exactly offsets its smaller rounds, so the bye's empty slot
+    never lands in the product -- but they agree by that cancellation, and the combination says the
+    number outright.
     """
 
     if teams_per_group < 2:
@@ -116,6 +117,25 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
         remaining //= 2
 
     return tuple(schedule)
+
+
+def implied_matchdays(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
+    """
+    How many matchdays of this phase the rules imply — a FLOOR on the live rows, never a ceiling.
+
+    A season needs at least this many to play the phase out and may legitimately hold more: a round
+    split across two dates is two matchday rows for one phase, which ADR-0051 ratified and composes
+    the `Viertelfinale (1)` / `Viertelfinale (2)` label for. So above this figure is a schedule
+    somebody chose, and below it is a gap.
+
+    Zero for a phase this season's bracket never reaches, which is the one case where the answer is
+    exact rather than a floor -- a round nobody plays cannot be split across dates either.
+    """
+
+    for entry in schedule_for(rules):
+        if entry.phase == phase:
+            return entry.matchdays
+    return 0
 
 
 def expected_matches(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:

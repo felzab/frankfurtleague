@@ -59,7 +59,7 @@ export function SidemenuOptionsMenu({
             rather than replacing it, so the 0.97 would survive. */}
         <Dropdown.Trigger
           aria-label="Weitere Optionen"
-          className={`text-foreground-muted hover:bg-muted hover:text-foreground flex h-9 shrink-0 items-center rounded-md transition-colors data-[pressed=true]:transform-none ${
+          className={`text-foreground-muted data-hovered:bg-hover data-hovered:text-foreground flex h-9 shrink-0 items-center rounded-md transition-colors data-[pressed=true]:transform-none ${
             isDesktopCollapsed ? "w-9 justify-center p-0" : "w-full justify-start gap-2.5 px-3"
           }`}>
           <Ellipsis className="h-[18px] w-[18px] shrink-0" />

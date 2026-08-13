@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `29c2a3d`, 2026-08-12\
+**Verified against:** `0e7fcb7`, 2026-08-13\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages,
@@ -49,7 +49,8 @@ request would have succeeded against a different state of the database
 | `REQ-RULES-005`       | 409    | A finished season's points and qualifier count are frozen, because the table derives from them (ADR-0019)                                      |
 | `REQ-RULES-006`       | 409    | A narrowing would leave a matchday holding more fixtures than its phase accounts for (ADR-0052)                                                |
 | `REQ-RULES-007`       | 409    | `qualifiers_per_group` exceeds `teams_per_group`                                                                                               |
-| `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures that are neither played nor cancelled (ADR-0026)                                                      |
+| `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures that are neither played nor cancelled (ADR-0069)                                                      |
+| `REQ-DATE-005`        | 409    | The season is shorter than the matchdays its own rules imply (ADR-0052)                                                                        |
 | `REQ-ENTER-001`       | 409    | A team was entered into a season that is not `future`                                                                                          |
 | `REQ-ENTER-002`       | 409    | A team was entered into, or moved to, a group the season does not run                                                                          |
 | `REQ-ENTER-003`       | 409    | A team was entered into, or moved to, a group already holding `teams_per_group` rows                                                           |
@@ -59,13 +60,18 @@ request would have succeeded against a different state of the database
 | `REQ-SWAP-003`        | 409    | A group swap reached a `past` season, whose table is derived from the groups it would exchange (ADR-0062)                                      |
 | `REQ-SWAP-004`        | 409    | A group swap named a club whose Gruppenphase fixture was played, called off or given a goal count — a round robin it cannot leave (ADR-0062)   |
 | `REQ-SWAP-005`        | 409    | A group swap would have left a club standing in two matches of one Spieltag, which ADR-0042 forbids (ADR-0062)                                 |
+| `REQ-SWAP-006`        | 409    | A group swap would move a disqualified club onto fixtures dated after its disqualification (ADR-0074)                                          |
 | `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                                                                           |
 | `REQ-RETIRE-002`      | 409    | A matchday holding a played match was asked to retire, which would unpublish that result                                                       |
 | `REQ-RETIRE-003`      | 409    | A venue still booked for an unplayed fixture was asked to retire                                                                               |
 | `REQ-RETIRE-004`      | 409    | A referee still assigned to an unplayed fixture was asked to retire                                                                            |
+| `REQ-RETIRE-005`      | 409    | Retiring a matchday would take its phase below the count the season's rules imply (ADR-0051)                                                   |
 | `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved (ADR-0042)                                                       |
-| `REQ-SPIELTAG-002`    | 409    | A matchday's new phase accounts for fewer matches than the matchday already holds (ADR-0052)                                                   |
+| `REQ-SPIELTAG-002`    | 409    | A matchday was moved to a phase accounting for fewer matches than the one it holds now (ADR-0052)                                              |
 | `REQ-SPIELTAG-003`    | 409    | A season whose knockout phase has started was asked for a new matchday                                                                         |
+| `REQ-SPIELTAG-004`    | 409    | A matchday was created in a phase the season's rules never produce (ADR-0052)                                                                  |
+| `REQ-SPIELTAG-005`    | 409    | A matchday was moved into a round the season's rules never produce (ADR-0075)                                                                  |
+| `REQ-SPIELTAG-006`    | 409    | A matchday carrying fixtures was moved across the gruppenphase/knockout boundary, away from them (ADR-0075)                                    |
 | `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                                                          |
 | `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                                                                   |
 | `REQ-DATE-003`        | 409    | A matchday's span would shrink below a date one of its own fixtures holds                                                                      |
@@ -76,7 +82,6 @@ request would have succeeded against a different state of the database
 | `REQ-ELIGIBILITY-002` | 409    | A newly fielded team holds no `saison_teams` row for the fixture's season (ADR-0042)                                                           |
 | `REQ-RESULT-001`      | 409    | A side carrying goals on a played fixture was emptied rather than switched (ADR-0041)                                                          |
 | `REQ-SQUAD-001`       | 409    | A squad row names a team holding no junction row for that season                                                                               |
-| `REQ-SQUAD-002`       | 409    | A squad number this write would newly take from another player in the same team                                                                |
 | `DB-CONN-001`         | 503    | Database client unavailable                                                                                                                    |
 | `DB-CONN-002`         | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`)                                                                                |
 | `DB-COMMON-001`       | 404    | No document matched the filter                                                                                                                 |

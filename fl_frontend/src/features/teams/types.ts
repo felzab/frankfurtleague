@@ -118,12 +118,9 @@ export type AdminTeamRow = {
 /**
  * Whether the group may be edited, decided by the page from the season's status and the club's
  * fixtures (decided 2026-08-07): editable only while the season is `future` or the club has
- * no fixture in it. `draftChangesGruppe` is the form's own live addition — it is what raises the
- * warning callout while an edit is pending.
+ * no fixture in it. Why it is locked belongs to the swap control beneath the row, which grades
+ * four conditions where this grades one (ADR-0071).
  */
 export type TeamGruppeLock = {
   locked: boolean;
-  /** The sentence shown under the read-only group, naming why it is locked. */
-  reason: string;
-  draftChangesGruppe: boolean;
 };

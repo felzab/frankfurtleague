@@ -3,13 +3,14 @@
 import { parseDate } from "@internationalized/date";
 
 import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormControls";
-import { Callout } from "@/shared/components/ui/Callout";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
 import { SaisonFieldLabel } from "./SaisonFieldLabel";
 
 import type { CalendarDate } from "@internationalized/date";
+import type { SaisonBanner } from "./banners";
 
 /**
  * When the season runs.
@@ -27,22 +28,22 @@ export function FormZeitraumSection({
   endDate,
   onEndDateChange,
   onFieldLeft,
-  isEndBeforeStart,
   spieltagBound,
+  banners,
 }: {
   startDate: CalendarDate | null;
   onStartDateChange: (next: CalendarDate | null) => void;
   endDate: CalendarDate | null;
   onEndDateChange: (next: CalendarDate | null) => void;
   onFieldLeft: (paths: readonly string[]) => void;
-  /** Whether the drafted end date falls before the drafted start date. */
-  isEndBeforeStart: boolean;
   /**
    * The span the live matchdays already occupy (`REQ-DATE-004`): the start picker closes past
    * `startMax`, the end picker before `endMin`. Absent while the season has no live matchday, which
    * leaves both pickers unbounded — a fresh season has nothing to sit above.
    */
   spieltagBound?: { startMax: string; endMin: string };
+  /** The editor's whole Hinweis list; the spot below takes its own entry out of it. */
+  banners: readonly SaisonBanner[];
 }) {
   const panel = formPanel();
 
@@ -60,7 +61,7 @@ export function FormZeitraumSection({
             <p>Der Zeitraum umschließt die Spieltage der Saison.</p>
             <ul>
               <li>
-                Alle <strong>Spieltage</strong> müssen im Zeitraum liegen — Tage, die einen Spieltag ausschließen würden, sind im Kalender
+                Alle <strong>Spieltage</strong> müssen im Zeitraum liegen. Tage, die einen Spieltag ausschließen würden, sind im Kalender
                 gesperrt.
               </li>
               <li>
@@ -101,13 +102,10 @@ export function FormZeitraumSection({
         {/* The same rule the payload schema and the model validator both hold (decided 2026-08-08), said
             here as well because the save bar is the other end of the page: a person editing the Ende
             should read why it will be refused beside the field, not only when they press save. */}
-        {isEndBeforeStart && (
-          <Callout
-            severity="danger"
-            title="Das Ende liegt vor dem Beginn">
-            So lässt sich die Saison nicht speichern. Meistens ist es ein Zahlendreher im Jahr.
-          </Callout>
-        )}
+        <InlineBanners
+          banners={banners}
+          spot="zeitraum"
+        />
       </div>
     </section>
   );

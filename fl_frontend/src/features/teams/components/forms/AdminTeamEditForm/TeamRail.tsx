@@ -6,12 +6,12 @@ import { COUNT_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { DraftChangeList, operationOf } from "@/shared/components/ui/DraftChangeList";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { resolveRailBanners } from "@/shared/components/ui/railBanner";
 import { RailSection } from "@/shared/components/ui/RailSection";
 
 import { useTeamDraftStatus } from "./TeamDraftStatusContext";
 
-/** One warning the form also shows inline, mirrored into the rail — the match editor's rule. */
-export type TeamRailBanner = { severity: "info" | "warning" | "danger"; title: string; body: string };
+import type { TeamBanner } from "./banners";
 
 /**
  * The club editor's summary rail — the match editor's rail, minus the two cards a club has no
@@ -20,18 +20,19 @@ export type TeamRailBanner = { severity: "info" | "warning" | "danger"; title: s
  * page-owned form is asked to carry: every inline warning mirrored into one place, and the unsaved changes
  * listed by section.
  */
-export function TeamRail({ banners }: { banners: readonly TeamRailBanner[] }) {
+export function TeamRail({ banners }: { banners: readonly TeamBanner[] }) {
   const status = useTeamDraftStatus();
 
-  const SEVERITY_RANK: Record<TeamRailBanner["severity"], number> = { danger: 0, warning: 1, info: 2 };
-  const sortedBanners = [...banners].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+  // The badge counts what is rendered rather than what was built, which is only the same number
+  // while nothing supersedes anything.
+  const visibleBanners = resolveRailBanners(banners);
 
   const bannerBySeverity = {
-    danger: banners.filter((banner) => banner.severity === "danger").length,
-    warning: banners.filter((banner) => banner.severity === "warning").length,
-    info: banners.filter((banner) => banner.severity === "info").length,
+    danger: visibleBanners.filter((banner) => banner.severity === "danger").length,
+    warning: visibleBanners.filter((banner) => banner.severity === "warning").length,
+    info: visibleBanners.filter((banner) => banner.severity === "info").length,
   };
-  const bannerCount = banners.length;
+  const bannerCount = visibleBanners.length;
 
   // Controlled exactly as the match editor's card is: shut when the last banner clears, open when
   // one arrives; in between the state is the admin's own toggle.
@@ -69,9 +70,9 @@ export function TeamRail({ banners }: { banners: readonly TeamRailBanner[] }) {
         {bannerCount === 0 ? (
           <p className="fluid-xs text-foreground-muted font-medium">Keine Hinweise.</p>
         ) : (
-          sortedBanners.map((banner) => (
+          visibleBanners.map((banner) => (
             <Callout
-              key={banner.title}
+              key={banner.id}
               severity={banner.severity}
               title={banner.title}>
               {banner.body}

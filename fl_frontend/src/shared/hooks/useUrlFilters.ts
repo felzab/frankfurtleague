@@ -13,7 +13,9 @@
  * - `replaceState`, never `pushState` — back should leave the list, not walk the facets.
  * - A write names its parameters and reads the live URL for the rest — never a stale snapshot.
  * - A value the facet does not offer is dropped on read.
- * - The returned selection is rebuilt per render and is not referentially stable.
+ * - The returned selection is referentially stable while the query string and the facets are —
+ *   `readFacetSelection` owns that guarantee and states what rests on it.
+ * - The URL carries the ORDER filters were added in, and `paramOrder` is how a caller reads it.
  */
 import { useCallback } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -27,6 +29,15 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
   const pathname = usePathname();
 
   const selection = readFacetSelection(facets, new URLSearchParams(searchParams.toString()));
+
+  /**
+   * The parameters in the order the URL holds them, which is the order they were added in.
+   *
+   * `URLSearchParams.set` replaces an existing key in place and appends a new one, `delete` removes it
+   * outright, and `toString` sorts nothing — so insertion order is already recorded here and needs no
+   * second home. A dimension cleared and picked again is a new key, and lands at the end.
+   */
+  const paramOrder = [...searchParams.keys()];
 
   /**
    * Writes the named facets and leaves every other parameter — facet or not — exactly as the URL has it.
@@ -78,5 +89,5 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
     write(Object.fromEntries(facets.map((facet) => [facet.param, []])));
   }, [facets, write]);
 
-  return { selection, activeCount: countActiveFacets(selection), toggle, setFacet, clearFacet, clearAll };
+  return { selection, paramOrder, activeCount: countActiveFacets(selection), toggle, setFacet, clearFacet, clearAll };
 }

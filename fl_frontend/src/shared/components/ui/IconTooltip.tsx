@@ -2,6 +2,8 @@
 
 import { Tooltip } from "@heroui/react";
 
+import { HINT_SURFACE } from "./hintSurface";
+
 import type { ReactNode } from "react";
 
 /**
@@ -50,12 +52,11 @@ export function IconTooltip({
         role="presentation">
         {children}
       </Tooltip.Trigger>
-      {/* HeroUI's `break-all` splits a word mid-token, wrong for prose. `[word-break:normal]` and
-          `wrap-break-word` write one property each, so no reorder decides between them.
-          `text-balance` evens the rest, and not every browserslist target supports it. */}
+      {/* The surface is shared with `DisabledHint`, whose popover answers the same question on a
+          phone: a reader should not be able to tell which mechanism drew the panel. */}
       <Tooltip.Content
         placement={placement}
-        className={`bg-surface border-border fluid-xs rounded-md border px-2.5 py-1 text-balance wrap-break-word [word-break:normal] shadow-lg ${tone === "danger" ? "text-danger" : "text-foreground"}`}>
+        className={`${HINT_SURFACE} ${tone === "danger" ? "text-danger" : "text-foreground"}`}>
         {label}
       </Tooltip.Content>
     </Tooltip>

@@ -19,7 +19,7 @@ export function TeamSaisonStatistik({ statistik }: { statistik: FLTeamStatistik 
       <div className="flex flex-col gap-y-1">
         <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h2>
         <p className="fluid-xxs text-foreground-muted font-medium">
-          Alle Spiele der Saison, inklusive Playoffs — die Saisontabelle zählt nur die Gruppenphase.
+          Alle Spiele der Saison, inklusive Playoffs. Die Saisontabelle zählt nur die Gruppenphase.
         </p>
       </div>
 
@@ -30,7 +30,7 @@ export function TeamSaisonStatistik({ statistik }: { statistik: FLTeamStatistik 
         {[
           { label: "Punkte", value: statistik.punkte, isSummary: true },
           { label: "Spiele", value: statistik.anzahl_gespielte_spiele, isSummary: false },
-          { label: "S - U - N", value: `${statistik.siege} - ${statistik.unentschieden} - ${statistik.niederlagen}`, isSummary: false },
+          { label: "S / U / N", value: `${statistik.siege} / ${statistik.unentschieden} / ${statistik.niederlagen}`, isSummary: false },
           { label: "Tore", value: `${statistik.tore_geschossen}:${statistik.tore_kassiert}`, isSummary: false },
           { label: "Differenz", value: statistik.tore_geschossen - statistik.tore_kassiert, isSummary: false },
         ].map((stat) => (

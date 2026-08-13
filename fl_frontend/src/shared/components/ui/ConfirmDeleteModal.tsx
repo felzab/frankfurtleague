@@ -8,7 +8,7 @@ import { Button } from "@heroui/react";
 
 import { appToast } from "@/shared/utils/appToast";
 
-import { formButton, MODAL_FOOTER } from "./formButtons";
+import { formButton, MODAL_FOOTER_ROW } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
 import type { ReactNode } from "react";
@@ -165,12 +165,11 @@ export function ConfirmDeleteModal({
         )}
       </div>
 
-      {/* The same footer band as every other modal, from the same constant (decided 2026-08-07):
-          a separator that reaches the dialog's edges, then the buttons. `justify-evenly` rather than
-          the old `justify-end`, so the pair sits exactly as it does in the create and edit forms.
-          No width here — `MODAL_FOOTER` declares its own, and a `w-full` beside it wins on source
-          order and pulls the band 2rem narrow, which is what made this dialog asymmetric. */}
-      <div className={`${MODAL_FOOTER} mt-6 flex flex-row items-center justify-evenly gap-3`}>
+      {/* The same footer band as every other modal, from the same constant (decided 2026-08-07): a
+          separator that reaches the dialog's edges, then the pair sitting exactly as it does in the
+          create and edit forms. No width here — the band declares its own, and a `w-full` beside it
+          wins on source order and pulls it 2rem narrow, which is what made this dialog asymmetric. */}
+      <div className={`${MODAL_FOOTER_ROW} mt-6`}>
         <Button
           type="button"
           variant="secondary"

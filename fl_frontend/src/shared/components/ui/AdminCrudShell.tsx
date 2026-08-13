@@ -31,7 +31,9 @@ export function AdminCrudShell({
   children: ReactNode;
 }) {
   return (
-    <div className="max-w-page mx-auto flex w-full flex-col gap-8 p-6 sm:p-8">
+    // The placeholder's minimum runs HERE because this mounts when the navigation starts, which is the
+    // clock the region below the boundary cannot read for itself (`globals.css`). It paints nothing.
+    <div className="animate-admin-placeholder-hold max-w-page mx-auto flex w-full flex-col gap-8 p-6 sm:p-8">
       {/* One row at EVERY width (decided 2026-08-07): neither half depends on the resource list, so
           the whole row paints before the table streams in. Below `sm` the two are one joined
           control — the search bar with the create trigger as its bare-plus continuation (no gap,

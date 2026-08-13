@@ -4,6 +4,7 @@ import { Xmark } from "@gravity-ui/icons";
 
 import { Calendar, DateField, DatePicker, FieldError, TimeField } from "@heroui/react";
 
+import { dismissControl } from "@/core/dismissControl";
 import {
   DATE_PICKER_CALENDAR,
   DATE_PICKER_PLACEMENT,
@@ -27,17 +28,24 @@ import type { RefObject } from "react";
  * TBD — otherwise costs one press per segment plus the knowledge that it was possible at all.
  * Rendered only while there is something to clear, exactly like the pickers' own clear buttons.
  *
+ * **Only the markup and the handlers are local; the treatment is `dismissControl`'s**, which is where
+ * every X on the site gets its size, corner, colour and hover fill. A class list written out here is
+ * one clear control that answers to nothing when that recipe moves, which is how a hover fill goes
+ * missing from exactly one X and nothing reports it.
+ *
  * A plain button rather than a react-aria one: it lives inside the group whose focus styling is
  * keyed off `:focus-within` in `globals.css`, and a `Button` would add press/hover state machinery
  * for what is a single synchronous state reset. `data-field-clear` is the hook that stylesheet needs
- * to hand it a focus outline back: the group strips one from every button inside it because its own
- * border already says focus is in the field, and this button is one tab stop among the segments,
- * which a single border cannot tell apart.
+ * twice over: the group strips a focus outline from every button inside it, because for the rest its
+ * own border already says focus is in the field, and this one gets an inset outline handed back as
+ * the only thing that can identify it. The same attribute is what keeps the border out of it —
+ * holding focus here is not editing the field, so the group reads as resting throughout.
  *
  * **Focus must not be on this button when the value is cleared**, because clearing removes it and a
  * browser fires no blur for an element it removes: `useFocusWithin` on the group never learns focus
- * left, `data-focus-within` stays set, and the field keeps its brand border while
- * `document.activeElement` is `<body>` and nothing can be typed into it.
+ * left and `data-focus-within` stays set while `document.activeElement` is `<body>` — a field
+ * claiming a focus nobody holds, nothing that can be typed into, and a Tab that resumes from the top
+ * of the document rather than from here.
  *
  * The CLICK handler is what holds that, and it holds it on both paths: it moves focus into the group
  * before clearing, the order `FormNotizSection`'s note delete also keeps, so a pointer press and the
@@ -54,9 +62,10 @@ import type { RefObject } from "react";
  * The group is the focus target because react-aria makes only the segments focusable —
  * `useDateSegment` gives each `tabIndex: 0`, `useDateField` leaves the group without one — and
  * HeroUI 3.2.3 exposes a `ref` on `DateField.Group` alone, never on `DateField.Segment` or
- * `DateField.Input`. Hence `tabIndex={-1}` on the group: it stays out of the tab order,
- * `:focus-within` still paints the field's brand border so the move is visible, and the next Tab
- * enters the field at its first segment.
+ * `DateField.Input`. Hence `tabIndex={-1}` on the group: it stays out of the tab order, focus lands
+ * on something real rather than on `<body>`, and the next Tab enters the field at its first segment.
+ * The group does not read as an edited field while it holds that focus — `globals.css` returns its
+ * border to the resting one and marks the keyboard path with the app's standard outline instead.
  *
  * **The keyboard path is closed by reasoning, not yet by observation.** Tab-then-Enter now runs the
  * same focus-then-clear handler, so it should end inside the field rather than on `<body>`; the
@@ -76,15 +85,20 @@ function ClearFieldButton({
   return (
     <button
       type="button"
-      aria-label={label}
+      {...dismissControl({
+        label,
+        // A plain `<button>`, so react-aria writes no `data-hovered` and the centring and the
+        // interactive cursor HeroUI's own controls get from their component CSS are this host's.
+        hover: "css",
+        className: "flex cursor-pointer items-center justify-center",
+      })}
       data-field-clear="true"
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => {
         groupRef.current?.focus();
         onClear();
-      }}
-      className="text-foreground-muted hover:text-foreground flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors">
-      <Xmark className="size-4" />
+      }}>
+      <Xmark />
     </button>
   );
 }

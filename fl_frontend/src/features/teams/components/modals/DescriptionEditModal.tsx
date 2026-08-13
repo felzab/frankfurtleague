@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button, TextArea, TextField } from "@heroui/react";
 
 import { DESCRIPTION_MAX_LENGTH } from "@/features/teams/constants";
-import { formButton, MODAL_FOOTER } from "@/shared/components/ui/formButtons";
+import { formButton, MODAL_FOOTER_ROW } from "@/shared/components/ui/formButtons";
 import { FormModal } from "@/shared/components/ui/FormModal";
 
 /**
@@ -81,7 +81,7 @@ export function DescriptionEditModal({
 
         {/* The same footer band as `EntityForm`'s, from the same constant, so every modal draws the
             same boundary between what you fill in and what you press. */}
-        <div className={`${MODAL_FOOTER} flex h-fit flex-row items-center justify-evenly gap-3`}>
+        <div className={MODAL_FOOTER_ROW}>
           <Button
             type="button"
             variant="secondary"

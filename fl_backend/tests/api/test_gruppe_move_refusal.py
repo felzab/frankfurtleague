@@ -43,7 +43,7 @@ class TestTheWindowForAGroupChange:
         refusal = find_gruppe_move_refusal(saison_status=status, fixtures_drawn=1)
 
         assert refusal is not None
-        assert refusal[0] == ENTRY_GRUPPE_LOCKED
+        assert refusal.error_code == ENTRY_GRUPPE_LOCKED
 
     def test_one_fixture_is_enough(self):
         """
@@ -61,5 +61,5 @@ class TestTheWindowForAGroupChange:
         refusal = find_gruppe_move_refusal(saison_status="active", fixtures_drawn=6)
 
         assert refusal is not None
-        assert "active" in refusal[1]
-        assert "6" in refusal[1]
+        assert "active" in refusal.message
+        assert "6" in refusal.message

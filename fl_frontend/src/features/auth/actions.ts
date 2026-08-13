@@ -90,7 +90,7 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
  *
  * `core/auth.ts` has exported `signOut` since Auth.js was wired up and nothing has ever called it,
  * so the only way to revoke a session was to delete the row from the `authjs` collection by hand —
- * which needs database access. The session lifetime was cut from 30 days to 8 hours, bounding the
+ * which needs database access. The session lifetime was cut from 30 days to 48 hours, bounding the
  * exposure without closing it.
  *
  * `redirect: false` is load-bearing. The default path calls `redirect()` (next-auth `lib/actions.js`

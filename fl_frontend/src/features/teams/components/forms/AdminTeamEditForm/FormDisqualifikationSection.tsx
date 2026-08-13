@@ -2,7 +2,6 @@
 
 import { Calendar, DateField, DatePicker, FieldError, Input, Switch, TextField } from "@heroui/react";
 
-import { Callout } from "@/shared/components/ui/Callout";
 import {
   DATE_PICKER_CALENDAR,
   DATE_PICKER_PLACEMENT,
@@ -13,12 +12,13 @@ import {
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { TeamFieldLabel } from "./TeamFieldLabel";
 
-import type { FLDisqualifikation } from "@/features/teams/schemas";
 import type { CalendarDate } from "@internationalized/date";
+import type { TeamBanner } from "./banners";
 
 /**
  * The disqualification, as the editor's danger zone — the match editor's Absage section, applied to
@@ -32,7 +32,7 @@ import type { CalendarDate } from "@internationalized/date";
 export function FormDisqualifikationSection({
   isDisqualified,
   onIsDisqualifiedChange,
-  storedRecord,
+  banners,
   grund,
   onGrundChange,
   datum,
@@ -41,8 +41,8 @@ export function FormDisqualifikationSection({
 }: {
   isDisqualified: boolean;
   onIsDisqualifiedChange: (next: boolean) => void;
-  /** The record as stored, so the callouts can tell entering one apart from lifting one. */
-  storedRecord: FLDisqualifikation | null;
+  /** The editor's whole Hinweis list; the two spots below take their own entries out of it. */
+  banners: readonly TeamBanner[];
   grund: string;
   onGrundChange: (next: string) => void;
   datum: CalendarDate | null;
@@ -50,11 +50,6 @@ export function FormDisqualifikationSection({
   onValidateFields: (paths: readonly string[]) => void;
 }) {
   const styles = formPanel({ tone: "danger" });
-
-  // Only for the flip the admin makes in THIS edit — a stored disqualification is the rail's
-  // standing note, not an announcement.
-  const isBeingEntered = isDisqualified && storedRecord === null;
-  const isBeingLifted = !isDisqualified && storedRecord !== null;
 
   return (
     <section className={styles.root()}>
@@ -156,23 +151,17 @@ export function FormDisqualifikationSection({
 
         {/* Announced, because the admin has just flipped it: the public consequence is the one
             nobody should discover after the fact. */}
-        {isBeingEntered && (
-          <Callout
-            severity="danger"
-            isAnnounced
-            title="Der Grund wird veröffentlicht">
-            Sobald Du speicherst, erscheint er als eingegebener Text auf der Teamseite und als Hinweis an jedem Spiel der Mannschaft.
-          </Callout>
-        )}
+        <InlineBanners
+          banners={banners}
+          spot="dq-eintrag"
+          isAnnounced
+        />
 
         {/* Standing rather than announced: it describes the pending lift, not the flip itself. */}
-        {isBeingLifted && (
-          <Callout
-            severity="warning"
-            title="Aufheben entfernt den Eintrag ersatzlos">
-            Der gespeicherte Grund und das Datum sind danach nicht wiederherstellbar. Es gibt keinen Verlauf, der sie aufbewahrt.
-          </Callout>
-        )}
+        <InlineBanners
+          banners={banners}
+          spot="dq-aufhebung"
+        />
       </div>
     </section>
   );

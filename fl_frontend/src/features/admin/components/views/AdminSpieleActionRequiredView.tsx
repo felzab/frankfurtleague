@@ -224,9 +224,9 @@ export function AdminSpieleActionRequiredView({
               title="Keine Spiele in dieser Kategorie!"
             />
           ) : (
-            // The app's one card grid, holding its one admin match card. Faults go to EVERY section
-            // rather than `bracket_fault` alone: the check is not exclusive, and why a fixture
-            // blocks the bracket is worth reading wherever it appears.
+            // The app's one card grid, holding its one admin match card. Faults reach the
+            // `bracket_fault` section alone — the one list already filtered by that diagnosis, and the
+            // only category whose tab cannot state the reason itself (ADR-0044).
             <div
               role="list"
               className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
@@ -234,7 +234,7 @@ export function AdminSpieleActionRequiredView({
                 spiele={[...section.spiele]}
                 today={today}
                 isAdmin
-                faultsBySpielId={faultsBySpielId}
+                faultsBySpielId={section.category === "bracket_fault" ? faultsBySpielId : undefined}
               />
             </div>
           )}

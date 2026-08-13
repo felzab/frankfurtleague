@@ -70,6 +70,11 @@ what the card cannot carry: the tab names the problem once, an `InfoHint` beside
 that one word covers, and the bracket faults keep the panel above the grid that
 [ADR-0039](0039-a-bracket-fault-is-derived-on-demand.md) gave them.
 
+> **Note.** [ADR-0073](0073-a-bracket-fault-is-stated-on-the-card-it-names.md) supersedes ADR-0039 on
+> that placement: a bracket fault's reason is now stated on the card it names. This decision's own
+> subject — what orders a triage list — is unaffected, which is why the header carries no
+> `Superseded by`. The paragraph above and the one below it describe the placement ADR-0073 replaced.
+
 That placement is also the established shape rather than a compromise. An operator's queue does not
 repeat the diagnosis on every row of a list already filtered by it — the group names the problem, the
 row is the affected object, and the detail is one click deeper. Seven of the eight categories therefore

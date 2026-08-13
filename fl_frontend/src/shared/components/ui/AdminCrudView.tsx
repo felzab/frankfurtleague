@@ -1,16 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useDebouncedUrlQuery } from "../../hooks/useDebouncedUrlQuery";
 import { useFuzzySearch } from "../../hooks/useFuzzySearch";
 import { useUrlFilters } from "../../hooks/useUrlFilters";
 import { applyFacets } from "../../utils/facets";
-import { FilterBar } from "./FilterBar";
-import { PAGE_RISE } from "./motion";
+import { AdminCrudFallback } from "./AdminCrudFallback";
+import { FilterLeiste } from "./FilterLeiste";
+import { PLACEHOLDER_BOX } from "./placeholderBox";
 
 import type { ReactNode } from "react";
 import type { Facet } from "../../utils/facets";
+
+/** A stable stand-in for a resource with no facets: a fresh `[]` default would miss every memo below. */
+const NO_FACETS: readonly never[] = [];
 
 /**
  * The data-dependent half of an admin CRUD page: the filter bar, the table slot and the edit/delete
@@ -38,16 +42,22 @@ import type { Facet } from "../../utils/facets";
  * re-renders on every navigation — including while it sits in a hidden Activity tree, where a
  * react-aria collection that re-renders can stop committing rows. The table passed to `renderTable`
  * must therefore be `React.memo`'d and must use `Table.Body`'s `items` + render-function form.
- * `filteredItems` is memoised here and the two setters are `useState` setters; **do not add an
- * inline lambda or a fresh array** to the `renderTable` call. Note that `query` is inherently
- * unstable — a navigation to a route with a different `q` changes it and defeats the memo — so the
- * `items` form is the load-bearing half, not the memo. `applyFacets` returns its input unchanged when
- * nothing is selected, which is what keeps an unfiltered page's identity stable through the new stage.
+ * `narrowedItems` and `filteredItems` are both memoised here and the two setters are `useState`
+ * setters; **do not add an inline lambda or a fresh array** to the `renderTable` call. Note that
+ * `query` is inherently unstable — a navigation to a route with a different `q` changes it and
+ * defeats the memo — so the `items` form is the load-bearing half, not the memo.
+ *
+ * **A selected facet is the case that early return does not cover.** `applyFacets` returns its input unchanged
+ * only while nothing is selected; past that it filters, so the memo below is what holds the identity —
+ * and it holds only because `readFacetSelection` returns one object per query string. `facets` must be
+ * a module-scope constant or a `useMemo`'d build for the same reason, which is why the empty default
+ * is a constant rather than a literal.
  */
 export function AdminCrudView<TItem extends { id: string }>({
   items,
   searchKeys,
-  facets = [],
+  facets = NO_FACETS,
+  isCollection = true,
   renderTable,
   renderEditModal,
   renderDeleteModal,
@@ -60,6 +70,11 @@ export function AdminCrudView<TItem extends { id: string }>({
    * reason `searchKeys` must be. An empty set renders no bar at all.
    */
   facets?: readonly Facet<TItem>[];
+  /**
+   * Whether `renderTable` returns a react-aria collection, which is what has an empty first pass to
+   * cover. False for the matchday list, whose sections are mapped markup and render complete at once.
+   */
+  isCollection?: boolean;
   renderTable: (args: { query: string; filteredItems: TItem[]; onEdit: (item: TItem) => void; onDelete: (item: TItem) => void }) => ReactNode;
   /**
    * Optional, because an editor is not necessarily a dialog: a resource whose form outgrew one edits
@@ -81,17 +96,16 @@ export function AdminCrudView<TItem extends { id: string }>({
   const [editingItem, setEditingItem] = useState<TItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<TItem | null>(null);
 
-  const narrowedItems = applyFacets(items, facets, selection);
+  const narrowedItems = useMemo(() => applyFacets(items, facets, selection), [items, facets, selection]);
   const filteredItems = useFuzzySearch({ items: narrowedItems, keys: searchKeys, query });
 
   return (
-    // Animated in on arrival, as every route shell is: a correctly-sized skeleton swap
-    // still reads as a snap if the content simply appears. `gap-4` under the filter
-    // bar rather than the shell's `gap-8` -- the bar belongs to the table it narrows.
-    <div className={`${PAGE_RISE} flex flex-col gap-4`}>
+    // NO entrance: the placeholder reserves this box exactly, so the swap has nothing to reconcile.
+    // A fade and an 8px rise were each tried and each read worse — see `AdminCrudFallback`'s header.
+    <div className={`group relative flex flex-col gap-4 ${isCollection ? PLACEHOLDER_BOX : ""}`}>
       {/* Counted over the UNFILTERED rows, so each option answers what it would leave rather than what
           the current selection already left. */}
-      <FilterBar
+      <FilterLeiste
         facets={facets}
         items={items}
       />
@@ -100,6 +114,17 @@ export function AdminCrudView<TItem extends { id: string }>({
 
       {renderEditModal?.({ item: editingItem, isOpen: editingItem !== null, onClose: () => setEditingItem(null) })}
       {renderDeleteModal?.({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
+
+      {/* The SAME placeholder the route and the boundary already drew, over this whole region rather
+          than over the table alone — so the filter bar and the card below it are the placeholder's,
+          not a half-real composition, and the reader crosses one change instead of three. */}
+      {isCollection && (
+        <div
+          aria-hidden="true"
+          className="bg-background pointer-events-none absolute inset-0 group-has-[tbody]:opacity-(--admin-placeholder-hold)">
+          <AdminCrudFallback />
+        </div>
+      )}
     </div>
   );
 }

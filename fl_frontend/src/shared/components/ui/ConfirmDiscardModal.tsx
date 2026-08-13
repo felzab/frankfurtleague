@@ -4,7 +4,7 @@ import { ArrowUturnCwLeft, TriangleExclamation } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
-import { formButton, MODAL_FOOTER } from "./formButtons";
+import { formButton, MODAL_FOOTER_STACK } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
 /**
@@ -65,12 +65,9 @@ export function ConfirmDiscardModal({
 
         {/* One primary, one secondary — the same pair `ConfirmDeleteModal` and every two-button form
             on the site use: the action the dialog exists for is the solid one, the way back is the
-            outline — two solid fills read as two primaries. */}
-        {/* The same footer band as every other modal (decided 2026-08-07). Stacked rather than
-            side by side here, because this pair is not symmetrical: one discards work.
-            No width here — `MODAL_FOOTER` declares its own, and a `w-full` beside it wins on source
-            order and pulls the band 2rem narrow. */}
-        <div className={`${MODAL_FOOTER} mt-6 flex min-w-0 flex-col gap-2.5`}>
+            outline — two solid fills read as two primaries. The stacked band is what carries the
+            asymmetry, and it declares its own width (decided 2026-08-07). */}
+        <div className={`${MODAL_FOOTER_STACK} mt-6`}>
           <Button
             type="button"
             variant="primary"

@@ -88,12 +88,12 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
                 they try. This one goes through the discard guard, which is why it is not shared. */}
             <Button
               onPress={() => requestLeaveRef.current()}
-              className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+              className="bg-surface border-border text-foreground data-hovered:bg-hover fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
               <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
               <span>Zurück</span>
             </Button>
 
-            <header className="mb-6 flex w-full flex-col gap-y-1">
+            <header className="mb-6 flex w-full flex-col gap-y-2">
               <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
                 {/* `fluid-2xl`, one step above the `fluid-xl` the other pages use, and deliberately
                     so: on those pages the title tops a single card or grid, while here it has to

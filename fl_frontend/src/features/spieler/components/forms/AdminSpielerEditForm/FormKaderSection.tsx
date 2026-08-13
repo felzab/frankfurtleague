@@ -8,19 +8,19 @@ import { postSaisonSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
 import { NUMMER_MAX_LENGTH, POSITION_OPTIONS } from "@/features/spieler/constants";
-import { isSquadNummerTaken } from "@/features/spieler/utils";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
-import { Callout } from "@/shared/components/ui/Callout";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { appToast } from "@/shared/utils/appToast";
 
 import { SpielerFieldLabel } from "./SpielerFieldLabel";
 
 import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
+import type { SpielerBanner } from "./banners";
 
 /** The season's own state, said in one badge beside its id — the app's one wording and one palette. */
 function SaisonBadge({ status }: { status: SpielerSaisonContext["saisonStatus"] }) {
@@ -63,7 +63,7 @@ export function FormKaderSection({
   onValidateFields,
   onValidateSelection,
   spielerId,
-  storedNummer,
+  banners,
 }: {
   saison: SpielerSaisonContext & { erlaubteStufen: readonly FLSpielerStufe[] };
   /** The selected season's teams — what the picker may offer. */
@@ -82,20 +82,11 @@ export function FormKaderSection({
   onValidateFields: (paths: readonly string[]) => void;
   onValidateSelection: (paths: readonly string[], selected: { team_id: string }) => void;
   spielerId: string;
-  /** What this squad row holds today, so a resubmitted duplicate still passes. `null` before entry. */
-  storedNummer: string | null;
+  /** The editor's whole Hinweis list; the two spots below take their own entries out of it. */
+  banners: readonly SpielerBanner[];
 }) {
   const panel = formPanel();
   const [isEntering, startEntering] = useTransition();
-
-  // The browser's half of `REQ-SQUAD-002`, judged on every keystroke rather than on blur: unlike the
-  // field's own bounds this is a fact about the squad, so the answer changes when the team picker
-  // moves and the number does not.
-  const nummerIsTaken = isSquadNummerTaken({
-    proposed: nummer,
-    stored: storedNummer,
-    taken: teams.find((team) => team.teamId === teamId)?.takenNummern ?? [],
-  });
 
   // A season that has already started means this player arrived late, which is exactly what the flag
   // records (decided 2026-08-07). Derived rather than asked, so it cannot be forgotten.
@@ -129,7 +120,7 @@ export function FormKaderSection({
         <h2 className={panel.heading()}>
           Kader {saison.saisonId}
           <InfoHint label="Hinweis zum Kadereintrag">
-            <p>Dieser Bereich zeigt und bearbeitet die im Seitenmenü gewählte Saison.</p>
+            <p>Dieser Bereich gilt für die Saison, die im Seitenmenü ausgewählt ist.</p>
             <ul>
               <li>Um eine andere Saison zu bearbeiten, wähle sie im Seitenmenü aus.</li>
               <li>
@@ -171,10 +162,6 @@ export function FormKaderSection({
                 <SpielerFieldLabel path="nummer">Nummer</SpielerFieldLabel>
                 <Input className={`${FIELD_INPUT} font-extrabold tracking-wider`} />
                 <FieldError className={FIELD_ERROR} />
-                {/* A FIELD message, one sentence about the value — the shape `saisons/actions.ts` states
-                    for a refusal an admin fixes in the input in front of them. Rendered beside the
-                    field's own errors rather than as a panel callout, because the remedy is this input. */}
-                {nummerIsTaken && <p className={FIELD_ERROR}>Diese Nummer trägt in diesem Kader schon jemand anderes.</p>}
               </TextField>
             </div>
 
@@ -187,7 +174,7 @@ export function FormKaderSection({
                 name="is_captain"
                 isSelected={isCaptain}
                 onChange={onIsCaptainChange}
-                className="border-border bg-surface hover:bg-muted/40 w-full rounded-lg border px-3 py-2.5 transition-colors">
+                className="border-border bg-surface hover:bg-hover w-full rounded-lg border px-3 py-2.5 transition-colors">
                 <Switch.Content className="fluid-sm text-foreground flex w-full flex-row items-center justify-between gap-x-3 font-medium">
                   <span>Führt das Team in der Saison {saison.saisonId} als Kapitän an.</span>
                   <Switch.Control className={isCaptain ? "bg-brand-solid" : ""}>
@@ -227,12 +214,10 @@ export function FormKaderSection({
           </>
         ) : (
           <div className="flex w-full flex-col gap-y-4">
-            <Callout
-              severity="info"
-              title={`Nicht im Kader der Saison ${saison.saisonId}`}>
-              Ohne Kadereintrag erscheint der Spieler in dieser Saison auf keiner Seite. Wähle ein Team und nimm ihn auf; Nummer, Position und
-              Stufe können danach jederzeit ergänzt werden.
-            </Callout>
+            <InlineBanners
+              banners={banners}
+              spot="kader-eintritt"
+            />
 
             <div className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,18rem)_auto]">
               <TeamSelect
@@ -253,13 +238,10 @@ export function FormKaderSection({
             {/* Coloured rather than muted (decided 2026-08-07): it announces a value the form is
                 choosing on the admin's behalf, which is exactly the kind of thing that must not read
                 as fine print. */}
-            {entryIsNachgetragen && (
-              <Callout
-                severity="info"
-                title="Wird als nachgetragen markiert">
-                Die Saison {saison.saisonId} läuft bereits, der Eintrag wird deshalb als nachgetragen gekennzeichnet.
-              </Callout>
-            )}
+            <InlineBanners
+              banners={banners}
+              spot="kader-nachgetragen"
+            />
           </div>
         )}
       </div>

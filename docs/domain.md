@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `29c2a3d`, 2026-08-12
+**Verified against:** `3f15ba0`, 2026-08-13
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
@@ -137,7 +137,8 @@ than what a stored squad row holds ([ADR-0048](_decisions/0048-position-and-stuf
 unchanged and passes, which is precisely what keeps the dates repairable. The season's `start_date` and
 `end_date` sit on the season document rather than inside `rules`, and stay editable on a finished season —
 correcting a mistyped date changes nothing anybody competed for — provided the new span still covers every
-live matchday (`REQ-DATE-004`).
+live matchday (`REQ-DATE-004`) and is still long enough to hold the matchdays the rules imply
+(`REQ-DATE-005`).
 
 ---
 
@@ -153,11 +154,13 @@ symbols have in common:
 - each refusal reaches the client as a **code** it maps to German, with an English `detail` that goes only
   to the log ([`logging/error-codes.md`](logging/error-codes.md))
 
-**A rule's return type is not uniform, so read the signature before assuming one.** Most hand back
-`(error_code, detail)` or `None`; some return a `WriteRefusal`; some return the detail alone, with the code
-supplied at the call site; and `judge_spieltag_occupancy` returns a `SpieltagVerdict` that carries a refusal
-beside the moves it plans. A uniform `is_valid(operation) -> bool` cannot express that last outcome, which is
-why there is no central evaluator (ADR-0053).
+**A rule returns one shape**, `fl_backend/app/core/exceptions.py :: WriteRefusal` or `None` — the code and
+the English detail as a named pair, so the rule that decides a refusal is also what names it, and
+`DocumentConflictException.from_refusal` is the only route from one to a response.
+`judge_spieltag_occupancy` is the one signature that differs: it returns a `SpieltagVerdict` carrying a
+`WriteRefusal` beside the moves it plans, because a clash against a manual side is resolved rather than
+refused. A uniform `is_valid(operation) -> bool` cannot express that outcome, which is why there is no
+central evaluator (ADR-0053).
 
 **`RULES` is not the whole list of what a match write does.** The bracket resolution backs no row in it and
 **rewrites** fixtures the request never named (ADR-0034).

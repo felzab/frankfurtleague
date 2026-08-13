@@ -4,6 +4,7 @@ import { connection } from "next/server";
 
 import { getSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
+import { buildGruppenSwapContext } from "@/features/saisons/utils";
 import { getSpiele } from "@/features/spiele/queries";
 import { AdminTeamEditView } from "@/features/teams/components/views/AdminTeamEditView";
 import { getTeamMemberships } from "@/features/teams/queries";
@@ -12,6 +13,7 @@ import { buildGruppeOffer } from "@/features/teams/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
+import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -66,8 +68,15 @@ async function AdminTeamEditContent({
 
   // The rule (decided 2026-08-07): the group may move only while the season has not started — no
   // fixture of the team's exists in it yet — or while the season is still `future`.
-  const teamSpiele = membership === null ? [] : (await getSpiele({ saison_id: selectedSaison.id, team_id: teamId, limit: 1 })).spiele;
-  const gruppeLocked = selectedSaison.status !== "future" && teamSpiele.length > 0;
+  // The two phase-scoped reads beside it are the swap control's (ADR-0071), asking the endpoint's own
+  // questions: `playoffs` is the set `REQ-SWAP-002` counts, `gruppenphase` the one `REQ-SWAP-004` and
+  // `REQ-SWAP-005` read. Both are cached public reads on the season's granular tag.
+  const [teamSpieleRes, playoffSpieleRes, gruppenSpieleRes] = await Promise.all([
+    membership === null ? Promise.resolve(null) : getSpiele({ saison_id: selectedSaison.id, team_id: teamId, limit: 1 }),
+    getSpiele({ saison_id: selectedSaison.id, saison_phase: "playoffs" }),
+    getSpiele({ saison_id: selectedSaison.id, saison_phase: "gruppenphase" }),
+  ]);
+  const gruppeLocked = selectedSaison.status !== "future" && (teamSpieleRes?.spiele.length ?? 0) > 0;
 
   const saison: TeamSaisonMembership = {
     saisonId: selectedSaison.id,
@@ -83,6 +92,24 @@ async function AdminTeamEditContent({
     membershipsRes.teams.map((candidate) => candidate.memberships),
   );
 
+  /**
+   * What the swap control on this page stands on (ADR-0071), through the derivation the season editor
+   * uses — so the two entry points grade a pair identically or one offers what the other refuses.
+   *
+   * **The club list comes from the memberships read already made, not from a second `getTeams`.** That
+   * response carries every club with every junction row, so narrowing it to this season yields exactly
+   * the strict join `GET /teams?saison_id=` would — retired clubs included, which an admin picker needs
+   * because a retired club still holding a row (ADR-0025) is one the write path accepts.
+   */
+  const swap: SaisonGruppenSwapContext = buildGruppenSwapContext({
+    teams: membershipsRes.teams.flatMap((candidate) => {
+      const row = candidate.memberships.find((entry) => entry.saison_id === selectedSaison.id);
+      return row === undefined ? [] : [{ id: candidate.id, name: candidate.name, gruppe: row.gruppe }];
+    }),
+    gruppenSpiele: gruppenSpieleRes.spiele,
+    playoffSpiele: playoffSpieleRes.spiele,
+  });
+
   return (
     // Keyed by the state the drafts mirror — the match editor's reason: the same route pattern
     // reconciles in place, and a saved team must reopen with its saved values.
@@ -92,6 +119,7 @@ async function AdminTeamEditContent({
       saison={saison}
       gruppeLocked={gruppeLocked}
       gruppeOffer={gruppeOffer}
+      swap={swap}
       today={getGermanTodayStr()}
     />
   );

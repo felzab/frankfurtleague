@@ -132,17 +132,36 @@ export const FORM_SECTION_HEADING = "fluid-xxs text-foreground-muted font-bold t
  * bordered panel with its own — so `p-2` on the wrapper drew a second inset outside the border, which read
  * as the popover being misaligned with its trigger rather than as deliberate spacing.
  *
- * **The calendar is much larger from `sm` up.** HeroUI sizes `.calendar` at `w-63` (15.75rem) and lays the
- * days out as a 7-column grid of `aspect-square` cells, so the ROOT's width is the only lever — widening it
- * scales every cell proportionally rather than needing each one overridden. 25rem gives roughly 57px days
- * on a desktop, against 36px before; the phone keeps the compact size, where the screen is the constraint.
+ * **`rounded-xl` is `overlayPanel`'s own corner, and the wrapper has to match it.** HeroUI gives
+ * `.date-picker__popover` `min(32px, calc(var(--radius) * 2.5))` — 20px — together with `overflow-y: auto`,
+ * which makes it a clipping box. With no padding the calendar fills that box exactly, so any corner region
+ * between the panel's 12px arc and a larger arc on the wrapper falls outside the clip, taking the panel's
+ * border with it and letting `bg-overlay` through the gap. Matching the two radii is what answers that
+ * rather than dropping the wrapper's, because the same clip also swallows the calendar's `shadow-lg` —
+ * `--shadow-overlay` on this wrapper is the picker's only visible elevation.
+ *
+ * **Both steps set a width AND a max-width, and dropping either does nothing.** HeroUI declares
+ * `.calendar { @apply w-63 max-w-63 }` (3.2.4), so a width utility on its own is clamped straight back to
+ * 15.75rem. The days are a 7-column grid of `aspect-square` cells, so the ROOT's width is the only lever
+ * on how big a day is: a cell measures exactly `(width − padding) / 7`.
+ *
+ * **A day cell is what each step is chosen for**, since that is what a finger has to hit. 21rem gives 43.4px
+ * on a desktop. The phone step is 18rem — still compact, and deliberately not left at HeroUI's own 15.75rem,
+ * which yields 32.6px cells on the one device class where touch is the only input; 18rem raises them to
+ * 37.7px and still fits a 320px screen with 16px to spare. 44px is arithmetically out of reach there —
+ * seven cells at 44px is 308px before any padding at all.
+ *
+ * **The panel carries no type step, and a `sm:text-*` here cannot give it one.** Every element in the
+ * calendar that renders text declares its own `font-size` in `@layer components`, so nothing inherits the
+ * root's — the day number's own step lives on `.calendar__cell` in `app/admin/admin.css`, beside the rest
+ * of the calendar's overrides.
  *
  * One declaration rather than three copies: the three pickers had identical strings, which is exactly how
  * two of them come to disagree after somebody adjusts the third.
  */
-export const DATE_PICKER_POPOVER = "p-0";
+export const DATE_PICKER_POPOVER = "rounded-xl p-0";
 
-export const DATE_PICKER_CALENDAR = "p-3 sm:w-100 sm:max-w-100 sm:p-4 sm:text-base";
+export const DATE_PICKER_CALENDAR = "w-72 max-w-72 p-3 sm:w-84 sm:max-w-84 sm:p-4";
 
 /**
  * Below the trigger and aligned to its leading edge, for all three pickers (decided 2026-08-08).
@@ -150,7 +169,7 @@ export const DATE_PICKER_CALENDAR = "p-3 sm:w-100 sm:max-w-100 sm:p-4 sm:text-ba
  * HeroUI's `DatePicker.Popover` defaults to `"bottom"`, which centres the panel on the trigger — and the
  * calendar is far wider than the trigger it hangs from, so a centred panel overhangs the field on both
  * sides and reads as unanchored. `start` puts its leading edge where the field's is, which is the edge a
- * reader is already tracking down the form. `FilterBar`'s popover is placed the same way for the same
+ * reader is already tracking down the form. The filter panel is placed the same way for the same
  * reason, so the app has one answer to "where does a panel open" rather than one per control.
  *
  * Deliberately not `"bottom end"`: every one of these pickers sits in a two-column grid from `sm` up, so

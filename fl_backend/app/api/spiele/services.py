@@ -43,6 +43,7 @@ from app.api.spiele.schemas import (
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
 from app.core.collections import Collection
+from app.core.exceptions import WriteRefusal
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -646,20 +647,6 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload) ->
     )
 
 
-@dataclass(frozen=True)
-class WriteRefusal:
-    """
-    Why the match write path refuses a patch: the code that reaches the client, and the English detail.
-
-    The code is the whole channel. A failure body is `{error_code, correlation_id}` and nothing else
-    (docs/logging/spec.md, L4), so the message below is for the log and the code is what the form reads to
-    decide which field the refusal belongs to (ADR-0042).
-    """
-
-    error_code: str
-    message: str
-
-
 # A team the season records as disqualified, newly fielded on a fixture played on or after the day that
 # took effect (decided 2026-08-08). The date rule and its carve-outs are stated in full at
 # `find_eligibility_refusal`.
@@ -782,9 +769,9 @@ def _minutes_into_day(uhrzeit: str) -> int:
     return int(hours) * 60 + int(minutes)
 
 
-def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str, spieltag_ende: str) -> tuple[str, str] | None:
+def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str, spieltag_ende: str) -> WriteRefusal | None:
     """
-    Why this fixture's date must be refused, as `(error_code, detail)` -- or `None`.
+    Why this fixture's date must be refused, as a `WriteRefusal` -- or `None`.
 
     `None` for `datum` passes. An undated fixture is one nobody has scheduled yet, which is the ordinary
     state of a season being set up, and it contradicts no span -- unlike the disqualification rule, where
@@ -797,10 +784,12 @@ def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str, spielt
     if datum is None or spieltag_beginn <= datum <= spieltag_ende:
         return None
 
-    return (
-        FIXTURE_OUTSIDE_SPIELTAG,
-        f"the fixture is dated {datum} and its matchday runs {spieltag_beginn} to {spieltag_ende}; "
-        "move the fixture inside that span or widen the matchday",
+    return WriteRefusal(
+        error_code=FIXTURE_OUTSIDE_SPIELTAG,
+        message=(
+            f"the fixture is dated {datum} and its matchday runs {spieltag_beginn} to {spieltag_ende}; "
+            "move the fixture inside that span or widen the matchday"
+        ),
     )
 
 
@@ -814,9 +803,9 @@ class BookedSlot:
     resource: Literal["Spielort", "Schiedsrichter"]
 
 
-def find_clash_refusal(*, datum: str | None, uhrzeit: str | None, booked: Sequence[BookedSlot]) -> tuple[str, str] | None:
+def find_clash_refusal(*, datum: str | None, uhrzeit: str | None, booked: Sequence[BookedSlot]) -> WriteRefusal | None:
     """
-    Why this fixture's venue or referee must be refused, as `(error_code, detail)` -- or `None`.
+    Why this fixture's venue or referee must be refused, as a `WriteRefusal` -- or `None`.
 
     `booked` is every OTHER fixture holding the same venue or the same referee on the same day, which the
     caller reads; this decides only whether any of them is too close. Two fixtures at one ground four hours
@@ -837,10 +826,12 @@ def find_clash_refusal(*, datum: str | None, uhrzeit: str | None, booked: Sequen
 
         gap = abs(_minutes_into_day(slot.uhrzeit) - start)
         if gap < CLASH_BUFFER_MINUTES:
-            return (
-                FIXTURE_DOUBLE_BOOKED,
-                f"the same {slot.resource} is booked for spiel_nr {slot.spiel_nr} at {slot.uhrzeit} on {slot.datum}, "
-                f"{gap} minutes away; two fixtures need {CLASH_BUFFER_MINUTES} minutes between them",
+            return WriteRefusal(
+                error_code=FIXTURE_DOUBLE_BOOKED,
+                message=(
+                    f"the same {slot.resource} is booked for spiel_nr {slot.spiel_nr} at {slot.uhrzeit} on {slot.datum}, "
+                    f"{gap} minutes away; two fixtures need {CLASH_BUFFER_MINUTES} minutes between them"
+                ),
             )
 
     return None
@@ -1048,9 +1039,20 @@ def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
     return ("gruppe", quelle.gruppe, quelle.platz)
 
 
-def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> str | None:
+# Bracket wiring the season cannot hold (ADR-0038): a source on a group fixture, a feeder that is
+# dangling or not played first, one outcome in two slots, or a hand-set team on a maintained side.
+WIRING_UNSUPPORTED = "REQ-WIRING-001"
+
+
+def _wiring_refusal(message: str) -> WriteRefusal:
+    """Every wiring message shares one code: they are one rule, and the repair is the same for each."""
+
+    return WriteRefusal(error_code=WIRING_UNSUPPORTED, message=message)
+
+
+def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> WriteRefusal | None:
     """
-    Why this patch's bracket wiring must be refused, or `None` when it is legal (ADR-0038).
+    Why this patch's bracket wiring must be refused, as a `WriteRefusal` -- or `None` when it is legal (ADR-0038).
 
     Four rules, each a contradiction no season can hold — not a preference, and not a guess about how
     a draw should look:
@@ -1098,23 +1100,25 @@ def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPaylo
             continue
 
         if stored.saison_phase == "gruppenphase":
-            return f"{label}_quelle: a Gruppenphase fixture carries no wiring; its sides are drawn by the schedule"
+            return _wiring_refusal(f"{label}_quelle: a Gruppenphase fixture carries no wiring; its sides are drawn by the schedule")
 
         if isinstance(quelle, FLSpielQuelleSpiel):
             source = by_nr.get(quelle.spiel_nr)
             if source is None:
-                return f"{label}_quelle names Spiel {quelle.spiel_nr}, and this season has no such match"
+                return _wiring_refusal(f"{label}_quelle names Spiel {quelle.spiel_nr}, and this season has no such match")
             if source.saison_phase == "gruppenphase":
-                return f"{label}_quelle names Spiel {quelle.spiel_nr}, a Gruppenphase match; a bracket slot is never fed by one"
+                return _wiring_refusal(
+                    f"{label}_quelle names Spiel {quelle.spiel_nr}, a Gruppenphase match; a bracket slot is never fed by one"
+                )
             if PHASE_RANK[source.saison_phase] >= PHASE_RANK[stored.saison_phase]:
-                return (
+                return _wiring_refusal(
                     f"{label}_quelle names Spiel {quelle.spiel_nr} ({source.saison_phase}), "
                     f"which is not played before this fixture ({stored.saison_phase})"
                 )
 
         key = _quelle_key(quelle)
         if key in used:
-            return f"{label}_quelle: this source already feeds another slot of the season"
+            return _wiring_refusal(f"{label}_quelle: this source already feeds another slot of the season")
         used.add(key)
 
     for label, team, quelle in sides:
@@ -1125,6 +1129,6 @@ def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPaylo
         stored_id = stored_team.team_id if stored_team is not None else None
         submitted_id = team.team_id if team is not None else None
         if stored_id != submitted_id:
-            return f"{label} is maintained by its quelle and cannot be set by hand; clear the quelle to take the slot over"
+            return _wiring_refusal(f"{label} is maintained by its quelle and cannot be set by hand; clear the quelle to take the slot over")
 
     return None

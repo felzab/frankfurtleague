@@ -12,8 +12,5 @@
  * Invariants:
  * - `RowActions` and `AdminCrudFallback` read this constant rather than spelling it: spelled at both,
  *   a change to one leaves the other short by the difference, on every row, with the whole gate green.
- * - `AdminTeamsTable`'s disabled Stilllegen span spells the same size by hand and sits in a
- *   `RowActions` cluster, so it moves with a change here or that row shows one target at a different
- *   size.
  */
 export const ROW_ACTION_SIZE = "h-10 w-10";

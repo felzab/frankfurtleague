@@ -1,11 +1,14 @@
-import { memo } from "react";
+"use client";
 
-import { Calendar, Person } from "@gravity-ui/icons";
+import { memo } from "react";
+import { useSearchParams } from "next/navigation";
+
+import { Calendar, Pencil, Person } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
-import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { RowActionCopy, RowActionDelete, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatEuro } from "@/shared/utils/format";
@@ -17,20 +20,25 @@ import type { FLSchiedsrichter } from "../../schemas";
  * the parent's `useSearchParams()` re-renders this table while it sits hidden in a React Activity
  * tree during navigation elsewhere, and a react-aria collection that re-renders while hidden loses
  * its rows for good. No inline lambdas here. The `query` prop is not stable across a navigation
- * that changes `q` — `memo` cannot bail out then — so the `items` form of `Table.Body` is what
- * actually carries the fix; keep it.
+ * that changes `q`, and `useSearchParams` below subscribes this table to the router directly —
+ * `memo` cannot bail out of either — so the `items` form of `Table.Body` carries the fix; keep it.
  */
 export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   schiedsrichterQuery,
   filteredSchiedsrichter,
-  setEditingSchiedsrichter,
   setDeletingSchiedsrichter,
 }: {
   schiedsrichterQuery: string;
   filteredSchiedsrichter: FLSchiedsrichter[];
-  setEditingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
   setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
 }) {
+  // The sidemenu's season rides along, so the fixture list opens on the season the admin is working
+  // in rather than on the current one. Reading it here is safe: the parent view already subscribes
+  // this tree to the router.
+  const searchParams = useSearchParams();
+  const selectedSaisonId = searchParams.get("saison_id");
+  const saisonParam = selectedSaisonId ? `&saison_id=${encodeURIComponent(selectedSaisonId)}` : "";
+
   const handleCopyKontakt = async (schiedsrichter: FLSchiedsrichter) => {
     const details = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
 
@@ -61,8 +69,10 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
   const renderActions = (schiedsrichter: FLSchiedsrichter) => (
     <RowActions>
+      {/* `schiedsrichter` as `buildSpielFacets` declares it, and admin-only there: the public
+          Spielsuche declares no such facet, so the same link would drop the parameter and filter nothing. */}
       <RowActionLink
-        href={`/admin/spielsuche?q=${encodeURIComponent(schiedsrichter.name)}`}
+        href={`/admin/spielsuche?schiedsrichter=${schiedsrichter.id}${saisonParam}`}
         label="Einsätze anzeigen"
         ariaLabel={`Einsätze von ${schiedsrichter.name} anzeigen`}>
         <Calendar
@@ -76,14 +86,21 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         ariaLabel={`Kontaktdaten von ${schiedsrichter.name} kopieren`}
         onPress={() => handleCopyKontakt(schiedsrichter)}
       />
-      <RowActionEdit
+      {/* A link rather than a press: the referee form edits on a page (ADR-0040), so the pencil is a
+          navigation and the shared view renders no edit overlay. */}
+      <RowActionLink
+        href={`/admin/schiedsrichter/${schiedsrichter.id}`}
         label="Bearbeiten"
-        ariaLabel={`Schiedsrichter ${schiedsrichter.name} bearbeiten`}
-        onPress={() => setEditingSchiedsrichter(schiedsrichter)}
-      />
+        ariaLabel={`Schiedsrichter ${schiedsrichter.name} bearbeiten`}>
+        <Pencil
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
       <RowActionDelete
-        label="Löschen"
-        ariaLabel={`Schiedsrichter ${schiedsrichter.name} löschen`}
+        label="Stilllegen"
+        ariaLabel={`Schiedsrichter ${schiedsrichter.name} stilllegen`}
         onPress={() => setDeletingSchiedsrichter(schiedsrichter)}
       />
     </RowActions>
@@ -101,7 +118,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     <>
       {/* The phone layout: one card per referee, no horizontal scrolling anywhere (decided 2026-08-07
           — the teams table's card pattern, applied here). The school column stays
-          table-only: on a card it read as an unlabeled stray line, and the edit dialog carries it. */}
+          table-only: on a card it read as an unlabeled stray line, and the edit page carries it. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
         {filteredSchiedsrichter.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
         {filteredSchiedsrichter.map((schiedsrichter) => (
@@ -171,7 +188,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
                     <Table.Cell className="px-6 py-4">
                       <span className="fluid-sm text-foreground">
-                        {schiedsrichter.schule || <span className="text-foreground-muted/50 italic">—</span>}
+                        {schiedsrichter.schule || <span className="text-foreground-muted/50 italic">Keine Schule</span>}
                       </span>
                     </Table.Cell>
 

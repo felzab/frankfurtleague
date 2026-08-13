@@ -1,11 +1,14 @@
-import { memo } from "react";
+"use client";
 
-import { Calendar, Globe, MapPin } from "@gravity-ui/icons";
+import { memo } from "react";
+import { useSearchParams } from "next/navigation";
+
+import { Calendar, Globe, MapPin, Pencil } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
-import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { RowActionCopy, RowActionDelete, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatAddressFull, formatEuro } from "@/shared/utils/format";
@@ -25,24 +28,30 @@ import type { FLSpielort } from "../../schemas";
  * alone is fine, `useSearchParams` alone is fine, the two together fail on the third visit.
  *
  * `memo` keeps that churn down, but note what it does *not* do: `spielortQuery` is read from the
- * live router, and a hidden tree still sees the incoming route's params, so navigating to a URL
- * with a different `q` (the "Einsätze anzeigen" link below does exactly that) changes the prop and
- * the memo cannot bail out. Measured over 15 such round trips with the query varying each time:
- * the rows survive. What actually carries the fix is the `items` + render-function form of
- * `Table.Body` below; `memo` is the cheap second layer. **Do not pass an inline lambda or a
- * freshly-built array here**, and do not convert `Table.Body` back to mapped children.
+ * live router, and a hidden tree still sees the incoming route's params, so leaving this page for
+ * one whose `q` differs changes the prop and the memo cannot bail out — and `useSearchParams` below
+ * subscribes this table to the router directly, so any parameter change re-renders it too. Measured
+ * over 15 such round trips with the query varying each time: the rows survive. What carries the fix
+ * is the `items` + render-function form of `Table.Body` below; `memo` is the cheap second layer.
+ * **Do not pass an inline lambda or a freshly-built array here**, and do not convert `Table.Body`
+ * back to mapped children.
  */
 export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   spielortQuery,
   filteredSpielorte,
-  setEditingOrt,
   setDeletingOrt,
 }: {
   spielortQuery: string;
   filteredSpielorte: FLSpielort[];
-  setEditingOrt: (ort: FLSpielort) => void;
   setDeletingOrt: (ort: FLSpielort) => void;
 }) {
+  // The sidemenu's season rides along, so the fixture list opens on the season the admin is working
+  // in rather than on the current one. Reading it here is safe: the parent view already subscribes
+  // this tree to the router.
+  const searchParams = useSearchParams();
+  const selectedSaisonId = searchParams.get("saison_id");
+  const saisonParam = selectedSaisonId ? `&saison_id=${encodeURIComponent(selectedSaisonId)}` : "";
+
   const handleCopyAddress = async (ort: FLSpielort) => {
     const copied = await copyTextToClipboard(`${ort.name}, ${formatAddressFull(ort.address)}`);
 
@@ -83,8 +92,10 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           height={18}
         />
       </RowActionLink>
+      {/* `ort` as `buildSpielFacets` declares it, carrying the id its options are keyed by: a `q=`
+          here fuzzy-matches every `SEARCH_KEYS` entry, the venue's maps link among them, and lights no chip. */}
       <RowActionLink
-        href={`/admin/spielsuche?q=${encodeURIComponent(ort.name)}`}
+        href={`/admin/spielsuche?ort=${ort.id}${saisonParam}`}
         label="Spiele anzeigen"
         ariaLabel={`Spiele in ${ort.name} anzeigen`}>
         <Calendar
@@ -98,14 +109,21 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
         ariaLabel={`Adresse von ${ort.name} kopieren`}
         onPress={() => handleCopyAddress(ort)}
       />
-      <RowActionEdit
+      {/* A link rather than a press: the venue form edits on a page (ADR-0040), so the pencil is a
+          navigation and the shared view renders no edit overlay. */}
+      <RowActionLink
+        href={`/admin/spielorte/${ort.id}`}
         label="Bearbeiten"
-        ariaLabel={`Spielort ${ort.name} bearbeiten`}
-        onPress={() => setEditingOrt(ort)}
-      />
+        ariaLabel={`Spielort ${ort.name} bearbeiten`}>
+        <Pencil
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
       <RowActionDelete
-        label="Löschen"
-        ariaLabel={`Spielort ${ort.name} löschen`}
+        label="Stilllegen"
+        ariaLabel={`Spielort ${ort.name} stilllegen`}
         onPress={() => setDeletingOrt(ort)}
       />
     </RowActions>

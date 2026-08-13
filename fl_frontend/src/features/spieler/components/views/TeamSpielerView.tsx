@@ -32,14 +32,14 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
         onPress={() => {
           router.back();
         }}
-        className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+        className="bg-surface border-border text-foreground data-hovered:bg-hover fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
         <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
         <span>Zurück</span>
       </Button>
 
       <div className={`${card()} mb-2 flex w-full flex-col items-center p-4 sm:p-6`}>
         <div className="flex w-full flex-row items-center justify-between">
-          <h2 className="fluid-xl text-foreground font-extrabold tracking-tight">{teamName} - Kader</h2>
+          <h2 className="fluid-xl text-foreground font-extrabold tracking-tight">Kader von {teamName}</h2>
           <Chip
             size="sm"
             className={`${PILL_RADIUS} bg-success/15 text-success-strong font-bold`}>

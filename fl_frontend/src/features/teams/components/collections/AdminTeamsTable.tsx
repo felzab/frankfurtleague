@@ -3,14 +3,13 @@
 import { memo, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Calendar, Globe, Pencil, Persons, TrashBin } from "@gravity-ui/icons";
+import { Calendar, Globe, Pencil, Persons } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
 import { reactivateTeamAction } from "@/features/teams/actions";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -27,7 +26,7 @@ import type { AdminTeamRow } from "../../types";
  * season-scoped fields are edited by picking the season in the sidemenu first.
  *
  * **Retiring is offered only where the write path would allow it**: a club entered in a running or
- * planned season keeps its trash control visually present but inert, with the reason one hover
+ * planned season keeps its trash control present but disabled, with the reason a hover or a tap
  * away, so the rule is discoverable rather than a mystery. The backend refuses the same shape
  * (`REQ-RETIRE-001`), which stays the authoritative check.
  */
@@ -45,12 +44,14 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 }) {
   const [, startReactivating] = useTransition();
 
-  // The selector's season rides along on every row link, so the editor and the public page open on
-  // the season this list is showing. Reading it here is safe: the parent view already subscribes this
-  // tree to the router.
+  // The selector's season rides along on every row link, so the editor, the public page and the
+  // fixture list open on the season this list is showing. Reading it here is safe: the parent view
+  // already subscribes this tree to the router.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
   const saisonQuery = selectedFromUrl ? `?saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
+  // The same value as a second parameter, for the one row link that carries a facet of its own.
+  const saisonParam = selectedFromUrl ? `&saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
 
   // One press, then a toast either way. No confirmation step: reactivation is undone by the delete
   // control that takes its place.
@@ -85,8 +86,10 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 
   const renderActions = (team: AdminTeamRow) => (
     <RowActions>
+      {/* `team` as `buildSpielFacets` declares it, carrying the id its options are keyed by, and it
+          reads both sides — so this finds the club's fixtures whichever slot it occupies. */}
       <RowActionLink
-        href={`/admin/spielsuche?q=${encodeURIComponent(team.name)}`}
+        href={`/admin/spielsuche?team=${team.id}${saisonParam}`}
         label="Spiele anzeigen"
         ariaLabel={`Spiele von ${team.name} anzeigen`}>
         <Calendar
@@ -121,24 +124,15 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           ariaLabel={`Team ${team.name} reaktivieren`}
           onPress={() => handleReactivate(team)}
         />
-      ) : team.isRetireable ? (
+      ) : (
         <RowActionDelete
+          disabledReason={
+            team.isRetireable ? null : "Stilllegen ist nur möglich, wenn das Team in keiner laufenden oder geplanten Saison spielt."
+          }
           label="Stilllegen"
           ariaLabel={`Team ${team.name} stilllegen`}
           onPress={() => setDeletingTeam(team)}
         />
-      ) : (
-        <IconTooltip label="Stilllegen ist nur möglich, wenn das Team in keiner laufenden oder geplanten Saison spielt.">
-          <span
-            aria-label={`Team ${team.name} kann nicht stillgelegt werden, solange es in einer laufenden oder geplanten Saison spielt`}
-            className="text-foreground-muted/40 flex h-10 w-10 shrink-0 cursor-not-allowed items-center justify-center rounded-xl">
-            <TrashBin
-              aria-hidden="true"
-              width={18}
-              height={18}
-            />
-          </span>
-        </IconTooltip>
       )}
     </RowActions>
   );
@@ -163,7 +157,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             key={team.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4 ${team.inactive_since !== null ? "opacity-80" : ""}`}>
             <div className="flex w-full flex-row items-center gap-3">
-              <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-14 shrink-0 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
+              <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-14 shrink-0 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
                 {team.shorthand}
               </span>
               <div className="flex min-w-0 flex-col">
@@ -241,7 +235,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                         {/* Fixed width, sized to the widest pair: WW measures 54.4px at this font with
                         the old px-3 padding, so w-14 holds every combination and the column stops
                         wobbling between rows (decided 2026-08-07). */}
-                        <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-14 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
+                        <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-14 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
                           {team.shorthand}
                         </span>
                       </Table.Cell>

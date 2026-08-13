@@ -105,19 +105,24 @@ class TestTheGroupPhase:
 
         assert group_matches_per_matchday(3, 5) == 6
 
-    def test_the_total_is_the_round_robin_and_not_matchdays_times_matches(self):
+    def test_the_total_agrees_with_the_schedule_at_every_group_size(self):
         """
-        The two agree for an even group and must not be assumed to for an odd one.
+        The combination and the schedule are two routes to one number, and they meet at every size.
 
-        Five teams: C(5,2) = 10 matches, but 5 matchdays x 2 matches = 10 as well — so take six teams to
-        see it, where the schedule is 5 x 3 = 15 and C(6,2) = 15. The case that actually diverges is a group
-        whose last round is short, which is why the total is stated from the combination rather than
-        multiplied out.
+        Five teams are 5 matchdays x 2 matches and C(5,2) = 10; six are 5 x 3 and C(6,2) = 15. An odd
+        group's extra round offsets its smaller rounds exactly, so the bye's empty slot never reaches the
+        product. The total is stated from the combination because that says the number outright — never
+        because multiplying out would be wrong.
         """
 
         assert total_group_matches(4, 4) == 24
         assert total_group_matches(1, 5) == 10
         assert total_group_matches(1, 6) == 15
+
+        # Both routes, over every group size the rules can express: the equality is what lets the schedule
+        # report a per-matchday figure at all.
+        for teams in range(1, 13):
+            assert total_group_matches(3, teams) == 3 * group_matchdays(teams) * group_matches_per_matchday(1, teams)
 
 
 class TestTheBracket:
@@ -219,7 +224,7 @@ class TestTheWholeSeason:
         Zero, and it is the honest answer rather than a gap.
 
         A season sending eight into the bracket plays no round of sixteen, so a matchday claiming to be one
-        is a matchday in a phase the season does not run — and the admin list showing `0 / n` is exactly the
+        is a matchday in a phase the season does not run — and the admin list showing `0 / 0` is exactly the
         report that says so.
         """
 
