@@ -10,7 +10,10 @@
    `SpielDetailsModal`, so all three stay in `globals.css`.
 
    Order is HeroUI's own, as in globals.css. `@reference` gives `@apply` inside these files the theme
-   without emitting it twice — several of them use it, and without this the build fails. */
+   without emitting it twice — several of them use it, and without this the build fails.
+
+   The overrides below the imports are the app's answer to what the vendored calendar ships, and they
+   sit last so the cascade reaches them without the import order moving. */
 
 @reference "../globals.css";
 
@@ -33,3 +36,29 @@
    component on an admin route, at the position it holds in HeroUI's own index (ADR-0013). The
    checklist is `docs/frontend/spec.md` §1.11. */
 @import "@heroui/styles/components/autocomplete.css" layer(components);
+
+/* App-side overrides for the calendar, after every import above so each rule beats the vendored one
+   it names at equal specificity. Written against @heroui/styles 3.2.4, whose class names these are
+   (`docs/frontend/spec.md` §1.11). */
+@layer components {
+  /* HeroUI rounds both cells to 24px, a circle on a 37.7px day. `rounded-lg` is what every option
+     row, tab and field in this app takes, so a day's hover fill and its selected indicator read as
+     the same control family as the form behind them. */
+  .calendar__cell,
+  .calendar-year-picker__year-cell {
+    @apply rounded-lg;
+  }
+
+  /* An icon-only square control, so it takes `dismissControl`'s corner rather than the cells'. */
+  .calendar__nav-button {
+    @apply rounded-md;
+  }
+
+  /* `text-muted` resolves to --bg-muted here, a *background* grey: the weekday letters measured
+     1.16:1 light and 1.24:1 dark. The date segments' literal separators carry the same confusion
+     (`FormDateTimeSection.tsx`). */
+  .calendar__header-cell,
+  .calendar__cell[data-outside-month="true"] {
+    @apply text-foreground-muted;
+  }
+}
