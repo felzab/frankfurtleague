@@ -8,7 +8,7 @@ import { Badge, Table } from "@heroui/react";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import { computePlatzByTeamId, computeQualifyingTeamIds } from "../../utils";
@@ -123,7 +123,11 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                   </Table.Column>
                 </Table.Header>
 
+                {/* The rows are this group's collection, so they sequence exactly as a card grid's
+                    cards do. On the body rather than on the table root, which would take the header
+                    row into the same sequence and leave the column labels arriving with row one. */}
                 <Table.Body
+                  className={CARDS_CASCADE}
                   renderEmptyState={() => (
                     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                       <p className="fluid-sm text-foreground-muted font-medium">Für diese Gruppe sind noch keine Teams eingeteilt.</p>

@@ -5,7 +5,7 @@
  * plus `CONTENT_FADE`, which is a handover rather than an arrival. The exports say which is which
  * and, more importantly, when each is wrong.
  *
- * Tier 2 is the one tier with two forms: `CARDS_CASCADE` sequences a collection card by card, and
+ * Tier 2 is the one tier with two forms: `CARDS_CASCADE` sequences a collection item by item, and
  * `BRACKET_SWEEP` sequences the playoff tree column by column. They share a duration and a curve and
  * differ in the unit they step and in whether they may travel; nothing else picks between them.
  *
@@ -38,17 +38,22 @@
 export const PAGE_RISE = "animate-in fade-in slide-in-from-bottom-2 duration-(--motion-slow) ease-(--motion-ease-enter)";
 
 /**
- * TIER 2 — the card cascade. Cards arrive in sequence, 25ms apart, rather than all at once.
+ * TIER 2 — the cascade. A collection's items arrive in sequence, 25ms apart, rather than all at once.
  *
  * For **any grid or list of cards**, whatever the card is — `SpielCard`, `SpielCardCompact`,
- * `TeamCard`. It is keyed off `role="listitem"` rather than off a card type precisely so a grid of
- * teams arrives like a grid of matches; the shape of the collection is what decides, not its
- * contents. It goes on the grid container and the cards need no class of their own.
+ * `TeamCard` — and equally for **a table's rows**, which is why the Saisontabelle's group tables
+ * carry it on `Table.Body`. It is keyed off `role="listitem"` and `role="row"` rather than off a
+ * card type precisely so a grid of teams arrives like a grid of matches and a league table arrives
+ * like both; the shape of the collection is what decides, not its contents. It goes on the container
+ * — the `role="list"` grid, or the `Table.Body` whose `<tbody>` holds the rows — and the items need
+ * no class of their own.
  *
  * The keyframes, the stagger and the reasoning live in `globals.css`; the short version is that a
- * block fade reads as the content *mutating in place* when each card lands exactly where the
- * previous set's card was, and only separating them in time fixes it. That is why this is not
- * interchangeable with `PAGE_RISE` even though the two now share a duration and a curve.
+ * block fade reads as the content *mutating in place* when each item lands exactly where the
+ * previous set's item was, and only separating them in time fixes it. That is why this is not
+ * interchangeable with `PAGE_RISE` even though the two now share a duration and a curve. The stagger
+ * is capped at eight steps there, so a twenty-row table settles in the same 475ms an eight-card grid
+ * does and no row count turns the entrance into a wait.
  *
  * **Two collections deliberately do not use it**, both because their items are positioned relative
  * to chrome that cannot animate with them: the playoff bracket, whose cards are joined by CSS
