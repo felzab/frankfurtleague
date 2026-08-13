@@ -2,6 +2,7 @@ import { AdminTableSkeletonRows } from "./AdminTableSkeletonRows";
 import { card } from "./card";
 import { ROW_ACTION_SIZE } from "./rowActionSize";
 import { skeletonBlock } from "./skeleton";
+import { TABLE_COLLECTION_FLOOR } from "./tableCollectionFloor";
 
 const CARD_ROWS = [0, 1, 2];
 const SECTIONS = [0, 1];
@@ -129,7 +130,10 @@ function TableFallback() {
       </div>
 
       <div className="hidden w-full md:block">
-        <div className={`${card()} h-fit w-full overflow-hidden p-0`}>
+        {/* The same box the real table wears, floor included: `h-fit` alone leaves this card at the
+            bars' own 447px against the table's 456px minimum, and nine pixels of shell is nine pixels
+            the page moves at the handover. */}
+        <div className={`${card()} ${TABLE_COLLECTION_FLOOR} h-fit w-full overflow-hidden p-0`}>
           <AdminTableSkeletonRows />
         </div>
       </div>
