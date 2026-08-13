@@ -151,12 +151,17 @@ export const FORM_SECTION_HEADING = "fluid-xxs text-foreground-muted font-bold t
  * 37.7px and still fits a 320px screen with 16px to spare. 44px is arithmetically out of reach there —
  * seven cells at 44px is 308px before any padding at all.
  *
+ * **The panel carries no type step, and a `sm:text-*` here cannot give it one.** Every element in the
+ * calendar that renders text declares its own `font-size` in `@layer components`, so nothing inherits the
+ * root's — the day number's own step lives on `.calendar__cell` in `app/admin/admin.css`, beside the rest
+ * of the calendar's overrides.
+ *
  * One declaration rather than three copies: the three pickers had identical strings, which is exactly how
  * two of them come to disagree after somebody adjusts the third.
  */
 export const DATE_PICKER_POPOVER = "rounded-xl p-0";
 
-export const DATE_PICKER_CALENDAR = "w-72 max-w-72 p-3 sm:w-84 sm:max-w-84 sm:p-4 sm:text-base";
+export const DATE_PICKER_CALENDAR = "w-72 max-w-72 p-3 sm:w-84 sm:max-w-84 sm:p-4";
 
 /**
  * Below the trigger and aligned to its leading edge, for all three pickers (decided 2026-08-08).
