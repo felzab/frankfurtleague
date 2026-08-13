@@ -114,6 +114,22 @@
     @apply text-foreground-muted;
   }
 
+  /* The calendar trigger sits beside `ClearFieldButton` in the same suffix, so it takes that
+     control's geometry and hover — 28px, `rounded-md`, `bg-hover` — not `dismissControl` itself,
+     whose contract is a label naming what goes. */
+  .date-picker__trigger {
+    @apply text-foreground-muted size-7 shrink-0 justify-center rounded-md p-0;
+    /* HeroUI transitions this trigger on `box-shadow` alone, so the fill would snap in beside a ×
+       that fades. `box-shadow` stays, since it is what the focus ring rides. */
+    @apply transition-[color,background-color,box-shadow] duration-(--motion-fast);
+  }
+
+  /* `text-current` so the icon follows the trigger's colour through hover, rather than pinning itself
+     to `--field-placeholder`, which is a stock token this app never declares. */
+  .date-picker__trigger-indicator {
+    @apply text-current;
+  }
+
   .calendar-year-picker__trigger[data-open="true"] .calendar-year-picker__trigger-heading {
     @apply text-brand;
   }
@@ -150,6 +166,13 @@
 
     .calendar__nav-button:hover,
     .calendar__nav-button[data-hovered="true"] {
+      @apply bg-hover text-foreground;
+    }
+
+    /* The one fill the two controls in a field's suffix share. HeroUI ships the trigger no hover arm
+       at all, so this is the only place either theme's step gets declared for it. */
+    .date-picker__trigger:hover,
+    .date-picker__trigger[data-hovered="true"] {
       @apply bg-hover text-foreground;
     }
   }
