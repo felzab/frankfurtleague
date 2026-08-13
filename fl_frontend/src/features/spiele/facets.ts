@@ -135,11 +135,14 @@ export function buildSpielFacets({
     {
       param: "ansetzung",
       label: "Ansetzung",
+      // The negation leads: a narrow row clips the tail, and trailing "fehlt" left "Schiedsrichter
+      // fehlt" naming the Schiedsrichter facet. Not "Ohne" as the other facets use; `status`'s
+      // "Ohne Datum" excludes cancelled fixtures and `kein_datum` does not.
       options: [
-        { value: "kein_datum", label: "Datum fehlt" },
-        { value: "keine_uhrzeit", label: "Uhrzeit fehlt" },
-        { value: "kein_ort", label: "Ort fehlt" },
-        { value: "kein_schiedsrichter", label: "Schiedsrichter fehlt" },
+        { value: "kein_datum", label: "Kein Datum" },
+        { value: "keine_uhrzeit", label: "Keine Uhrzeit" },
+        { value: "kein_ort", label: "Kein Ort" },
+        { value: "kein_schiedsrichter", label: "Kein Schiedsrichter" },
         { value: "vollstaendig", label: "Vollständig" },
       ],
       // Multi-value on purpose: a fixture missing three of the four matches three options, so picking any
