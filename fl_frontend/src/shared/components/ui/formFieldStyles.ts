@@ -132,6 +132,14 @@ export const FORM_SECTION_HEADING = "fluid-xxs text-foreground-muted font-bold t
  * bordered panel with its own — so `p-2` on the wrapper drew a second inset outside the border, which read
  * as the popover being misaligned with its trigger rather than as deliberate spacing.
  *
+ * **`rounded-xl` is `overlayPanel`'s own corner, and the wrapper has to match it.** HeroUI gives
+ * `.date-picker__popover` `min(32px, calc(var(--radius) * 2.5))` — 20px — together with `overflow-y: auto`,
+ * which makes it a clipping box. With the padding gone the calendar fills that box exactly, so every corner
+ * region between the panel's 12px arc and the wrapper's 20px one fell outside the clip: the panel's border
+ * was cut at all four corners and `bg-overlay` showed through the gap. Matching the two radii is what fixes
+ * it rather than dropping the wrapper's, because the same clip also swallows the calendar's `shadow-lg` —
+ * `--shadow-overlay` on this wrapper is the picker's only visible elevation.
+ *
  * **Both steps set a width AND a max-width, and dropping either does nothing.** HeroUI declares
  * `.calendar { @apply w-63 max-w-63 }` (3.2.4), so a width utility on its own is clamped straight back to
  * 15.75rem. The days are a 7-column grid of `aspect-square` cells, so the ROOT's width is the only lever
@@ -146,7 +154,7 @@ export const FORM_SECTION_HEADING = "fluid-xxs text-foreground-muted font-bold t
  * One declaration rather than three copies: the three pickers had identical strings, which is exactly how
  * two of them come to disagree after somebody adjusts the third.
  */
-export const DATE_PICKER_POPOVER = "p-0";
+export const DATE_PICKER_POPOVER = "rounded-xl p-0";
 
 export const DATE_PICKER_CALENDAR = "w-72 max-w-72 p-3 sm:w-84 sm:max-w-84 sm:p-4 sm:text-base";
 
