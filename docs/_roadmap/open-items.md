@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `9701106`, 2026-08-13\
+**Verified against:** `78d32af9`, 2026-08-19\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -58,7 +58,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 3   | FB-16 | Nothing announces that a season rollover is due                 | BE, Ops         | M      | Open     | —          |
 | 4   | FB-17 | Season setup is hand-run, and only an admin enters a squad      | FE, BE, DB, Ops | XL     | Open     | —          |
 | 5   | BE-17 | Every server-ordered name list sorts in byte order              | BE, FE          | M      | Open     | —          |
-| 6   | FE-15 | Vendored overlays enter at a scale the app's own set never uses | FE              | S      | Open     | —          |
+| 6   | FE-15 | Vendored overlays enter at a scale the app's own set never uses | FE              | S      | Closed   | —          |
 | 7   | FE-14 | The two loaders answer reduced motion in opposite directions    | FE              | S      | Open     | —          |
 | 8   | FE-16 | The filter hooks are mounted for machinery nobody reads         | FE              | S      | Open     | —          |
 | 9   | FE-1  | A fixture carries one date, not a play window                   | FE, BE          | XL     | Open     | —          |
@@ -433,7 +433,7 @@ are already inconsistent enough that a reader cannot tell which one is deliberat
 
 ### 6 · FE-15 — Vendored overlays enter at a scale the app's own motion set never uses
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE\
 **Effort:** S\
 **Path:** Independent — [ADR-0013](../_decisions/0013-per-component-heroui-css.md) fixes where the
@@ -462,6 +462,16 @@ and turns every zoom entrance in the app, vendored ones included, into a plain f
 the three imports, on the same `[data-entering="true"]` selectors, is the cheap version of this
 entry. **Read from the vendored CSS and from the block that already uses the lever; not compiled** —
 so it is the first thing to try rather than a fact to build on.
+
+**Concluded by [ADR-0076](../_decisions/0076-the-arrival-language-carries-no-scale.md):** the arrival
+language reaches vendored components and carries no scale, entrances and exits alike, as one
+unlayered rule on `*` in `fl_frontend/src/app/globals.css`. The entry's guess that the lever was one
+custom property held; its sketch of a rule on the `[data-entering="true"]` selectors did not, because
+a universal selector cannot outrank `(0,2,0)` inside HeroUI's own layer. Two findings the entry did
+not name were rehomed rather than dropped: the reduced-motion block zeroed only the `--tw-enter-*`
+properties, so every vendored `zoom-out-95` ran for a reader who had asked for less motion — fixed in
+the same rule; and `docs/frontend/spec.md` §1.11 now names what a newly imported HeroUI component no
+longer brings with it.
 
 ### 7 · FE-14 — The two loading indicators answer reduced motion in opposite directions
 

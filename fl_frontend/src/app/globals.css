@@ -1120,15 +1120,26 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   padding-block: 0;
 }
 
+/* No scale in the arrival language, vendored ones included (ADR-0076, `@heroui/styles` 3.2.4).
+   Unlayered on `*`: inside a layer specificity loses, and tw-animate-css declares both properties
+   `inherits: false`, so they land on the animating element. */
+*,
+*::before,
+*::after {
+  --tw-enter-scale: 1;
+  --tw-exit-scale: 1;
+}
+
 /* Reduced motion, SOFTENED (decided 2026-07-31).
    The policy is "remove movement, keep fades", NOT "remove motion". Zeroing every animation- and
    transition-duration is the obvious implementation and the wrong one: it makes the site
    motionless rather than calm, and the result reads as flickering, because state changes land with
    no transition at all. So each category is handled on its own terms:
 
-   - Entry animations (`animate-in`) lose their translate/scale/rotate but keep the opacity fade:
-     tw-animate-css reads its movement from the --tw-enter-* custom properties, so zeroing them
-     turns every slide/zoom entry into a pure fade at its normal duration.
+   - Entry and exit animations (`animate-in` / `animate-out`) lose their translate/scale/rotate but
+     keep the opacity fade: tw-animate-css reads its movement from the --tw-enter-* and --tw-exit-*
+     custom properties, so zeroing them turns every slide/zoom into a pure fade at its normal
+     duration. Only the exit SCALE is listed below, because no vendored or app-side exit translates.
    - The looping decorations (ping / pulse / bounce dots) stop entirely -- autonomous repeating
      motion is the classic vestibular trigger. `animate-spin` deliberately stays: spinners are
      loading feedback, not decoration.
@@ -1144,6 +1155,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     --tw-enter-translate-x: 0;
     --tw-enter-translate-y: 0;
     --tw-enter-scale: 1;
+    --tw-exit-scale: 1;
     --tw-enter-rotate: 0;
     scroll-behavior: auto !important;
   }

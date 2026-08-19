@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `e2ef4fa`, 2026-08-13\
+**Verified against:** `78d32af9`, 2026-08-19\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -506,7 +506,11 @@ check, not one**: `fl_frontend/src/app/globals.css` loads everywhere,
    the parent is not** — that is why `close-button` and `list-box` sit in `globals.css`.
 4. **Grep both files before you finish.** A component in neither renders unstyled; a component in both
    ships to visitors who never see it.
-5. Verify in the browser, not by reading the diff. Computed styles are the evidence — a border-radius, a
+5. **Its entrance and exit scale do not come with it**
+   ([ADR-0076](../_decisions/0076-the-arrival-language-carries-no-scale.md)). Whatever `zoom-in-*` or
+   `zoom-out-*` the vendored stylesheet declares is pinned to `1` document-wide, so the component
+   arrives and leaves as a pure fade and nothing reports that it was overridden.
+6. Verify in the browser, not by reading the diff. Computed styles are the evidence — a border-radius, a
    padding and a background that are not the browser defaults. For an `admin.css` entry that means
    signing in and opening the admin page, because no public route will show the mistake.
 
