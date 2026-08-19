@@ -1,6 +1,6 @@
 # Precedence
 
-**Verified against:** `cda2912d`, 2026-08-19\
+**Verified against:** `889c31dd`, 2026-08-19\
 **Applies to:** any disagreement between two written sources, and the shape of every rule here.
 
 | ID    | Rule                                  |

@@ -1,6 +1,6 @@
 # Rules index
 
-**Verified against:** `cda2912d`, 2026-08-19
+**Verified against:** `889c31dd`, 2026-08-19
 
 Every rule in one line each. A chapter heading links to the file that chapter's fuller statements
 live in; a rule with no section there is stated in full by its line here (PRE-4).

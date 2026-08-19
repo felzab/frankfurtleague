@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `cda2912d`, 2026-08-19
+**Verified against:** `889c31dd`, 2026-08-19
 
 Every item that has left a ranked page — [`open-items.md`](open-items.md) or
 [`tooling-items.md`](tooling-items.md) — has a row here. This is a log: nothing in it is waiting for

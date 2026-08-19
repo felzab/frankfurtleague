@@ -1,6 +1,6 @@
 # In-code documentation
 
-**Verified against:** `cda2912d`, 2026-08-19\
+**Verified against:** `889c31dd`, 2026-08-19\
 **Applies to:** source files — `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`, `scripts/`
 and `.claude/hooks/`: module headers, symbol docs, inline comments and test docstrings. The hooks are
 exempt from INC-2's shape alone, their uniform label rows being what keeps a folder of one-purpose
