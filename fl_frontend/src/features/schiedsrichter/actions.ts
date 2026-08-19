@@ -9,7 +9,7 @@
  * - Every action runs inside `runAdminMutation` — a 409 must reach the toast, not the error page.
  * - Every action begins with `getAdminSession()` and CHECKS the result.
  * - The patch invalidates `spiele` too: the rename fans out the NAME only; a match keeps its fee.
- * - Delete is a soft delete server-side.
+ * - Delete is a soft delete server-side, and `reactivateSchiedsrichterAction` is the way back out.
  *
  * See:
  * - docs/frontend/spec.md — section 1.3, the action inventory
@@ -21,11 +21,11 @@ import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter } from "./mutations";
-import { FLDeleteSchiedsrichterPayloadSchema, FLPatchSchiedsrichterPayloadSchema, FLPostSchiedsrichterPayloadSchema } from "./schemas";
+import { deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter, reactivateSchiedsrichter } from "./mutations";
+import { FLPatchSchiedsrichterPayloadSchema, FLPostSchiedsrichterPayloadSchema, FLSchiedsrichterKeyPayloadSchema } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLDeleteSchiedsrichterPayload, FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload, FLSchiedsrichter } from "./schemas";
+import type { FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload, FLSchiedsrichter, FLSchiedsrichterKeyPayload } from "./schemas";
 
 /**
  * The retirement refusal (`REQ-RETIRE-004`), or `null` when the 409 is something else.
@@ -112,14 +112,14 @@ export async function patchSchiedsrichterAction(
 }
 
 export async function deleteSchiedsrichterAction(
-  rawPayload: FLDeleteSchiedsrichterPayload,
+  rawPayload: FLSchiedsrichterKeyPayload,
 ): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("deleteSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
 
-    const validated = FLDeleteSchiedsrichterPayloadSchema.safeParse(rawPayload);
+    const validated = FLSchiedsrichterKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return {
@@ -150,6 +150,50 @@ export async function deleteSchiedsrichterAction(
       success: Boolean(postOperation.acknowledged),
       updated_document: postOperation.updated_document,
       message: "Schiedsrichter stillgelegt. Seine Spiele bleiben erhalten.",
+    };
+  });
+}
+
+/**
+ * The way back from a retirement, and the reason `deleteSchiedsrichterAction` is allowed to be soft.
+ *
+ * The endpoint clears `inactive_since` and refuses nothing: the rule that guards the retirement is about
+ * fixtures they are still assigned to, and a referee coming back carries none. A missing id answers 404,
+ * which `toActionErrorResult` already turns into its own sentence.
+ *
+ * `schiedsrichter` alone, exactly as the retirement invalidates. `patchSchiedsrichterAction` adds
+ * `spiele` because a rename fans into every match embedding it; this write moves only `inactive_since`,
+ * which no match document carries.
+ */
+export async function reactivateSchiedsrichterAction(
+  rawPayload: FLSchiedsrichterKeyPayload,
+): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+  return runAdminMutation("reactivateSchiedsrichterAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLSchiedsrichterKeyPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return {
+        success: false,
+        error: VALIDATION_FAILED,
+        fieldErrors: toFieldErrors(validated.error),
+      };
+    }
+
+    const reactivateOperation = await reactivateSchiedsrichter(validated.data);
+    if (!reactivateOperation.acknowledged) {
+      return { success: false, error: "Beim Reaktivieren des Schiedsrichters ist ein unerwarteter Fehler aufgetreten" };
+    }
+
+    updateTag("schiedsrichter");
+
+    return {
+      success: Boolean(reactivateOperation.acknowledged),
+      updated_document: reactivateOperation.updated_document,
+      message: "Schiedsrichter reaktiviert.",
     };
   });
 }

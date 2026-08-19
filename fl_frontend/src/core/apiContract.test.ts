@@ -44,10 +44,6 @@ const NAME_ALIASES: Record<string, string> = {
   CheckIsLiveResponse: "CheckIsLiveReturn",
   CheckIsReadyResponse: "CheckIsReadyReturn",
   SystemInfoResponse: "GetSystemInfoReturn",
-  // One backend response serves DELETE and reactivate both; the frontend only calls DELETE and names
-  // its mirror after the action.
-  FLSchiedsrichterWriteResponse: "FLDeleteSchiedsrichterResponse",
-  FLSpielortWriteResponse: "FLDeleteSpielortResponse",
 
   // The backend keeps a separate model for STORED documents, and only
   // `FLSpielJoined` reaches the wire. The frontend parses no stored document, so
@@ -125,8 +121,6 @@ const FRONTEND_ONLY: Record<string, string> = {
   // A DELETE carries its id in the path and has no request body, so these describe the server action's
   // own argument rather than anything on the wire. The reactivate POST is the same shape: an id in
   // the path, an empty body.
-  FLDeleteSchiedsrichterPayload: "a DELETE takes its id from the path and has no request body",
-  FLDeleteSpielortPayload: "a DELETE takes its id from the path and has no request body",
   FLDeleteTeamPayload: "a DELETE takes its id from the path and has no request body",
   FLDeleteSpielerPayload: "a DELETE takes its id from the path and has no request body",
   FLReactivateTeamPayload: "the reactivate POST takes its id from the path and has no request body",
@@ -140,6 +134,9 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLActivateSaisonPayload: "the activate POST takes its id from the path and has no request body",
   // The matchday's DELETE and reactivate share one key shape, for the junction's reason.
   FLSpieltagKeyPayload: "the matchday's DELETE and reactivate take the id from the path, with no request body",
+  // The venue's and the referee's pair, for the same reason.
+  FLSchiedsrichterKeyPayload: "the referee's DELETE and reactivate take the id from the path, with no request body",
+  FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
   // One form creates the club AND enters it into a season — a club without a junction row would be
   // invisible to every season-scoped read (backend spec I11) — so the argument spans two bodies.

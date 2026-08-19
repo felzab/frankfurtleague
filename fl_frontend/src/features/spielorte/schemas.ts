@@ -32,10 +32,11 @@ export const FLPatchSpielortPayloadSchema = z.object({
 });
 export type FLPatchSpielortPayload = z.infer<typeof FLPatchSpielortPayloadSchema>;
 
-export const FLDeleteSpielortPayloadSchema = z.object({
+/** The retire and reactivate calls: an id in the path, no request body. */
+export const FLSpielortKeyPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
 });
-export type FLDeleteSpielortPayload = z.infer<typeof FLDeleteSpielortPayloadSchema>;
+export type FLSpielortKeyPayload = z.infer<typeof FLSpielortKeyPayloadSchema>;
 
 export const FLSpielortSchema = z.object({
   id: CustomObjectIdStringSchema,
@@ -65,7 +66,8 @@ export const FLPatchSpielortResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLPatchSpielortResponse = z.infer<typeof FLPatchSpielortResponseSchema>;
 
-export const FLDeleteSpielortResponseSchema = BaseAPIResponseSchema.extend({
+/** What the retire and the reactivate both echo: the backend serves one model for the pair. */
+export const FLSpielortWriteResponseSchema = BaseAPIResponseSchema.extend({
   updated_document: FLSpielortSchema,
 });
-export type FLDeleteSpielortResponse = z.infer<typeof FLDeleteSpielortResponseSchema>;
+export type FLSpielortWriteResponse = z.infer<typeof FLSpielortWriteResponseSchema>;

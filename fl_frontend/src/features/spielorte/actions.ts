@@ -8,7 +8,8 @@
  * Invariants:
  * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the toast.
  * - The patch invalidates `spiele` too: a venue rename fans into every match embedding it.
- * - Delete is a soft delete server-side — the action is named `delete…` but nothing is removed.
+ * - Delete is a soft delete server-side — the action is named `delete…` but nothing is removed, and
+ *   `reactivateSpielortAction` is the way back out of it.
  * - Errors come back as `FormState` with German field-level messages, never exceptions.
  *
  * See:
@@ -21,11 +22,11 @@ import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { deleteSpielort, patchSpielort, postSpielort } from "./mutations";
-import { FLDeleteSpielortPayloadSchema, FLPatchSpielortPayloadSchema, FLPostSpielortPayloadSchema } from "./schemas";
+import { deleteSpielort, patchSpielort, postSpielort, reactivateSpielort } from "./mutations";
+import { FLPatchSpielortPayloadSchema, FLPostSpielortPayloadSchema, FLSpielortKeyPayloadSchema } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLDeleteSpielortPayload, FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielort } from "./schemas";
+import type { FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielort, FLSpielortKeyPayload } from "./schemas";
 
 /**
  * The retirement refusal (`REQ-RETIRE-003`), or `null` when the 409 is something else.
@@ -109,14 +110,14 @@ export async function patchSpielortAction(
 }
 
 export async function deleteSpielortAction(
-  rawPayload: FLDeleteSpielortPayload,
+  rawPayload: FLSpielortKeyPayload,
 ): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("deleteSpielortAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
     }
 
-    const validated = FLDeleteSpielortPayloadSchema.safeParse(rawPayload);
+    const validated = FLSpielortKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return {
@@ -147,6 +148,50 @@ export async function deleteSpielortAction(
       success: Boolean(patchOperation.acknowledged),
       updated_document: patchOperation.updated_document,
       message: "Spielort stillgelegt. Seine Spiele bleiben erhalten.",
+    };
+  });
+}
+
+/**
+ * The way back from a retirement, and the reason `deleteSpielortAction` is allowed to be soft.
+ *
+ * The endpoint clears `inactive_since` and refuses nothing: the fixture rules that guard the retirement
+ * are about matches still booked here, and a venue coming back takes none with it. A missing id answers
+ * 404, which `toActionErrorResult` already turns into its own sentence.
+ *
+ * `spielorte` alone, exactly as the retirement invalidates. `patchSpielortAction` adds `spiele` because
+ * a rename fans into every match embedding it; this write moves only `inactive_since`, which no match
+ * document carries.
+ */
+export async function reactivateSpielortAction(
+  rawPayload: FLSpielortKeyPayload,
+): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+  return runAdminMutation("reactivateSpielortAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLSpielortKeyPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return {
+        success: false,
+        error: VALIDATION_FAILED,
+        fieldErrors: toFieldErrors(validated.error),
+      };
+    }
+
+    const reactivateOperation = await reactivateSpielort(validated.data);
+    if (!reactivateOperation.acknowledged) {
+      return { success: false, error: "Beim Reaktivieren des Spielorts ist ein unerwarteter Fehler aufgetreten" };
+    }
+
+    updateTag("spielorte");
+
+    return {
+      success: Boolean(reactivateOperation.acknowledged),
+      updated_document: reactivateOperation.updated_document,
+      message: "Spielort reaktiviert.",
     };
   });
 }
