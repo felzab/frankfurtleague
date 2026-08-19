@@ -6,28 +6,13 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
-from fastapi import FastAPI
 from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 from pymongo.database import Database
 
-from app.core.config import BackendConfig
-from app.main import create_app
-from tests.config import build_test_config
-
 # testcontainers' reaper teardown logs after pytest closes its capture stream, printing a traceback on
 # a passing run. Not `raiseExceptions = False`: that would hide real handler failures too.
 logging.getLogger("urllib3").setLevel(logging.INFO)
-
-
-@pytest.fixture(scope="session")
-def test_config() -> BackendConfig:
-    return build_test_config()
-
-
-@pytest.fixture(scope="session")
-def app(test_config: BackendConfig) -> FastAPI:
-    return create_app(test_config)
 
 
 # Fixed rather than generated: a failing test points at the same value every run.
