@@ -23,7 +23,7 @@ const EMPTY_DRAFT_BASE = {
   position: null,
   stufe: null,
   // A new entry is never the captain: that is a decision about an existing squad, made on the
-  // player's own page once they are in one.
+  // player's own page once they are in one. Hardcoded, so no input renders it and no refusal names it.
   is_captain: false,
 } as const;
 
@@ -56,6 +56,8 @@ export function AdminCreateSpielerForm({
       initialDraft={{
         ...EMPTY_DRAFT_BASE,
         saison_id: defaultSaisonId,
+        // Derived from the chosen season's status, never asked — so it too is a path with no input and
+        // no refusal to land, and the note under the fields is what tells the admin what was decided.
         is_nachgetragen: saisonOptions.find((option) => option.saisonId === defaultSaisonId)?.isNachgetragen ?? false,
       }}
       renderFields={(draft, setDraft) => {

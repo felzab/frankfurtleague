@@ -21,7 +21,8 @@ import type { FLSpielorteFilterParams } from "./types";
 export async function getSpielorte(filters: FLSpielorteFilterParams = {}): Promise<FLSpielorteListResponse> {
   "use cache";
 
-  // Base tag only. The spielorte actions already invalidate this tag on every write.
+  // Base tag only: every venue write clears the whole list, and `include_inactive` splits this into
+  // two entries under one tag rather than into two things to invalidate (ADR-0001).
   cacheTag("spielorte");
   cacheLife("days");
 

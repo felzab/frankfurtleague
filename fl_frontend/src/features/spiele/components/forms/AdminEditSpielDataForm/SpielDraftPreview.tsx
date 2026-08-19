@@ -6,7 +6,7 @@ import { computeSpielStatus, formatQuelle, formatSpielDisplay } from "../../../u
 import { SaisonPhaseChip } from "../../ui/SaisonPhaseChip";
 import { SpielStatusChip } from "../../ui/SpielStatusChip";
 
-import type { FLSpielWithStoredSides } from "@/features/spiele/schemas";
+import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
 
 /**
  * The fixture as it will read once saved.
@@ -39,7 +39,7 @@ export function SpielDraftPreview({
   isDirty,
 }: {
   /** The fixture as it will stand once saved, from `applyDraftToSpiel`. */
-  previewSpiel: FLSpielWithStoredSides;
+  previewSpiel: FLSpielWithDraftFields;
   today: string;
   isDirty: boolean;
 }) {

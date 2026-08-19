@@ -34,7 +34,11 @@ export function TeamSelect({
   teams: readonly SpielerTeamOption[];
   /** The field's path in the enclosing payload, so `Form`'s `validationErrors` reach it by name. */
   name?: string;
-  /** The message for a caller without a `<Form>` context — the same split as `GruppeSelect`. */
+  /**
+   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `name`.
+   * For a caller with no `<Form>` above it, and for one whose write is not the form's — the squad
+   * editor's entry control fires its own action and keeps its refusal out of the save bar's map.
+   */
   error?: string;
   /** Off for the caller whose label is a marker-carrying `SpielerFieldLabel` rendered outside. */
   withOwnLabel?: boolean;

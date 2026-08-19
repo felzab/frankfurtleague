@@ -5,6 +5,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
+import { isLevelKnockout } from "../../../draftStatus";
 import { formatQuelle } from "../../../utils";
 import { FieldLabel } from "./FieldLabel";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
@@ -85,6 +86,11 @@ export function FormErgebnisSection({
       // no goals to restore, and reading `.tore` off it would be reading off nothing.
       if (team1Payload) onTeam1Change({ ...team1Payload, tore: spielData.team1?.tore ?? null });
       if (team2Payload) onTeam2Change({ ...team2Payload, tore: spielData.team2?.tore ?? null });
+
+      // The shoot-out is part of the result this switch puts back, and the one route out of the fields
+      // `isLevelKnockout` cannot see: restoring level goals leaves it true while the inputs unmount,
+      // so a half-entered record would go on blocking the save.
+      onElfmeterschiessenChange(spielData.elfmeterschiessen);
     }
   };
 
@@ -95,14 +101,10 @@ export function FormErgebnisSection({
     if (payload) onChange({ ...payload, tore: isNaN(val) ? null : val });
   };
 
-  // A shoot-out settles a KNOCKOUT fixture that finished LEVEL, so the section below appears on exactly
-  // that shape and on no other.
-  const isLevelKnockout =
-    spielData.saison_phase !== "gruppenphase" &&
-    ergebnisIsEditable &&
-    team1Payload.tore !== null &&
-    team2Payload.tore !== null &&
-    team1Payload.tore === team2Payload.tore;
+  // Offered on the shape that can hold a shoot-out, and only while the result is open for editing.
+  // The shape is `isLevelKnockout`'s, shared with the draft that retracts the record, so the two
+  // cannot disagree (`docs/frontend/spec.md` I33).
+  const offersElfmeterschiessen = ergebnisIsEditable && isLevelKnockout(spielData.saison_phase, team1Payload, team2Payload);
 
   const handleElfmeterschiessenToggle = (isSelected: boolean) => {
     // `null` on the way out, and both counts empty on the way in. An admin turning the switch off has
@@ -215,7 +217,7 @@ export function FormErgebnisSection({
           ))}
         </div>
 
-        {isLevelKnockout && (
+        {offersElfmeterschiessen && (
           <div className="flex w-full flex-col gap-y-4">
             <Separator className="bg-border" />
 

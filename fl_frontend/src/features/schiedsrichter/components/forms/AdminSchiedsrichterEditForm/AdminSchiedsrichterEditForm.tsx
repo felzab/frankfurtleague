@@ -12,8 +12,7 @@ import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal"
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
-import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -72,10 +71,14 @@ async function postSchiedsrichterUndo(payload: FLPatchSchiedsrichterPayload): Pr
  */
 export function AdminSchiedsrichterEditForm({
   schiedsrichter,
+  isRetired,
   registerRequestLeave,
   pageHeader,
 }: {
   schiedsrichter: { id: string; name: string; schule: string | null; kontakt: FLKontakt; default_payment: number };
+  /** Retirement is a fact about the row rather than a field this form commits, so it arrives beside
+   * the values rather than inside them (ADR-0025). */
+  isRetired: boolean;
   registerRequestLeave?: (requestLeave: () => void) => void;
   pageHeader?: ReactNode;
 }) {
@@ -92,18 +95,16 @@ export function AdminSchiedsrichterEditForm({
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
-  const {
-    fieldErrors: serverFieldErrors,
-    setFieldErrors,
-    formRef,
-  } = useServerFieldErrors(() =>
-    appToast.danger("Speichern fehlgeschlagen", {
-      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-    }),
-  );
+  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+    schemas: { schiedsrichter: FLPatchSchiedsrichterPayloadSchema },
+    onUnhandledErrors: () =>
+      appToast.danger("Speichern fehlgeschlagen", {
+        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
+      }),
+  });
 
-  const validation = useDraftValidation(FLPatchSchiedsrichterPayloadSchema);
-
+  // `id` is the loaded record's own, already parsed, and the wire carries it in the path — so no
+  // refusal can name it and no input renders it.
   const buildPayload = (): FLPatchSchiedsrichterPayload => ({
     id: schiedsrichter.id,
     name,
@@ -120,7 +121,6 @@ export function AdminSchiedsrichterEditForm({
     default_payment: schiedsrichter.default_payment,
   };
 
-  const fieldErrors = validation.mergedWith(serverFieldErrors);
   const status = deriveSchiedsrichterDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
@@ -148,16 +148,17 @@ export function AdminSchiedsrichterEditForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
-  const validateFields = (paths: readonly string[]) => validation.validatePaths(buildPayload(), paths);
+  const validateFields = (paths: readonly string[]) => validatePaths("schiedsrichter", buildPayload(), paths);
   // The picked-control variant — judged with the value that arrived in the event, because state has
   // not committed yet (see the match editor's `validateSelection`).
   const validatePicked = (paths: readonly string[], picked: { default_payment: number }) =>
-    validation.validatePaths({ ...buildPayload(), ...picked }, paths);
+    validatePaths("schiedsrichter", { ...buildPayload(), ...picked }, paths);
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
 
   /** Every Hinweis this draft raises — the rail's list and the panels' inline callouts alike. */
   const banners = buildSchiedsrichterBanners({
+    isRetired,
     isNameChanged: isChanged("name"),
     isPaymentChanged: isChanged("default_payment"),
     hasKontakt: kontakt.email !== null || kontakt.telefon !== null,
@@ -191,8 +192,7 @@ export function AdminSchiedsrichterEditForm({
     setKontakt(schiedsrichter.kontakt);
     setDefaultPayment(schiedsrichter.default_payment);
 
-    setFieldErrors({});
-    validation.clearVerdicts();
+    setSubmitFieldErrors({}, {});
   };
 
   const discardAndLeave = () => {
@@ -233,15 +233,15 @@ export function AdminSchiedsrichterEditForm({
       // rewrites the referee's name inside every match that already names them.
       const renameTouched = isChanged("name");
 
-      const res = await patchSchiedsrichterAction(buildPayload());
+      const payload = buildPayload();
+      const res = await patchSchiedsrichterAction(payload);
       if (!res.success) {
-        setFieldErrors(res.fieldErrors ?? {});
+        setSubmitFieldErrors(res.fieldErrors ?? {}, { schiedsrichter: payload });
         appToast.danger("Speichern fehlgeschlagen", { description: res.error ?? "Die Schiedsrichterdaten konnten nicht gespeichert werden." });
         return;
       }
 
-      setFieldErrors({});
-      validation.clearVerdicts();
+      setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
       offerUndo(undoPayload, renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined);

@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `9701106`, 2026-08-13\
+**Verified against:** `4b8e5166`, 2026-08-19\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -47,22 +47,23 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 
 | #   | ID     | Item                                                    | Surfaces    | Effort | Status   | Depends on |
 | --- | ------ | ------------------------------------------------------- | ----------- | ------ | -------- | ---------- |
-| 1   | OPS-56 | The git stepper reads one `git`, on one line            | Ops         | S      | Open     | —          |
-| 2   | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops         | S      | Open     | —          |
-| 3   | OPS-62 | A pin bump arms every page citing the workflow          | Ops, Docs   | S      | Open     | —          |
-| 4   | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs   | S      | Open     | —          |
-| 5   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
-| 6   | OPS-63 | A comment claims two files hold one pattern, unchecked  | FE, BE, Ops | S      | Open     | —          |
-| 7   | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops         | M      | Open     | —          |
-| 8   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
-| 9   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
-| 10  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops     | S      | Open     | —          |
-| 11  | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
-| 12  | DOC-8  | A later decision falsifies a fact an earlier ADR states | Docs        | —      | Standing | —          |
-| 13  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
-| 14  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
-| 15  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
-| 16  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
+| 1   | OPS-64 | The whole API is on the internet, behind static keys    | Ops, Docs   | S      | Open     | —          |
+| 2   | OPS-56 | The git stepper reads one `git`, on one line            | Ops         | S      | Open     | —          |
+| 3   | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops         | S      | Open     | —          |
+| 4   | OPS-62 | A pin bump arms every page citing the workflow          | Ops, Docs   | S      | Open     | —          |
+| 5   | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs   | S      | Open     | —          |
+| 6   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
+| 7   | OPS-63 | A comment claims two files hold one pattern, unchecked  | FE, BE, Ops | S      | Open     | —          |
+| 8   | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops         | M      | Open     | —          |
+| 9   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
+| 10  | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
+| 11  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops     | S      | Open     | —          |
+| 12  | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
+| 13  | DOC-8  | A later decision falsifies a fact an earlier ADR states | Docs        | —      | Standing | —          |
+| 14  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
+| 15  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
+| 16  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
+| 17  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -72,7 +73,101 @@ own `Path` line.
 
 ## The items in rank order
 
-### 1 · OPS-56 — The git subcommand stepper reads one `git`, on one line
+### 1 · OPS-64 — The whole API is on the internet, and the invariant one file away says it is not
+
+**Status:** Open\
+**Surfaces:** Ops, Docs\
+**Effort:** S\
+**Path:** Independent of every entry here, and **not startable by a session**: two values in `.env`
+decide whether the candidate below is safe or fatal, and `.claude/CLAUDE.md` §1 puts that file beyond
+reading. I confirm both first. Its own branch, and a watched deploy — the last paragraph says why.
+
+**`nginx/prod.conf` carries `location /api { proxy_pass http://backend:8000; }`, and nothing narrows
+it.** No `allow`, no `deny` and no `internal` appears anywhere in that file. `docker-compose.yml`
+publishes ports on nginx alone — neither application service carries a `ports:` entry, and that
+file's own header states the invariant in terms: only nginx publishes ports, the applications are
+reachable solely from inside `frankfurtleague-net`, and "anything nginx does not route simply does
+not exist for the internet". Both halves are true at once, and they do not agree. **The block is the
+one thing standing between the intended architecture and the deployed one.**
+
+**What it reaches is the whole versioned API, not the read half of it.** `fl_backend/app/main.py`
+mounts `READ_ROUTERS` and `WRITE_ROUTERS` under the same `/api/v{API_VERSION}/` prefix, so a prefix
+match on `/api` takes both. The reads guard at router level with
+`fl_backend/app/core/security.py :: verify_access_base`; every mutation router guards with
+`:: verify_access_admin`, `fl_backend/app/api/schiedsrichter/admin_router.py` being the shape they
+share; `:: verify_access_system` covers `/system/is_ready` and `/system/info`. Each is one static
+shared bearer compared with `secrets.compare_digest`, and all three sit on the public side of this
+block. So the exposed surface is every endpoint the service has, **the ones that write included**,
+and what separates the internet from them is a shared secret rather than a route that does not exist.
+
+**Nothing the site does needs the block.** `API_URL` is declared in the `server` half of
+`fl_frontend/src/core/config.ts :: frontend_config`, whose `client` object is empty, and
+`fl_frontend/src/core/api.ts` opens with `import "server-only"` — so no browser is given the URL and
+no bundle is given a key. `docker-compose.local.yml` sets `API_URL=http://backend:8000`, the Docker
+network name, which is a call that never leaves the network. The three more specific blocks above it
+— `= /api/client-error`, `/api/admin/` and `/api/auth` — proxy to Next rather than to FastAPI and are
+public by design ([ADR-0049](../_decisions/0049-every-page-owned-editors-undo-is-a-route-handler.md),
+[`docs/logging/spec.md`](../logging/spec.md)); a prefix match keeps them ahead of this one, and none
+of them is what this entry is about.
+
+**The sharpest consequence is that one key covers data of two different kinds.**
+`fl_backend/app/api/schiedsrichter/schemas.py` carries `kontakt: FLKontakt` — an email address and a
+telephone number — on a referee, and no public page renders it. It sits behind `verify_access_base`,
+the same key as the fixtures and the league table every visitor is already shown. **The base key is
+over-scoped**, and this block is what makes that matter: a key that protects nothing across most of
+its surface is a key nobody handles as though it protects anything.
+
+**The candidate fix is deleting that one block**, after which the backend has no route from the
+internet and the keys become defence in depth rather than the only control. It stays a candidate
+rather than a plan for the two reasons that follow, and the first of them is the larger.
+
+**What stops it being a one-line deletion is that a documented remedy uses the block.**
+[`docs/ops/spec.md`](../ops/spec.md) §3 answers the symptom "Uptime monitor shows green during a
+backend outage" with "Monitor `GET /api/v0/system/is_live` through the edge instead" — and _through
+the edge_ is this block. That path is deliberately unguarded:
+`fl_backend/app/api/system/router.py` mounts at `/api/v{API_VERSION}/system` and `:: check_is_live`
+declares no dependency, because the container healthcheck in `docker-compose.yml` calls it and a
+liveness probe must not fail for a reason a restart cannot fix. **So the deletion removes an
+operational recommendation, and CUR-2 makes settling that part of the same commit.** Two answers,
+neither obviously right:
+
+- **Drop the remedy** from `docs/ops/spec.md` §3. Then the only monitor available watches the edge's
+  own status, which returns 200 while the backend is down — the exact failure that section exists to
+  explain, restored by the change that closes the exposure.
+- **Keep it, with an exact `location = /api/v0/system/is_live` block** ahead of the deletion. Then
+  one endpoint stays public, chosen because it answers without a key and touches no database — and
+  the version is pinned into `nginx/prod.conf` by hand, a third place after
+  `fl_backend/app/core/config.py :: API_VERSION` and the healthcheck in `docker-compose.yml`, where
+  §4 of that spec already records the hardcoded `/api/v0/` as open.
+
+**This is the decision the entry is asking for**, and it is the larger half of the work: what the
+site is willing to answer from the internet without a key, and what watches the backend once the
+route it is watched through is gone.
+
+**Two values decide whether the deletion is safe, and no session may read either.** Both live in
+`.env`, which `.claude/CLAUDE.md` §1 puts off-limits to reading, summarising and every indirect route
+alike — so this cannot be discharged from inside a session at any point, and **I confirm both before
+the work starts**:
+
+- **`API_URL`**, read by `fl_frontend/src/core/config.ts :: frontend_config`. The candidate holds
+  only if production sets it to the internal `http://backend:8000`, the way
+  `docker-compose.local.yml` does. If it is the public hostname instead, then every server-side read
+  leaves the network and comes back through nginx, and deleting the block takes the site down.
+- **`api_trusted_hosts`**, read by `fl_backend/app/core/config.py :: BackendConfig` and handed to
+  `TrustedHostMiddleware` in `fl_backend/app/main.py`. nginx forwards `Host: $http_host`, so a
+  request arriving through this block carries the public hostname while the frontend's own calls
+  carry `backend:8000`. Whether that list holds the public hostname decides whether the exposed route
+  answers at all today — the difference between an open hole and one already shut by a setting
+  nothing records as the control.
+
+**How it has to be worked, whichever way the design question goes.** It is an ops change, so the gate
+is the full form with the images built ([`docs/ops/spec.md`](../ops/spec.md) §1.6). And an nginx
+fault is not the class that fails a test: the config is mounted read-only, nginx waits on both
+upstreams being healthy before it serves anything, and a bad block takes the site down rather than
+turning something red. Its own branch, and `./scripts/deploy.sh --status` either side of a deploy
+somebody is watching.
+
+### 2 · OPS-56 — The git subcommand stepper reads one `git`, on one line
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -153,7 +248,7 @@ that matrix twice for one line of code**, which is why they are one entry.
 distinction to hold on to is that the subcommand table here is complete and the stepper never
 reaches it, which is the opposite of a guard whose vocabulary is genuinely short of a shape.
 
-### 2 · OPS-61 — The commit hook builds its scratch at a path git cannot open
+### 3 · OPS-61 — The commit hook builds its scratch at a path git cannot open
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -187,7 +282,7 @@ spells the pool's own shell and how `scripts/selfcheck.sh` builds its container 
 that hands a POSIX-looking path to a Windows binary owes the same resolution, so it is worth deciding
 whether they should share one helper rather than a spelling each.
 
-### 3 · OPS-62 — A version pin bump arms every stamped page citing that workflow
+### 4 · OPS-62 — A version pin bump arms every stamped page citing that workflow
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -226,7 +321,7 @@ also what keeps a human's identical bump answerable by the same rule.
 describes while touching only the pin line. That is the same risk ADR-0059 already accepted, and it
 belongs to the review of the version bump rather than to a stamp on an unrelated page.
 
-### 4 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
+### 5 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -287,7 +382,7 @@ advisory over three lines**. The reason is structural rather than lucky — COR-
 `check_comment_length` all read `branch_additions`, so they cannot fire on a line no branch added,
 and the over-length block named above surfaces only when somebody rewrites it.
 
-### 5 · OPS-11 — The local-compose guard cannot tell an invocation from a mention
+### 6 · OPS-11 — The local-compose guard cannot tell an invocation from a mention
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -317,7 +412,7 @@ separator, allowing a leading `sudo` or an environment assignment — still refu
 and `scripts/selfcheck.sh` asserts each. It already drives this hook for a bare invocation, for the
 local file named, and for a command that is not compose at all, so the probes have a home.
 
-### 6 · OPS-63 — A comment claims two files hold the same pattern, and nothing holds them to it
+### 7 · OPS-63 — A comment claims two files hold the same pattern, and nothing holds them to it
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -362,7 +457,7 @@ would make a recurrence invisible.
 - **Generate one end from the other.** Refused for the mirror as a whole (ADR-0033), and refusing it
   for one constant is the same argument at a smaller scale.
 
-### 7 · OPS-60 — The gate's wall clock is one scope, and that scope runs serially
+### 8 · OPS-60 — The gate's wall clock is one scope, and that scope runs serially
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -398,7 +493,7 @@ about 60s, at which point `frontend` at 57s becomes the new floor and the next l
 build`. **OPS-19's linter cache buys nothing on wall clock** — it targets `format` at 45s, which is
 already hidden inside `scripts`.
 
-### 8 · OPS-12 — Nothing checks a generated file against the generator that owns it
+### 9 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -434,7 +529,7 @@ the formatter has run over each side so the comparison is about content rather t
 and fails where it differs from the committed one, and the images are left to review with that
 exclusion written down rather than assumed.
 
-### 9 · DOC-2 — An enforcement claim is resolved in one direction only
+### 10 · DOC-2 — An enforcement claim is resolved in one direction only
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -466,7 +561,7 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 10 · OPS-19 — Both repository-wide linters re-read every file on every run
+### 11 · OPS-19 — Both repository-wide linters re-read every file on every run
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -541,7 +636,7 @@ that same sixteen-core machine on 2026-08-12. That is not the CI figure and must
 a standard GitHub-hosted runner has four cores, where worker startup and plugin loading can spend the
 whole win, so the flag is kept only if three CI runs beat the recorded baseline.
 
-### 11 · OPS-10 — Deciding whether a change is comments only costs a process per file
+### 12 · OPS-10 — Deciding whether a change is comments only costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -571,7 +666,7 @@ spawning it replaced.
 **Not measured:** what the spawns actually cost, and how much of a gate run is attributable to them.
 The mechanism above is read from the code; the magnitude is not.
 
-### 12 · DOC-8 — A later decision can falsify a fact an earlier ADR states, and nothing links the two
+### 13 · DOC-8 — A later decision can falsify a fact an earlier ADR states, and nothing links the two
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -609,7 +704,7 @@ have to be written into the decisions chapter rather than practised ad hoc.
 **Trigger to revisit:** a second ADR found stating a fact a later one falsified, or any change to
 what DEC-6's two lines carry.
 
-### 13 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 14 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -648,7 +743,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 14 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 15 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -693,7 +788,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 15 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 16 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -727,7 +822,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a chapter added to the standard under a prefix the patterns do not carry, or
 the first page that needs a metadata block indented.
 
-### 16 · DOC-4 — A stamp is required by a path and owed by a claim
+### 17 · DOC-4 — A stamp is required by a path and owed by a claim
 
 **Status:** Standing\
 **Surfaces:** Docs\

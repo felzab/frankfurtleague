@@ -14,7 +14,7 @@ import { RailSection } from "@/shared/components/ui/RailSection";
 import { useDraftStatus } from "./DraftStatusContext";
 import { SpielDraftPreview } from "./SpielDraftPreview";
 
-import type { FLSpielWithStoredSides } from "@/features/spiele/schemas";
+import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
 import type { SpielBanner } from "./banners";
 
 /**
@@ -39,7 +39,7 @@ export function DraftRail({
   banners,
 }: {
   /** The fixture as it will stand once saved, from `applyDraftToSpiel`. */
-  previewSpiel: FLSpielWithStoredSides;
+  previewSpiel: FLSpielWithDraftFields;
   today: string;
   /** Every Hinweis the draft raises, from `buildSpielBanners` — the same list the panels read. */
   banners: readonly SpielBanner[];

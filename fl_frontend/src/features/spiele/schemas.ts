@@ -39,7 +39,7 @@ export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;
  */
 export const FLSpielTeamFieldSchema = z.object({
   team_id: CustomObjectIdStringSchema,
-  name: z.string(),
+  name: z.string().nonempty(),
   tore: z.int().nonnegative().nullable(),
   shorthand: z.string().length(2),
 });
@@ -205,8 +205,8 @@ export type FLSpiel = z.infer<typeof FLSpielSchema>;
  * A fixture read for what the DOCUMENT holds — its two sides narrowed to the stored shape.
  *
  * No schema, because nothing parses this: it is what an `FLSpiel` looks like to code that reads only
- * stored fields, and what an editor's draft produces before a save. An `FLSpiel` satisfies it, so a
- * rule declared against it serves both a loaded fixture and a drafted one without a second copy.
+ * stored fields. An `FLSpiel` satisfies it, so a rule declared against it serves both a loaded
+ * fixture and a drafted one without a second copy.
  *
  * Use it wherever a joined `disqualifikation` is neither read nor available. Asking for the joined
  * side there would force a caller to invent one, and an invented disqualification is a wrong answer
@@ -215,6 +215,20 @@ export type FLSpiel = z.infer<typeof FLSpielSchema>;
 export type FLSpielWithStoredSides = Omit<FLSpiel, "team1" | "team2"> & {
   team1: FLSpielTeamField | null;
   team2: FLSpielTeamField | null;
+};
+
+/**
+ * The fixture an editor's draft produces before a save — stored sides, and the two money fields still
+ * allowed to stand empty.
+ *
+ * The read type's counterpart to `FLPatchSpielDataPayloadDraft`, and it exists for the same reason: a
+ * Mietpreis or an Entschädigung the admin has cleared is `null` while they type, and declaring
+ * otherwise takes a cast that type-checks while the value travels (`docs/frontend/spec.md` I33).
+ * `FLSpielWithStoredSides` satisfies it, so a rule declared against this serves a loaded fixture too.
+ */
+export type FLSpielWithDraftFields = Omit<FLSpielWithStoredSides, "ort" | "schiedsrichter"> & {
+  ort: FLSpielOrtFieldDraft | null;
+  schiedsrichter: FLSpielSchiedsrichterFieldDraft | null;
 };
 
 export const FLSpieleListResponseSchema = BaseAPIResponseSchema.extend({
@@ -270,6 +284,23 @@ export const FLPatchSpielDataPayloadSchema = z.object({
 });
 
 export type FLPatchSpielDataPayload = z.infer<typeof FLPatchSpielDataPayloadSchema>;
+
+/**
+ * The patch payload as the editor DRAFTS it: every key the wire shape requires, with the fields an
+ * admin can leave empty mid-edit still allowed to be `null`.
+ *
+ * The type the match editor's `buildPayload` returns, and the reason it needs no cast. A cast there
+ * laundered `mietpreis`, `payment` and the two shoot-out counts into a shape that forbids `null`,
+ * which type-checked while the value travelled to the wire — so the class was invisible and a field
+ * with no rendered input blocked the save with a message nothing could display. Narrowing this onto
+ * `FLPatchSpielDataPayload` is what the schema is parsed for, and a field still empty comes back as a
+ * German message on its own path.
+ */
+export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayload, "ort" | "schiedsrichter" | "elfmeterschiessen"> & {
+  ort: FLSpielOrtFieldDraft | null;
+  schiedsrichter: FLSpielSchiedsrichterFieldDraft | null;
+  elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;
+};
 
 /**
  * One bracket slot whose group reference names a placing the standings will never hand it (ADR-0035).

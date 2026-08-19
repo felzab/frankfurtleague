@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `9701106`, 2026-08-13\
+**Verified against:** `65c7775b`, 2026-08-19\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -51,21 +51,18 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 
 ## The path at a glance
 
-| #   | ID    | Item                                                            | Surfaces        | Effort | Status   | Depends on |
-| --- | ----- | --------------------------------------------------------------- | --------------- | ------ | -------- | ---------- |
-| 1   | BE-15 | Nothing records who changed what, or what it replaced           | FE, BE, DB      | L      | Open     | —          |
-| 2   | BE-18 | Five permitted states the domain declaration does not name      | BE              | M      | Open     | —          |
-| 3   | FB-16 | Nothing announces that a season rollover is due                 | BE, Ops         | M      | Open     | —          |
-| 4   | FB-17 | Season setup is hand-run, and only an admin enters a squad      | FE, BE, DB, Ops | XL     | Open     | —          |
-| 5   | BE-17 | Every server-ordered name list sorts in byte order              | BE, FE          | M      | Open     | —          |
-| 6   | FE-15 | Vendored overlays enter at a scale the app's own set never uses | FE              | S      | Open     | —          |
-| 7   | FE-14 | The two loaders answer reduced motion in opposite directions    | FE              | S      | Open     | —          |
-| 8   | FE-16 | The filter hooks are mounted for machinery nobody reads         | FE              | S      | Open     | —          |
-| 9   | FE-1  | A fixture carries one date, not a play window                   | FE, BE          | XL     | Open     | —          |
-| 10  | LOG-2 | A cached read's call joins to no render                         | FE, BE, Ops     | L      | Open     | —          |
-| 11  | BE-12 | Nothing purges a row whose `inactive_since` is old              | BE, DB          | M      | Open     | —          |
-| 12  | BE-7  | `typing` imports instead of `collections.abc`                   | BE              | —      | Standing | —          |
-| 13  | BE-14 | The certainty walk gives up in a group of six or more           | BE              | —      | Standing | —          |
+| #   | ID    | Item                                                       | Surfaces        | Effort | Status   | Depends on |
+| --- | ----- | ---------------------------------------------------------- | --------------- | ------ | -------- | ---------- |
+| 1   | BE-15 | Nothing records who changed what, or what it replaced      | FE, BE, DB      | L      | Open     | —          |
+| 2   | BE-18 | Five permitted states the domain declaration does not name | BE              | M      | Open     | —          |
+| 3   | FB-16 | Nothing announces that a season rollover is due            | BE, Ops         | M      | Open     | —          |
+| 4   | FB-17 | Season setup is hand-run, and only an admin enters a squad | FE, BE, DB, Ops | XL     | Open     | —          |
+| 5   | BE-17 | Every server-ordered name list sorts in byte order         | BE, FE          | M      | Open     | —          |
+| 6   | FE-1  | A fixture carries one date, not a play window              | FE, BE          | XL     | Open     | —          |
+| 7   | LOG-2 | A cached read's call joins to no render                    | FE, BE, Ops     | L      | Open     | —          |
+| 8   | BE-12 | Nothing purges a row whose `inactive_since` is old         | BE, DB          | M      | Open     | —          |
+| 9   | BE-7  | `typing` imports instead of `collections.abc`              | BE              | —      | Standing | —          |
+| 10  | BE-14 | The certainty walk gives up in a group of six or more      | BE              | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -431,100 +428,7 @@ person notices first, because the two are one navigation apart.
 name-ordered pipeline or facet builder added meanwhile is another place to revisit, and the two ends
 are already inconsistent enough that a reader cannot tell which one is deliberate.
 
-### 6 · FE-15 — Vendored overlays enter at a scale the app's own motion set never uses
-
-**Status:** Open\
-**Surfaces:** FE\
-**Effort:** S\
-**Path:** Independent — [ADR-0013](../_decisions/0013-per-component-heroui-css.md) fixes where the
-vendored CSS is imported, so an app-side answer has a place to sit.
-
-**The app's arrival language carries no scale at all.** Every animation
-`fl_frontend/src/shared/components/ui/motion.ts` exports is a fade, with at most a lift, and nothing
-under `fl_frontend/src` spells a `zoom-in-*` class.
-
-**The installed HeroUI enters `popover`, `tooltip` and `dropdown` at a tenth under their size.** At
-`@heroui/styles` 3.2.4 each of those three vendored stylesheets applies `zoom-in-90` on its entering
-state, while the same package's `autocomplete`, `color-picker`, `combo-box`, `date-picker`,
-`date-range-picker` and `select` apply `zoom-in-95` — so the vendored set does not agree with itself
-either, and the widest of it is what `fl_frontend/src/app/globals.css` imports by name. Nothing
-app-side overrides them, so every popover, tooltip and menu on the site arrives with a gesture the
-app's own components never make.
-
-**What has to be decided is whether the app's motion language reaches vendored components at all** —
-matching them to the app, leaving them as the vendor ships them, or bringing only the three outliers
-into line with the vendor's own 95.
-
-**The change may be one rule rather than a sweep, and that is worth establishing before the work is
-scoped.** tw-animate-css reads its scale from the `--tw-enter-scale` custom property, which is
-exactly the lever `globals.css`'s reduced-motion block already pulls: it sets that property on `*`
-and turns every zoom entrance in the app, vendored ones included, into a plain fade. A rule after
-the three imports, on the same `[data-entering="true"]` selectors, is the cheap version of this
-entry. **Read from the vendored CSS and from the block that already uses the lever; not compiled** —
-so it is the first thing to try rather than a fact to build on.
-
-### 7 · FE-14 — The two loading indicators answer reduced motion in opposite directions
-
-**Status:** Open\
-**Surfaces:** FE\
-**Effort:** S\
-**Path:** Independent — the reduced-motion block in `fl_frontend/src/app/globals.css` is where the
-answer is recorded, and it already states the policy it would extend.
-
-**Both loaders are `role="status"`, and under `prefers-reduced-motion: reduce` one keeps moving and
-the other freezes.** `fl_frontend/src/shared/components/ui/ContentLoader.tsx` renders three
-`animate-loader-dot` spans under `aria-label="Inhalte werden geladen"`, and `globals.css`'s
-reduced-motion block lists `.animate-loader-dot` among the selectors it sets `animation: none
-!important` on. `fl_frontend/src/shared/components/ui/PageLoader.tsx` renders `animate-spin` inside
-an `animate-ping` halo, and the same block's comment exempts the spinner in terms — spinners are
-loading feedback rather than decoration. The halo does stop, so the reduced-motion page wait is the
-spinner alone, and the reduced-motion content wait is three static dots.
-
-**So the app tells a reduced-motion reader that a whole-page wait is in progress and says nothing
-about a content-area wait**, on two components that were deliberately given different shapes so the
-two waits are tellable apart.
-
-**It is a product call rather than a code one**, and there are two coherent answers: the dots are a
-readout, in which case they leave the block and keep moving for the reason the spinner does; or they
-are decoration, in which case `ContentLoader` needs a non-moving way to say it is waiting.
-
-**Whichever wins belongs at the block's own comment.** That comment already carries the policy in
-terms — "remove movement, keep fades" — and names the spinner exemption, so the third loading
-component the app grows would otherwise ask this same question from scratch.
-
-### 8 · FE-16 — The filter hooks are mounted for machinery their caller never reads
-
-**Status:** Open\
-**Surfaces:** FE\
-**Effort:** S\
-**Path:** Independent. Its stated window — the change that removed the losing filter concept — has
-passed, so it is now an ordinary standalone item.
-
-**One shape, in the two components every filtered surface is built from: a container takes a hook's
-whole machinery to read one of its outputs.**
-
-**`AdminCrudView` mounts the search hook to read a string.**
-`fl_frontend/src/shared/components/ui/AdminCrudView.tsx` calls `useDebouncedUrlQuery()` for
-`urlValue` alone. `fl_frontend/src/shared/hooks/useDebouncedUrlQuery.ts` mounts a `useState` seeded
-from that same URL value, a mirror effect, and the debounce `setTimeout` whose body opens by
-returning when the two are equal. On this mount nothing ever calls the setter, so they are always
-equal: the timer is scheduled and cleared on every render of every admin table and can never do
-anything. The input that gives the hook its purpose lives in `AdminCrudSearch`, which is the other
-mount of it.
-
-**`useUrlFilters(facets)` is called twice per filtered surface** — once by the view
-(`AdminCrudView`, `SpielsucheView`) and once by `FilterLeiste` inside it. The performance argument for
-fixing that is gone:
-`fl_frontend/src/shared/utils/facets.ts` memoises the read on a `WeakMap` keyed by the facet array,
-so the second call returns the first call's object. What is left is two subscribers to the same URL
-and two places a reader has to look to find where a selection came from.
-
-**The fix is the same on both halves — give the reader what it asked for and leave the writer where
-the control is** — and both sites are shared components, so it reaches every admin table and the
-Spielsuche at once. That is the argument for doing it deliberately in the commit that is already
-going to rewrite these files, rather than opportunistically in one that is not.
-
-### 9 · FE-1 — A fixture carries one date, and a play window cannot be expressed
+### 6 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -549,7 +453,7 @@ ausstehend/heute/vergangen ternary genuinely harder, and that ADR's intent (a fi
 window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives ADR-0058's definitions under ranges.
 
-### 10 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
+### 7 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -618,7 +522,7 @@ validated or replaced the same way.
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
 
-### 11 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+### 8 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -657,7 +561,7 @@ than rediscovered.
 ([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)), so neither can accumulate a
 row to purge.
 
-### 12 · BE-7 — `typing` imports instead of `collections.abc`
+### 9 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -670,7 +574,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 13 · BE-14 — The certainty walk gives up in a group of six or more
+### 10 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\

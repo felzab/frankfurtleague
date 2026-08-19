@@ -303,8 +303,9 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // Every refusal here is reachable and the panel already prevents each one — so each of these is the
-    // stale or raced page, and the message has to say what to do rather than only what went wrong.
+    // The first five mean the picture moved underneath a stale page -- `findSwapPartnerRefusal` and
+    // the panel already grade them. `REQ-SWAP-006` has no client counterpart and arrives on a current
+    // page, so its message names a repair instead of a reload.
     let swapOperation;
     try {
       swapOperation = await swapGruppen(validated.data);
@@ -339,6 +340,15 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
             success: false,
             error:
               "Durch den Tausch stünde eine Mannschaft zweimal an einem Spieltag. Verschiebe eines der beiden Spiele und lade die Seite neu.",
+          };
+        }
+        if (error.serverErrorCode === "REQ-SWAP-006") {
+          // ADR-0074 accepts this rule precisely because lifting the record is an open path, so the
+          // sentence names all three steps: an admin told only "no" has nothing left to try.
+          return {
+            success: false,
+            error:
+              "Durch den Tausch käme eine disqualifizierte Mannschaft auf Spiele, die nach ihrer Disqualifikation stattfinden können. Hebe die Disqualifikation auf, tausche die Gruppen und trage die Disqualifikation danach erneut ein.",
           };
         }
       }

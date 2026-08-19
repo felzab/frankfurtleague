@@ -11,15 +11,16 @@ import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal"
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
-import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
+import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielDataAction } from "../../../actions";
-import { applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
+import { applyDraftToSpiel, deriveSpielDraftStatus, isLevelKnockout } from "../../../draftStatus";
 import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
-import { buildUndoPayloads, collectKnockoutTeamIds, collectSpieltagTeamOccupancy, listDependentSpiele } from "../../../utils";
+import { buildUndoPayloads, collectKnockoutTeamIds, collectSpieltagTeamOccupancy, listDependentSpiele, toStoredSide } from "../../../utils";
 import { buildSpielBanners } from "./banners";
 import { DraftRail } from "./DraftRail";
 import { DraftStatusProvider } from "./DraftStatusContext";
@@ -35,13 +36,14 @@ import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
 import type {
   FLPatchSpielDataPayload,
+  FLPatchSpielDataPayloadDraft,
   FLSpiel,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
   FLSpielQuelle,
   FLSpielSchiedsrichterFieldDraft,
   FLSpielTeamField,
-  FLSpielWithStoredSides,
+  FLSpielWithDraftFields,
 } from "@/features/spiele/schemas";
 import type { ActionRequiredCategory } from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
@@ -152,7 +154,7 @@ export function AdminEditSpielDataForm({
    * draft rather than frozen at load. The rule itself stays in `admin`, which is what keeps `spiele`
    * from importing the aggregator to ask a question about a Spiel.
    */
-  categorize: (spiel: FLSpielWithStoredSides) => ReadonlySet<ActionRequiredCategory>;
+  categorize: (spiel: FLSpielWithDraftFields) => ReadonlySet<ActionRequiredCategory>;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -166,8 +168,10 @@ export function AdminEditSpielDataForm({
   const [datum, setDatum] = useState<CalendarDate | null>(spielData.datum ? parseDate(spielData.datum) : null);
   const [uhrzeit, setUhrzeit] = useState<Time | null>(spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null);
 
-  const [team1Payload, setTeam1Payload] = useState<FLSpielTeamField | null>(spielData.team1);
-  const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(spielData.team2);
+  // Narrowed rather than seeded whole: a read's side carries the season's `disqualifikation`, and a
+  // draft holding it writes the join back into the match document (ADR-0021 rule 4).
+  const [team1Payload, setTeam1Payload] = useState<FLSpielTeamField | null>(toStoredSide(spielData.team1));
+  const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(toStoredSide(spielData.team2));
 
   // Held beside the team rather than inside it: provenance survives the slot being filled, so the two
   // move independently (ADR-0034).
@@ -195,20 +199,21 @@ export function AdminEditSpielDataForm({
   // animates, and `router.back()` in the same tick freezes that exit on a tree the App Router keeps.
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
-  // See the note in `EntityForm`: catches a rejection on a payload path that has no input.
-  const {
-    fieldErrors: serverFieldErrors,
-    setFieldErrors,
-    formRef,
-  } = useServerFieldErrors(() =>
-    appToast.danger("Speichern fehlgeschlagen", {
-      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-    }),
-  );
-
   // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the message the
-  // server would have produced (ADR-0040).
-  const { validatePaths, clearVerdicts, mergedWith } = useDraftValidation(FLPatchSpielDataPayloadSchema);
+  // server would have produced (ADR-0040). `onUnhandledErrors` catches a rejection on a payload path
+  // that has no input -- see the note in `EntityForm`.
+  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+    schemas: { spiel: FLPatchSpielDataPayloadSchema },
+    onUnhandledErrors: () =>
+      appToast.danger("Speichern fehlgeschlagen", {
+        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
+      }),
+  });
+
+  // **The retraction, and it is derived rather than handled.** A shoot-out describes a knockout that
+  // finished level and nothing else (ADR-0036), so every route out of that shape drops the record
+  // here, where no handler added later can forget it.
+  const elfmeterschiessenInDraft = isLevelKnockout(spielData.saison_phase, team1Payload, team2Payload) ? elfmeterschiessen : null;
 
   const draft: FLSpielDraftFields = {
     datum: datum?.toString() ?? null,
@@ -221,20 +226,23 @@ export function AdminEditSpielDataForm({
     team2: team2Payload,
     team1_quelle: team1Quelle,
     team2_quelle: team2Quelle,
-    elfmeterschiessen,
+    elfmeterschiessen: elfmeterschiessenInDraft,
     is_canceled: spielIsCanceled,
     notiz,
   };
 
   // An empty picker is a legitimate answer, and it is how a bracket slot the group phase has not
   // filled yet is recorded (ADR-0034) — so both sides submit as they stand, `null` included.
-  const buildPayload = (): FLPatchSpielDataPayload => ({ ...draft, spiel_id: spielData.id }) as FLPatchSpielDataPayload;
+  //
+  // `spiel_id` is this fixture's own, already parsed, and `FLPatchSpielDataPayload` on the backend
+  // omits it entirely — the Request-URI names the match — so it is a path no refusal can name and no
+  // input renders.
+  const buildPayload = (): FLPatchSpielDataPayloadDraft => ({ ...draft, spiel_id: spielData.id });
 
   // The fixture as it will stand once saved. Built once and read by the preview, the categorisation
   // and the knockout-cancellation warning, so the three cannot disagree.
   const previewSpiel = applyDraftToSpiel(spielData, draft);
 
-  const fieldErrors = mergedWith(serverFieldErrors);
   const status = deriveSpielDraftStatus({ stored: spielData, draft, expectedCategories: categorize(previewSpiel), fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
@@ -303,7 +311,7 @@ export function AdminEditSpielDataForm({
     team2: team2Payload,
     team1_quelle: team1Quelle,
     team2_quelle: team2Quelle,
-    elfmeterschiessen,
+    elfmeterschiessen: elfmeterschiessenInDraft,
     is_canceled: spielIsCanceled,
   });
   const voidPreview = useVoidPreview({
@@ -348,13 +356,14 @@ export function AdminEditSpielDataForm({
    * fired when the field is left** — by then the value has committed to state and the current draft
    * is the draft.
    *
-   * Both of these write only to the client-side verdicts, never to the server's map, and that
-   * separation is load-bearing: `useServerFieldErrors` calls `reportValidity()` whenever its map
-   * changes, which moves focus to the first rejected field. That is correct after a submit and wrong
-   * on a blur — clearing a corrected field there would have thrown focus onto the next unfixed one
-   * while somebody was tabbing past it. `mergedWith` retracts the stale server message at render.
+   * Both of these write only to the client-side verdicts, never to the submit's map, and that
+   * separation is load-bearing: a change to the submit's map calls `reportValidity()`, which moves
+   * focus to the first rejected field. That is correct after a submit and wrong on a blur — clearing
+   * a corrected field there would have thrown focus onto the next unfixed one while somebody was
+   * tabbing past it. `useDraftFieldErrors` lays a verdict over a message only where the value the
+   * submit was refused on has since moved.
    */
-  const validateFields = (paths: readonly string[]) => validatePaths(buildPayload(), paths);
+  const validateFields = (paths: readonly string[]) => validatePaths("spiel", buildPayload(), paths);
 
   /**
    * The same judgement for a control the user PICKS from, where the value arrives with the event.
@@ -366,7 +375,7 @@ export function AdminEditSpielDataForm({
    * pick was judged against the `NaN` that switching the source type had left behind.
    */
   const validateSelection = (paths: readonly string[], selected: Partial<FLPatchSpielDataPayload>) =>
-    validatePaths({ ...buildPayload(), ...selected }, paths);
+    validatePaths("spiel", { ...buildPayload(), ...selected }, paths);
 
   /**
    * Where "leave" goes: back where there is a back, and the admin start page where there is none.
@@ -429,16 +438,15 @@ export function AdminEditSpielDataForm({
     setSchiedsrichterPayload(spielData.schiedsrichter);
     setDatum(spielData.datum ? parseDate(spielData.datum) : null);
     setUhrzeit(spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null);
-    setTeam1Payload(spielData.team1);
-    setTeam2Payload(spielData.team2);
+    setTeam1Payload(toStoredSide(spielData.team1));
+    setTeam2Payload(toStoredSide(spielData.team2));
     setTeam1Quelle(spielData.team1_quelle);
     setTeam2Quelle(spielData.team2_quelle);
     setElfmeterschiessen(spielData.elfmeterschiessen);
     setNotiz(spielData.notiz);
     setErgebnisCanBeEdited(false);
 
-    setFieldErrors({});
-    clearVerdicts();
+    setSubmitFieldErrors({}, {});
   };
 
   const discardAndLeave = () => {
@@ -465,8 +473,20 @@ export function AdminEditSpielDataForm({
   };
 
   const handleFormSubmit = () => {
+    // The one conversion from the draft's shape to the wire payload's, reached by both submit routes.
+    // A field still empty becomes a message on its own path here rather than a value cast onto a type
+    // that forbids it (`docs/frontend/spec.md` I33).
+    const payload = buildPayload();
+    const narrowed = FLPatchSpielDataPayloadSchema.safeParse(payload);
+    if (!narrowed.success) {
+      // The draft rather than `narrowed.data`: it is what a later blur hands `validatePaths`, so the
+      // two are comparable path by path without a parse standing between them.
+      setSubmitFieldErrors(toFieldErrors(narrowed.error), { spiel: payload });
+      return;
+    }
+
     startTransition(async () => {
-      const res = await patchAdminSpielDataAction(buildPayload(), spielData.saison_id);
+      const res = await patchAdminSpielDataAction(narrowed.data, spielData.saison_id);
 
       if (!res.success) {
         // An occupant refusal names a rule and the FORM knows which side broke it -- the code is the
@@ -474,7 +494,7 @@ export function AdminEditSpielDataForm({
         // message lands on the control the admin has to change.
         const occupantErrors = res.errorCode === undefined ? {} : placeOccupantRefusal(res.errorCode, res.error);
         const fieldErrorsFromServer = { ...(res.fieldErrors ?? {}), ...occupantErrors };
-        setFieldErrors(fieldErrorsFromServer);
+        setSubmitFieldErrors(fieldErrorsFromServer, { spiel: payload });
 
         // Only for failures no single field owns.
         if (!hasFieldErrors(fieldErrorsFromServer)) {
@@ -485,8 +505,7 @@ export function AdminEditSpielDataForm({
         return;
       }
 
-      setFieldErrors({});
-      clearVerdicts();
+      setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
       // The fixtures this save rewrote, put back from state only the client holds (ADR-0041). Built
@@ -703,7 +722,7 @@ export function AdminEditSpielDataForm({
                   onTeam2Change={setTeam2Payload}
                   team1Quelle={team1Quelle}
                   team2Quelle={team2Quelle}
-                  elfmeterschiessen={elfmeterschiessen}
+                  elfmeterschiessen={elfmeterschiessenInDraft}
                   onElfmeterschiessenChange={setElfmeterschiessen}
                   ergebnisCanBeEdited={ergebnisCanBeEdited}
                   onErgebnisCanBeEditedChange={setErgebnisCanBeEdited}

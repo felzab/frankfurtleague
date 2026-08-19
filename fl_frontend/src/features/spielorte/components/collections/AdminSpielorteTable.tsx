@@ -1,17 +1,19 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { Calendar, Globe, MapPin, Pencil } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
+import { reactivateSpielortAction } from "@/features/spielorte/actions";
+import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { RowActionCopy, RowActionDelete, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
-import { formatAddressFull, formatEuro } from "@/shared/utils/format";
+import { formatAddressFull, formatEuro, formatSpielDatum } from "@/shared/utils/format";
 
 import { formatMapsLink } from "../../utils";
 
@@ -45,6 +47,8 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   filteredSpielorte: FLSpielort[];
   setDeletingOrt: (ort: FLSpielort) => void;
 }) {
+  const [, startReactivating] = useTransition();
+
   // The sidemenu's season rides along, so the fixture list opens on the season the admin is working
   // in rather than on the current one. Reading it here is safe: the parent view already subscribes
   // this tree to the router.
@@ -57,6 +61,16 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
 
     if (copied) appToast.success("Adresse kopiert");
     else appToast.danger(CLIPBOARD_ERROR_TITLE, { description: CLIPBOARD_ERROR_DETAIL });
+  };
+
+  // One press, then a toast either way. No confirmation step: the reactivation is undone by the
+  // retire control that takes its place — the teams table's arrangement, on the same endpoint shape.
+  const handleReactivate = (ort: FLSpielort) => {
+    startReactivating(async () => {
+      const res = await reactivateSpielortAction({ id: ort.id });
+      if (res.success) appToast.success(res.message ?? "Spielort reaktiviert.");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+    });
   };
 
   // One source for both layouts, the teams table's pattern: the `md+` table's cells and the phone
@@ -72,6 +86,13 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
       </span>
     </div>
   );
+
+  // Stated beside the identity rather than in a column of its own: retirement is the only state a
+  // venue has, so a column would be empty on every live row.
+  const renderRetiredBadge = (ort: FLSpielort) =>
+    ort.inactive_since === null ? null : (
+      <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(ort.inactive_since)}</span>
+    );
 
   const renderMietpreis = (ort: FLSpielort) => (
     <span className="bg-muted text-foreground fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
@@ -121,11 +142,19 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           height={18}
         />
       </RowActionLink>
-      <RowActionDelete
-        label="Stilllegen"
-        ariaLabel={`Spielort ${ort.name} stilllegen`}
-        onPress={() => setDeletingOrt(ort)}
-      />
+      {ort.inactive_since !== null ? (
+        <RowActionRestore
+          label="Reaktivieren"
+          ariaLabel={`Spielort ${ort.name} reaktivieren`}
+          onPress={() => handleReactivate(ort)}
+        />
+      ) : (
+        <RowActionDelete
+          label="Stilllegen"
+          ariaLabel={`Spielort ${ort.name} stilllegen`}
+          onPress={() => setDeletingOrt(ort)}
+        />
+      )}
     </RowActions>
   );
 
@@ -146,7 +175,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
         {filteredSpielorte.map((ort) => (
           <div
             key={ort.id}
-            className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
+            className={`${card()} flex w-full flex-col gap-y-3 p-4 ${ort.inactive_since !== null ? "opacity-80" : ""}`}>
             <div className="flex w-full flex-row items-center gap-3">
               <MapPin
                 className="text-brand shrink-0"
@@ -156,6 +185,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
               <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{ort.name}</span>
               <span className="ml-auto shrink-0">{renderMietpreis(ort)}</span>
             </div>
+            {renderRetiredBadge(ort)}
             {renderAddress(ort)}
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(ort)}</div>
           </div>
@@ -193,13 +223,16 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                     id={ort.id}
                     className="border-border/50 border-b last:border-b-0">
                     <Table.Cell className="px-6 py-4">
-                      <div className="flex items-center gap-3">
+                      <div className={`flex items-center gap-3 ${ort.inactive_since !== null ? "opacity-60" : ""}`}>
                         <MapPin
                           className="text-brand shrink-0"
                           width={18}
                           height={18}
                         />
-                        <span className="fluid-sm text-foreground font-semibold">{ort.name}</span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="fluid-sm text-foreground font-semibold">{ort.name}</span>
+                          {renderRetiredBadge(ort)}
+                        </div>
                       </div>
                     </Table.Cell>
 

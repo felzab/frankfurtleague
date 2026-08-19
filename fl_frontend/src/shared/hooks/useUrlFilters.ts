@@ -3,8 +3,8 @@
 /**
  * SHARED · the filter bar's URL state
  *
- * The other half of `useDebouncedUrlQuery`: that hook owns `?q=`, this one owns one parameter
- * per facet.
+ * The parameter-per-facet counterpart to `?q=`, for the component that renders the controls: the
+ * selection `useFacetSelection` reads, plus everything needed to change it.
  *
  * Invariants:
  * - The URL is the only state — a selection survives reload, back button and a shared link.
@@ -12,15 +12,16 @@
  *   navigation would re-run the route's server reads.
  * - `replaceState`, never `pushState` — back should leave the list, not walk the facets.
  * - A write names its parameters and reads the live URL for the rest — never a stale snapshot.
- * - A value the facet does not offer is dropped on read.
- * - The returned selection is referentially stable while the query string and the facets are —
- *   `readFacetSelection` owns that guarantee and states what rests on it.
+ * - The selection is `useFacetSelection`'s, so the list and the bar narrowing it can never read the
+ *   same URL differently.
  * - The URL carries the ORDER filters were added in, and `paramOrder` is how a caller reads it.
  */
 import { useCallback } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
-import { countActiveFacets, readFacetSelection } from "@/shared/utils/facets";
+import { countActiveFacets } from "@/shared/utils/facets";
+
+import { useFacetSelection } from "./useFacetSelection";
 
 import type { Facet } from "@/shared/utils/facets";
 
@@ -28,7 +29,7 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  const selection = readFacetSelection(facets, new URLSearchParams(searchParams.toString()));
+  const selection = useFacetSelection(facets);
 
   /**
    * The parameters in the order the URL holds them, which is the order they were added in.
@@ -61,15 +62,10 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
     [pathname],
   );
 
-  const toggle = useCallback(
-    (param: string, value: string) => {
-      const picked = selection[param] ?? [];
-      write({ [param]: picked.includes(value) ? picked.filter((held) => held !== value) : [...picked, value] });
-    },
-    [selection, write],
-  );
-
-  /** Replaces one facet's selection wholesale — what a multi-select ListBox reports. */
+  /**
+   * Replaces one facet's selection wholesale — what a multi-select ListBox reports, and the only
+   * shape the panel needs: a checkbox flipped inside it changes the whole set it reports back.
+   */
   const setFacet = useCallback(
     (param: string, values: readonly string[]) => {
       write({ [param]: values });
@@ -89,5 +85,5 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
     write(Object.fromEntries(facets.map((facet) => [facet.param, []])));
   }, [facets, write]);
 
-  return { selection, paramOrder, activeCount: countActiveFacets(selection), toggle, setFacet, clearFacet, clearAll };
+  return { selection, paramOrder, activeCount: countActiveFacets(selection), setFacet, clearFacet, clearAll };
 }

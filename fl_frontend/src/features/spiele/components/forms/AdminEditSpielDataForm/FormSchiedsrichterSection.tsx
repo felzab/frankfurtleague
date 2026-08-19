@@ -24,7 +24,9 @@ export function FormSchiedsrichterSection({
   onSchiedsrichterChange: (payload: FLSpielSchiedsrichterFieldDraft | null) => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
-  // The picker hands over the resolved record — see the note on `FormSpielortSection`.
+  // The picker hands over the resolved record — see `FormSpielortSection`, whose second half holds
+  // here too: `name` arrives off a `FLSchiedsrichterSchema` parse or a `PersonNameSchema` create, so
+  // it needs no input of its own.
   const handleSchiedsrichterChange = (resolved: FLSchiedsrichter | null) => {
     onSchiedsrichterChange(
       resolved

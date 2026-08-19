@@ -407,6 +407,24 @@ describe("toPatchPayload and buildUndoPayloads", () => {
     assert.equal("ergebnis" in toPatchPayload(fixture(29, "2:0")), false);
   });
 
+  it("does not carry a side's joined disqualifikation onto the write path", () => {
+    // Structural typing accepts the joined side wherever the stored one is asked for, so nothing in
+    // the toolchain sees this: only Zod's `strip` keeps the join off the wire, and Pydantic's
+    // `extra="ignore"` keeps it out of the document (ADR-0021, rule 4).
+    const joined = {
+      ...fixture(29, "2:0"),
+      team1: {
+        team_id: TEAM_1,
+        name: "Team A",
+        tore: 2,
+        shorthand: "TA",
+        disqualifikation: { grund: "Nicht angetreten", datum: "2026-03-01" },
+      },
+    } as FLSpiel;
+
+    assert.deepEqual(Object.keys(toPatchPayload(joined).team1 ?? {}).sort(), ["name", "shorthand", "team_id", "tore"]);
+  });
+
   it("puts the edited fixture first, so the resolution runs before the results go back", () => {
     // The whole correctness argument: restoring a downstream result first would have the resolution
     // triggered by the edited fixture clear it again, and the undo would report a success it did not

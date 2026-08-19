@@ -165,6 +165,33 @@ function FilterPill<TItem>({
 /**
  * The app's filter control: one pill per filtered dimension, and one control that adds another.
  *
+ * **A surface declaring no dimension renders nothing at all**, and the gate for that is this component
+ * rather than a branch inside `FilterRow`: the Rules of Hooks put a return above a hook call out of
+ * reach, so keeping the row's two URL subscriptions off an unfilterable surface takes a boundary the
+ * gate can stand in front of. The row's own behaviour is documented where it lives, on `FilterRow`.
+ */
+export function FilterLeiste<TItem>({
+  facets,
+  items,
+}: {
+  /** Must be a module-scope constant, for the reason `AdminCrudView`'s `searchKeys` must be. */
+  facets: readonly Facet<TItem>[];
+  /** Every row before filtering, so each option can say what it would leave. */
+  items: TItem[];
+}) {
+  if (facets.length === 0) return null;
+
+  return (
+    <FilterRow
+      facets={facets}
+      items={items}
+    />
+  );
+}
+
+/**
+ * The row itself, mounted only by `FilterLeiste` and only for a surface that declares a dimension.
+ *
  * **The row's content is a function of what was chosen and of nothing else.** No dimension is present
  * until it is filtering, nothing is promoted or demoted by width, and no hidden copy of the row is
  * measured to decide any of it. Adding a filter moves nothing that was already there, and using one
@@ -180,22 +207,12 @@ function FilterPill<TItem>({
  * **Every options surface is `FilterPanel`** — the add control over the dimensions that are not
  * filtering, a pill over its own — so no two of them can drift into different answers.
  */
-export function FilterLeiste<TItem>({
-  facets,
-  items,
-}: {
-  /** Must be a module-scope constant, for the reason `AdminCrudView`'s `searchKeys` must be. */
-  facets: readonly Facet<TItem>[];
-  /** Every row before filtering, so each option can say what it would leave. */
-  items: TItem[];
-}) {
+function FilterRow<TItem>({ facets, items }: { facets: readonly Facet<TItem>[]; items: TItem[] }) {
   const { selection, paramOrder, activeCount, setFacet, clearFacet, clearAll } = useUrlFilters(facets);
 
   // The panel is bounded by this row rather than by the window: a viewport unit counts the sidemenu as
   // space the overlay may use, so an oversized panel gets slid left over the navigation.
   const [rowRef, rowWidth] = useFilterPanelWidth();
-
-  if (facets.length === 0) return null;
 
   const isFiltering = (facet: Facet<TItem>) => (selection[facet.param] ?? []).length > 0;
   // Pills in the URL's order, which is the order they were added: a new one lands at the end and no

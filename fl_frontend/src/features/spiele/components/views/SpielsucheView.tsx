@@ -6,9 +6,9 @@ import { FilterLeiste } from "@/shared/components/ui/FilterLeiste";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { SearchBar } from "@/shared/components/ui/SearchBar";
 import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
+import { useFacetSelection } from "@/shared/hooks/useFacetSelection";
 import { useFuzzySearch } from "@/shared/hooks/useFuzzySearch";
-import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
-import { applyFacets } from "@/shared/utils/facets";
+import { applyFacets, countActiveFacets } from "@/shared/utils/facets";
 
 import { buildSpielFacets } from "../../facets";
 import { formatQuelle } from "../../utils";
@@ -60,7 +60,8 @@ export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLS
   // The facets, rebuilt only when the season's fixtures change: three of them derive their options from
   // the fixtures themselves, so they cannot offer a club, venue or referee that would narrow to nothing.
   const facets = useMemo(() => buildSpielFacets({ spiele, today, isAdmin }), [spiele, today, isAdmin]);
-  const { selection, activeCount } = useUrlFilters(facets);
+  // The controls are `FilterLeiste`'s and they meet this side in the URL, so it only reads.
+  const selection = useFacetSelection(facets);
 
   const narrowed = useMemo(() => applyFacets(processedSpiele, facets, selection), [processedSpiele, facets, selection]);
 
@@ -74,7 +75,7 @@ export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLS
     emptyQuery: "all",
   });
 
-  const hasAsked = spielQuery !== "" || activeCount > 0;
+  const hasAsked = spielQuery !== "" || countActiveFacets(selection) > 0;
   // The grid below renders this rather than `filteredResults` directly, because `emptyQuery: "all"`
   // answers "everything" for a page nobody has asked anything of yet.
   const shown = hasAsked ? filteredResults : [];

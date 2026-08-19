@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 
-import { ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { FieldError, Input, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
@@ -54,10 +54,15 @@ const STUFE_CHIP =
  * A picked control, so the caller judges it on CHANGE rather than on blur (ADR-0040): a selection is
  * complete the moment it is made.
  *
- * **The message is a plain paragraph rather than a `FieldError`, because this is not a field.** A
- * toggle group is a collection, so it takes part in no react-aria field context and `Form`'s
- * `validationErrors` cannot reach it by name — the caller passes the message from the descriptor table,
- * and `aria-describedby` is what gets it announced.
+ * **The group is wrapped in a `TextField` whose input never appears, and that proxy is what makes the
+ * refusal land.** `ToggleButtonGroup` takes no `name`: react-aria's `AriaToggleButtonGroupProps` is
+ * `ToggleGroupProps` plus labelling, so the group joins no field context, contributes no form element,
+ * and `form.reportValidity()` cannot see it. On its own that leaves an empty set showing its message on
+ * screen while the same submit raises the "this form does not show it" toast. The proxy carries `name`, so
+ * `FormValidationContext` resolves `serverErrors[name]` onto it, `useFormValidation` writes the message
+ * through `setCustomValidity`, and `reportValidity()` answers `false` the way it does for every other
+ * field. It is `display: none` rather than clipped because nothing should be able to land in it —
+ * react-aria's own `HiddenSelect` hides its large-collection proxy exactly this way.
  *
  * **No `disallowEmptySelection`.** Emptying the set is a state the admin can reach and the schema
  * refuses on save, which is better than a control that silently declines to deselect and leaves
@@ -66,49 +71,58 @@ const STUFE_CHIP =
 export function StufenPicker({
   value,
   onChange,
-  error,
+  name,
 }: {
   value: readonly FLSpielerStufe[];
   onChange: (next: FLSpielerStufe[]) => void;
-  /** The schema's message for `rules.erlaubte_stufen`, from the caller's own error map. */
-  error?: string;
+  /** The field's path in the enclosing payload, so `Form`'s `validationErrors` reach it by name. */
+  name: string;
 }) {
   const errorId = useId();
 
   return (
-    <div className="flex w-full flex-col gap-y-1">
-      <ToggleButtonGroup
-        aria-label="Erlaubte Stufen"
-        aria-describedby={error ? errorId : undefined}
-        size="sm"
-        isDetached
-        selectionMode="multiple"
-        selectedKeys={value}
-        // Filtered back through the league's own order (`STUFE_OPTIONS`), so the stored array is always
-        // in sequence and two of them compare without sorting first — which is what lets the change
-        // list treat pressing a level off and back on as no change at all.
-        onSelectionChange={(keys: Set<Key>) => {
-          const picked = new Set([...keys].map(String));
-          onChange(STUFE_OPTIONS.filter((stufe) => picked.has(stufe)));
-        }}
-        className="flex w-full flex-row flex-wrap gap-2">
-        {STUFE_OPTIONS.map((stufe) => (
-          <ToggleButton
-            key={stufe}
-            id={stufe}
-            className={STUFE_CHIP}>
-            {stufe}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
+    <TextField
+      name={name}
+      aria-label="Erlaubte Stufen"
+      // The chosen levels as one string, so the proxy submits what the group holds. Read by nothing:
+      // the payload is built from the caller's own state, and this field is never typed into.
+      value={value.join(",")}
+      onChange={() => undefined}
+      className="flex w-full flex-col gap-y-1">
+      {({ isInvalid }) => (
+        <>
+          <ToggleButtonGroup
+            aria-label="Erlaubte Stufen"
+            aria-describedby={isInvalid ? errorId : undefined}
+            size="sm"
+            isDetached
+            selectionMode="multiple"
+            selectedKeys={value}
+            // Filtered back through the league's own order (`STUFE_OPTIONS`), so the stored array is always
+            // in sequence and two of them compare without sorting first — which is what lets the change
+            // list treat pressing a level off and back on as no change at all.
+            onSelectionChange={(keys: Set<Key>) => {
+              const picked = new Set([...keys].map(String));
+              onChange(STUFE_OPTIONS.filter((stufe) => picked.has(stufe)));
+            }}
+            className="flex w-full flex-row flex-wrap gap-2">
+            {STUFE_OPTIONS.map((stufe) => (
+              <ToggleButton
+                key={stufe}
+                id={stufe}
+                className={STUFE_CHIP}>
+                {stufe}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
 
-      {error && (
-        <p
-          id={errorId}
-          className={FIELD_ERROR}>
-          {error}
-        </p>
+          <Input className="hidden" />
+          <FieldError
+            id={errorId}
+            className={FIELD_ERROR}
+          />
+        </>
       )}
-    </div>
+    </TextField>
   );
 }

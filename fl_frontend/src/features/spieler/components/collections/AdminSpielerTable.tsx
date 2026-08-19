@@ -67,7 +67,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     startReactivating(async () => {
       const res = await reactivateSpielerAction({ id: spieler.id });
       if (res.success) appToast.success(res.message ?? "Spieler reaktiviert!");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
     });
   };
 
@@ -75,7 +75,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     startReactivating(async () => {
       const res = await reactivateSaisonSpielerAction({ spieler_id: spieler.id, saison_id: selectedSaisonId });
       if (res.success) appToast.success(res.message ?? "Kadereintrag reaktiviert!");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
     });
   };
 

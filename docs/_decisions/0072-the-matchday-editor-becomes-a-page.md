@@ -39,7 +39,7 @@ table and an undo handler", and in August that price was accurate — the match 
 page-owned editor and everything on it was its own. It is not accurate now.
 `fl_frontend/src/shared/components/ui/formPanel.ts`, `RailSection.tsx`, `railBanner.ts`,
 `InlineBanners.tsx`, `DraftChangeList.tsx`, `ConfirmDiscardModal.tsx`, `ConfirmSaveModal.tsx`, and
-the three hooks `useDraftValidation`, `useServerFieldErrors` and `useUnsavedChangesWarning` are all
+the three hooks `useDraftFieldErrors`, `useServerFieldErrors` and `useUnsavedChangesWarning` are all
 shared and all already written. What a seventh editor costs is a descriptor table, a banner list, a
 thin shell and a route handler. The cost side of ADR-0050's measurement collapsed; nothing on the
 benefit side moved to compensate.

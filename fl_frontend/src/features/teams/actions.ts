@@ -57,6 +57,12 @@ function invalidateSeasonScoped(resource: "teams" | "spiele", saisonId: string):
  * Written to the shape stated in `fl_frontend/src/features/saisons/actions.ts`: the two group gates land
  * on the picker and are one sentence about the chosen group, while the season gate and the group-move
  * window are about the season's own state, so each is two sentences with the action second.
+ *
+ * **Both junction writes route through it, and the two ends are exclusive.** `POST` answers
+ * `REQ-ENTER-001..003`; `PATCH` checks the move window first and feeds `find_entry_refusal` the literal
+ * status `future`, so it answers `REQ-ENTER-004` and the same two group gates, never `REQ-ENTER-001`.
+ * The two group gates mean the same thing on both ends -- the season does not run that group, or the
+ * group is at `teams_per_group` -- which is what lets one mapping serve both.
  */
 function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -325,7 +331,19 @@ export async function patchSaisonTeamAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const saisonTeam = await patchSaisonTeam(validated.data);
+    // The row is addressed by its natural key, so a 409 here is an entry refusal and never a unique
+    // index. The generic mapping answers "conflicts with an entry that already exists" -- false, and
+    // it hides the swap control on this very page.
+    let saisonTeam;
+    try {
+      saisonTeam = await patchSaisonTeam(validated.data);
+    } catch (error) {
+      const refusal = mapEntryRefusal(error);
+      if (refusal !== null) {
+        return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      }
+      throw error;
+    }
 
     // BOTH resource pairs (ADR-0001). Every match side carries this row's
     // `disqualifikation` joined at read time (backend spec I32), so `teams` alone leaves

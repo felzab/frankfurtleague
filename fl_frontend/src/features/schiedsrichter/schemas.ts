@@ -31,10 +31,11 @@ export const FLPatchSchiedsrichterPayloadSchema = z.object({
 });
 export type FLPatchSchiedsrichterPayload = z.infer<typeof FLPatchSchiedsrichterPayloadSchema>;
 
-export const FLDeleteSchiedsrichterPayloadSchema = z.object({
+/** The retire and reactivate calls: an id in the path, no request body. */
+export const FLSchiedsrichterKeyPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
 });
-export type FLDeleteSchiedsrichterPayload = z.infer<typeof FLDeleteSchiedsrichterPayloadSchema>;
+export type FLSchiedsrichterKeyPayload = z.infer<typeof FLSchiedsrichterKeyPayloadSchema>;
 
 export const FLSchiedsrichterSchema = z.object({
   id: CustomObjectIdStringSchema,
@@ -64,7 +65,8 @@ export const FLPatchSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend(
 });
 export type FLPatchSchiedsrichterResponse = z.infer<typeof FLPatchSchiedsrichterResponseSchema>;
 
-export const FLDeleteSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend({
+/** What the retire and the reactivate both echo: the backend serves one model for the pair. */
+export const FLSchiedsrichterWriteResponseSchema = BaseAPIResponseSchema.extend({
   updated_document: FLSchiedsrichterSchema,
 });
-export type FLDeleteSchiedsrichterResponse = z.infer<typeof FLDeleteSchiedsrichterResponseSchema>;
+export type FLSchiedsrichterWriteResponse = z.infer<typeof FLSchiedsrichterWriteResponseSchema>;

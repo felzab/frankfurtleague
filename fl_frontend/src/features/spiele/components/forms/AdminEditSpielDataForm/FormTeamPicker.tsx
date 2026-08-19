@@ -4,7 +4,7 @@ import { Autocomplete, FieldError, Label, ListBox, SearchField, useFilter } from
 
 import { dismissControl } from "@/core/dismissControl";
 import { PHASE_LABELS } from "@/features/saisons/constants";
-import { formatQuelle, isDirectlyPrecedingRound, listFeederSpiele, quelleKey } from "@/features/spiele/utils";
+import { formatQuelle, isDirectlyPrecedingRound, listFeederSpiele, quelleKey, toStoredSide } from "@/features/spiele/utils";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -171,7 +171,7 @@ export function FormTeamPicker({
    *
    * This component receives only the change-time variant, and that is the rule rather than an
    * exception: every control in it is a picker, so a selection is complete the moment it is made and
-   * there is no half-entered value to be wrong about (`useDraftValidation`).
+   * there is no half-entered value to be wrong about (`useDraftFieldErrors`).
    *
    * **The second argument is required, and it is the whole fix.** A handler sets the new value and
    * asks for validation in the same tick, before React re-renders — so a judgement made from state
@@ -191,10 +191,10 @@ export function FormTeamPicker({
   const isKnockout = spielData.saison_phase !== "gruppenphase";
   const choice = choiceFor(quelle);
 
-  // The stored side, NOT the draft: switching back under automatic maintenance must submit the
-  // occupant the resolution last wrote, because the write path refuses a hand-set team beside a
-  // source (ADR-0038).
-  const storedTeam = fieldName === "team1" ? spielData.team1 : spielData.team2;
+  // Stored and NARROWED: switching back submits the occupant the resolution last wrote, which the
+  // write path requires (ADR-0038); the join a read's side carries would otherwise ride into the
+  // draft (ADR-0021 rule 4).
+  const storedTeam = toStoredSide(fieldName === "team1" ? spielData.team1 : spielData.team2);
 
   // What this side may not pick: every source another slot already holds, plus whatever the other
   // side of this fixture is currently set to. The own current selection is not in either set, so it
@@ -238,6 +238,9 @@ export function FormTeamPicker({
     // than emptying it, which is what an unguarded lookup would do on a stale collection.
     if (resolvedTeam === undefined) return;
 
+    // `shorthand` and `name` need no inputs of their own: both are copied off a club `FLTeamSchema`
+    // already parsed at `.length(2)` and `.nonempty()`, so neither is a path this form can be refused
+    // on while the id beside them is the one the admin picked.
     const nextTeam: FLSpielTeamField | null =
       resolvedTeam === null
         ? null
@@ -425,7 +428,9 @@ export function FormTeamPicker({
 
   return (
     <div className="flex w-full flex-col gap-y-4">
-      {/* No `Autocomplete.Filter` and no search box: four entries do not need finding. */}
+      {/* No `Autocomplete.Filter` and no search box: four entries do not need finding.
+          This one control owns `type` AND `ausgang` — "Sieger von" and "Verlierer von" are two of its
+          rows — so `ausgang` needs no input and a refusal naming it lands here. */}
       <Autocomplete
         name={`${fieldName}_quelle.type`}
         className="w-full"
