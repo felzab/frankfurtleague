@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `4b8e5166`, 2026-08-19\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -45,25 +45,24 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 
 ## The path at a glance
 
-| #   | ID     | Item                                                       | Surfaces    | Effort | Status   | Depends on |
-| --- | ------ | ---------------------------------------------------------- | ----------- | ------ | -------- | ---------- |
-| 1   | OPS-64 | The whole API is on the internet, behind static keys       | Ops, Docs   | S      | Open     | —          |
-| 2   | OPS-56 | The git stepper reads one `git`, on one line               | Ops         | S      | Open     | —          |
-| 3   | OPS-61 | The commit hook's scratch is a path git cannot open        | Ops         | S      | Open     | —          |
-| 4   | OPS-62 | A pin bump arms every page citing the workflow             | Ops, Docs   | S      | Open     | —          |
-| 5   | OPS-29 | The docs gate is blind inside an embedded one-liner        | Ops, Docs   | S      | Open     | —          |
-| 6   | OPS-11 | The compose guard cannot tell an invocation from a name    | Ops         | S      | Open     | —          |
-| 7   | OPS-63 | A comment claims two files hold one pattern, unchecked     | FE, BE, Ops | S      | Open     | —          |
-| 8   | OPS-60 | The gate's floor is one scope, and that scope is serial    | Ops         | M      | Open     | —          |
-| 9   | OPS-12 | Nothing checks a generated file against its generator      | FE, Ops     | S      | Open     | —          |
-| 10  | DOC-2  | An enforcement claim is resolved in one direction only     | Docs        | M      | Open     | —          |
-| 11  | OPS-19 | Both repository-wide linters re-read every file            | FE, Ops     | S      | Open     | —          |
-| 12  | OPS-10 | The comment-only classifier costs a process per file       | Ops         | S      | Open     | —          |
-| 13  | DOC-8  | A later decision falsifies a fact an earlier record states | Docs        | —      | Standing | —          |
-| 14  | OPS-2  | Nothing validates the contents of a restored `.env`        | Ops         | —      | Standing | —          |
-| 15  | OPS-3  | Crawler policy split between robots.txt and Cloudflare     | Ops         | —      | Standing | —          |
-| 16  | DOC-3  | A rule pattern reaches less than the rule it enforces      | Docs        | —      | Standing | —          |
-| 17  | DOC-4  | A stamp is required by a path and owed by a claim          | Docs        | —      | Standing | —          |
+| #   | ID     | Item                                                    | Surfaces    | Effort | Status   | Depends on |
+| --- | ------ | ------------------------------------------------------- | ----------- | ------ | -------- | ---------- |
+| 1   | OPS-64 | The whole API is on the internet, behind static keys    | Ops, Docs   | S      | Open     | —          |
+| 2   | OPS-56 | The git stepper reads one `git`, on one line            | Ops         | S      | Open     | —          |
+| 3   | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops         | S      | Open     | —          |
+| 4   | OPS-62 | A pin bump arms every page citing the workflow          | Ops, Docs   | S      | Open     | —          |
+| 5   | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs   | S      | Open     | —          |
+| 6   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
+| 7   | OPS-63 | A comment claims two files hold one pattern, unchecked  | FE, BE, Ops | S      | Open     | —          |
+| 8   | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops         | M      | Open     | —          |
+| 9   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
+| 10  | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
+| 11  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops     | S      | Open     | —          |
+| 12  | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
+| 13  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
+| 14  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
+| 15  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
+| 16  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -661,31 +660,7 @@ spawning it replaced.
 **Not measured:** what the spawns actually cost, and how much of a gate run is attributable to them.
 The mechanism above is read from the code; the magnitude is not.
 
-### 13 · DOC-8 — A later decision can falsify a fact an earlier record states, and nothing links the two
-
-**Status:** Standing\
-**Surfaces:** Docs\
-**Effort:** —\
-**Path:** Independent — no pass covers it, and only the trigger below reopens it.
-
-**No instance is live.** A decision is recorded where it will be read, and the argument for it goes
-in the closing commit's body, which nothing edits afterwards.
-
-**The shape is a supporting fact going stale rather than a decision being reversed.** A record states
-a rule and leans on facts around it; a later change can falsify one of those while the rule itself
-stands, and nothing joins the two statements. The reader who arrives at the stale half on its own
-takes it for current state.
-
-**What bounds it is that a record sits where the code is.** A §7 line is met by every session before
-it touches the field, a comment is read at the line it constrains, and PRE-1's ladder puts the code
-above every page.
-
-**What a decision would have to settle**, if an instance makes it worth taking: whether a falsified
-supporting fact is recorded at all, and if so where.
-
-**Trigger to revisit:** a record found stating a fact a later change falsified.
-
-### 14 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 13 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -724,7 +699,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 15 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 14 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -769,7 +744,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 16 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 15 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -803,7 +778,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a chapter added to the standard under a prefix the patterns do not carry, or
 the first page that needs a metadata block indented.
 
-### 17 · DOC-4 — A stamp is required by a path and owed by a claim
+### 16 · DOC-4 — A stamp is required by a path and owed by a claim
 
 **Status:** Standing\
 **Surfaces:** Docs\

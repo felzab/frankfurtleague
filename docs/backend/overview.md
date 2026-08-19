@@ -1,6 +1,6 @@
 # Backend — overview
 
-**Verified against:** `3f15ba0`, 2026-08-13\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB, with a read router and a write router per resource plus `system`.

@@ -1,6 +1,6 @@
 # Currency
 
-**Verified against:** `9f04f46`, 2026-08-12\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Applies to:** every stamped page, and every change that touches what a documented claim
 describes.
 

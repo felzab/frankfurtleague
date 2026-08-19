@@ -1,6 +1,6 @@
 # Documentation standard
 
-**Verified against:** `7555ecd`, 2026-08-10
+**Verified against:** `cda2912d`, 2026-08-19
 
 **Folder purpose:** the rules every written artifact in this repository follows, and the templates
 to start from.

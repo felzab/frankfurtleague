@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `65c7775b`, 2026-08-19
+**Verified against:** `cda2912d`, 2026-08-19
 
 Every item that has left a ranked page — [`open-items.md`](open-items.md) or
 [`tooling-items.md`](tooling-items.md) — has a row here. This is a log: nothing in it is waiting for
@@ -126,3 +126,4 @@ so no earlier commit exists for its row to cite.
 | FE-15  | Vendored overlays entered at a scale the app's own motion set never used                                                              | FE          | S      | —                            | [`ac7397fd`](https://github.com/felzab/frankfurtleague/commit/ac7397fd) |
 | FE-14  | The two loading indicators answered reduced motion in opposite directions                                                             | FE          | S      | —                            | [`b474f11e`](https://github.com/felzab/frankfurtleague/commit/b474f11e) |
 | FE-16  | The filter hooks were mounted for machinery their caller never read                                                                   | FE          | S      | —                            | [`65c7775b`](https://github.com/felzab/frankfurtleague/commit/65c7775b) |
+| DOC-8  | A later decision could falsify a fact an earlier record stated, and nothing linked the two                                            | Docs        | —      | —                            | [`cda2912d`](https://github.com/felzab/frankfurtleague/commit/cda2912d) |

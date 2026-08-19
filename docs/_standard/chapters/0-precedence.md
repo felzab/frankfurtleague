@@ -1,6 +1,6 @@
 # Precedence
 
-**Verified against:** `7555ecd`, 2026-08-10\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Applies to:** any disagreement between two written sources, and the placement and shape of every
 rule in this standard.
 

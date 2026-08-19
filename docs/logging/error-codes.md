@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `0e7fcb7`, 2026-08-13\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages,

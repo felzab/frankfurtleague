@@ -1,6 +1,6 @@
 # Git — templates
 
-**Verified against:** `bbb5182`, 2026-08-11\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Scope:** copy-paste forms for commit messages and pull request bodies
 
 | Section                             | Answers                                                           |

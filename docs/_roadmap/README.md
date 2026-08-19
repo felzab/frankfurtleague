@@ -1,6 +1,6 @@
 # Roadmap
 
-**Verified against:** `9f04f46`, 2026-08-12\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Folder purpose:** open items with their full analysis, the log of everything that has left, and the protocol they are all kept under.
 
 ## Folder overview
