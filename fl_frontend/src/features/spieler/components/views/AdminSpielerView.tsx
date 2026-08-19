@@ -9,25 +9,10 @@ import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import type { AdminSpielerRow, SpielerTeamOption } from "@/features/spieler/types";
 
-// Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The two squad
-// keys are flattened onto the row by the page so they can be searched by name — "Helmholtz" and
-// "10" are how an admin looks a player up.
+// Module scope: a fresh array would defeat `useFuzzySearch`'s memo on every render.
 const SEARCH_KEYS = ["fullName", "selected.teamName", "selected.nummer"] as const;
 
-/**
- * One declaration over `AdminCrudView`, shared with the other admin list views.
- *
- * The items are player-centric rows spanning every season, with the selected season's squad row
- * beside them. `renderEditModal` is deliberately not passed: the player form edits on a page at
- * `/admin/spieler/[spieler_id]`, so the table's pencil is a `<Link>` and the shared view
- * renders no edit overlay.
- *
- * **The facets are the one set in the app that is built rather than declared**, because the team facet's
- * options are the selected season's clubs — offering a club that plays in another season would narrow to
- * nothing and read as a defect. `useMemo` on the team list is what keeps the array's identity stable,
- * which `AdminCrudView`'s collection-identity constraint requires of it exactly as it requires of
- * `SEARCH_KEYS`.
- */
+/** Player-centric rows spanning every season, with the selected season's squad row beside them. */
 export function AdminSpielerView({
   spieler,
   teams,
@@ -40,6 +25,7 @@ export function AdminSpielerView({
   selectedSaisonId: string;
   selectedSaisonStatus: "past" | "active" | "future";
 }) {
+  // Memoised for identity: `AdminCrudView` requires a stable collection.
   const facets = useMemo(() => buildSpielerFacets(teams), [teams]);
 
   return (

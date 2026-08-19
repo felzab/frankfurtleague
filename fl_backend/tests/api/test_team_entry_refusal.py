@@ -1,10 +1,3 @@
-"""
-TEAMS · the rules guarding `POST /teams/{team_id}/saisons`
-
-Decided 2026-08-07: a team enters only a `future` season, only into a group that season offers,
-and only while that group has space. Pure, so the default tier covers it without a container.
-"""
-
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.services import (
@@ -15,8 +8,7 @@ from app.api.teams.services import (
     offered_gruppen,
 )
 
-# The levels the seeded season offers, typed as the Literal list `FLSaisonRules` declares -- a bare
-# list of `str` is invariant against it.
+# Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 
 RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=2, teams_per_group=4, erlaubte_stufen=STUFEN)

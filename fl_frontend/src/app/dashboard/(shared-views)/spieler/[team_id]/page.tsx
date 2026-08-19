@@ -33,9 +33,8 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
 }
 
 /**
- * The page resolves nothing itself — see `teams/[team_id]/page.tsx` for why every await belongs
- * inside the boundary. Same segment shape, same `teams` tag, same crash if it were left at the top
- * level.
+ * Resolves nothing itself — see `teams/[team_id]/page.tsx` for why every await sits below the
+ * boundary. Same segment shape, same `teams` tag, same crash if one were lifted out.
  */
 export default function TeamSpielerPage(props: NextPageProps<{ team_id: string }>) {
   return (
@@ -51,9 +50,8 @@ async function TeamSpielerContent(props: NextPageProps<{ team_id: string }>) {
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
   const [teamRes, spielerRes] = await Promise.all([
-    // Resolves null for "no such team" — the 404 → null conversion lives inside the query (see the
-    // note on `getTeam`); everything else still throws and reaches dashboard/error.tsx and
-    // onRequestError.
+    // Null for "no such team", converted inside the query — see the note on `getTeam`. Everything
+    // else still throws.
     getTeam(team_id, { saison_id: specifiedSaisonId }),
     getSpieler({ team_id: team_id, saison_id: specifiedSaisonId }),
   ]);

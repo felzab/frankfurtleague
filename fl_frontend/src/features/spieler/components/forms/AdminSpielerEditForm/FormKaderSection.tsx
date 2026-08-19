@@ -22,7 +22,7 @@ import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schem
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
 import type { SpielerBanner } from "./banners";
 
-/** The season's own state, said in one badge beside its id — the app's one wording and one palette. */
+/** The app's one wording and one palette for a season's state. */
 function SaisonBadge({ status }: { status: SpielerSaisonContext["saisonStatus"] }) {
   if (status === "active") return <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>;
   if (status === "future") return <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>;
@@ -30,21 +30,8 @@ function SaisonBadge({ status }: { status: SpielerSaisonContext["saisonStatus"] 
 }
 
 /**
- * The player's squad entry for the SELECTED season — the one in the sidemenu's season selector, not a
- * list of every season: the selector is the page's season context, so switching it switches what this
- * panel shows and writes. The club editor's Saison panel is the pattern.
- *
- * **Two differences from that panel, and both come from what a squad row is.**
- *
- * The team is editable with no lock. A player moving club mid-season is a normal event and the
- * junction row is where that fact lives — it is the whole reason the row exists apart from the
- * person. A club's group, by contrast, decides two tables and the seeding, which is why that one is
- * locked once a season is under way.
- *
- * A player may be entered into a `future` season AND into one already running (decided 2026-08-07),
- * where a club may not. Squads are filled in over time, and `is_nachgetragen` is the field that
- * records a late arrival — so the entry control derives it from the season's status rather than
- * asking, and a running season is a normal thing to add a player to rather than a refusal.
+ * The team is editable with no lock and a `future` season is not required, unlike the club editor's
+ * panel: squads fill in over time, and moving club mid-season is why the junction row exists.
  */
 export function FormKaderSection({
   saison,
@@ -82,25 +69,19 @@ export function FormKaderSection({
   onValidateFields: (paths: readonly string[]) => void;
   onValidateSelection: (paths: readonly string[], selected: { team_id: string }) => void;
   spielerId: string;
-  /** The editor's whole Hinweis list; the two spots below take their own entries out of it. */
   banners: readonly SpielerBanner[];
 }) {
   const panel = formPanel();
   const [isEntering, startEntering] = useTransition();
 
   /**
-   * What the entry write was refused on, held here rather than in the editor's `useDraftFieldErrors`.
-   *
-   * The entry is a different write from the save bar's: it creates the row the rest of this panel
-   * edits, and it fires on its own button. Its refusal has no business in the map the editor derives
-   * from — `deriveSpielerDraftStatus` counts that map into the unsaved-error badge and the rail, the
-   * next `setSubmitFieldErrors` would clear it, and `reportValidity()` would move focus across a form
-   * whose squad half is not on screen while the entry control is.
+   * Held here, not in the editor's `useDraftFieldErrors`: its refusal in that map would reach the
+   * unsaved-error badge and a `reportValidity()` that moves focus to a form half this branch does
+   * not render.
    */
   const [entryTeamError, setEntryTeamError] = useState<string | null>(null);
 
-  // A season that has already started means this player arrived late, which is exactly what the flag
-  // records (decided 2026-08-07). Derived rather than asked, so it cannot be forgotten.
+  // Derived rather than asked, so it cannot be forgotten: a started season means a late arrival.
   const entryIsNachgetragen = saison.saisonStatus !== "future";
 
   const handleEnterSaison = () => {
@@ -109,8 +90,8 @@ export function FormKaderSection({
         spieler_id: spielerId,
         saison_id: saison.saisonId,
         team_id: teamId,
-        // Emptied means absent, not a number nobody wears — the boundary the save's own payload
-        // applies. This branch renders no `nummer` input, so a refusal on it would have nowhere to go.
+        // Emptied means absent — this branch renders no `nummer` input, so a refusal on it would have
+        // nowhere to land.
         nummer: nummer.trim() === "" ? null : nummer.trim(),
         position,
         stufe,
@@ -125,8 +106,8 @@ export function FormKaderSection({
         appToast.success(res.message ?? "Spieler aufgenommen!");
         return;
       }
-      // Suppressed where the picker below carries the message: the same split `EntityForm` makes, so a
-      // refusal about the chosen team is not also said in a toast that names no field.
+      // Suppressed where the picker carries the message, so a refusal about the chosen team is not
+      // also said in a toast that names no field.
       if (teamError === null) {
         appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || "Ein unerwarteter Fehler ist aufgetreten." });
       }
@@ -135,8 +116,7 @@ export function FormKaderSection({
 
   return (
     <section className={panel.root()}>
-      {/* `relative` + an absolutely placed badge, so the h2 keeps the exact flow every other panel
-          heading has — see the club editor's Saison panel. */}
+      {/* `relative` + an absolutely placed badge, so the h2 keeps every other panel heading's flow. */}
       <div className={`${panel.header()} relative`}>
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           <SaisonBadge status={saison.saisonStatus} />
@@ -189,9 +169,8 @@ export function FormKaderSection({
               </TextField>
             </div>
 
-            {/* The captaincy, as a switch rather than a note: unlike `is_nachgetragen` — which records
-                how an entry came about — this is a decision somebody makes and changes, and it is a
-                role within THIS season's squad rather than a property of the person. */}
+            {/* A switch rather than a note, unlike `is_nachgetragen`: a decision somebody makes and
+                changes, and a role within THIS season's squad. */}
             <div className="flex w-full flex-col gap-y-1">
               <SpielerFieldLabel path="is_captain">Kapitän</SpielerFieldLabel>
               <Switch
@@ -248,7 +227,7 @@ export function FormKaderSection({
                 value={teamId}
                 onChange={(next) => {
                   // Retracted on the pick, not on the next attempt: the message is about the team
-                  // that was refused, and it stops describing the picker the moment that one moves.
+                  // that was refused, and stops describing the picker the moment that one moves.
                   setEntryTeamError(null);
                   onTeamIdChange(next);
                 }}
@@ -265,9 +244,8 @@ export function FormKaderSection({
               </Button>
             </div>
 
-            {/* Coloured rather than muted (decided 2026-08-07): it announces a value the form is
-                choosing on the admin's behalf, which is exactly the kind of thing that must not read
-                as fine print. */}
+            {/* Coloured rather than muted: it announces a value the form chooses on the admin's
+                behalf, which must not read as fine print. */}
             <InlineBanners
               banners={banners}
               spot="kader-nachgetragen"

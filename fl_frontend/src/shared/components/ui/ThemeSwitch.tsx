@@ -11,21 +11,8 @@ import { useMounted } from "@/shared/hooks/useMounted";
 import type { Key } from "@heroui/react";
 
 /**
- * The appearance control: two options, sun and moon, one of them always chosen.
- *
- * **A segmented group rather than a switch, because a switch answers the wrong question.** A switch
- * is on or off, so it can only be read as "dark mode: on" — which means the label and the state have
- * to be inferred from each other, and the control says nothing about what pressing it leads to. Two
- * labelled options say what both states are and which one is current, which is what makes it legible
- * at a glance in a bar rather than needing a caption beside it.
- *
- * `disallowEmptySelection` is what makes it a choice rather than a pair of toggles: pressing the
- * option that is already chosen keeps it, instead of clearing to a state the theme does not have.
- *
- * **`useMounted` guards the first paint, and it must.** The resolved theme is not known on the
- * server — it comes from `localStorage` and the OS preference — so rendering the real selection
- * during hydration is a mismatch. Until mounted the group is rendered disabled with neither option
- * pressed, which reserves the exact same box and cannot claim a state it does not know yet.
+ * A segmented group rather than a switch, which is on or off and says nothing about what pressing it leads to.
+ * **`useMounted` guards the first paint and must**: the resolved theme is not known until the client has it.
  */
 export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
   const { setTheme, resolvedTheme } = useTheme();
@@ -33,9 +20,8 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
 
   const selected = resolvedTheme === "dark" ? "dark" : "light";
 
-  // `compact` is what leaves the Modus row exactly as tall as the Abmelden row below it (decided
-  // 2026-08-10): `.menu-item` floors a row at 36px and spends 12 of them on its own padding, so 24px
-  // is the tallest control that floor still absorbs.
+  // `compact` keeps the menu row as tall as its neighbour: `.menu-item` floors a row and spends part of
+  // that floor on its own padding, so a taller control here grows the row.
   const buttonSize = compact ? "h-6" : "h-8 w-8 sm:h-9 sm:w-9";
 
   return (
@@ -45,8 +31,7 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
       selectionMode="single"
       disallowEmptySelection
       isDisabled={!mounted}
-      // Empty until mounted: an unknown theme must not render as "light chosen", which would flip
-      // under the user on hydration.
+      // Empty until mounted: an unknown theme must not render as "light chosen" and flip on hydration.
       selectedKeys={mounted ? [selected] : []}
       onSelectionChange={(keys: Set<Key>) => {
         const next = [...keys][0];
@@ -55,9 +40,8 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
       <ToggleButton
         id="light"
         isIconOnly
-        // Spelled here rather than left to HeroUI's size variant: `ToggleButtonGroup` is `h-auto`, so
-        // the buttons are the whole control's height (decided 2026-08-10). The width comes with it,
-        // or an icon-only half ends up taller than it is wide.
+        // `ToggleButtonGroup` is `h-auto`, so these buttons are the whole control's height. The width comes
+        // with it, or an icon-only half ends up taller than it is wide.
         className={buttonSize}
         aria-label="Helle Darstellung">
         <Sun className="size-4" />

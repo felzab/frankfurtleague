@@ -9,11 +9,8 @@ import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
 import type { SpieltagCreateDraft } from "@/features/spieltage/types";
 
 /**
- * Creates one matchday in the season the page is showing.
- *
- * **Nothing is preselected, and there is no position to preselect.** Where the new matchday
- * lands follows from the phase and the date the admin enters, so the form opens empty and the row appears
- * in its place — rather than opening on a guessed number the admin then has to check.
+ * **Nothing is preselected, and there is no position to preselect**: where the new matchday lands
+ * follows from the phase and the date, so the form opens empty and the row appears in its place.
  */
 export function AdminCreateSpieltagForm({
   saisonId,
@@ -28,8 +25,8 @@ export function AdminCreateSpieltagForm({
   /** The season's derived per-phase match counts, shown beside each phase in the picker. */
   saisonSchedule?: readonly FLSaisonPhaseSchedule[];
 }) {
-  // Nothing is refused here and that is correct: a new matchday holds no fixtures, so every phase fits.
-  // The counts are still shown, because "Finale — 1 Sp." is what tells an admin which phase they mean.
+  // Nothing is refused here and that is correct: a new matchday holds no fixtures, so every phase
+  // fits. The counts still show, because "Finale — 1 Sp." tells an admin which phase they mean.
   const phaseOffer = buildSpieltagPhaseOffer(saisonSchedule ?? [], 0);
 
   return (
@@ -38,8 +35,8 @@ export function AdminCreateSpieltagForm({
         beginn: "",
         ende: "",
         saison_phase: null,
-        // The page's own season, resolved against the season list before this form mounts —
-        // so it is a path no picker here renders and no refusal can name.
+        // The page's own season, resolved before this form mounts: no picker renders it and no
+        // refusal can name it.
         saison_id: saisonId,
       }}
       renderFields={(draft, setDraft) => (
@@ -51,10 +48,9 @@ export function AdminCreateSpieltagForm({
         />
       )}
       onSubmit={async (draft) => {
-        // Submitted with `saison_phase` possibly still null: the action's schema refuses that with a
-        // field message, so an untouched picker is a field error rather than a silently chosen phase.
+        // Submitted with `saison_phase` possibly still null: the action's schema turns that into a
+        // field error rather than a silently chosen phase.
         const res = await postSpieltagAction(draft);
-        // A create only counts if the backend echoed the new id back.
         return { ...res, success: res.success && !!res.spieltag_id };
       }}
       marksRequired

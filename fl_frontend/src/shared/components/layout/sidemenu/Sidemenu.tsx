@@ -11,19 +11,8 @@ import { SidemenuNavLinks, SidemenuNavLinksWithSaisonQuery } from "./SidemenuNav
 import type { FormState, SidemenuStructure } from "@/shared/types/types";
 
 /**
- * The navigation rail, and nothing else.
- *
- * **It is fully controlled**: `AppShell` owns both pieces of shell state, because the control that
- * opens the drawer is in the bar above and the title the bar shows comes from the same structure
- * this renders. A rail that also held that state could only work while it also held the bar.
- *
- * On `lg` it carries no header: the brand mark and the page title are the bar's (`AppTopBar`). Below
- * that, `SidemenuDrawerHeader` gives the panel its own brand row and close button, because the
- * drawer overlays the bar and carries its own close control. Its footer keeps the options menu, the
- * way back to the public site and the collapse toggle.
- *
- * Generic over the icon key: the structure and the dictionary are checked against each other, so
- * `iconDictionary[iconName]` is a total lookup and cannot miss.
+ * The navigation rail, fully controlled by `AppShell`. Generic over the icon key, so the structure and the dictionary
+ * are checked against each other and `iconDictionary[iconName]` cannot miss.
  */
 export function Sidemenu<TIcon extends string>({
   structure,
@@ -49,9 +38,8 @@ export function Sidemenu<TIcon extends string>({
   isDesktopCollapsed: boolean;
   onToggleDesktopMenu: () => void;
 }) {
-  // `w-sidemenu` is the base because below `lg` this is the drawer; the `lg:` half is shared with the
-  // bar's brand block so the seam between them cannot drift. Hoisted out of the class template for the
-  // reason given in `AppTopBar`.
+  // The `lg:` half is shared with the bar's brand block, so the seam between them cannot drift.
+  // Hoisted out of the class template for the reason `AppTopBar` gives.
   const railWidth = `w-sidemenu ${RAIL_WIDTH_LG[isDesktopCollapsed ? "collapsed" : "expanded"]}`;
 
   const navLinkProps = {
@@ -64,9 +52,8 @@ export function Sidemenu<TIcon extends string>({
   };
 
   return (
-    /* Each of these fails silently if changed: `lg:h-auto`, or the page scrolls as
-       one; `invisible`, or the closed drawer stays in the tab order; `translate` in
-       the transition list, which is the property Tailwind v4 actually animates. */
+    /* Each fails silently if changed: `lg:h-auto`, or the page scrolls as one; `invisible`, or the closed
+       drawer stays in the tab order; `translate` in the transition list, the property v4 actually animates. */
     <aside
       id="app-sidemenu"
       className={`bg-surface border-border text-foreground fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r transition-[width,translate,visibility] duration-300 ease-in-out lg:visible lg:h-auto ${
@@ -74,34 +61,21 @@ export function Sidemenu<TIcon extends string>({
       } lg:relative lg:z-0 lg:shrink-0 lg:translate-x-0 ${railWidth}`}>
       <SidemenuDrawerHeader onClose={onMobileClose} />
 
-      {/* MAIN SCROLLABLE CONTENT
-
-          The gutter is reserved on BOTH edges while collapsed (decided 2026-08-07). At 72px with `px-3`
-          this container has 48px of content, and a one-edge reservation takes ~15px off the right alone —
-          so every icon sat correctly centred in its own box and the whole column sat left of the rail's
-          centre. `both-edges` spends the same strip twice and puts the centre back where the eye expects
-          it. Expanded, the content is left-aligned text and the one-edge value is the right trade. */}
+      {/* The gutter is reserved on both edges while collapsed: a one-edge reservation takes its strip off the right
+          alone, so the icon column sits left of the rail's centre. Expanded, the content is left-aligned text. */}
       <div
         className={`flex flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4 ${
           isDesktopCollapsed ? "scrollbar-gutter-stable-both" : "scrollbar-gutter-stable"
         }`}>
-        {/* The same placeholder `SaisonSelector` shows until it hydrates, so the wait reads as one
-            continuous state rather than skeleton → dead control → live control. */}
+        {/* The same placeholder `SaisonSelector` shows until it hydrates, so the wait reads as one continuous state. */}
         <Suspense fallback={<SaisonSlotSkeleton />}>
           <div className={`transition-opacity duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
             {!isDesktopCollapsed && <>{saisonMetadataDisplay}</>}
           </div>
         </Suspense>
 
-        {/* Navigation Links.
-            The boundary is what gives the dashboard and admin shells their static content:
-            `useSearchParams()` lives below it, in the -WithSaisonQuery variant, and it hangs
-            unconditionally during a prerender. Hoisting that hook above the boundary — to the top
-            of this component, say — bails out the whole route root.
-            The fallback is the same list with an empty query string, so the shell holds real,
-            working nav links and the request-time pass only adds `?saison_id=` to their hrefs.
-            Nothing about it may call a dynamic hook, or the fallback suspends too and the bailout
-            simply moves back up. */}
+        {/* `useSearchParams()` lives below this boundary and hangs unconditionally during a prerender, so hoisting
+            it bails out the whole route root. Nothing in the fallback may call a dynamic hook either. */}
         <Suspense
           fallback={
             <SidemenuNavLinks

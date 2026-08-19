@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `cda2912d`, 2026-08-19\
+**Verified against:** `889c31dd`, 2026-08-19\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -336,10 +336,10 @@ number, so a `//` line lands on an empty position and drops out. The content is 
 absent. That same reader takes `.conf`, `.yml`, `.yaml`, `.toml` and any file with no suffix at all,
 `Dockerfile` included.
 
-**Measured on 2026-08-12 rather than reasoned.** Thirty-six tracked files reach the `#` reader; ten
-carry a non-URL `//`; six of those are `.claude/hooks/*.sh` with genuine embedded JavaScript, and
-they hold 43 `//` comment blocks no gate check has ever read. **A branch that adds `//` comments to
-one of those files adds nothing `branch_additions` returns** — measured against
+**Measured on 2026-08-19 rather than reasoned.** Thirty-seven tracked files reach the `#` reader;
+eleven carry a non-URL `//`; six of those are `.claude/hooks/*.sh` with genuine embedded JavaScript,
+and they hold 59 `//` comment blocks no gate check has ever read. **A branch that adds `//`
+comments to one of those files adds nothing `branch_additions` returns** — measured against
 `.claude/hooks/guard-branch-bash.sh`, where every added `//` comment line is absent from it. No
 standing figure goes with that half, because the count is a property of whichever branch is asked:
 take it by diffing the file against the fork point and comparing its `//` lines against what
@@ -351,11 +351,12 @@ take it by diffing the file against the fork point and comparing its `//` lines 
 sweep either. One written there today would resolve or dangle unobserved either way, and nothing
 would notice the day it stopped resolving.
 
-**The length half is the loud one, which is why it ranks under the other.** A breach is harmless
-until it is found and obvious once it is: `check_comment_length` (INC-9) has never measured those 43
-blocks, and one is already over — `.claude/hooks/docs-rules-index.sh`'s containment remark, four
-lines and 328 characters against caps of three and 250. `check_history_phrases` (COR-3) and
-`check_counts` (COR-4) are blind in the same region for the same reason.
+**The length half is the quiet one, which is why it ranks under the other.** A breach there is
+harmless until it is found and obvious once it is, and every one of those blocks sits inside INC-9's
+three lines and 250 characters as of 2026-08-19. What the gap costs is therefore not a live breach
+but the next block written over either bound: `check_comment_length` (INC-9) takes it in any other
+file and has never measured this region at all. `check_history_phrases` (COR-3) and `check_counts`
+(COR-4) are blind in the same region for the same reason.
 
 **This sits outside the scope classifier's accepted boundary, and not marginally.** That boundary is
 `scripts/check_scope.py`'s, and every limit it accepts errs toward _more_ checking:
@@ -391,12 +392,23 @@ and the over-length block named above surfaces only when somebody rewrites it.
 containing `docker compose`, or `docker-compose` followed by a space, unless that same command also
 names the local compose file. A search for the phrase and a heredoc writing it into a document each
 contain it, so each is denied — with the message written for someone about to operate the production
-stack by mistake.
+stack by mistake. Both shapes were hit during the decision-record demolition on 2026-08-19: a grep
+whose search pattern was the phrase, and a heredoc writing `.claude/CLAUDE.md` §5 — the repository's
+own rule about that command, which cannot be stated without naming it. The second is the one to sit
+with, because the refusal falls on the sentence that carries the rule.
 
 **A false refusal costs more than the inconvenience.** A guard is worth obeying only while every
 refusal it issues is worth obeying. One that fires on a command it has no business refusing invites
 that command to be reworded rather than reconsidered, and a wording that gets around a false refusal
 gets around a true one just as well.
+
+**The escape is textual in the same way, and that half is a hole rather than a nuisance.** The second
+`case` releases any command whose text contains `docker-compose.local.yml`, wherever it sits — in a
+trailing comment, in an unrelated quoted argument, in a path the command never opens. So a command
+that genuinely drives the production definition is allowed through by a mention of the local file it
+is not using, which is the single outcome this guard exists to prevent. The refusal half is loud and
+one command away from resolved; this half is observable only as a production stack that was operated
+by mistake, and the hook's own header says there is no error to notice when that happens.
 
 **What the narrowing has to preserve.** The branch guard is settled on the asymmetry: a false refusal
 is one command away from resolved, while a hole is not observable
@@ -405,9 +417,18 @@ whether it occurs. A match at a command position — the start of the command or
 separator, allowing a leading `sudo` or an environment assignment — still refuses
 `docker compose --project-name x up`, which an allowlist of subcommands would let through.
 
-**Done when:** the guard refuses every invocation shape and allows a command that only names one,
-and `scripts/selfcheck.sh` asserts each. It already drives this hook for a bare invocation, for the
-local file named, and for a command that is not compose at all, so the probes have a home.
+**The repository already holds the shape both halves want.** `.claude/hooks/guard-branch-bash.sh`
+splits the command into words and reasons about `words[0]` and `words[1]` rather than about the
+string — it takes the program's basename and its subcommand, and reads path-like tokens out of the
+argument vector. Deciding the same way answers both halves at once: the refusal fires only when the
+invoked program is `docker` with `compose` first, or is `docker-compose`, and the escape fires only
+when `-f` actually carries the local file as its value.
+
+**Done when:** the guard refuses every invocation shape, allows a command that only names one, and
+**refuses an invocation that names the local file somewhere other than a `-f` value**, with
+`scripts/selfcheck.sh` asserting each. It already drives this hook for a bare invocation, for the
+local file named, and for a command that is not compose at all, so the probes have a home; the third
+assertion above is the one with no probe today.
 
 ### 7 · OPS-63 — A comment claims two files hold the same pattern, and nothing holds them to it
 
@@ -420,17 +441,19 @@ published document.
 **The two ends of the wire are resolved against each other in exactly one place, and patterns are
 outside it on purpose.** `fl_frontend/src/core/apiContract.test.ts` converts every exported Zod
 schema to JSON Schema, pairs it with its component in the committed `fl_backend/openapi.json`, and
-compares presence, required, nullable, primitive type and enum members. Its header states the
-boundary in terms: patterns, lengths, bounds and messages are deliberately not compared, because the
-two sides diverge there by design and comparing validation policy produces failures nobody can act
-on. **This entry does not propose moving that boundary.**
+compares presence, required, nullable, primitive type and enum members.
+`fl_frontend/src/core/apiContract.test.ts :: FieldFacts` states the boundary in terms: patterns,
+lengths, bounds and messages are deliberately not compared, because the two sides diverge there by
+design and comparing validation policy produces failures nobody can act on. **This entry does not
+propose moving that boundary.**
 
-**What nothing checks is a narrower claim, made in prose, that one specific pair is the same text.**
-`fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX` carries the comment
-"`fl_frontend/src/shared/schemas.ts :: PHONE_REGEX` mirrors this", and
-`fl_frontend/src/shared/schemas.ts`'s own header states the invariant from the other side — each
-schema mirrors a backend constraint, and "looser here makes the client-side message a lie about what
-is allowed". Neither sentence is a comparison anything performs.
+**What nothing checks is a narrower claim, made in prose and legible from one side only.**
+`fl_frontend/src/shared/schemas.ts` opens by stating that each schema there mirrors a constraint in
+`fl_backend/app/shared/schemas/custom.py`, that looser makes the message a lie, and that a pattern is
+outside the contract comparison entirely. That sentence is the whole written record of the
+`PHONE_REGEX` pair, it is a comparison nothing performs, and it reads only from the frontend:
+`fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX` explains its own character class to whoever
+edits it, and points at no twin.
 
 **The two patterns agree today, and nothing holds them there.** They last diverged on the character
 class: a literal space on one side against `\s` on the other, which in JavaScript absorbs a trailing
@@ -787,8 +810,8 @@ the first page that needs a metadata block indented.
 
 **CUR-3 decides a stamp by what a page claims and never by where the page sits.**
 `scripts/check_docs.py :: check_stamp_missing` decides it by `STAMP_REQUIRED_GLOBS`, a list of
-paths, and the check's own docstring says why: what a page claims is not something a check can read,
-so the globs cover the part of the criterion a path settles and leave the rest to a reader.
+paths, because what a page claims is not something a check can read: the globs cover the part of the
+criterion a path settles and leave the rest to a reader.
 
 **What the gap costs.** A page stating current state from outside those globs carries no stamp and
 nothing reports the omission — and `branch-impact` arms only on a stamped page, so every file that

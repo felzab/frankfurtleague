@@ -20,39 +20,9 @@ import type { AdminSpieltagRow } from "../../types";
 import type { SpieltagPhaseProgress } from "../../utils";
 
 /**
- * The season's matchdays, sectioned by phase and in the order they are played.
- *
- * **Not a table, and not the public Spielplan's tab strip either.** The
- * Spielplan shows one matchday at a time because a reader's question is what is being played on it; the
- * admin's questions are comparisons BETWEEN matchdays — are the phases right, does the expected fixture
- * count match what is attached — and a strip showing one matchday hides both.
- *
- * **The order arrives already correct and this list does not re-sort it.** It is derived on the
- * backend from `saison_phase` in bracket order, then `beginn`, then `_id`, so there is no stored position
- * to render, no collision to detect and no reordering control to offer. What the row shows instead is an
- * `ordinal` — its 1-based place within its phase section, assigned by the page from the order it received.
- * That number is presentation: two rows cannot claim the same one, and nothing can make it disagree with
- * where the row actually is.
- *
- * **`spieleAngelegt` against `anzahl_spiele` is one of the two facts only this surface can catch.** The
- * expected count follows from the season's rules and this matchday's phase; the attached count
- * is how many fixtures carry its id. Nothing refuses a disagreement, because a season being set up passes
- * through every intermediate count on the way — so showing the two together is what makes the gap visible
- * without making the intermediate states illegal.
- *
- * **The section heading says the same thing about the phase**, from `phaseProgress`: how many live matchdays
- * it holds against how many the same rules imply. **A phase the season expects matchdays from and holds no
- * LIVE one for is named again at the foot** — the only place a phase with no section at all can be reported,
- * and it also catches one whose whole section is retired. A phase merely short of one, two of three say,
- * states that in its heading alone.
- *
- * **No per-row link to a matchday's fixtures**, and that is a fact about the Spielsuche rather than a gap
- * here: it searches team, venue, date, fixture number and referee, and a matchday's name is none of those,
- * so `?q=<name>` would land on an empty list. The public Spielplan at the foot is the outbound link that
- * works, and it is per season because that is the granularity a URL can address.
- *
- * Memoised for the reason `AdminCrudView`'s collection-identity note gives — though a plain list has no
- * react-aria collection to keep alive, so here the memo is only the cheap re-render saving.
+ * The season's matchdays, sectioned by phase in the order they are played — **which arrives correct
+ * and is not re-sorted here**. Memoised per `AdminCrudView`'s collection-identity note, though a
+ * plain list has no react-aria collection to keep alive.
  */
 export const AdminSpieltageList = memo(function AdminSpieltageList({
   spieltageQuery,
@@ -71,8 +41,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
 }) {
   const [, startReactivating] = useTransition();
 
-  // One press, then a toast either way. No confirmation step: reactivation is undone by the retire control
-  // that takes its place.
+  // No confirmation step: reactivation is undone by the retire control that takes its place.
   const handleReactivate = (spieltag: AdminSpieltagRow) => {
     startReactivating(async () => {
       const res = await reactivateSpieltagAction({ id: spieltag.id });
@@ -81,11 +50,10 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     });
   };
 
-  // Grouped by phase in the competition's own order. A phase with no matchday is skipped rather than
-  // rendered empty: an empty heading reads as something missing rather than something not reached.
+  // A phase with no matchday is skipped rather than rendered empty: an empty heading reads as
+  // something missing rather than something not reached.
 
-  // No sort inside a section — the rows arrive in the played order, and re-sorting here would be a
-  // second answer to a question the backend already answered.
+  // No sort inside a section: re-sorting would be a second answer to a question the backend answered.
   const byPhase = new Map<FLSaisonPhase, AdminSpieltagRow[]>();
   for (const spieltag of filteredSpieltage) {
     const section = byPhase.get(spieltag.saison_phase);
@@ -99,18 +67,9 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   const progressByPhase = new Map((phaseProgress ?? []).map((entry) => [entry.phase, entry]));
 
   /**
-   * The phases this season still owes a live matchday, for the line at the foot.
-   *
-   * **From the same season-wide counts the headings read, never from the rows.** Read from the rows the
-   * two contradicted each other on screen: under `?phase=finale` the heading reported the season's own
-   * numbers while this line named every other phase as empty, though each held matchdays the facet had
-   * merely hidden.
-   *
-   * `erwartet > 0` keeps a round this season's bracket does not reach off the list — it is not short of a
-   * matchday, it plays none. A phase whose only matchday is RETIRED is on the list, and that is what makes
-   * „aktiven“ load-bearing in the rendered sentence: retiring one is how a mis-dated matchday leaves the
-   * schedule, so the phase does still need another, but it is on screen and „Ohne Spieltag“
-   * would be false beside it.
+   * **From the season-wide counts the headings read, never from the rows**: taken from the rows,
+   * `?phase=finale` had this line naming every phase empty while the heading reported the season.
+   * `erwartet > 0` keeps a round the bracket does not reach off it.
    */
   const phasesWithout = SAISON_PHASE_OPTIONS.filter((phase) => {
     const progress = progressByPhase.get(phase);
@@ -118,27 +77,15 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   });
 
   /**
-   * The phase's own matchday count against what the season's rules imply — `spieleAngelegt` against
-   * `anzahl_spiele`, one level up.
-   *
-   * Both numbers are facts about the season rather than about the rows below
-   * (`fl_frontend/src/features/spieltage/utils.ts :: buildSpieltagPhaseProgress`).
-   *
-   * **So the heading and the rows beneath it count different populations, and neither bounds the other.**
-   * The heading counts the season's LIVE matchdays; the rows are whatever the search and the facets left,
-   * retired ones included. A complete phase reads „3 von 3“ above four cards when one of them is retired,
-   * and above a single card under `?status=stillgelegt`. That is the deliberate trade for `phasesWithout`
-   * above reading these same season-wide numbers rather than the rows.
-   *
-   * **Reported, never refused**: a season being set up reaches its phases in order, so a
-   * phase short of matchdays is the ordinary state on the way to complete.
+   * **The heading and the rows count different populations, and neither bounds the other**: the
+   * heading counts the season's LIVE matchdays, the rows whatever the search and facets left, retired
+   * included — the trade for `phasesWithout` reading these too.
    */
   const renderPhaseCount = (phase: FLSaisonPhase, shownCount: number) => {
     const progress = progressByPhase.get(phase);
     if (progress === undefined) {
       // Defensive, not a state this page reaches: `Map.get` needs narrowing, and a resolved season's
-      // schedule always holds the group phase, so every phase with a section here has an entry. With no
-      // season the empty-state card above returns first.
+      // schedule always holds the group phase.
       return (
         <span className="fluid-xs text-foreground-muted font-medium">
           {shownCount === 1 ? "1 Spieltag" : `${String(shownCount)} Spieltage`}
@@ -146,8 +93,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       );
     }
 
-    // The noun agrees with the EXPECTED count, which is the number it belongs to — the rule the row
-    // badge below already follows: a final expects one matchday, so this reads „1 von 1 Spieltag“.
+    // The noun agrees with the EXPECTED count, the number it belongs to: „1 von 1 Spieltag“.
     const noun = progress.erwartet === 1 ? "Spieltag" : "Spieltagen";
 
     return (
@@ -157,11 +103,10 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     );
   };
 
-  /** The derived expectation against what is actually attached — the per-matchday half of the check `renderPhaseCount` makes per phase. */
+  /** The derived expectation against what is attached — the per-matchday half of `renderPhaseCount`. */
   const renderSpieleCount = (spieltag: AdminSpieltagRow) => {
     const matches = spieltag.spieleAngelegt === spieltag.anzahl_spiele;
-    // The noun agrees with the EXPECTED count, which is the number it belongs to: a final expects one
-    // match, so the badge reads „1 / 1 Spiel“.
+    // The noun agrees with the EXPECTED count, the number it belongs to: „1 / 1 Spiel“.
     const noun = spieltag.anzahl_spiele === 1 ? "Spiel" : "Spiele";
 
     return (
@@ -247,10 +192,9 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                 className={`${card()} flex w-full flex-col gap-y-3 p-4 md:flex-row md:items-center md:gap-x-4 md:gap-y-0 ${
                   spieltag.inactive_since !== null ? "opacity-80" : ""
                 }`}>
-                {/* The ordinal and the identity share one row at EVERY width (decided 2026-08-07). A
-                    number belongs beside the thing it numbers, and giving it a phone row of its own
-                    spends a whole row on one digit. From `md` the same row is the start of the
-                    horizontal layout, so one wrapper serves both. */}
+                {/* The ordinal and the identity share one row at EVERY width: a number belongs
+                    beside the thing it numbers, and its own phone row spends a whole row on one
+                    digit. From `md` that row starts the horizontal layout. */}
                 <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"
@@ -289,11 +233,12 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
         </section>
       ))}
 
-      {/* Named once at the foot rather than as empty headings between the sections that do have one: a
-          season being set up reaches its phases in order, so "not there yet" is the normal state and
-          belongs as a quiet line rather than as gaps. Unconditional, because `phasesWithout` reads the
-          season's own counts and neither a search nor a facet can move them. */}
+      {/* Named once at the foot rather than as empty headings between the sections that have one:
+          a season reaches its phases in order, so "not there yet" is normal. Unconditional, because
+          `phasesWithout` reads counts no search or facet moves. */}
       {phasesWithout.length > 0 && (
+        // „aktiven“ is load-bearing: `angelegt` counts live matchdays alone, so a phase whose
+        // only matchday is retired is named here.
         <p className="fluid-xs text-foreground-muted font-medium">
           Ohne aktiven Spieltag: {phasesWithout.map((phase) => PHASE_LABELS[phase]).join(", ")}.
         </p>

@@ -1,15 +1,3 @@
-"""
-SAISONS · current-season resolution
-
-Where "which season is current" is decided, once — stated in full at
-`pull_current_saison`, which every endpoint defaulting an omitted `saison_id` routes through.
-
-Invariants:
-- A missing active season raises — degrading to an unfiltered query would mean "every season".
-- `rules` is live: `/teams` scores its derived table with it, so an edit is behaviour.
-- Misses fetch the full document, never a projection — the cache stores one shape.
-"""
-
 from typing import Any, Mapping
 
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -22,21 +10,10 @@ CURRENT_SAISON_FILTER = {"status": "active"}
 
 
 async def pull_current_saison(saisons_collection: AsyncIOMotorCollection) -> Mapping[str, Any]:
-    """
-    The season marked `active`, from the cache when it holds one.
+    """The season marked `active`, from the cache when it holds one.
 
-    The single definition of "which season is current". `/saisons/current`, and every endpoint that
-    defaults an omitted `saison_id`, goes through this function, so none of them can answer the
-    question differently.
-
-    Raises `DocumentNotFoundException` (404) when no season is active rather than degrading to an
-    unfiltered query: with the default in place, "no current season" would otherwise mean "every
-    season's data at once", which is the failure the default exists to prevent. That miss is never
-    cached — every retry asks the database again.
-
-    **Assumes exactly one active season.** Nothing in the schema or an index enforces that today, and
-    `find_one` takes whichever document Mongo returns first — so with two, this is arbitrary but at
-    least consistently arbitrary across every caller, which is the point of routing them here.
+    Raises 404 when none is active rather than degrading to an unfiltered query, and the miss is
+    not cached.
     """
 
     cached = read_cached_saison(CURRENT_SAISON_CACHE_KEY)
@@ -45,8 +22,7 @@ async def pull_current_saison(saisons_collection: AsyncIOMotorCollection) -> Map
 
     saison_raw = dict(await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER))
 
-    # Under its own id too: the current season answers by-id reads exactly as well, and `/teams`
-    # naming the running season explicitly is the common shape of that read.
+    # Under its own id too: `/teams` naming the running season explicitly is a common read.
     store_cached_saison(CURRENT_SAISON_CACHE_KEY, saison_raw)
     store_cached_saison(str(saison_raw["_id"]), saison_raw)
 
@@ -65,14 +41,9 @@ async def pull_saison_id_and_rules(
     saisons_collection: AsyncIOMotorCollection,
     saison_id: str | None,
 ) -> tuple[str, FLSaisonRules]:
-    """
-    A season's id and its scoring rules, in one read — and usually in none, from the cache.
+    """A season's id and its scoring rules, usually from the cache.
 
-    `saison_id=None` means the current season, so this resolves the default too — `/teams` needs both
-    halves and would otherwise read the collection twice for one answer.
-
-    An explicit id naming no season raises `DocumentNotFoundException` (404) rather than answering with
-    an empty list -- an unknown season is a wrong request, not a season with nothing in it.
+    `saison_id=None` means the current season; an explicit id naming none raises 404.
     """
 
     if saison_id is None:

@@ -1,15 +1,3 @@
-"""
-API · what contains what — the date-span family, plus the clash and squad rules
-
-All pure, all default tier. One idea runs through the span rules (decided 2026-08-08): a span
-contains what sits inside it — a season its matchdays, a matchday its fixtures — and until these
-existed a fixture could be dated in a month its matchday did not cover.
-
-A postponed match prolongs the matchday, deliberately without exception: the span describes when
-the fixtures are played rather than planning when they must be. Identity is asserted on the code;
-a message is asserted only where it must name something.
-"""
-
 from typing import Literal
 
 import pytest
@@ -39,8 +27,7 @@ from app.api.spieltage.services import (
 
 SPAN = {"saison_start": "2026-03-01", "saison_end": "2026-09-30"}
 
-# The live season's shape: 4 groups of 4, 2 qualifiers each, which `schedule_for` turns into 6
-# matchdays. Every span in the containment class below is months long, so `REQ-DATE-005` passes.
+# Every span in the containment class below is months long, so `REQ-DATE-005` passes.
 SAISON_RULES = FLSaisonRules(
     number_of_groups=4,
     teams_per_group=4,
@@ -70,12 +57,7 @@ class TestAFixtureSitsInsideItsMatchday:
         assert refusal.error_code == FIXTURE_OUTSIDE_SPIELTAG
 
     def test_an_undated_fixture_passes(self):
-        """
-        The ordinary state of a season being scheduled, and it contradicts no span.
-
-        Deliberately the opposite reading from the disqualification rule, where a missing date is evidence
-        of nothing and is therefore refused: there, the question is whether the match was already played.
-        """
+        """An undated fixture contradicts no span — the opposite reading from the disqualification rule, which refuses by default."""
 
         assert find_fixture_date_refusal(datum=None, spieltag_beginn="2026-03-07", spieltag_ende="2026-03-08") is None
 
@@ -109,12 +91,7 @@ class TestAMatchdaySitsInsideItsSeason:
         assert refusal.error_code == SPIELTAG_OUTSIDE_SAISON
 
     def test_it_applies_to_a_matchday_with_no_fixtures(self):
-        """
-        Which is every matchday at the moment it is created, and the reason this half runs first.
-
-        It is a property of the two documents alone, so the create can be held to it before any fixture
-        exists to be checked against.
-        """
+        """A property of the two documents alone, so a create is held to it before any fixture exists."""
 
         refusal = find_spieltag_span_refusal(beginn="2026-01-01", ende="2026-01-02", fixture_dates=[], **SPAN)
 
@@ -123,13 +100,7 @@ class TestAMatchdaySitsInsideItsSeason:
 
 
 class TestASeasonKeepsCoveringItsMatchdays:
-    """
-    `REQ-DATE-004`, the fourth member of the containment family.
-
-    The same season-contains-matchday rule as `REQ-DATE-002`, refused from the CONTAINER's side, because
-    shrinking the season is the other way to break it — exactly the pair -001 and -003 already form one
-    level down.
-    """
+    """`REQ-DATE-002` from the container's side: shrinking the season is the other way to break it."""
 
     def test_a_span_covering_every_matchday_passes(self):
         assert (
@@ -181,37 +152,26 @@ class TestASeasonKeepsCoveringItsMatchdays:
         assert "2026-03-07" in refusal.message
 
     def test_a_season_with_no_matchdays_passes_this_half(self):
-        """
-        Which is every season at the moment it is created.
-
-        The create calls this function for `REQ-DATE-005`, whose half reads the payload alone; an empty
-        `spieltag_spans` is what makes the containment half below silently pass there.
-        """
+        """The create calls this for `REQ-DATE-005`, and an empty `spieltag_spans` is what makes the containment half pass there."""
 
         assert find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-31", rules=SAISON_RULES, spieltag_spans=[]) is None
 
 
 class TestASeasonIsLongEnoughForItsSchedule:
-    """
-    `REQ-DATE-005`. Derived from the rules, never an arbitrary floor.
-
-    `schedule_for` says how many matchdays the competition takes and no two can be played on one day,
-    so the shortest legal season is exactly that many days long. A one-day MATCHDAY stays legal — the
-    live `finale` is one — because this rule is on the season and nothing here refuses `beginn == ende`.
-    """
+    """`schedule_for` says how many matchdays the competition takes and no two share a day, so the shortest legal season is that many days."""
 
     def test_a_season_with_room_for_every_matchday_passes(self):
-        """The positive baseline: without it, every refusal below could pass on rules that refuse anything."""
+        """The positive baseline: without it every refusal below could pass on rules that refuse anything."""
 
         assert find_saison_span_refusal(start_date="2026-03-01", end_date="2026-09-30", rules=SAISON_RULES, spieltag_spans=[]) is None
 
     def test_exactly_as_many_days_as_matchdays_passes(self):
-        """The boundary, and it is inclusive: 6 matchdays fit in 6 days, one each."""
+        """Inclusive: six matchdays fit in six days, one each."""
 
         assert find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-06", rules=SAISON_RULES, spieltag_spans=[]) is None
 
     def test_one_day_short_is_refused(self):
-        """The other side of the same boundary — the case an off-by-one in the inclusive count would miss."""
+        """The other side of the boundary, which an off-by-one would miss."""
 
         refusal = find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-05", rules=SAISON_RULES, spieltag_spans=[])
 
@@ -234,12 +194,7 @@ class TestASeasonIsLongEnoughForItsSchedule:
         assert f"{IMPLIED_MATCHDAYS} matchday(s)" in refusal.message
 
     def test_the_floor_follows_the_rules_rather_than_a_constant(self):
-        """
-        The point of deriving it: a wider competition needs a longer season.
-
-        Groups of 6 take 5 group matchdays instead of 3, so the same span that was legal above is not.
-        A hardcoded floor could not tell these two seasons apart.
-        """
+        """The same span is legal under one rules set and refused under a wider one; a hardcoded floor could not tell them apart."""
 
         wider = FLSaisonRules(
             number_of_groups=4,
@@ -257,7 +212,7 @@ class TestASeasonIsLongEnoughForItsSchedule:
         assert refusal.error_code == SAISON_SPAN_BELOW_SCHEDULE
 
     def test_the_live_seasons_span_is_unaffected(self):
-        """`DATA-audit.md` §3: the one stored season runs 2026-03-07 to 2026-09-04 under these rules."""
+        """The span the league is actually playing, which these rules must not refuse."""
 
         assert find_saison_span_refusal(start_date="2026-03-07", end_date="2026-09-04", rules=SAISON_RULES, spieltag_spans=[]) is None
 
@@ -275,8 +230,6 @@ class TestAMatchdayKeepsCoveringItsFixtures:
         assert refusal.error_code == SPIELTAG_SPAN_BELOW_FIXTURES
 
     def test_the_refusal_counts_them_and_names_the_first(self):
-        """The count says how much work the repair is; the date says where to start looking."""
-
         refusal = find_spieltag_span_refusal(
             beginn="2026-03-07",
             ende="2026-03-08",
@@ -289,12 +242,7 @@ class TestAMatchdayKeepsCoveringItsFixtures:
         assert "2026-03-20" in refusal.message
 
     def test_the_season_rule_is_reported_first(self):
-        """
-        Both apply; the season is the outer container and the one the admin must satisfy either way.
-
-        Widening the span to cover a stray fixture is pointless advice if the widened span would still
-        fall outside the season.
-        """
+        """Widening to cover a stray fixture is pointless advice if the widened span still falls outside the season."""
 
         refusal = find_spieltag_span_refusal(beginn="2026-01-01", ende="2026-01-02", fixture_dates=["2026-03-20"], **SPAN)
 
@@ -303,9 +251,7 @@ class TestAMatchdayKeepsCoveringItsFixtures:
 
 
 class TestOneVenueAndOneRefereeAtATime:
-    # `resource` is annotated rather than left to inference: without the Literal, a plain `str` default
-    # widens the parameter and `BookedSlot` then refuses it. The gate catches that -- its bare `pyright`
-    # reads `[tool.pyright]`, which includes `tests`.
+    # Annotated rather than inferred: a plain `str` default widens the parameter and `BookedSlot` refuses it.
     def slot(
         self,
         uhrzeit: str,
@@ -324,12 +270,7 @@ class TestOneVenueAndOneRefereeAtATime:
         assert find_clash_refusal(datum="2026-03-07", uhrzeit="18:00:00", booked=[]) is None
 
     def test_exactly_the_buffer_apart_passes(self):
-        """
-        Four hours apart is the arrangement this rule is meant to permit.
-
-        The league plays several matches at one ground on a matchday, so it spaces them rather than
-        forbidding the pairing.
-        """
+        """The league plays several matches at one ground a matchday, so it spaces them rather than forbidding the pairing."""
 
         assert find_clash_refusal(datum="2026-03-07", uhrzeit="22:00:00", booked=[self.slot("18:00:00")]) is None
 
@@ -350,17 +291,11 @@ class TestOneVenueAndOneRefereeAtATime:
 
     @pytest.mark.parametrize(("datum", "uhrzeit"), [(None, "18:00:00"), ("2026-03-07", None)])
     def test_an_unscheduled_fixture_cannot_clash(self, datum, uhrzeit):
-        """
-        The one gap in this rule, and it is deliberate: what is unscheduled is not yet double-booked.
-
-        Refusing on a missing date or time would refuse every fixture in a season still being scheduled.
-        """
+        """The gap is deliberate: refusing would refuse every fixture in a season still being scheduled."""
 
         assert find_clash_refusal(datum=datum, uhrzeit=uhrzeit, booked=[self.slot("18:00:00")]) is None
 
     def test_the_refusal_names_the_resource_and_the_other_fixture(self):
-        """Which of the two collided, and which fixture to open — the referee case reads the same way."""
-
         refusal = find_clash_refusal(
             datum="2026-03-07",
             uhrzeit="19:00:00",
@@ -378,11 +313,7 @@ class TestRetiringAVenueOrAReferee:
         assert find_referee_retire_refusal(upcoming_spiel_nrs=[]) is None
 
     def test_an_upcoming_fixture_refuses_it(self):
-        """
-        The reasoning `REQ-RETIRE-001` already applies to a club, and these two had no equivalent of it.
-
-        Retiring either removes it from every picker while matches are still scheduled against it.
-        """
+        """`REQ-RETIRE-001`'s reasoning: retiring removes it from every picker while matches are scheduled against it."""
 
         venue = find_venue_retire_refusal(upcoming_spiel_nrs=[3])
         referee = find_referee_retire_refusal(upcoming_spiel_nrs=[3])
@@ -403,25 +334,13 @@ class TestRetiringAVenueOrAReferee:
 
 
 class TestASquadEntry:
-    """
-    `REQ-SQUAD-001` is the only refusal here, and that is the change (decided 2026-08-13).
-
-    A duplicate shirt number is permitted on every write path — declared in
-    `fl_backend/app/core/domain.py :: UNENFORCED`. The league fields four goalkeepers in one squad all
-    wearing 1, and refusing the state would make those rows uneditable and, once one was retired,
-    unreactivatable. `reactivate_saison_spieler` never consulted the rule at all, so refusing on two
-    paths of three was one rule answering three ways rather than a rule with a gap.
-    """
+    """A duplicate shirt number is permitted everywhere (`fl_backend/app/core/domain.py :: UNENFORCED`): several goalkeepers wear 1."""
 
     def test_a_team_in_the_season_passes(self):
         assert find_squad_refusal(team_in_saison=True) is None
 
     def test_a_team_not_in_the_season_is_refused(self):
-        """
-        The same dangling reference `REQ-ELIGIBILITY-002` refuses on the match side.
-
-        It was open here while closed there, so a squad list could name a club not in the competition.
-        """
+        """The dangling reference `REQ-ELIGIBILITY-002` refuses on the match side."""
 
         refusal = find_squad_refusal(team_in_saison=False)
 
@@ -430,11 +349,6 @@ class TestASquadEntry:
 
     @pytest.mark.parametrize(("raw", "expected"), [(" 7 ", "7"), ("", None), (None, None), ("07", "07")])
     def test_a_number_is_compared_trimmed_and_not_renumbered(self, raw, expected):
-        """
-        Whitespace is noise and an empty string is no number.
-
-        `07` stays `07`, deliberately: it is a shirt somebody had printed, and deciding it is the same
-        shirt as `7` is a judgement this rule declines.
-        """
+        """`07` stays `07`: it is a printed shirt, and calling it the same as `7` is a judgement this rule declines."""
 
         assert normalised_nummer(raw) == expected

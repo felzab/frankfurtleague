@@ -1,15 +1,3 @@
-/**
- * TEAMS · every Hinweis the club editor can raise, in one list
- *
- * **One authoring site per situation, which is the whole point of the file.** The rail renders
- * `resolveRailBanners` over this list and each panel renders the entries anchored at its own spot,
- * so a banner and its mirror are one string. A second copy hand-written in the panel file drifts in
- * wording instead, and nothing in the toolchain can see that it has.
- *
- * A pure function over the derived draft, so the gates and the German are readable and testable
- * without a render.
- */
-
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLDisqualifikation } from "@/features/teams/schemas";
@@ -25,11 +13,14 @@ export type TeamBannerId =
   | "team.dq-standing"
   | "team.gruppe-changed";
 
-/** The panel spots that render one of these inline. */
 export type TeamBannerSpot = "gruppe" | "saison-eintritt" | "saison-gesperrt" | "dq-eintrag" | "dq-aufhebung";
 
 export type TeamBanner = RailBanner<TeamBannerId> & { inline: TeamBannerSpot | null };
 
+/**
+ * One list, not two: the rail and the inline spots must never disagree about what is raised, and a
+ * second copy hand-written in a panel would drift in wording with nothing able to see it.
+ */
 export function buildTeamBanners({
   isRetired,
   saisonId,
@@ -63,8 +54,8 @@ export function buildTeamBanners({
   }
 
   if (!isMember) {
-    // Split on the season's status rather than stated once, because the two halves differ in what
-    // they ask of the admin: the future season has a remedy on this page and the other two do not.
+    // Split on the season's status: the future season has a remedy on this page, the other two
+    // do not.
     if (saisonStatus === "future") {
       banners.push({
         id: "team.not-in-saison-future",
@@ -108,8 +99,8 @@ export function buildTeamBanners({
   }
 
   if (isDisqualified && storedDisqualifikation !== null) {
-    // The body is the admin's own stored `grund`, rendered verbatim: reshaping it would put words in
-    // their mouth on a page that publishes those words.
+    // The stored `grund` verbatim: reshaping it would put words in their mouth on a page that
+    // publishes those words.
     banners.push({
       id: "team.dq-standing",
       severity: "info",

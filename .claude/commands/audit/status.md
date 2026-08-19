@@ -2,8 +2,8 @@
 description: Report programme state and resume interrupted audit or wave work
 ---
 
-Reconstruct where the audit programme stands and resume whatever a dead session left unfinished. This
-is the entry point after running out of tokens, a crash, or simply returning later.
+Reconstruct where the audit programme stands and resume whatever a dead session left unfinished —
+the entry point after running out of tokens, a crash, or simply returning later.
 
 Read-only until resuming; this command itself changes nothing.
 
@@ -12,16 +12,11 @@ Read-only until resuming; this command itself changes nothing.
 1. **Read `docs/_auditing/lessons.md` in full**, before anything else. Resuming means acting on work
    another session left behind, which is where its traps bite hardest.
 
-2. **Read `docs/audit/programme/state.md` first.** Every pass and every wave appends to it, in the
-   shape `docs/_auditing/programme.md` §3 gives, and its last entry names the session that stopped
-   and what it was doing when it did. That is the answer this command exists to produce, and it is
-   cheaper and more exact than any inference from the tree.
-
-   **Trust it only while it is current.** It is stale when its last entry is older than the newest
-   commit on the current branch or the newest file under `docs/audit/programme/`, and it is absent
-   on a programme that ran before it existed. Say which of the two you are in, and cover what it
-   does not with step 3 — a state file believed past the point where it stopped being written is
-   worse than no state file.
+2. **Read `docs/audit/programme/state.md` first.** Its last entry names the session that stopped and
+   what it was doing when it did — the answer this command exists to produce, and cheaper and more
+   exact than any inference from the tree. **Trust it only as far as `docs/_auditing/programme.md`
+   §3 allows**: a stale or missing file is not the record for what happened after it. Say which case
+   you are in, and cover what it does not answer with step 3.
 
 3. **Establish phase from the tree**, for everything step 2 did not answer:
    - `docs/audit/programme/` — which pass reports are present. A report with a complete verdict is a
@@ -40,10 +35,9 @@ Read-only until resuming; this command itself changes nothing.
      resume protocol in `docs/_auditing/prompts/_shared-protocol.md`: continue from the first check
      whose ledger row is unfilled, never redo completed checks.
    - A wave with `[~]` rows, unticked rows, or a branch ahead of `main` → a wave died mid-run.
-     Reconcile the ledger against `git diff main...<branch>`: a `[~]` row means inspect the diff, the
-     work may be partial; a ticked row must have its change in a commit. Report the reconciliation,
-     then offer to continue via the wave prompt's resume check
-     (`docs/_auditing/prompts/remediation-wave.md`).
+     Reconcile the ledger against `git diff main...<branch>` — a `[~]` row means inspect the diff,
+     and a ticked row must have its change in a commit. Report the reconciliation, then offer to
+     continue via the resume check in `docs/_auditing/prompts/remediation-wave.md`.
    - Uncommitted changes anywhere → summarise them against the ledger before anything else. **Never
      discard or commit them blind.**
 
@@ -52,8 +46,8 @@ Read-only until resuming; this command itself changes nothing.
    action**. Say for each conclusion whether it came from `state.md` or from the tree, and where the
    two disagree, say that too and treat the tree as the fact.
 
-7. **Resume only on the owner's confirmation** if the session is interactive. If the owner asked to
-   resume in the invocation, proceed directly with the matching protocol.
+7. **Resume only on the owner's confirmation** if the session is interactive. Where the owner asked
+   to resume in the invocation, proceed directly with the matching protocol.
 
 8. **Append what you did to `state.md`** before handing back, where the session resumed anything.
    A resume that leaves no entry is the next crash's blind spot.

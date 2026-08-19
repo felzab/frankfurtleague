@@ -1,15 +1,3 @@
-/**
- * SAISONS · every Hinweis the season editor can raise, in one list
- *
- * One entry per situation, read by the rail and by the panel that also shows it inline — see the
- * club editor's `banners.ts` for why the two halves cannot be authored separately.
- *
- * The group-swap panel is deliberately outside this list. Its four callouts explain why a control
- * that cannot act cannot act, which is a question only the panel raises and only the panel can
- * answer; the rail lists standing facts about the season, and a lock explanation there would be
- * advice about a control the reader cannot see.
- */
-
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
@@ -22,7 +10,6 @@ export type SaisonBannerId =
   | "saison.stufen-changed"
   | "saison.rollover-blocked";
 
-/** The panel spots that render one of these inline. */
 export type SaisonBannerSpot = "zeitraum" | "regeln-qualifikanten" | "regeln-status" | "umstellung";
 
 export type SaisonBanner = RailBanner<SaisonBannerId> & { inline: SaisonBannerSpot | null };
@@ -50,9 +37,8 @@ export function buildSaisonBanners({
   const banners: SaisonBanner[] = [];
 
   if (saisonStatus === "active") {
-    // Two facts that do not follow from each other, which is why they are one entry rather than two:
-    // this season is what every page without a selector shows, and the table behind it is scored on
-    // every read rather than stored.
+    // Two facts that do not follow from each other, hence one entry rather than two: this season is
+    // what every page without a selector shows, and its table is scored on read rather than stored.
     banners.push({
       id: "saison.active",
       severity: "info",
@@ -92,9 +78,8 @@ export function buildSaisonBanners({
     });
   }
 
-  // The one edit on this page whose effect is retroactive and invisible at the field: the table is
-  // scored on every read rather than stored, so the numbers move with nothing announcing
-  // that they did.
+  // The one edit whose effect is retroactive and invisible at the field: the table is scored on read,
+  // so the numbers move with nothing announcing it.
   if (isPointsChanged) {
     banners.push({
       id: "saison.points-changed",

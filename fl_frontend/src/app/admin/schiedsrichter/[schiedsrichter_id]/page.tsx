@@ -10,12 +10,8 @@ import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The referee editor. One referee per URL, and no season in it: a referee belongs to the
- * league rather than to a season, so the sidemenu's selector changes nothing on this page.
- *
- * No `generateMetadata` and no `generateStaticParams`, for the reasons the match editor records.
- * **The page itself resolves NOTHING** — every await happens inside the `Suspense` boundary, which
- * is what keeps a fallback-params route renderable (the match editor documents the crash).
+ * The referee editor. One per URL and no season in it: a referee belongs to the league, so the
+ * sidemenu's selector changes nothing here. It resolves nothing itself — see the match editor.
  */
 export default function AdminSchiedsrichterEditPage(props: NextPageProps<{ schiedsrichter_id: string }>) {
   return (
@@ -29,9 +25,8 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   await connection();
   const schiedsrichterId = await resolveSchiedsrichterId(params);
 
-  // The list read, not `GET /schiedsrichter/{id}`: already cached under the tag this page's write
-  // clears. `include_inactive` matches the list this page opens from — without it a retired referee's
-  // own editor answers not-found.
+  // The list read, already cached under the tag this page's write clears. `include_inactive`, or
+  // a retired referee's own editor answers not-found.
   const schiedsrichterRes = await getSchiedsrichter({ include_inactive: true });
   const schiedsrichter = schiedsrichterRes.schiedsrichter.find((candidate) => candidate.id === schiedsrichterId);
   if (!schiedsrichter) {
@@ -39,8 +34,7 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   }
 
   return (
-    // Keyed by the state the draft mirrors — the match editor's reason: the same route pattern
-    // reconciles in place, and a saved referee must reopen with their saved values.
+    // Keyed by the state the draft mirrors, for the match editor's reason.
     <AdminSchiedsrichterEditView
       key={JSON.stringify(schiedsrichter)}
       schiedsrichter={{

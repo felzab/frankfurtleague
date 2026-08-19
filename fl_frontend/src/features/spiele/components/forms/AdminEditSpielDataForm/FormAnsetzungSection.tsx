@@ -14,18 +14,8 @@ import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { CalendarDate, Time } from "@internationalized/date";
 
 /**
- * When, where and with whom — the three groups that have to be settled before kick-off.
- *
- * **First on the page, and that order is by the admin's task rather than by the data model.** Four of
- * the eight action-required categories live in this one panel (`datum_missing`, `uhrzeit_missing`,
- * `ort_missing`, `schiedsrichter_missing`), it is the only panel that applies to every fixture in every
- * phase, and it is what most admins arrive to fill in.
- *
- * **One panel, three groups, one `h3`.** They are separate questions with the same answer shape, so a
- * panel each would be three titled boxes saying almost the same thing; a rule between them is enough.
- * Only "Termin" carries a `FORM_SECTION_HEADING`, because its field labels ("Spieldatum", "Anpfiff")
- * do not name the group — the venue and referee groups open with a field label that already does, and
- * a heading there would be the same word twice, one level apart.
+ * **First on the page**, ordered by the admin's task rather than the data model: the only panel
+ * applying to every fixture in every phase, and where most action-required categories land.
  */
 export function FormAnsetzungSection({
   datum,
@@ -56,8 +46,6 @@ export function FormAnsetzungSection({
 
   return (
     <section className={styles.root()}>
-      {/* No standing hint sentence: what it said lives in the InfoHint, on every panel alike — the
-          title carries the surface and the explanation appears when asked for. */}
       <div className={styles.header()}>
         <h2 className={styles.heading()}>
           Ansetzung
@@ -89,9 +77,6 @@ export function FormAnsetzungSection({
 
         <Separator className="bg-border" />
 
-        {/* No sub-group heading on these two: each group's first field label already names it —
-            "Spielort" over "Spielort" was the duplicated level reported in review, and
-            `FORM_SECTION_HEADING`'s own rule forbids it. The separators still delimit the groups. */}
         <FormSpielortSection
           spielorte={spielorte}
           ortPayload={ortPayload}

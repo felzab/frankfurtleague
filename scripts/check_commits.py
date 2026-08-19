@@ -1,22 +1,7 @@
-"""
-SCRIPTS · the commit message gate
+"""SCRIPTS · the commit message gate.
 
-Run by verify.sh inside the docs scope, for the reason `docs/ops/spec.md` §1.6 gives. A check that
-cannot be decided without reading the change reports rather than refuses (CUR-5) — the split is what
-keeps a check that would fail half of a deliberate style from being switched off.
-
-Invariants:
-- Only the branch's commits are read — base..HEAD, never history, which predates the convention.
-- Merge commits are skipped: GitHub writes those, and the merge button fixes their subject.
-- Length is two tiers, a reported target and a hard maximum — `SUBJECT_TARGET` and `LINE_MAX`.
-- A trailer is refused by name in `BANNED` and by shape in `trailer_block`, which reads the closing
-  paragraph the way git does.
-- The bot exemption drops three rules, the sign-off one by name and by shape, on an exact identity.
-
-See:
-- docs/_git/templates.md — the form a message is written to
-- docs/_git/spec.md — the hook's install line, what reports rather than refuses, and the carve-out
-- scripts/checker_kernel.py — git, the base, and the exit code this answers with
+A check needing the change itself to decide reports rather than refuses (CUR-5), which is what
+keeps one from being switched off. Only base..HEAD is read; history predates the convention.
 """
 
 from __future__ import annotations
@@ -37,9 +22,7 @@ LINE_MAX: Final = 100  # failed: past here nothing wrapped the line at all
 # space or a `+` because "Backend + Frontend" and "Backend deps" are both real and both correct.
 SUBJECT_SHAPE: Final = re.compile(r"^[A-Z][A-Za-z0-9+ ]{0,30}: \S")
 
-# The vocabulary, reported only. The areas a subject leads with, and every prefix
-# `.github/dependabot.yml` sets, one per update entry. A new area is a reason to add a row, not a
-# reason to fail a run.
+# The vocabulary, reported only: a new area is a reason to add a row, not to fail a run.
 KNOWN_SCOPES: Final[frozenset[str]] = frozenset(
     {
         "Frontend",
@@ -67,21 +50,18 @@ AI_SIGNATURE: Final = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
-# `Reapply` is what reverting a revert writes since git 2.44, and both forms leave the body line
-# below -- the evidence, where a subject alone is ten typed characters. A merge needs neither:
-# --no-merges covers the gate, MERGE_HEAD the hook.
+# `Reapply` is what reverting a revert writes since git 2.44. A merge needs neither: --no-merges
+# covers the gate, MERGE_HEAD the hook.
 GENERATED_SUBJECT: Final = re.compile(r'^(?:Revert|Reapply) ".+"$')
-# git closes the sentence with a period for an ordinary commit and with ", reversing" for a merge.
-# Every change here reaches main through a merge commit, so reverting one is routine and both
-# endings are the marker.
+# git closes the sentence with a period for an ordinary commit and ", reversing" for a merge, and
+# every change reaches main through a merge, so both endings are the marker.
 GENERATED_BODY: Final = re.compile(r"^This reverts commit [0-9a-f]{7,40}[.,]", re.MULTILINE)
 
 # Banned outright: a trailer, an issue-closing keyword, an AI-authorship signature. The first two are
-# the convention (`docs/_git/templates.md :: Commit messages`); the third is
-# CLAUDE.md §2, the one a tool default adds on its own.
+# the convention (`docs/_git/templates.md :: Commit messages`); the third is CLAUDE.md §2.
 
-# The trailing flag is whether the rule still binds a commit the bot exemption has released. Only the
-# sign-off is dropped, because only the sign-off is something dependabot's generator cannot leave out.
+# The trailing flag is whether the rule still binds a commit the bot exemption released. Only the
+# sign-off is dropped, that being the one thing dependabot's generator cannot leave out.
 BANNED: Final[tuple[tuple[re.Pattern[str], str, bool], ...]] = (
     (re.compile(r"^\s*Co-authored-by:", re.IGNORECASE | re.MULTILINE), "a Co-authored-by trailer", True),
     (re.compile(r"^\s*Signed-off-by:", re.IGNORECASE | re.MULTILINE), "a Signed-off-by trailer", False),
@@ -89,26 +69,22 @@ BANNED: Final[tuple[tuple[re.Pattern[str], str, bool], ...]] = (
     (re.compile(r"\b(clos(e|es|ed)|fix(es|ed)?|resolv(e|es|ed))\s+#\d+", re.IGNORECASE), "an issue-closing keyword", True),
 )
 
-# Read from the commit and matched whole: `dependabot[bot]` alone would release anyone who typed it
-# into `user.name`, and half an address would release a domain. The pull request half is
-# `check_pr_body.py :: BOT_AUTHORS` (COR-2).
+# Matched whole: `dependabot[bot]` alone would release anyone who typed it into `user.name`, and
+# half an address would release a domain. The pull request half is `check_pr_body.py :: BOT_AUTHORS`.
 BOT_IDENTITIES: Final[frozenset[tuple[str, str]]] = frozenset(
     {
         ("dependabot[bot]", "49699333+dependabot[bot]@users.noreply.github.com"),
     }
 )
 
-# `BANNED` names the two trailers a tool inserts; the convention refuses every trailer, so any other
-# one merges clean. A trailer is read in the message's LAST paragraph alone, which is where git
-# reads one, and the paragraph has to be nothing else.
+# A trailer is read in the message's LAST paragraph alone, where git reads one, and the paragraph
+# has to be nothing else.
 TRAILER_LINE_RE: Final = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*:[ \t]\S")
-# The hyphen is what separates a trailer from a sentence. A body closing `Verified: ... exit 0.` is
-# one paragraph of prose in this repository's own history, and failing that spelling is the false
-# positive that gets the check switched off.
+# The hyphen separates a trailer from a sentence: a body closing `Verified: ... exit 0.` is prose,
+# and failing that spelling is the false positive that gets the check switched off.
 HYPHENATED_TRAILER_RE: Final = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+:[ \t]\S")
 
-# Emoji and pictographs. Ranges rather than a library, because CI runs this on a bare runner with no
-# virtualenv at all, so it imports nothing outside the standard library.
+# Ranges rather than a library: CI runs this on a bare runner with no virtualenv at all.
 EMOJI: Final = re.compile(
     "[\U0001f000-\U0001faff☀-➿⬀-⯿️]",
 )
@@ -133,8 +109,8 @@ class CommitFinding(Finding):
 def git_is_composing() -> bool:
     """Whether git wrote the message the hook is about to check, rather than a person.
 
-    Asked of git's own state rather than of the subject's first word: a merge or a revert in progress
-    leaves the ref behind, while `Merge ` at the front of a subject is six characters anyone can type.
+    Asked of git's own state, not the subject's first word: a merge or revert leaves the ref
+    behind, while anyone can type `Merge `.
     """
     return any(git("rev-parse", "--verify", "--quiet", ref) is not None for ref in ("MERGE_HEAD", "REVERT_HEAD"))
 
@@ -142,8 +118,8 @@ def git_is_composing() -> bool:
 def comment_char() -> str:
     """git's own comment marker, which `core.commentChar` may move off `#`.
 
-    `auto` picks per message out of a candidate list and cannot be resolved from here, so it reads as
-    the default -- the same answer as an unset key, and the right one for all but a contrived tree.
+    `auto` picks per message and cannot be resolved here, so it reads as the default -- the same
+    answer as an unset key.
     """
     configured = git("config", "--get", "core.commentChar")
     return configured if configured is not None and len(configured) == 1 else "#"
@@ -163,8 +139,8 @@ def branch_commits(base: str) -> list[str] | None:
 def trailer_block(message: str) -> list[str]:
     """The message's closing paragraph where that paragraph is a run of trailers, else nothing.
 
-    A subject alone is never one: git needs a paragraph below the subject before it reads trailers
-    at all, so a one-paragraph message returns nothing however its line is spelt.
+    git needs a paragraph below the subject before it reads trailers at all, so a one-paragraph
+    message is never one.
     """
     paragraphs = [block for block in re.split(r"\n[ \t]*\n", message.strip()) if block.strip()]
     if len(paragraphs) < 2:
@@ -176,13 +152,10 @@ def trailer_block(message: str) -> list[str]:
 
 
 def check_message(message: str, short: str, *, is_bot: bool = False) -> list[CommitFinding]:
-    """Every rule against one message; `is_bot` drops the three a bot's generator cannot satisfy.
+    """Every rule against one message; `is_bot` drops the three a bot cannot satisfy.
 
-    Dependabot writes an unwrapped first body line, signs off, and records no verification, none of
-    which `.github/dependabot.yml` can configure -- so every update pull request arrived red and the
-    programme that file exists for was dead. Those three go and nothing else does: the subject's
-    shape, the emoji ban, the AI-signature ban, every other trailer and the scope vocabulary all
-    still answer for a bot, which is what stops the exemption becoming a way past the convention.
+    Dependabot writes an unwrapped body line, signs off, and records no verification, none of it
+    configurable. A wider exemption is a way past the convention.
     """
     lines = message.rstrip("\n").split("\n")
     subject = lines[0]
@@ -194,9 +167,8 @@ def check_message(message: str, short: str, *, is_bot: bool = False) -> list[Com
     def report(detail: str) -> None:
         findings.append(CommitFinding("report", detail, short, subject))
 
-    # git writes a revert's subject and this repository does not choose it, so its shape and length
-    # go and nothing else does: the marker is typed in seconds, and releasing the whole message
-    # would hand the emoji, trailer and signature bans to anyone.
+    # git writes a revert's subject, so its shape and length go and nothing else does: the marker is
+    # typed in seconds, and releasing the whole message would hand the other bans to anyone.
     generated = bool(GENERATED_SUBJECT.match(subject) and GENERATED_BODY.search(message))
 
     if not generated:
@@ -221,8 +193,7 @@ def check_message(message: str, short: str, *, is_bot: bool = False) -> list[Com
     body = "\n".join(lines[2:]).strip()
     if not body:
         fail("no body - a one-line commit records nothing the diff does not already show")
-    # A generated revert body takes the release the bot gets: it is one line git wrote, so it records
-    # no verification and is not wrapped prose.
+    # One line git wrote, so it records no verification and is not wrapped prose.
     elif not (is_bot or generated):
         for raw in lines[2:]:
             if len(raw) > LINE_MAX and not UNWRAPPABLE.search(raw.strip()):
@@ -234,11 +205,9 @@ def check_message(message: str, short: str, *, is_bot: bool = False) -> list[Com
     named = [what for pattern, what, binds_a_bot in BANNED if (binds_a_bot or not is_bot) and pattern.search(message)]
     for what in named:
         fail(f"the message carries {what}")
-    # Only where none of the named patterns matched: a Co-authored-by line is both, and reporting
-    # one message twice reads as a gate that cannot say what is wrong.
+    # Only where none of the named patterns matched: a Co-authored-by line is both.
     if not named and (tokens := [line.split(":", 1)[0] for line in trailer_block(message)]):
-        # The shape half of the rule the exemption drops, and no wider: a bot's message structurally
-        # ends in its sign-off, while any other trailer is still refused whoever wrote it.
+        # The shape half of the dropped rule and no wider: any other trailer is still refused.
         if not (is_bot and all(token.lower() == "signed-off-by" for token in tokens)):
             fail(f"the message ends in a trailer block ({', '.join(tokens)}) - the convention carries no trailers")
 
@@ -252,11 +221,9 @@ def check_commit(sha: str) -> list[CommitFinding]:
     """One commit's author and message from one `git show`: every commit on the branch pays this."""
     raw = git("show", "-s", "--format=%an%n%ae%n%B", sha)
     if raw is None:
-        # Failed rather than skipped: `rev-list` named this commit, so a `git show` that will not
-        # answer is a broken object, and a message nothing read is indistinguishable from a clean one.
+        # Failed rather than skipped: a message nothing read is indistinguishable from a clean one.
         return [CommitFinding("fail", "git could not read this commit, so its message was never judged", sha[:7], "(unread)")]
-    # git forbids a newline in either ident field, so the first two lines are the identity whatever
-    # the message below them looks like.
+    # git forbids a newline in either ident field, so the first two lines are the identity.
     name, _, rest = raw.partition("\n")
     email, _, message = rest.partition("\n")
     return check_message(message, sha[:7], is_bot=(name, email) in BOT_IDENTITIES)
@@ -265,16 +232,15 @@ def check_commit(sha: str) -> list[CommitFinding]:
 def check_message_file(path: Path) -> int:
     """The commit-msg hook's entry point: one message, not yet a commit.
 
-    Comment lines are dropped first. Git strips them only AFTER this hook runs, so an editor-written
-    message still carries the whole "# Please enter the commit message" block at this point.
-
-    The exemption is never granted here. This path runs on the machine writing the commit, where the
-    author field is whatever the author set it to, and a bot does not run this repository's hooks.
+    The exemption is never granted here: this path runs on the machine writing the commit, where
+    the author field is whatever the author set.
     """
     if git_is_composing():
         return EXIT_OK
     marker = comment_char()
     raw = path.read_text(encoding="utf-8", errors="replace")
+    # Git strips comment lines only AFTER this hook runs, so an editor-written message still carries
+    # the whole "# Please enter the commit message" block here.
     message = "\n".join(line for line in raw.split("\n") if not line.startswith(marker))
     findings = failures(check_message(message, "pending"))
     if not findings:
@@ -298,9 +264,8 @@ def main() -> int:
 
     base = resolve_base(args.base)
     if base is None:
-        # Refused, not green: every commit this reads is named by the base, so with none
-        # it judged nothing. `--message-file` returns above and never reaches here, which keeps the
-        # commit-msg hook working on a clone that has no base ref.
+        # Refused, not green: every commit this reads is named by the base. `--message-file` returns
+        # above, which keeps the commit-msg hook working on a clone with no base ref.
         print(f"      nothing here is named {args.base} or origin/{args.base} -- no commit message was checked.")
         print(f"      A single-branch clone fetches no base. Add it:  git remote set-branches --add origin {args.base}")
         print(f"                                                      git fetch origin {args.base}")
@@ -308,8 +273,7 @@ def main() -> int:
 
     commits = branch_commits(base)
     if commits is None:
-        # Refused, not green: the range is what names every message this reads, so a
-        # listing git would not give is the whole branch passing unread.
+        # Refused, not green: a listing git would not give is the whole branch passing unread.
         print(f"      git could not list this branch's commits against {base[:7]} -- none was checked.")
         return EXIT_REFUSED
     if not commits:
@@ -326,8 +290,8 @@ def main() -> int:
         print(f"\n      {len(failed)} failing finding(s) across {len(commits)} commit(s):")
         for finding in failed:
             print(finding.line())
-        # The derived base rather than the ref it came from: on a branch stacked on another branch,
-        # `git rebase -i main` would rewrite the commits below this one as well.
+        # The derived base, not the ref it came from: on a stacked branch `git rebase -i main` would
+        # rewrite the commits below this one too.
         print("\n      Reword with:  git rebase -i " + base[:7] + "   (or git commit --amend for the tip)")
 
     if advisory:

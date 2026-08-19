@@ -1,20 +1,3 @@
-/**
- * TEAMS · backend write calls
- *
- * Transport only. Authorization and cache invalidation belong to `actions.ts`, which is the sole
- * caller — a mutation invoked from anywhere else would bypass both.
- *
- * All of these use `authType: "admin"`; the backend's admin router rejects the base key.
- *
- * **The ids go in the PATH and never in the body**. The payload schemas still carry them,
- * because they back the admin forms and a form has to know which club and which season it is
- * editing — so each mutation below splits them off. A backend payload model that saw one would drop
- * it silently.
- *
- * **The junction has a POST and a PATCH and no DELETE**, and none may be added: a team never leaves
- * a season, disqualification is the only way out.
- */
-
 import { apiClient } from "@/core/api";
 
 import { FLPatchTeamResponseSchema, FLPostTeamResponseSchema, FLSaisonTeamResponseSchema, FLTeamWriteResponseSchema } from "./schemas";
@@ -40,8 +23,8 @@ export async function postTeam(postTeamPayload: FLPostTeamPayload): Promise<FLPo
   });
 }
 
-// The response carries `fanned_out_to_spiele`: the backend rewrites the name and shorthand embedded
-// in every match the club plays in, and the count is how that silent half is seen.
+// The id goes in the PATH, never the body — a backend payload model that saw one would drop it
+// silently (frontend spec 1.3).
 export async function patchTeam({ id, ...fields }: FLPatchTeamPayload): Promise<FLPatchTeamResponse> {
   return apiClient<FLPatchTeamResponse>(`/teams/${id}`, FLPatchTeamResponseSchema, {
     method: "PATCH",
@@ -67,6 +50,8 @@ export async function reactivateTeam({ id }: FLReactivateTeamPayload): Promise<F
   });
 }
 
+// A POST and a PATCH and no DELETE: a team never leaves a season, and disqualification is the only
+// way out.
 export async function postSaisonTeam({ team_id, ...body }: FLPostSaisonTeamPayload): Promise<FLSaisonTeamResponse> {
   return apiClient<FLSaisonTeamResponse>(`/teams/${team_id}/saisons`, FLSaisonTeamResponseSchema, {
     method: "POST",

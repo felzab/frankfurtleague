@@ -1,18 +1,3 @@
-/**
- * SAISONS · cached reads
- *
- * Seasons are the most stable data in the system and are cached for days.
- *
- * Invariants:
- * - Base tag only, and the only tag possible: `getSaisons` reads every season in one call.
- * - `actions.ts` clears it on every write; the rollover clears `spiele`, `spieltage`, `teams` too.
- * - A Compass edit is served stale until the daily cacheLife expires — no invalidation endpoint.
- * - `getCurrentSaison` takes no filters: "current" is a backend determination.
- *
- * See:
- * - docs/frontend/spec.md — section 1.5, out-of-band invalidation
- */
-
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";

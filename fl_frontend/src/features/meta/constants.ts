@@ -1,17 +1,9 @@
-/**
- * META · static page content
- *
- * The people, questions and contact channels rendered on the about, team and contact pages.
- *
- * This is CONTENT held in code, not data: it has no database backing and no admin surface, so editing
- * these arrays and redeploying is the only way to change those pages. Deliberate — the content changes
- * once or twice a year and a CRUD surface for it would cost more than it saves.
- */
-
 import { KONTAKT_EMAIL } from "@/core/brand";
 
 import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
 
+// Content in code and not data: no database backing and no admin surface, so a change here is a
+// deploy. The pages it feeds change once or twice a year.
 export const TEAM_MEMBERS: TeamMember[] = [
   { id: 1, name: "David", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
   { id: 2, name: "Maria-Lucia", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
@@ -33,11 +25,8 @@ export const TAG_TITLES: Record<TeamMember["tag"], string> = {
 };
 
 /**
- * Members bucketed by tag, in TAG_TITLES key order.
- *
- * Seeded with all three keys rather than accumulating into `{}`: that keeps every bucket a real
- * array, so the lookups are checked and the view needs no `|| tag` fallback. A new tag added to
- * `TeamMember` fails to compile here until it is given a bucket and a title.
+ * Seeded with every key rather than accumulating into `{}`, so each bucket is a real array and a new
+ * tag fails to compile here until it has both a bucket and a title.
  */
 export const GROUPED_MEMBERS = TEAM_MEMBERS.reduce(
   (acc, member) => {

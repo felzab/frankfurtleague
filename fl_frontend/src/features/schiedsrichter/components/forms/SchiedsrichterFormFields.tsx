@@ -8,9 +8,8 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { SchiedsrichterDraft } from "../../types";
 
 /**
- * Every field carries a `name` matching its path in the create/patch payload, and a `FieldError` to
- * render what the server said about it. The two go together: `Form`'s `validationErrors` are looked
- * up by field name, so a mismatch here means a server error that lands nowhere.
+ * Every field's `name` matches its path in the create/patch payload: `Form` looks its
+ * `validationErrors` up by field name, so a mismatch means a server error that lands nowhere.
  */
 export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
   draft,
@@ -20,9 +19,8 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
   draft: T;
   onChange: (updatedDraft: T) => void;
   /**
-   * Server messages keyed by payload path, for the inline-create panel — it renders inside the match
-   * form's `<form>`, so `Form`'s `validationErrors` context cannot reach it. Left undefined by the
-   * `EntityForm` callers, where the context supplies the same messages to the same `<FieldError>`s.
+   * For the inline-create panel, which renders inside the match form's `<form>` where `Form`'s
+   * `validationErrors` context cannot reach it. The `EntityForm` callers leave it undefined.
    */
   errors?: FieldErrors;
 }) {
@@ -34,7 +32,7 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         value={draft.name}
         onChange={(next) => onChange({ ...draft, name: next })}
         // `value`/`onChange` belong on the field, not the inner `<Input>`: that is RAC's controlled
-        // API, and with them on the input react-aria's field state never sees a value at all.
+        // API, and on the input react-aria's field state never sees a value at all.
         isInvalid={errors?.["name"] ? true : undefined}>
         <Label className={FIELD_LABEL}>Name</Label>
         <Input

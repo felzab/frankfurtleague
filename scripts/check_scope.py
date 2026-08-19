@@ -1,22 +1,9 @@
-"""
-SCRIPTS · does this gate run cover what the branch actually changed?
+"""SCRIPTS · does this gate run cover what the branch actually changed?
 
-Run by verify.sh as its first step, because the scope flags are chosen by whoever types them and
-nothing else reads the diff back. The rule held is CLAUDE.md's gate section: the scope covers
-every surface the branch touched, and a comment-only edit is a documentation change whatever
-file holds it. Only a missed images scope fails; every other gap is reported, and anything a
-parser cannot prove counts as code.
-
-Invariants:
-- The classifier suppresses the scope complaints and adds the documentation and formatter ones; it
-  removes no CI job.
-- Parsers, never a `#` rule: TypeScript via ts_normalize.mjs, `ast` with docstrings stripped, tomllib.
-- The path mapping is scripts/ci_scopes.sh — the one copy; a second here would drift silently.
-- One vocabulary: that mapping emits a line per verify.sh flag, so a required scope and the flag
-  that proves it are the same word and nothing here translates between them.
-
-See:
-- scripts/checker_kernel.py — git, the base, and the exit code this answers with
+A comment-only edit is a documentation change whatever file holds it, but the carve-out stops at
+what a parser can prove, never a `#` rule: anything unproven counts as code, and only a missed
+images scope fails. The path mapping is `scripts/ci_scopes.sh`, whose scope names are verify.sh's
+flags, so nothing here translates between them.
 """
 
 from __future__ import annotations
@@ -43,20 +30,16 @@ PARSEABLE: Final[frozenset[str]] = frozenset({".ts", ".tsx", ".mts", ".cts", ".p
 MAX_NAMED_FILES: Final = 8  # a finding names the files; past this it says "and N more"
 
 # Named rather than spelled in the `except` line, so this module PARSES below the floor: the
-# kernel's message cannot print from a file that will not compile, and a SyntaxError exits 1 --
-# the code a finding uses.
+# kernel's message cannot print from a file that will not compile, and a SyntaxError exits 1.
 CANNOT_PROVE: Final = (SyntaxError, ValueError, RuntimeError, OSError)
 UNREADABLE: Final = (OSError, UnicodeDecodeError)
 
 
 def changed_files(base: str) -> list[str] | None:
-    """Everything the branch changed against `base`, or None where git could not answer.
+    """Everything the branch changed against `base`, or None where git refused.
 
-    `git diff <base>` compares that commit to the WORKING TREE, so an edit the author has not staged
-    counts - which is the point, since the gate is usually run before the commit.
-
-    None is not an empty list: no changed file is a clean branch, while a refused listing is every
-    scope complaint below passing unread.
+    `git diff <base>` compares against the WORKING TREE, the gate running before the commit. A
+    refused listing is not an empty one: it leaves every complaint below unread.
     """
     tracked = git("diff", "--name-only", base)
     untracked = git("ls-files", "--others", "--exclude-standard")
@@ -126,8 +109,8 @@ def same_but_for_comments(suffix: str, old: str, new: str) -> bool:
             return toml_same(old, new)
         return typescript_same(suffix, old, new)
     except CANNOT_PROVE:
-        # A version that does not parse, or a toolchain that is not installed: neither is proof of
-        # anything, so the change counts as code.
+        # A version that does not parse, or a toolchain that is absent: neither is proof, so the
+        # change counts as code.
         return False
 
 
@@ -137,8 +120,7 @@ def is_comment_only(base: str, path: str) -> bool:
         return False
     try:
         new = (REPO_ROOT / path).read_text(encoding="utf-8")
-    # A binary in the diff is not comment-only, and decoding one must not take the scope step down
-    # before any check runs.
+    # Decoding a binary in the diff must not take the scope step down before any check runs.
     except UNREADABLE:
         return False
     return same_but_for_comments(Path(path).suffix, old, new)
@@ -152,9 +134,8 @@ def ci_scopes(files: list[str]) -> dict[str, bool] | None:
     bash = shutil.which("bash")
     if bash is None:
         return None
-    # Bytes on purpose: text mode translates "\n" to os.linesep, so on Windows every path but the
-    # last reaches the shell with a trailing "\r" -- and a CR-suffixed name matches no case arm,
-    # turning every scope on through the fallback.
+    # Bytes on purpose: text mode translates "\n" to os.linesep, so on Windows a CR-suffixed name
+    # reaches the shell, matches no case arm, and turns every scope on through the fallback.
     result = subprocess.run(
         [bash, "scripts/ci_scopes.sh", "--stdin"],
         cwd=REPO_ROOT,
@@ -227,8 +208,7 @@ def check(base: str, ran: set[str]) -> list[Finding] | None:
         else:
             findings.append(Finding("report", f"the diff asks for --{scope}, which did not run"))
 
-    # The drift the header names, made visible: a scope the mapping grows and this list does not
-    # would otherwise be read past in silence.
+    # A scope the mapping grows and this list does not would otherwise be read past in silence.
     if unknown := sorted(set(required) - set(SCOPES)):
         findings.append(Finding("report", f"ci_scopes.sh emits {', '.join(unknown)}, which this check does not know -- add it to SCOPES"))
 
@@ -256,9 +236,8 @@ def main() -> int:
 
     base = resolve_base()
     if base is None:
-        # Refused, not green: this checker's only question is about the diff, so with no
-        # base it judged nothing. `check_docs.py` answers an advisory instead, because its
-        # branch-scoped checks are one slice of a run that judged the corpus anyway.
+        # Refused, not green: this checker's only question is about the diff, so with no base it
+        # judged nothing. `check_docs.py` answers an advisory instead, judging the corpus anyway.
         print(f"      no merge base with {DEFAULT_BASE} -- this run was not checked against the diff.")
         print(f"      A single-branch clone fetches no base. Add it:  git remote set-branches --add origin {DEFAULT_BASE}")
         print(f"                                                      git fetch origin {DEFAULT_BASE}")
@@ -266,8 +245,8 @@ def main() -> int:
 
     findings = check(base, ran)
     if findings is None:
-        # Refused, not green: the mapping is the only thing that knows which scopes this
-        # diff asks for, so a run that could not read the diff or launch it judged nothing.
+        # Refused, not green: the mapping is the only thing that knows which scopes this diff asks
+        # for.
         print("      the diff could not be read, or scripts/ci_scopes.sh could not be run --")
         print("      this run was not checked against the branch. bash is what runs it;")
         print("      on Windows it ships with Git.")

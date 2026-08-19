@@ -13,16 +13,10 @@ import { useSchiedsrichterDraftStatus } from "./SchiedsrichterDraftStatusContext
 
 import type { SchiedsrichterBanner } from "./banners";
 
-/**
- * The referee editor's summary rail — `SpielerRail` over a referee's draft, and identical in
- * structure for the same reason: a referee has no preview card and nothing waits on a referee field,
- * so what remains is every inline warning mirrored into one place plus the unsaved changes by section.
- */
 export function SchiedsrichterRail({ banners }: { banners: readonly SchiedsrichterBanner[] }) {
   const status = useSchiedsrichterDraftStatus();
 
-  // The badge counts what is rendered rather than what was built, which is only the same number
-  // while nothing supersedes anything.
+  // Counts what is rendered rather than what was built; the two differ once something supersedes.
   const visibleBanners = resolveRailBanners(banners);
 
   const bannerBySeverity = {
@@ -32,8 +26,7 @@ export function SchiedsrichterRail({ banners }: { banners: readonly Schiedsricht
   };
   const bannerCount = visibleBanners.length;
 
-  // Controlled exactly as the club editor's card is: shut when the last banner clears, open when one
-  // arrives; in between the state is the admin's own toggle.
+  // Shut when the last banner clears, open when one arrives; in between it is the admin's toggle.
   const [hinweiseOpen, setHinweiseOpen] = useState(
     () => bannerCount > 0 || (typeof window !== "undefined" && window.matchMedia("(min-width: 80rem)").matches),
   );
@@ -83,7 +76,6 @@ export function SchiedsrichterRail({ banners }: { banners: readonly Schiedsricht
         )}
       </RailSection>
 
-      {/* Closed on a phone: empty until something is edited, and a review surface when it is not. */}
       <RailSection
         title="Deine Änderungen"
         defaultOpenOnMobile={false}

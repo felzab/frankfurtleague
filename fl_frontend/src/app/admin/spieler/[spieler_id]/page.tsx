@@ -16,13 +16,8 @@ import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spie
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The squad editor. One player per URL; WHICH season's squad row the editor addresses
- * is the sidemenu selector's `?saison_id=` — switching the selector switches what the Kader panel
- * shows and writes, exactly as it does on the club editor.
- *
- * No `generateMetadata` and no `generateStaticParams`, for the reasons the match editor records.
- * **The page itself resolves NOTHING** — every await happens inside the `Suspense` boundary, which
- * is what keeps a fallback-params route renderable (the match editor documents the crash).
+ * The squad editor. One player per URL; WHICH season's squad row it addresses is the sidemenu
+ * selector's `?saison_id=`. It resolves nothing itself — see the match editor.
  */
 export default function AdminSpielerEditPage(props: NextPageProps<{ spieler_id: string }>) {
   return (
@@ -46,9 +41,8 @@ async function AdminSpielerEditContent({
   const spielerId = await resolveSpielerId(params);
   const requestedSaisonId = await resolveSaisonId(searchParams);
 
-  // One read carries the player's record and every squad row; the season list answers which season
-  // is selected (the current one when the URL names none) and what state it is in; the
-  // team list resolves a `team_id` into the name the picker shows.
+  // One read carries the record and every squad row; the season list answers which season is
+  // selected and its state; the team list resolves a `team_id` into the name the picker shows.
   const [membershipsRes, saisonsRes, teamsRes] = await Promise.all([getSpielerMemberships(), getSaisons(), getTeamMemberships()]);
   const saisons = saisonsRes.saisons;
   const selectedSaison = requestedSaisonId
@@ -68,14 +62,13 @@ async function AdminSpielerEditContent({
   const saison: SpielerSaisonMembership = {
     saisonId: selectedSaison.id,
     saisonStatus: selectedSaison.status,
-    // The season's own list, in the league's order — what the Stufe picker offers.
     erlaubteStufen: orderStufen(selectedSaison.rules.erlaubte_stufen),
     membership:
       membership === null
         ? null
         : {
             team_id: membership.team_id,
-            // Normalised to `""` here, so the form's controlled input has one shape to hold.
+            // Normalised to `""`, so the form's controlled input has one shape to hold.
             nummer: membership.nummer ?? "",
             position: membership.position,
             stufe: membership.stufe,
@@ -85,20 +78,17 @@ async function AdminSpielerEditContent({
           },
   };
 
-  // Which shirts are already worn in each team this season, so the editor's rail can warn that a save
-  // would put a second wearer on one. The edited player's own rows are excluded: the shirt they are
-  // standing in is not one somebody else holds against them.
+  // The shirts already worn in each team this season, so the rail can warn about a second wearer.
+  // The edited player's own rows are excluded — their own shirt is not held against them.
   const takenNummern = collectTakenSquadNummern({ spieler: membershipsRes.spieler, saisonId: selectedSaison.id, exceptSpielerId: spielerId });
 
-  // What the team picker may offer: the selected season's own teams. A transfer is only meaningful
-  // within the season the squad row belongs to.
+  // The picker offers the selected season's teams only: a transfer is meaningful within it alone.
   const teams: SpielerTeamOption[] = teamsRes.teams
     .filter((team) => team.memberships.some((candidate) => candidate.saison_id === selectedSaison.id))
     .map((team) => ({ teamId: team.id, name: team.name, shorthand: team.shorthand, takenNummern: takenNummern[team.id] ?? [] }));
 
   return (
-    // Keyed by the state the drafts mirror — the match editor's reason: the same route pattern
-    // reconciles in place, and a saved player must reopen with their saved values.
+    // Keyed by the state the drafts mirror, for the match editor's reason.
     <AdminSpielerEditView
       key={JSON.stringify({ spieler, saison })}
       spieler={{

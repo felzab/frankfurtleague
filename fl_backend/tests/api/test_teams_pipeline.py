@@ -1,15 +1,3 @@
-"""
-TEAMS · `build_team_pipeline` — the derived league table
-
-What is pinned is the set of rules the pipeline encodes: which matches count, which phase they
-come from, where the points come from, which were called off, and what a team with no matches is
-served — the parts a later edit can get wrong silently. Deliberately structural and without a
-database: locating each stage by name rather than asserting the stage list keeps a refactor green.
-
-`test_teams_pipeline_execution.py` is the other half and does not replace this one: this file
-fails when a rule is DELETED, that one when a rule is present but WRONG.
-"""
-
 from typing import Any, Mapping
 
 import pytest
@@ -20,8 +8,7 @@ from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 from app.api.teams.services import ABSAGE_AS_NAME, ABSAGE_COUNT_NAME, AS_NAME, STATISTIK_AS_NAME, build_team_pipeline
 
-# The levels the seeded season offers, typed as the Literal list `FLSaisonRules` declares -- a bare
-# list of `str` is invariant against it.
+# Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 
 STANDARD_RULES = FLSaisonRules(
@@ -31,14 +18,7 @@ STANDARD_RULES = FLSaisonRules(
 Pipeline = list[Mapping[str, Any]]
 
 
-# Keyword parameters rather than **kwargs forwarded into the model: the filters a test varies are a
-# closed set of four, and spelling them out makes a typo a type error here instead of a silently
-# ignored key inside Pydantic.
-
-
-# `scope` is deliberately not defaulted. It has a default on the model, and that default is itself a
-# decision -- restating it here would let the model's default change while every test
-# kept passing.
+# Keyword rather than `**kwargs`: a typo becomes a type error. `scope` is undefaulted, or the model's default could drift.
 def build(
     *,
     rules: FLSaisonRules = STANDARD_RULES,
@@ -47,7 +27,6 @@ def build(
     team_id: Any | None = None,
     is_disqualified: bool | None = None,
 ) -> Pipeline:
-    """A pipeline for season 2026 under 3/1/0, unless a test says otherwise."""
     filters = FLTeamsFilterParams(saison_id=saison_id, is_disqualified=is_disqualified)
     if scope is not None:
         filters.statistik_scope = scope
@@ -56,22 +35,15 @@ def build(
 
 
 def statistik_stage(pipeline: Pipeline) -> Mapping[str, Any]:
-    """The `$lookup` into `spiele`, found by its `as` name rather than by position."""
     return next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == STATISTIK_AS_NAME)
 
 
 def absage_stage(pipeline: Pipeline) -> Mapping[str, Any]:
-    """The second `$lookup` into `spiele`, the one counting the fixtures that were called off."""
     return next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == ABSAGE_AS_NAME)
 
 
 def junction_match(pipeline: Pipeline) -> Mapping[str, Any] | None:
-    """
-    The filter applied INSIDE the junction lookup, or None when the lookup only joins on the team id.
-
-    The first stage of that sub-pipeline is always the `$expr` join, so anything a filter contributes is
-    the second — and its absence is itself the assertion in one case below.
-    """
+    """The sub-pipeline's first stage is always the `$expr` join, so a filter's contribution is the second."""
     junction = next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == AS_NAME)
     extra = junction["pipeline"][1:]
 
@@ -89,7 +61,6 @@ def test_requires_a_resolved_saison_id():
 
 
 def test_counts_a_match_exactly_when_it_carries_an_ergebnis():
-    """The counting rule, and that it is scoped to the requested season rather than all of them."""
     match_stage = statistik_stage(build())["pipeline"][0]["$match"]
 
     assert match_stage["ergebnis"] == {"$ne": None}
@@ -97,30 +68,21 @@ def test_counts_a_match_exactly_when_it_carries_an_ergebnis():
 
 
 def test_counts_only_the_gruppenphase_unless_asked_otherwise():
-    """
-    The default scope, and it is the decision rather than a convenience.
-
-    Both scopes return the same fields, so a caller that forgets the parameter gets a plausible table
-    either way — which is why the safe value has to be the one you get by saying nothing.
-    """
+    """Both scopes return the same fields, so a caller who forgets the parameter gets a plausible table either way."""
     match_stage = statistik_stage(build())["pipeline"][0]["$match"]
 
     assert match_stage["saison_phase"] == "gruppenphase"
 
 
 def test_the_gesamt_scope_filters_on_no_phase_at_all():
-    """Absent, not negated: there is no stored `saison_phase` meaning "any", so the key must not appear."""
+    """Absent, not negated: no stored `saison_phase` means 'any', so the key must not appear."""
     match_stage = statistik_stage(build(scope="gesamt"))["pipeline"][0]["$match"]
 
     assert "saison_phase" not in match_stage
 
 
 def test_the_scope_narrows_the_matches_and_nothing_else():
-    """
-    The two tables are one pipeline.
-
-    A scope that changed the projection, the sort or the fallback would make them two.
-    """
+    """A scope that changed the projection, the sort or the fallback would make the two tables two pipelines."""
     gruppenphase, gesamt = build(), build(scope="gesamt")
 
     assert projection(gruppenphase) == projection(gesamt)
@@ -128,41 +90,22 @@ def test_the_scope_narrows_the_matches_and_nothing_else():
 
 
 def test_the_counting_lookup_never_consults_is_canceled():
-    """
-    The forfeit rule, and the one worth a whole test: a cancelled match WITH a result still counts.
-
-    The live season holds matches in that state (seen 2026-08-09). Adding an `is_canceled` filter looks
-    like an obvious correction and would silently remove them from the table, so this asserts over the
-    whole serialised lookup rather than one stage — the field must appear nowhere inside it. The
-    pipeline as a whole does carry the flag now, in the separate lookup the next tests cover.
-    """
+    """The forfeit rule: adding an `is_canceled` filter looks like a correction, so the assertion is over the whole serialised lookup."""
     assert "is_canceled" not in repr(statistik_stage(build()))
 
 
 class TestTheAbsageLookup:
-    """
-    The count of the fixtures that were called off — the one place `is_canceled` is read.
-
-    Separate from the figures beside it, which is what keeps the flag out of the scoring: these cases
-    pin that the flag reaches this lookup and nothing else, that the flag alone selects, and that the
-    scope applies to it — the ways a "clearly-named separate count" quietly stops being one.
-    """
+    """The one place `is_canceled` is read, kept separate from the scoring so the flag stays out of it."""
 
     def test_it_selects_on_the_flag_and_nothing_else(self):
-        """
-        The whole rule is one key, and the `ergebnis` clause is the one a reader adds back.
-
-        Narrowing to a null `ergebnis` reads like a correction — a reader expects the two counts to
-        partition — and it would drop every forfeit, which is nearly every cancellation this league
-        records. Asserted as an absence so re-adding the clause fails here rather than on a figure.
-        """
+        """Narrowing to a null `ergebnis` reads like a correction and would drop every forfeit."""
         match_stage = absage_stage(build())["pipeline"][0]["$match"]
 
         assert match_stage["is_canceled"] is True
         assert "ergebnis" not in match_stage
 
     def test_it_is_the_only_stage_reading_the_flag(self):
-        """The boundary, asserted rather than commented: a second reader would bring `is_canceled` into the scoring."""
+        """A second reader would bring `is_canceled` into the scoring."""
         assert repr(build()).count("is_canceled") == 1
 
     def test_it_counts_rather_than_carrying_the_documents_back(self):
@@ -170,12 +113,7 @@ class TestTheAbsageLookup:
         assert absage_stage(build())["pipeline"][-1] == {"$count": ABSAGE_COUNT_NAME}
 
     def test_it_selects_the_same_matches_the_figures_are_derived_from(self):
-        """
-        The scope rule reaches both lookups.
-
-        A count of cancellations over every phase, beside a match count over the Gruppenphase alone,
-        would render as a badge claiming games the table was never counting in the first place.
-        """
+        """Cancellations over every phase beside a match count over one would badge games the table never counted."""
         cases: list[tuple[FLTeamStatistikScope, str | None]] = [("gruppenphase", "gruppenphase"), ("gesamt", None)]
 
         for scope, expected in cases:
@@ -189,7 +127,7 @@ class TestTheAbsageLookup:
 
 
 def test_scores_with_the_seasons_own_points_rather_than_a_constant():
-    """A 2/0/0 season, which shares no number with the 3/1/0 default — a hardcoded scheme cannot pass both."""
+    """A 2/0/0 season shares no number with the default scheme, so a hardcoded one cannot pass both."""
     unusual = FLSaisonRules(win_points=2, draw_points=0, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
 
     punkte = statistik_stage(build(rules=unusual))["pipeline"][-1]["$project"]["punkte"]
@@ -198,7 +136,7 @@ def test_scores_with_the_seasons_own_points_rather_than_a_constant():
 
 
 def test_a_defeat_scores_nothing_because_the_rules_carry_no_loss_points():
-    """`punkte` is built from wins and draws only — a third term could not be sourced from FLSaisonRules."""
+    """`punkte` is built from wins and draws only — a third term could not be sourced from `FLSaisonRules`."""
     punkte = statistik_stage(build())["pipeline"][-1]["$project"]["punkte"]
 
     assert [term["$multiply"][0] for term in punkte["$add"]] == ["$siege", "$unentschieden"]
@@ -213,20 +151,13 @@ def test_serves_a_zeroed_statistik_to_a_team_with_no_counting_match():
 
 
 def test_the_cancellation_count_survives_the_zeroed_fallback():
-    """
-    Merged over the figures rather than into them, so it reaches a team the `$group` produced nothing for.
-
-    That team is the whole point of the merge order: a team with no counting match at all can still
-    have had fixtures called off, and a fallback merged last would overwrite the real figure with a
-    zero.
-    """
+    """Merged over the figures rather than into them: a team with no counting match can still have had fixtures called off."""
     merged = projection(build())["statistik"]["$mergeObjects"]
 
     assert merged[-1] == {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}}
 
 
 def test_reads_statistik_from_no_stored_copy():
-    """The junction supplies gruppe and disqualification; `statistik` comes from no stored copy."""
     projected = projection(build())
 
     assert projected["statistik"]["$mergeObjects"][0] == {
@@ -238,13 +169,7 @@ def test_reads_statistik_from_no_stored_copy():
 
 
 class TestTheDisqualifiedFilterIsTranslated:
-    """
-    `is_disqualified` is a QUESTION and the junction stores no boolean to answer it with.
-
-    Three cases because the translation has three outcomes and two of them are easy to get wrong: a
-    dumped `True` would match nothing at all, and a dumped `False` would match nothing either — both
-    silently, as an empty group rather than an error.
-    """
+    """The junction stores no boolean, so a dumped `True` would match nothing — silently, as an empty group rather than an error."""
 
     def test_true_selects_the_rows_holding_a_record(self):
         assert junction_match(build(is_disqualified=True)) == {"saison_id": "2026", "disqualifikation": {"$ne": None}}
@@ -259,13 +184,7 @@ class TestTheDisqualifiedFilterIsTranslated:
 
 
 def test_there_is_exactly_one_team_shape():
-    """
-    One projection, whatever the caller asked for.
-
-    Asserted as the FULL key set rather than a spot check: a reduced variant would be added by
-    branching here, and a test that only looked for `statistik` would keep passing while a caller
-    silently lost `gruppe` — which is the bug the reduced shape actually had.
-    """
+    """Asserted as the full key set: a spot check for `statistik` would keep passing while a caller silently lost `gruppe`."""
     projected = projection(build())
 
     assert set(projected) == set(projection(build(team_id=ObjectId())))

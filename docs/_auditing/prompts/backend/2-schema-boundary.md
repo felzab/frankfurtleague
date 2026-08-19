@@ -7,8 +7,8 @@ the read and the write path.
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
 to `docs/audit/programme/b2-schema-boundary.md`.
 
-DELIVERABLE: the two-sided contract table (check 1) is required — one row per field of every response
-model that has a zod mirror, both directions, no field omitted. It is the pass's primary output.
+DELIVERABLE: the two-sided contract table (check 1) — one row per field of every response model that
+has a zod mirror, both directions, no field omitted. It is the pass's primary output.
 
 CONTEXT — derive, do not assume: the Pydantic models live in `app/api/*/schemas.py` and
 `app/shared/schemas/`; their zod mirrors in `fl_frontend/src/features/*/schemas.ts` and
@@ -23,15 +23,14 @@ requests.
 
 THE CHECKS, in priority order:
 
-1. **TWO-SIDED CONTRACT TABLE.** The required table, one row per field of every response model that
-   has a zod mirror: model.field | backend type and constraints | frontend type and constraints |
-   divergence, classified as one of — `missing-on-frontend` (**zod's default strip mode silently
-   discards such a field**, so the frontend never sees it and nothing errors; an audit that checks
-   only for over-permissiveness cannot see this class at all), `missing-on-backend`,
+1. **TWO-SIDED CONTRACT TABLE.** One row per field of every response model that has a zod mirror:
+   model.field | backend type and constraints | frontend type and constraints | divergence,
+   classified as one of — `missing-on-frontend` (**zod's default strip mode discards such a field
+   silently**, so the frontend never sees it and nothing errors; checking only for
+   over-permissiveness cannot see this class at all), `missing-on-backend`,
    `constraint-looser-frontend`, `constraint-looser-backend`, `nullability-mismatch`, `none`. Both
-   directions, every field — the table is the deliverable. Where a divergence is deliberate (for
-   example `trace_id` documented as error-path-only), cite the recorded reason and mark it
-   already-correct.
+   directions, every field. Where a divergence is deliberate (for example `trace_id` documented as
+   error-path-only), cite the recorded reason and mark it already-correct.
 
 2. **VALIDATION-MODE COVERAGE.** For every custom type in `app/shared/schemas/custom.py` and every
    `json_or_python_schema` or custom validator: does it enforce the same rule in **JSON mode**
@@ -77,8 +76,7 @@ THE CHECKS, in priority order:
    status codes match the exceptions actually raised.
 
 CROSS-SURFACE QUESTIONS: whether a looser side is deliberate slack or accumulated drift is usually
-knowledge only I have, and this lens generates such questions in volume. Collect and batch them per
-the shared protocol rather than deciding silently.
+knowledge only I have, and this lens generates such questions in volume.
 
 BOUNDARIES — not this pass: whether a write lands where reads read, and the out-of-band constraint
 inventory → b1 · injection through these models, auth on the endpoints → b3 · where schema code

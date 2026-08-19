@@ -13,9 +13,8 @@ import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
 import type { AdminSaisonRow } from "@/features/saisons/types";
 
-// Not async, so the chrome never waits on the season list
-// (`fl_frontend/src/app/admin/layout.tsx :: AdminLayout`). The create trigger needs nothing fetched,
-// so unlike the club and player pages it has no boundary of its own.
+// Not async, so the chrome never waits on the list. The create trigger fetches nothing, so unlike
+// the club and player pages it has no boundary of its own.
 export default function AdminSaisonsPage() {
   return (
     <AdminCrudShell
@@ -34,16 +33,9 @@ export default function AdminSaisonsPage() {
 }
 
 /**
- * EVERY season, each row carrying how much of it is set up.
- *
- * **Three reads, and the two beside `getSaisons` are what make the list answer a question.** A season on
- * its own is four dates and six numbers; what an admin wants to know is whether it has teams and a
- * schedule yet, which is the difference between a season that exists and one that can be played. The
- * matchday count is deliberately of ALL matchdays including retired ones — a retired matchday still holds
- * matches, so a season is not empty because somebody retired its schedule.
- *
- * `getSpieltage` is called once with no `saison_id`, which would mean the current season, so it is called
- * per season instead — there are two or three of them and each read is a cached day-lifetime entry.
+ * EVERY season, each row carrying whether it has teams and a schedule yet. The matchday count
+ * includes RETIRED matchdays: they still hold matches, so a season is not empty because somebody
+ * retired its schedule.
  */
 async function SaisonsTable() {
   await connection();
@@ -51,9 +43,8 @@ async function SaisonsTable() {
   const [saisonsRes, teamsRes] = await Promise.all([getSaisons(), getTeamMemberships()]);
   const saisons = saisonsRes.saisons;
 
-  // One read per season rather than one for all of them: `GET /spieltage` narrows by exactly one
-  // season and an omitted `saison_id` means the current one, so there is no "every season"
-  // call to make.
+  // One read per season: `GET /spieltage` narrows by exactly one, and an omitted `saison_id`
+  // means the current one.
   const spieltageBySaison = await Promise.all(
     saisons.map(async (saison) => {
       const res = await getSpieltage({ saison_id: saison.id, include_inactive: true });

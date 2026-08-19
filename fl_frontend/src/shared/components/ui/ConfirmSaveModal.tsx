@@ -13,29 +13,8 @@ import { ModalShell } from "./ModalShell";
 import type { BlockingBanners } from "./railBanner";
 
 /**
- * "This draft still carries these warnings — save anyway?"
- *
- * **The inverse of `ConfirmDeleteModal`, and that is the whole design**. There the danger
- * is in pressing the button, so the dialog exists to make the admin stop; here the danger is already
- * in the draft and the dialog exists to make them read it. So it is single-step, and its body is the
- * banners themselves rather than a sentence about them — a dialog that summarised "es gibt 2
- * Hinweise" would be one more thing to click past, which is why no save carries a blanket
- * confirmation.
- *
- * **It appears only on a draft that raised a `warning` or a `danger`.** A clean draft saves straight
- * through, and the fifteen-second undo stands either way — the confirmation narrows that rule rather
- * than replacing its safety net.
- *
- * **`banners` is the snapshot the gate took, and it is also what opens the dialog** — one value, so
- * there is no second state that could say "open" while the list says "nothing to show". `null` is
- * closed; anything else is at least one banner, because `BlockingBanners` is a non-empty tuple.
- *
- * `size="form"` rather than the `confirm` size the other two share: this body is a list whose length
- * is the draft's, and `confirm` was deliberately narrowed to a dialog carrying one sentence and two
- * buttons. Its scrolling body is what keeps the tallest case inside the viewport.
- *
- * `role="alertdialog"`, as both siblings use: a plain dialog is announced exactly like a create form,
- * so what the admin is being asked to accept would never reach a screen reader.
+ * The inverse of `ConfirmDeleteModal`: the danger is already in the draft, so this makes the admin read, not stop.
+ * **`banners` is both the gate's snapshot and what opens the dialog**, so no state can say "open" against nothing.
  */
 export function ConfirmSaveModal({
   onClose,
@@ -49,7 +28,7 @@ export function ConfirmSaveModal({
   /** What the gate stopped on, frozen when it fired, or `null` for a dialog that is not raised. */
   banners: BlockingBanners | null;
 }) {
-  // The list has to outlive the prop going null, or the body blanks while the dialog animates out.
+  // The list must outlive the prop going null, or the body blanks while the dialog animates out.
   const shown = useRetainedValue(banners);
   if (shown === null) return null;
 
@@ -63,7 +42,6 @@ export function ConfirmSaveModal({
       size="form"
       role="alertdialog"
       icon={
-        // `/15` and `-strong`, the same pairing every danger callout below it uses.
         <div className="bg-danger/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
           <TriangleExclamation className="text-danger-strong size-5" />
         </div>
@@ -87,9 +65,7 @@ export function ConfirmSaveModal({
           ))}
         </div>
 
-        {/* The same footer band and the same one-solid-one-outline pair as the other two
-            confirmations, in the stacked shape: this pair is not symmetrical either, because one of
-            them accepts every consequence listed above it. The band declares its own width. */}
+        {/* Stacked, since one of the pair accepts every consequence listed above it. The band declares its own width. */}
         <div className={`${MODAL_FOOTER_STACK} mt-6`}>
           <Button
             type="button"
@@ -98,8 +74,7 @@ export function ConfirmSaveModal({
             onPress={onConfirm}>
             Trotzdem speichern
           </Button>
-          {/* "Weiter bearbeiten" rather than "Abbrechen", as the discard dialog has it: on a dialog
-              about a save, "Abbrechen" is genuinely ambiguous about which thing it cancels. */}
+          {/* "Weiter bearbeiten" rather than "Abbrechen", which on a dialog about a save is ambiguous about what it cancels. */}
           <Button
             type="button"
             variant="secondary"

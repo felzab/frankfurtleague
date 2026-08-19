@@ -14,18 +14,9 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
 
 /**
- * **A matchday is created into the season the sidemenu selector holds**, which is why there is no season
- * picker in the form. The order is derived, so there is no next-free-position to compute either.
- *
- * TWO states in which no matchday can be created, and the dialog refuses BEFORE the request in both
- * (decided 2026-08-08). `saisonId` is null where the league has no seasons at all — a fresh database — and
- * the dialog says so rather than offering a form that cannot submit. And `REQ-SPIELTAG-003` refuses the
- * create once the season's knockout phase is under way, which the page can see: `knockoutBeginn` is the
- * earliest non-group matchday's start, so the trigger is disabled with the reason on it rather than
- * opening onto a 409.
- *
- * The endpoint remains the authority. A page left open past midnight, or a knockout matchday re-dated in
- * another tab, both reach it — and `mapSpieltagRefusal` answers in German when they do.
+ * **Created into the season the sidemenu selector holds**, so the form has no season picker. The
+ * dialog refuses before the request where there is no season at all, and where `REQ-SPIELTAG-003`
+ * already applies. The endpoint stays the authority.
  */
 export function AdminCreateSpieltagModal({
   saisonId,
@@ -45,8 +36,8 @@ export function AdminCreateSpieltagModal({
 }) {
   const modalState = useOverlayState();
 
-  // Inclusive, matching `find_spieltag_create_refusal`: a bracket beginning today is under way. Both are
-  // `YYYY-MM-DD`, which is why a string comparison is the right one.
+  // Inclusive, matching `find_spieltag_create_refusal`: a bracket beginning today is under way. Both
+  // are `YYYY-MM-DD`, so a string comparison is the right one.
   const knockoutRefusal =
     knockoutBeginn !== null && knockoutBeginn <= today
       ? `Die KO-Runde dieser Saison läuft seit dem ${formatSpielDatum(knockoutBeginn)}. Danach lassen sich keine Spieltage mehr anlegen.`
@@ -59,8 +50,7 @@ export function AdminCreateSpieltagModal({
       <DisabledHint
         reason={knockoutRefusal}
         placement="bottom"
-        // The wrapper is the header row's flex item now, and below `sm` this trigger is the search
-        // bar's own continuation: shrink it and the shared seam opens.
+        // Below `sm` this trigger is the search bar's own continuation: shrink it and the seam opens.
         className="shrink-0">
         <Button
           onPress={modalState.open}
@@ -70,8 +60,6 @@ export function AdminCreateSpieltagModal({
             width={18}
             height={18}
           />
-          {/* Below `sm` the trigger is the bare plus continuing the search bar (decided 2026-08-07), so
-              the label is the one thing that cannot carry the refusal at that width. */}
           <span className="hidden sm:inline">Neuen Spieltag anlegen</span>
         </Button>
       </DisabledHint>

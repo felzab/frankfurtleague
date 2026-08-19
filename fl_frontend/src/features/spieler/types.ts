@@ -1,12 +1,3 @@
-/**
- * SPIELER · query parameter types and the admin surfaces' assembled shapes
- *
- * OUTBOUND query shapes, not validation — inbound data is validated by `schemas.ts`.
- *
- * Unlike the other slices, an absent `saison_id` here does NOT resolve to the current season: the
- * squad read is narrowed by `team_id` instead.
- */
-
 import type {
   FLCreateSpielerFormPayload,
   FLPatchSaisonSpielerPayload,
@@ -17,12 +8,13 @@ import type {
 
 export type FLSpielerSortingOptions = "vorname" | "nachname" | "stufe" | "nummer" | "position";
 
+/** An absent `saison_id` does NOT resolve to the current season here: the read narrows by `team_id`. */
 export type FLSpielerFilterParams = {
   team_id?: string;
   saison_id?: string;
   is_nachgetragen?: boolean;
   stufe?: FLSpielerStufe;
-  // Retired people and retired squad rows are excluded unless an admin surface asks for them.
+  // Covers retired PEOPLE and retired squad rows alike.
   include_inactive?: boolean;
 
   limit?: number;
@@ -31,15 +23,11 @@ export type FLSpielerFilterParams = {
 };
 
 /**
- * The create form's draft — the payload the action validates, with the three picked fields widened
- * to `null` so the form can start with nothing chosen instead of silently preselecting a value. The
- * schema accepts the nulls for `position` and `stufe`, which are genuinely optional, and refuses one
- * for `team_id` and `saison_id`, which turns an untouched picker into a field error.
+ * The create form's draft: `team_id` and `nachname` widened to `null` so the form can start empty.
+ * The schema refuses both nulls, making an untouched picker a field error rather than a type error.
  */
 export type SpielerCreateDraft = Omit<FLCreateSpielerFormPayload, "team_id" | "nachname"> & {
   team_id: string | null;
-  // Widened for the same reason `team_id` is: the form starts empty and the schema is what turns
-  // that into a field error rather than a type error.
   nachname: string | null;
 };
 
@@ -54,12 +42,9 @@ export type SaisonSpielerMembershipDraft = Omit<FLPatchSaisonSpielerPayload, "te
 };
 
 /**
- * The person's two editable names, as the editor holds them.
- *
- * Its own type rather than `FLPostSpielerPayload`: on the create, `nachname` is genuinely optional
- * because there is nothing to overwrite, while the editor always holds a value for it — `null` when
- * the box is empty. Reusing the create's shape would make the editor's state optional-typed and let
- * an `undefined` reach a patch that treats an omitted field as an erasure.
+ * Its own type rather than `FLPostSpielerPayload`, whose `nachname` is optional: the editor always
+ * holds a value — `null` for an empty box — and an `undefined` reaching the patch erases the
+ * stored surname.
  */
 export type SpielerPersonFields = {
   vorname: string;
@@ -67,11 +52,8 @@ export type SpielerPersonFields = {
 };
 
 /**
- * One STORED squad row, as the pages hand it to the editor and the list.
- *
- * `team_id` is a plain string here and nullable only in the draft types above: a row that exists
- * always names a team — the backend requires it — and the null is purely the state of an untouched
- * picker on a player who has no row yet.
+ * One STORED squad row. `team_id` is plain here and nullable only in the drafts above: a row that
+ * exists always names a team, and the null is only an untouched picker's state.
  */
 export type SpielerSquadFields = {
   team_id: string;
@@ -79,16 +61,15 @@ export type SpielerSquadFields = {
   position: FLSpielerPosition | null;
   stufe: FLSpielerStufe | null;
   is_nachgetragen: boolean;
-  /** Captain of this team for this season. A role on the junction, not a property of the person. */
+  /** A role on the junction, not a property of the person. */
   is_captain: boolean;
-  /** The day the ROW was retired, or null. Not editable — the retire and reactivate controls own it. */
+  /** The day the ROW was retired. Not editable — the retire and reactivate controls own it. */
   inactive_since: string | null;
 };
 
 /**
- * The selected season's squad state for one player, assembled by the page: the junction row's fields
- * when the player is in a squad that season, `null` when they are not — which is what the editor's
- * "Aufnehmen" affordance keys off.
+ * The selected season's squad state for one player: the junction row, or `null` when they are in no
+ * squad that season — which is what the editor's "Aufnehmen" affordance keys off.
  */
 export type SpielerSaisonMembership = {
   saisonId: string;
@@ -107,39 +88,28 @@ export type SpielerTeamOption = {
   name: string;
   shorthand: string;
   /**
-   * Every live squad number already worn in this team this season, excluding the edited player's own.
+   * Live squad numbers worn in this team this season, bar the edited player's own.
    *
-   * Carried on the team option rather than as a fourth prop down the chain, because "which shirts are
-   * worn" is a fact about this team in this season — the same thing the option already is. It is what
-   * lets a form say that a save would put a second wearer on one; no write path refuses that.
-   *
-   * **Optional, and absent means UNKNOWN rather than none.** The team facet reuses this shape to list
-   * clubs and has no reason to read squad numbers, so it supplies none — and a consumer that treats an
-   * absent list as an empty one says nothing, which is the safe direction: a warning built from a list
-   * that was never populated would name a wearer nobody can point at.
+   * **Absent means UNKNOWN, not none** — the team facet supplies none, so absent must warn nothing.
    */
   takenNummern?: readonly string[];
 };
 
 /**
- * One season the create form may enter a player into, with that season's teams.
- *
- * `isNachgetragen` is the season's own answer to "did this player join after it started", derived
- * from its status rather than asked (decided 2026-08-07) — an `active` season is under way, a
- * `future` one has not begun.
+ * `isNachgetragen` is derived from the season's status rather than asked: an `active` season is
+ * under way, a `future` one has not begun.
  */
 export type SpielerCreateSaisonOption = {
   saisonId: string;
   isNachgetragen: boolean;
   teams: SpielerTeamOption[];
-  /** `rules.erlaubte_stufen` — the only levels this season's picker offers, beside "Keine Angabe". */
+  /** The season's `rules.erlaubte_stufen`, as on `SpielerSaisonMembership`. */
   erlaubteStufen: FLSpielerStufe[];
 };
 
 /**
  * One row of the admin player list: EVERY player across every season, carrying the selected season's
- * squad row where one exists. Assembled by the page from `GET /spieler/memberships`, which is the
- * only read that answers the player-centric question.
+ * squad row where one exists. Assembled from `GET /spieler/memberships`.
  */
 export type AdminSpielerRow = {
   id: string;
@@ -147,8 +117,7 @@ export type AdminSpielerRow = {
   nachname: string | null;
   /** `vorname nachname`, or the forename alone — what the list searches and sorts on. */
   fullName: string;
-  /** The day the PERSON left the league, or null. */
+  /** The day the PERSON left the league. */
   inactive_since: string | null;
-  /** The selected season's squad row, or null when the player is in no squad that season. */
   selected: (SpielerSquadFields & { teamName: string | null; teamShorthand: string | null }) | null;
 };

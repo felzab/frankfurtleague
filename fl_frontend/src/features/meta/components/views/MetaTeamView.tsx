@@ -36,8 +36,7 @@ export function MetaTeamView() {
       <div className="soccer-field-separator w-full" />
 
       <div className="flex w-full flex-col items-center gap-y-12">
-        {/* typedObjectEntries keeps `tag` as the literal union, so TAG_TITLES is a checked lookup
-            and needs no `|| tag` fallback. */}
+        {/* `typedObjectEntries` keeps `tag` a literal union, so `TAG_TITLES` needs no fallback. */}
         {typedObjectEntries(GROUPED_MEMBERS).map(([tag, members]) => (
           <section
             key={tag}
@@ -63,9 +62,8 @@ export function MetaTeamView() {
                         />
                       </div>
                       <Card.Title className="fluid-base sm:fluid-lg text-field-fg mt-3 font-black">{member.name}</Card.Title>
-                      {/* This label was the one field colour with no token equivalent — a pale
-                          emerald, i.e. a muted label on the green card. Expressed as the field
-                          foreground at 80%. */}
+                      {/* The field foreground at 80%: a muted label on the green card, which has no
+                          token of its own. */}
                       <Card.Description className="fluid-xxs sm:fluid-xs text-field-fg/80 font-bold tracking-widest uppercase">
                         {member.role}
                       </Card.Description>

@@ -1,16 +1,16 @@
 # Logging — error codes
 
-**Verified against:** `cda2912d`, 2026-08-19\
+**Verified against:** `889c31dd`, 2026-08-19\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
-**Every failure response body is `{error_code, correlation_id}` and nothing else** — messages,
-validation details and stack traces go to the log, never the wire
-(`fl_backend/app/core/exception_handlers.py :: error_response`). **Every failure log line carries
-its code as the `error_code` field.**
+**Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
+details and stack traces go to the log, never the wire
+(`fl_backend/app/core/exception_handlers.py :: error_response`). **Every failure log line carries its code as
+the `error_code` field.**
 
-The taxonomy is `<AREA>-<SUBJECT>-<NNN>`, and the area names the side that must act: `REQ-*` the
-request was wrong, `DB-*` the database refused or failed, `SRV-*` the server itself failed, `FE-*` a
-frontend-side failure class. A new failure mode gets a new code, never a reused one.
+The taxonomy is `<AREA>-<SUBJECT>-<NNN>`, and the area names the side that must act: `REQ-*` the request was
+wrong, `DB-*` the database refused or failed, `SRV-*` the server itself failed, `FE-*` a frontend-side
+failure class. A new failure mode gets a new code, never a reused one.
 
 | Section                                           | Answers                                         |
 | ------------------------------------------------- | ----------------------------------------------- |
@@ -20,23 +20,19 @@ frontend-side failure class. A new failure mode gets a new code, never a reused 
 
 ## 1. Backend codes
 
-Declared in `fl_backend/app/core/exceptions.py`, handled in
-`fl_backend/app/core/exception_handlers.py`.
+Declared in `fl_backend/app/core/exceptions.py`, handled in `fl_backend/app/core/exception_handlers.py`.
 
 **A code raised under `app/api/` is a domain rule and has a row in
-`fl_backend/app/core/domain.py :: RULES`; the six that live in `app/core/` describe who you are,
-whether the body parses, and whether an id is an ObjectId.** Two tests hold that split.
-`fl_backend/tests/core/test_domain.py :: test_every_domain_rule_the_application_defines_is_declared`
-requires every code raised under `app/api/` to have a `RULES` row and every `RULES` row to be raised
-by an endpoint; it excuses the six by name, so
-`fl_backend/tests/core/test_domain.py :: test_the_protocol_codes_are_the_ones_outside_the_api_layer`
-pins that excused set as exactly the codes `app/core/` raises — without it the exclusion list could
-grow to cover a real domain rule while the first test still passed. **`RULES` is the source for what
-each rule refuses and where it is implemented; this table is the source for the code and its
-status.**
+`fl_backend/app/core/domain.py :: RULES`; the protocol codes in `app/core/` describe who you are, whether
+the body parses, and whether an id is an ObjectId.**
+`fl_backend/tests/core/test_domain.py :: test_every_domain_rule_the_application_defines_is_declared` holds
+that correspondence in both directions and excuses the protocol codes by name;
+`fl_backend/tests/core/test_domain.py :: test_the_protocol_codes_are_the_ones_outside_the_api_layer` pins the
+excused set, without which the exclusion list could grow to cover a real domain rule and stay green.
+**`RULES` says what each rule refuses; this table says its code and status.**
 
-Every domain refusal is a 409, for one reason: nothing about the payload is malformed, so the same
-request would have succeeded against a different state of the database
+Every domain refusal is a 409, for one reason: nothing about the payload is malformed, so the same request
+would have succeeded against a different state of the database
 (`fl_backend/app/core/exceptions.py :: DocumentConflictException`).
 
 | Code                  | Status | Meaning                                                                                                                             |
@@ -55,6 +51,10 @@ request would have succeeded against a different state of the database
 | `REQ-RULES-006`       | 409    | A narrowing would leave a matchday holding more fixtures than its phase accounts for                                                |
 | `REQ-RULES-007`       | 409    | `qualifiers_per_group` exceeds `teams_per_group`                                                                                    |
 | `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures that are neither played nor cancelled                                                      |
+| `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                                               |
+| `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                                                        |
+| `REQ-DATE-003`        | 409    | A matchday's span would shrink below a date one of its own fixtures holds                                                           |
+| `REQ-DATE-004`        | 409    | A season's span would shrink below a live matchday's own                                                                            |
 | `REQ-DATE-005`        | 409    | The season is shorter than the matchdays its own rules imply                                                                        |
 | `REQ-ENTER-001`       | 409    | A team was entered into a season that is not `future`                                                                               |
 | `REQ-ENTER-002`       | 409    | A team was entered into, or moved to, a group the season does not run                                                               |
@@ -63,7 +63,7 @@ request would have succeeded against a different state of the database
 | `REQ-SWAP-001`        | 409    | A group swap named something other than two clubs of that season standing in different groups                                       |
 | `REQ-SWAP-002`        | 409    | A group swap reached a season with a knockout fixture already played, called off or holding a goal count                            |
 | `REQ-SWAP-003`        | 409    | A group swap reached a `past` season, whose table is derived from the groups it would exchange                                      |
-| `REQ-SWAP-004`        | 409    | A group swap named a club whose Gruppenphase fixture was played, called off or given a goal count — a round robin it cannot leave   |
+| `REQ-SWAP-004`        | 409    | A group swap named a club whose Gruppenphase fixture was played, called off or given a goal count                                   |
 | `REQ-SWAP-005`        | 409    | A group swap would have left a club standing in two matches of one Spieltag                                                         |
 | `REQ-SWAP-006`        | 409    | A group swap would move a disqualified club onto fixtures dated after its disqualification                                          |
 | `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                                                                |
@@ -77,10 +77,6 @@ request would have succeeded against a different state of the database
 | `REQ-SPIELTAG-004`    | 409    | A matchday was created in a phase the season's rules never produce                                                                  |
 | `REQ-SPIELTAG-005`    | 409    | A matchday was moved into a round the season's rules never produce                                                                  |
 | `REQ-SPIELTAG-006`    | 409    | A matchday carrying fixtures was moved across the gruppenphase/knockout boundary, away from them                                    |
-| `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                                               |
-| `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                                                        |
-| `REQ-DATE-003`        | 409    | A matchday's span would shrink below a date one of its own fixtures holds                                                           |
-| `REQ-DATE-004`        | 409    | A season's span would shrink below a live matchday's own                                                                            |
 | `REQ-CLASH-001`       | 409    | A venue or a referee would serve two fixtures less than four hours apart                                                            |
 | `REQ-WIRING-001`      | 409    | Bracket wiring the season cannot hold reached the match write path                                                                  |
 | `REQ-ELIGIBILITY-001` | 409    | A disqualified team was newly fielded on a match                                                                                    |
@@ -113,7 +109,6 @@ Declared in `fl_frontend/src/core/errors.ts`, plus the call sites named.
 
 ## 3. The mutation boundary
 
-**An admin mutation never lets a typed API error escape.** `runAdminMutation` logs the failure with
-its codes and returns the `FormState` the caller toasts, because a 409 is an ordinary outcome of a
-create rather than a crash. It wraps both entry points: the admin server actions and the
-page-owned editors' undo route handlers.
+**An admin mutation never lets a typed API error escape.** `runAdminMutation` logs the failure with its codes
+and returns the `FormState` the caller toasts, because a 409 is an ordinary outcome of a create rather than a
+crash. It wraps both entry points: the admin server actions and the page-owned editors' undo route handlers.

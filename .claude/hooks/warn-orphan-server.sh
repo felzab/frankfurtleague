@@ -1,23 +1,7 @@
 #!/usr/bin/env bash
-#
-# Stop hook — reports anything still listening on port 3000 when the turn ends.
-#
-# WHY THIS IS A HOOK:
-#   nginx binds 0.0.0.0:3000 for the local stack, so a `next dev` left running makes
-#   `./scripts/local.sh` start its containers, report them healthy, and serve nothing — "this site
-#   can't be reached" under a success message, which is a genuinely confusing pair to debug. The
-#   moment to catch it is the moment the turn ends, which is exactly when it is easy to forget.
-#
-# DELIBERATELY ADVISORY, NOT BLOCKING: the owner runs the stack themselves, so a listener on 3000 is
-# often correct. This reports what holds the port and leaves the judgement to the reader.
-#
-# It does NOT test for `node.exe` — Claude Code is itself node, so that check can never be quiet.
-#
-# TARGET PLATFORM: Windows (netstat/tasklist). Exits silently anywhere else.
-#
-# **Never test the state column against "LISTENING".** netstat localises it — this machine is German
-# and prints ABHÖREN — so a state match makes this hook silently dead, which is worse than absent. A
-# listening socket is identified instead by its wildcard foreign address, which is locale-independent.
+# Stop hook — names what still holds port 3000 when the turn ends. Advisory, never blocking.
+# A listener is found by its wildcard foreign address: netstat localises the state column, and this
+# machine prints ABHÖREN, so matching "LISTENING" would make the hook silently dead.
 
 command -v netstat >/dev/null 2>&1 || exit 0
 

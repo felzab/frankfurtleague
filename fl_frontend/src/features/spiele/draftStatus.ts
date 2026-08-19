@@ -1,20 +1,3 @@
-/**
- * SPIELE · what the editor's draft has changed, is missing, and got wrong
- *
- * One derivation over one fixture's draft, read by everything on the edit page that says
- * something about a field: label markers, change list, open-items list, unsaved count,
- * navigation guard. Pure, so it is tested rather than clicked. In `spiele`, not `shared`: it
- * encodes Spiel domain knowledge, and ESLint forbids `shared` from importing `features`.
- *
- * Invariants:
- * - `path` is the payload's dotted path AND the input `name`, `FieldErrors` key and anchor id.
- * - "Expected" means the stored fixture's category and a still-empty draft — markers shrink live.
- * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
- *
- * See:
- * - docs/frontend/spec.md — the editor's invariants
- */
-
 import { formatEuro, formatSpielDatum, formatUhrzeit } from "@/shared/utils/format";
 
 import { formatQuelle } from "./utils";
@@ -32,11 +15,8 @@ import type {
 import type { ActionRequiredCategory } from "./types";
 
 /**
- * The fields the editor owns, widened to the shapes a draft holds mid-edit.
- *
- * A cleared currency field is `null` rather than `0` and an unpicked placing is `NaN`, so the draft is
- * not an `FLSpiel`. `FLSpiel` is structurally assignable to this, which is what lets one descriptor
- * `read` serve both the stored fixture and the draft.
+ * A cleared currency field is `null` and an unpicked placing `NaN`, so a draft is not an `FLSpiel` —
+ * but `FLSpiel` is assignable to this, which lets one descriptor `read` serve stored and draft both.
  */
 export type FLSpielDraftFields = {
   datum: string | null;
@@ -53,15 +33,8 @@ export type FLSpielDraftFields = {
 };
 
 /**
- * Whether the draft, as it now stands, is the one shape a shoot-out can describe.
- *
- * **The single statement of the condition, because its readers must not disagree about it**: the
- * Ergebnis panel offers the fields on it, the form retracts the record when it stops holding, and the
- * preview below discards a record stored against anything else — exactly as the write path does. Two
- * copies would let the form keep a record the panel does not show, which submits as a shoot-out no
- * rendered input can carry a message about.
- *
- * `NaN` is a count in the middle of being typed, not a level score.
+ * **The single statement of the condition.** Two copies would let the form keep a record the panel
+ * does not show, submitting a shoot-out no rendered input can carry a message about.
  */
 export function isLevelKnockout(saisonPhase: FLSpiel["saison_phase"], team1: FLSpielTeamField | null, team2: FLSpielTeamField | null): boolean {
   const tore1 = team1?.tore ?? null;
@@ -74,26 +47,9 @@ export function isLevelKnockout(saisonPhase: FLSpiel["saison_phase"], team1: FLS
 }
 
 /**
- * The fixture as it will stand once the draft is saved.
- *
- * **One place builds this, and three read it**: the preview card, the live action-required
- * categorisation, and anything later that needs to ask a question of the fixture-after-the-edit rather
- * than of the fixture-as-stored. Two copies of it would be two answers to "what am I about to save".
- *
- * `ergebnis` is derived here the way the backend derives it — a scoreline only when both counts are
- * present — because the stored string belongs to the stored goals and contradicts the draft the moment
- * either is edited. The shoot-out is kept only on a knockout fixture that finished level,
- * discarded anywhere else, exactly as the write path discards it, so the preview cannot promise
- * something the save throws away.
- *
- * The result carries STORED sides rather than joined ones, and that is not a convenience: the draft's
- * sides are what the payload sends, and a team the admin has just picked has no joined season state to
- * carry. Nothing reading this asks for one — `SpielDraftPreview` mounts no popover, and the picker
- * warns about a disqualified team where the choice is actually made.
- *
- * The venue and the referee ride out in the draft's own shape for the matching reason: a cleared
- * Mietpreis is `null` mid-edit, and a return type declaring otherwise would take a cast to satisfy
- * (I33). Every reader of this asks whether the field is set, never what it costs.
+ * Built once, so readers cannot give two answers to "what am I about to save". `ergebnis` is
+ * re-derived and the shoot-out discarded exactly where the write path does, so the preview cannot
+ * promise what the save throws away.
  */
 export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): FLSpielWithDraftFields {
   const team1Tore = draft.team1?.tore ?? null;
@@ -101,8 +57,8 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
   const hasBothTore = team1Tore !== null && !Number.isNaN(team1Tore) && team2Tore !== null && !Number.isNaN(team2Tore);
 
   const shootOut = draft.elfmeterschiessen;
-  // Narrowed field by field rather than through a compound flag: both counts have to be present for the
-  // record to be storable, and TypeScript only carries that knowledge if the checks are in the branch.
+  // Narrowed field by field, not through a compound flag: TypeScript carries the knowledge that
+  // both counts are present only when the checks are in the branch itself.
   const storableShootOut =
     isLevelKnockout(stored.saison_phase, draft.team1, draft.team2) && shootOut !== null && shootOut.team1 !== null && shootOut.team2 !== null
       ? { team1: shootOut.team1, team2: shootOut.team2 }
@@ -125,17 +81,12 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
   };
 }
 
-/**
- * The panel a field renders in, carried on the descriptor so surfaces that group by panel — the
- * change list — read it from the table instead of keeping a second path→panel mapping to drift.
- */
+/** On the descriptor, so a surface grouping by panel needs no second path-to-panel mapping. */
 export type FLSpielFieldGroup = "Ansetzung" | "Begegnung" | "Ergebnis" | "Notiz" | "Absage";
 
 /**
- * How urgently an expected field is waited on. The split is deliberate: a fixture
- * cannot HAPPEN without a date, a time, an occupied slot or — once played — a result, while a venue
- * and a referee are organisational and merely recommended. Marker colours and the open-items badges
- * both read this, so the yellow marker beside a field and the badge counting it can never disagree.
+ * A fixture cannot HAPPEN without a date, a time, an occupied slot or a result, while a venue and a
+ * referee are organisational. Marker colours and the open-items badges both read this.
  */
 export type FLExpectedSeverity = "required" | "recommended";
 
@@ -167,11 +118,9 @@ export type FLSpielDraftStatus = {
 };
 
 /**
- * How one field is read, compared, formatted and — where it applies — waited on.
- *
- * `format` returning `null` is what "empty" means by default; `isEmpty` overrides that for a field
- * whose emptiness is a property of more than its own value. `errorPaths` defaults to `[path]` and is
- * widened where a schema reports a field's failures under several keys.
+ * `format` returning `null` is what "empty" means by default; `isEmpty` overrides it for a field
+ * whose emptiness depends on more than its own value. `errorPaths` widens where a schema reports one
+ * field's failures under several keys.
  */
 type FieldDescriptor<TValue> = {
   path: string;
@@ -186,12 +135,8 @@ type FieldDescriptor<TValue> = {
 };
 
 /**
- * A descriptor with its value type erased, so fifteen rows over fifteen different value types can live
- * in one array.
- *
- * The alternative is `FieldDescriptor<any>`, which needs a lint suppression and gives up checking every
- * row's `read`/`equals`/`format` against each other. `describeField` closes over the value type instead:
- * each call is checked in full, and what comes out speaks only in `FLSpielDraftFields` and `string`.
+ * Erased so rows over many value types share one array. `FieldDescriptor<any>` would need a lint
+ * suppression and stop checking each row's `read`, `equals` and `format` against each other.
  */
 type ErasedFieldDescriptor = {
   path: string;
@@ -231,12 +176,9 @@ const sameQuelle = (a: FLSpielQuelle | null, b: FLSpielQuelle | null): boolean =
 const formatCount = (value: number | null): string | null => (value === null || Number.isNaN(value) ? null : String(value));
 
 /**
- * `null` and `NaN` are the same answer for a count, and comparing them by identity is a real defect.
- *
- * A stored fixture with no result carries `tore: null`, while HeroUI's `NumberField` reports `NaN` for
- * an empty box — so focusing an empty goal field, typing a digit and deleting it again left the draft
- * at `NaN` against a stored `null`. `Object.is` calls that a change, and the page would then claim an
- * unsaved edit reading "— → —" and put the discard dialog in front of an admin who had changed nothing.
+ * `null` and `NaN` are the same answer for a count: a stored fixture carries `tore: null` while an
+ * emptied `NumberField` reports `NaN`. By identity, typing a digit and deleting it reads as an
+ * unsaved edit.
  */
 const sameCount = (a: number | null, b: number | null): boolean => {
   const aIsEmpty = a === null || Number.isNaN(a);
@@ -246,16 +188,9 @@ const sameCount = (a: number | null, b: number | null): boolean => {
 };
 
 /**
- * Every field the editor can change, in the order the change list reads them.
- *
- * **`besetzung_missing` marks the SOURCE, not the occupant**, and that is the whole reason
- * `isEmpty` exists. A knockout side with a source and no team yet is correct — the resolution fills it —
- * so a marker on `teamN.team_id` would nag on every unplayed semi-final in the season. The category's
- * own rule is "no team AND no source", which is exactly the predicate below, and the source is the
- * question you answer first, so the marker sits on the control you would use.
- *
- * **`ergebnis_pending` marks BOTH goal fields.** A result needs both counts and each is separately
- * empty, so one marker would leave the other side looking finished.
+ * Array order is the change list's order. **`besetzung_missing` marks the SOURCE, not the
+ * occupant**, which is why `isEmpty` exists: a knockout side with a source and no team yet is
+ * correct, so marking `teamN.team_id` would nag on every unplayed match.
  */
 const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   describeField({
@@ -351,6 +286,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
     equals: (a: FLSpielTeamField | null, b: FLSpielTeamField | null) => (a?.team_id ?? null) === (b?.team_id ?? null),
     format: (value: FLSpielTeamField | null) => value?.name ?? null,
   }),
+  // `ergebnis_pending` marks BOTH goal fields; one leaves the other side looking finished.
   describeField({
     path: "team1.tore",
     group: "Ergebnis",
@@ -392,12 +328,10 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
     group: "Notiz",
     label: "Notiz",
     expectedWhen: null,
-    // `""` and `null` are one answer. The stored field is `null` when empty, while a textarea's
-    // in-flight value can be whitespace; compared raw, typing a space and deleting it would read
-    // as an unsaved edit.
+    // `""`, whitespace and `null` are one answer: compared raw, typing a space and deleting it
+    // would read as an unsaved edit.
     read: (source) => (source.notiz === null || source.notiz.trim() === "" ? null : source.notiz),
-    // The rail's change list is a summary, not a reading pane — a note can run to sentences, and
-    // the full text is on the panel right beside it.
+    // The change list is a summary: the full note is on the panel right beside it.
     format: (value: string | null) => (value === null ? null : value.length > 60 ? `${value.slice(0, 59)}…` : value),
   }),
   describeField({
@@ -406,25 +340,16 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
     label: "Absage",
     expectedWhen: null,
     read: (source) => source.is_canceled,
-    // Both states have a word. `null` for the going-ahead state made a withdrawn absage read as an
-    // emptied value — "entfernt", in the danger grade — when what happened is the fixture going
-    // back on.
+    // Both states get a word: `null` for the going-ahead one made a withdrawn Absage read as a
+    // deletion rather than as the fixture going back on.
     format: (value: boolean) => (value ? "Abgesagt" : "Angesetzt"),
   }),
 ];
 
 /**
- * What has changed, what is still missing, and what the schema rejects — for one fixture's draft.
- *
- * `expectedCategories` is the set of action-required categories the STORED fixture fell into, which the
- * caller gets from `categorizeActionRequired`. Passing it in rather than deriving it here keeps one copy
- * of that rule and keeps this module out of `admin`.
- *
- * `fieldErrors` is the already-merged map the form renders — client verdicts over server messages — so
- * a count taken from `invalid` matches what the fields are showing.
- *
- * **Deliberately not memoised by callers.** The draft object is rebuilt on every render, so a `useMemo`
- * keyed on it would never hit; the work is fifteen comparisons.
+ * `expectedCategories` is passed in rather than derived here, keeping one copy of that rule and this
+ * module out of `admin`. **Deliberately not memoised by callers**: the draft is rebuilt every
+ * render, so a `useMemo` keyed on it would never hit.
  */
 export function deriveSpielDraftStatus({
   stored,
@@ -441,9 +366,7 @@ export function deriveSpielDraftStatus({
     const draftText = descriptor.format(draft);
     const isEmptyNow = descriptor.isEmpty ? descriptor.isEmpty(draft) : draftText === null;
 
-    // The first path carrying a message wins, matching `FieldError`'s one line per input. Mapped to
-    // the messages before searching, so the result is the message rather than a key needing a second
-    // `Record` lookup that reads as possibly undefined.
+    // The first path carrying a message wins, matching `FieldError`'s one line per input.
     const error =
       (descriptor.errorPaths ?? [descriptor.path]).map((path) => fieldErrors[path]).find((message) => message !== undefined) ?? null;
 

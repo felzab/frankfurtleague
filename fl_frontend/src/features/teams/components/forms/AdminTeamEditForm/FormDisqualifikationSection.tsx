@@ -21,13 +21,8 @@ import type { CalendarDate } from "@internationalized/date";
 import type { TeamBanner } from "./banners";
 
 /**
- * The disqualification, as the editor's danger zone — the match editor's Absage section, applied to
- * the one control on this page that removes a club from play (decided 2026-08-07: the two Saison
- * concerns split, this one last and in the danger tone).
- *
  * The record travels whole: the payload requires `disqualifikation` with no default, so lifting one
- * sends the explicit `null` and a form that forgot the field would be a 422, never a team quietly
- * reinstated. The switch only edits the DRAFT — nothing happens until the page's save.
+ * sends an explicit `null` and a form that forgot the field is a 422, never a quiet reinstatement.
  */
 export function FormDisqualifikationSection({
   isDisqualified,
@@ -41,7 +36,6 @@ export function FormDisqualifikationSection({
 }: {
   isDisqualified: boolean;
   onIsDisqualifiedChange: (next: boolean) => void;
-  /** The editor's whole Hinweis list; the two spots below take their own entries out of it. */
   banners: readonly TeamBanner[];
   grund: string;
   onGrundChange: (next: string) => void;

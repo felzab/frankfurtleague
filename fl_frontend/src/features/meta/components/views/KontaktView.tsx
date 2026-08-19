@@ -29,9 +29,8 @@ export function KontaktView() {
         );
       case "threads":
         return (
-          // bg-field-fg, not bg-foreground as in the Footer: this icon sits on the green field card,
-          // where the foreground is white in both themes. inline-block for the Footer's reason — it
-          // is a flex item today, which blockifies it, but that is the parent's.
+          // `bg-field-fg`, not `bg-foreground` as in the Footer: this icon sits on the green field
+          // card, where the foreground is white in both themes.
           <span
             aria-hidden="true"
             className="bg-field-fg inline-block size-8 mask-[url('/icons/footer/threads/threads_logo_black.svg')] mask-contain mask-center mask-no-repeat"

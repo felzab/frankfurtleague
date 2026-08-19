@@ -11,12 +11,8 @@ import type { FLPostTeamPayload } from "@/features/teams/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
- * The club's own fields, for the create dialog. The edit page composes richer versions of the same
- * controls in its panels; what the two share is the field BEHAVIOUR — the Kürzel uppercases as it
- * is typed, the website keeps its fixed `https://` prefix, and the description is a real text area.
- *
  * Field names match their path in the create payload, so react-aria's `Form` distributes
- * `validationErrors` to them by name — see `SchiedsrichterFormFields`.
+ * `validationErrors` to them by name.
  */
 export function TeamFormFields<T extends FLPostTeamPayload>({
   draft,
@@ -46,8 +42,8 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         <TextField
           isRequired
           name="shorthand"
-          // Uppercased at the boundary, so the stored value and the typed value cannot differ by
-          // case alone — the two letters are unique across every club.
+          // Uppercased at the boundary: the shorthand is unique across every club, so stored and
+          // typed must not differ by case alone.
           value={draft.shorthand}
           onChange={(next) => onChange({ ...draft, shorthand: next.toUpperCase() })}
           maxLength={2}

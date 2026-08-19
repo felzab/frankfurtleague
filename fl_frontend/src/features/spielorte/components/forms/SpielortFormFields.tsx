@@ -17,9 +17,8 @@ export function SpielortFormFields<T extends SpielortDraft>({
   draft: T;
   onChange: (updatedDraft: T) => void;
   /**
-   * Server messages keyed by payload path, for the inline-create panel — it renders inside the match
-   * form's `<form>`, so `Form`'s `validationErrors` context cannot reach it. Left undefined by the
-   * `EntityForm` callers, where the context supplies the same messages to the same `<FieldError>`s.
+   * For the inline-create panel, which renders inside the match form's `<form>` where `Form`'s
+   * `validationErrors` context cannot reach it. The `EntityForm` callers leave it undefined.
    */
   errors?: FieldErrors;
 }) {

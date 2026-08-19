@@ -1,93 +1,67 @@
 # Shared audit-pass protocol
 
-How to run **one pass session**. Every pass prompt binds this file; the pass prompt supplies only the
-lens. [`../programme.md`](../programme.md) covers everything above a single session.
+How to run **one pass session**. Every pass prompt binds this file and supplies only the lens.
+[`../programme.md`](../programme.md) covers everything above a single session.
 
-| Section                                                   | Answers                                                        |
-| --------------------------------------------------------- | -------------------------------------------------------------- |
-| [Start sequence](#start-sequence)                         | What to read and write before check 1                          |
-| [Ground rules](#ground-rules)                             | What a pass may and may not do, and where it writes            |
-| [What every agent is told](#what-every-agent-is-told)     | The five that hold for any dispatched agent, audit or fix      |
-| [Report structure](#report-structure-in-this-order)       | The report's required shape and severity rubric                |
-| [Method](#method)                                         | Traversal, evidence, blast radius, deliberate decisions        |
-| [Ask, don't guess](#ask-dont-guess)                       | What goes to a human rather than into an assumption            |
-| [The verdict](#the-verdict-is-the-ledgers-input-contract) | The labelled lists the ledger is built from                    |
-| [Budget honesty](#budget-honesty-and-incremental-writing) | Writing the report as it is produced, and saying when it grows |
-| [Resume protocol](#resume-protocol)                       | Continuing a pass whose session died                           |
-| [Handoff](#handoff)                                       | What is printed at the end, and the lessons harvest            |
+| Section                                                   | Answers                                                  |
+| --------------------------------------------------------- | -------------------------------------------------------- |
+| [Start sequence](#start-sequence)                         | What to read and write before check 1                    |
+| [Ground rules](#ground-rules)                             | What a pass may and may not do, and where it writes      |
+| [Report structure](#report-structure-in-this-order)       | The report's required shape, and the severity rubric     |
+| [Required tables](#required-tables)                       | The shapes a prompt can ask for by name                  |
+| [Method](#method)                                         | Traversal, evidence, blast radius, deliberate decisions  |
+| [Ask, don't guess](#ask-dont-guess)                       | What goes to a human rather than into an assumption      |
+| [The verdict](#the-verdict-is-the-ledgers-input-contract) | The labelled lists the ledger is built from              |
+| [Budget honesty](#budget-honesty-and-incremental-writing) | Writing the report as it is produced, and declaring cuts |
+| [Resume protocol](#resume-protocol)                       | Continuing a pass whose session died                     |
+| [Handoff](#handoff)                                       | What is printed at the end, and the lessons harvest      |
 
 ## Start sequence
 
 Run these before check 1, in order.
 
-1. **Read [`../lessons.md`](../lessons.md) in full.** It records the traps and failure modes earlier
-   programmes hit — stale findings, untested replacement snippets, environment artifacts,
-   stack-specific facts. A pass that skips it repeats them.
+1. **Read [`../lessons.md`](../lessons.md) in full.**
 2. **Run the resume protocol below.** A target report already on disk decides whether this session
    starts, resumes or stops.
-3. **Read the installed versions** from `fl_frontend/package.json` and `fl_backend/pyproject.toml`,
-   and state them in the report header. Every judgment is relative to those versions, not to training
-   data.
+3. **Read the installed versions** from `fl_frontend/package.json` and `fl_backend/pyproject.toml`
+   and state them in the report header. Every judgment is relative to those, not to training data.
 4. **Read the rows assigned to this pass** in `docs/audit/register.md` and in the coverage map of
-   `docs/audit/programme/r1-failure-modes.md`, where those files exist. They are part of this pass's
-   scope, and the verdict must state whether each was covered.
+   `docs/audit/programme/r1-failure-modes.md`, where those exist. The verdict must state whether each
+   was covered.
 5. **Read this programme's earlier reports** — only the sections you need, never a whole file. Cite
-   them by section instead of re-reporting, and respect their "already correct" lists. If an earlier
-   pass has not run, say so in the header, run anyway, and expect the ledger to have overlap to
-   untangle.
-6. **Read the ratified decisions** — `.claude/CLAUDE.md` §7, and §6 for the traps that fail silently.
-   They list patterns that read as violations and are deliberate. A finding that contradicts a §7 row
-   or a spec sheet's invariant is not a finding; it is at most a clearly-labelled "decision to
-   revisit" entry naming the row or the invariant id.
+   them by section instead of re-reporting, and respect their "already correct" lists. Where an
+   earlier pass has not run, say so in the header and run anyway.
+6. **Read `.claude/CLAUDE.md` §7, and §6 for the traps that fail silently.** A finding that
+   contradicts a §7 row or a spec sheet's invariant is not a finding; it is at most a
+   clearly-labelled "decision to revisit" naming the row or the invariant id.
 7. **Write the coverage-ledger skeleton** to the report file — every check number, empty result
    columns — before starting check 1.
 
 ## Ground rules
 
-- **Report only.** Zero fixes, zero source files changed. Findings are recorded, never acted on.
+- **Report only.** Zero fixes, zero source files changed.
 - **Write the report to the path the pass prompt names**, under `docs/audit/programme/`, overwriting
-  any existing file unless resuming. `docs/audit/` is **gitignored and local-only** — the repository
-  is public and unfixed findings must not publish. Never commit or stage anything under it.
-  CLAUDE.md's security section names it as the one ignored path this workflow may read and write.
-- **Derive every count you state** by counting at run time. Never copy a count from this file, a pass
-  prompt, an earlier report, or memory.
-- **Confirm library and platform behaviour at the installed source or the official documentation**
-  wherever a judgment depends on it. Never assert it from memory.
-- **Secrets.** Never read, print, echo, decode or reproduce the contents of `.env*` files or any
-  credential value; refer to secrets by variable name only. A check that would require reading a
-  secret is reported as unverifiable, with the reason. Scope every grep away from ignored paths
-  **before** running it — an unscoped grep has matched a secret file.
-
-## What every agent is told
-
-These hold for any agent a programme dispatches, auditing or fixing. They sit here rather than in
-each prompt because every one has been broken by an agent that had read
-[`../lessons.md`](../lessons.md) first.
-
-- **Build it and measure.** A claim about a regex, an exit code, a guard's verdict or a hook's
-  behaviour is unverified until someone runs it, however many people have repeated it. Here the
-  argument you can construct is reliably weaker than the answer the machine gives.
-- **When a fix handles N instances, enumerate the population and count.** A correct conclusion is not
-  evidence the population was complete.
-- **Verify prescribed text before applying it.** A reviewer's authority is over the defect, never
-  automatically over the replacement.
-- **Write findings into the deliverable as you establish them.** An agent that stops while holding
-  everything in flight loses all of it; one that wrote as it went loses only the last item.
-- **Say what you could not verify and why.** An unverifiable check reported honestly costs minutes; a
-  guessed one costs a session.
+  any existing file unless resuming. **Never commit or stage anything under that tree** — it is
+  gitignored so that unfixed findings never publish.
+- **Derive every count you state** by counting at run time; never copy one from this file, a prompt,
+  an earlier report, or memory. Where a claim covers N instances, enumerate the population: a correct
+  conclusion about one site is not evidence the set was complete.
+- **Build it and measure.** A claim about a regex, an exit code, a guard's verdict or a library's
+  behaviour is unverified until it is run or read at the installed source, however many people have
+  repeated it.
+- **Say what you could not verify, and why.**
+- **Secrets.** Never read, print, echo, decode or reproduce `.env*` contents or any credential value;
+  refer to secrets by variable name only. A check that would require reading one is reported
+  unverifiable, with the reason. Scope every grep away from ignored paths **before** running it.
 
 ## Report structure, in this order
 
-1. **Header**, carrying:
-
-   - **`Audited at commit: <sha>`** and **`Tree state: clean | dirty (<n> files)`**, both from `git`
-     at the start of the pass. Every later phase measures drift against that SHA. A report written
-     against a dirty tree describes code that may never land, which the reader has to be told.
-   - Files-read count and exclusions, installed versions, scope note.
-   - Any checks cut, and why.
-   - Which earlier reports of this surface existed and were cited.
-   - For a security pass, the secret-handling rule operated under; for a standards-anchored pass, the
-     exact standard version fetched.
+1. **Header**, carrying an **`Audited at commit:`** line and a **`Tree state:`** line — clean, or
+   dirty with the file count — both read from `git` at the start of the pass. Every later phase
+   measures drift against that SHA, and a report written against a dirty tree describes code that may
+   never land. Then: files-read count and exclusions, installed versions, scope note, any checks cut
+   and why, which earlier reports were cited, and for a standards-anchored pass the standard version
+   fetched.
 
 2. **Coverage ledger** — one row per numbered check: check number · the exact grep patterns used and
    files read · raw occurrence count · finding count. Fill each row as its check completes. A check
@@ -96,23 +70,15 @@ each prompt because every one has been broken by an agent that had read
 3. **Summary table** — every finding, one row: ID · severity · one-line statement · file · evidence
    class. Filled in last.
 
-4. **Numbered sections, one per check, in the prompt's order.** Every finding carries:
-
-   - `path/to/file.ext:LINE`
-   - a statement of the defect
-   - **replacement:** the concrete fix
-   - **evidence:** one of `read` (judged by reading the code) · `grepped (<n> sites)` ·
-     `measured (<what was measured, with the number>)` · `unverified (<why>)`
-   - a severity tag from the rubric below
-   - for a security finding, **exploit:** who can do what, concretely. Theoretical risk with no
-     reachable path is INFO at most.
-
-   The **evidence** tag is not optional. A cost or performance claim without a measurement, and a
-   count without a grep behind it, are the two ways a report misleads the wave that acts on it.
-
-   Each section also records: an explicit "Zero occurrences" with what was searched; already-correct
-   usages worth naming so nobody "fixes" them; and near-misses that are **not** findings, each with a
-   one-line reason.
+4. **Numbered sections, one per check, in the prompt's order.** Every finding carries
+   `path/to/file.ext:LINE`, a statement of the defect, **replacement:** the concrete fix,
+   **evidence:** one of `read` · `grepped (<n> sites)` · `measured (<what, with the number>)` ·
+   `unverified (<why>)`, a severity tag, and for a security finding **exploit:** who can do what,
+   concretely — theoretical risk with no reachable path is INFO at most. **The evidence tag is not
+   optional:** a cost claim without a measurement, and a count without a grep behind it, are the two
+   ways a report misleads the wave that acts on it. Each section also records an explicit "Zero
+   occurrences" with what was searched, already-correct usages worth naming so nobody "fixes" them,
+   and near-misses that are **not** findings, each with a one-line reason.
 
 5. **Verdict** — see the contract below.
 
@@ -128,51 +94,58 @@ Severity states **what happens if this is real**, never how alarming the code lo
 | **LOW**      | Friction, inconsistency or maintenance cost, with correct behaviour throughout                                                                   |
 | **INFO**     | No reachable path, or an observation with no defect behind it                                                                                    |
 
-**A silent wrong answer outranks a loud outage.** An outage is noticed and fixed within the hour; a
-league table that has quietly been wrong for a month is believed. Where a finding could sit in two
-rows, the one that fails silently takes the higher.
+**A silent wrong answer outranks a loud outage**, which is noticed within the hour where a league
+table quietly wrong for a month is believed. Where a finding could sit in two rows, the one that
+fails silently takes the higher.
 
-These rules override the table. A finding reachable only from a privileged position is rated **for
-that position**, not for the open internet — and it is still real, so do not drop it. And never soften a
-genuine CRITICAL because the project is small.
+A finding reachable only from a privileged position is rated **for that position** and is still real,
+so do not drop it; and never soften a genuine CRITICAL because the project is small. Where
+`docs/audit/register.md` already rates an outcome, **use its severity rather than deriving one** — it
+was confirmed with me, and a pass silently re-rating it makes severity mean two things at once. Raise
+a rating you believe is wrong as an open question.
 
-Where `docs/audit/register.md` already rates an outcome, **use its severity rather than deriving
-one** — it was confirmed with me, and a pass silently re-rating it makes severity mean two things at
-once. Raise a rating you believe is wrong as an open question.
+## Required tables
 
-### Anchoring to an external standard
+A prompt names the tables its lens must produce. Two shapes are shared, and are specified here.
 
-Where a pass names an external standard, **fetch the current control list at run time and state the
-exact version you used in the report header.** Never reproduce a control list from memory, and never
-copy one into a prompt — a stale control list reads as coverage.
+**Anchoring to an external standard.** Where a pass names one, **fetch the current control list at
+run time and state the exact version in the report header** — never reproduce one from memory, and
+never copy one into a prompt, because a stale control list reads as coverage. One row per control
+group: control | what implements it here, with the file | evidence | `met` / `gap` /
+`not applicable`. **Every `not applicable` carries its reason**; an unexplained N/A is
+indistinguishable from a control nobody looked at. Every `gap` becomes a numbered finding below with
+a file:line — a gap named only in the coverage table is an observation. The table is a floor, not the
+lens: the pass's own checks still run in full, and a defect the standard has no control for is still
+a finding.
 
-Cover it with a table, one row per control group: control | what implements it here, with the file |
-evidence | `met` / `gap` / `not applicable`. **Every `not applicable` carries its reason**; an
-unexplained N/A is indistinguishable from a control nobody looked at. Every `gap` becomes a numbered
-finding below with a file:line — a gap named only in the coverage table is an observation. The
-table is a floor, not the lens: the pass's own numbered checks still run in full, and a defect the
-standard has no control for is still a finding.
+**The excess table**, where a prompt asks for one: what | every site as `<file> :: <symbol>` | the
+class, from the candidate table that prompt gives | which copy or construct dies, and what replaces
+it | size removed, in lines and exported names | verdict.
+
+- **Every `duplicated` row names which copy dies** and confirms the survivor is reachable from where
+  the dying copy's importers stand. A row proposing "extract a shared helper" without naming what it
+  deletes adds a module and removes nothing.
+- **Every `one-caller` row states what inlining it would cost.** A single caller is a candidate, not
+  a verdict.
+- **Every `hand-rolled` row cites the API that replaces it**, verified at the installed version.
+- **Measure before proposing.** State the lines and exported names each row removes; a row with no
+  number is filed INFO.
+- **Check `.claude/CLAUDE.md` §7 first.** Several constructs that read as excess are ratified.
 
 ## Method
 
-**Work check by check, not file by file.** Per check: grep to build a candidate set, then read those
-candidates in full plus enough surrounding code to judge intent. Read a whole file set only where a
-check genuinely requires it. **Scan, do not summarise.**
-
-**No finding without a file:line.** No vague "consider refactoring". Where unsure whether something
-is intentional, read the surrounding code until you can say.
-
-**Negative results are first-class output.** An audit that only lists problems cannot be trusted
-about what it checked. A required table is the deliverable wherever the prompt says so; a narrative
-summary is not a substitute.
-
-**Report the blast radius, not the first site.** Where a finding names a pattern, grep for that
-pattern and give the full site count. A report that names one site invites a fix applied to one of
-four call sites, which can be worse than no fix at all.
-
-**Where a "violation" is plausibly a deliberate decision**: say so explicitly, name what depends on
-it, state what reversing it would cost, and present it as a decision to confirm — never as a defect
-to rip out. A reader must never act on this report and break something load-bearing.
+- **Work check by check, not file by file.** Per check: grep to build a candidate set, then read
+  those candidates in full plus enough surrounding code to judge intent. **Scan, do not summarise.**
+- **No finding without a file:line**, and no vague "consider refactoring". Where unsure whether
+  something is intentional, read the surrounding code until you can say.
+- **Negative results are first-class output.** An audit that only lists problems cannot be trusted
+  about what it checked, and a narrative summary never substitutes for a required table.
+- **Report the blast radius, not the first site.** Where a finding names a pattern, grep for it and
+  give the full site count — a report naming one site invites a fix applied to one of four call
+  sites, which can be worse than no fix at all.
+- **Where a "violation" is plausibly a deliberate decision**, say so explicitly, name what depends on
+  it, state what reversing it would cost, and present it as a decision to confirm. A reader must
+  never act on this report and break something load-bearing.
 
 ## Ask, don't guess
 
@@ -182,53 +155,47 @@ workflow exists), or where two plausible readings lead to opposite findings.
 
 Put questions to me as one batch at the end of the current check, each with its evidence and your
 best reading, and carry every one into the verdict. A wrong silent guess becomes a false positive
-that costs a remediation session later, and a finding written from one surface can be the exact
-opposite of correct once the other surface is consulted. **Err toward asking.**
+that costs a remediation session later. **Err toward asking.**
 
 ## The verdict is the ledger's input contract
 
 The ledger is built from each report's **summary table and verdict only**. Anything reachable from
-neither is invisible to the plan and will never be worked. The verdict therefore carries every one of
-these, each as its own labelled list:
+neither is invisible to the plan and will never be worked. The verdict carries each of these as its
+own labelled list, pointing at the numbered sections rather than restating them:
 
 1. **Overall state** of the surface under this lens, in a short paragraph.
-2. **Fix priority**, numbered, ordered by severity and blast radius, with decisions-to-confirm placed
-   last and labelled as decisions rather than defects.
+2. **Fix priority**, numbered, ordered by severity and blast radius, with decisions-to-confirm last
+   and labelled as decisions rather than defects.
 3. **Open questions** — everything collected under "Ask, don't guess", each with its evidence, the
    finding IDs it blocks, and your best reading. These become Wave 0.
 4. **Needs-human items** — findings whose verification requires a real keyboard, screen reader,
-   browser, credential or wall-clock time. Tag rather than guess a verdict; these become exit-gate
-   clauses.
-5. **Cross-surface handoffs** — anything this lens found that belongs to another surface's pass or
-   programme, named with the owning surface.
+   browser, credential or wall-clock time. Tag rather than guess; these become exit-gate clauses.
+5. **Cross-surface handoffs** — anything this lens found that belongs to another surface, named with
+   the owning surface.
 6. **Controls that would prevent recurrence.** A fix removes one instance; a control removes the
-   class. Group this pass's findings by defect class and, per class, name the cheapest thing that
-   would fail on the next occurrence — a lint rule, a test, a schema or type constraint, a database
-   validator, a gate step, or **nothing available**. State the class, the candidate control, roughly
-   what it would cost, and what it would **not** catch. Where no automated control is possible, say
-   so.
-7. **Risk-register coverage.** Omit only where no register exists. List every coverage-map row
-   assigned to this pass and state `covered` / `partly covered` / `not covered`, each with a reason.
-   A register row is not discharged by a pass simply having run: say what you actually looked at.
-
-Findings themselves live in the numbered sections and are referenced from the summary table by ID.
-The verdict points; it does not restate.
+   class. Group the findings by defect class and, per class, name the cheapest thing that would fail
+   on the next occurrence — a lint rule, a test, a schema or type constraint, a database validator, a
+   gate step, or **nothing available** — with roughly what it would cost and what it would **not**
+   catch.
+7. **Risk-register coverage.** Omit only where no register exists. Every coverage-map row assigned to
+   this pass as `covered` / `partly covered` / `not covered`, each with a reason. A register row is
+   not discharged by a pass simply having run: say what you actually looked at.
 
 ## Budget honesty and incremental writing
 
 Complete checks at full depth in the priority order the pass prompt gives. Where you cannot finish
-all of them, state plainly in the report header which checks you cut and why. **Never silently thin
-coverage across all checks to make them fit** — six checks done properly with four declared
-incomplete beats ten done shallowly, because the ledger can schedule what was declared and cannot
-schedule what was quietly skipped.
+all of them, state plainly in the header which you cut and why. **Never silently thin coverage across
+all checks to make them fit** — six checks done properly with four declared incomplete beats ten done
+shallowly, because the ledger can schedule what was declared and cannot schedule what was quietly
+skipped.
 
-**Write incrementally.** Append each check's section to the report file as that check completes, and
-update its coverage-ledger row at the same moment. Before any long or risky operation, the file on
-disk should already state `INCOMPLETE — resumed from here` at the open check.
+**Write incrementally.** Append each check's section as that check completes and update its
+coverage-ledger row at the same moment; before any long or risky operation, the file on disk should
+already state `INCOMPLETE — resumed from here` at the open check. An agent that stops while holding
+everything in flight loses all of it.
 
-**Say in the header if the report grows past what a wave session could load a section of.** A lens
-whose report cannot be opened is a lens whose findings cannot be worked, and the answer is to split
-the pass, not to compress the findings.
+**Say in the header if the report grows past what a wave session could load a section of**
+([`../lessons.md`](../lessons.md) §9).
 
 ## Resume protocol
 
@@ -240,17 +207,16 @@ Check whether the target report file already exists:
 - **It exists without a verdict** → a previous session died mid-pass. Read its header and coverage
   ledger, **trust the completed checks and do not redo them**, delete any half-written trailing
   section, and continue from the first check whose ledger row is unfilled or whose section is missing
-  or marked `INCOMPLETE`. Note the resume in the report header.
+  or marked `INCOMPLETE`. Note the resume in the header.
 
 ## Handoff
 
-Confirm the report file exists on disk at the named path, then tell me that the pass is complete, the
-file is written, and the next step is `/clear` before the next pass — carrying this pass's context
-into the next one makes the model summarise instead of scan.
+Confirm the report file exists on disk at the named path, then tell me that the pass is complete and
+that the next step is `/clear` before the next pass.
 
 **Harvest lessons before handing off.** Where the pass surfaced a misstep, tooling trap or process
 failure with value beyond this programme — a search technique that silently missed things, an
-environment artifact, a wrong assumption in the prompt itself — verify it (reproduce it, or confirm
-it at the source) and merge it into the matching section of [`../lessons.md`](../lessons.md). That
-file is process meta, so editing it does not violate the report-only rule; findings about the
-_audited code_ still go only in the report. Only one session edits `lessons.md` at a time.
+environment artifact, a wrong assumption in the prompt itself — verify it, then merge it into the
+matching section of [`../lessons.md`](../lessons.md), whose own editing rules apply. That file is
+process meta, so editing it does not violate the report-only rule; findings about the _audited code_
+still go only in the report.

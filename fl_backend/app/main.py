@@ -1,21 +1,3 @@
-"""
-APP · the application factory
-
-Builds the FastAPI application: logging, exception handlers, the middlewares, and every router —
-`system`, then a read and a write router per resource. `create_app()` is a function so
-the composition root is a choice rather than an import side effect: `app/asgi.py` is the entry
-point, tests build their own app, and importing this module needs no environment.
-
-Invariants:
-- Middleware runs in reverse registration order — `CorrelationIdMiddleware`, last, runs first.
-- `setup_custom_logger` runs before the app is constructed, so a construction failure logs right.
-- Every router is registered here — an unmounted router serves nothing and fails silently.
-
-See:
-- app/asgi.py — the process entry point
-- docs/backend/overview.md
-"""
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -41,8 +23,8 @@ from app.core.exception_handlers import register_exception_handlers
 from app.core.logging import setup_custom_logger
 from app.core.middlewares import CorrelationIdMiddleware
 
-# Reads under `verify_access_base`, writes under `verify_access_admin`. Order between the groups is not
-# significant: the `objectid` convertor keeps `/spiele/action_required` out of `/spiele/{spiel_id}`.
+# Reads under `verify_access_base`, writes under `verify_access_admin`. Order between the groups is
+# not significant: the `objectid` convertor keeps a static path out of an id route.
 READ_ROUTERS = (spiele_router, teams_router, spieltage_router, spieler_router, saisons_router, spielorte_router, schiedsrichter_router)
 WRITE_ROUTERS = (
     spiele_admin_router,
@@ -56,13 +38,10 @@ WRITE_ROUTERS = (
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:
-    """
-    Build the application.
+    """Build the application.
 
-    `config` is injectable so a test can supply its own settings object rather than arranging the
-    environment and hoping about import order. Passing one also substitutes it for the request-scoped
-    `Depends(get_config)`, so the guards in `core/security.py` and the database name in `core/db.py`
-    all agree with what this app was built from.
+    A FUNCTION, so the composition root is a choice rather than an import side effect. Passing
+    `config` also substitutes it for the request-scoped `Depends(get_config)`.
     """
     injected = config is not None
     config = config or get_config()
@@ -78,9 +57,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=config.api_cors_allowed_origins_list,
         allow_credentials=True,
-        # Every method the routers actually serve. No impact today -- the only client calls
-        # server-side, where CORS does not apply -- but a list that omits a served method is a
-        # preflight rejection waiting for the first browser call.
+        # Every method the routers serve: one omitted is a preflight rejection waiting to happen.
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
@@ -96,9 +73,8 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         """Confirm the service is answering. The versioned API lives under `/api/v{API_VERSION}`; use `/system/is_live` for a probe."""
         return "Hello World"
 
-    # Only when a caller supplied settings: `dependency_overrides` is FastAPI's test seam, so
-    # installing it unconditionally would spend it in production replacing `get_config` with itself,
-    # and leave a test unable to tell its override from the factory's.
+    # Only when a caller supplied settings: installing this unconditionally would leave a test
+    # unable to tell its own override from it.
     if injected:
         app.dependency_overrides[get_config] = lambda: config
 

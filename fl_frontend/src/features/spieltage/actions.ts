@@ -1,22 +1,5 @@
 "use server";
 
-/**
- * SPIELTAGE · server actions
- *
- * Full CRUD over matchdays, retirement included. The `"use server"` directive stays the first
- * line, above this block.
- *
- * Invariants:
- * - Every action checks `getAdminSession()` and runs in `runAdminMutation` (docs/logging/error-codes.md).
- * - Base tag only — the admin list and the public Spielplan span differently, so no granular tag
- *   names one write.
- * - `spieltage` is the only resource invalidated — `GET /spiele` never joins `spieltage`.
- * - Seven 409s and none is a unique index: four guard the matchday's contents and three its
- *   container; a matchday's place and name are derived, so there is nothing to claim.
- *
- * See:
- * - docs/frontend/spec.md — section 1.3, the action inventory
- */
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
@@ -32,18 +15,9 @@ import type { FLSpieltagKeyPayload, FLSpieltagWriteResponse } from "./schemas";
 import type { SpieltagCreateDraft, SpieltagEditDraft } from "./types";
 
 /**
- * The seven matchday refusals in German, or `null` when the 409 is none of them.
- *
- * Written to the shapes stated in `fl_frontend/src/features/saisons/actions.ts`. Three land on a field and
- * are one sentence about that value: `REQ-SPIELTAG-002` and `REQ-SPIELTAG-004` on `saison_phase`, and
- * `REQ-DATE-002` on `beginn`, which is the earlier of the two dates and so the one to look at first. The
- * others have no field to land on -- the two retirement refusals are raised from a control rather than a
- * form, `REQ-DATE-003` is about FIXTURES this form does not show, and `REQ-SPIELTAG-003` is about the
- * SEASON's own schedule -- so each is two sentences with the action second.
- *
- * **The `beginn` field error serves the create and the edit alone.** `reactivateSpieltagAction` answers the
- * same `REQ-DATE-002` from a row button with no form behind it, so it maps that code itself rather than
- * handing back a field error with no field to land on.
+ * The seven refusals in German, or `null` when none applies. **The `beginn` field error serves the
+ * create and the edit alone**: `reactivateSpieltagAction` answers `REQ-DATE-002` from a row button
+ * with no field to land on, so it maps that code itself.
  */
 function mapSpieltagRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -54,8 +28,7 @@ function mapSpieltagRefusal(error: unknown): { error?: string; fieldErrors?: Fie
         "Dieser Spieltag hat gespielte Partien und würde samt ihren Ergebnissen aus dem öffentlichen Spielplan verschwinden. Verschiebe die Spiele auf einen anderen Spieltag oder sage sie ab.",
     };
   }
-  // The phase's floor, refused from the container's side. No field to land on -- the count is a fact
-  // about the phase rather than about any control on the form.
+  // No field to land on: the count is a fact about the phase, not about a control on the form.
   if (error.serverErrorCode === "REQ-RETIRE-005") {
     return {
       error:
@@ -86,15 +59,13 @@ function mapSpieltagRefusal(error: unknown): { error?: string; fieldErrors?: Fie
   return null;
 }
 
-/** Every spieltage read, in one call. Base tag only, for the reason in this module's invariants. */
 function invalidateSpieltage(): void {
   updateTag("spieltage");
 }
 
 export async function postSpieltagAction(
   // The DRAFT shape, not the parsed payload: the form may submit `saison_phase: null` from an
-  // untouched picker, and the schema below is what turns that into a field error rather than a type
-  // error.
+  // untouched picker, and the schema below turns that into a field error rather than a type error.
   rawPayload: SpieltagCreateDraft,
 ): Promise<{ success: boolean; spieltag_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSpieltagAction", async () => {
@@ -108,9 +79,8 @@ export async function postSpieltagAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The create has two refusals of its own: a span outside the season it names (`REQ-DATE-002`), and a
-    // season whose knockout phase has already begun (`REQ-SPIELTAG-003`). The other three are about
-    // fixtures, and a new matchday has none.
+    // A new matchday has no fixtures, so only the span (`REQ-DATE-002`) and a season whose knockout
+    // phase has already begun (`REQ-SPIELTAG-003`) can refuse it.
     let postOperation;
     try {
       postOperation = await postSpieltag(validated.data);
@@ -129,17 +99,15 @@ export async function postSpieltagAction(
     return {
       success: true,
       spieltag_id: postOperation.spieltag_id,
-      // No name to echo: one is composed by the reader from the phase and the position, and
-      // the position is only known once this matchday is in the list beside its siblings.
+      // No name to echo: one is composed from the phase and the position, and the position is only
+      // known once this matchday is in the list beside its siblings.
       message: "Spieltag angelegt.",
     };
   });
 }
 
 export async function patchSpieltagAction(
-  // The DRAFT shape, not the parsed payload, exactly as the create takes: the page-owned editor may
-  // submit `saison_phase: null` from a cleared picker, and the schema below is what turns that into a
-  // field error rather than a type error.
+  // The DRAFT shape, not the parsed payload, exactly as the create takes.
   rawPayload: SpieltagEditDraft,
 ): Promise<{
   success: boolean;
@@ -159,8 +127,7 @@ export async function patchSpieltagAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The phase is refused if the matchday already holds more fixtures than it accounts for
-    // (`REQ-SPIELTAG-002`), which lands on the phase field in the dialog that is still open.
+    // `REQ-SPIELTAG-002` lands on the phase field in the dialog that is still open.
     let patchOperation;
     try {
       patchOperation = await patchSpieltag(validated.data);
@@ -180,9 +147,8 @@ export async function patchSpieltagAction(
   });
 }
 
-// Soft: the backend stamps `inactive_since` and removes nothing. Its matches stay
-// resolvable, but they leave the public Spielplan with the matchday, which is why one holding a
-// result is refused (`REQ-RETIRE-002`).
+// A retirement takes the matchday's fixtures off the public Spielplan with it, which is why one
+// holding a result is refused (`REQ-RETIRE-002`).
 export async function deleteSpieltagAction(rawPayload: FLSpieltagKeyPayload): Promise<{
   success: boolean;
   spieltag?: FLSpieltagWriteResponse;
@@ -201,8 +167,7 @@ export async function deleteSpieltagAction(rawPayload: FLSpieltagKeyPayload): Pr
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The retirement is refused while the matchday holds a result (`REQ-RETIRE-002`). It reaches the
-    // dialog rather than the error page, because the dialog is where the decision is being taken.
+    // Reaches the dialog rather than the error page: the dialog is where the decision is being taken.
     let deleteOperation;
     try {
       deleteOperation = await deleteSpieltag(validated.data);
@@ -245,8 +210,7 @@ export async function reactivateSpieltagAction(rawPayload: FLSpieltagKeyPayload)
     }
 
     // The span is re-checked on the way back in (`REQ-DATE-002`): while it was retired the season's
-    // dates were free to move past it. This lands on a toast, not a form, so the sentence carries its
-    // own repair — a field error would have no field to land on.
+    // dates were free to move past it. This lands on a toast, so the sentence carries its own repair.
     let reactivateOperation;
     try {
       reactivateOperation = await reactivateSpieltag(validated.data);

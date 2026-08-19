@@ -4,26 +4,26 @@ Audit pass `ops 2` on the ops surface. Lens: SECURITY AND TOPOLOGY — what the 
 network layout protects, and how secrets move through build and deploy.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass — the secrets rule
-is absolute: reachability and handling only, never values; ignore-rule inspection only, never file
-contents. Write the report to `docs/audit/programme/o2-security-topology.md`. Read
-`docs/audit/programme/b3-security.md` if it exists — its topology-only controls inventory is an input
-to check 2.
+is absolute here in both directions: reachability and handling only, never values; ignore-rule
+inspection only, never file contents. Write the report to
+`docs/audit/programme/o2-security-topology.md`. Read `docs/audit/programme/b3-security.md` if it
+exists — its topology-only controls inventory is an input to check 2.
 
 DELIVERABLE: required tables — the exhaustive routing table (check 1) and the topology-only controls
 inventory (check 2), merged with the one `backend 3` hands over. The inventory is what a future nginx
 or compose edit gets checked against.
 
 STANDARDS ANCHOR: the configuration, communications and deployment chapters of **OWASP ASVS**
-(<https://github.com/OWASP/ASVS>) cover this pass's edge and transport surface. Report them per the
-shared protocol's rule on external standards. Application-level ASVS chapters belong to the frontend
-and backend security passes — do not duplicate their tables here.
+(<https://github.com/OWASP/ASVS>), per the shared protocol's rule on external standards.
+Application-level ASVS chapters belong to the frontend and backend security passes — do not duplicate
+their tables here.
 
 CONTEXT — derive from the configs, not from memory: nginx fronts everything; `/api` routes to
-FastAPI, everything else to Next; the browser never reaches FastAPI directly; several protections are
-deliberate _absences_ (no invalidation endpoint for the reference caches; FastAPI's
-`/docs` unreachable from outside because it sits at the app root, which nginx sends to Next). An
-absence-as-control is invisible in a config review unless it is on a list — building that list is
-this pass's most important output.
+FastAPI, everything else to Next; the browser never reaches FastAPI directly. Two protections are
+deliberate _absences_: `.claude/CLAUDE.md` §7 forbids re-adding a reference-data invalidation
+endpoint, and FastAPI's `/docs` is unreachable from outside because it sits at the app root, which
+nginx sends to Next. An absence-as-control is invisible in a config review unless it is on a list;
+building that list is this pass's most important output.
 
 THE CHECKS, in priority order:
 
@@ -37,7 +37,7 @@ THE CHECKS, in priority order:
 2. **TOPOLOGY-ONLY CONTROLS.** Merge `backend 3`'s inventory, where present, with your own from
    check 1: every control that is purely an absence or a network boundary, each with what it
    protects, what breaks it (an added location, a compose network change, a port publish), and where
-   it is documented. The retired revalidation route is the model; an undocumented one is a finding.
+   it is documented. An undocumented one is a finding.
 
 3. **HEADER POSTURE.** The served security headers versus the committed configs (on the running stack
    via `local.sh` if available, else static): CSP (one enforced policy retaining `'unsafe-inline'` is

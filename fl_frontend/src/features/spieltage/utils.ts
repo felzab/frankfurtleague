@@ -1,21 +1,3 @@
-/**
- * SPIELTAGE · derivations
- *
- * Pure derivation over a season's matchdays — no I/O, no caching. Two things live
- * here: the bracket's column order, and the NAME a matchday is shown under, which no document
- * stores.
- *
- * Invariants:
- * - The bracket's edges are `teamN_quelle` only — position in a round is geometry,
- *   not topology.
- * - The LAST round anchors the walk, ordering each earlier one — which is why the backend's
- *   derived arrival order has to be right rather than plausible.
- * - A fixture nothing references keeps its arrival order, after the referenced ones.
- *
- * See:
- * - docs/glossary.md — Quelle, for the two variants and what they reference
- */
-
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 
 import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
@@ -23,23 +5,15 @@ import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "./schemas";
 
 /**
- * The playoff rounds with each round's Spiele ordered by the bracket's wiring.
- *
- * `PlayoffsView` draws its connecting lines by index parity — the matches at indices 0 and 1 appear to
- * feed the first match of the next column. That is only true if this function has made it true: the
- * Spiele arrive sorted by `datum`, which says when a match is played and nothing about what it feeds.
- *
- * Walked from the last round backwards, so each round is ordered by the (already ordered) round after
- * it: for every fixture there, its `spiel`-variant sources are placed adjacent, `team1_quelle` first.
- * A match referenced twice is placed once, where it is first named — the resolution refuses the shape
- * that produces it, so this only decides how a hand-edited season renders. Matches nothing references
- * follow in arrival order, so a season with no wiring at all renders exactly as before.
+ * `PlayoffsView` draws its lines by index parity, true only if this has made it true — the Spiele
+ * arrive sorted by `datum`, which says nothing about what feeds what. Walked last round first, so
+ * each is ordered by the already-ordered round after it.
  */
 export const orderRoundsByWiring = (rounds: readonly FLSpieltagWithSpiele[]): FLSpieltagWithSpiele[] => {
   const ordered: FLSpieltagWithSpiele[] = [];
 
-  // Built back to front, so `ordered[0]` is always the (already reordered) round after the one in
-  // hand — the last round itself has nothing after it and anchors the walk unchanged.
+  // Built back to front, so `ordered[0]` is the already-reordered round after the one in hand; the
+  // last round anchors the walk unchanged.
   for (const round of [...rounds].reverse()) {
     const next = ordered[0];
     if (next === undefined) {
@@ -70,25 +44,9 @@ export const orderRoundsByWiring = (rounds: readonly FLSpieltagWithSpiele[]): FL
 };
 
 /**
- * What one matchday is called, from its phase and its place within that phase.
- *
- * **A matchday stores no name.** One carries no information: a group-phase matchday is its
- * ordinal, a knockout matchday is its round. Both were already derivable — the ordinal from the order the
- * backend returns, the round from `PHASE_LABELS` — so a stored name was a second statement of the same
- * fact, and one nothing held consistent: two matchdays could share a name, and one called "Finale" could
- * sit in the `gruppenphase`.
- *
- * **It is composed here rather than served by the API**, because it is German display text. `quelle` set
- * that precedent: a reference carries no label, and what a reader sees is derived where it is shown.
- * The backend has no German vocabulary for the phases and gains none for this.
- *
- * `ordinal` is 1-based and counted per phase over the arrival order. `countInPhase` decides whether a
- * knockout round needs distinguishing at all:
- *
- * - **Group phase** — always the ordinal. "1. Spieltag", "2. Spieltag".
- * - **A knockout round the season plays once** — the round alone. "Viertelfinale".
- * - **A round split across several matchdays** — the round plus its ordinal, because four quarter-finals
- *   over two dates are two matchdays and a reader has to be able to tell them apart. "Viertelfinale (1)".
+ * What one matchday is called, from its phase and its place within it. `countInPhase` decides whether
+ * a knockout round needs distinguishing: four quarter-finals over two dates are two matchdays a
+ * reader has to tell apart.
  */
 export function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaisonPhase; ordinal: number; countInPhase: number }): string {
   if (phase === "gruppenphase") return `${String(ordinal)}. Spieltag`;
@@ -97,14 +55,9 @@ export function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaiso
 }
 
 /**
- * Every matchday's label and per-phase ordinal, keyed by id, for a caller holding the whole season.
- *
- * Built in one pass rather than per row: the label needs `countInPhase`, which is only knowable once the
- * whole phase has been seen — so a component computing it per row would either be wrong on the first row
- * or re-scan the list for every one.
- *
- * The input must be in the API's order, and nothing here re-sorts it: the backend already answered that
- * question.
+ * Every matchday's label and per-phase ordinal, keyed by id. Built in one pass because the label needs
+ * `countInPhase`, which is only knowable once the whole phase has been seen. The input must be in the
+ * API's order and nothing here re-sorts it.
  */
 export function spieltagLabels(
   spieltage: readonly { id: string; saison_phase: FLSaisonPhase }[],
@@ -138,26 +91,9 @@ export type SpieltagPhaseProgress = {
 };
 
 /**
- * Every phase, with the matchdays the season holds in it and the number `FLSaison.schedule` implies —
- * the matchday-level twin of the per-row `spieleAngelegt` against `anzahl_spiele`.
- *
- * **The count is the SERVED schedule, never recomputed here**, for the reason
- * `buildSpieltagPhaseOffer` gives one level down: an odd group needs an extra round, and a hand-written
- * copy that gets it wrong would report a complete phase as short.
- *
- * **Both numbers are facts about the SEASON rather than about whatever is on screen.** The list this
- * feeds is searched and facetted, and a numerator taken from the narrowed rows would report a complete
- * phase as short the moment somebody filtered — which is the one wrong answer this exists to prevent.
- *
- * **A retired matchday is not counted.** Retiring one is how a mis-dated matchday leaves the schedule,
- * which is why `REQ-DATE-004` reads live matchdays alone — so a phase whose third matchday is retired
- * is genuinely a matchday short until something replaces it.
- *
- * **Reported, never refused.** A season being set up passes through every intermediate count
- * on the way to complete, so a phase short of matchdays is the ordinary state rather than a mistake.
- *
- * An empty `schedule` means no season was resolved rather than a season that plays nothing, so this
- * answers with nothing at all and the caller falls back to counting what it has.
+ * **Both numbers are facts about the SEASON, not about what is on screen**: a numerator from the
+ * narrowed rows would report a complete phase as short the moment somebody filtered. The count is
+ * the served schedule — `buildSpieltagPhaseOffer` says why.
  */
 export function buildSpieltagPhaseProgress(
   schedule: readonly FLSaisonPhaseSchedule[],
@@ -167,12 +103,14 @@ export function buildSpieltagPhaseProgress(
 
   const liveByPhase = new Map<FLSaisonPhase, number>();
   for (const spieltag of spieltage) {
+    // Not counted: retiring one is how a mis-dated matchday leaves the schedule, which is why
+    // `REQ-DATE-004` reads live matchdays alone.
     if (spieltag.inactive_since !== null) continue;
     liveByPhase.set(spieltag.saison_phase, (liveByPhase.get(spieltag.saison_phase) ?? 0) + 1);
   }
 
-  // A phase absent from the schedule expects 0, the same answer `expected_matches` gives — a matchday
-  // may legally sit in a phase this season's bracket does not reach, and „1 von 0“ says exactly that.
+  // A phase absent from the schedule expects 0, the same answer `expected_matches` gives: a matchday
+  // may legally sit in a phase this season's bracket does not reach.
   const expectedByPhase = new Map(schedule.map((entry) => [entry.phase, entry.matchdays]));
 
   return SAISON_PHASE_OPTIONS.map((phase) => ({
@@ -192,26 +130,13 @@ export type SpieltagPhaseOffer = {
 };
 
 /**
- * Every phase, with this season's expected match count and whether a matchday holding `attachedCount`
- * fixtures may take it — the browser's half of `REQ-SPIELTAG-002`.
- *
- * **The counts are the SERVED schedule, never recomputed here.** The arithmetic has a case a
- * hand-written copy gets wrong — an odd group needs an extra round, because one team sits out each round
- * — and a copy that undercounts disables a phase the endpoint would have accepted, which is worse than
- * not checking at all. `FLSaison.schedule` is that derivation on the wire.
- *
- * **Only the over-full direction is refused**, exactly as the endpoint does: a matchday still being
- * filled in holds fewer fixtures than its phase expects, and that is every season part-way through
- * setup. `attachedCount` of 0 therefore lets every phase through, which is what the create dialog needs
- * — a new matchday holds nothing, and a phase this season does not reach is a legal, if odd, choice the
- * endpoint accepts.
- *
- * A phase absent from the schedule expects 0, which is the same answer `expected_matches` gives.
+ * **The counts are the SERVED schedule, never recomputed**: an odd group needs an extra round because
+ * one team sits out, and a copy that undercounts disables a phase the endpoint accepts. **Only the
+ * over-full direction is refused.**
  */
 export function buildSpieltagPhaseOffer(schedule: readonly FLSaisonPhaseSchedule[], attachedCount: number): readonly SpieltagPhaseOffer[] {
-  // No schedule means no season is selected, not a season that plays nothing: every real season's
-  // schedule carries its group phase. Offering everything is the only safe answer, because disabling a
-  // phase here would refuse what the endpoint accepts.
+  // No schedule means no season is selected, not a season that plays nothing: disabling a phase here
+  // would refuse what the endpoint accepts.
   if (schedule.length === 0) return SAISON_PHASE_OPTIONS.map((phase) => ({ phase, expected: 0, fits: true }));
 
   const expectedByPhase = new Map(schedule.map((entry) => [entry.phase, entry.matches_per_matchday]));

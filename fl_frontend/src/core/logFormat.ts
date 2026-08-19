@@ -1,16 +1,3 @@
-/**
- * CORE · log line formatting
- *
- * The pure half of the logger: turns a level, a message and metadata into the one line that gets
- * written. Split out of `logging.ts` so the unit tests can cover the format without importing
- * `core/config.ts`, whose `server-only` marker the test runner cannot load.
- *
- * The JSON field set is shared with the backend's `JSONFormatter` so one parser reads both streams:
- * `timestamp` (ISO 8601 UTC, milliseconds, `Z`), `level` (`INFO`/`WARNING`/`ERROR`), `service`,
- * `correlation_id`, `message`, optional `error_code`, and `error` as `{name, message, stack}`.
- * The contract is `docs/logging/spec.md`.
- */
-
 export type LogLevel = "INFO" | "WARNING" | "ERROR";
 
 export interface LogMeta extends Record<string, unknown> {
@@ -21,8 +8,8 @@ export interface LogMeta extends Record<string, unknown> {
   endpoint?: string;
 }
 
-// Lifecycle lines run outside any request; the sentinel keeps the key present on every line so a
-// parser can rely on it. Mirrors the backend's `NO_REQUEST_SENTINEL`.
+// Lifecycle lines run outside any request; the key stays present so a parser can rely on it.
+// Mirrors the backend's `NO_REQUEST_SENTINEL`.
 export const NO_REQUEST_SENTINEL = "SYSTEM";
 
 function serializeError(error: unknown): unknown {
@@ -46,14 +33,13 @@ export function formatLogLine(format: "console" | "json", level: LogLevel, messa
     });
   }
 
-  // The console format -- chosen by LOG_FORMAT, not by the build, so nothing here may assume
-  // development. The line shape mirrors `fl_backend/app/core/logging.py :: LevelAwareFormatter`, so
-  // the two dev streams read as one convention.
+  // Chosen by LOG_FORMAT, not by the build, so nothing here may assume development. The shape
+  // mirrors `fl_backend/app/core/logging.py :: LevelAwareFormatter`.
   const color = level === "ERROR" ? "\x1b[31m" : level === "WARNING" ? "\x1b[33m" : "\x1b[34m";
   const reset = "\x1b[0m";
 
-  // sv-SE is the one widely-shipped locale whose short format is ISO-shaped (YYYY-MM-DD HH:MM:SS),
-  // matching the backend's console timestamps without hand-rolling a formatter.
+  // sv-SE is the one widely-shipped locale whose short format is ISO-shaped, matching the backend's
+  // console timestamps without hand-rolling a formatter.
   const timestamp = new Date().toLocaleString("sv-SE");
   const idStr = `<${meta?.correlation_id ?? NO_REQUEST_SENTINEL}>`;
   const metaStr = meta && Object.keys(meta).length > 0 ? `\n  Meta: ${JSON.stringify({ ...meta, error: serializeError(meta.error) })}` : "";

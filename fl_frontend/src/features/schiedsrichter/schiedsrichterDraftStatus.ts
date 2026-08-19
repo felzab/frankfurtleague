@@ -1,16 +1,3 @@
-/**
- * SCHIEDSRICHTER · what the referee editor's draft has changed and got wrong
- *
- * One derivation over one referee's draft, read by everything on the edit page that says something
- * about a field: label markers, change list, unsaved count, action bar, navigation guard. Pure,
- * so it is tested rather than clicked; `spielerDraftStatus.ts` is the pattern.
- *
- * Invariants:
- * - `path` is the payload's dotted path AND the input `name`, `FieldErrors` key and anchor id.
- * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
- * - `inactive_since` is not a descriptor — retiring is a control, not a field.
- */
-
 import { formatEuro } from "@/shared/utils/format";
 
 import type { FLKontakt } from "@/shared/schemas";
@@ -45,6 +32,8 @@ export type FLSchiedsrichterDraftStatus = {
 };
 
 type FieldDescriptor = {
+  // The payload's dotted path, and also the input `name`, the `FieldErrors` key and the anchor id, so
+  // all four move together.
   path: string;
   label: string;
   group: FLSchiedsrichterFieldGroup;
@@ -54,13 +43,9 @@ type FieldDescriptor = {
 const emptyAsNull = (value: string | null): string | null => (value === null || value.trim() === "" ? null : value.trim());
 
 /**
- * Every field the referee editor can change, in the order the change list reads them.
- *
- * Each `read` returns the DISPLAY text, which doubles as the comparison key — one function serves
- * `hasChanged`, `storedText` and `draftText`.
- *
- * `default_payment` formats to euros rather than reading as a bare integer: a change row saying
- * „25 → 30“ is a number without a unit, and the field it describes is a currency control.
+ * Every field the editor can change; one with no row here is invisible to the page. `read` returns
+ * display text, which doubles as the comparison key — `default_payment` formats to euros so a change
+ * row is not a bare number.
  */
 const FIELD_DESCRIPTORS: readonly FieldDescriptor[] = [
   { path: "name", label: "Name", group: "Person", read: (source) => emptyAsNull(source.name) },

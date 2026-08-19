@@ -1,12 +1,3 @@
-/**
- * SPIELTAGE · matchday editor banner tests
- *
- * This list is the enumeration of what a three-field form has to say, so the gates are asserted here
- * rather than clicked. Two of them mirror a backend refusal
- * arithmetically (`REQ-RETIRE-002`, `REQ-RETIRE-005`), and a mirror that drifts would disable a
- * control the endpoint would have accepted, or offer one it will refuse.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -75,8 +66,7 @@ describe("buildSpieltagBanners", () => {
   });
 
   it("mirrors the phase floor exactly as the endpoint computes it (REQ-RETIRE-005)", () => {
-    // The backend refuses the STEP across the floor, this matchday included — so four live against a
-    // floor of three retires, three against three does not, and one against three retires again.
+    // The backend refuses the STEP across the floor, this matchday included.
     assert.ok(!ids(build({ livePhaseCount: 4, impliedPhaseCount: 3 })).includes("spieltag.retire-blockiert-untergrenze"));
     assert.ok(ids(build({ livePhaseCount: 3, impliedPhaseCount: 3 })).includes("spieltag.retire-blockiert-untergrenze"));
     assert.ok(!ids(build({ livePhaseCount: 1, impliedPhaseCount: 3 })).includes("spieltag.retire-blockiert-untergrenze"));

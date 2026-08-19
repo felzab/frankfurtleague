@@ -1,7 +1,7 @@
 # scripts/ruff.toml — makes the repository's Python rules apply to the gate's own tooling.
 #
-# `extend` rather than a copy, and scoped to scripts/ rather than sitting at the repository root: the
-# argument for both is `docs/ops/spec.md` §1.6. It must keep adding and overriding nothing — the
-# moment it carries its own `select`, this configuration and the backend's can disagree.
+# `extend` rather than a copy, and here rather than at the repository root: `docs/ops/spec.md` §1.6
+# argues both. It must keep adding and overriding nothing — the moment it carries its own `select`,
+# this configuration and the backend's can disagree.
 
 extend = "../fl_backend/pyproject.toml"

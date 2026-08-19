@@ -16,16 +16,8 @@ import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FORM_SECTION_HEADING } from "@/s
 import type { FLPostSaisonPayload } from "@/features/saisons/schemas";
 
 /**
- * The values a new season starts from.
- *
- * **3/1/0 is a default here and nowhere else.** A hardcoded scoring rule inside the league table's
- * derivation is forbidden, and this is the opposite of that: it is the starting value of an editable
- * field the admin sees before submitting, and what lands in the document is what they submitted. What
- * is forbidden is a constant the *reader* cannot see — a season whose points are implied rather than
- * stored.
- *
- * `erlaubte_stufen` starts as the whole league, because narrowing is the unusual choice and a picker that
- * started empty would make every create a six-press exercise.
+ * **3/1/0 is a default here and nowhere else.** It is the starting value of an editable field the admin
+ * sees before submitting; what is forbidden is a constant the reader cannot see.
  */
 const EMPTY_DRAFT: FLPostSaisonPayload = {
   id: "",
@@ -42,21 +34,15 @@ const EMPTY_DRAFT: FLPostSaisonPayload = {
 };
 
 /**
- * The draft holds the payload's own strings and the picker wants a `CalendarDate`, so the boundary is
- * here. Safe rather than lenient: the only writer is the picker's `onChange`, which produces
- * `CalendarDate.toString()` — exactly the `YYYY-MM-DD` `parseDate` accepts — and `""` is the empty state.
+ * Safe rather than lenient: the only writer is the picker's `onChange`, which produces exactly the
+ * `YYYY-MM-DD` that `parseDate` accepts.
  */
 const asCalendarDate = (value: string) => (value === "" ? null : parseDate(value));
 
 /**
- * Creates a season. It is always created `future` and never `active` — making it live is a separate,
- * deliberate step on the season's own page, so an ordinary typo in a new season's id cannot become a
- * silent rollover of the live one.
- *
- * **The id is typed rather than generated**, which makes this the one create form in the app that asks
- * for a key. `saisons._id` is the four-character string every `saison_id` in the database references, so
- * the field carries the length bound and the browser refuses a fifth keystroke; a reused id comes back as
- * a 409 that the action turns into a message on this field.
+ * Creates a season, always `future`: making one live is a separate deliberate step, so a typo in a new
+ * id cannot become a silent rollover of the live one. **The id is typed rather than generated** — the
+ * one create form that asks for a key.
  */
 export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
   return (
@@ -132,8 +118,7 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
                 name="rules.number_of_groups"
                 label={<Label className={FIELD_LABEL}>Gruppen</Label>}
                 minValue={1}
-                // The closed set is A to D and this picks a prefix of it, so 4 is the ceiling rather
-                // than a policy — a fifth group has no letter to be.
+                // The closed set is A to D and this picks a prefix, so 4 is a ceiling, not a policy.
                 maxValue={4}
                 value={draft.rules.number_of_groups}
                 onChange={(number_of_groups) => setDraft((current) => ({ ...current, rules: { ...current.rules, number_of_groups } }))}
@@ -167,7 +152,6 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
       )}
       onSubmit={async (draft) => {
         const res = await postSaisonAction(draft);
-        // A create only counts if the backend echoed the new id back.
         return { ...res, success: res.success && !!res.created_id };
       }}
       marksRequired

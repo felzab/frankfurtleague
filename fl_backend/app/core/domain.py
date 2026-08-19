@@ -1,19 +1,9 @@
 """
 CORE · the domain model, as a declaration
 
-What the entities are, which form one consistency boundary, what happens to a reference when its
-target changes, and when each field may be written. Everything here is data — no evaluator, and
-nothing calls it at request time: enforcement stays at the write endpoints, and this is the model
-stated once for a conformance test to compare against the code.
-
-Invariants:
-- No application code imports this module — only the conformance test and the documentation read it.
-- Every `implemented_by` and `tested_by` names a real symbol, resolved by `tests/core/test_domain.py`.
-- A referential action names what the code does, never what it ought to do.
-- Only fields whose answer is not plainly `EDITABLE` are listed.
-
-See:
-- docs/domain.md — the reader's version of everything below
+Data only: no application code imports this module and nothing evaluates it. Enforcement stays at
+the write endpoints, and `fl_backend/tests/core/test_domain.py` compares the declaration against
+the code.
 """
 
 from dataclasses import dataclass
@@ -23,29 +13,15 @@ from app.core.collections import Collection
 
 
 class Action(StrEnum):
-    """
-    What happens to a referencing row when its target changes or goes away.
+    """What happens to a referencing row when its target changes or goes away.
 
-    SQL's own vocabulary, because it is precise and widely understood -- and because MongoDB enforces none
-    of it, so naming the intended behaviour is the only way the intention is written down at all.
-
-    **An enum rather than a `Literal`, which is the other way round from every closed set in
-    `app/api/*/schemas.py`, and the difference is what the value IS.** `FLSaisonStatus` is a `Literal`
-    because the string is DATA: it is stored in MongoDB, enumerated in a `$jsonSchema` validator and
-    published in `openapi.json`, so the wire format needs the bare value. This is internal vocabulary that
-    is never stored, never serialised and never leaves the process -- so it wants the three things an enum
-    gives and a `Literal` cannot: a namespace at the call site, per-member documentation attached to the
-    member, and iteration, which `test_every_declared_value_is_used` needs.
-
-    `StrEnum` and not the `(str, Enum)` mixin: on Python 3.12+ the mixin renders as `Action.RESTRICT`
-    inside an f-string, so a test failure message names the enum instead of the value. `StrEnum` renders
-    as `RESTRICT` and still compares equal to the plain string.
+    `StrEnum`, because the `(str, Enum)` mixin renders the member NAME in an f-string.
     """
 
     #: The operation is refused while a reference exists, by a `find_*_refusal` at the write.
     RESTRICT = "RESTRICT"
     CASCADE = "CASCADE"
-    #: The reference is emptied and the referencing row survives. Declared vocabulary; see `UNUSED_ACTIONS`.
+    #: The reference is emptied and the referencing row survives. See `UNUSED_ACTIONS`.
     SET_NULL = "SET_NULL"
     #: Nothing happens, deliberately. The reference is left alone and stays resolvable.
     NO_ACTION = "NO_ACTION"
@@ -67,27 +43,24 @@ class Editability(StrEnum):
     IMMUTABLE = "IMMUTABLE"
 
 
-# `SET_NULL` is declared and used by no reference -- a statement, not an oversight: no reference here
-# is emptied because its target moved. A bracket slot whose feeder cannot be resolved KEEPS its
-# occupant and is reported as a fault.
+# A statement, not an oversight: a bracket slot whose feeder cannot be resolved KEEPS its occupant
+# and is reported as a fault.
 UNUSED_ACTIONS: frozenset[Action] = frozenset({Action.SET_NULL})
 
 
 @dataclass(frozen=True)
 class Aggregate:
-    """
-    One consistency boundary: a root plus the collections whose invariants are checked against it.
+    """One consistency boundary: a root plus the collections whose invariants are checked against it.
 
-    Membership is decided by ONE question -- does an invariant hold this collection and the root true
-    together? -- and not by whether one document points at another. `spiele` points at `spieltage` and
-    they are separate aggregates, because no rule spans a matchday and a fixture.
+    Membership is decided by ONE question -- does an invariant hold this collection and the root
+    true together? -- never by whether one points at another.
     """
 
     name: str
     root: Collection
     members: tuple[Collection, ...]
-    #: **THE INVARIANT, then what it means for membership.** One or two sentences: the first names the rule
-    #: that holds root and members true together, the second (where there is one) says what that excludes.
+    #: THE INVARIANT, then what it means for membership: the rule holding root and members true
+    #: together, then what that excludes.
     boundary: str
 
 
@@ -101,8 +74,8 @@ class Reference:
     target: Collection
     on_target_change: Action
     on_target_removed: Action
-    #: **WHAT THE CODE DOES, then what it deliberately does not.** The first sentence states the action in
-    #: the present tense; the second names the part a reader would otherwise assume travels with it.
+    #: WHAT THE CODE DOES, then what it deliberately does not -- the action in the present tense,
+    #: then the part a reader would otherwise assume travels with it.
     note: str
 
 
@@ -113,9 +86,8 @@ class FieldPolicy:
     collection: Collection
     field: str
     editability: Editability
-    #: **WHEN, then WHY.** Opens with the timing word the editability turns on -- "frozen once",
-    #: "written only by", "computed from" -- and the reason follows after a colon. Empty only where the
-    #: field is plainly `EDITABLE`.
+    #: WHEN, then WHY. Opens with the timing word the editability turns on, and the reason follows
+    #: a colon. Empty only where the field is plainly `EDITABLE`.
     condition: str = ""
     #: A dotted path to what enforces it, or "" where the enforcement is an ABSENCE -- no payload carries
     #: the field, which is not a symbol that can be named.
@@ -130,28 +102,27 @@ class Rule:
     #: The endpoints that perform it, ` . `-separated where more than one does.
     operation: str
     aggregate: str
-    #: **ONE CLAUSE naming what is refused, present tense, no closing period.** It is a table cell rather
-    #: than a sentence, and the reason lives in the constant's own comment beside the code.
+    #: ONE CLAUSE naming what is refused, present tense, no closing period -- a table cell, not a
+    #: sentence. The reason lives in the constant's own comment beside the code.
     summary: str
     implemented_by: str
     tested_by: str
-    #: True where the rule needs more than the payload and its own document. These are the rules a
-    #: uniform evaluator could not have expressed, because they read the aggregate rather than a row.
+    #: True where the rule needs more than the payload and its own document -- the rules a uniform
+    #: evaluator could not express, because they read the aggregate rather than a row.
     multi_document: bool = False
 
 
 @dataclass(frozen=True)
 class Unenforced:
-    """
-    A state the system permits on purpose, and what shows it to a person instead.
+    """A state the system permits on purpose, and what shows it to a person instead.
 
     Named because an absence looks identical to an omission.
     """
 
-    #: **THE STATE, as a noun phrase.** Not a sentence: it completes "the system permits ...".
+    #: THE STATE, as a noun phrase. Not a sentence: it completes "the system permits ...".
     subject: str
-    #: **WHY REFUSING WOULD BE WRONG, then what happens instead.** Always in that order -- the cost of the
-    #: rule first, because that is the argument, and the mitigation second.
+    #: WHY REFUSING WOULD BE WRONG, then what happens instead -- the cost of the rule first, because
+    #: that is the argument.
     reason: str
     #: The surface reporting the state, or "" where nothing does and nothing needs to.
     surfaced_by: str = ""

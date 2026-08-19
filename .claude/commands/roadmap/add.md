@@ -12,8 +12,8 @@ reading the code it names.
 This command adds and re-ranks. It closes, deletes and implements nothing — that is
 `/roadmap:start <ID>`, in its own session.
 
-**Before the first write** — step 6 is where it starts — the working tree is clean, `main` is up to
-date with `origin/main`, and you are on a branch named for the change (CLAUDE.md §2).
+**Before the first write**, which is step 6: a clean tree, `main` current with `origin/main`, and a
+branch named for the change (CLAUDE.md §2).
 
 ## Steps
 
@@ -40,8 +40,8 @@ date with `origin/main`, and you are on a branch named for the change (CLAUDE.md
 
    **Check before step 3:** every bullet has exactly one outcome named.
 
-3. **Research each item, then write its entry.** Never restate a bullet in nicer words. For each
-   item, establish and write down:
+3. **Research each item, then write its entry.** Never restate a bullet in nicer words. For each,
+   establish and write down:
 
    - **What it touches**, cited as COR-6 requires — `` `<path> :: <symbol>` `` or a repository path.
    - **What is already decided.** Search CLAUDE.md §7 and the spec sheets' `## 2. Invariants`, and
@@ -55,8 +55,7 @@ date with `origin/main`, and you are on a branch named for the change (CLAUDE.md
    is a question for the owner rather than a gap to fill with plausible prose.
 
 4. **Put every question from steps 2 and 3 to the owner as one batch, before writing**, each with a
-   recommendation. Ask only what changes an entry: where every answer produces the same entry, do
-   not ask.
+   recommendation. Ask only what changes an entry.
 
 5. **Assign an id.**
 
@@ -126,13 +125,10 @@ date with `origin/main`, and you are on a branch named for the change (CLAUDE.md
    Correct what is wrong, and report what this step caught.
 
 10. **Restamp every stamped page this change touched**, in CUR-3's shape and only after re-reading
-    it — `docs/_standard/chapters/5-currency.md`. Step 8 edits spec sheets, and each carries a stamp.
+    it. Step 8 edits spec sheets, and each carries a stamp.
 
-11. **Ship it as one commit**, per `docs/_git/spec.md`: `./scripts/verify.sh --docs --format`.
-    Report the actual exit code. Push, open the pull request as a draft, and print its link. Commit
-    message shape: `docs/_git/templates.md`.
-
-    The two-commit protocol belongs to closing an item and does not apply here.
+11. **Ship it as one commit**, closing per CLAUDE.md §2 with the gate at `--docs --format`. The
+    two-commit protocol belongs to closing an item and does not apply here.
 
 12. **Hand over:** the new ids and where each ranked · every entry that moved and the test that moved
     it · the questions answered and how each shaped an entry · what step 9 caught · what you could

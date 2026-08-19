@@ -1,15 +1,7 @@
-/**
- * APP · sitemap
- *
- * Lists only public, crawlable routes. Admin routes and `/signin` are deliberately absent, each for
- * the reason recorded at the foot of the list below.
- */
-
 import type { MetadataRoute } from "next";
 
-// Evaluated once at module load: `new Date()` here is a dynamic read under cacheComponents, which
-// makes /sitemap.xml a dynamic route — and an always-now lastModified tells a crawler nothing. Bump
-// it by hand when the page content changes.
+// A live `new Date()` is a dynamic read under cacheComponents, which would make this a dynamic
+// route. Bump it by hand when the page content changes.
 const CONTENT_LAST_MODIFIED = new Date("2026-07-01");
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -76,8 +68,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.4,
     },
-    // /admin and /signin are deliberately absent: `fl_frontend/src/app/robots.ts :: robots` disallows
-    // the first and noindexes the second, so neither can yield an indexable page and an entry would
-    // only spend crawl budget.
+    // /admin and /signin stay out: robots.ts disallows one and the other is noindexed.
   ];
 }

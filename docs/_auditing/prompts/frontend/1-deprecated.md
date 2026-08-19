@@ -6,10 +6,6 @@ against an older version of the stack, or a current API used in an outdated idio
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
 to `docs/audit/programme/f1-deprecated.md`.
 
-DELIVERABLE: one report section per row of the current CLAUDE.md deprecation table (check 1), plus a
-section per remaining check. Every row of that table gets a section even at zero occurrences, naming
-the searches run.
-
 CONTEXT — derive, do not assume: read the **current** deprecation table in `.claude/CLAUDE.md` (the
 "Deprecations the toolchain will NOT catch" table) at run time, never a copy, and the
 ratified-decisions index beside it, several rows of which read as violations of that table and are
@@ -17,14 +13,14 @@ deliberate. **Cite CLAUDE.md's sections by name — its numbering moves.**
 
 THE CHECKS:
 
-1. **Walk every row of the current deprecation table**, one report section per row, in table order.
-   Per row: occurrence count, findings or an explicit zero-occurrences with the searches run. Where a
-   row has a _behavioural_ equivalent a literal grep would miss, check that too — the canonical
-   example: zero matches for `getServerSideProps` does not mean the caching model is current; audit
-   whether `use cache` sits at the data layer and where `await connection()` opts renders out of
-   prerendering. For component-library rows, back a zero count with evidence: enumerate the compound
-   sub-components actually in use, and check for previous-major prop idioms surviving on current
-   components (`onClick` where react-aria expects `onPress`, and similar).
+1. **Walk every row of the current deprecation table**, one report section per row, in table order,
+   each carrying its occurrence count and its findings or an explicit zero-occurrences with the
+   searches run — the pass's deliverable. Where a row has a _behavioural_ equivalent a literal grep
+   would miss, check that too: zero matches for `getServerSideProps` does not mean the caching model
+   is current, so audit whether `use cache` sits at the data layer and where `await connection()`
+   opts renders out of prerendering. For component-library rows, back a zero count with evidence —
+   enumerate the compound sub-components actually in use, and check for previous-major prop idioms
+   surviving on current components (`onClick` where react-aria expects `onPress`, and similar).
 
 2. **Dead styling vocabulary.** Classes and tokens that compile and resolve to nothing — utilities
    from a previous library major, tokens renamed out from under their users, arbitrary values
@@ -35,8 +31,7 @@ THE CHECKS:
    that are Server Components rather than action modules; deep imports into `next/dist/**` or other
    private internals; dead config keys referencing packages not in `package.json`. **Verify the
    current recommendation against the official documentation before flagging an idiom as outdated**
-   (CLAUDE.md's stack section lists the documentation sources). An audit that recommends replacing a
-   current API with a deprecated one is worse than no finding.
+   (CLAUDE.md's stack section lists the documentation sources).
 
 4. **Version drift.** Installed versions (from `package.json`) versus current stable for the
    technologies CLAUDE.md's stack section mandates, with the breaking changes that affect this repo.

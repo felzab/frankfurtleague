@@ -1,53 +1,7 @@
 #!/usr/bin/env bash
-#
-# PreToolUse hook on Bash and PowerShell — a shell command that WRITES into docs/_standard/ asks
-# the owner first, on every branch.
-#
-# WHY THIS EXISTS SEPARATELY FROM guard-standard-edit.sh AND guard-branch-bash.sh:
-#   guard-standard-edit.sh puts the owner's question on screen when Edit, Write or NotebookEdit
-#   targets the standard — but it never sees a shell redirect, `sed -i`, a heredoc or an inline
-#   `python -c` write, which are the same edit by another route. guard-branch-bash.sh does see
-#   those, and stands down the moment HEAD leaves `main` — so on a topic branch the standard was
-#   writable from the shell with no question asked. This hook closes that gap: the same shell-write
-#   detection, on every branch, answering "ask" rather than "deny" because the owner's rule
-#   (2026-08-08) is sign-off, not prohibition.
-#
-# CONTRACT: prints nothing and exits 0 for a command that does not write, or whose writes cannot
-# name a path inside docs/_standard/. For a write shape naming one — or a payload whose command
-# cannot be read at all — it prints the "ask" JSON the PreToolUse event understands, which
-# surfaces the owner's permission prompt instead of running the command. Fail-closed for
-# guard-standard-edit.sh's reason: a hole in the guard costs more than one extra question, and
-# the unreadable cases are rare.
-#
-# WHAT THIS GATE CANNOT SEE, STATED HERE SO IT IS NOT MISTAKEN FOR A TOTAL ONE:
-#   Both hooks read a command STRING. A program reads its own arguments, its own config and its own
-#   source, so `python restamp.py` writes whatever `restamp.py` says and names nothing here. No
-#   scan of a command can close that, and making every interpreter invocation ask would put a prompt
-#   in front of `python -m pytest`. What is done instead is below: an interpreter counts as a write
-#   shape, so an invocation that NAMES a path under the standard asks, and one that hides the path
-#   inside a file it reads does not. The gate that sees what a process did rather than what a
-#   command said is the commit boundary, not this hook.
-#
-# DELIBERATE DIFFERENCES FROM guard-branch-bash.sh, whose write/read distinction is otherwise copied
-# verbatim so the two guards never disagree about what counts as a write:
-#   - An interpreter, and PowerShell's write cmdlets, are write shapes here and not there. The cost
-#     of a wrong guess differs: here it is one prompt on a command that already names the standard;
-#     there it would refuse every `python scripts/check_docs.py` on `main`, and refuse the
-#     gitignored write on `main` that guard-branch-powershell.sh exists to keep granting. Widening a
-#     QUESTION is monotonic in a way that widening a REFUSAL is not.
-#   - No exemption at all. There, a command is released when every path-like token lands outside the
-#     working tree or on a gitignored untracked path inside it, so work can land while `main` is
-#     protected. Here the question is whether a write can reach the standard on ANY branch, and a
-#     token landing somewhere harmless answers nothing about the one that does
-#     (`cp <scratchpad>/x docs/_standard/y`), so no token can silence the question.
-#   - Containment is decided on CANONICAL paths, for guard-branch.sh's reasons: `./` segments,
-#     `..` re-entry, doubled separators, `//?/` device prefixes and case-only respellings all name
-#     a file inside the standard while sharing no useful prefix with the literal folder path.
-#     Relative candidates are resolved from the repository root — the payload does not carry the
-#     shell's own working directory, so a relative path spelled from anywhere else is out of
-#     reach, which is a narrower miss than any string-prefix alternative.
-#
-# TARGET PLATFORM: any (Git Bash on Windows). node rather than jq — jq is not installed here.
+# PreToolUse hook on Bash and PowerShell — a shell command writing into docs/_standard/ asks the
+# owner first, on every branch: guard-standard-edit.sh sees only the tools, and guard-branch-bash.sh
+# stands down off `main`. It asks whenever it cannot tell, a hole costing more than a question.
 
 ask() {
   printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"This shell command writes into docs/_standard — the documentation standard changes only with your explicit sign-off (owner rule, 2026-08-08). Approve to let this one command through, or deny and discuss the change first."}}'
@@ -74,20 +28,19 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
 
 # >>> SHARED WRITE SHAPES — byte-identical in the two bash guards; edit both or neither >>>
 
-# The null device is not a destination, so a redirect into it is removed before the scan rather than
-# carved out after one: a command can send its chatter there while writing somewhere real.
+# The null device is not a destination, so it comes out before the scan rather than being carved out
+# after one: a command can send its chatter there while writing somewhere real.
 scan="$(printf '%s' "$cmd" | sed -E 's#[0-9&]*>[>&]?[[:space:]]*/dev/null##g')"
 # A sed that failed must not read as a command with nothing left in it.
 [ -n "$scan" ] || scan="$cmd"
 
-# Runs of blanks collapse before the patterns below, which are spelled with single spaces: extra
-# whitespace between a verb and its argument is the same command and must not read as another one.
+# Blanks collapse first, because the patterns below are spelled with single spaces and extra
+# whitespace between a verb and its argument is the same command.
 squeezed="$(printf '%s' "$scan" | tr -s ' \t' ' ')"
 [ -n "$squeezed" ] || squeezed="$scan"
 
-# Matched against a SPACE-PREFIXED copy so a verb at the very start of the command is caught: the
-# pattern for `rm` has to be " rm " to avoid matching inside a word, and `rm docs/x` has no leading
-# space of its own.
+# Space-prefixed so a verb at the very start is caught: the `rm` pattern has to be " rm " to avoid
+# matching inside a word, and `rm docs/x` carries no leading space of its own.
 padded=" $squeezed"
 writes=0
 case "$padded" in
@@ -96,9 +49,8 @@ case "$padded" in
   *" mv "* | *" cp "* | *" ln "* | *" rm "* | *" rmdir "* | *" mkdir "* | *" touch "*) writes=1 ;;
 esac
 
-# An inline interpreter names its target in source, where no verb and no redirect shows it.
-# `open(` counts whatever the mode says, so a read spelled that way refuses too — a false refusal is
-# cheaper than a hole nothing observes.
+# An inline interpreter names its target in source, where no verb and no redirect shows it. `open(`
+# counts whatever the mode says: a false refusal is cheaper than a hole nothing observes.
 case "$padded" in
   *"open("* | *"openSync"* | *".write"* | *"write_text"* | *"write_bytes"* | *"writeFile"*) writes=1 ;;
   *"appendFile"* | *"createWriteStream"* | *".rename"* | *".replace("* | *".remove"*) writes=1 ;;
@@ -118,9 +70,8 @@ if [[ "$padded" =~ [[:space:]/](sed|perl|ruby|awk|gawk|yq)[0-9.]*(\.exe)?[[:spac
   esac
 fi
 
-# Global options sit between program and subcommand (`git -c user.name=x commit`), so the
-# subcommand is reached by stepping over them. The `.exe` tail is optional as on the in-place arm
-# above; extglob is on for that one expansion only.
+# Global options sit between program and subcommand (`git -c user.name=x commit`), so the subcommand
+# is reached by stepping over them. extglob is on for that one expansion alone.
 shopt -s extglob
 rest="${padded#*[ /]git?(.exe) }"
 shopt -u extglob
@@ -147,9 +98,8 @@ if [ "$rest" != "$padded" ]; then
   esac
 fi
 
-# Every redirect spelling, `>f` and `2>f` included, once a descriptor duplication is out of the way.
-# `>&1`, `>&2` and `>&-` name no file; `>&f`, `->f` and `=>f` all redirect INTO f, because `>` ends
-# the word before it.
+# Every redirect spelling, once a descriptor duplication is out of the way: `>&1`, `>&2` and `>&-`
+# name no file, while `>&f`, `->f` and `=>f` all redirect INTO f because `>` ends the word before it.
 arrows="$(printf '%s' "$padded" | sed -E 's/[0-9]*>&[0-9-]//g')"
 [ -n "$arrows" ] || arrows="$padded"
 case "$arrows" in
@@ -158,9 +108,8 @@ esac
 
 # <<< SHARED WRITE SHAPES END <<<
 
-# An interpreter writes wherever its program says, which no command string shows. Asking is cheap
-# where refusing is not, so it counts here alone — its own flag, outside the block the branch guard
-# shares.
+# An interpreter writes wherever its program says, which no command string shows: `python x.py` names
+# nothing here. Asking is cheap where refusing is not, so it counts as a write here and not there.
 interpreter=0
 # One pattern, not a list: every name carries the same optional Windows tail. python.exe, node.exe
 # and pnpm.cmd all resolve here and name what the bare spelling names, as on the in-place arm above.
@@ -189,8 +138,8 @@ repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$repo_root" ] || command -v git >/dev/null 2>&1 || ask
 [ -n "$repo_root" ] || exit 0
 
-# Does any path-like candidate land inside docs/_standard once canonicalised? The quotes are spelled
-# as escapes (\x22 \x27 \x60) so the surrounding single-quoting survives, and nothing can expand.
+# ANY path-like candidate landing inside docs/_standard asks: there is no exemption, a token
+# landing somewhere harmless answering nothing about the one that does.
 decision="$(printf '%s' "$scan" | REPO_ROOT="$repo_root" node -e '
 const path = require("path");
 

@@ -1,6 +1,6 @@
 # Logging — spec
 
-**Verified against:** `cda2912d`, 2026-08-19\
+**Verified against:** `889c31dd`, 2026-08-19\
 **Scope:** the correlation id, the log stream on all three surfaces, the browser-crash path, and
 the development formats.
 
@@ -147,16 +147,16 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 
 ## 2. Invariants
 
-| #   | Invariant                                                                              | Enforced by                                                                                                     | Breaks how                                                                                     |
-| --- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| L1  | One JSON document per line per service in the `json` format                            | `fl_backend/tests/core/test_logging.py`; `fl_frontend/src/core/logFormat.test.ts`                               | A raw multi-line write makes the whole stream unparseable downstream                           |
-| L2  | The JSON field set matches across surfaces                                             | the same two suites, asserting names and shapes                                                                 | Two streams need two parsers, and a join on `correlation_id` silently returns nothing          |
-| L3  | An id is honoured only when well-formed, and minted otherwise                          | `fl_backend/tests/core/test_logging.py :: TestResolveCorrelationId`; `fl_frontend/src/core/correlation.test.ts` | A client-chosen string appears verbatim in three surfaces' logs                                |
-| L4  | Every failure response is `{error_code, correlation_id}`, the code the exception's own | `fl_backend/tests/api/test_error_responses.py`                                                                  | The log grepped for a documented code finds a fallback string instead                          |
-| L5  | Every request gets exactly one backend access line, id and duration on it              | `fl_backend/tests/api/test_error_responses.py :: TestAccessLine`                                                | Successful requests vanish from the record entirely                                            |
-| L6  | A thrown API error never escapes a server action                                       | `fl_frontend/src/shared/utils/actionError.test.ts`                                                              | Next redacts the throw to a digest and the admin sees the error page instead of the toast      |
-| L7  | The `X-Correlation-ID` a visitor sends is discarded at the edge                        | `nginx/prod.conf :: proxy_set_header X-Correlation-ID` (unconditional)                                          | Log injection by header                                                                        |
-| L8  | Every uncached admin-authed read runs inside `runWithIncomingCorrelationId`            | review — the set is listed in [`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) §1.2               | The read mints a fresh id, its backend line joins to no page view, and every check stays green |
+| #   | Invariant                                                                              | Enforced by                                                                                                     |
+| --- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| L1  | One JSON document per line per service in the `json` format                            | `fl_backend/tests/core/test_logging.py`; `fl_frontend/src/core/logFormat.test.ts`                               |
+| L2  | The JSON field set matches across surfaces                                             | the same two suites, asserting names and shapes                                                                 |
+| L3  | An id is honoured only when well-formed, and minted otherwise                          | `fl_backend/tests/core/test_logging.py :: TestResolveCorrelationId`; `fl_frontend/src/core/correlation.test.ts` |
+| L4  | Every failure response is `{error_code, correlation_id}`, the code the exception's own | `fl_backend/tests/api/test_error_responses.py`                                                                  |
+| L5  | Every request gets exactly one backend access line, id and duration on it              | `fl_backend/tests/api/test_error_responses.py :: TestAccessLine`                                                |
+| L6  | A thrown API error never escapes a server action                                       | `fl_frontend/src/shared/utils/actionError.test.ts`                                                              |
+| L7  | The `X-Correlation-ID` a visitor sends is discarded at the edge                        | `nginx/prod.conf :: proxy_set_header X-Correlation-ID` (unconditional)                                          |
+| L8  | Every uncached admin-authed read runs inside `runWithIncomingCorrelationId`            | review — the set is listed in [`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) §1.2               |
 
 ## 3. Violation → remedy
 

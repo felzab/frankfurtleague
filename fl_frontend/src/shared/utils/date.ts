@@ -1,18 +1,7 @@
 /**
- * SHARED · date helpers
- *
- * Dates travel as `YYYY-MM-DD` strings end to end and are compared as strings, which works only
- * because that format sorts lexicographically. Nothing here parses them into `Date` objects for
- * comparison, and it should stay that way — a `Date` reintroduces timezone ambiguity the string form
- * does not have.
- *
- * "Today" is always Europe/Berlin, matching how the backend computes it. Using the server's local
- * clock instead would put the two out of step for an hour a day.
- *
- * `sortByDate` sorts nulls LAST regardless of direction: an unscheduled match belongs at the end of a
- * fixture list, not at the top.
+ * Compared as strings, which works because `YYYY-MM-DD` sorts lexicographically. Never parse one into a `Date` to
+ * compare — that reintroduces the timezone ambiguity the string form does not have. Nulls sort last either direction.
  */
-
 export function sortByDate<T>({ arr, key }: { arr: T[]; key: keyof T }): T[] {
   return [...arr].sort((a, b) => {
     const vA = a[key] ?? null;
@@ -24,6 +13,8 @@ export function sortByDate<T>({ arr, key }: { arr: T[]; key: keyof T }): T[] {
   });
 }
 
+// Europe/Berlin, matching how the backend computes "today": the server's own clock would put the two out
+// of step for an hour a day.
 const formatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "Europe/Berlin",
   year: "numeric",

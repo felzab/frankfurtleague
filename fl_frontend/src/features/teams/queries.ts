@@ -1,22 +1,3 @@
-/**
- * TEAMS · the club reads
- *
- * Teams are reference data and cached for days, except `getTeamMemberships`, which is admin-authed
- * and therefore never cached. The one thing that invalidates them is a Spiel
- * result edit — statistics are derived from the match documents on every read, so a
- * result edit changes this response without touching a team document. The invalidation therefore
- * lives in `features/spiele/actions.ts`, and dropping it as "unrelated" strands a public table.
- *
- * Invariants:
- * - `teams:saison_id:*` is the only granular tag — no mutation changes the other dimensions.
- * - A team with no junction row for the requested season is simply absent.
- * - `statistik_scope` is cache KEY, not tag — the `teams` tag clears both scopes, as a result
- *   edit needs.
- *
- * See:
- * - docs/glossary.md — "Team" for the junction model, "Statistik" for how the table is derived
- */
-
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
@@ -28,15 +9,17 @@ import { FLTeamsMembershipsResponseSchema, FLTeamsResponseSchema, FLTeamsSingleR
 import type { FLTeamsMembershipsResponse, FLTeamsResponse, FLTeamsSingleResponse } from "./schemas";
 import type { FLTeamsFilterParams, FLTeamSingleFilterParams } from "./types";
 
+/**
+ * Statistics are derived from the match documents on every read, so a Spiel result edit moves this
+ * response without touching a team document — which is why
+ * `fl_frontend/src/features/spiele/actions.ts` invalidates `teams`.
+ */
 export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeamsResponse> {
   "use cache";
 
-  // The only granular tag kept for this resource: a result change alters the season's team
-  // statistics and nothing outside it, because the backend derives the table from that season's
-  // matches alone.
-
-  // No gruppe, disqualifikation or in_gruppen tags -- no mutation in the app changes those
-  // dimensions.
+  // `saison_id` is the only granular dimension: no mutation in the app changes gruppe,
+  // disqualifikation or in_gruppen. `statistik_scope` is a cache KEY, not a tag, so `teams` clears
+  // both scopes.
   const tags: string[] = ["teams"];
   if (filters.saison_id) tags.push(`teams:saison_id:${filters.saison_id}`);
   cacheTag(...tags);
@@ -48,18 +31,9 @@ export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTea
 }
 
 /**
- * One team by its id, for the pages whose subject IS that team.
- *
- * Tagged exactly as `getTeams` is, because it reads the same documents through the same derivation —
- * a result edit moves this response too, and it is the `teams` tag that clears it.
- *
- * **Resolves `null` on a 404 — no such team, or no junction row for the requested season (the join is
- * strict) — and the conversion must stay INSIDE this function.** In a production build, an error
- * thrown out of a `"use cache"` scope reaches the awaiting caller redacted to a digest-only `Error`,
- * so a catch at the call site can never recognise the 404: both detail pages rendered the error page
- * for an unknown id. Only the 404 becomes a value; everything else still throws, so a backend outage
- * never reads as a missing team. The cached `null` is cleared by the same `teams` tag as any hit —
- * entering a club into a season invalidates it in the same action.
+ * `null` on a 404, and **the conversion must stay INSIDE this function**: an error thrown out of a
+ * `"use cache"` scope reaches the caller redacted to a digest, so a catch at the call site cannot
+ * recognise it. Other errors still throw.
  */
 export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams = {}): Promise<FLTeamsSingleResponse | null> {
   "use cache";
@@ -72,22 +46,18 @@ export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams 
   return apiClient<FLTeamsSingleResponse>(`/teams/${teamId}`, FLTeamsSingleResponseSchema, {
     params: filters,
   }).catch((error: unknown) => {
+    // A 404 is "no such team" OR "no junction row for this season": the join is strict
+    // (`docs/backend/spec.md` I11).
     if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
     throw error;
   });
 }
 
 /**
- * Every team with every season membership it holds, for the admin surfaces (`GET
- * /teams/memberships`, admin-authed). The one read behind the club list and the club editor,
- * replacing a request per season: the season-scoped reads cannot answer a club-centric question.
+ * Every team with every membership, for the admin surfaces — the season-scoped reads cannot answer a
+ * club-centric question.
  *
- * **Uncached, and it stays uncached.** `"use cache"` keys on a function's arguments and
- * never on caller identity, so a zero-argument admin-authed read cached here is one shared slot
- * holding data fetched with credentials no later caller presented. It carries no cache tag either —
- * a tag means nothing outside a cache scope — and one page load can pay for this read more than
- * once; `docs/frontend/spec.md` section 1.2 carries the rule and the cost. Being uncached is also
- * what lets it run inside `runWithIncomingCorrelationId` (`docs/logging/spec.md`).
+ * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, never on caller identity.
  */
 export async function getTeamMemberships(): Promise<FLTeamsMembershipsResponse> {
   return runWithIncomingCorrelationId(() =>

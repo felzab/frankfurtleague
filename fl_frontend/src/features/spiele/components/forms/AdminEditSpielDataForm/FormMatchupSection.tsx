@@ -14,20 +14,8 @@ import type { FLTeam } from "@/features/teams/schemas";
 import type { SpielBanner } from "./banners";
 
 /**
- * Who plays: one source-first control per side.
- *
- * **Before Ergebnis, and the Ergebnis panel's own hint is the argument.** It reads "Erst wenn beide
- * Seiten feststehen", because `PATCH /spiele/{spiel_id}` reads through an absent side as no goals at all
- * and a fixture with an unresolved slot can never carry a result. A panel that states its own
- * precondition cannot sit above it.
- *
- * Each picker disables whichever team the other side already holds, so a match cannot be a team against
- * itself. The rule is unconditional because two unresolved sides are two nulls rather than one team
- * document occupying both, and `null` disables nothing. The other side's DRAFT source rides
- * along the same way, so the two sides cannot pick one outcome.
- *
- * A Gruppenphase fixture shows two team pickers and no source controls at all — its sides are drawn by
- * the schedule, and offering wiring there would offer a mechanism the write path refuses.
+ * **Before Ergebnis**, whose hint reads "Erst wenn beide Seiten feststehen". Each picker disables
+ * what the other side holds — team and DRAFT source — so a match cannot be a team against itself.
  */
 export function FormMatchupSection({
   spielData,
@@ -46,20 +34,14 @@ export function FormMatchupSection({
   onValidateSelection,
   banners,
 }: {
-  /** The fixture as it was opened — its phase gates the source controls, its stored sides anchor
-   * both the result-toggle restore and the automatic sides' payload. */
+  /** As opened: its phase gates the source controls, its stored sides anchor the restore. */
   spielData: FLSpiel;
   saisonSpiele: FLSpiel[];
   teams: FLTeam[];
-  /** Teams the bracket already fields — the qualification proxy, computed by the form. */
   knockoutTeamIds: ReadonlySet<string>;
   /**
-   * Which fixture of the same Spieltag already fields each team, computed by the form.
-   *
-   * Lifted rather than derived here, because the form reads it too: a save refused for fielding a
-   * team twice has to land on the same side the picker would have disabled, and two
-   * derivations of "who is already playing" would eventually put the chip on one side and the error
-   * on the other.
+   * Lifted rather than derived here because the form reads it too: two derivations of "who is
+   * already playing" would put the chip on one side and the save's refusal on the other.
    */
   spieltagOccupancy: ReadonlyMap<string, number>;
   team1Payload: FLSpielTeamField | null;
@@ -71,14 +53,12 @@ export function FormMatchupSection({
   team2Quelle: FLSpielQuelle | null;
   onTeam2QuelleChange: (value: FLSpielQuelle | null) => void;
   onValidateSelection: (paths: readonly string[], selected: Partial<FLPatchSpielDataPayload>) => void;
-  /** The editor's whole Hinweis list, passed through to each picker's two spots. */
   banners: readonly SpielBanner[];
 }) {
   const styles = formPanel();
 
-  // Every source another fixture's slot already holds. Memoised by hand because the React Compiler
-  // is deliberately off (see `next.config.ts`): the set is rebuilt from ~30 fixtures otherwise on
-  // every keystroke anywhere in the form.
+  // Memoised by hand, the React Compiler being deliberately off: otherwise the set is rebuilt from
+  // the whole season on every keystroke anywhere in the form.
   const usedQuelleKeys = useMemo(() => collectUsedQuelleKeys(saisonSpiele, spielData.id), [saisonSpiele, spielData.id]);
 
   const isKnockout = spielData.saison_phase !== "gruppenphase";
@@ -87,9 +67,8 @@ export function FormMatchupSection({
     <section
       className={styles.root()}
       onKeyDownCapture={suppressEnterSubmit}>
-      {/* This InfoHint is where the team-source vocabulary is explained — it used to be spread over a
-          `Description` per control, which is the reported "too much text". The fields keep
-          only what is needed while filling them in. */}
+      {/* Where the team-source vocabulary is explained, rather than in a `Description` under every
+          control. The fields keep only what is needed while filling them in. */}
       <div className={styles.header()}>
         <h2 className={styles.heading()}>
           Begegnung
@@ -148,7 +127,7 @@ export function FormMatchupSection({
         />
 
         {/* Full-bleed across the body's own padding, so it reads like the header's border
-            rather than an inset rule between the two pickers (decided 2026-08-07). `w-auto` because
+            rather than an inset rule between the two pickers. `w-auto` because
             negative margins and `w-full` overflow together. */}
         <Separator className="bg-border -mx-4 h-px w-auto sm:-mx-5" />
 

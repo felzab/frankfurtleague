@@ -1,21 +1,3 @@
-"""
-SAISONS · filter construction, the derived schedule, and what a season write refuses
-
-Pure throughout — no I/O — so every refusal rule is testable without a database. The
-`build_saisons_*` helpers translate `FLSaisonsFilterOptions` into a Mongo filter and sort;
-everything below them decides whether a season write is one the competition can hold.
-
-Invariants:
-- An edit that would strand existing data is refused at the write (decided 2026-08-07).
-- A finished season's competitive rules are frozen — only the dates stay editable (decided 2026-08-07).
-- `MAX_QUALIFIERS` is `2 ** len(KNOCKOUT_PHASES)`: the rule widens by adding a phase.
-- A refusal returns a `WriteRefusal` and never raises — the caller owns the status code.
-- The checks run in the order an admin can act on them, like `find_entry_refusal`.
-
-See:
-- docs/domain.md — the editability matrix these rules implement
-"""
-
 from datetime import date
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -28,17 +10,10 @@ from app.core.exceptions import WriteRefusal
 
 
 def with_schedule(saison_raw: Mapping[str, Any]) -> dict[str, Any]:
-    """
-    Attaches a season's derived `schedule` before validation.
+    """Attach a season's derived `schedule` before validation.
 
-    Injected into the raw document rather than computed on the model, for the reason `FLSaison.schedule`
-    gives: `schedule_for` imports `FLSaisonRules` from that module, so a computed field there would close
-    an import cycle. The shape is the same one `app/api/spieltage/services.py :: with_expected_matches` uses
-    for a matchday's count, and for the same reason -- the field is REQUIRED on the model, so a document
-    reaching validation without it is a 500 rather than a silently absent key.
-
-    **Every path that answers with an `FLSaison` goes through this**, which is what
-    `fl_backend/tests/api/test_schedule.py :: TestTheSeasonCarriesItsSchedule` holds it to.
+    Injected into the raw document, not computed on the model: `schedule_for` imports
+    `FLSaisonRules`, so a computed field there would close an import cycle.
     """
 
     return {**saison_raw, "schedule": [entry.__dict__ for entry in schedule_for(FLSaisonRules.model_validate(saison_raw["rules"]))]}
@@ -56,40 +31,17 @@ def build_saisons_filter(filters: FLSaisonsFilterOptions) -> dict[str, Any]:
     return query
 
 
-# `number_of_groups x qualifiers_per_group` is not a power of two, or exceeds what the phase set
-# holds. A knockout ladder halves down to one final, so twelve qualifiers cannot be paired to a
-# winner and thirty-two have no round to play.
+# What each code below refuses is `docs/logging/error-codes.md`.
 RULES_BRACKET_IMPOSSIBLE = "REQ-RULES-001"
-
-# `number_of_groups` would drop below a group that still holds teams, leaving those rows naming a
-# group the season does not run -- the state `REQ-ENTER-002` prevents from the other direction.
 RULES_GROUPS_IN_USE = "REQ-RULES-002"
-
-# `teams_per_group` would drop below the fullest group's occupancy, leaving a group over a capacity no
-# entry was ever refused against.
 RULES_CAPACITY_BELOW_USE = "REQ-RULES-003"
-
-# `qualifiers_per_group` would drop below the highest placing a bracket slot names, leaving it
-# referencing a placing its group cannot produce. The resolution reports that as a bracket fault, but
-# to whoever opens triage rather than the cause.
 RULES_QUALIFIERS_BELOW_WIRING = "REQ-RULES-004"
-
-# A `past` season's competitive rules. Frozen because the table is derived: editing them rewrites a
-# finished competition's result and nothing records the previous one.
 RULES_SAISON_FINISHED = "REQ-RULES-005"
-
-# `qualifiers_per_group` exceeds `teams_per_group` (decided 2026-08-08). A group of four cannot supply
-# six qualifiers, so the seeding walk asks for a placing no standing will hold -- what
-# `REQ-RULES-004` refuses from the other direction.
 RULES_QUALIFIERS_ABOVE_GROUP = "REQ-RULES-007"
-
-# The narrowing would leave a matchday holding more fixtures than its phase accounts for (decided
-# 2026-08-08). The expected count derives from these rules, and a matchday over it is a state no
-# season setup passes through, unlike being under.
 RULES_MATCHDAY_OVER_ITS_PHASE = "REQ-RULES-006"
 
-# The three fields a finished season freezes. The dates stay editable, and so does `erlaubte_stufen`,
-# which bounds what a form offers and never what a stored squad row holds.
+# `erlaubte_stufen` stays editable because it bounds what a form offers, never what a stored squad
+# row holds.
 FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers_per_group")
 
 
@@ -102,21 +54,13 @@ def find_rules_refusal(
     highest_wired_platz: int,
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
 ) -> WriteRefusal | None:
-    """
-    Why these rules must be refused, as a `WriteRefusal` -- or `None`.
+    """Why these rules must be refused, or `None`.
 
-    `stored` is `None` on a create, where there is nothing to strand and nothing frozen: only the rules
-    that read the proposed payload alone apply. `occupancy_by_gruppe` counts `saison_teams` rows per group, disqualified rows included,
-    because a team never leaves a season and its place stays taken. `highest_wired_platz` is
-    the largest `platz` any of the season's bracket slots names, or 0 where none does.
-
-    `attached_by_phase` is the LARGEST fixture count any single matchday of each phase already holds --
-    the maximum rather than the sum, because the expected count is per matchday. `None` on a create,
-    where the season has no matchdays yet.
+    `stored` is `None` on a create, where only the rules reading the payload alone apply.
+    `attached_by_phase` is the LARGEST count any single matchday of a phase holds, not the sum.
     """
 
-    # A season that is over freezes first: there is no point telling an admin their group count strands a
-    # team when the whole edit is refused anyway.
+    # The freeze first: no point naming a bound when the whole edit is refused anyway.
     if stored is not None and saison_status == "past":
         changed = [field for field in FROZEN_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if changed:
@@ -125,8 +69,8 @@ def find_rules_refusal(
                 message=f"season is past; {', '.join(changed)} cannot change because the league table is scored from rules on every read",
             )
 
-    # Before the bracket rule, because it is the narrower statement: it names two fields an admin can
-    # compare, where the bracket's answer is a property of their product.
+    # Before the bracket rule, being narrower: it names two fields an admin can compare, where the
+    # bracket's answer is a property of their product.
     if proposed.qualifiers_per_group > proposed.teams_per_group:
         return WriteRefusal(
             error_code=RULES_QUALIFIERS_ABOVE_GROUP,
@@ -134,7 +78,7 @@ def find_rules_refusal(
             "a group cannot send more teams into the bracket than it holds",
         )
 
-    # The bracket next, because it is a property of the proposed rules alone and needs no stored data.
+    # The bracket next: a property of the proposed rules alone, needing no stored data.
     qualifiers = proposed.number_of_groups * proposed.qualifiers_per_group
     if not knockout_phases_for(qualifiers):
         return WriteRefusal(
@@ -169,9 +113,8 @@ def find_rules_refusal(
             message=f"a bracket slot names platz {highest_wired_platz}; qualifiers_per_group cannot drop below a placing already wired",
         )
 
-    # Last, because it is the only check that computes the whole schedule. Every phase, not just the
-    # group phase: lowering the qualifier count shortens the knockout ladder, so an unreached phase
-    # expects 0 while its matchdays keep their fixtures.
+    # Last, being the only check computing the whole schedule. EVERY phase: lowering the qualifier
+    # count shortens the ladder, so an unreached phase expects 0 while its matchdays keep fixtures.
     for phase, attached in sorted((attached_by_phase or {}).items()):
         expected = expected_matches(proposed, phase)
         if attached > expected:
@@ -184,14 +127,8 @@ def find_rules_refusal(
     return None
 
 
-# The season's span would stop covering one of its own matchdays (decided 2026-08-08).
-# `REQ-DATE-002` refuses a matchday reaching outside its season; this closes the same state from the
-# container's side, as `REQ-DATE-001` pairs with `REQ-DATE-003`.
 SAISON_SPAN_BELOW_SPIELTAGE = "REQ-DATE-004"
-
-# The season is shorter than the schedule its rules imply (decided 2026-08-13). DERIVED, never an
-# arbitrary floor: no two matchdays share a day. A one-day MATCHDAY stays legal -- the live
-# `finale` is one -- so this bounds the season alone.
+# DERIVED, never an arbitrary floor: no two matchdays share a day. A one-day MATCHDAY stays legal.
 SAISON_SPAN_BELOW_SCHEDULE = "REQ-DATE-005"
 
 
@@ -202,16 +139,10 @@ def find_saison_span_refusal(
     rules: FLSaisonRules,
     spieltag_spans: Sequence[tuple[str, str]],
 ) -> WriteRefusal | None:
-    """
-    Why this season's span must be refused, as a `WriteRefusal` -- or `None`.
+    """Why this season's span must be refused, or `None`.
 
-    Two checks, in the order an admin can act on them. The first reads the payload alone -- the rules
-    and the two dates -- so it holds on a create, where the season has no matchdays yet. The second
-    needs stored data and is skipped by an empty `spieltag_spans` on that path.
-
-    `spieltag_spans` is each LIVE matchday's `(beginn, ende)`. Retired matchdays are the caller's to
-    exclude: retiring is how a mis-dated matchday is taken out of the schedule, so one blocking the
-    repair of the very dates it was retired over would leave the season uneditable.
+    `spieltag_spans` is each LIVE matchday's `(beginn, ende)`; excluding retired ones is the
+    caller's, retirement being how a mis-dated matchday leaves the schedule.
     """
 
     # Inclusive: a season running 2026-05-01 to 2026-05-01 offers one day, not zero.
@@ -235,42 +166,28 @@ def find_saison_span_refusal(
     return None
 
 
-# The outgoing season still has fixtures nobody has played (decided 2026-08-08). Activating demotes
-# the incumbent to `past`, whose rules freeze (REQ-RULES-005) -- so a rollover over unplayed fixtures
-# closes a competition that is not finished.
+# Activating demotes the incumbent to `past`, whose rules then freeze (`REQ-RULES-005`).
 ACTIVATE_SAISON_UNFINISHED = "REQ-ACTIVATE-001"
 
-# How many `spiel_nr` values a refusal names before it stops counting. The panel lists them all; this is
-# the log line, and a season's worth of numbers in it buries the rest of the message.
+# The refusal is also the log line, and a season's worth of numbers in it buries the message.
 _NAMED_UNPLAYED = 5
 
 
 def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
-    """
-    The fixture numbers of every match still waiting to be played, in order.
+    """The fixture numbers of every match still waiting to be played, in order.
 
-    Unplayed means **no result and not cancelled**. Cancelling is what makes a fixture nobody will ever
-    play into a settled one, which is the route past the refusal below -- and a cancelled match that DOES
-    carry a result still counts for the league table (docs/glossary.md), so it is settled either way.
-
-    A fixture with no occupants yet counts as unplayed. That is a bracket slot the group phase never
-    filled, and a season leaving one open is exactly as unfinished as one leaving a match unscored.
+    Unplayed means NO RESULT and NOT CANCELLED; one with no occupants counts too, an open bracket
+    slot being as unfinished as an unscored match.
     """
 
     return sorted(spiel.spiel_nr for spiel in spiele if spiel.ergebnis is None and not spiel.is_canceled)
 
 
 def find_activation_refusal(*, outgoing_unplayed: Sequence[int]) -> WriteRefusal | None:
-    """
-    Why this rollover must be refused, as a `WriteRefusal` -- or `None`.
+    """Why this rollover must be refused, or `None`.
 
-    `outgoing_unplayed` is `unplayed_spiel_nrs` over the fixtures of the season currently holding
-    `active`, empty where there is no incumbent at all -- the first rollover of a fresh database, which
-    nothing blocks.
-
-    Re-activating the season that already holds `active` is a no-op the endpoint reports as such
-    (`deactivated: 0`), and the endpoint skips this rule for it entirely -- the outgoing set excludes
-    the target, so a season is never its own incumbent and never blocked by its own fixtures.
+    `outgoing_unplayed` is empty where there is no incumbent. The outgoing set excludes the target,
+    so a season is never blocked by its own fixtures.
     """
 
     if not outgoing_unplayed:

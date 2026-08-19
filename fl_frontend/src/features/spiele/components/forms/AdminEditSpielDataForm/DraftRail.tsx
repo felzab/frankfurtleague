@@ -18,36 +18,22 @@ import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
 import type { SpielBanner } from "./banners";
 
 /**
- * Everything the editor says about the fixture as a whole, rather than about one field.
- *
- * **One column, and it is sticky from `xl` up.** That is also how the page's ragged bottom is fixed: a
- * form of stacked panels and a second column of unequal height can only end level by accident, so the
- * second track holds exactly one sticky card, which never reaches the bottom to be uneven against.
- * Below `xl` it drops into flow directly under the page header, where a standing warning belongs.
- *
- * **The warnings card never disappears**: a card that vanishes when its count
- * hits zero makes the layout jump and leaves nowhere to confirm "no warnings". It folds itself shut
- * instead when the last banner clears, opens itself when one arrives, and reads "Keine Hinweise."
- * when opened empty — the same shape "Offene Angaben" already has.
- *
- * The order is by how much it costs to miss: what a save destroys, then what the fixture is, then what
- * is still outstanding, then what you have changed.
+ * **The warnings card never disappears**: one that vanished at zero would jump the layout and leave
+ * nowhere to confirm "no warnings", so it folds shut and reads "Keine Hinweise." when opened empty.
+ * Cards are ordered by what it costs to miss them.
  */
 export function DraftRail({
   previewSpiel,
   today,
   banners,
 }: {
-  /** The fixture as it will stand once saved, from `applyDraftToSpiel`. */
   previewSpiel: FLSpielWithDraftFields;
   today: string;
-  /** Every Hinweis the draft raises, from `buildSpielBanners` — the same list the panels read. */
   banners: readonly SpielBanner[];
 }) {
   const status = useDraftStatus();
 
-  // The badge counts what is rendered rather than what was built, which is only the same number
-  // while nothing supersedes anything.
+  // Counts what is rendered, not what was built: the two differ once one banner supersedes another.
   const visibleBanners = resolveRailBanners(banners);
 
   const bannerBySeverity = {
@@ -57,9 +43,7 @@ export function DraftRail({
   };
   const bannerCount = visibleBanners.length;
 
-  // Controlled, because the count moves it: shut when the last banner clears, open
-  // when one arrives. Only the TRANSITION drives it -- in between the state is the
-  // admin's. Desktop starts open at zero, as every rail card does on a navigation.
+  // Only the TRANSITION drives it; in between, the open state is the admin's.
   const [hinweiseOpen, setHinweiseOpen] = useState(
     () => bannerCount > 0 || (typeof window !== "undefined" && window.matchMedia("(min-width: 80rem)").matches),
   );
@@ -70,14 +54,13 @@ export function DraftRail({
     previousCount.current = bannerCount;
   }, [bannerCount]);
 
-  // The split: red counts only what the fixture cannot happen without; the
-  // recommended rest gets its own yellow badge, matching the yellow markers beside those fields.
+  // Red counts only what the fixture cannot happen without; the recommended rest goes yellow,
+  // matching the markers beside those fields.
   const expectedRequired = status.expected.filter((field) => field.expectedSeverity === "required");
   const expectedRecommended = status.expected.filter((field) => field.expectedSeverity === "recommended");
 
-  // The change list's own split: a removal is the edit most easily made by accident
-  // and least visible in a form, so it counts red and everything else yellow.
-  // `operationOf` is the same classifier the rows' icons use.
+  // A removal is the edit most easily made by accident and least visible in a form, so it counts
+  // red. `operationOf` is the same classifier the rows' icons use.
   const changedCritical = status.changed.filter((field) => operationOf(field) === "removed").length;
   const changedNormal = status.changed.length - changedCritical;
 
@@ -112,8 +95,7 @@ export function DraftRail({
         )}
       </RailSection>
 
-      {/* Closed on a phone: the preview answers "what will this look like when I am done", which is a
-          question asked at the end, and expanded it puts the first field a scroll below the fold. */}
+      {/* Expanded on a phone it would put the first field a scroll below the fold. */}
       <RailSection
         title="Vorschau"
         defaultOpenOnMobile={false}
@@ -166,16 +148,14 @@ export function DraftRail({
           </p>
         ) : (
           <ul className="flex w-full flex-col gap-y-1">
-            {/* Required first — the list's order is its urgency. A fragment link rather than a
-                button: it costs no JavaScript, it is focusable and announced as a link, and
-                `FieldLabel` puts the matching id on the field's wrapper with the scroll margin the
-                sticky header needs. */}
+            {/* Required first: the list's order is its urgency. A fragment link rather than a
+                button — no JavaScript, focusable, and `FieldLabel` puts the matching id on the
+                wrapper with the scroll margin the sticky header needs. */}
             {[...expectedRequired, ...expectedRecommended].map((field) => (
               <li key={field.path}>
-                {/* The default fragment jump teleports; scrolling there keeps the admin oriented
-. `scrollIntoView` honours the wrapper's `scroll-mt-28`, and
-                    reduced-motion readers get the instant jump their setting asks for. The href
-                    stays, so the control remains a real link for every non-click activation. */}
+                {/* The default fragment jump teleports; scrolling honours the wrapper's
+                    `scroll-mt-28` and gives reduced-motion readers the instant jump their setting
+                    asks for. The href stays, so this remains a real link. */}
                 <a
                   href={`#feld-${field.path}`}
                   onClick={(event) => {
@@ -197,7 +177,6 @@ export function DraftRail({
         )}
       </RailSection>
 
-      {/* Closed on a phone: empty until something is edited, and a review surface when it is not. */}
       <RailSection
         title="Deine Änderungen"
         defaultOpenOnMobile={false}

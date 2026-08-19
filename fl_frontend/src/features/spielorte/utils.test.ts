@@ -1,10 +1,3 @@
-/**
- * SPIELORTE · maps-link tests
- *
- * Covers `formatMapsLink`, including the partially filled address: the query has to stay usable when
- * only some address parts are present rather than producing stray separators.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -28,8 +21,6 @@ describe("formatMapsLink", () => {
     );
   });
 
-  // Searching by name as well as address is what makes the pin land on the venue rather than the
-  // street, so the name has to survive into the query.
   it("puts the venue name ahead of the address", () => {
     assert.ok(formatMapsLink(ort).includes("query=Sportplatz%20Ost%2C%20"));
   });

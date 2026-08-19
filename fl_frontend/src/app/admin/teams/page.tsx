@@ -15,9 +15,8 @@ import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 import type { AdminTeamRow, TeamCreateSaisonOption } from "@/features/teams/types";
 import type { NextPageProps } from "@/shared/types/types";
 
-// Not async, so the chrome never waits on the team list
-// (`fl_frontend/src/app/admin/layout.tsx :: AdminLayout`). The create modal needs the season list —
-// one form creates the club and enters it into a season — so it gets its own boundary.
+// Not async, so the chrome never waits on the list. The create modal needs the season list, so it
+// gets its own boundary.
 export default function AdminTeamsPage(props: NextPageProps) {
   return (
     <AdminCrudShell
@@ -28,8 +27,7 @@ export default function AdminTeamsPage(props: NextPageProps) {
         />
       }
       createModal={
-        // The fallback holds the trigger's own height (`formButton` trigger: h-12, lg:h-15), so the
-        // header row does not jump when the season-loaded modal streams in.
+        // The fallback holds the trigger's own height, so the header row does not jump.
         <Suspense fallback={<div className="h-12 lg:h-15" />}>
           <CreateTeamModalLoader searchParams={props.searchParams} />
         </Suspense>
@@ -46,15 +44,14 @@ async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageP
   const requestedSaisonId = await resolveSaisonId(searchParams);
   const [saisonsRes, membershipsRes] = await Promise.all([getSaisons(), getTeamMemberships()]);
 
-  // Only PLANNED seasons are offered (decided 2026-08-07): a team enters a season before it starts.
-  // Each carries its groups' fill state, so the form can disable a full group up front.
+  // PLANNED seasons only: a club enters a season before it starts. Each carries its groups' fill
+  // state, so the form can disable a full group up front.
   const allMemberships = membershipsRes.teams.map((team) => team.memberships);
   const saisonOptions: TeamCreateSaisonOption[] = saisonsRes.saisons
     .filter((saison) => saison.status === "future")
     .map((saison) => ({ saisonId: saison.id, offer: buildGruppeOffer(saison.id, saison.rules, allMemberships) }));
 
-  // The viewed season when it is planned — at rollover time that is where a new club belongs —
-  // else the first planned one.
+  // The viewed season when it is planned — at rollover that is where a new club belongs.
   const defaultSaisonId = saisonOptions.find((option) => option.saisonId === requestedSaisonId)?.saisonId ?? saisonOptions[0]?.saisonId ?? null;
 
   return (
@@ -66,10 +63,8 @@ async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageP
 }
 
 /**
- * EVERY team across every season, each row carrying the SELECTED season's junction data (decided
- * 2026-08-07). One read: `GET /teams/memberships` answers the club-centric question the
- * season-scoped reads cannot, and `getSaisons` supplies the statuses the retire guard and the
- * status column need. A team in no season at all is listed too, with nothing season-scoped to show.
+ * EVERY club across every season, each row carrying the SELECTED season's junction data — the
+ * club-centric question the season-scoped reads cannot answer. A club in no season is listed too.
  */
 async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
@@ -90,8 +85,8 @@ async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searc
       shorthand: team.shorthand,
       inactive_since: team.inactive_since,
       selected: selected === null ? null : { gruppe: selected.gruppe, disqualifikation: selected.disqualifikation },
-      // Mirrors the write path's own refusal (REQ-RETIRE-001): retiring is offered only while no
-      // running or planned season holds the team.
+      // Mirrors the write path's refusal (REQ-RETIRE-001): retiring is offered only while no running
+      // or planned season holds the club.
       isRetireable: !team.memberships.some((membership) => {
         const status = statusBySaisonId.get(membership.saison_id);
         return status === "active" || status === "future";

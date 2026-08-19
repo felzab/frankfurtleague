@@ -1,28 +1,8 @@
-/**
- * CORE · magic-link email
- *
- * The one place to edit what admins receive. Auth.js ships an English default template on a
- * German-only site, so `core/auth.ts` passes `sendVerificationRequest` to the Resend provider,
- * replacing it with `buildMagicLinkEmail`. It lives in `core/` because `core/auth.ts` consumes
- * it and `core` may not import from `features`.
- *
- * Invariants:
- * - Layout stays table-free, inline-styled HTML — Gmail strips `<style>`, and Tailwind does not
- *   travel with an email.
- * - Always send the plain-text part: spam filters score a missing alternative badly.
- * - The link is `url` exactly as passed — it carries a single-use token, and any rewrite breaks it.
- * - No recipient address in the subject, no tracking pixels or link wrappers — both leak that
- *   the address is an allowlisted admin.
- */
-
 import "server-only";
 
 const BRAND_NAME = "Frankfurt-League";
 
-/**
- * How long the link stays valid, for the copy only. The real TTL is the Resend provider's `maxAge`
- * in `core/auth.ts` — change both together or the email starts lying to the reader.
- */
+/** Copy only. The real TTL is the Resend `maxAge` in `fl_frontend/src/core/auth.ts` — change both. */
 const LINK_VALIDITY_TEXT = "15 Minuten";
 
 /** Deep red from `--accent-brand-solid`. Hardcoded on purpose: CSS variables do not exist in email. */

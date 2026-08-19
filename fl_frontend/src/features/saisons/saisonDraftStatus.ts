@@ -1,17 +1,3 @@
-/**
- * SAISONS · what the season editor's draft has changed and got wrong
- *
- * One derivation over one season's draft, read by everything on the edit page that says something
- * about a field: label markers, change list, unsaved count, action bar, navigation guard. Pure,
- * so it is tested rather than clicked; `spielerDraftStatus.ts` is the pattern.
- *
- * Invariants:
- * - `path` is the payload's dotted path AND the input `name`, `FieldErrors` key and anchor id.
- * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
- * - `status` is not a descriptor and cannot become one — the rollover is a control.
- * - `id` is not one either: every `saison_id` in the database references it, so it never moves.
- */
-
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -38,6 +24,7 @@ export type FLSaisonDraftStatus = {
 };
 
 type FieldDescriptor = {
+  /** Dotted payload path; also the input's `name`, the `FieldErrors` key and the anchor id. */
   path: string;
   label: string;
   group: FLSaisonFieldGroup;
@@ -49,15 +36,9 @@ type FieldDescriptor = {
 const emptyAsNull = (value: string): string | null => (value.trim() === "" ? null : value.trim());
 
 /**
- * Every field the season editor can change, in the order the change list reads them.
- *
- * Each `read` returns the DISPLAY text, which doubles as the comparison key: every field here either
- * is a string or formats to one that changes exactly when the value does — so one function serves
- * `hasChanged`, `storedText` and `draftText`.
- *
- * `erlaubte_stufen` is the only field that is not a scalar, and it is why the reads are display text
- * rather than values: a list compares as the joined labels the picker showed, in the league's own
- * order, so reordering the same set is correctly not a change while adding a level is.
+ * Every field the season editor can change, in the order the change list reads them. Each `read`
+ * returns DISPLAY text, which doubles as the comparison key — so reordering `erlaubte_stufen` is
+ * correctly not a change, while adding a level is.
  */
 const FIELD_DESCRIPTORS: readonly FieldDescriptor[] = [
   { path: "start_date", label: "Beginn", group: "Zeitraum", read: (source) => emptyAsNull(source.start_date) },
@@ -96,9 +77,8 @@ const FIELD_DESCRIPTORS: readonly FieldDescriptor[] = [
     path: "rules.erlaubte_stufen",
     label: "Erlaubte Stufen",
     group: "Regeln",
-    // Read in the LEAGUE's order rather than the draft's, so pressing a level off and back on is not
-    // a change. Empty renders as null, which makes clearing the last level a REMOVAL in the change
-    // list — which is what it is, and the schema refuses it on save.
+    // Read in the LEAGUE's order, so pressing a level off and back on is not a change. Empty renders
+    // as null, so clearing the last level reads as a removal — which it is, and the schema refuses it.
     read: (source) => {
       const ordered = STUFE_OPTIONS.filter((stufe) => source.rules.erlaubte_stufen.includes(stufe));
       return ordered.length === 0 ? null : ordered.join(", ");

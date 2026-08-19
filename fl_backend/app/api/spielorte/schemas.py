@@ -1,16 +1,3 @@
-"""
-SPIELORTE · models
-
-The venue read model plus the admin payloads.
-
-`maps_link` is absent from every payload on purpose: it is derived server-side from name and address,
-so a client cannot set it. `default_mietpreis` carries no default -- the admin patch writes payloads
-back wholesale, so a default would let an omitted field overwrite a real rent with 0.
-
-`inactive_since` is absent from every payload for a different reason: deactivation goes through the
-delete endpoint, which stamps the date itself, so a client never chooses when something was retired.
-"""
-
 from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
@@ -20,11 +7,12 @@ from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse
 
 
-# No `id` on any payload: the venue being changed is named by the path (RFC 5789 -- the Request-URI
-# identifies the resource, the body describes the change).
+# No `id` on any payload: the path names the venue, the body describes the change (RFC 5789).
 class FLPatchSpielortPayload(BaseModel):
     address: FLAddress
     name: str = Field(min_length=1)
+    # No default: the patch writes the payload back wholesale, so one would overwrite a real rent
+    # with 0.
     default_mietpreis: int = Field(ge=0)
 
 
@@ -38,10 +26,10 @@ class FLSpielort(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     address: FLAddress
     name: str = Field(min_length=1)
-    # Free text (venue name + address) searched on Google Maps, NOT a URL -- so no scheme check.
+    # Free text searched on Google Maps, not a URL, so there is no scheme to check.
     maps_link: str = Field(min_length=1)
     default_mietpreis: int = Field(ge=0)
-    # The day this venue was retired, or null while it is live.
+    # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
 
 
@@ -49,8 +37,8 @@ FLSpielorteListAdapter = TypeAdapter(list[FLSpielort])
 
 
 class FLSpielorteFilterParams(BaseModel):
-    # A switch, not a value to match on: "inactive" is a date, and a caller wanting the retired venues
-    # wants them ALONGSIDE the live ones -- an admin list showing what may be reactivated.
+    # A switch, not a value to match on: a caller wanting the retired venues wants them ALONGSIDE
+    # the live ones.
     include_inactive: bool = False
 
     limit: int = Field(default=1024, ge=1, le=1024)

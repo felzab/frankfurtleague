@@ -1,23 +1,8 @@
 import type { ReactNode } from "react";
 
 /**
- * The static half of an admin CRUD page: the page frame and the create trigger.
- *
- * Separate from `AdminCrudView` because neither depends on the resource list. Rendered above the
- * data boundary, the trigger paints as soon as the session check resolves and the table streams in
- * behind it.
- *
- * **It carries no heading.** The route's name and its explanation are declared once, in
- * `ADMIN_SIDEMENU_STRUCTURE`, and rendered by the shell's bar — so the title an admin reads and the
- * nav item they clicked cannot say different things.
- *
- * A server component, and deliberately hook-free: it is rendered outside the `Suspense` that covers
- * the data, so anything dynamic in here would pull the whole page back into one hole.
- *
- * **It does not reach the build-time static shell**, and cannot: `AdminAuthGuard` wraps all admin
- * page content, so nothing under `/admin` renders until the session is known. That is the intended
- * trade — one guard that a new route inherits automatically, rather than a per-page guard that can
- * be forgotten.
+ * The static half of an admin CRUD page, and **it carries no heading** — the sidemenu structure declares the route's name.
+ * Deliberately hook-free: it renders outside the `Suspense` covering the data, so anything dynamic pulls the page in.
  */
 export function AdminCrudShell({
   search,
@@ -31,14 +16,11 @@ export function AdminCrudShell({
   children: ReactNode;
 }) {
   return (
-    // The placeholder's minimum runs HERE because this mounts when the navigation starts, which is the
-    // clock the region below the boundary cannot read for itself (`globals.css`). It paints nothing.
+    // The placeholder's minimum runs here because this mounts when the navigation starts, which is the clock
+    // the region below the boundary cannot read for itself (`globals.css`). It paints nothing.
     <div className="animate-admin-placeholder-hold max-w-page mx-auto flex w-full flex-col gap-8 p-6 sm:p-8">
-      {/* One row at EVERY width (decided 2026-08-07): neither half depends on the resource list, so
-          the whole row paints before the table streams in. Below `sm` the two are one joined
-          control — the search bar with the create trigger as its bare-plus continuation (no gap,
-          shared seam; the corner and label flattening live in `SearchBar` and `formButton`'s
-          trigger). From `sm` they separate into the familiar search-left, button-right row. */}
+      {/* Below `sm` the two are one joined control, sharing a seam with no gap; the corner and label flattening
+          live in `SearchBar` and `formButton`'s trigger. From `sm` they separate. */}
       <div className="flex w-full flex-row items-center gap-0 sm:justify-between sm:gap-3">
         {search}
         {createModal}

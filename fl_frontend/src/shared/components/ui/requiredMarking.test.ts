@@ -1,22 +1,3 @@
-/**
- * SHARED · the required marker's contract
- *
- * A required field marks itself in two independent ways, and each one is invisible to the tooling that
- * would otherwise catch it breaking. The visual asterisk is drawn by a rule in `@heroui/styles` over an
- * element relationship no type describes — `.label` as a DIRECT child of the element carrying
- * `data-required` — and suppressed by an unlayered counter-rule in `globals.css` written against that
- * same relationship. The accessible half is a native `required` attribute no rendering ever shows.
- * Everything here compiles, lints and builds whatever it does.
- *
- * So both halves are asserted against what is actually emitted: the compiled stylesheet for the marker,
- * rendered markup for the attribute. The relationship is the part worth pinning, because an audit read
- * it as fourteen fields silently dropping a signal — where a wrapped label is how a page editor hangs
- * its anchor and its draft markers off a field, and the asterisk is opt-in per form regardless.
- *
- * The primitives are asserted rather than the app's own field components: `node --test` strips types
- * but not JSX, so a `.tsx` component cannot be rendered here.
- */
-
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -54,9 +35,8 @@ function renderField({ wrappers, marksRequired }: { wrappers: number; marksRequi
 }
 
 /**
- * The tag opening immediately after the element carrying `data-required="true"` — the one position
- * HeroUI's `> .label` can match. Scanning the string is enough because React emits these attributes
- * quoted and in one pass, and the labels rendered here carry no `>` of their own.
+ * The tag opening immediately after the element carrying `data-required="true"` — the one position HeroUI's `> .label`
+ * can match. Scanning the string is enough, the labels rendered here carrying no `>` of their own.
  */
 function firstChildTag(html: string): string {
   const rootTagEnd = html.indexOf(">", html.indexOf('data-required="true"'));

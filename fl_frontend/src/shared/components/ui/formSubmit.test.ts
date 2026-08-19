@@ -1,17 +1,3 @@
-/**
- * SHARED · the submit wiring, swept across every form that holds a draft
- *
- * A form whose fields are React state cannot use React's `action` prop: React resets such a form on
- * every submit and react-aria's `useFormReset` turns that reset into `onChange(initialValue)` on each
- * field, so the draft is gone and any Hinweis derived from it is gone with it — silently, past
- * `tsc`, ESLint and the build.
- *
- * Invariants:
- * - The sweep discovers its subjects, so a new editor is covered without an edit here.
- * - Holding one of the two field-error hooks marks a controlled draft; the sign-in form holds
- *   neither and keeps its action.
- */
-
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";

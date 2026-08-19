@@ -1,16 +1,9 @@
-/**
- * SHARED · mount detection
- *
- * Returns false on the server and on the first client render, true afterwards.
- *
- * For gating content that would otherwise produce a hydration mismatch — anything depending on
- * `window`, the current time, or a stored preference. The eslint suppression is deliberate: setting
- * state in an effect is exactly the mechanism here, since the point is to render differently after
- * hydration.
- */
-
 import { useEffect, useState } from "react";
 
+/**
+ * False on the server and on the first client render, for gating anything depending on `window`, the clock or a stored
+ * preference. The suppression is deliberate: rendering differently after hydration is the point.
+ */
 export function useMounted() {
   const [mounted, setMounted] = useState(false);
 

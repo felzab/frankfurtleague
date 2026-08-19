@@ -1,18 +1,10 @@
-/**
- * SPIELORTE · derivations
- *
- * Pure formatting over a venue. Lives here rather than in `shared/utils/format.ts` because it takes an
- * `FLSpielort`: hosting it in `shared` would force a `shared -> features` type import and stop
- * `src/shared` from standing on its own, which the lint rules enforce.
- */
-
 import { buildMapsSearchUrl, formatAddressFull } from "@/shared/utils/format";
 
 import type { FLSpielort } from "./schemas";
 
 /**
- * A Spielort's Google Maps link, searched by name plus full address so the pin resolves to the
- * venue rather than to the street.
+ * Searched by name plus full address, so the pin resolves to the venue rather than to the street.
+ * Not in `shared`, which may not import a `features` type.
  */
 export function formatMapsLink(ort: FLSpielort): string {
   return buildMapsSearchUrl(`${ort.name}, ${formatAddressFull(ort.address)}`);

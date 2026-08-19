@@ -11,19 +11,8 @@ import { overlayPanel } from "./overlayPanel";
 import type { ReactNode } from "react";
 
 /**
- * A short explanation of a surface, behind a small icon beside its title — the rich-content sibling
- * of `IconTooltip`.
- *
- * **A popover rather than a tooltip, because of touch**: react-aria's tooltip opens on hover and
- * focus but deliberately never on tap, so on a phone it is unreachable. A popover opens on press;
- * the hover half is added for pointer users.
- *
- * **The hover half is `useHoverOpenOverlay`**, shared with `DisabledHint`, which answers the same
- * question about a control rather than about a surface.
- *
- * `children` is a node: a hint long enough to need this surface needs structure (a lead, a list, a
- * bolded term), and the dialog styles those tags. `trigger` swaps the default icon — the change
- * list's operation icons ride the same mechanism.
+ * The rich-content sibling of `IconTooltip`. **A popover rather than a tooltip because of touch**: react-aria's tooltip
+ * never opens on tap, so on a phone it is unreachable, and `useHoverOpenOverlay` adds the hover half back.
  */
 export function InfoHint({ label, children, trigger }: { label: string; children: ReactNode; trigger?: ReactNode }) {
   const { isOpen, onOpenChange, openFromHover, captureDialog } = useHoverOpenOverlay();
@@ -32,16 +21,8 @@ export function InfoHint({ label, children, trigger }: { label: string; children
     <Popover
       isOpen={isOpen}
       onOpenChange={onOpenChange}>
-      {/* `cursor-help` is the affordance: it says "this holds an explanation" where a bare icon
-          does not.
-
-          The default icon is an INLINE glyph, not a flex sibling: it lives inside the heading's own
-          text flow. Centring in a flex row can never look right, because the text's visual mass
-          sits above its line box's centre. `align-middle` does the
-          rest natively: per the CSS spec it pins the box's vertical midpoint to the parent's
-          baseline plus half the parent's x-height — the middle of the text's visual mass — so any
-          icon size and any text size stay aligned with no tuned constant. To resize the icon,
-          change `--hint-icon-size` alone. */}
+      {/* An inline glyph rather than a flex sibling: a text run's visual mass sits above its line box's centre, so
+          centring in a row cannot look right. `align-middle` aligns any icon size with no tuned constant. */}
       <Popover.Trigger
         aria-label={label}
         className={

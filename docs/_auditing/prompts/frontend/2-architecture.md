@@ -5,15 +5,14 @@ Audit pass `frontend 2` on `./fl_frontend`. Lens: ARCHITECTURE, CONSISTENCY, EXC
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
 to `docs/audit/programme/f2-architecture.md`.
 
-DELIVERABLE: required tables — the layer-edge table (check 2) and the excess table (check 3).
-Every other check gets a section with its findings or an explicit zero-occurrences row.
+DELIVERABLE: required tables — the layer-edge table (check 2) and the excess table (check 3, in the
+shape the shared protocol sets). Every other check gets a section with its findings or an explicit
+zero-occurrences row.
 
 BASELINE — run these before starting, and state the counts you observe: `tsc --noEmit`, `eslint .`,
-`next build`, `node --test`. **A non-green baseline ends the pass** — report it and stop, because
-what the toolchain already fails on is cheaper to fix than to audit around. Green, they define this
-pass's floor: the layer rules, a11y rules and unknown-class rules run at `error`, so anything they
-would catch is already impossible and this pass hunts what they cannot see. Do not pad the report
-with what the toolchain already proves.
+`next build`, `node --test`. **A non-green baseline ends the pass** — report it and stop. Green,
+they define this pass's floor: the layer rules, a11y rules and unknown-class rules run at `error`, so
+anything they would catch is already impossible and this pass hunts what they cannot see.
 
 THE CHECKS:
 
@@ -26,15 +25,12 @@ THE CHECKS:
 
 2. **Layer boundaries, as an edge table.** Derive the actual import graph (`core` ↔ `shared` ↔
    `features`, cross-feature edges) and report it as a table of edges, **never as prose** — prose
-   underspecifies an edge that runs through a single constant, and the table forces every edge to be
-   named. The lint rules enforce `core` / `shared` direction; audit what they do not: cross-feature
-   edges outside the sanctioned aggregator, any `eslint-disable` on the layer rules (each needs a
-   named justification or is a finding), and type-only edges that would become value edges with one
-   keyword slip.
+   underspecifies an edge running through a single constant. The lint rules enforce `core` / `shared`
+   direction; audit what they do not: cross-feature edges outside the sanctioned aggregator, any
+   `eslint-disable` on the layer rules (each needs a named justification or is a finding), and
+   type-only edges that would become value edges with one keyword slip.
 
-3. **EXCESS — code that should not exist.** The required table, one row per candidate: what | every
-   site as `<file> :: <symbol>` | class from the table below | which copy or construct dies, and what
-   replaces it | size removed, in lines and exports | verdict.
+3. **EXCESS — code that should not exist.** The candidates for this surface:
 
    | Class         | The candidate                                                                                     |
    | ------------- | ------------------------------------------------------------------------------------------------- |
@@ -44,24 +40,14 @@ THE CHECKS:
    | `simpler`     | A plainly simpler construction reaching the same result                                           |
    | `dead-export` | Exported and imported by nothing                                                                  |
    | `dead-config` | A config key, script, asset or dependency nothing reads                                           |
-   - **Every `duplicated` row names which copy dies** and confirms the survivor is reachable from
-     where the dying copy's importers stand. A row proposing "extract a shared helper" without naming
-     what it deletes adds a module and removes nothing.
-   - **Every `one-caller` row states what inlining it would cost.** A single caller is a candidate,
-     not a verdict.
-   - **Every `hand-rolled` row cites the package API that replaces it**, verified at the installed
-     version.
-   - **Measure before proposing.** State the lines and exports each row removes; a row with no number
-     is filed INFO.
    - `pnpm dlx knip` is the sanctioned tool for `dead-export` and `dead-config` — run it and triage
      its output rather than grepping from scratch, and confirm zero importers by hand before
      reporting anything it flags.
    - The shared recipes and shells (`card`, `formButton`, `ModalShell`, `EntityForm`, `EmptyState`,
      the formatters) are the enforcement layer, so the `duplicated` shape to hunt hardest is
      **bypass**: hand-written strings or components duplicating a recipe that already exists.
-   - Check `.claude/CLAUDE.md` §7 before flagging a suspect. The `SpielCard` variants are kept
-     separate on purpose, and the barrel file that would make several dead exports look reachable is
-     forbidden.
+   - `.claude/CLAUDE.md` §7 bears directly on this check: the `SpielCard` variants are kept separate
+     on purpose, and the barrel file that would make several dead exports look reachable is forbidden.
 
 4. **Naming and organisation consistency.** Export and file name mismatches, handler-naming drift
    from `handleX`, folder-depth violations, and English/German drift: the domain vocabulary appears

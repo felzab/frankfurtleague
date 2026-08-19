@@ -10,16 +10,10 @@ import type { GruppeOffer } from "@/features/teams/types";
 import type { Key } from "@heroui/react";
 
 /**
- * The group picker, shared by the create form and the junction editor.
+ * Judged on CHANGE rather than on blur — a selection is complete the moment it is made.
  *
- * A picked control, so it is judged on CHANGE rather than on blur: a selection is
- * complete the moment it is made, and there is no half-entered value to be wrong about.
- *
- * **It offers the season's own groups, with their fill state** (decided 2026-08-07): `offer` is the
- * season's first `number_of_groups` of the closed set, each row carrying how many of its
- * `teams_per_group` places are taken. A full group stays visible and disabled — the admin should see
- * WHY it cannot be picked rather than wonder where it went. The junction write refuses the same
- * shapes (REQ-ENTER-002/003) and stays the authoritative check.
+ * A full group stays visible and DISABLED, so the admin sees why it cannot be picked.
+ * `REQ-ENTER-002/003` stays the authoritative check.
  */
 export function GruppeSelect({
   value,
@@ -36,9 +30,8 @@ export function GruppeSelect({
   /** The field's path in the enclosing payload, so `Form`'s `validationErrors` reach it by name. */
   name?: string;
   /**
-   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `name`.
-   * For a caller with no `<Form>` above it, and for one whose write is not the form's — the club
-   * editor's entry control fires its own action and keeps its refusal out of the save bar's map.
+   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `name` — for
+   * a caller with no `<Form>`, and for the entry control whose write is not the form's.
    */
   error?: string;
   /** Off for the caller whose label is a marker-carrying `TeamFieldLabel` rendered outside. */
@@ -59,8 +52,8 @@ export function GruppeSelect({
       className="w-full">
       {withOwnLabel && <Label className={FIELD_LABEL}>Gruppe</Label>}
       <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
-        {/* From the prop, not `Select.Value` — the collection can lag a render behind and would show
-            HeroUI's English placeholder. Same reasoning as `SaisonSelector`'s trigger. */}
+        {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
+            show HeroUI's English placeholder. */}
         <span className={value ? "" : "text-foreground-muted"}>{value ? `Gruppe ${value}` : "Gruppe wählen"}</span>
         <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
       </Select.Trigger>
@@ -77,8 +70,8 @@ export function GruppeSelect({
                 isDisabled={isFull}
                 className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200 data-disabled:cursor-not-allowed data-disabled:opacity-40">
                 Gruppe {gruppe}
-                {/* The fill state, always: "3/8" answers "why is that one disabled" and "how much
-                    room is left" in the same three characters. */}
+                {/* The fill state, always: it answers "why is that one disabled" and "how much room
+                    is left" at once. */}
                 <span className="fluid-xs text-foreground-muted font-semibold">{isFull ? "voll" : `${occupied}/${capacity}`}</span>
               </ListBox.Item>
             );

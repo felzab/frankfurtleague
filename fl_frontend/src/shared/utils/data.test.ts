@@ -1,10 +1,3 @@
-/**
- * SHARED · collection-join tests
- *
- * Covers `joinCollections`, including the aliasing case: two left rows sharing an id must not share
- * one array instance, or a mutation through one row silently reaches the other.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 

@@ -17,21 +17,9 @@ import { formatAddressFull, formatSpielDatum } from "@/shared/utils/format";
 import type { FLAddress } from "@/shared/schemas";
 
 /**
- * The whole body of `/admin/spielorte/[spielort_id]` — where the venue is, then the form that edits
- * it, in the match editor's shell: the header scrolls with the form's content, the action bar stays
- * pinned below it, and every exit routes through the form's own discard guard.
- *
- * **The header shows the STORED address rather than the draft's.** It is the identity the admin
- * navigated to, and a subtitle that moved under the fields being typed would leave the page with no
- * fixed point to compare against — the Geändert markers in the form are what report the difference.
- *
- * **Retiring is not on this page**, and reactivating is. The venue list's own dialog is the one home
- * for the retirement (`REQ-RETIRE-003` is answered there), while the way back has no refusal to
- * report and belongs wherever a retired venue is standing — the club editor's arrangement.
- *
- * The one header-level control is reactivation, because a retired venue's state is a fact about the
- * row rather than a value the save bar commits, and it writes immediately through its own
- * endpoint.
+ * The header shows the STORED address, not the draft's: a moving subtitle would leave no fixed
+ * point to compare against. Retiring is the list's dialog; reactivating is here, a fact about the
+ * row rather than a value the save bar commits.
  */
 export function AdminSpielortEditView({
   spielort,

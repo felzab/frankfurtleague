@@ -2,52 +2,45 @@
 
 Audit pass `risk 1` on failure modes. Lens: WHAT WOULD ACTUALLY HURT — enumerate the outcomes this
 system must not produce, trace each to the paths that could produce it, and establish whether any
-pass in this programme is going to look there. **A lens shaped like the stack finds defects shaped
-like the stack**, and every other pass in a programme is named after a part of the stack; this pass
-supplies the consequence axis, so severity across the programme means something and a hazard nobody's
-lens covers is visible as a gap rather than as silence.
+pass in this programme is going to look there. This is the programme's consequence axis; every other
+pass is named after a part of the stack.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass.
 
-**This pass writes two files, and they have different lifetimes:**
+**This pass writes two files with different lifetimes:**
 
-- **`docs/audit/register.md` — the standing register.** It survives every programme close. It holds
-  the register itself (check 2) and the control inventory (check 5), which are properties of the
+- **`docs/audit/register.md`** — the standing register, which survives every programme close. It
+  holds the register itself (check 2) and the control inventory (check 5), both properties of the
   system rather than of one programme.
-- **`docs/audit/programme/r1-failure-modes.md` — this programme's report.** Ordinary pass report per
-  the shared protocol, holding the coverage map (check 3) and everything scoped to this programme.
+- **`docs/audit/programme/r1-failure-modes.md`** — this programme's report, holding the coverage map
+  (check 3) and everything else scoped to this programme.
 
 MODE — decide by looking, and state which you are in, in both files' headers:
 
-- **`docs/audit/register.md` does not exist → CREATE.** Build it from scratch by running every check
-  below.
-- **It exists → REFRESH.** Do not rebuild it. Read it first, then: re-verify each existing row
-  against the current code and mark it `holds` / `changed` / `gone`; add hazards the code has grown
-  since; and re-run check 3 from scratch, because the coverage map is per-programme and the passes
-  differ. **Keep every severity I have confirmed** — a confirmed severity changes only when I change
-  it, and a row you believe is now mis-rated is a question, not an edit.
-
-  Report the refresh honestly: how many rows held, how many changed, how many are new. If a large
-  share changed, say so — that is a signal about the system, not noise.
+- **`docs/audit/register.md` does not exist → CREATE.** Build it by running every check below.
+- **It exists → REFRESH.** Read it first, then re-verify each row against the current code and mark
+  it `holds` / `changed` / `gone`; add hazards the code has grown since; and re-run check 3 from
+  scratch, because the coverage map is per-programme and the passes differ. **Keep every severity I
+  have confirmed** — a row you believe is now mis-rated is a question, not an edit. Report how many
+  rows held, changed and are new; a large share changed is a signal about the system, not noise.
 
 STALENESS: the register records the commit it was last verified at. On a refresh, run
-`git log --oneline <that commit>..HEAD` and state how far the code has moved. **If the register
+`git log --oneline <that commit>..HEAD` and state how far the code has moved. **Where the register
 predates substantial movement in the surface this programme audits, verify before trusting any row**,
-and say in the header which rows you actually re-checked versus carried forward.
+and say in the header which rows you re-checked versus carried forward.
 
-DELIVERABLE: the failure-mode register (check 2) and the coverage map (check 3) are required tables
-and are the pass's whole point. Every later pass in this programme reads its own rows from them and
-must state, in its verdict, whether it covered each.
+DELIVERABLE: the failure-mode register (check 2) and the coverage map (check 3). Every later pass in
+this programme reads its own rows from them and must state in its verdict whether it covered each.
 
 SCOPE: the whole system, whichever surface this programme is auditing. A hazard outside this
-programme's surface is still registered — it is filed as a roadmap item rather than a ledger row
-(check 4), so it is not lost between programmes.
+programme's surface is still registered, and is filed as a roadmap item rather than a ledger row
+(check 4) so it is not lost between programmes.
 
 CONTEXT — derive, do not assume. Establish before enumerating anything: what this system is for and
 who uses it (`docs/README.md`, `docs/glossary.md`); what data it holds and which of it is personal;
 what is published to the public internet versus what sits behind authentication; what a wrong answer
-would look like to a reader who trusts the site. Read `.claude/CLAUDE.md` §7 and each spec sheet's
-invariants for what is already ratified — a hazard accepted there is a recorded risk, not a finding.
+would look like to a reader who trusts the site. A hazard already accepted in `.claude/CLAUDE.md` §7
+or in a spec sheet's invariants is a recorded risk, not a finding.
 
 THE CHECKS, in priority order:
 
@@ -55,7 +48,7 @@ THE CHECKS, in priority order:
    everything else: the data stores and what each holds, the trust boundaries actually crossed (open
    internet → nginx → Next → FastAPI → Mongo), and who holds what at each position — an anonymous
    visitor, a holder of a leaked internal key, someone on the compose network, myself. Every later
-   judgment about reachability is relative to this list, so state it once and state it precisely.
+   reachability judgment is relative to this list, so state it precisely.
 
 2. **THE FAILURE-MODE REGISTER** — written to `docs/audit/register.md`. The required table, one row
    per distinct bad outcome, with a stable `FM-n` id that later programmes keep:
@@ -66,11 +59,10 @@ THE CHECKS, in priority order:
      it actually lost to", not "aggregation bug".
    - **Mechanism** is concrete and traceable to code, config or an operational step.
    - **Detectability** is `loud` (something visibly breaks), `quiet` (wrong but plausible output) or
-     `silent` (nothing anywhere indicates it). Use the shared protocol's severity rubric — a silent
-     wrong answer outranks a loud outage.
-   - **Existing control** names what would prevent or catch it today: a validator, a guard, a test, a
-     lint rule, an index, a type, or **nothing**.
-   - **Last verified at** is the commit SHA this row was last checked against, so a later refresh can
+     `silent` (nothing anywhere indicates it).
+   - **Existing control** names what would prevent or catch it today — a validator, a guard, a test, a
+     lint rule, an index, a type — or **nothing**.
+   - **Last verified at** is the commit SHA the row was last checked against, so a later refresh can
      tell a verified row from a carried-forward one.
 
    **Ids are never reused.** A hazard that stops existing is marked `retired` with the reason and the
@@ -85,22 +77,20 @@ THE CHECKS, in priority order:
 
 3. **COVERAGE MAP — DOES ANY PASS LOOK HERE?** The required table, one row per register entry:
    register ID | the pass whose lens would find this mechanism | the specific check number within it
-   | covered / partly covered / **NOT COVERED**. A `NOT COVERED` row is the highest-value output of
-   this pass: it means a hazard that no lens in the programme is pointed at. For each, state the
-   cheapest fix — an extra check appended to a named pass, or a hazard that needs its own
-   investigation — and say which.
+   | covered / partly covered / **NOT COVERED**. A `NOT COVERED` row names a hazard no lens in the
+   programme is pointed at, and is this pass's highest-value output. For each, state the cheapest fix
+   — an extra check appended to a named pass, or a hazard needing its own investigation — and say
+   which.
 
 4. **OUT-OF-SURFACE HAZARDS.** Register rows whose mechanism lives outside the surface this programme
-   audits. List them separately with the owning surface named. These do not become ledger rows; they
-   go to the roadmap — `docs/_roadmap/open-items.md` or `docs/_roadmap/tooling-items.md`, whichever
-   `docs/_roadmap/protocol.md` names — so the next programme on that surface inherits them.
+   audits, listed separately with the owning surface named. These do not become ledger rows; they go
+   to whichever roadmap page `docs/_roadmap/protocol.md` names, so the next programme on that surface
+   inherits them.
 
 5. **CONTROL DURABILITY** — also written to `docs/audit/register.md`. For every register row whose
    existing control is not `nothing`: is that control enforced automatically, or does it depend on
-   someone remembering? An invariant held only by convention is a control with no owner. Report the
-   inventory: control | enforced by | what silently disables it. **A control that can be removed
-   without anything failing is the same as no control**, and this is where an audit finds the ones
-   already half-removed.
+   someone remembering? Report the inventory: control | enforced by | what silently disables it. **A
+   control that can be removed without anything failing is the same as no control.**
 
 6. **RECOVERY POSTURE.** For every row rated CRITICAL or HIGH: if this happened at 02:00 on a Sunday,
    what would make it visible, what would make it stop, and what would restore correct state? Name
@@ -113,6 +103,6 @@ confirmation before finishing**, since every later pass inherits it. Where you h
 on the row.
 
 BOUNDARIES — not this pass: finding the defects themselves. This pass establishes what to look for
-and who is looking; the surface passes do the looking. Do not report a code-level defect here beyond
-a one-line pointer naming the pass that owns it, and never prescribe a fix — a remedy chosen before
-the mechanism is confirmed is the shape of finding that inverts later.
+and who is looking; the surface passes do the looking. Report a code-level defect only as a one-line
+pointer naming the pass that owns it, and never prescribe a fix — a remedy chosen before the
+mechanism is confirmed is the shape of finding that inverts later.

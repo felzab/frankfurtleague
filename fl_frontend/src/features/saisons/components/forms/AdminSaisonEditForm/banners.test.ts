@@ -1,11 +1,3 @@
-/**
- * SAISONS · season editor banner tests
- *
- * This editor carries no `supersedes` edge — its two status banners are mutually exclusive by
- * construction, and the group-swap panel's lock explanations stay out of the list entirely. What is
- * worth asserting is exactly that: the gates, and the count interpolation the rollover title carries.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 

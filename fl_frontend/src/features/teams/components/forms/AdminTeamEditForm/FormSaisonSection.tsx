@@ -35,11 +35,8 @@ import type { TeamBanner } from "./banners";
 const SWAP_BUTTON_HINT_ID = "gruppentausch-team-hinweis";
 
 /**
- * This control's wording for each refusal `findSwapPartnerRefusal` returns.
- *
- * Different words from the season panel's for the same codes, and deliberately: here one side is fixed
- * and named at the top of the page, so a row can say what is true of the club in it rather than what is
- * true of the pair. `self` never renders — the fixed club is not offered as its own partner.
+ * Different words from the season panel's for the same codes, deliberately: here one side is fixed
+ * and named at the top of the page, so a row says what is true of the club in it, not of the pair.
  */
 const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
   self: "diese Mannschaft",
@@ -48,7 +45,7 @@ const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
   spieltagClash: "zweimal am Spieltag",
 };
 
-/** The season's own state, said in one badge beside its id — the app's one wording and one palette. */
+/** The app's one wording and one palette for a season's state. */
 function SaisonBadge({ status }: { status: TeamSaisonContext["saisonStatus"] }) {
   if (status === "active") return <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>;
   if (status === "future") return <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>;
@@ -56,17 +53,9 @@ function SaisonBadge({ status }: { status: TeamSaisonContext["saisonStatus"] }) 
 }
 
 /**
- * The group swap with ONE side already decided — the club editor's entry point into the swap the
- * season editor owns.
- *
- * **One picker, because the page has already answered "which club".** That is the whole difference from
- * `FormGruppenSwapSection`. It writes the same `POST /saisons/{saison_id}/gruppen/swap` in the same
- * single transaction, and `REQ-ENTER-004`'s lock above it is neither consulted nor relaxed.
- *
- * **The offer is graded by the shared rule** (`findSwapPartnerRefusal`), so a club this picker accepts
- * is one the endpoint accepts. Everything that refuses every pair alike — a finished season,
- * a knockout that has begun, this club having played its own group — closes the control instead, because
- * a per-row reason would send an admin to look at the wrong club.
+ * The group swap with ONE side already decided — one picker, because the page has answered "which
+ * club". Same endpoint, same transaction, and `REQ-ENTER-004`'s lock above it is neither consulted
+ * nor relaxed.
  */
 function GruppenTauschControl({
   saisonId,
@@ -85,9 +74,8 @@ function GruppenTauschControl({
   const [isConfirming, setIsConfirming] = useState(false);
   const [partner, setPartner] = useState<SaisonSwapTeam | null>(null);
 
-  // Every other club of the season, each carrying why it cannot be taken — visible and disabled rather
-  // than absent, which is `GruppeSelect`'s rule: an admin should see why a club cannot be chosen instead
-  // of wondering where it went.
+  // Graded by the SHARED `findSwapPartnerRefusal`, so a club this picker accepts is one the endpoint
+  // accepts. Visible and disabled rather than absent, as `GruppeSelect` does.
   const candidates = swap.teams.filter((team) => team.id !== self.id).map((team) => ({ team, refusal: findSwapPartnerRefusal(self, team) }));
   const hasAPartner = candidates.some(({ refusal }) => refusal === null);
 
@@ -117,20 +105,20 @@ function GruppenTauschControl({
 
       appToast.success("Gruppen getauscht", { description: res.message });
       setPartner(null);
-      // The action invalidates the caches; this re-renders the page the admin is still standing on,
-      // whose locked group row now has to show the group the swap produced.
+      // Re-renders the page the admin is still standing on, whose locked group row has to show the
+      // group the swap produced.
       router.refresh();
     });
   };
 
   return (
     <div className="border-border flex w-full flex-col gap-y-3 border-t pt-5">
-      {/* A sub-group of the Saison panel rather than a panel of its own: it edits the row above it,
-          and a second bordered box for one picker would read as a second subject. */}
+      {/* A sub-group, not a panel of its own: it edits the row above it, and a second bordered box
+          for one picker would read as a second subject. */}
       <p className={FORM_SECTION_HEADING}>Gruppe tauschen</p>
 
-      {/* The whole-control closures, in the endpoint's own order — season, then bracket, then this
-          club's own round robin. Each refuses every pair alike, so none of them is a row. */}
+      {/* The whole-control closures, in the endpoint's own order. Each refuses every pair alike, so
+          none of them is a row. */}
       {saisonStatus === "past" ? (
         <Callout
           severity="info"
@@ -179,8 +167,8 @@ function GruppenTauschControl({
               {/* HeroUI's own `Label`, so `for`/`id` reach the trigger — see `FormGruppenSwapSection`. */}
               <Label className={FIELD_LABEL}>Tauschen mit</Label>
               <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
-                {/* From the prop rather than `Select.Value`: the collection can lag a render behind and
-                would show HeroUI's English placeholder — `GruppeSelect`'s reason. */}
+                {/* From the prop, not `Select.Value` — the collection can lag a render behind and
+                would then show HeroUI's English placeholder. */}
                 <span className={partner ? "" : "text-foreground-muted"}>
                   {partner ? `${partner.name} (Gruppe ${partner.gruppe})` : "Mannschaft wählen"}
                 </span>
@@ -205,8 +193,8 @@ function GruppenTauschControl({
               </Select.Popover>
             </Select>
 
-            {/* Why a row is grey, and why a club an admin expects is not in the list at all — the two
-            questions this picker raises, answered where it raises them. */}
+            {/* The two questions this picker raises — why a row is grey, and why an expected club is
+            missing — answered where it raises them. */}
             <p className="fluid-xxs text-foreground-muted leading-normal font-medium">
               Ausgegraut heißt: gleiche Gruppe, in ihrer Gruppe schon gespielt, oder eine der beiden stünde nach dem Tausch zweimal an einem
               Spieltag. Mannschaften, die nicht in dieser Saison stehen, haben hier keine Gruppe und erscheinen deshalb nicht.
@@ -223,8 +211,8 @@ function GruppenTauschControl({
             </Callout>
           )}
 
-          {/* Escalated in place, the season panel's shape: without `role="alert"` the only signal is the
-          button label quietly changing. */}
+          {/* Escalated in place: without `role="alert"` the only signal is the button label quietly
+          changing. */}
           {isConfirming && partner !== null && (
             <div
               role="alert"
@@ -266,8 +254,8 @@ function GruppenTauschControl({
                 </Button>
               )}
             </div>
-            {/* Adjacent to the control it describes and pointed at by `aria-describedby` — the treatment
-            `FormErgebnisSection` established for a control disabled for a reason already on screen. */}
+            {/* Adjacent to the control it describes and pointed at by `aria-describedby`, the app's
+            treatment for a control disabled for a reason already on screen. */}
             {!isSwapping && partner === null && (
               <p
                 id={SWAP_BUTTON_HINT_ID}
@@ -283,27 +271,8 @@ function GruppenTauschControl({
 }
 
 /**
- * The club's membership of the SELECTED season — the one in the sidemenu's season selector, not a
- * list of every season (decided 2026-08-07): the selector is the page's season context, so switching
- * it switches what this panel shows and writes.
- *
- * **The group is locked once the season is underway.** Moving a club between groups rewrites what
- * its results mean for two tables and the seeding, so the select renders only while the season is
- * `future` or the club has no fixture in it yet (decided 2026-08-07). A locked group is a read-only
- * row naming why, and directly under it the operation that name refers to: a swap of two clubs, which
- * is the one mid-season group change that keeps both groups whole.
- *
- * **The swap control appears only while the group is locked**, because that is the state it answers.
- * With the picker still free a direct change is both legal and simpler, and offering two routes to one
- * outcome would be the page asking the admin to choose between them.
- *
- * A club NOT in the season gets exactly one affordance — entering it, with a group — and only while
- * the season is `future` (decided 2026-08-07): a season's field is settled before it starts, so a
- * running or past season shows why there is nothing to do instead. The picker offers the season's
- * own groups with their fill state, full ones disabled; `POST /teams/{team_id}/saisons` refuses the
- * same shapes (REQ-ENTER-001..003) and stays authoritative. Entering fires its own action
- * immediately rather than joining the save bar — it is an event, not a field edit, and it is what
- * creates the row the rest of this panel edits.
+ * **The swap control appears only while the group is locked**, because that is the state it answers:
+ * with the picker still free, two routes to one outcome would ask the admin to choose between them.
  */
 export function FormSaisonSection({
   saison,
@@ -319,7 +288,6 @@ export function FormSaisonSection({
 }: {
   saison: TeamSaisonContext;
   gruppeLock: TeamGruppeLock;
-  /** The editor's whole Hinweis list; the three spots below take their own entries out of it. */
   banners: readonly TeamBanner[];
   /** The season's groups with their fill state (`buildGruppeOffer`) — what the pickers may offer. */
   gruppeOffer: readonly GruppeOffer[];
@@ -335,13 +303,9 @@ export function FormSaisonSection({
   const [isEntering, startEntering] = useTransition();
 
   /**
-   * What the entry write was refused on, held here rather than in the editor's `useDraftFieldErrors`.
-   *
-   * The entry is a different write from the save bar's: it creates the junction row the rest of this
-   * panel edits, and it fires on its own button. Its refusal has no business in the map the editor
-   * derives from — `deriveTeamDraftStatus` counts that map into the unsaved-error badge and the rail,
-   * the next `setSubmitFieldErrors` would clear it, and `reportValidity()` would move focus across a
-   * form whose Gruppe field is not on screen while the entry control is.
+   * Held here, not in the editor's `useDraftFieldErrors`: its refusal in that map would reach the
+   * unsaved-error badge and a `reportValidity()` that moves focus to a form half this branch does
+   * not render.
    */
   const [entryGruppeError, setEntryGruppeError] = useState<string | null>(null);
 
@@ -349,6 +313,8 @@ export function FormSaisonSection({
   // which is the state the entry affordance below answers instead.
   const self = swap.teams.find((team) => team.id === teamId) ?? null;
 
+  // Fires its own action rather than joining the save bar: it is an event, and it creates the
+  // junction row the rest of this panel edits.
   const handleEnterSaison = () => {
     startEntering(async () => {
       const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe });
@@ -360,8 +326,8 @@ export function FormSaisonSection({
         appToast.success(res.message ?? "Mannschaft aufgenommen!");
         return;
       }
-      // Suppressed where the picker below carries the message: the same split `EntityForm` makes, so a
-      // refusal about the chosen group is not also said in a toast that names no field.
+      // Suppressed where the picker carries the message, so a refusal about the chosen group is not
+      // also said in a toast that names no field.
       if (gruppeError === null) {
         appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || "Ein unerwarteter Fehler ist aufgetreten." });
       }
@@ -370,9 +336,8 @@ export function FormSaisonSection({
 
   return (
     <section className={panel.root()}>
-      {/* `relative` + an absolutely placed badge, so the h2 keeps the exact flow every other panel
-          heading has — wrapping it in a flex row is what pushed the info glyph off the text's
-          baseline (decided 2026-08-07). */}
+      {/* `relative` + an absolutely placed badge, so the h2 keeps every other panel heading's flow;
+          a flex row would push the info glyph off the text's baseline. */}
       <div className={`${panel.header()} relative`}>
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           <SaisonBadge status={saison.saisonStatus} />
@@ -413,8 +378,7 @@ export function FormSaisonSection({
               </div>
 
               {/* Why the row is locked is the swap control's to say: the lock is one condition where
-                  the swap grades four, so a second sentence here can only be the one that disagrees.
-                  It renders wherever the lock does — a locked group implies a membership. */}
+                  the swap grades four, so a second sentence here could only disagree with it. */}
               {self !== null && (
                 <GruppenTauschControl
                   saisonId={saison.saisonId}
@@ -476,8 +440,8 @@ export function FormSaisonSection({
             </div>
           </div>
         ) : (
-          // No entry affordance at all outside a planned season (decided 2026-08-07): a season's
-          // field is settled before it starts. The junction write refuses the same (REQ-ENTER-001).
+          // No entry affordance outside a planned season: a season's field is settled before it
+          // starts, and the junction write refuses the same (`REQ-ENTER-001`).
           <InlineBanners
             banners={banners}
             spot="saison-gesperrt"

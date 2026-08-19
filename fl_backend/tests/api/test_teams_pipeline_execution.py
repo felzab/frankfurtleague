@@ -1,16 +1,3 @@
-"""
-TEAMS · `build_team_pipeline` executed by a real MongoDB
-
-The sibling `test_teams_pipeline.py` asserts what the pipeline SAYS; this asserts what MongoDB
-COMPUTES from it — a `$cond` picking the wrong side, a `$sum` over the wrong field, a scope
-filtering on a phase no document carries. The two are complementary and neither replaces the
-other.
-
-Every test is marked `db` and deselected by default (`fl_backend/tests/README.md`).
-The corpus and the expected figures are documented in `conftest.py`; this module asserts against
-them and does not restate the derivation.
-"""
-
 from typing import Any
 
 import pytest
@@ -30,8 +17,7 @@ from .conftest import DISQUALIFIKATION, SAISON, SeededLeague
 
 pytestmark = pytest.mark.db
 
-# The levels the seeded season offers, typed as the Literal list `FLSaisonRules` declares -- a bare
-# list of `str` is invariant against it.
+# Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 
 STANDARD_RULES = FLSaisonRules(
@@ -47,16 +33,7 @@ def rows(
     team_id: Any | None = None,
     **filters: Any,
 ) -> list[dict[str, Any]]:
-    """
-    Run the real pipeline and return the documents, in pipeline order.
-
-    `scope` is not defaulted, for the same reason the structural suite does not default it: the
-    default lives on the model and is itself the decision. A test that wants the default
-    must get it from the model.
-
-    `team_id` is a separate parameter rather than one of `**filters` because that is what it is on the
-    pipeline: `GET /teams/{team_id}` passes it as an argument, not as a filter field.
-    """
+    """`scope` is not defaulted — the model's default is itself the decision; `team_id` is a pipeline argument rather than a filter."""
     params = FLTeamsFilterParams(saison_id=SAISON, **filters)
     if scope is not None:
         params.statistik_scope = scope
@@ -65,7 +42,6 @@ def rows(
 
 
 def table(league: SeededLeague, **kwargs: Any) -> dict[str, dict[str, int]]:
-    """The derived statistics per team name, which is what nearly every assertion here is about."""
     return {row["name"]: row["statistik"] for row in rows(league, **kwargs)}
 
 
@@ -78,17 +54,12 @@ def test_the_default_scope_counts_only_the_gruppenphase(league: SeededLeague):
 
 
 def test_the_gesamt_scope_adds_the_playoff_match(league: SeededLeague):
-    """
-    The same team, the same pipeline, one parameter apart.
-
-    This is the divergence that keeps the default scope at `gruppenphase`, reproduced from a fixture --
-    and the single assertion that would fail if the scope filtered on the wrong phase.
-    """
+    """The divergence that keeps the default scope at `gruppenphase`."""
     assert table(league, scope="gesamt")["Helmholtz"]["anzahl_gespielte_spiele"] == 4
 
 
 def test_the_playoff_win_moves_points_and_goals_too(league: SeededLeague):
-    """Not just the match count: a scope that counted the phase but dropped its goals would pass the test above."""
+    """A scope that counted the phase but dropped its goals would pass on the match count alone."""
     gruppenphase = table(league)["Helmholtz"]
     gesamt = table(league, scope="gesamt")["Helmholtz"]
 
@@ -105,12 +76,7 @@ def test_the_scopes_agree_for_a_team_with_no_playoff_match(league: SeededLeague)
 
 
 def test_a_cancelled_match_carrying_a_result_still_counts(league: SeededLeague):
-    """
-    The forfeit rule, executed.
-
-    Bock's only Gruppenphase win is a cancelled match with a recorded result. An `is_canceled` filter
-    would leave Bock on one match and nothing else in this file would notice.
-    """
+    """Bock's only Gruppenphase win is a cancelled match with a result; an `is_canceled` filter would leave it on one match."""
     bock = table(league)["Bock"]
 
     assert bock["anzahl_gespielte_spiele"] == 2
@@ -123,12 +89,7 @@ def test_a_match_without_an_ergebnis_does_not_count(league: SeededLeague):
 
 
 def test_an_ergebnis_without_goal_counts_does_not_count(league: SeededLeague):
-    """
-    The hand-edited shape: `ergebnis` set, `tore` still null.
-
-    Without the goal-count filters this match would group as a 0:0 draw, giving Lessing a fourth
-    match and Ohne its first -- so both halves of that are asserted.
-    """
+    """Without the goal-count filters this match groups as a 0:0 draw, giving Lessing a fourth match and Ohne its first."""
     figures = table(league)
 
     assert figures["Lessing"]["anzahl_gespielte_spiele"] == 3
@@ -136,17 +97,12 @@ def test_an_ergebnis_without_goal_counts_does_not_count(league: SeededLeague):
 
 
 def test_a_match_from_another_season_does_not_count(league: SeededLeague):
-    """Helmholtz won 7:0 in 2025. A pipeline missing its `saison_id` filter would show 12 goals, not 5."""
+    """Helmholtz won 7:0 in 2025, so a pipeline missing its `saison_id` filter shows 12 goals rather than 5."""
     assert table(league)["Helmholtz"]["tore_geschossen"] == 5
 
 
 def test_goals_are_oriented_towards_each_team(league: SeededLeague):
-    """
-    Both teams are embedded in one match document, so every figure depends on a `$cond` picking a side.
-
-    Helmholtz and Bock met in match 1 (3:1). Reading the wrong side would swap scored and conceded,
-    which is invisible in a match count and obvious here.
-    """
+    """Both teams are embedded in one document, so reading the wrong side swaps scored and conceded — invisible in a match count."""
     figures = table(league)
 
     assert (figures["Helmholtz"]["tore_geschossen"], figures["Helmholtz"]["tore_kassiert"]) == (5, 7)
@@ -154,29 +110,17 @@ def test_goals_are_oriented_towards_each_team(league: SeededLeague):
 
 
 class TestACalledOffFixture:
-    """
-    The count of the fixtures a team had called off, executed — and what it must leave alone.
-
-    Every case here is about a fixture with `is_canceled` set, whether or not a result was recorded
-    against it. The two counts are deliberately not a partition: Bock's forfeit is in this figure and
-    in `anzahl_gespielte_spiele` both, and a case below pins each half of that.
-    """
+    """The two counts are deliberately not a partition: a forfeit is in this figure and in `anzahl_gespielte_spiele` both."""
 
     def test_it_is_counted_for_both_teams(self, league: SeededLeague):
-        """The `$expr` reaches either side, exactly as the counting lookup's does — a slot-one-only match would show 1 and 0."""
+        """The `$expr` reaches either side: a slot-one-only match would show 1 and 0."""
         figures = table(league)
 
         assert figures["Helmholtz"]["anzahl_abgesagte_spiele"] == 1
         assert figures["Ohne"]["anzahl_abgesagte_spiele"] == 1
 
     def test_it_moves_none_of_the_figures_the_table_is_built_from(self, league: SeededLeague):
-        """
-        The cancellation count stands apart: the figures read what they did before the cancellations existed.
-
-        Asserted as the whole set rather than on `anzahl_gespielte_spiele` alone. A cancellation has no
-        goal counts, so an accumulator that admitted it would land in `unentschieden` — `$eq: [null,
-        null]` is true — and the match count would stay right while the standing quietly moved.
-        """
+        """An accumulator admitting a cancellation lands it in `unentschieden`, since `$eq: [null, null]` is true."""
         helmholtz = table(league)["Helmholtz"]
 
         assert {field: helmholtz[field] for field in FLTeamStatistik.model_fields if field != "anzahl_abgesagte_spiele"} == {
@@ -190,13 +134,7 @@ class TestACalledOffFixture:
         }
 
     def test_a_forfeit_is_counted_here_and_as_played_both(self, league: SeededLeague):
-        """
-        The case an `ergebnis: None` clause would drop, and the reason the two counts overlap.
-
-        Bock's only Gruppenphase win is a cancelled match carrying a result. Both figures are asserted
-        together: a filter excluding it from this count leaves the match tally right, so nothing else
-        in this file would report it.
-        """
+        """Both figures together: a filter excluding the forfeit from this count leaves the match tally right."""
         bock = table(league)["Bock"]
 
         assert bock["anzahl_gespielte_spiele"] == 2
@@ -208,42 +146,30 @@ class TestACalledOffFixture:
         assert table(league, scope="gesamt")["Helmholtz"]["anzahl_abgesagte_spiele"] == 2
 
     def test_a_team_with_no_cancellation_reads_zero(self, league: SeededLeague):
-        """
-        The absence has to be a number rather than a missing key, or the badge's own guard never fires.
-
-        Komplett rather than a team with no match at all: the zeroed fallback already carries the key,
-        so only a team the `$group` produced a document for proves the `$ifNull` beside it supplies one.
-        """
+        """Komplett rather than a team with no match: only a team `$group` produced a document for proves the `$ifNull`."""
         assert table(league)["Komplett"]["anzahl_abgesagte_spiele"] == 0
 
 
 def test_wins_draws_and_losses_partition_the_matches(league: SeededLeague):
-    """Every counted match lands in exactly one of the three buckets, for every team."""
     for name, figures in table(league, scope="gesamt").items():
         total = figures["siege"] + figures["unentschieden"] + figures["niederlagen"]
         assert total == figures["anzahl_gespielte_spiele"], f"{name} does not add up"
 
 
 def test_points_come_from_the_seasons_own_rules(league: SeededLeague):
-    """A 2/0/0 season. Helmholtz's 1 win, 1 draw and 1 loss is 4 points under 3/1/0 and 2 under this."""
+    """Helmholtz's win, draw and loss is worth 4 points under the standard rules and 2 under these."""
     unusual = FLSaisonRules(win_points=2, draw_points=0, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
 
     assert table(league, rules=unusual)["Helmholtz"]["punkte"] == 2
 
 
 def test_a_defeat_is_worth_nothing(league: SeededLeague):
-    """Bock's 1 win and 1 loss is exactly one win's worth of points."""
+    """Bock's win and loss together are worth exactly one win."""
     assert table(league)["Bock"]["punkte"] == STANDARD_RULES.win_points
 
 
 def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):
-    """
-    `$group` emits nothing at all for an empty input, so this is the `$ifNull` fallback and not a sum.
-
-    Asserted field by field against the model: a fallback missing one key fails response validation
-    rather than returning a wrong number, which is a much less obvious failure. Ohne's cancellation is
-    the exception and is checked above — it is merged over the fallback rather than grouped with it.
-    """
+    """`$group` emits nothing for an empty input, so this is the `$ifNull` fallback; one missing key fails response validation."""
     ohne = table(league)["Ohne"]
 
     assert set(ohne) == set(FLTeamStatistik.model_fields)
@@ -251,39 +177,27 @@ def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):
 
 
 def test_a_team_with_no_junction_row_disappears(league: SeededLeague):
-    """The strict join. Fremd exists in `teams` and plays a 2026 match, so only the missing row can drop it."""
+    """Fremd exists in `teams` and plays a 2026 match, so only the missing junction row can drop it."""
     assert "Fremd" not in table(league)
 
 
 def test_the_junction_supplies_gruppe_and_disqualification(league: SeededLeague):
-    """Season-scoped fields come from the junction, which is the reason the join exists at all."""
     by_name = {row["name"]: row for row in rows(league)}
 
     assert by_name["Ohne"]["gruppe"] == "B"
-    # The whole record travels, not a flag derived from it: the reason and the date are what FE-3's note
-    # renders, and a projection that flattened this to a boolean would pass a presence check.
+    # The whole record travels, not a flag: a projection flattening it to a boolean would pass a presence check.
     assert by_name["Lessing"]["disqualifikation"] == DISQUALIFIKATION
     assert by_name["Helmholtz"]["disqualifikation"] is None
 
 
 def test_a_stored_statistik_on_the_junction_is_ignored(league: SeededLeague):
-    """
-    The table is derived and never read off a stored copy, made observable.
-
-    Helmholtz's junction row carries a `statistik` of 99s. If any part of the pipeline read a stored
-    copy -- or fell back to one -- these figures would be 99s instead of the derived numbers.
-    """
+    """Helmholtz's junction row carries a `statistik` of 99s, so a read of the stored copy shows those."""
     assert table(league)["Helmholtz"]["punkte"] == 4
     assert 99 not in table(league)["Helmholtz"].values()
 
 
 def test_the_result_validates_as_the_response_model(league: SeededLeague):
-    """
-    The end-to-end claim: what the pipeline returns is what `GET /teams` may serve.
-
-    Validating through the adapter is what proves the projection carries every field `FLTeam`
-    requires -- including for Ohne, whose statistics come from the fallback rather than a `$group`.
-    """
+    """Validating through the adapter proves the projection carries every field `FLTeam` requires, Ohne's fallback included."""
     teams = FLTeamListAdapter.validate_python(rows(league))
 
     assert {team.name for team in teams} == {"Helmholtz", "Bock", "Lessing", "Ohne", "Komplett"}
@@ -291,7 +205,7 @@ def test_the_result_validates_as_the_response_model(league: SeededLeague):
 
 
 def test_a_single_team_query_returns_only_that_team(league: SeededLeague):
-    """`GET /teams/{team_id}` narrows the BASE collection before either lookup, so it must still join correctly."""
+    """`GET /teams/{team_id}` narrows the base collection before either lookup, so it must still join correctly."""
     only = rows(league, team_id=league.team_oids["Bock"])
 
     assert [row["name"] for row in only] == ["Bock"]

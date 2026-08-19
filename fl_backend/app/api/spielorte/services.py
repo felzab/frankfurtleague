@@ -1,12 +1,3 @@
-"""
-SPIELORTE · filter and sort construction
-
-Pure translation of `FLSpielorteFilterParams` into a Mongo filter and sort. No I/O.
-
-Soft-deleted venues are excluded unless `include_inactive` asks for them, so an admin list can offer
-the retired ones for reactivation while every public read sees only what is live.
-"""
-
 from typing import Any, Sequence
 
 from app.api.spielorte.schemas import FLSpielorteFilterParams
@@ -22,31 +13,22 @@ def build_spielorte_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
 def build_spielorte_filter(filters: FLSpielorteFilterParams) -> dict[str, Any]:
     query: dict[str, Any] = {}
 
-    # Matching null rather than testing absence: `inactive_since` is required and carries null while
-    # the venue is live, so this is an equality test. It would also match a document missing the key,
-    # which the validator forbids.
+    # `inactive_since` is required and carries null while the venue is live, so this is equality.
     if not filters.include_inactive:
         query["inactive_since"] = None
 
     return query
 
 
-# The venue is still booked for a fixture nobody has played (decided 2026-08-08). Retiring it takes it
-# out of every picker while matches are still scheduled there -- the state the soft delete exists to
-# prevent, reached through the soft delete itself.
-
-# A played fixture never blocks: its `ort` is an embedded record of where the match was held, so the
-# venue document has nothing left to supply.
+# A played fixture never blocks: its `ort` is an embedded record.
 VENUE_STILL_BOOKED = "REQ-RETIRE-003"
 
 
 def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:
-    """
-    Why retiring this venue must be refused, as a `WriteRefusal` -- or `None`.
+    """Why retiring this venue must be refused, or `None`.
 
-    `upcoming_spiel_nrs` is every fixture referencing it that has no result and is not cancelled -- the
-    same definition of "not played yet" the rollover gate uses (`unplayed_spiel_nrs`), so the two rules
-    cannot disagree about what is still to come.
+    `upcoming_spiel_nrs` is `unplayed_spiel_nrs`'s definition, so the two rules cannot disagree
+    about what is still to come.
     """
 
     if not upcoming_spiel_nrs:

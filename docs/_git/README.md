@@ -1,7 +1,7 @@
 # Git
 
-**Folder purpose:** how work gets from an idea to production — the rules that bind a change, and the
-forms it is written in.
+**Folder purpose:** how work gets from an idea to production — the rules that bind a change, and the forms
+it is written in.
 
 ## Folder overview
 

@@ -22,16 +22,13 @@ export function SidemenuNavItem({
 }) {
   const linkElement = (
     <Link
-      // Next's `onNavigate`, not `onClick`: React fires `onClick` for every press, and a Ctrl-, Cmd-,
-      // Shift- or Alt-click navigates nothing here — closing the drawer on one takes the navigation
-      // away from a visitor who never left the page.
+      // `onNavigate`, not `onClick`: a modified click navigates nothing here, and closing the drawer on
+      // one takes the navigation away from a visitor who never left the page.
       onNavigate={onMobileNavigate}
-      // Colour and weight alone are what assistive tech cannot see, and every link the sidemenu
-      // renders is structurally identical, with no other way to tell which is the current page.
+      // Colour and weight are what assistive tech cannot see, and every link here is structurally identical.
       aria-current={isActive ? "page" : undefined}
-      // Collapsed, this is a 36x36 square -- `w-9 justify-center`, what `SidemenuFooter`'s two
-      // controls are (decided 2026-08-07). Under `w-full` the fill is a wide rectangle in the nav and
-      // a neat square in the footer. Expanded, the row holds a label.
+      // Collapsed, this is the same square `SidemenuFooter`'s controls are: under `w-full` the fill would be
+      // a wide rectangle in the nav beside neat squares in the footer.
       className={`flex h-9 items-center rounded-md transition-colors ${
         isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2.5 px-3"
       } ${isActive ? "bg-brand/10 text-brand font-medium shadow-sm" : "text-foreground hover:bg-hover hover:text-foreground fluid-sm"}`}

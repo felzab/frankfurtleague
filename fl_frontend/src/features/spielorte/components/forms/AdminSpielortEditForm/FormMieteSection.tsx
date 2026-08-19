@@ -12,16 +12,9 @@ import { SpielortFieldLabel } from "./SpielortFieldLabel";
 import type { SpielortBanner } from "./banners";
 
 /**
- * What the venue costs by default.
- *
- * **It is a default and never a stored copy**. What a match cost is `mietpreis` on
- * that match, agreed when it was scheduled; this number seeds the next one and rewrites none of them.
- * The backend's fan-out deliberately excludes it, so the Hinweis below is a statement about the write
- * path rather than a hope.
- *
- * 0 € is legitimate — a school hall the league is lent — so the field is required rather than
- * nullable, and the value is judged on change: a stepper is a picker, and there is no half-entered
- * state to be wrong about.
+ * A default and never a stored copy: what a match cost is its own `mietpreis`, and the backend's
+ * fan-out excludes this. 0 € is legitimate, so the field is required rather than nullable and is
+ * judged on change — a stepper has no half-entered state.
  */
 export function FormMieteSection({
   defaultMietpreis,
@@ -32,7 +25,6 @@ export function FormMieteSection({
   defaultMietpreis: number;
   onChange: (next: number) => void;
   onFieldChanged: (paths: readonly string[], picked: { default_mietpreis: number }) => void;
-  /** The editor's whole Hinweis list; the spot below takes its own entry out of it. */
   banners: readonly SpielortBanner[];
 }) {
   const panel = formPanel();

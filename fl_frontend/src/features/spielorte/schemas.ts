@@ -1,13 +1,3 @@
-/**
- * SPIELORTE · models
- *
- * Mirrors `fl_backend/app/api/spielorte/schemas.py`.
- *
- * `maps_link` appears on the read model but on no payload: the backend derives it from name and
- * address, so a client cannot set it. Money fields carry German user-facing messages because these
- * schemas back admin form inputs directly.
- */
-
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
@@ -43,6 +33,8 @@ export const FLSpielortSchema = z.object({
 
   address: FLAddressSchema,
   name: z.string().nonempty(),
+  // On the read model and on no payload: the backend derives it from the name and address, so a
+  // client cannot set it.
   maps_link: z.string().nonempty(),
   default_mietpreis: z.int().nonnegative(),
   // The day the venue was retired, null while it is in use. Deactivation goes through

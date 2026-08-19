@@ -1,16 +1,11 @@
 /**
  * SCRIPTS · do two versions of a TypeScript file differ by anything but comments?
  *
- * `scripts/check_scope.py` has to answer that for the packaging paths written in TypeScript, which
- * `scripts/ci_scopes.sh` names, and a regex cannot: a `//` inside a string, a template literal or a
- * regular expression is not a comment. Both versions are printed back through TypeScript's own
- * printer with `removeComments` on, which emits from the syntax tree — so type annotations survive
- * and a type-only edit still reads as a change.
- *
- * Prints `same` or `different` and exits 0; exits 1 with a reason on stderr when it cannot answer at
- * all, and the caller then treats the change as code, which is the safe direction.
- *
- *   node scripts/ts_normalize.mjs <old-file> <new-file>
+ * `scripts/check_scope.py` needs the answer for the packaging paths `scripts/ci_scopes.sh` names,
+ * and a regex cannot give it (`docs/ops/spec.md` §1.5). Both versions are reprinted through
+ * TypeScript's own printer with `removeComments` on, which emits from the syntax tree, so a
+ * type-only edit still reads as a change. Prints `same` or `different` and exits 0; exits 1 with a
+ * reason on stderr when it cannot answer, and the caller then treats the change as code.
  */
 
 import { readFileSync } from "node:fs";
@@ -33,19 +28,17 @@ const printer = ts.createPrinter({ removeComments: true });
 
 function normalize(path) {
   const text = readFileSync(path, "utf8");
-  // setParentNodes, because the printer walks parents as it emits. The script kind must follow the
+  // setParentNodes, because the printer walks parents as it emits. The script kind follows the
   // extension: a .tsx parsed as plain TS reads its JSX as syntax errors, and the refusal below then
-  // counts every comment-only .tsx edit as code.
+  // counts a comment-only .tsx edit as code.
   const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-  // `parseDiagnostics` is internal: it is absent from the installed typescript.d.ts, so an upgrade
-  // that renames or drops it would take this guard with it and no type error anywhere would say so.
-  // Its absence is refused rather than optional-chained past.
+  // `parseDiagnostics` is internal and absent from the installed typescript.d.ts, so an upgrade
+  // renaming or dropping it would take this guard with it and no type error anywhere would say so.
   if (!Array.isArray(source.parseDiagnostics)) {
     throw new Error(`${path}: this typescript no longer exposes parseDiagnostics, so a damaged parse tree cannot be detected`);
   }
   // A damaged parse tree can lose content in the printed form, so two different files compare
   // equal — a comment-only verdict on a real change, the one direction that must be impossible.
-  // Refuse rather than answer from it.
   if (source.parseDiagnostics.length) {
     throw new Error(`${path} does not parse cleanly`);
   }

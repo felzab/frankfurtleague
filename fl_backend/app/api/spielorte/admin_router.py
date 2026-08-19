@@ -1,16 +1,3 @@
-"""
-SPIELORTE · write endpoints
-
-Venues. Every mutation sits beside the reads for its resource, in a second router guarded at router
-level by `verify_access_admin`.
-
-Invariants:
-- `maps_link` is derived server-side and on no payload — a search string, never rendered as an href.
-- `default_mietpreis` carries no default: the patch writes the payload back wholesale.
-- A rename fans out into every match embedding the venue.
-- Deletion is soft — matches embed a copy and reference it by id.
-"""
-
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -49,12 +36,7 @@ async def post_spielort(
     spielort_data: Annotated[FLPostSpielortPayload, Body()],
     spielorte_collection: SpielorteCollection,
 ) -> FLPostSpielortResponse:
-    """
-    Create a venue.
-
-    `maps_link` is built server-side from the name and address and must not be submitted. Despite the
-    name it is a Google Maps search string, not a URL.
-    """
+    """Create a venue. `maps_link` is built server-side from the name and address and must not be submitted."""
 
     post_operation = await post_one_to_db(
         collection=spielorte_collection,
@@ -81,11 +63,8 @@ async def patch_spielort(
     """
     Update a venue, then update every Spiel that embeds it.
 
-    Matches carry an embedded copy of the venue's name and maps link, so the fan-out is not optional:
-    without it, match cards keep showing the old name indefinitely.
-
-    `mietpreis` is deliberately **not** fanned out. The rent recorded on a match is what was agreed for
-    that match; rewriting it would rewrite history.
+    The fan-out is not optional: without it, match cards keep showing the old name. `mietpreis` is
+    NOT fanned out -- the rent on a match is what was agreed for that match.
     """
 
     maps_link = _maps_link(spielort_data.name, spielort_data.address)
@@ -119,15 +98,11 @@ async def delete_spielort(
     """
     Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
 
-    Matches embed a copy of the venue, so a hard delete would orphan every historical match that used
-    it. Returns the updated document rather than a bare acknowledgement.
-
-    **It is refused while an unplayed fixture is still booked here** (`REQ-RETIRE-003`), for the reason
-    `fl_backend/app/api/spielorte/services.py :: VENUE_STILL_BOOKED` states in full.
+    Matches embed a copy, so a hard delete would orphan every historical match that used it. Refused
+    while an unplayed fixture is still booked here (`REQ-RETIRE-003`).
     """
 
-    # Unplayed means no result and not cancelled, which is `unplayed_spiel_nrs`'s definition -- the two
-    # rules must agree about what is still to come.
+    # `unplayed_spiel_nrs`'s definition, so the two rules agree about what is still to come.
     booked = await pull_many_from_db(
         collection=spiele_collection,
         db_filter={"ort.spielort_id": spielort_id, "ergebnis": None, "is_canceled": False},

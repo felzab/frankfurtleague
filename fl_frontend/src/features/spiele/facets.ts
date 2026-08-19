@@ -1,18 +1,3 @@
-/**
- * SPIELE · what the Spielsuche can be narrowed by
- *
- * Roadmap item FE-5, folded into the filter work because it is the same control (decided
- * 2026-08-07).
- *
- * Invariants:
- * - Team, Ort and Schiedsrichter options derive from the matches in hand, never fetched — a
- *   facet built that way cannot offer a value that narrows to nothing.
- * - The admin set is larger than the public one; the difference is completeness, not access.
- * - `status` reads through `computeSpielStatus`, the cards' own function — the chip
- *   and the facet cannot disagree.
- * - Every facet is built inside one `useMemo` per surface, keyed on the fixture list.
- */
-
 import { PHASE_LABELS } from "@/features/saisons/constants";
 
 import { computeSpielStatus } from "./utils";
@@ -40,10 +25,8 @@ function distinct(spiele: readonly FLSpiel[], read: (spiel: FLSpiel) => { id: st
 }
 
 /**
- * Every facet the Spielsuche offers, for the surface it is on.
- *
- * `today` is a parameter rather than read here, because the view already has it and a second clock read
- * would let the status facet and the cards beside it disagree about what "heute" means.
+ * `today` is a parameter rather than read here: a second clock read would let the status facet and
+ * the cards beside it disagree about what "heute" means.
  */
 export function buildSpielFacets({
   spiele,
@@ -62,8 +45,7 @@ export function buildSpielFacets({
     left.label.localeCompare(right.label, "de"),
   );
 
-  // The order the filter surface draws its sections in: a visitor arrives asking when, which round and
-  // whose match, and `ort` is the follow-up. The admin branch below reorders it for its own surface.
+  // The order the filter surface draws its sections in; the admin branch below reorders it.
   const facets: Facet<FLSpiel>[] = [
     {
       param: "status",
@@ -81,9 +63,8 @@ export function buildSpielFacets({
       param: "team",
       label: "Team",
       options: teams,
-      // Both sides, so picking one club finds every fixture it appears in. A slot with no occupant
-      // contributes nothing, which is what makes an unresolved knockout fixture absent from a club's
-      // filtered list rather than wrongly present in it.
+      // An unoccupied slot contributes nothing, which keeps an unresolved knockout fixture out of a
+      // club's filtered list rather than wrongly in it.
       read: (spiel) => [spiel.team1?.team_id, spiel.team2?.team_id].filter((id): id is string => id !== undefined),
     },
     {
@@ -103,18 +84,16 @@ export function buildSpielFacets({
       { value: "gewertet", label: "Gewertet" },
       { value: "offen", label: "Noch offen" },
     ],
-    // `ergebnis === null` is the same rule the action-required list's `ergebnis_pending` uses and the
-    // same one the rollover panel counts: a cancelled fixture WITH a result is a forfeit and counts as
-    // played.
+    // The rule `ergebnis_pending` and the rollover panel both use: a cancelled fixture WITH a
+    // result is a forfeit and counts as played.
     read: (spiel) => [spiel.ergebnis === null ? "offen" : "gewertet"],
   };
 
   const ansetzung: Facet<FLSpiel> = {
     param: "ansetzung",
     label: "Ansetzung",
-    // The negation leads: a narrow row clips the tail, and trailing "fehlt" left "Schiedsrichter
-    // fehlt" naming the Schiedsrichter facet. Not "Ohne" as the other facets use; `status`'s
-    // "Ohne Datum" excludes cancelled fixtures and `kein_datum` does not.
+    // The negation leads, a narrow row clipping the tail. Not "Ohne" as the other facets use:
+    // `status`'s "Ohne Datum" excludes cancelled fixtures and `kein_datum` does not.
     options: [
       { value: "kein_datum", label: "Kein Datum" },
       { value: "keine_uhrzeit", label: "Keine Uhrzeit" },
@@ -122,8 +101,8 @@ export function buildSpielFacets({
       { value: "kein_schiedsrichter", label: "Kein Schiedsrichter" },
       { value: "vollstaendig", label: "Vollständig" },
     ],
-    // Multi-value on purpose: a fixture missing three of the four matches three options, so picking any
-    // one of them finds it. `vollstaendig` is the absence of all four and therefore exclusive with them.
+    // Multi-value: a fixture missing three of the four matches three options. `vollstaendig` is the
+    // absence of all four and so exclusive with them.
     read: (spiel) => {
       const missing: string[] = [];
       if (spiel.datum === null) missing.push("kein_datum");
@@ -145,8 +124,7 @@ export function buildSpielFacets({
 
   const [status, phase, team, ort] = facets;
 
-  // The admin surface's own section order. `ansetzung` follows `status` because nothing else in the app
-  // finds an incomplete fixture, which is this list's job; `team` follows it for the reason it leads
-  // publicly. The tail carries no ranking.
+  // `ansetzung` follows `status` because nothing else in the app finds an incomplete fixture. The
+  // tail carries no ranking.
   return [status, ansetzung, team, phase, ort, ergebnis, schiedsrichter].filter((facet) => facet !== undefined);
 }

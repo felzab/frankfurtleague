@@ -1,19 +1,11 @@
-/**
- * DASHBOARD · navigation structure
- *
- * The public dashboard sidemenu, and the icon dictionary it is validated against. Kept in one file so
- * the two cannot disagree.
- */
-
 import { Calendar, ClockArrowRotateLeft, LayoutHeaderCells, Magnifier, Medal, Person, Persons } from "@gravity-ui/icons";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
 
 /**
- * The icon dictionary lives beside the structure it must agree with, and `DashboardIconName` is
- * derived from it — so an `iconName` typo below is a compile error instead of a nav item that
- * silently renders without an icon.
+ * `DashboardIconName` is derived from this, so an `iconName` typo below is a compile error rather
+ * than a nav item that silently renders without an icon.
  */
 export const DASHBOARD_SIDEMENU_ICONS = {
   Magnifier,
@@ -29,8 +21,7 @@ export type DashboardIconName = keyof typeof DASHBOARD_SIDEMENU_ICONS;
 
 /**
  * `label` is what the nav item and the shell's page title both read, and `hint` is what the info
- * glyph beside that title says — so a route's name and its explanation are declared once, together,
- * rather than at the top of whichever view happens to render it.
+ * glyph beside that title says — so a route's name and its explanation are declared once, together.
  */
 export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> = [
   {

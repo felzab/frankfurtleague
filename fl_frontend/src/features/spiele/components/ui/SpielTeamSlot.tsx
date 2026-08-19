@@ -8,25 +8,9 @@ import { formatQuelle } from "../../utils";
 import type { FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
 
 /**
- * One side of a fixture, as a match card renders it.
- *
- * A resolved side is its own text behind a `TeamPopoverMenu`. A side whose occupant the group phase
- * has not produced yet renders its derived source label — "Sieger 25.", "1. der Gruppe A" — as plain text and mounts no
- * popover at all: there is no team page and no squad to link to.
- *
- * **This is the one place the three cards get their DQ badge**, because it is the one place they mount
- * the popover. The side arrives carrying its season's `disqualifikation`, joined onto the match by the
- * backend rather than fetched here, so the badge costs this component no request.
- *
- * **The three `SpielCard` variants stay separate** and pass their own `text` and layout
- * classes. What is shared here is the branch whose copies would each be a crash rather than a
- * cosmetic difference if one drifted — dereferencing a side that is `null`.
- * `fl_frontend/src/features/spiele/components/modals/SpielDetailsModal.tsx :: TeamNameLine` mounts the
- * same popover from its own copy of that branch, because the modal sizes and places it differently and
- * has a dialog of its own to close on the way out.
- *
- * The interactive classes are added here rather than by the caller, because they belong to the
- * resolved branch alone: `hover:text-brand` on a label nothing opens is a promise the card cannot keep.
+ * What the three cards share here is the branch whose copies would each be a crash rather than a
+ * cosmetic difference — dereferencing a `null` side — plus the DQ badge. An unresolved side mounts
+ * no `TeamPopoverMenu`: no team page to link to.
  */
 export function SpielTeamSlot({
   team,
@@ -36,9 +20,9 @@ export function SpielTeamSlot({
 }: {
   team: FLSpielTeamFieldJoined | null;
   quelle: FLSpielQuelle | null;
-  /** What a RESOLVED side shows — the full name on the two wide cards, the shorthand on the bracket. */
+  /** The full name on the two wide cards, the shorthand on the bracket. */
   text: string;
-  /** Layout only: size, alignment, truncation. Interactive and muted styling is this component's. */
+  /** Layout only; interactive and muted styling is this component's. */
   className: string;
 }) {
   if (team === null) {

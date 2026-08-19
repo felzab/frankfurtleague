@@ -9,17 +9,8 @@ import { formButton, MODAL_FOOTER_ROW } from "@/shared/components/ui/formButtons
 import { FormModal } from "@/shared/components/ui/FormModal";
 
 /**
- * Edits the club's public description in a real text area.
- *
- * A modal over the editor rather than an inline input, because the description is a paragraph: a
- * one-line field showed forty characters of it and made the rest uneditable in any practical sense.
- * The modal edits a LOCAL copy and hands it back on Übernehmen. It writes nothing itself, so
- * closing it discards exactly what the admin has not applied, and the page's own save bar stays the
- * single place a change becomes real.
- *
- * **The text area grows to its content**, so the whole text is readable on open and while typing;
- * past the viewport the modal scrolls as a whole. Sized imperatively from `scrollHeight` rather
- * than with `field-sizing`, which the app's browser floor does not carry.
+ * Edits a LOCAL copy and hands it back on Übernehmen — it writes nothing, so the page's save bar
+ * stays the single place a change becomes real.
  */
 export function DescriptionEditModal({
   isOpen,
@@ -36,16 +27,15 @@ export function DescriptionEditModal({
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
   // Re-seeded on the open transition, as a render-phase adjustment rather than an effect: an open
-  // must start from what the form currently holds, and while the modal is open the draft is the
-  // admin's alone.
+  // must start from what the form holds, and while open the draft is the admin's alone.
   const [wasOpen, setWasOpen] = useState(isOpen);
   if (isOpen !== wasOpen) {
     setWasOpen(isOpen);
     if (isOpen) setDraft(value);
   }
 
-  // Grown to the content on open and on every edit. `auto` first, so the box can also SHRINK when
-  // text is deleted; the minimum stays with the class below.
+  // Sized from `scrollHeight` rather than with `field-sizing`, which the app's browser floor does
+  // not carry. `auto` first, so the box can also SHRINK when text is deleted.
   useEffect(() => {
     const element = textAreaRef.current;
     if (!isOpen || element === null) return;
@@ -79,8 +69,8 @@ export function DescriptionEditModal({
           </p>
         </div>
 
-        {/* The same footer band as `EntityForm`'s, from the same constant, so every modal draws the
-            same boundary between what you fill in and what you press. */}
+        {/* `EntityForm`'s footer band, from the same constant, so every modal draws one boundary
+            between what you fill in and what you press. */}
         <div className={MODAL_FOOTER_ROW}>
           <Button
             type="button"

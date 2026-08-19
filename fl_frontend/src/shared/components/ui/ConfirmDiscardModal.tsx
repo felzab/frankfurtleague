@@ -8,25 +8,8 @@ import { formButton, MODAL_FOOTER_STACK } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
 /**
- * "You have unsaved changes — leave anyway?"
- *
- * **Single-step, where `ConfirmDeleteModal` is two.** That difference is the whole design: a delete is
- * irreversible and its second step exists to make the admin stop, while a discard destroys only work
- * that is still on screen and that the admin has just asked to leave. Escalating it would be the
- * nagging this dialog exists to avoid, and a confirmation nobody reads is worse than none.
- *
- * **The loss carries the warning; the buttons follow the site's confirm pattern.** The count of
- * changes at stake is a warning-tinted chip, and the pair is one solid and one outline exactly as
- * `ConfirmDeleteModal` has them — the destructive action the dialog exists for is the primary,
- * the way back the secondary. Both stack full-width at every size — the
- * slim dialog cannot seat the two labels side by side, and a pair that stacks only sometimes reads
- * as two designs.
- *
- * **It appears only when there is something to lose.** Every caller gates it on a dirty draft, so an
- * admin who has changed nothing goes straight back and never sees this at all.
- *
- * `role="alertdialog"`, as the delete confirmation uses: a plain dialog is announced exactly like a
- * create form, so the loss never reaches a screen reader.
+ * **Single-step, where `ConfirmDeleteModal` is two**: a delete is irreversible, while a discard destroys only work
+ * still on screen that the admin has just asked to leave. Every caller gates it on a dirty draft.
  */
 export function ConfirmDiscardModal({
   isOpen,
@@ -49,7 +32,6 @@ export function ConfirmDiscardModal({
       size="confirm"
       role="alertdialog"
       icon={
-        // `/15` and `-strong`, the same pairing every warning callout uses.
         <div className="bg-warning/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
           <TriangleExclamation className="text-warning-strong size-5" />
         </div>
@@ -63,10 +45,8 @@ export function ConfirmDiscardModal({
           verloren.
         </p>
 
-        {/* One primary, one secondary — the same pair `ConfirmDeleteModal` and every two-button form
-            on the site use: the action the dialog exists for is the solid one, the way back is the
-            outline — two solid fills read as two primaries. The stacked band is what carries the
-            asymmetry, and it declares its own width (decided 2026-08-07). */}
+        {/* The action the dialog exists for is the solid one and the way back the outline; two solid fills read as
+            two primaries. The band declares its own width. */}
         <div className={`${MODAL_FOOTER_STACK} mt-6`}>
           <Button
             type="button"
@@ -76,8 +56,7 @@ export function ConfirmDiscardModal({
             <ArrowUturnCwLeft className="m-0 size-4.5 shrink-0" />
             Verwerfen
           </Button>
-          {/* "Weiter bearbeiten" rather than "Abbrechen": on a dialog whose subject IS cancelling
-              something, "Abbrechen" is genuinely ambiguous about which thing it cancels. */}
+          {/* "Weiter bearbeiten" rather than "Abbrechen", which on a dialog about cancelling is ambiguous about what it cancels. */}
           <Button
             type="button"
             variant="secondary"

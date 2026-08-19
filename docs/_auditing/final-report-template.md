@@ -1,24 +1,8 @@
-<!--
-TEMPLATE — copy everything below this block to docs/_auditing/reports/<yyyy-mm>-<surface>.md at
-programme close (`/audit:finish`), then fill it in; delete this block.
-Rules: the close phase is `docs/_auditing/programme.md` §1.5; the shape rules are
-`docs/_standard/chapters/1-core.md`.
-  - `<Angle-bracketed text>` is a placeholder to replace. Every other line copies verbatim, section
-    numbers and names included: a later report on the same surface is compared against this one
-    section by section.
-  - This report outlives `docs/audit/`, so no reference into that tree may carry substance. Cite the
-    ratified decisions, code and git history, which outlive the programme.
-  - The repository is public. A remediated finding is described in full, defect and fix alike. An
-    unremediated one is named only at a level an attacker cannot act on — the area and the fact that
-    work remains, never the reachable path, the missing guard or the payload. Its detail goes to a
-    private security advisory on this repository, the channel `SECURITY.md` names for exactly this,
-    and the report says it is tracked there without saying what it is.
-  - Completeness bar: every major change fully described, every minor change captured in at least
-    one bullet, and nothing that merged during the programme left unmentioned.
-  - Length is expected to be large; navigability matters more than brevity.
-  - This page carries no stamp (CUR-3): it is a record of a programme, not a description of current
-    state.
--->
+# Final report
+
+**Shape:** [`programme.md`](programme.md) §1.5. Copy the page below to
+`docs/audit/<yyyy-mm>-<surface>.md` and delete this heading and this line. It carries no stamp
+(CUR-3): a filed report describes one job at one commit rather than current state.
 
 # \<Surface\> audit and remediation — final report
 
@@ -41,7 +25,7 @@ installed stack versions at audit time\>\
 ## 1. What this programme was, and how it ran
 
 \<What was audited and why · one line per lens on what each pass looked for · the wave structure and
-the dependency reasoning behind its order. Enough that a reader understands the shape of the work
+the dependency reasoning behind its order — enough that a reader understands the shape of the work
 without the deleted working documents. Cite the method rather than restating it.\>
 
 ## 2. Outcome in numbers
@@ -52,11 +36,11 @@ without the deleted working documents. Cite the method rather than restating it.
 
 ### Compared with the previous programme on this surface
 
-\<A table against the most recent earlier report for this surface in `docs/_auditing/reports/`, or
-the sentence "first programme on this surface" if there is none. One row each, with its delta:
-findings by severity · the false-positive rate, which says whether the passes are getting more
-accurate · findings in classes an earlier programme's guardrail was supposed to have prevented ·
-hazards the risk pass reported as covered by no pass.
+\<A table against the most recent earlier report for this surface, or the sentence "first programme
+on this surface" if there is none. One row each, with its delta: findings by severity · the
+false-positive rate, which says whether the passes are getting more accurate · findings in classes an
+earlier programme's guardrail was supposed to have prevented · hazards the risk pass reported as
+covered by no pass.
 
 A programme should find less than the last one. Where it did not, say so plainly and give the
 reading: the surface grew, the lenses got sharper, or the guardrails are not holding.\>
@@ -72,8 +56,8 @@ measurement.
 Full sentences telling a story, not a changelog: the reader is me in a year, or someone meeting the
 project for the first time. Finding IDs appear in passing for greppability, never as a sentence's
 subject. Tables carry numbers and enumerations; prose carries every explanation. Any vocabulary the
-programme invented — wave names, row IDs, internal shorthand — is explained at first use or left out.
-The completeness bar applies hardest here.\>
+programme invented — wave names, row IDs, internal shorthand — is explained at first use or left
+out.\>
 
 ## 4. Decisions ratified
 
@@ -91,16 +75,15 @@ transferable catalogue rather than repeating it.\>
 
 \<Per wave, a compact bullet list covering **every** closed row not already described in section 3 —
 one bullet per row or tightly-related group, as `**<ID>** <what changed, in one line>`. A won't-fix
-row appears with its reason and its reversal trigger. This section is allowed to be long: it is the
-index a future reader greps.\>
+row appears with its reason and its reversal trigger. Allowed to be long: it is the index a future
+reader greps.\>
 
 ## 7. Left open
 
 \<Everything that survived the programme: open items with their analysis and their triggers ·
 accepted deviations with the recorded reasoning · anything that could not be verified, with the
 reason. **Each entry names where it is now tracked** — an item tracked only here is an item that is
-lost. An entry whose detail would be actionable by an attacker is one line naming the area and the
-private advisory it is tracked in, and nothing further.\>
+lost.\>
 
 ## 8. Verification state at close
 

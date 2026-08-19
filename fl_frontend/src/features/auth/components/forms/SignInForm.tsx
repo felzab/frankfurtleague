@@ -16,22 +16,19 @@ import type { FormState } from "@/shared/types/types";
 export function SignInForm() {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
-  // The action does not navigate, so this panel is what the user sees, and it says
-  // the same thing either way. `dismissedAt` is what lets "Andere Adresse verwenden"
-  // return the form: `useActionState` has no reset, so the panel is keyed on a pair.
+  // `useActionState` has no reset, so the panel is keyed on a pair: `dismissedAt` is what lets
+  // "Andere Adresse verwenden" return the form.
   const [dismissedAt, setDismissedAt] = useState<FormState | undefined>(undefined);
   const isSubmitted = state?.success === true && state !== dismissedAt;
 
   useEffect(() => {
     if (!state || state.success) return;
 
-    // A malformed address is shown at the field through `validationErrors` below, like every other
-    // form in the app. The toast is kept for failures that belong to no field.
+    // A malformed address shows at the field; the toast is for failures belonging to no field.
     if (hasFieldErrors(state.fieldErrors)) return;
 
-    // No "Schließen" action and no hand-set timeout: the close control is
-    // permanently visible on the frontmost toast, so a dismiss button
-    // duplicates it, and the duration follows the message length.
+    // No dismiss action and no hand-set timeout: the frontmost toast carries a close control, and
+    // the duration follows the message length.
     appToast.danger("Anmeldung fehlgeschlagen", {
       description: state.error ?? "Ein unerwarteter Fehler ist aufgetreten.",
     });
@@ -49,9 +46,8 @@ export function SignInForm() {
         <div className="border-border mb-8 h-[1px] w-full" />
 
         {isSubmitted ? (
-          /* Deliberately "falls diese Adresse freigegeben ist", never "wir haben
-             gesendet": the action answers identically either way, and a
-             confirmation naming a real outcome is the membership test again. */
+          /* Deliberately "falls diese Adresse freigegeben ist": the action answers identically
+             either way, and a confirmation naming a real outcome is the membership test again. */
           <div
             role="status"
             className="flex flex-col items-center gap-y-3 py-6 text-center">
@@ -65,8 +61,7 @@ export function SignInForm() {
             </p>
             <p className="fluid-xs text-foreground-muted">Der Link gilt 15 Minuten und lässt sich nur einmal verwenden.</p>
 
-            {/* Without this the only way back to the form was a page reload — the action does not
-                navigate any more, so nothing else resets the view. */}
+            {/* The action does not navigate, so without this the only way back is a page reload. */}
             <Button
               type="button"
               variant="secondary"
@@ -103,10 +98,8 @@ export function SignInForm() {
                 action={formAction}
                 validationErrors={state?.fieldErrors ?? {}}
                 className="flex flex-col gap-y-5">
-                {/* No `aria-label` on the field or the input: both outranked the visible <Label>, so
-                  the accessible name was "email" while the screen read "EMAIL-ADRESSE" — and a
-                  voice-control user saying the visible text matched nothing. `TextField`
-                  associates the label itself. */}
+                {/* No `aria-label` here: it outranks the visible `<Label>`, so the accessible name
+                  stopped matching the words a voice-control user reads. `TextField` associates it. */}
                 <TextField
                   className="flex w-full flex-col gap-y-2"
                   isRequired
@@ -153,8 +146,7 @@ export function SignInForm() {
                   isDisabled
                   type="submit"
                   variant="primary"
-                  // Same recipe as the Admin tab: the disabled look is the recipe's own
-                  // `disabled:opacity-50`, not a second hand-written "inert" appearance.
+                  // The disabled look is the recipe's own, not a second hand-written "inert" one.
                   className={formButton({ intent: "submit", fullWidth: true })}>
                   Link senden
                 </Button>

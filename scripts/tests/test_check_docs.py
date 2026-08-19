@@ -1,17 +1,12 @@
 """SCRIPTS · the documentation gate's fixture net
 
 Every check `scripts/check_docs.py :: CHECKS` registers is driven twice: it must report a planted
-violation and say nothing about a corpus with none. The gate takes no path argument, so the seam is
-a throwaway repository holding a copy of scripts/ — the checker's REPO_ROOT is derived from its own
-location, and a copy therefore roots it in the fixture with nothing rebound.
+violation and say nothing about a corpus with none. The seam is a throwaway repository holding a
+copy of scripts/, whose REPO_ROOT is derived from its own location and so roots there.
 
-Invariants:
-- Stdlib only. The type checker reads scripts/ with no environment declared, so an import it cannot
-  resolve is a gate failure rather than a missing package.
-- A planted violation never shares a line of THIS file with a hash or a triple quote, because the
-  gate reads a source file's comments and would otherwise find the plant here.
-See:
-- scripts/check_docs.py — the gate under test
+A planted violation never shares a line of THIS file with a hash or a triple quote: the gate reads
+a source file's comments and would otherwise find the plant here. Stdlib only, the type checker
+reading scripts/ with no environment declared.
 """
 
 from __future__ import annotations
@@ -53,6 +48,9 @@ SAMPLE: Final = "fl_backend/app/sample.py"
 SECOND_SAMPLE: Final = "fl_backend/app/second.py"
 THIRD_SAMPLE: Final = "fl_backend/app/spare.py"
 LABEL_SAMPLE: Final = "fl_backend/app/label.py"
+# The one C-style module in the corpus. A JSX comment opens with a brace, so no other fixture puts
+# that shape in front of the reader, and it is bounded as an inline comment rather than a symbol doc.
+TSX_SAMPLE: Final = "fl_frontend/src/sample.tsx"
 # A tracked path no ASCII listing can spell: without `git ls-files -z` it comes back quoted, resolves
 # to nothing, and drops out of the scan with whatever it carried.
 UMLAUT_MODULE: Final = "fl_backend/app/übersicht.py"
@@ -120,11 +118,8 @@ def _stamp() -> str:
 def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> dict[str, str]:
     """The clean corpus, keyed by repository path.
 
-    Two pages are derived from the checker's own constants: the currency chapter's table, which
-    `check-registry` compares against `CHECKS` name by name, and the pull request form, which
-    `template-fragment` compares against the body gate's quoted prose. A hand-written copy of
-    either would go stale the day a check or a fragment is added, and the fixture would then fail
-    for a reason that has nothing to do with the split it exists to prove.
+    The currency table and the pull request form derive from the checker's own constants; a
+    hand-written copy would fail the fixture the day a check is added.
     """
     rows = [
         "| `" + name + "` | The finding names it | " + verdict.capitalize() + " |"
@@ -210,9 +205,9 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             "",
             _heading(2, "2. Invariants"),
             "",
-            "| ID | Invariant | Why | Breaks how |",
-            "| --- | --- | --- | --- |",
-            "| I1 | The write path validates its input | Bad data is permanent | A malformed document is stored and read back later |",
+            "| ID | Invariant | Enforced by |",
+            "| --- | --- | --- |",
+            "| I1 | The write path validates its input | The sample module's own suite |",
             "",
             _heading(2, "3. Violation → remedy"),
             "",
@@ -239,9 +234,9 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             "",
             _heading(2, "2. Invariants"),
             "",
-            "| ID | Invariant | Why | Breaks how |",
-            "| --- | --- | --- | --- |",
-            "| I1 | A route names its own data | A shared name hides its source | The page renders a value nobody can trace |",
+            "| ID | Invariant | Enforced by |",
+            "| --- | --- | --- |",
+            "| I1 | A route names its own data | The route's own test |",
             "",
             _heading(2, "3. Violation → remedy"),
             "",
@@ -343,6 +338,7 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             _heading(2, "[Core rules](chapters/1-core.md)"),
             "",
             "- **COR-1:** write for a reader with no context.",
+            "- **COR-13:** a rule stated here alone still claims enforcement. _Enforced by_ review judgment.",
             "",
             _heading(2, "[Currency rules](chapters/5-currency.md)"),
             "",
@@ -430,6 +426,11 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             QUOTES + "BACKEND · a module whose own name no ASCII listing can spell." + QUOTES,
             "",
             "UMLAUT = 1",
+        ),
+        TSX_SAMPLE: _page(
+            "export function Sample() {",
+            "  return <output>a component the corpus scans</output>;",
+            "}",
         ),
         TOML_CONFIG: _page(
             "# A configuration file, scanned for its comments and nothing else.",
@@ -563,9 +564,8 @@ def _gate() -> Fixture:
 def _module(name: str) -> ModuleType:
     """One of the gate's own modules, from the copy inside the fixture repository.
 
-    The entry point re-exports the names the corpus cites and nothing else. A check reached only
-    from inside the package is reached by its own module here, rather than added to that list --
-    which would put a name in the shipped file that exists for a test.
+    Imported directly rather than widening the entry point's re-exports, which would put a name in
+    the shipped file that exists for a test.
     """
     module = importlib.import_module(name)
     assert Path(module.__file__ or "").resolve().is_relative_to(_gate().root), name + " is not the copy under test"
@@ -586,10 +586,8 @@ Reported = tuple[str, str, str]
 def _reported(output: str) -> Counter[Reported]:
     """Every finding the run printed, counted.
 
-    Read from the output rather than from the `Finding` objects, because what has to be proven is
-    that a check reaches a person: a check whose findings are built and dropped is the failure this
-    net exists to catch, and only the printed line shows the difference. `Finding.line` puts the file
-    first and the check last, so both halves of the triple come off the same line.
+    Read from the output, not the `Finding` objects: a check whose findings are built and dropped
+    is the failure this net exists to catch.
     """
     severity = ""
     seen: Counter[Reported] = Counter()
@@ -647,32 +645,24 @@ def _run() -> tuple[int, Counter[Reported]]:
 
 
 def _assert_corpus_restored() -> None:
-    """No case left the index carrying something the reset cannot reach. Once per run, not per case.
+    """No case left the index carrying something the reset cannot reach.
 
-    `git checkout HEAD -- .` reaches only paths HEAD knows and `git clean` skips whatever the index
-    tracks, so a plant that staged a NEW file would leave it on disk and in `git ls-files` -- part of
-    the corpus every case below it is measured against. One plant stages one, which is what makes
-    this assertion load-bearing rather than a written-down constraint, and it costs one process
-    against the forty a run already spends.
+    The reset reaches only paths HEAD knows, so a staged NEW file would survive into the corpus
+    later cases are measured against.
     """
     dirty = _git(_gate().root, "status", "--porcelain", "-uno")
     assert dirty == "", "a case left the index or the tree changed after the reset:\n" + dirty
 
 
 def _reset() -> None:
-    """The corpus as it was committed, with only `PRESERVED` left standing.
-
-    The index comes back to HEAD first, because a file a plant staged is tracked: `git clean` skips
-    it and `git checkout HEAD --` cannot reach a path HEAD never held, so it would survive as part
-    of the corpus every case after it is measured against. The pathspec form rewrites the index
-    alone and never the working tree, which the restore below then owns.
-
-    That restore names HEAD rather than the index: a bare `git checkout -- .` restores what is
-    STAGED, which would hand a plant's own edit to the cases after it, silently.
-    """
+    """The corpus as it was committed, with only `PRESERVED` left standing."""
     root = _gate().root
     excludes = [argument for name in PRESERVED for argument in ("-e", "/" + name)]
+    # A plant's staged file is tracked, so `git clean` skips it and the checkout below cannot reach
+    # a path HEAD never held: unstaging first is what keeps it out of every later case's corpus.
     _git(root, "reset", "-q", "HEAD", "--", ".")
+    # HEAD, not the index: a bare `git checkout -- .` restores what is STAGED, handing a plant's
+    # own edit to the cases after it, silently.
     _git(root, "checkout", "HEAD", "--", ".")
     _git(root, "clean", "-fdq", *excludes)
     # The twin only guards while it is untracked and outside the reset's reach. Moving it inside would
@@ -704,8 +694,7 @@ def _replace(rel: str, old: str, new: str, *, restamp: bool = False) -> None:
 def _stage(*rels: str) -> None:
     """A file a plant ADDED, put in the index so the gate reads it.
 
-    The corpus the gate resolves against is `git ls-files`, so a page written and left untracked is
-    a page no check sees and no citation resolves to. `_reset` unstages it again.
+    The gate resolves against `git ls-files`, so a page left untracked is one no check sees.
     """
     _git(_gate().root, "add", "--", *rels)
 
@@ -733,14 +722,14 @@ def _delete(rel: str) -> None:
 
 
 def _plant_rule_index() -> None:
-    """Both producers: a rule with no line in the index, and a rule taking two."""
+    """A rule with no line in the index, and a rule taking two."""
     _drop(RULES_INDEX, "- **COR-1:** write for a reader with no context.")
     _append(RULES_INDEX, "- **CUR-5:** every gate check takes a row in the currency chapter's table.")
 
 
 def _plant_rule_shapes() -> None:
-    """All three producers: fields out of shape, a rule with no table row, and a heading with no claim."""
-    _drop(CORE, "**Exceptions:** —")
+    """Fields out of shape, a rule with no table row, and a heading with no claim."""
+    _drop(CORE, "**Rule:** every page is understandable to a reader meeting the repository for the first time.")
     _drop(CORE, "| COR-1 | Write for a reader with no context |", restamp=True)
     _replace(
         CURRENCY,
@@ -751,42 +740,47 @@ def _plant_rule_shapes() -> None:
 
 
 def _plant_glossary() -> None:
-    """Both shape producers: fields that are not OUT-6's, and a heading that is not either."""
+    """Fields that are not OUT-6's, and a heading that is not either."""
     _replace(GLOSSARY, "**Trap:**", "**Pitfall:**")
     _replace(GLOSSARY, _heading(3, "`saison` — the competition year"), _heading(3, "saison, the competition year"), restamp=True)
 
 
 def _plant_invariant_rows() -> None:
-    """Three producers: a row stating no failure mode, a repeated id, and a row of the wrong width."""
+    """A repeated id, a foreign row among the invariants, and a row of the wrong width.
+
+    The width producer keeps a page to itself: it and the foreign-row arm both read a row's cells,
+    so sharing one would let either answer for the other.
+    """
     _replace(
         BACKEND_SPEC,
-        "| I1 | The write path validates its input | Bad data is permanent | A malformed document is stored and read back later |",
-        "| I1 | The write path validates its input | Bad data is permanent | See the runbook |\n"
-        "| I1 | A row repeating an id | A number is permanent | The reader cannot tell which rule is meant |",
+        "| I1 | The write path validates its input | The sample module's own suite |",
+        "| I1 | The write path validates its input | The sample module's own suite |\n"
+        "| I1 | A row repeating an id | The reader cannot tell which rule is meant |\n"
+        "| A malformed document | Delete it and post again |",
         restamp=True,
     )
     _replace(
         FRONTEND_SPEC,
-        "| I1 | A route names its own data | A shared name hides its source | The page renders a value nobody can trace |",
-        "| I1 | A route names its own data | The page renders a value nobody can trace |",
+        "| I1 | A route names its own data | The route's own test |",
+        "| I1 | A route names its own data |",
         restamp=True,
     )
 
 
 def _plant_overviews() -> None:
-    """Both spine producers: a page that does not close on OUT-5's heading, and one that does not open on it."""
+    """A page that does not close on OUT-5's heading, and one that does not open on it."""
     _replace(OVERVIEW, _heading(2, "Read next"), _heading(2, "Where next"), restamp=True)
     _replace(FRONTEND_OVERVIEW, _heading(2, "How it is organised"), _heading(2, "The shape of it"), restamp=True)
 
 
 def _plant_spec_spines() -> None:
-    """Both producers: sections that are not OUT-4's, and a contract numbered with a gap."""
+    """Sections that are not OUT-4's, and a contract numbered with a gap."""
     _replace(BACKEND_SPEC, _heading(2, "4. Known-open"), _heading(2, "4. Open questions"), restamp=True)
     _replace(FRONTEND_SPEC, _heading(3, "1.1 The route"), _heading(3, "1.2 The route"), restamp=True)
 
 
 def _plant_check_registry() -> None:
-    """Three producers: a row this gate does not emit, a check with no row, and a row at the wrong verdict."""
+    """A row this gate does not emit, a check with no row, and a row at the wrong verdict."""
     _append(CURRENCY, "| `not-a-check` | The finding names it | Fail |", restamp=True)
     _drop(CURRENCY, "| `unreadable` | The finding names it | Fail |")
     _replace(CURRENCY, "| `link` | The finding names it | Fail |", "| `link` | The finding names it | Report |")
@@ -795,9 +789,8 @@ def _plant_check_registry() -> None:
 def _plant_module_headers() -> None:
     """All of INC-2's shapes, one module per shape that excludes another.
 
-    The ruled line, the shouty row and the foreign label are arms of one chain, so only one of them
-    can fire about any given line: planted in one module they would share a file and a count, and
-    swapping two of them would move neither. A module apiece is what tells them apart.
+    They are arms of one chain, so only one fires about a given line: planted together they would
+    share a file and a count.
     """
     _replace(
         SAMPLE,
@@ -829,12 +822,10 @@ def _plant_module_headers() -> None:
 
 
 def _plant_roadmap() -> None:
-    """Every shape a ranked page can lose -- rows, entries, ranks, ids, a transient status -- and a subset on the tooling page.
+    """Every shape a ranked page can lose, and a subset on the tooling page.
 
-    The check reads a LOOP of ranked pages, and a plant confined to the product page cannot tell
-    that loop from a check stopping at the page it opens with: either reports the same findings.
-    The tooling page carries fewer of them, so a finding attributed to the wrong page is a
-    shortfall on one side and a surplus on the other rather than a wash.
+    A plant on the product page alone cannot tell the check's LOOP from one stopping at the first
+    page.
     """
     _replace(
         ROADMAP,
@@ -857,10 +848,10 @@ def _plant_segment_map() -> None:
 
 
 def _plant_crlf() -> None:
-    """Both an ASCII path and one outside it, because the finding carries the path git spelled.
+    """An ASCII path and one outside it, because the finding carries the path git spelled.
 
-    Without `ls-files -z` the second arrives octal-escaped inside quotes, and the finding then names
-    a file no checkout holds -- which reads as a defect in a page nobody can open.
+    Without `ls-files -z` the second arrives octal-escaped in quotes, so the finding names a file
+    no checkout holds.
     """
     root = _gate().root
     for rel in (NOTES, UMLAUT_MODULE):
@@ -873,14 +864,10 @@ def _plant_unreadable() -> None:
 
 
 def _plant_header_see() -> None:
-    """One dead path per shape of what FOLLOWS it, the token being the entry's first word.
+    """One dead path per shape of what FOLLOWS it.
 
-    The em dash is the template's spelling and carries the ordinary entry; the bare one has nothing
-    after the path at all, so a reader requiring a separator drops it; the colon is a separator no
-    list of dashes holds, with the path backticked so the strip is exercised; and the last carries
-    COR-6's anchor, which a dash reader takes whole and then drops for want of a suffix. Every path
-    is package-relative, the spelling `bare-path` and `path` each leave alone: written with a
-    top-level prefix each entry would fail twice and this case could not say which check spoke.
+    Every path is package-relative, which `bare-path` and `path` both leave alone: a top-level
+    prefix would fail each entry twice, and this case could not say which check spoke.
     """
     _replace(
         SAMPLE,
@@ -899,7 +886,7 @@ def _plant_header_see() -> None:
 
 
 def _plant_stamps() -> None:
-    """All three producers of `stamp`.
+    """Every producer of `stamp`.
 
     A page changed without restamping, a SHA this clone does not hold, and one it holds but cannot
     reach from HEAD -- the last being the only way to tell a dropped branch from a shallow clone.
@@ -911,11 +898,10 @@ def _plant_stamps() -> None:
 
 
 def _plant_rule_ids() -> None:
-    """All three producers: an unresolvable id, an id two chapters define, and an ambiguous invariant.
+    """An unresolvable id, an id two chapters define, and an ambiguous invariant.
 
-    The extra chapter is staged, because `rule_ids` reads the TRACKED chapters: written and left
-    untracked it gives COR-1 one home and this case proves nothing. Staged, it is also scanned in
-    its own right, which is why it carries a stamp, PRE-4's whole anatomy and no COR-4 count word.
+    The extra chapter is staged because `rule_ids` reads the TRACKED chapters; staged, it is also
+    scanned in its own right, hence its stamp and PRE-4's anatomy.
     """
     _append(NOTES, "A claim citing COR-99.")
     _append(SAMPLE, HASH + " a bare I1 with no sheet named")
@@ -950,29 +936,28 @@ def _plant_rule_ids() -> None:
 
 
 def _plant_branch_scope() -> None:
-    """A clone with no base ref at all, which is what a fork and a trimmed checkout both look like.
+    """A clone with no base ref, as a fork and a trimmed checkout both are.
 
-    The branch is renamed rather than the history rewritten: HEAD keeps its ancestors, so every
-    stamp still resolves and this case's findings are the advisory alone. Undone by
-    `_undo_branch_scope`, because the reset restores files rather than refs.
+    Renamed rather than rewritten: HEAD keeps its ancestors, so every stamp still resolves and the
+    findings are the advisory alone.
     """
     _git(_gate().root, "branch", "-m", "main", "trunk")
 
 
 def _undo_branch_scope() -> None:
+    """The reset restores files, never refs."""
     _git(_gate().root, "branch", "-m", "trunk", "main")
 
 
 def _plant_bare_paths() -> None:
     """A dead unbackticked path in every comment reader the gate owns, one path per file.
 
-    Distinct paths, because `check_bare_paths` iterates a SET of matched tokens: the same text twice
-    is one element and one finding, so a reader that stopped working would not move the count. The
-    three configuration formats are here rather than in the clean corpus because what has to be
-    proven is that they are scanned at all, which only a finding can show.
+    Distinct paths, because `check_bare_paths` iterates a SET: repeated text is one finding, so a
+    reader that stopped would not move the count.
     """
     _append(SAMPLE, HASH + " resolves nowhere: docs/gone.md")
     _append(UMLAUT_MODULE, HASH + " resolves nowhere: docs/gone-in-a-umlaut.md")
+    # A configuration format is planted rather than left clean: only a finding proves it is scanned.
     _append(TOML_CONFIG, HASH + " a path that resolves nowhere: docs/gone-in-toml.md")
     _append(YAML_CONFIG, HASH + " a path that resolves nowhere: docs/gone-in-yaml.md")
     _append(CONF_FILE, HASH + " a path that resolves nowhere: docs/gone-in-conf.md")
@@ -988,9 +973,8 @@ def _plant_bare_paths() -> None:
 def _plant_history() -> None:
     """COR-3's banned shape where a marker rule cannot see it: inside a module's docstring.
 
-    A docstring opens with a quote rather than a comment marker, so reading the diff's line
-    prefixes drops it and the check reports a clean branch. Markdown's half of the same reader is
-    pinned by the `counts` case, whose plant is a page's prose.
+    A docstring opens with a quote, not a comment marker, so a reader of the diff's line prefixes
+    drops it and reports a clean branch.
     """
     _replace(
         SECOND_SAMPLE,
@@ -1004,8 +988,18 @@ def _plant_history() -> None:
     )
 
 
+def _plant_enforced_by() -> None:
+    """PRE-4's enforcement claim wherever a rule states one: a chapter, and the index.
+
+    A rule with no chapter section claims enforcement in the index alone, so a chapter-only plant
+    would pass with every line-only claim unresolved.
+    """
+    _replace(CORE, "`citation` and `path`", "`no-such-check`", restamp=True)
+    _replace(RULES_INDEX, "_Enforced by_ review judgment.", "_Enforced by_ gate check `absent-check`.")
+
+
 def _plant_counts() -> None:
-    """COR-4's enumerations in both halves of the reader: a page's prose, and a module's docstring.
+    """COR-4's enumerations in each half of the reader: a page's prose, and a module's docstring.
 
     Two files, because this check reports per file -- which is what separates the docstring half
     from the markdown half when either stops being read.
@@ -1024,25 +1018,20 @@ def _plant_counts() -> None:
 
 
 def _plant_line_citations() -> None:
-    """Both spellings COR-6 bans: the backticked citation, and the bare one a comment reaches for.
+    """The spellings COR-6 bans: the backticked citation, and the bare one a comment reaches for.
 
-    Different paths, for the same set reason -- the two regexes feed one producer through a union,
-    so identical text collapses to a single finding and either half could stop matching unnoticed.
+    Different paths, because the two patterns feed one producer: identical text would collapse to
+    one finding.
     """
     _append(NOTES, "`docs/notes.md:12` points at a line.")
     _append(SAMPLE, HASH + " see docs/glossary.md:7 for the shape")
 
 
 def _plant_metadata_breaks() -> None:
-    """Each producer on a page of its own: the absent break, and a joined pair written either way.
+    """Each producer on a page of its own: the absent break, and a joined pair.
 
-    A join is spelled as the characters `\\` and `n`, or as no separator at all, and the arms are
-    planted on separate pages because they share a check, a severity and a wording: planted on one
-    page they would share a count too, and an arm that stopped matching would move neither.
-
-    The line that must stay SILENT is in the clean corpus rather than here -- labels parted by a
-    visible separator, which is an audit report's header and not a defect. It guards the abutting
-    arm's lookbehind, so it has to be read on every run rather than on this case's alone.
+    The line that must stay SILENT sits in the clean corpus, so the abutting arm's lookbehind is
+    guarded on every run.
     """
     _append(NOTES, "**Scope:** the gate", "**Purpose:** a planted block")
     _replace(CORE, "\\\n**Applies to:**", "\\n**Applies to:**")
@@ -1050,19 +1039,10 @@ def _plant_metadata_breaks() -> None:
 
 
 def _plant_citations() -> None:
-    """Each of `_check_citation`'s branches, in a page of its own so the triples separate them.
+    """Each branch of `_check_citation` in its own page, so the triples separate them.
 
-    The branches return one at a time, so a citation exercises exactly one, and every branch names
-    the CITING page -- which is why a branch that stops answering is caught only where its input
-    then reaches no sibling. Two of the five are written so that it does not:
-
-    - the empty ANCHOR resolves its file and finds the anchor present, so the malformed guard is
-      the only thing between it and silence;
-    - the ambiguous name's first match carries the anchor, so dropping that guard leaves nothing to
-      report rather than an anchor finding wearing the same triple.
-
-    The empty FILE part stays beside the empty anchor, in one page, because it exercises the other
-    half of the same guard: a count of two is what separates them.
+    A branch that stops answering is caught only where its input reaches no sibling branch -- hence
+    the empty anchor and the ambiguous name.
     """
     _append(ROADMAP, "A citation naming nothing: `  ::  x`.")
     _append(ROADMAP, "A citation with no anchor: `docs/notes.md ::  `.")
@@ -1073,13 +1053,13 @@ def _plant_citations() -> None:
 
 
 def _plant_anchors() -> None:
-    """Both producers: a fragment this page does not yield, and one another page does not."""
+    """A fragment this page does not yield, and one another page does not."""
     _append(NOTES, "[here](#nowhere)")
     _append(ROADMAP, "[there](../notes.md#nowhere-either)")
 
 
 def _plant_stamp_formats() -> None:
-    """Both producers: a stamp that is not CUR-3's shape, and one that is but sits off line 3.
+    """A stamp that is not CUR-3's shape, and one that is but sits off line 3.
 
     The page that moves its stamp is restamped as well, because a page changed with its stamp line
     untouched is `stamp`'s finding rather than this one.
@@ -1089,22 +1069,33 @@ def _plant_stamp_formats() -> None:
 
 
 def _plant_comment_bounds() -> None:
-    """Both of INC-9's bounds, one block each: the line cap alone, and the character cap alone.
+    """Each of INC-9's bounds against each of its shapes, one file apiece.
 
-    Two blocks rather than one breaching both, because a block over both bounds proves neither of
-    them separately -- lifting either cap would leave the other still firing, and the case would
-    stay green with half the rule deleted.
+    A block over both proves neither: lifting one cap leaves the other firing, and the case stays
+    green with half the rule gone.
     """
     _append(SAMPLE, *[HASH + " a line of a block that runs past what a comment may hold" for _ in range(4)])
-    # One line, so nothing but the character bound can be what fires on the second block.
+    # One line, so nothing but the character bound can fire on this block.
     _append(SECOND_SAMPLE, HASH + " " + ("a clause that carries the block past the character bound " * 5))
+    _append(THIRD_SAMPLE, QUOTES + "a docstring summary line", "", *["a line of its prose"] * 4, QUOTES)
+    # Inside the line cap a symbol doc is given, so only the character bound reaches it.
+    _append(LABEL_SAMPLE, QUOTES + ("a docstring clause carrying the block past the character bound " * 5) + QUOTES)
+    # Past the inline cap and inside the symbol doc's, so a JSX block routed through the doc path
+    # stays silent here -- which is the whole of what this shape has to prove.
+    _append(
+        TSX_SAMPLE,
+        "{/* a jsx block long enough to pass the cap an inline comment takes",
+        "    with room to spare under the cap a symbol doc is given",
+        "    and well inside what a comment may hold in characters",
+        "    so the cap it was measured against is the visible thing */}",
+    )
 
 
 def _plant_comment_citations() -> None:
-    """All four shapes INC-6 governs: the two that fail, and the two it only reports.
+    """Every shape INC-6 governs: those that fail, and those it only reports.
 
-    The ledger row goes in the module beside the sample, because it and the audit id are the two
-    failing producers and a swap between them would otherwise move neither the file nor the count.
+    The ledger row goes beside the sample, because a swap with the audit id would move neither the
+    file nor the count.
     """
     _append(
         SAMPLE,
@@ -1128,8 +1119,8 @@ def _reports(check: str, *files: str) -> tuple[Reported, ...]:
 class Case:
     """One check, the violation planted for it, and every finding that plant is allowed to raise.
 
-    `expected` is counted, not a set: a check with two producers declares both, and silencing either
-    one is then a shortfall rather than a set that still compares equal.
+    `expected` is counted, not a set: silencing one producer is a shortfall rather than a set that
+    still compares equal.
     """
 
     check: str
@@ -1156,9 +1147,9 @@ CASES: Final[tuple[Case, ...]] = (
         _fails("comment-citation", SAMPLE, SECOND_SAMPLE) + _reports("comment-citation", SAMPLE, SAMPLE),
         _plant_comment_citations,
     ),
-    Case("comment-length", _fails("comment-length", SAMPLE, SECOND_SAMPLE), _plant_comment_bounds),
+    Case("comment-length", _fails("comment-length", SAMPLE, SECOND_SAMPLE, THIRD_SAMPLE, LABEL_SAMPLE, TSX_SAMPLE), _plant_comment_bounds),
     Case("counts", _reports("counts", NOTES, SAMPLE), _plant_counts),
-    Case("enforced-by", _fails("enforced-by", CORE), lambda: _replace(CORE, "`citation` and `path`", "`no-such-check`", restamp=True)),
+    Case("enforced-by", _fails("enforced-by", CORE, RULES_INDEX), _plant_enforced_by),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
     Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
     Case("history", _reports("history", BRANCH_DIFF), _plant_history),
@@ -1203,11 +1194,10 @@ CASES: Final[tuple[Case, ...]] = (
 
 
 def _mismatches(cases: Iterable[Case]) -> list[str]:
-    """One line per case that did not report exactly what it declares, empty where every case did.
+    """One line per case that did not report exactly what it declares.
 
-    Each case is caught on its own. `_replace`, `_git` and `_reported` all raise on a corpus that has
-    drifted, and an escaping exception would end the loop -- leaving every case below it unreported
-    on precisely the run whose whole job is to say which checks still work.
+    A case that raises is caught on its own: an escaping exception would end the loop, leaving
+    every case below it unreported.
     """
     wrong: list[str] = []
     for case in cases:
@@ -1243,8 +1233,8 @@ def test_the_clean_corpus_is_silent() -> None:
 def test_every_registered_check_and_verdict_has_a_plant() -> None:
     """A check added without a case here would be registered, unexercised, and look covered.
 
-    The verdicts are held to as well as the names, because two checks report at one severity and
-    fail at another: covering only the name would leave whichever half is rarer unproven.
+    The verdicts are held to as well as the names: a check that reports and fails would leave the
+    rarer half unproven.
     """
     checks: dict[str, frozenset[str]] = _gate().gate.CHECKS
     assert {case.check for case in CASES} == set(checks)
@@ -1263,10 +1253,8 @@ def test_every_check_reports_its_planted_violation() -> None:
 def test_a_check_naming_one_page_reads_the_tracked_one() -> None:
     """A check that names a fixed page resolves it through the corpus, not off disk.
 
-    Driven directly rather than through a plant, because a `Case` declares every finding its plant
-    raises and this input silences the glossary's other producers by returning first. The page is
-    left on disk and taken out of the index, which is a page written and never `git add`ed: read
-    off disk it satisfies its own check and `inputs` with it, and a clean checkout has neither.
+    Driven directly: this input silences the glossary's other producers by returning first, and a
+    `Case` declares every finding.
     """
     _reset()
     _git(_gate().root, "rm", "--cached", "-q", "--", GLOSSARY)
@@ -1281,11 +1269,8 @@ def test_a_check_naming_one_page_reads_the_tracked_one() -> None:
 def test_an_untracked_ranked_page_is_read_as_a_page_nobody_added() -> None:
     """A ranked roadmap page on disk and outside the index fails, rather than passing unexamined.
 
-    Driven directly rather than through a plant, because this producer and the shape producers
-    exclude each other: the page the shape checks read is selected from the tracked corpus, so a
-    page taken out of the index yields no shape finding at all and could not share that case's
-    plant. Untracked, it also satisfies `inputs`, which asks the disk -- which leaves this the one
-    thing between a page nobody `git add`ed and a run that is green on every check of it.
+    Driven directly: a page out of the index yields no shape finding to share a case with, and
+    satisfies `inputs`, which asks the disk.
     """
     _reset()
     _git(_gate().root, "rm", "--cached", "-q", "--", TOOLING_ROADMAP)
@@ -1298,12 +1283,10 @@ def test_an_untracked_ranked_page_is_read_as_a_page_nobody_added() -> None:
 
 
 def test_the_comment_bounds_read_a_file_by_its_format_not_its_suffix() -> None:
-    """INC-9's bounds are measured through the reader the FORMAT needs, never through `path.suffix`.
+    """INC-9's bounds are measured through the reader the FORMAT needs, not `path.suffix`.
 
-    Driven directly rather than through a plant, because no corpus file can separate the two: every
-    path that reaches the bounds today carries a suffix its reader is named after. A Dockerfile and
-    every dotfile carry none, and read for a C-style marker they yield no block at all -- so the
-    check would run, report nothing, and look wired. This is the one input that tells them apart.
+    No corpus file separates the two: a suffixless path read for a C-style marker yields no block,
+    so the check would run, report nothing, and look wired.
     """
     block = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(4)]
     # A first line that opens no comment: a leading run of hashes is the module header, which INC-2
@@ -1315,10 +1298,10 @@ def test_the_comment_bounds_read_a_file_by_its_format_not_its_suffix() -> None:
 
 
 def _select(names: list[str]) -> int:
-    """Run the cases named on the command line, or all of them. The `-k` the loop cannot offer.
+    """Run the cases named on the command line, or all of them: the `-k` the loop cannot offer.
 
-    Re-testing one check through pytest costs the whole loop, which is long enough that the net stops
-    being reached for while a check is being worked on. Named here, one case is a second and a half.
+    Re-testing one check through pytest costs the whole loop, long enough that the net stops being
+    reached for while a check is worked on.
     """
     known = {case.check for case in CASES}
     if unknown := sorted(set(names) - known):

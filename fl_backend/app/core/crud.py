@@ -1,19 +1,3 @@
-"""
-CORE · database access helpers
-
-Every document write goes through one of these functions, which is what keeps session and
-transaction handling in one place. A read they cannot express — a count, or a `find_one` that needs
-the caller's session, which `pull_one_from_db` does not take — calls Motor in the handler instead.
-
-Invariants:
-- `patch_one_in_db` returns the document as it was before the update (`ReturnDocument.BEFORE`).
-- The read helpers cap results at 1024 documents; a pipeline carries its own `$limit`.
-- A read inside a transaction takes that transaction's session, or it sees the pre-write snapshot.
-
-See:
-- docs/backend/spec.md — invariant I2
-"""
-
 from typing import Any, Mapping, Sequence
 
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
@@ -60,6 +44,7 @@ async def patch_one_in_db(
     session: AsyncIOMotorClientSession | None = None,
     return_document: bool = ReturnDocument.BEFORE,
 ) -> Mapping[str, Any] | None:
+    """Returns the PRE-write document by default (`docs/backend/spec.md :: I2`), or `None` on a miss."""
 
     return await collection.find_one_and_update(filter=filter, update=update, session=session, return_document=return_document)
 

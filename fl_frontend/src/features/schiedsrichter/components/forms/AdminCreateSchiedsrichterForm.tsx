@@ -18,9 +18,8 @@ const EMPTY_DRAFT: SchiedsrichterDraft = {
 };
 
 /**
- * `onCreated` receives the finished record — see the note on `AdminCreateSpielortForm`, which needs it
- * for the same reason: the match editor selects what it just created, and its picker's list still comes
- * from the last server render.
+ * `onCreated` hands back the finished record: the match editor selects what it just created, and
+ * its picker's list still comes from the last server render.
  */
 export function AdminCreateSchiedsrichterForm({
   onClose,
@@ -46,7 +45,6 @@ export function AdminCreateSchiedsrichterForm({
           default_payment: draft.default_payment,
           kontakt,
         });
-        // A create only counts if the backend actually handed back an id.
         const success = res.success && !!res.created_id;
 
         if (success && res.created_id) {

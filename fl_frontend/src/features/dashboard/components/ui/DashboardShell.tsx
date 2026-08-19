@@ -6,9 +6,7 @@ import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import type React from "react";
 
 /**
- * The dashboard shell: the app's chrome, wired to the public dashboard navigation.
- *
- * **No `onSignOut`, and that absence is the switch** — these routes are behind no session, so the
+ * No `onSignOut`, and that absence is the switch: these routes are behind no session, so the
  * footer's options menu renders the theme control and nothing else.
  */
 export function DashboardShell({ saisonMetadataDisplay, children }: { saisonMetadataDisplay: React.ReactNode; children: React.ReactNode }) {
@@ -18,9 +16,8 @@ export function DashboardShell({ saisonMetadataDisplay, children }: { saisonMeta
       linkPrefix="/dashboard"
       iconDictionary={DASHBOARD_SIDEMENU_ICONS}
       saisonMetadataDisplay={saisonMetadataDisplay}
-      // What the bar reads on the two detail routes — `/dashboard/teams/<id>` and
-      // `/dashboard/spieler/<id>` resolve to their section, so this is reached only by
-      // `/dashboard` itself, which has no page of its own and redirects.
+      // Reached only by `/dashboard` itself, which has no page and redirects: the detail routes
+      // resolve to their own section.
       fallbackTitle="Saisonübersicht">
       {children}
     </AppShell>

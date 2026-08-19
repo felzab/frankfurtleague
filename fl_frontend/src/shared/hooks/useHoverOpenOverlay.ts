@@ -1,26 +1,10 @@
 "use client";
 
-/**
- * SHARED · hover-opened overlay
- *
- * Open-state for an overlay that opens on hover as well as on press, for the two surfaces needing
- * both: `InfoHint` and `DisabledHint`. React Aria's tooltip covers hover and focus but deliberately
- * never a tap, so both are built on a popover and this adds the hover half.
- *
- * Invariants:
- * - Hover closes on pointer POSITION, never on an enter/leave pair. Whatever the overlay machinery
- *   puts under the cursor while opening steals the hover and fires a leave, and a leave-driven close
- *   re-fires an enter — the oscillation two earlier attempts hit.
- * - The two elements are state, not refs, so the listener is re-subscribed when either changes
- *   rather than reading whatever a ref happened to hold; the extra render lands on a panel that has
- *   just opened anyway.
- * - The effect's cleanup is the whole lifecycle: re-arm, unmount and press-open all fall out of it.
- */
 import { useEffect, useState } from "react";
 
 import type { MouseEvent as ReactMouseEvent } from "react";
 
-/** Pointer slack around the trigger and the dialog — wide enough to cross the 8px gap between them. */
+/** Pointer slack around the trigger and the dialog — wide enough to cross the gap between them. */
 const HOVER_SLACK_PX = 12;
 
 const isNear = (el: HTMLElement | null, x: number, y: number): boolean => {
@@ -29,6 +13,10 @@ const isNear = (el: HTMLElement | null, x: number, y: number): boolean => {
   return x >= r.left - HOVER_SLACK_PX && x <= r.right + HOVER_SLACK_PX && y >= r.top - HOVER_SLACK_PX && y <= r.bottom + HOVER_SLACK_PX;
 };
 
+/**
+ * The hover half of an overlay that also opens on press, react-aria's tooltip never opening on a tap. **Hover closes on
+ * pointer position, never on an enter/leave pair**: the opening panel steals the hover, and a leave-close re-enters.
+ */
 export function useHoverOpenOverlay(): {
   isOpen: boolean;
   /** Goes to the popover root's `onOpenChange`, so a press, Escape and a light dismiss all land here. */

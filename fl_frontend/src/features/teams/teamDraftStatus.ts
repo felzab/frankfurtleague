@@ -1,17 +1,3 @@
-/**
- * TEAMS · what the club editor's draft has changed and got wrong
- *
- * One derivation over one club's draft, read by everything on the edit page that says something
- * about a field: label markers, change list, unsaved count, action bar, navigation guard. Pure,
- * so it is tested rather than clicked; the match editor's `draftStatus.ts` is the pattern, minus
- * the "expected" half — a club has no action-required categories.
- *
- * Invariants:
- * - `path` is the payloads' dotted path AND the input `name`, `FieldErrors` key and anchor id.
- * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
- * - Membership rows participate only while the club is IN the selected season.
- */
-
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLAddress } from "@/shared/schemas";
@@ -19,9 +5,8 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLDisqualifikation, FLGruppenNames } from "./schemas";
 
 /**
- * The fields the club editor owns, widened to what a draft holds mid-edit: `gruppe` may be null
- * while the enter-a-season picker is untouched, and `membership` is null while the club is not in
- * the selected season at all.
+ * Widened to what a draft holds mid-edit: `gruppe` is null while the enter-a-season picker is
+ * untouched, `membership` while the club is not in the selected season at all.
  */
 export type FLTeamDraftFields = {
   name: string;
@@ -57,6 +42,7 @@ export type FLTeamDraftStatus = {
 };
 
 type FieldDescriptor = {
+  /** The payloads' dotted path AND the input `name`, `FieldErrors` key and anchor id. */
   path: string;
   label: string;
   group: FLTeamFieldGroup;
@@ -70,12 +56,10 @@ type FieldDescriptor = {
 const emptyAsNull = (value: string): string | null => (value.trim() === "" ? null : value);
 
 /**
- * Every field the club editor can change, in the order the change list reads them.
+ * `read` returns DISPLAY text that doubles as the comparison key: every field formats to a string
+ * that changes exactly when the value does.
  *
- * Each `read` returns the DISPLAY text, which doubles as the comparison key: every club field is a
- * string, and the two membership fields format to strings that change exactly when the value does —
- * so one function serves `hasChanged`, `storedText` and `draftText`, where the match editor needed
- * three.
+ * A field with no row here is invisible to the whole edit page.
  */
 const FIELD_DESCRIPTORS: readonly FieldDescriptor[] = [
   { path: "name", label: "Name", group: "Team", read: (source) => emptyAsNull(source.name) },
@@ -103,7 +87,6 @@ const FIELD_DESCRIPTORS: readonly FieldDescriptor[] = [
     read: (source) => {
       const record = source.membership?.disqualifikation ?? null;
       if (record === null) return null;
-      // The date through the app's one date formatter, so the change row reads like every card.
       // An empty grund still renders a row — the mid-edit state the schema rejects on save.
       return `${record.grund || "Kein Grund"} (ab ${formatSpielDatum(record.datum)})`;
     },

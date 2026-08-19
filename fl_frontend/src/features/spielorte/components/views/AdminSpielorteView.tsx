@@ -11,11 +11,6 @@ import type { FLSpielort } from "@/features/spielorte/schemas";
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
 const SEARCH_KEYS = ["name", "address.plz", "address.strasse", "address.stadtteil"] as const;
 
-/**
- * `renderEditModal` is deliberately not passed: the venue form edits on a page at
- * `/admin/spielorte/[spielort_id]`, so the table's pencil is a `<Link>` and the shared
- * view renders no edit overlay — the arrangement Teams and Spieler already have.
- */
 export function AdminSpielorteView({ spielorte }: { spielorte: FLSpielort[] }) {
   return (
     <AdminCrudView<FLSpielort>

@@ -1,14 +1,3 @@
-/**
- * SCHIEDSRICHTER · models
- *
- * Mirrors `fl_backend/app/api/schiedsrichter/schemas.py`.
- *
- * `default_payment` here is the referee's standard fee; the `payment` embedded on a Spiel is what was
- * agreed for that match. Changing the default does not, and should not, rewrite past matches.
- *
- * German error messages: these schemas back admin form inputs directly.
- */
-
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
@@ -42,6 +31,8 @@ export const FLSchiedsrichterSchema = z.object({
 
   name: z.string().nonempty(),
   schule: z.string().nullable(),
+  // The standard fee. A Spiel's embedded `payment` is what was agreed for that match, and changing
+  // this never rewrites it.
   default_payment: z.int().nonnegative(),
   kontakt: FLKontaktSchema,
   // The day the referee was retired, null while they officiate. Deactivation goes through

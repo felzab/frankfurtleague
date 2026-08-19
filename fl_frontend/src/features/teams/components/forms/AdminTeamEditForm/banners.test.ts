@@ -1,11 +1,3 @@
-/**
- * TEAMS · club editor banner tests
- *
- * What nothing else can catch: a gate that never fires leaves no trace on the page and no failure
- * anywhere else. So each situation this editor raises — and each one it must stay quiet about — is
- * asserted against the list `buildTeamBanners` returns.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -36,8 +28,8 @@ describe("buildTeamBanners", () => {
   it("names the season the club is missing from, in the title", () => {
     const [banner] = build({ isMember: false });
 
-    // Pinned by id as well, so the title below is asserted against a named banner rather than
-    // against whichever one the builder happens to push first.
+    // Pinned by id, so the title below is asserted against a named banner rather than whichever one
+    // the builder happens to push first.
     assert.equal(banner?.id, "team.not-in-saison-future");
     assert.match(banner?.title ?? "", /Saison 2026/);
   });

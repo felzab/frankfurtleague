@@ -15,7 +15,6 @@ export function AdminDeleteSchiedsrichterModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  // Retained, not early-returned: unmounting on close skips the exit transition.
   const schiedsrichter = useRetainedValue(schiedsrichterData);
 
   if (!schiedsrichter) return null;

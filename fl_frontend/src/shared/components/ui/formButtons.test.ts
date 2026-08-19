@@ -1,22 +1,3 @@
-/**
- * SHARED · what decides a button's box
- *
- * Three of this recipe's properties are settled by `@heroui/styles/components/button.css` rather than
- * by anything written here, and all three are invisible to the toolchain: `.button` fixes a height, it
- * scales on press, and it does both from `@layer components`, where a plain utility outranks it. A
- * recipe that omits the competing utility compiles, lints, builds and ships the vendored value — a
- * 36px control whose `py-*` never reaches the layout, and a press the app never asked for.
- *
- * So the recipe is asserted against the compiled stylesheet: that the vendored rule is still there to
- * be beaten, that the recipe still emits something that beats it, and that the layer order is still
- * what makes it win. The reduced-motion escape is asserted for the same reason — it lives unlayered in
- * `globals.css` and matches the press by class NAME, so a variant added in front of that class is a
- * silent regression for exactly the readers it exists for.
- *
- * The source guard is the fourth: every button raised over a page goes through the recipe, because a
- * call site spelling its own classes is how the family came apart in the first place.
- */
-
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -39,9 +20,8 @@ const compiled = (async (): Promise<Root> => {
 const classesOf = (emitted: string): ReadonlySet<string> => new Set(emitted.split(/\s+/).filter(Boolean));
 
 /**
- * Every button either recipe can render, one entry per class list an element actually receives —
- * asserted separately rather than as a union, because a union is satisfied by whichever variant still
- * happens to carry the property and says nothing about the one that dropped it.
+ * One entry per class list an element actually receives, asserted separately rather than as a union: a union is
+ * satisfied by whichever variant still carries the property and says nothing about the one that dropped it.
  */
 const VARIANTS: { name: string; classes: ReadonlySet<string> }[] = [
   ...(["submit", "cancel", "destructive", "trigger"] as const).flatMap((intent) => [
@@ -74,9 +54,8 @@ const BARE_CLASS = /^\.((?:\\.|[^\\.:[\s>+~])+)$/;
 const unescape = (selector: string): string => selector.replace(/\\(.)/g, "$1");
 
 /**
- * A rule's selectors with every ancestor folded in. Tailwind emits nested CSS verbatim, so the rule
- * carrying HeroUI's press transform reads `&:active, &[data-pressed="true"]` and says nothing about
- * `.button` until its parent is resolved into it.
+ * A rule's selectors with every ancestor folded in. Tailwind emits nested CSS verbatim, so HeroUI's press rule
+ * reads `&:active, &[data-pressed="true"]` and says nothing about `.button` until its parent resolves into it.
  */
 function selectorsOf(rule: Rule): string[] {
   const chain: Rule[] = [];
@@ -94,7 +73,6 @@ function selectorsOf(rule: Rule): string[] {
   );
 }
 
-/** Where a property is declared unconditionally for any class in `classes`. */
 function declaredUnconditionally(root: Root, classes: ReadonlySet<string>, prop: string): { value: string; layer: string | null }[] {
   const found: { value: string; layer: string | null }[] = [];
 
@@ -180,9 +158,8 @@ describe("the press HeroUI scales and the recipe has to suppress", () => {
   it("finds the layer order that lets the cancellation outrank it", async () => {
     const root = await compiled;
 
-    // Layer order is compared before specificity, so this statement is the whole of why utilities wins.
-    // The file opens with a second, unrelated statement (`@layer properties`), so the pair is what
-    // identifies the ordering one rather than its position.
+    // Layer order is compared before specificity, so this statement is the whole of why utilities wins. The
+    // file opens with an unrelated `@layer properties`, so the pair identifies it rather than its position.
     const ordering = root.nodes
       .filter((node): node is AtRule => node.type === "atrule" && node.name === "layer" && node.nodes === undefined)
       .map((statement) => statement.params.split(",").map((layer) => layer.trim()))
@@ -246,8 +223,7 @@ async function modalSources(): Promise<string[]> {
       }
       if (!entry.name.endsWith(".tsx")) continue;
       // Matched below `src`, never against the absolute path: a checkout can sit in a directory called
-      // anything, `modals` included. `EntityForm` is every create dialog's footer and sits beside the
-      // shared dialogs, in no such folder.
+      // anything, `modals` included.
       const within = path.relative(SRC, full);
       if (within.split(path.sep).includes("modals") || /(Modal|EntityForm)\.tsx$/.test(entry.name)) found.push(full);
     }

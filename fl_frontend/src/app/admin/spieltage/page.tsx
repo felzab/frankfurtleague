@@ -18,9 +18,8 @@ import type { FLSaison } from "@/features/saisons/schemas";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 import type { NextPageProps } from "@/shared/types/types";
 
-// Not async, so the chrome never waits on the matchday list
-// (`fl_frontend/src/app/admin/layout.tsx :: AdminLayout`). The create modal needs to know which season
-// it creates into, so it gets its own boundary instead of making the whole page async.
+// Not async, so the chrome never waits on the list. The create modal needs to know which season
+// it creates into, so it gets its own boundary.
 export default function AdminSpieltagePage(props: NextPageProps) {
   return (
     <AdminCrudShell
@@ -31,15 +30,13 @@ export default function AdminSpieltagePage(props: NextPageProps) {
         />
       }
       createModal={
-        // The fallback holds the trigger's own height (`formButton` trigger: h-12, lg:h-15), so the header
-        // row does not jump when the season-loaded modal streams in.
+        // The fallback holds the trigger's own height, so the header row does not jump.
         <Suspense fallback={<div className="h-12 lg:h-15" />}>
           <CreateSpieltagModalLoader searchParams={props.searchParams} />
         </Suspense>
       }>
-      {/* `sections`, because this is the one admin list that is not a table at any width: it arrives
-          as phase-headed groups of cards, and the table shape would reserve the wrong box
-          on every viewport rather than on one side of a breakpoint. */}
+      {/* `sections`, because this list is phase-headed groups of cards at every width, so the table
+          shape would reserve the wrong box on every viewport. */}
       <Suspense fallback={<AdminCrudFallback shape="sections" />}>
         <SpieltageList searchParams={props.searchParams} />
       </Suspense>
@@ -48,18 +45,15 @@ export default function AdminSpieltagePage(props: NextPageProps) {
 }
 
 /**
- * Which season a matchday belongs to, and the positions its siblings already hold.
- *
- * The season is the sidemenu selector's — a matchday is created into the season the page is showing, so
- * there is no season picker in the form. `null` only where the league has no seasons at all.
+ * The season is the sidemenu selector's — a matchday is created into the season on screen, so the
+ * form has no season picker. `null` only where the league has no seasons at all.
  */
 async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]): Promise<FLSaison | null> {
   const requestedSaisonId = await resolveSaisonId(searchParams);
   const saisonsRes = await getSaisons();
 
-  // The requested season when it exists, else the active one, else the first — the same fallback chain
-  // the club and player lists use. The whole season rather than its id: its `start_date`/`end_date`
-  // bound both matchday date pickers (`REQ-DATE-002`).
+  // The requested season, else the active one, else the first. The whole season rather than its id:
+  // its span bounds both matchday date pickers (`REQ-DATE-002`).
   return (
     saisonsRes.saisons.find((saison) => saison.id === requestedSaisonId) ??
     saisonsRes.saisons.find((saison) => saison.status === "active") ??
@@ -69,23 +63,17 @@ async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]
 }
 
 /**
- * The season, plus the one fact that can close the create window.
- *
- * The order is derived, so there is no next-free-position to work out — but `REQ-SPIELTAG-003`
- * refuses a create once the season's knockout phase is under way, and "under way" is the earliest
- * non-group matchday beginning today or earlier. That is a read this page is already making, so the
- * trigger can refuse BEFORE the request rather than opening a dialog onto a 409 (decided 2026-08-08).
- *
- * The endpoint stays the authority: a page left open past midnight, or a knockout matchday re-dated in
- * another tab, both reach it.
+ * `REQ-SPIELTAG-003` refuses a create once the knockout phase is under way — the earliest non-group
+ * matchday beginning today or earlier — so the trigger refuses before opening a dialog onto a 409.
+ * The endpoint stays the authority.
  */
 async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
   const saison = await resolveSelectedSaison(searchParams);
   const saisonId = saison?.id ?? null;
 
-  // Retired matchdays INCLUDED, matching the endpoint: a retired knockout matchday is still a date the
-  // bracket was scheduled to start on, and hiding it from a list does not un-start the phase.
+  // Retired INCLUDED, matching the endpoint: hiding a retired knockout matchday does not un-start
+  // the phase it was scheduled to open.
   const spieltageRes = saisonId === null ? null : await getSpieltage({ saison_id: saisonId, include_inactive: true });
   const knockoutBeginn = (spieltageRes?.spieltage ?? [])
     .filter((spieltag) => spieltag.saison_phase !== "gruppenphase")
@@ -105,22 +93,9 @@ async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextP
 }
 
 /**
- * Every matchday of the selected season, retired ones included, in the order they are played.
- *
- * **Two reads, and the second is what makes this more than a list of stored fields.** `GET /spiele` for the
- * season gives the fixtures actually attached to each matchday, which is the only way the expected count —
- * derived from the season's rules and the matchday's phase — can be checked against reality.
- * Retired matchdays are included for the same reason the delete is soft: their matches are untouched and
- * still resolve, so hiding the matchday would hide why those fixtures are where they are.
- *
- * **The order is the API's and this page does not reorder it**. What it adds is the `ordinal`:
- * a 1-based counter per phase, assigned by walking the received order once. Assigning it here rather than
- * in the list is what keeps it out of the client bundle and out of the filtered view — a filter that hides
- * the second matchday must not renumber the third.
- *
- * **The per-phase matchday count is derived here for the same reason** — both its numbers are facts about
- * the season rather than about the rows a filter left on screen
- * (`fl_frontend/src/features/spieltage/utils.ts :: buildSpieltagPhaseProgress`).
+ * Every matchday of the season, retired included, in the API's order, which this page does not
+ * reorder. The `ordinal` and phase counts are assigned HERE: they are facts about the season, not
+ * about the rows a filter left on screen.
  */
 async function SpieltageList({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
@@ -141,9 +116,8 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     getSpiele({ saison_id: saisonId }),
   ]);
 
-  // Two counts per matchday from one read: everything attached, and how much of it is played. The
-  // second is what `REQ-RETIRE-002` refuses a retirement over, so the list can avoid offering a
-  // control whose answer it already knows.
+  // Everything attached and how much is played — the second is what `REQ-RETIRE-002` refuses a
+  // retirement over, so the list can withhold a control whose answer it knows.
   const spieleBySpieltag = new Map<string, number>();
   const gespieltBySpieltag = new Map<string, number>();
   for (const spiel of spieleRes.spiele) {
@@ -153,8 +127,7 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     }
   }
 
-  // The ordinal and the label together, counted per phase over the order the API returned. One
-  // pass rather than per row, because the label needs to know how many matchdays the phase holds.
+  // One pass rather than per row: the label needs how many matchdays the phase holds.
   const labels = spieltagLabels(spieltageRes.spieltage);
 
   const rows: AdminSpieltagRow[] = spieltageRes.spieltage.map((spieltag) => {

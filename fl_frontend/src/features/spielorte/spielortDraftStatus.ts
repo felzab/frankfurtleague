@@ -1,18 +1,3 @@
-/**
- * SPIELORTE · what the venue editor's draft has changed and got wrong
- *
- * One derivation over one venue's draft, read by everything on the edit page that says something
- * about a field: label markers, change list, unsaved count, action bar, navigation guard. Pure,
- * so it is tested rather than clicked; `spielerDraftStatus.ts` is the pattern.
- *
- * Invariants:
- * - `path` is the payload's dotted path AND the input `name`, `FieldErrors` key and anchor id.
- * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
- * - `maps_link` is not a descriptor — the backend derives it from the name and address, so there is
- *   no field for it to be a row of.
- * - `inactive_since` is not a descriptor — retiring is a control, not a field.
- */
-
 import { formatEuro } from "@/shared/utils/format";
 
 import type { FLAddress } from "@/shared/schemas";
@@ -46,6 +31,8 @@ export type FLSpielortDraftStatus = {
 };
 
 type FieldDescriptor = {
+  // The payload's dotted path, and also the input `name`, the `FieldErrors` key and the anchor id, so
+  // all four move together.
   path: string;
   label: string;
   group: FLSpielortFieldGroup;
@@ -55,13 +42,9 @@ type FieldDescriptor = {
 const emptyAsNull = (value: string): string | null => (value.trim() === "" ? null : value.trim());
 
 /**
- * Every field the venue editor can change, in the order the change list reads them.
- *
- * Each `read` returns the DISPLAY text, which doubles as the comparison key — one function serves
- * `hasChanged`, `storedText` and `draftText`.
- *
- * The address is five rows rather than one, because each is a separate control with its own error
- * key: a single "Adresse geändert" row would mark four untouched fields alongside the one that moved.
+ * Every field the editor can change; one with no row here is invisible to the page. `read` returns
+ * display text, which doubles as the comparison key. `maps_link` has no row — the backend derives it
+ * and no payload carries it.
  */
 const FIELD_DESCRIPTORS: readonly FieldDescriptor[] = [
   { path: "name", label: "Name", group: "Spielort", read: (source) => emptyAsNull(source.name) },

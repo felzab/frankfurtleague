@@ -1,13 +1,3 @@
-/**
- * SPIELTAGE · every Hinweis the matchday editor can raise, in one list
- *
- * One entry per situation, read by the rail and by the panel that also shows it inline — see the
- * club editor's `banners.ts` for why the two halves cannot be authored separately.
- *
- * **A matchday holds three fields and six backend refusals**, and these entries are the ones a page
- * can state before the admin reaches the control rather than after the endpoint has already refused.
- */
-
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -24,28 +14,20 @@ export type SpieltagBannerId =
   | "spieltag.retire-blockiert-ergebnis"
   | "spieltag.retire-blockiert-untergrenze";
 
-/** The panel spots that render one of these inline. */
 export type SpieltagBannerSpot = "phase" | "zeitraum" | "stilllegen";
 
 export type SpieltagBanner = RailBanner<SpieltagBannerId> & { inline: SpieltagBannerSpot | null };
 
 /**
  * Whether the phase stands exactly on the floor `REQ-RETIRE-005` holds it to, this matchday included.
- *
- * Mirrors `find_spieltag_retire_refusal`: the endpoint refuses the STEP across the floor and never the
- * state under it, so a phase already short retires and a phase with no floor always does. Exported
- * because the banner and the button it explains would otherwise compute the same arithmetic twice.
+ * Mirrors `find_spieltag_retire_refusal`: the endpoint refuses the STEP across the floor and never
+ * the state under it, so a phase already short retires.
  */
 export function standsAtThePhaseFloor(livePhaseCount: number, impliedPhaseCount: number): boolean {
   return livePhaseCount - 1 < impliedPhaseCount && livePhaseCount >= impliedPhaseCount && impliedPhaseCount > 0;
 }
 
-/**
- * The sentence about fixtures moving with the matchday, or nothing where there are none.
- *
- * Each count gets its own sentence rather than one with the number substituted: a fixed plural turns a
- * lone fixture into "Seine 1 Spiele", and an empty matchday into a reassurance about nothing.
- */
+/** Each count gets its own sentence: a fixed plural turns a lone fixture into "Seine 1 Spiele". */
 function describeMitwandernd(spieleAngelegt: number): string {
   if (spieleAngelegt === 0) return "";
   if (spieleAngelegt === 1) return " Sein Spiel nimmt er mit.";
@@ -98,8 +80,8 @@ export function buildSpieltagBanners({
     });
   }
 
-  // Rail-only and always: it is the answer to "warum kann ich den Namen nicht ändern", and the label
-  // is the one thing on this page with no field behind it at all.
+  // Rail-only and always: it answers "warum kann ich den Namen nicht ändern", and the label is the
+  // one thing on this page with no field behind it.
   banners.push({
     id: "spieltag.name-abgeleitet",
     severity: "info",
@@ -138,14 +120,13 @@ export function buildSpieltagBanners({
     });
   }
 
-  // Reported and never refused: a season being set up passes through every intermediate
-  // count, so this states the gap rather than calling it a mistake.
+  // Reported and never refused: a season being set up passes through every intermediate count.
   if (spieleAngelegt !== anzahlSpiele) {
     banners.push({
       id: "spieltag.anzahl-offen",
       severity: "info",
-      // The counts sit in the body as a readout rather than in a sentence: any sentence carrying them
-      // has to agree with both at once, and one of the two is 1 often enough to be the normal case.
+      // The counts sit in the body as a readout: a sentence carrying them has to agree with both at
+      // once, and one of the two is 1 often enough.
       title: spieleAngelegt < anzahlSpiele ? "Es fehlen noch Spiele" : "Es sind mehr Spiele angelegt als erwartet",
       body: `Angelegt: ${String(spieleAngelegt)}. Erwartet: ${String(anzahlSpiele)}. Das ist kein Fehler, sondern der Stand des Spielplans. Die erwartete Zahl kommt aus den Regeln der Saison.`,
       inline: null,
@@ -171,8 +152,8 @@ export function buildSpieltagBanners({
     banners.push({
       id: "spieltag.retire-blockiert-untergrenze",
       severity: "info",
-      // The phase label leads as a tag rather than sitting in the sentence: "die Halbfinale" is what a
-      // fixed article makes of it, and every knockout round in `PHASE_LABELS` is neuter.
+      // The phase label leads as a tag rather than sitting in the sentence: every knockout round in
+      // `PHASE_LABELS` is neuter, so a fixed article makes "die Halbfinale" of it.
       title:
         impliedPhaseCount === 1
           ? `${PHASE_LABELS[storedPhase]}: Dies ist der einzige Spieltag der Phase`

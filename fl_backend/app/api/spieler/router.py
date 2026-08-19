@@ -1,14 +1,3 @@
-"""
-SPIELER · read endpoints
-
-Squad lists. Written through `admin_router.py` in this slice and read here.
-
-Invariants:
-- The one read that does not default `saison_id` to the current season — `team_id` already narrows.
-- Only `vorname` is required; consumers handle missing surnames, numbers and positions.
-- `nummer` is a string, not an integer.
-"""
-
 from fastapi import APIRouter, Depends
 
 from app.api.spieler.schemas import (
@@ -50,12 +39,10 @@ async def get_spieler(spieler_collection: SpielerCollection, filters: FLSpielerF
 @router.get(by_id("spieler_id"), response_model=FLSpielerSingleResponse, summary="One Spieler")
 async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection: SpielerCollection) -> FLSpielerSingleResponse:
     """
-    Return one player — the person only.
+    Return one player -- the person only.
 
-    Deliberately **not** the flattened squad shape the list returns. Team, number, position and stufe
-    are season-scoped and live on a junction row, so a player addressed without a season has none of
-    them; picking a season here would make the answer depend on a default the caller never asked for.
-    A squad entry is read through `GET /spieler?team_id=…&saison_id=…`, which is a filter and stays one.
+    NOT the flattened squad shape the list returns: those fields are season-scoped, and picking a
+    season here would make the answer depend on a default the caller never asked for.
     """
 
     spieler_raw = await pull_one_from_db(collection=spieler_collection, db_filter={"_id": spieler_id})

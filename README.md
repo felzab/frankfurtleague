@@ -45,12 +45,12 @@ maintainer, a live audience each season.
 
 ## Stack
 
-| Layer        | What                                                                        |
-| ------------ | --------------------------------------------------------------------------- |
-| **Frontend** | Next.js 16 (App Router, React 19 Server Components), HeroUI v3, Tailwind v4 |
-| **Backend**  | FastAPI, Pydantic v2, Motor (async MongoDB)                                 |
-| **Auth**     | Auth.js — magic-link sign-in, admin by email allowlist                      |
-| **Deploy**   | Docker Compose behind nginx, on a single host                               |
+| Layer        | What                                                                  |
+| ------------ | --------------------------------------------------------------------- |
+| **Frontend** | Next.js (App Router, React Server Components), HeroUI v3, Tailwind v4 |
+| **Backend**  | FastAPI, Pydantic v2, Motor (async MongoDB)                           |
+| **Auth**     | Auth.js — magic-link sign-in, admin by email allowlist                |
+| **Deploy**   | Docker Compose behind nginx, on a single host                         |
 
 The app never calls FastAPI from the browser: every application read is a server-side fetch from the
 Next.js container, and the backend gates every request on a shared key. That one fact explains most of
@@ -79,8 +79,7 @@ docs/            the documentation set
 | Per surface                            | [frontend](docs/frontend/overview.md) · [backend](docs/backend/overview.md) · [ops](docs/ops/overview.md) — an overview and a spec each |
 | [`docs/ops/spec.md`](docs/ops/spec.md) | Every script, every gate scope, and what each one proves                                                                                |
 
-Several things here look like mistakes and are deliberate — three near-identical match cards, no barrel
-files, a `connection()` call that appears to defeat static rendering. Each is a ratified decision.
+Several things here look like mistakes and are deliberate, each a ratified decision.
 **Check [`.claude/CLAUDE.md`](.claude/CLAUDE.md) §7 before "fixing" something that looks wrong.**
 
 ## Contributing
@@ -89,8 +88,8 @@ Short-lived topic branches off `main`, one PR each, merged with a merge commit. 
 real weight here — they explain _why_ and record what was verified, and they are kept rather than
 squashed; [`docs/_git/spec.md`](docs/_git/spec.md) is the convention.
 
-Run `./scripts/verify.sh` before opening a PR, at a scope covering every surface the branch touched;
-[`docs/ops/spec.md`](docs/ops/spec.md) has the table of what each scope runs. CI runs it too.
+Run `./scripts/verify.sh` before opening a PR, at a scope covering every surface the branch touched —
+[`docs/ops/spec.md`](docs/ops/spec.md) tables the scopes. CI runs it too.
 
 ## Status
 
@@ -98,8 +97,8 @@ Actively maintained by one person. There is no public issue triage process and n
 
 ## Security
 
-Do not open a public issue for a suspected vulnerability. See [`SECURITY.md`](SECURITY.md) for what is
-in scope and how to report it privately.
+Do not open a public issue for a suspected vulnerability — [`SECURITY.md`](SECURITY.md) has the scope
+and the private channel.
 
 ## License
 

@@ -1,15 +1,5 @@
 "use client";
 
-/**
- * SPIELE · the bracket match card
- *
- * No chips, and team shorthands in place of names, for the playoff bracket's round columns. The
- * column caps the card's width whatever the fixture reads, and the whole card is a press target, so
- * the pieces that open something of their own have to be lifted clear of it.
- *
- * Invariants:
- * - Never merged with `SpielCard` or `SpielCardCompact`; only their shared derivation is extracted.
- */
 import { Card } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
@@ -20,10 +10,8 @@ import { SpielTeamSlot } from "./SpielTeamSlot";
 import type { FLSpiel } from "../../schemas";
 
 /**
- * `relative z-20` lifts a popover trigger clear of the full-bleed button below, so a team name stays
- * independently clickable. An UNRESOLVED slot has no popover and must not be lifted: a plain label
- * sitting above that button would swallow the press that opens the match, and the bracket's largest
- * click target would stop working on exactly the fixtures a reader taps to find out who is playing.
+ * Lifts a popover trigger clear of the full-bleed button below. An UNRESOLVED slot has no popover
+ * and must NOT be lifted: a plain label over that button swallows the press that opens the match.
  */
 const slotLift = (isResolved: boolean) => (isResolved ? "relative z-20 flex min-w-0" : "flex min-w-0");
 
@@ -38,11 +26,9 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
   return (
     <Card className={`${card({ interactive: true })} relative w-full`}>
       <Card.Content className="flex flex-row items-center justify-between gap-x-3 p-3">
-        {/* The card itself cannot become the button: it contains TeamPopoverMenu's own <button>
-            triggers, and a nested button is invalid HTML that breaks the popover. So the click
-            target is a full-bleed overlay sibling, and the two popover triggers are lifted above
-            it so they stay independently clickable -- which is what TeamPopoverMenu's
-            stopPropagation handlers were compensating for before. */}
+        {/* The card cannot become the button: it holds `TeamPopoverMenu`'s own triggers, and a
+            nested button is invalid HTML that breaks the popover. Hence a full-bleed overlay
+            sibling, with the triggers lifted above it. */}
         <button
           type="button"
           onClick={onPress}
@@ -55,14 +41,11 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
           <span className="fluid-xs text-foreground-muted font-medium">{spielUhrzeit}</span>
         </div>
 
-        {/** Who vs. Who — equal 1fr tracks keep the score centered whatever the two sides read. */}
-        {/* `min-w-0` is what makes the `truncate` below reachable at all. As a flex item this pill
+        {/* `min-w-0` is what makes the `truncate` below reachable: as a flex item this pill
             defaults to `min-width: auto`, so under `w-fit` its `1fr` tracks resolve to the full
-            untruncated content and the pill overflows the bracket column's `max-w-[380px]`. The
-            content that reaches that width is an unresolved slot's source label, which is an
-            order of magnitude longer than a two-character shorthand. */}
+            content and it overflows the bracket column — an unresolved slot's label is long. */}
         <div className="bg-background border-border grid w-fit min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 rounded-xl border px-3 py-1.5 shadow-sm">
-          {/* TeamPopoverMenu renders display:contents, so z-index has to be applied from outside it. */}
+          {/* `TeamPopoverMenu` renders `display:contents`, so z-index applies from outside it. */}
           <span className={`${slotLift(spielData.team1 !== null)} justify-end`}>
             <SpielTeamSlot
               team={spielData.team1}
@@ -72,11 +55,8 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
             />
           </span>
 
-          {/* The result in the status chips' tint formula -- the reference chip look.
-              This is the bracket's card, so it is the one that most often carries a shoot-out: the
-              line below it names how a level knockout was settled WITHOUT changing the score, which
-              stays the draw the Saisontabelle counts. It sits inside the `auto` track, so
-              the two `1fr` team tracks keep their widths. */}
+          {/* The shoot-out line names how a level knockout was settled WITHOUT changing the score.
+              Inside the `auto` track, so the two `1fr` team tracks keep their widths. */}
           <span
             className={`fluid-xs flex flex-col items-center rounded-md px-1.5 py-0.5 text-center font-extrabold ${
               spielData.ergebnis !== null ? "bg-success/15 text-success-strong" : "bg-danger/15 text-danger-strong"

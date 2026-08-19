@@ -1,37 +1,18 @@
 "use client";
 
-/**
- * SHARED · server-rejected fields
- *
- * The bridge between a server action's `fieldErrors` and react-aria's client-side validation,
- * shared by `EntityForm` and `AdminEditSpielDataForm` so the two cannot drift.
- *
- * Invariants:
- * - `reportValidity()` runs from an effect — earlier, react-aria has not applied custom validity yet.
- * - A toast-suppressing caller must handle `onUnhandledErrors`, or an unrendered path fails silently.
- */
 import { useEffect, useRef, useState } from "react";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
- * Holds the field errors a server action returned, moves focus to the first field it rejected, and
- * reports back when a message had nowhere to land.
- *
- * `reportValidity()` is what moves focus. HeroUI's `validationErrors` shows each message but only
- * auto-focuses from react-aria's handler for the native `invalid` event, which fires during native
- * validation — long over by the time a server action returns. `reportValidity()` raises that event,
- * and react-aria's handler suppresses the browser's own error bubble.
- *
- * It returning `true` means nothing was invalid, i.e. the payload was rejected on a path no input
- * renders — `spiel_id` on the match form, for instance. That is what
- * `onUnhandledErrors` is for.
+ * `reportValidity()` is what moves focus to the first rejected field, and must run from an effect: react-aria focuses
+ * only from its `invalid` handler. It returning `true` means no input renders the path — hence `onUnhandledErrors`.
  */
 export function useServerFieldErrors(onUnhandledErrors?: (errors: FieldErrors) => void) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Kept in a ref so callers can pass an inline arrow without re-running the effect every render.
+  // A ref so callers can pass an inline arrow without re-running the effect every render.
   const onUnhandledRef = useRef(onUnhandledErrors);
   useEffect(() => {
     onUnhandledRef.current = onUnhandledErrors;

@@ -18,26 +18,12 @@ import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
 import type { SpielBanner } from "./banners";
 
-/**
- * The list entry that empties the side.
- *
- * Not a valid `ObjectId` by construction — the id is 24 hex characters, and this is neither that
- * length nor hex — so it can never collide with a team and `teams.find` can never resolve it.
- */
+/** Neither 24 characters nor hex, so it can never collide with a team id. */
 const OPEN_SLOT_KEY = "noch-offen";
 
 /**
- * The four answers to "how is this side filled", as the admin chooses between them.
- *
- * They are a UI vocabulary, not a stored one. Three of them map onto the two `FLSpielQuelle` variants
- * — the `spiel` variant appears twice because `ausgang` is the distinction an admin actually makes,
- * and asking for "Sieger oder Verlierer?" in a second control would be a question about a question.
- * The fourth is `null`, which is not a variant at all: a slot with no source is the admin's own, and
- * clearing the source is the only way to take one out of automatic maintenance.
- *
- * The automatic answers lead and "Manuell" closes the list: filling a knockout slot from the bracket
- * is the rule and hand-picking is the exception, so the list reads in the order the decision is
- * actually made.
+ * A UI vocabulary, not a stored one: the `spiel` variant appears twice because `ausgang` is the
+ * distinction an admin makes, and "manuell" is `null` rather than a variant at all.
  */
 const QUELLE_CHOICES = [
   { key: "sieger", label: "Sieger eines Spiels" },
@@ -49,33 +35,24 @@ const QUELLE_CHOICES = [
 type QuelleChoice = (typeof QUELLE_CHOICES)[number]["key"];
 
 /**
- * The answer this round ordinarily takes, marked in the list so the system says what it knows.
- *
- * It is read off the wiring rather than off a phase name: the first knockout round is seeded from the
- * group standings and every round after it is fed by the round before, so "are there legal
- * feeder matches at all" is exactly the question that distinguishes the two — and it stays right if the
- * competition ever gains a round.
- *
- * A recommendation, never a default. The form pre-selects nothing: filling a slot the admin has not
- * looked at is how a wrong draw gets saved without anybody choosing it.
+ * Read off the wiring rather than a phase name, so it stays right if the competition gains a round.
+ * **A recommendation, never a default** — pre-selecting a slot nobody looked at is how a wrong draw
+ * gets saved without anyone choosing it.
  */
 const recommendedChoiceFor = (hasFeeders: boolean): QuelleChoice => (hasFeeders ? "sieger" : "gruppe");
 
-/** The default group, because `gruppe` is a required enum with no empty member to start from. */
+/** `gruppe` is a required enum with no empty member to start from. */
 const DEFAULT_GRUPPE: FLGruppenNames = "A";
 
 /**
- * How many placings the platz picker offers when the team list cannot say — a season mismatch
- * between the context's lists and the match being edited, possible only on the action-required
- * route. Four is every group of the current format.
+ * The placings offered when the team list cannot say, which needs a season mismatch between the
+ * context's lists and the fixture — possible only on the action-required route.
  */
 const FALLBACK_GRUPPE_SIZE = 4;
 
 /**
- * Which of the four choices a stored source is, so the control needs no state of its own.
- *
- * Deriving it rather than holding it is what keeps the picker and the payload from disagreeing after
- * a reset, a re-open or a server rejection: there is one source of truth and it is the payload.
+ * Derived rather than held, so the control needs no state that could disagree with the payload
+ * after a reset, a re-open or a server rejection.
  */
 const choiceFor = (quelle: FLSpielQuelle | null): QuelleChoice => {
   if (quelle === null) return "manuell";
@@ -83,18 +60,11 @@ const choiceFor = (quelle: FLSpielQuelle | null): QuelleChoice => {
   return quelle.ausgang;
 };
 
-/**
- * Whether a source is complete enough to render its German label.
- *
- * A source mid-edit holds `NaN` where its number is still unpicked, which is a `number` and therefore
- * type-checks — so a preview built without this guard reads "Sieger NaN." while someone is mid-edit.
- * The strict schema rejects the same value at submit with a message on the field.
- */
+/** A source mid-edit holds `NaN` where its number is unpicked, and `NaN` type-checks as a number. */
 const isComplete = (quelle: FLSpielQuelle | null): quelle is FLSpielQuelle =>
   quelle !== null && Number.isInteger(quelle.type === "gruppe" ? quelle.platz : quelle.spiel_nr);
 
-/** How a feeder match reads in the picker: its number, its round, and who meets — sides falling
- * through team, then derived label, then the shared placeholder, exactly as every card does. */
+/** Sides fall through team, derived label, then placeholder, exactly as every card does. */
 const describeFeeder = (spiel: FLSpiel): string => {
   const side1 = spiel.team1?.name ?? formatQuelle(spiel.team1_quelle) ?? PLACEHOLDER.slot;
   const side2 = spiel.team2?.name ?? formatQuelle(spiel.team2_quelle) ?? PLACEHOLDER.slot;
@@ -102,25 +72,9 @@ const describeFeeder = (spiel: FLSpiel): string => {
 };
 
 /**
- * One side of a fixture: how the slot is filled, and the controls that answer follows from.
- *
- * **The source decides what is editable, which is the competition-management standard.**
- * A Gruppenphase fixture has no source controls at all — its sides are drawn by the schedule, so the
- * team picker is the whole editor. A knockout side is source-first: fed by an earlier match, seeded
- * from a group placing, or taken over manually. Only the manual answer shows a team picker; a side
- * with a source shows its occupant read-only, because the resolution maintains it and a team picked
- * against it would be reverted by the same request that reported success, which is the incoherence
- * this component declines to offer.
- *
- * **A match is picked from the season's legal feeders, never typed as a number.** The list offers
- * knockout matches of a strictly earlier round whose outcome no other slot already takes, so a
- * dangling number, a cycle, a same-round edge and a duplicate feed are unpickable rather than
- * refused after the fact. The backend still refuses them (`REQ-WIRING-001`), for the stale form and
- * the second tab.
- *
- * **An empty manual side is a legitimate answer, not an error** — it is the state the
- * action-required list reports as "Offene Besetzung", so it is offered in the list as its first
- * entry rather than only through the trigger's clear button.
+ * **A match is picked from the season's legal feeders, never typed**: a dangling number, a cycle or
+ * a duplicate feed is unpickable rather than refused after the fact. The backend still refuses them
+ * (`REQ-WIRING-001`), for a stale form.
  */
 export function FormTeamPicker({
   label,
@@ -142,11 +96,8 @@ export function FormTeamPicker({
 }: {
   label: string;
   /**
-   * The side's path in the patch payload, so server errors reach these fields.
-   *
-   * A literal union rather than `string`: it is already used as a discriminator against the stored
-   * side below, and it is what makes the computed override keys handed to `onValidateSelection`
-   * type-check as real payload paths rather than as arbitrary strings.
+   * The side's path in the patch payload, so server errors reach these fields. A literal union
+   * rather than `string`, which is what type-checks the computed override keys below as real paths.
    */
   fieldName: "team1" | "team2";
   teams: FLTeam[];
@@ -167,23 +118,10 @@ export function FormTeamPicker({
   /** The other side's draft source, so the two sides of this fixture cannot pick the same outcome. */
   otherDraftQuelle: FLSpielQuelle | null;
   /**
-   * Judges the named payload paths against the draft WITH the value just selected laid over it.
-   *
-   * This component receives only the change-time variant, and that is the rule rather than an
-   * exception: every control in it is a picker, so a selection is complete the moment it is made and
-   * there is no half-entered value to be wrong about (`useDraftFieldErrors`).
-   *
-   * **The second argument is required, and it is the whole fix.** A handler sets the new value and
-   * asks for validation in the same tick, before React re-renders — so a judgement made from state
-   * alone reads the value the selection just replaced. That is why the first pick of a feeder match
-   * reported "Bitte wähle ein Spiel aus." and only cleared on the second pick.
-   *
-   * Deliberately NOT fired when the source *type* changes: the new variant starts with its number
-   * unpicked, and judging it there would demand a placing from somebody who has just this instant
-   * asked to choose one.
+   * Judges the named paths with `selected` laid over the draft. NOT fired when the source *type*
+   * changes: the new variant starts unpicked, so judging it would demand a placing nobody chose.
    */
   onValidateSelection: (paths: readonly string[], selected: Partial<FLPatchSpielDataPayload>) => void;
-  /** The editor's whole Hinweis list; this side's two spots take their own entries out of it. */
   banners: readonly SpielBanner[];
 }) {
   const { contains } = useFilter({ sensitivity: "base" });
@@ -191,56 +129,44 @@ export function FormTeamPicker({
   const isKnockout = spielData.saison_phase !== "gruppenphase";
   const choice = choiceFor(quelle);
 
-  // Stored and NARROWED: switching back submits the occupant the resolution last wrote, which the
-  // write path requires; the join a read's side carries would otherwise ride into the
-  // draft.
+  // Stored and NARROWED: switching back submits the occupant the resolution last wrote, and the
+  // join a read's side carries would otherwise ride into the draft.
   const storedTeam = toStoredSide(fieldName === "team1" ? spielData.team1 : spielData.team2);
 
-  // What this side may not pick: every source another slot already holds, plus whatever the other
-  // side of this fixture is currently set to. The own current selection is not in either set, so it
-  // stays visible and re-submittable.
+  // This side's own current selection is in neither set, so it stays visible and re-submittable.
   const blockedKeys = new Set(usedQuelleKeys);
   if (otherDraftQuelle !== null && isComplete(otherDraftQuelle)) blockedKeys.add(quelleKey(otherDraftQuelle));
 
-  // Feeder matches exist only for a round with a knockout round before it, which is why a
-  // quarter-final legitimately offers no match-fed answers: the first knockout round is always
-  // seeded from the group phase.
+  // Empty for the first knockout round, which is seeded from the group phase and fed by nothing.
   const feederSpiele = listFeederSpiele(saisonSpiele, spielData);
 
-  // The choices this fixture can actually hold. A spiel-variant choice needs feeders; the stored
-  // value stays listed even where it should not exist, so hand-edited data renders truthfully
-  // instead of as an empty control.
+  // The stored value stays listed even where it should not exist, so hand-edited data renders
+  // truthfully rather than as an empty control.
   const availableChoices = QUELLE_CHOICES.filter(
     (item) => item.key === "manuell" || item.key === "gruppe" || feederSpiele.length > 0 || item.key === choice,
   );
 
   const recommendedChoice = recommendedChoiceFor(feederSpiele.length > 0);
 
-  /**
-   * The Manuell warning is one severity — danger — however the side came to be manual.
-   *
-   * A graded version shipped first (standing manual sides as a quiet note, a fresh takeover as the
-   * alarm) and it was overruled on sight: a manual side on a knockout fixture is a
-   * danger callout, always, because the cost of missing it — a slot no resolution will ever correct —
-   * does not depend on when the side became manual. What stays graded is the ANNOUNCEMENT: only the
-   * takeover the admin performs in this edit interrupts a screen reader, because only it is an event.
-   */
+  // Danger however the side came to be manual, the cost of missing it not depending on when.
+  // Only the ANNOUNCEMENT is graded: a takeover made in THIS edit is the only event.
   const storedQuelle = fieldName === "team1" ? spielData.team1_quelle : spielData.team2_quelle;
+  // The source decides what is editable: a team picked against a source would be reverted by the
+  // same request that reported success, so only the manual answer shows a team picker.
   const isManual = isKnockout && quelle === null;
   const hasJustBeenTakenOver = isManual && storedQuelle !== null;
 
   const handleTeamSelection = (key: Key | null) => {
-    // Three routes reach the same state, and they are one branch: the list entry, the trigger's clear
-    // button (which reports `null`), and an Autocomplete that never had a selection.
+    // One branch for three routes: the list entry, the trigger's clear button (which reports
+    // `null`), and an Autocomplete that never had a selection.
     const resolvedTeam = !key || key === OPEN_SLOT_KEY ? null : teams.find((team: FLTeam) => team.id === key);
 
-    // A key that resolves to nothing is not a selection — leave the side exactly as it stands rather
-    // than emptying it, which is what an unguarded lookup would do on a stale collection.
+    // A key resolving to nothing is not a selection: an unguarded lookup would empty the side
+    // against a stale collection.
     if (resolvedTeam === undefined) return;
 
-    // `shorthand` and `name` need no inputs of their own: both are copied off a club `FLTeamSchema`
-    // already parsed at `.length(2)` and `.nonempty()`, so neither is a path this form can be refused
-    // on while the id beside them is the one the admin picked.
+    // `shorthand` and `name` need no inputs: both are copied off an already-parsed `FLTeamSchema`,
+    // so neither is a path this form can be refused on.
     const nextTeam: FLSpielTeamField | null =
       resolvedTeam === null
         ? null
@@ -248,27 +174,20 @@ export function FormTeamPicker({
             team_id: resolvedTeam.id,
             shorthand: resolvedTeam.shorthand,
             name: resolvedTeam.name,
-            // `null`, never NaN: an unplayed Spiel carries `tore: null`, and NaN is a payload
-            // value that can never validate. NaN belongs in the NumberField's `value`, which is
-            // how an empty field is spelled, not in what is submitted.
+            // `null`, never NaN: an unplayed Spiel carries `tore: null`, and NaN can never
+            // validate. NaN spells an empty NumberField, not a submitted value.
             tore: teamPayload?.tore ?? null,
           };
 
     onTeamChange(nextTeam);
-    // After the change and carrying it, so the verdict describes the team just picked rather than
-    // the one it replaced. Nothing here fails the schema -- the id comes from the list.
+    // Carries the change, so the verdict describes the team just picked, not the one it replaced.
     onValidateSelection([`${fieldName}.team_id`], { [fieldName]: nextTeam });
   };
 
   /**
-   * Switching between the four choices, carrying across whatever the new shape can still hold.
-   *
-   * Sieger ↔ Verlierer keeps the match number while the other side does not already hold that
-   * outcome. Every other move crosses between variants that share no field, so the new one starts
-   * empty — `NaN` where a number is still unpicked, which the pickers render as no selection.
-   *
-   * Entering ANY automatic choice puts the stored occupant back into the payload: the side is the
-   * resolution's again, and a team picked during a manual detour must not ride along.
+   * Sieger and Verlierer keep the match number unless the other side holds that outcome; any other
+   * move crosses variants sharing no field and starts unpicked. Any automatic choice restores the
+   * stored occupant, so a manual detour's team cannot ride along.
    */
   const handleChoiceSelection = (key: Key | null) => {
     const selected = (key ?? "manuell") as QuelleChoice;
@@ -294,21 +213,17 @@ export function FormTeamPicker({
     onQuelleChange({ type: "spiel", spiel_nr: keptIsFree ? kept : NaN, ausgang: selected });
   };
 
-  // `formatQuelle` itself answers `null` for a source whose number is still unpicked, so no
-  // completeness gate is needed here — the same guard protects every other consumer.
+  // No completeness gate: `formatQuelle` answers `null` for an unpicked number by itself.
   const derivedLabel = formatQuelle(quelle);
 
-  // What the automatic readout shows in place of the picker: the occupant the resolution has
-  // written, or the honest empty state while the source has not produced one yet.
+  // The occupant the resolution wrote, or the honest empty state until it produces one.
   const occupantLabel = teamPayload?.name ?? PLACEHOLDER.slot;
 
-  // Whether the STORED side carries goals, which is what `REQ-RESULT-001` keys on. The stored side
-  // rather than the draft: the rule is about destroying a recorded result, and a draft that has
-  // already cleared the goals is the edit doing exactly that.
+  // The STORED side, which is what `REQ-RESULT-001` keys on: the rule is about destroying a
+  // recorded result, and a draft that already cleared the goals is the edit doing exactly that.
   const hasStoredGoals = (fieldName === "team1" ? spielData.team1 : spielData.team2)?.tore != null;
 
-  // Whether the selected side is disqualified, for the badge on the closed trigger. From `teams`
-  // rather than the payload: the payload carries the embedded display copy, and the
+  // From `teams`, not the payload: the payload holds the embedded display copy, while the
   // disqualification is joined onto the list on every read.
   const isSelectedDisqualified =
     teamPayload !== null && teams.find((candidate) => candidate.id === teamPayload.team_id)?.disqualifikation != null;
@@ -330,23 +245,17 @@ export function FormTeamPicker({
       disabledKeys={disabledTeamKeys}>
       <FieldLabel path={`${fieldName}.team_id`}>{isKnockout ? `${label}: Mannschaft` : label}</FieldLabel>
       <Autocomplete.Trigger className={FIELD_TRIGGER}>
-        {/* The name from the prop, never through `Autocomplete.Value`, and `flex-1` as
-            `.autocomplete__value` carries on every sibling trigger: the free space is the name's
-            (I30 in `docs/frontend/spec.md`). */}
+        {/* The name from the prop, never `Autocomplete.Value`, and `flex-1` as
+            `.autocomplete__value` carries on every sibling trigger (`docs/frontend/spec.md` I30). */}
         <span className={`fluid-sm min-w-0 flex-1 truncate ${teamPayload === null ? "text-foreground-muted" : ""}`}>
           {teamPayload?.name ?? PLACEHOLDER.slot}
         </span>
-        {/* A SIBLING of the truncating span, spaced by its own `ms-2` — and the free space above is
-            what parks it at the trailing edge as the listbox rows do, so the clear button beside it
-            does not move when a team is disqualified. */}
+        {/* A SIBLING of the truncating span: the free space above parks it at the trailing edge,
+            so the clear button does not move when a team is disqualified. */}
         {isSelectedDisqualified && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong ms-2 shrink-0`}>Disqualifiziert</span>}
-        {/* Not offered while this side carries goals: emptying it would take them with it, and the
-            composed `ergebnis` with them, which `REQ-RESULT-001` refuses (decided 2026-08-08). Switching
-            the team stays available through the list, and that is the correction this control was being
-            reached for anyway. */}
-        {/* `ms-2` here rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
-            truncated name ends against this button (I30 in `docs/frontend/spec.md`). `hover: "css"`
-            because HeroUI renders this one as a plain `<button>` (`core/dismissControl.ts`). */}
+        {/* Withheld while this side carries goals: emptying it would take them and the composed
+            `ergebnis` with it, which `REQ-RESULT-001` refuses. Switching the team stays available
+            through the list. */}
         {!hasStoredGoals && (
           <Autocomplete.ClearButton
             type="button"
@@ -373,11 +282,9 @@ export function FormTeamPicker({
           </SearchField>
 
           <ListBox className="p-1">
-            {/* "No team yet" belongs in the list, because the list is where an admin goes to change
-                who plays. The trigger's clear button is the same action and is easy to miss: an
-                unlabelled icon between the value and the chevron, on a control whose whole surface
-                otherwise means "open the list". `textValue` is what the filter above matches, so
-                typing "offen" finds this entry rather than hiding it. */}
+            {/* In the list, because that is where an admin goes to change who plays; the trigger's
+                clear button is the same action and easy to miss. `textValue` is what the filter
+                matches, so typing "offen" finds this entry rather than hiding it. */}
             <ListBox.Item
               id={OPEN_SLOT_KEY}
               textValue={PLACEHOLDER.slot}
@@ -387,9 +294,8 @@ export function FormTeamPicker({
 
             {teams.map((item) => {
               const occupiedBy = spieltagOccupancy.get(item.id);
-              // One chip per row, most severe first: the blocking reasons, then the advisory one.
-              // A team the bracket fields nowhere else stays pickable on a knockout fixture, since
-              // correcting a hand-run season needs it. The chip rides in `textValue` too.
+              // One chip per row, blocking reasons before the advisory one. The unqualified team
+              // stays pickable: correcting a hand-run season needs it.
               const chip =
                 item.disqualifikation !== null
                   ? { text: "Disqualifiziert", cls: "bg-danger/15 text-danger-strong" }
@@ -413,14 +319,12 @@ export function FormTeamPicker({
           </ListBox>
         </Autocomplete.Filter>
       </Autocomplete.Popover>
-      {/* No `Description`: the trigger's placeholder and the list's first entry both read
-          „Noch offen“, so a sentence explaining that it is an option would be the third telling. */}
+      {/* No `Description`: the placeholder and the list's first entry already say as much. */}
       <FieldError className={FIELD_ERROR} />
     </Autocomplete>
   );
 
-  // A Gruppenphase fixture: the schedule names its teams and no wiring exists in that phase, so the
-  // team picker is the whole editor — offering source controls here would offer a mechanism the
+  // No wiring exists in the group phase, so source controls here would offer a mechanism the
   // write path refuses.
   if (!isKnockout) {
     return <div className="flex w-full flex-col gap-y-4">{teamPicker}</div>;
@@ -428,9 +332,8 @@ export function FormTeamPicker({
 
   return (
     <div className="flex w-full flex-col gap-y-4">
-      {/* No `Autocomplete.Filter` and no search box: four entries do not need finding.
-          This one control owns `type` AND `ausgang` — "Sieger von" and "Verlierer von" are two of its
-          rows — so `ausgang` needs no input and a refusal naming it lands here. */}
+      {/* This one control owns `type` AND `ausgang`, which are two of its rows, so `ausgang`
+          needs no input of its own and a refusal naming it lands here. */}
       <Autocomplete
         name={`${fieldName}_quelle.type`}
         className="w-full"
@@ -439,12 +342,9 @@ export function FormTeamPicker({
         onChange={handleChoiceSelection}>
         <FieldLabel path={`${fieldName}_quelle`}>{label}: Herkunft</FieldLabel>
         <Autocomplete.Trigger className={FIELD_TRIGGER}>
-          {/* Rendered from `choice`, NOT from the collection — the same call `SaisonSelector` makes,
-              for a neighbouring reason. `Autocomplete.Value` is react-aria's `SelectValue`, which
-              renders the selected item's `children` verbatim and drops the item's own className: the
-              "empfohlen" chip therefore reappeared in the trigger as bare inline text with no layout,
-              and the recommendation is information about a choice you have not made yet, so it has no
-              business in the readout of the choice you did make. */}
+          {/* From `choice`, NOT the collection: `Autocomplete.Value` renders the selected item's
+              children verbatim and drops its className, so the chip would reappear here as unstyled
+              inline text — and it is about a choice not yet made. */}
           <Autocomplete.Value className="fluid-sm min-w-0 truncate">
             {() => QUELLE_CHOICES.find((item) => item.key === choice)?.label ?? ""}
           </Autocomplete.Value>
@@ -457,14 +357,11 @@ export function FormTeamPicker({
               <ListBox.Item
                 key={item.key}
                 id={item.key}
-                // The marker rides in `textValue` as well as in the visible row, so the trigger and a
-                // screen reader both read the recommendation rather than only sighted users of the list.
+                // Also in `textValue`, so a screen reader reads the recommendation too.
                 textValue={item.key === recommendedChoice ? `${item.label} (empfohlen)` : item.label}
                 className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
-                {/* Success-tinted, not brand: brand text on a brand tint was the least readable chip
-                    on the page, and a recommendation is a positive signal.
-                    `ml-auto`, like every list chip — two lists parking the same chip in two places
-                    read as two designs. */}
+                {/* Success-tinted, not brand: brand on brand was the least readable chip here.
+                    `ml-auto` like every list chip, or two lists park it in two places. */}
                 <span className="min-w-0 truncate">{item.label}</span>
                 {item.key === recommendedChoice && (
                   <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>Empfohlen</span>
@@ -473,13 +370,11 @@ export function FormTeamPicker({
             ))}
           </ListBox>
         </Autocomplete.Popover>
-        {/* No `Description`: what each of the four answers does is the Begegnung panel InfoHint's one
-            explanation, instead of a sentence under every control. */}
+        {/* No `Description`: the Begegnung panel's InfoHint explains all four answers once. */}
         <FieldError className={FIELD_ERROR} />
       </Autocomplete>
 
-      {/* The variant's own fields. Rendered only for the variant that has them, so the form never
-          shows a box that belongs to a shape the source is not in. */}
+      {/* Rendered per variant, so no box belongs to a shape the source is not in. */}
       {quelle?.type === "gruppe" && (
         <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
           <Autocomplete
@@ -487,8 +382,7 @@ export function FormTeamPicker({
             className="w-full"
             selectionMode="single"
             value={quelle.gruppe}
-            // The platz survives the group change while nothing else holds it there; a placing
-            // already taken in the new group falls back to unpicked rather than to a collision.
+            // The platz survives the group change unless the new group already seeds it.
             onChange={(key: Key | null) =>
               key &&
               onQuelleChange({
@@ -518,9 +412,8 @@ export function FormTeamPicker({
             <FieldError className={FIELD_ERROR} />
           </Autocomplete>
 
-          {/* Picked, not typed: the group bounds the placings it can produce, and a placing another
-              slot already seeds stays out of the list — the two shapes the write path refuses. The
-              current selection stays listed so a stored value renders truthfully. */}
+          {/* Picked, not typed: the group bounds its placings and one another slot seeds stays
+              out, the two shapes the write path refuses. The current selection stays listed. */}
           <Autocomplete
             name={`${fieldName}_quelle.platz`}
             className="w-full"
@@ -546,9 +439,8 @@ export function FormTeamPicker({
                 )
                   .filter((platz) => platz === quelle.platz || !blockedKeys.has(`gruppe:${quelle.gruppe}:${platz}`))
                   .map((platz) => {
-                    // `formatQuelle`, never a second spelling of the same rule: the placing an
-                    // admin PICKS and the placing every card and preview DERIVES have to be one
-                    // string, or they agree only until the wording changes.
+                    // `formatQuelle`, so the placing an admin PICKS and the one every card
+                    // DERIVES cannot drift into two strings.
                     const label = formatQuelle({ type: "gruppe", gruppe: quelle.gruppe, platz }) ?? String(platz);
 
                     return (
@@ -569,9 +461,7 @@ export function FormTeamPicker({
       )}
 
       {quelle?.type === "spiel" && (
-        /* Picked from the season's legal feeders rather than typed: only knockout matches of an
-           earlier round whose outcome no other slot takes. The backend still checks,
-           for the stale form and the second tab. */
+        /* Only knockout matches of an earlier round whose outcome no other slot takes. */
         <Autocomplete
           name={`${fieldName}_quelle.spiel_nr`}
           className="w-full"
@@ -586,9 +476,8 @@ export function FormTeamPicker({
           }}>
           <Label className={FIELD_LABEL}>{quelle.ausgang === "sieger" ? "Sieger von" : "Verlierer von"}</Label>
           <Autocomplete.Trigger className={FIELD_TRIGGER}>
-            {/* Rendered from the draft, not from the collection: the default render prints the
-                selected item's children, chip included — and the recommendation chip belongs in the
-                LIST only. */}
+            {/* From the draft, not the collection: the default render would print the row's
+                chip, which belongs in the LIST only. */}
             <Autocomplete.Value className="fluid-sm min-w-0 truncate">
               {() => {
                 const selected = feederSpiele.find((spiel) => spiel.spiel_nr === quelle.spiel_nr);
@@ -599,9 +488,8 @@ export function FormTeamPicker({
           </Autocomplete.Trigger>
           <Autocomplete.Popover className={overlayPanel()}>
             <ListBox className="p-1">
-              {/* The round directly before this fixture's own carries the "empfohlen" chip: the list
-                  legitimately spans every earlier round — for a final, quarter- AND semi-finals —
-                  and the chip says which of them the bracket ordinarily feeds from. */}
+              {/* The list legitimately spans every earlier round, so the chip says which of them
+                  the bracket ordinarily feeds from. */}
               {feederSpiele
                 .filter((spiel) => spiel.spiel_nr === quelle.spiel_nr || !blockedKeys.has(`spiel:${spiel.spiel_nr}:${quelle.ausgang}`))
                 .map((spiel) => (
@@ -618,26 +506,21 @@ export function FormTeamPicker({
                 ))}
             </ListBox>
           </Autocomplete.Popover>
-          {/* The reason a match is missing from this list lives in the panel InfoHint with the rest of
-              the source vocabulary, not in a standing sentence under the control. */}
+          {/* Why a match is missing lives in the panel InfoHint, not under every control. */}
           <FieldError className={FIELD_ERROR} />
         </Autocomplete>
       )}
 
-      {/* Danger on the state rather than on who caused it, so a slot taken over in any edit carries
-          it. `isAnnounced` keys on the act instead: only a takeover performed in THIS edit is an
-          event a screen reader should hear. Neither claims other fixtures are affected — clearing a
-          source changes this slot's own maintenance and nothing else. */}
+      {/* Danger on the state, so a slot taken over in any edit carries it; `isAnnounced` keys on
+          the act, only this edit's takeover being an event worth announcing. */}
       <InlineBanners
         banners={banners}
         spot={`${fieldName}-manuell`}
         isAnnounced={hasJustBeenTakenOver}
       />
 
-      {/* The qualification warning, beside the Manuell one it accompanies: the hand-picked team
-          stands in no other bracket fixture, which is the client's honest signal that it may not
-          have advanced at all (`collectKnockoutTeamIds` — re-deriving the standings is kept out of
-          the client). A warning, never a refusal. */}
+      {/* Beside the Manuell warning it accompanies: the team stands in no other bracket
+          fixture. A warning, never a refusal. */}
       <InlineBanners
         banners={banners}
         spot={`${fieldName}-qualifikation`}
@@ -646,9 +529,7 @@ export function FormTeamPicker({
       {choice === "manuell" ? (
         teamPicker
       ) : (
-        /* The occupant, read-only: a side with a source is the resolution's, and a team picked
-           against it would be reverted by the same save that reports success. The takeover route is
-           the "Manuell" choice above, which is when this becomes a picker again. */
+        /* Read-only: the side is the resolution's until the "Manuell" choice above takes it back. */
         <div className="flex w-full flex-col gap-y-1.5">
           <span className={FIELD_LABEL}>{label}: Mannschaft</span>
           <div className={`${FIELD_INPUT} text-foreground-muted cursor-default`}>
@@ -658,10 +539,8 @@ export function FormTeamPicker({
         </div>
       )}
 
-      {/* The same derivation the public cards use, shown here so the admin sees the sentence the
-          bracket will print rather than inferring it from three separate controls. Only while the slot
-          is UNRESOLVED: once a team occupies it, the schedule prints the team's name and this line
-          would claim otherwise. */}
+      {/* The same derivation the public cards use, so the admin reads what the bracket will
+          print. Only while UNRESOLVED — an occupied slot prints the team's name instead. */}
       {derivedLabel !== null && teamPayload === null && (
         <p className="fluid-xxs text-foreground-muted leading-normal font-medium">
           Im Spielplan erscheint: <strong className="text-foreground">{derivedLabel}</strong>

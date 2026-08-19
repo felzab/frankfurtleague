@@ -1,6 +1,6 @@
 # Git — spec
 
-**Verified against:** `cda2912d`, 2026-08-19\
+**Verified against:** `889c31dd`, 2026-08-19\
 **Scope:** branching, commits, pull requests, the verification gate, and the GitHub settings that enforce them
 
 | Section                                                | Answers                                                                    |
@@ -11,7 +11,7 @@
 | [1.4 Pull requests](#14-pull-requests)                 | How a change reaches `main`, and what only the body can carry              |
 | [1.5 The verification gate](#15-the-verification-gate) | Which scopes exist, what each proves, and when a partial run is not enough |
 | [1.6 Repository settings](#16-repository-settings)     | The unversioned GitHub configuration, and how to restore it                |
-| [2. Invariants](#2-invariants)                         | The properties that must hold, and how each one breaks                     |
+| [2. Invariants](#2-invariants)                         | The properties that must hold                                              |
 | [3. Violation → remedy](#3-violation--remedy)          | A symptom, its cause, and what to do about it                              |
 | [4. Known-open](#4-known-open)                         | What is deliberately unfinished                                            |
 
@@ -52,6 +52,13 @@ git checkout main
 git pull --ff-only origin main
 git checkout -b short-kebab-name
 ```
+
+**A branch that lives for days merges `main` into itself continuously.** One touching shared
+documentation conflicts on every shared page, and the cost compounds until it is paid.
+
+**A merge resolution needs a no-loss assertion, not care.** Enumerate every line each side added
+since the fork and prove none is absent from the result. Taking one side whole is how a heading, a
+clause and an edited line each disappeared while the result read correctly.
 
 **`--ff-only` on the way back down is the point.** Because every change reaches `main` through GitHub,
 local `main` is only ever strictly behind, so a fast-forward is always possible. Where it is not,
@@ -207,7 +214,8 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 - **Required approvals stays `0`** — a single maintainer cannot approve their own pull request, so
   any higher value blocks every merge permanently.
 - **Linear history stays off** — it forbids merge commits, and squash and rebase are already off.
-- **The bypass list stays empty** — a deliberate history rewrite is done by setting the ruleset to
+- **The bypass list stays empty** — the force-push it guards against is my own, so an exemption
+  exempts exactly the risk. A deliberate history rewrite is done by setting the ruleset to
   **Disabled**, doing it, and re-enabling.
 - **CodeQL is deliberately not a required check** — it reports more than one, and an upstream
   query-pack problem would block merges for a reason unrelated to the change.
@@ -248,18 +256,18 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 
 ## 2. Invariants
 
-| #   | Invariant                                                     | Enforced by                                           | Breaks how                                                                                           |
-| --- | ------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| I1  | `main` takes changes only through a pull request              | the ruleset                                           | A direct push rewrites history nobody reviewed                                                       |
-| I2  | Merge commits are the only permitted merge method             | Settings → General, and linear history off            | A squash-merge collapses the commit bodies irreversibly                                              |
-| I3  | Every pull request a person opens is opened as a draft        | convention; a draft cannot be merged                  | A ready pull request can be merged before anyone has read it                                         |
-| I4  | Every commit on a branch carries a body                       | `scripts/check_commits.py`                            | The reasoning behind a change survives nowhere the diff can be read from                             |
-| I5  | No commit is signed as AI-generated                           | `scripts/check_commits.py :: BANNED`                  | A trailer claims authorship the convention refuses                                                   |
-| I6  | The gate's scope is checked against the diff before it runs   | `scripts/check_scope.py`                              | A run that skips the image build merges a packaging change nothing built                             |
-| I7  | Required status checks are added by hand in the ruleset panel | the ruleset                                           | A new workflow reports forever and blocks nothing                                                    |
-| I8  | Every action is pinned to a full commit SHA                   | review of `.github/workflows/` and `.github/actions/` | A repointed tag, floating or exact, changes what CI executes without a commit                        |
-| I9  | Every workflow triggers on `pull_request`                     | `.github/workflows/`                                  | `pull_request_target` would hand a fork's run the repository's secrets and a write token             |
-| I10 | The ruleset's bypass list is empty                            | the ruleset                                           | The force-push this guards against is the maintainer's own, so an exemption exempts exactly the risk |
+| #   | Invariant                                                     | Enforced by                                           |
+| --- | ------------------------------------------------------------- | ----------------------------------------------------- |
+| I1  | `main` takes changes only through a pull request              | the ruleset                                           |
+| I2  | Merge commits are the only permitted merge method             | Settings → General, and linear history off            |
+| I3  | Every pull request a person opens is opened as a draft        | convention; a draft cannot be merged                  |
+| I4  | Every commit on a branch carries a body                       | `scripts/check_commits.py`                            |
+| I5  | No commit is signed as AI-generated                           | `scripts/check_commits.py :: BANNED`                  |
+| I6  | The gate's scope is checked against the diff before it runs   | `scripts/check_scope.py`                              |
+| I7  | Required status checks are added by hand in the ruleset panel | the ruleset                                           |
+| I8  | Every action is pinned to a full commit SHA                   | review of `.github/workflows/` and `.github/actions/` |
+| I9  | Every workflow triggers on `pull_request`                     | `.github/workflows/`                                  |
+| I10 | The ruleset's bypass list is empty                            | the ruleset                                           |
 
 ## 3. Violation → remedy
 

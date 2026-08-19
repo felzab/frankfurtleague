@@ -1,16 +1,3 @@
-"""
-CORE · exception handlers
-
-Turns every exception into a response. Registered once from `app/main.py`.
-
-Invariants:
-- The body carries only the error code and correlation id; detail goes to the log, never the client.
-- Every handler logs before it returns, with the error code as a structured field.
-
-See:
-- docs/logging/error-codes.md — the error codes
-"""
-
 from typing import Mapping
 
 from bson.errors import InvalidId
@@ -45,9 +32,8 @@ async def base_api_exception_handler(request: Request, exc: BaseAPIException):
 
 
 async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
-    # A ValidationError escaping a handler is a server-side model failing on server-side data; a
-    # request payload raises RequestValidationError instead. 500, not 422 -- blaming the caller's
-    # payload points the diagnosis at the wrong side.
+    # A server-side model failing on server-side data; a request payload raises
+    # `RequestValidationError` instead. 500, not 422.
     fl_logger.error(
         f"Model validation failed outside request parsing: {exc.errors() or NO_DATA_TEXT}",
         extra={"error_code": "SRV-VAL-001"},
@@ -66,17 +52,9 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
 
 
 async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyError):
-    """
-    A unique index refused the write. 409, not the 500 a bare `PyMongoError` would produce.
+    """A unique index refused the write. 409, not a 500.
 
-    Registered because the write path can hit a unique index on an ordinary, well-formed request: a
-    second team claiming a shorthand, or a second squad row for a player in one season. Those are
-    states, not malformed payloads, and a 500 would tell the admin the server is broken when the
-    server is in fact enforcing the rule.
-
-    The index NAME is logged rather than returned. It names the rule that was broken -- which is the
-    useful thing when reading the log -- and it also names a collection and its fields, which the
-    minimal failure-body contract exists to keep off the wire.
+    The index NAME is logged rather than returned: it names a collection and its fields.
     """
     fl_logger.warning(
         f"Unique index refused a write: {failure_message_of(exc)}",
@@ -125,8 +103,7 @@ def register_exception_handlers(app: FastAPI):
     app.add_exception_handler(RequestValidationError, request_validation_exception_handler)  # type: ignore
     app.add_exception_handler(ValidationError, pydantic_validation_exception_handler)  # type: ignore
     # Starlette resolves a handler by walking `type(exc).__mro__`, so this subclass wins over the
-    # line below by being more specific, not by being registered first. Without it a refused unique
-    # index reports as a 500 crash.
+    # line below by being more specific, not by being registered first.
     app.add_exception_handler(DuplicateKeyError, duplicate_key_exception_handler)  # type: ignore
     app.add_exception_handler(PyMongoError, motor_db_exception_handler)  # type: ignore
     app.add_exception_handler(InvalidId, invalid_bson_oid_exception_handler)  # type: ignore

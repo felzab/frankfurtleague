@@ -9,11 +9,8 @@ import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { SpielortFieldLabel } from "./SpielortFieldLabel";
 
 /**
- * What the venue is called — the one field on this page a visitor actually reads, on every match card
- * held here.
- *
- * **The name fans out.** `PATCH /spielorte/{id}` rewrites the embedded `ort.name` on every Spiel at
- * this venue, and the derived `ort.maps_link` with it. The rail says so whenever the field is dirty.
+ * The name fans out: the patch rewrites the embedded `ort.name` on every Spiel at this venue, and
+ * the derived `ort.maps_link` with it.
  */
 export function FormSpielortSection({
   name,

@@ -2,9 +2,8 @@ import Link from "next/link";
 
 import { ctaButton } from "@/shared/components/ui/formButtons";
 
-// Scoped to (shared-views) so notFound() from either [team_id] route renders inside the dashboard
-// shell. Without it the nearest boundary is app/not-found.tsx, whose full-viewport 404 replaces the
-// sidemenu and season selector.
+// Scoped to (shared-views) so a notFound() renders inside the dashboard shell: the next boundary
+// up is the full-viewport 404, which would replace the sidemenu and season selector.
 export default function TeamNotFound() {
   return (
     <div className="flex w-full flex-col items-center gap-y-4 py-16 text-center">

@@ -14,9 +14,8 @@ export default async function AdminSpielsuchePage(props: NextPageProps) {
   const spieleRes = await getSpiele({ saison_id: specifiedSaisonId });
 
   return (
-    // No lookup lists: since the editor became its own route this page links to it rather
-    // than mounting it, so the four lists it needs are loaded by that route and this one serialises
-    // nothing but the matches on screen.
+    // No lookup lists: this page links into the editor's own route rather than mounting it, so it
+    // serialises nothing but the matches on screen.
     <SpielsucheView
       spiele={spieleRes.spiele}
       today={getGermanTodayStr()}

@@ -28,23 +28,9 @@ import type { SaisonBanner } from "./banners";
 const LISTED_OFFENE_SPIELE = 8;
 
 /**
- * The rollover: one button on `POST /saisons/{saison_id}/activate`, which promotes this season and
- * demotes the incumbent in one transaction on the backend.
- *
- * **The endpoint refuses a rollover while the outgoing season has unplayed fixtures**
- * (`REQ-ACTIVATE-001`), and it is the authority. This panel names what is incomplete in the OUTGOING
- * season and disables the control, so the refusal is visible before the request rather than as a
- * 409 afterwards — see `fl_frontend/src/features/saisons/actions.ts :: activateSaisonAction` for
- * what happens when the picture changes under the page.
- *
- * **A control rather than a field.** It writes the moment it is pressed and never joins the save bar,
- * the same shape the retire and reactivate controls take on the club and player editors. `status` is on
- * no payload and cannot be drafted.
- *
- * **A confirmation step rather than an undo**, which is the opposite of every other write on this
- * surface, and the reason is what the write does: the rollover changes what every public page shows to
- * a visitor who named no season, and it does so for both seasons at once. There is no toast window in
- * which that is invisible, so the useful protection is before rather than after.
+ * The rollover, on `POST /saisons/{saison_id}/activate`. **A confirmation step rather than an undo**,
+ * unlike every other write here: it changes what every public page shows for both seasons at once, so
+ * there is no window in which that is invisible.
  */
 export function FormRolloverSection({
   saisonId,
@@ -56,13 +42,8 @@ export function FormRolloverSection({
   saisonId: string;
   saisonStatus: FLSaisonStatus;
   rollover: SaisonRolloverContext;
-  /**
-   * Runs before the write. The editor uses it to refuse while a draft is unsaved: a rollover
-   * revalidates the route, so an unsaved edit would be discarded by a control that says nothing about
-   * editing. Returning `false` cancels.
-   */
+  /** Runs before the write; `false` cancels. The editor refuses while a draft is unsaved. */
   onBeforeActivate: () => boolean;
-  /** The editor's whole Hinweis list; the spot below takes its own entry out of it. */
   banners: readonly SaisonBanner[];
 }) {
   const router = useRouter();
@@ -74,9 +55,8 @@ export function FormRolloverSection({
   const offene = rollover.offeneSpiele;
   const outgoing = rollover.outgoingSaisonId;
 
-  // An outgoing season with unplayed fixtures is what the endpoint refuses, so the control does not offer
-  // it. There is no such season to be unfinished when nothing holds `active`, which is the first rollover
-  // of a fresh database — that case stays live.
+  // Nothing holds `active` on a fresh database, so there is no outgoing season to be unfinished and
+  // that first rollover stays live.
   const isBlocked = outgoing !== null && offene.length > 0;
 
   const handleActivate = () => {
@@ -96,8 +76,7 @@ export function FormRolloverSection({
       }
 
       appToast.success("Saison umgestellt", { description: res.message });
-      // The action's own invalidation reaches the caches; this is what re-renders the page the admin is
-      // still standing on, whose status badge and panel tone both just changed.
+      // The action's invalidation reaches the caches; this re-renders the page the admin stands on.
       router.refresh();
     });
   };
@@ -133,9 +112,8 @@ export function FormRolloverSection({
 
       <div className={panel.body()}>
         {isAlreadyActive ? (
-          // Panel-local, and deliberately not a banner: it answers "why can I not act HERE", which
-          // is a question only this control raises. That the season is the site-wide default is the
-          // rail's standing fact and is on screen already.
+          // Panel-local and deliberately not a banner: it answers "why can I not act HERE", which is a
+          // question only this control raises.
           <Callout
             severity="info"
             title="Hier ist nichts umzustellen">
@@ -163,9 +141,9 @@ export function FormRolloverSection({
               spot="umstellung"
             />
 
-            {/* The list, not a number: the count alone tells the operator that something is open and
-                nothing about whether it matters. A finale without a result is a different decision from
-                four group games nobody is waiting on, and each row links straight to the fixture. */}
+            {/* The list, not a number: a count tells the operator that something is open and
+                nothing about whether it matters. A finale without a result is a different decision
+                from four group games nobody waits on. */}
             {offene.length > 0 && (
               <ul className="border-border divide-border/50 flex w-full flex-col divide-y rounded-xl border">
                 {offene.slice(0, LISTED_OFFENE_SPIELE).map((spiel) => (
@@ -214,10 +192,9 @@ export function FormRolloverSection({
               </div>
             )}
 
-            {/* Disabled rather than left live to fail. The endpoint refuses the same thing
-                (`REQ-ACTIVATE-001`) and stays the authority — this only stops the page offering an act it
-                knows the answer to, which is the same division the season form's rules panel makes. The
-                list above is what makes the disabled state actionable. */}
+            {/* Disabled rather than left live to fail. `REQ-ACTIVATE-001` refuses the same thing
+                and stays the authority; this only stops the page offering an act it knows the
+                answer to. The list above makes it actionable. */}
             <div className="flex w-full flex-row flex-wrap items-center gap-3">
               {/* The list above sits a screen away from the button, so the refusal is said again on
                   the control itself. `isActivating` is left out: it ends by itself. */}

@@ -2,8 +2,8 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
 overrides:
-  # Advisories in the versions next pulls (`docs/_auditing/reports/2026-07-frontend.md`); only
-  # sharp is runtime-reachable, via libvips on /_next/image. An override governs the direct
-  # dependency too: the importer takes this range, not package.json's.
+  # Each pins past an advisory in the version next would otherwise pull. Only sharp is
+  # runtime-reachable, via libvips on /_next/image. An override governs the direct dependency
+  # too: the importer takes this range, not package.json's.
   sharp: "^0.35.3"
   postcss: "^8.5.24"

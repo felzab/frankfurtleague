@@ -1,15 +1,3 @@
-"""
-CORE · the failure contract on the wire
-
-Every failure body is `{error_code, correlation_id}`, the code on the wire and in the log is the
-exception's own, and every request produces exactly one access line.
-
-Driven through TestClient without the lifespan, deliberately: a plain client never opens the
-database, so the first guarded read raises a real `DB-CONN-001` instead of a hand-mocked
-exception. A getattr fallback there logs every code as one fixed string, which is the regression
-this file pins (`docs/logging/error-codes.md`).
-"""
-
 import logging
 import re
 
@@ -18,15 +6,16 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 from tests.config import build_test_config
 
-# Module level, like test_admin_guard.py: building the app re-runs the logging dictConfig, and doing
-# that inside a test would strip the handler caplog attaches at test setup.
+# Module level: building the app re-runs the logging dictConfig, which inside a test would strip the
+# handler caplog attaches at setup.
 APP = create_app(build_test_config())
 
 BASE_AUTH = {"Authorization": "Bearer test-key-base"}
 
 
 def client() -> TestClient:
-    # No context manager: the lifespan must NOT run (see the module header).
+    # No context manager, so the lifespan must not run: a client that never opens the database makes
+    # the first guarded read raise a real `DB-CONN-001` rather than a hand-mocked exception.
     return TestClient(APP, raise_server_exceptions=False)
 
 
@@ -58,9 +47,8 @@ class TestFailureBodies:
         assert response.headers["Retry-After"] == "30"
 
     def test_a_request_validation_failure_maps_to_reqval001(self):
-        # Invoked directly: through the stack a lifespan-less client 503s on the database dependency
-        # before query parsing can fail, so the routed path cannot reach this handler here. The
-        # handler ignores the request argument.
+        # Invoked directly: a lifespan-less client 503s on the database dependency before query parsing
+        # can fail, so the routed path cannot reach this handler. The handler ignores its request.
         import asyncio
         import json as jsonlib
 
@@ -82,8 +70,8 @@ class TestFailureBodies:
 
 class TestErrorCodeLogging:
     def test_the_logged_code_is_the_exceptions_own(self, caplog):
-        # The finding this pins: the handler read the code via getattr with an API_ERROR fallback,
-        # the attribute did not exist, and every BaseAPIException logged as the fallback.
+        # A `getattr` fallback in the handler would log every `BaseAPIException` as one fixed string
+        # (`docs/logging/error-codes.md`).
         with caplog.at_level(logging.WARNING, logger="frankfurtleague"):
             client().get("/api/v0/spiele")
 

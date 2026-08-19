@@ -1,23 +1,5 @@
 "use server";
 
-/**
- * SPIELER · server actions
- *
- * Full CRUD over people, plus the squad junction. The `"use server"` directive stays the first
- * line, above this block.
- *
- * Invariants:
- * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the form.
- * - Base tag only, on every action: the cached spieler read spans every season.
- * - `spieler` is the ONLY resource invalidated — nothing under `spiele` or `teams` reads a squad row.
- * - A junction create 409 names reactivation: the unique index keeps indexing a retired row, and
- *   creating never revives.
- * - Create-and-enter is one action over two requests, person first — a player with no junction
- *   row is invisible to every season-scoped read.
- *
- * See:
- * - docs/frontend/spec.md — section 1.3, the action inventory
- */
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
@@ -56,13 +38,12 @@ import type {
 } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
 
-// The index spans retired rows, and reviving is deliberately not the create's job -- so
-// the message names the one path that is.
+// The index spans retired rows and creating never revives, so the message names the one path that does.
 const ALREADY_IN_SAISON =
   "Dieser Spieler hat in dieser Saison bereits einen Kadereintrag, möglicherweise einen ausgetragenen. " +
   "Reaktiviere den Eintrag, statt einen neuen anzulegen.";
 
-/** Every spieler read, in one call. Base tag only, for the reason in this module's invariants. */
+/** Base tag only: the cached spieler read spans every season. */
 function invalidateSpieler(): void {
   updateTag("spieler");
 }
@@ -70,8 +51,7 @@ function invalidateSpieler(): void {
 /**
  * The squad refusal (`REQ-SQUAD-001`), or `null` when the 409 is something else.
  *
- * Written to the shape stated in `fl_frontend/src/features/saisons/actions.ts`. It lands on the field
- * that caused it -- the team picker -- so it is one sentence about that value.
+ * Lands on the field that caused it — the team picker — so it is one sentence about that value.
  */
 function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -83,8 +63,8 @@ function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
 }
 
 export async function postSpielerAction(
-  // The DRAFT shape, not the parsed payload: the form may submit `team_id: null` from an untouched
-  // picker, and the schema below is what turns that into a field error rather than a type error.
+  // The DRAFT shape: an untouched picker submits `team_id: null`, and the schema below is what turns
+  // that into a field error rather than a type error.
   rawPayload: SpielerCreateDraft,
 ): Promise<{ success: boolean; spieler_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSpielerAction", async () => {
@@ -100,17 +80,14 @@ export async function postSpielerAction(
 
     const { saison_id, team_id, nummer, position, stufe, is_nachgetragen, is_captain, ...personFields } = validated.data;
 
-    // No 409 branch on the person: there is deliberately no uniqueness rule on a name, because two
-    // people genuinely can share one and a league that refused the second would be wrong about the
-    // world rather than careful.
+    // No 409 branch on the person: no uniqueness rule on a name, because two people can share one.
     const postOperation = await postSpieler(personFields);
     if (!postOperation.acknowledged) {
       return { success: false, error: "Beim Anlegen des neuen Spielers ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // The junction row, in the same action: without one the player is invisible to
-    // every season-scoped read (backend spec I11), the list this form sits on
-    // included. A failure here leaves the player EXISTING, which the message says.
+    // The junction row, in the same action: without one the player is invisible to every
+    // season-scoped read (backend spec I33). A failure here leaves the player EXISTING.
     try {
       await postSaisonSpieler({
         spieler_id: postOperation.spieler_id,
@@ -124,9 +101,8 @@ export async function postSpielerAction(
       });
     } catch (error) {
       invalidateSpieler();
-      // A 409 here cannot be the player's own duplicate row, but it CAN be a squad
-      // refusal naming something the admin can act on, so the reason is appended.
-      // Either way the player EXISTS without a squad entry, which the message says.
+      // A 409 here cannot be the player's own duplicate row, but it CAN be a squad refusal naming
+      // something the admin can act on, so the reason is appended.
       const refusal = mapSquadRefusal(error);
       const because = refusal ? ` ${refusal.error ?? Object.values(refusal.fieldErrors ?? {})[0] ?? ""}` : "";
 
@@ -181,8 +157,6 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
   });
 }
 
-// A soft delete: the backend stamps `inactive_since`. The player's squad rows are left
-// alone -- the seasons they played still happened, and those squad lists should still name them.
 export async function deleteSpielerAction(
   rawPayload: FLDeleteSpielerPayload,
 ): Promise<{ success: boolean; spieler?: FLSpielerSingleResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
@@ -242,8 +216,7 @@ export async function reactivateSpielerAction(
 }
 
 export async function postSaisonSpielerAction(
-  // Draft-shaped for the same reason as the create: an untouched team picker submits null, and the
-  // schema turns that into the field error.
+  // Draft-shaped for the same reason as the create: an untouched team picker submits null.
   rawPayload: SaisonSpielerEnterDraft,
 ): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSaisonSpielerAction", async () => {
@@ -257,18 +230,12 @@ export async function postSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The 409 that matters here: the unique index spans RETIRED rows, so "already
-    // there" includes one the admin cannot see. It lands as a form error rather
-    // than a toast, because it is about what was submitted.
     let saisonSpieler;
     try {
-      // The club has to be in the season (`REQ-SQUAD-001`). It lands on the field that caused it, in
-      // the form that is still open.
       saisonSpieler = await postSaisonSpieler(validated.data);
     } catch (error) {
-      // Several different 409s reach this call and the code separates them. The named
-      // refusals are checked first, because the fallback has no code to inspect: a
-      // repeat row from the unique index is what is left once they are ruled out.
+      // The named refusals are checked first, because the fallback has no code to inspect: a repeat
+      // row from the unique index — which spans RETIRED ones — is what is left once they are ruled out.
       const refusal = mapSquadRefusal(error);
       if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
@@ -301,7 +268,6 @@ export async function patchSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The same squad rule as on the create (`REQ-SQUAD-001`), reaching the same field.
     let saisonSpieler;
     try {
       saisonSpieler = await patchSaisonSpieler(validated.data);
@@ -321,8 +287,7 @@ export async function patchSaisonSpielerAction(
   });
 }
 
-// Soft, and independent of the person's own retirement: this takes the player out of ONE season's
-// squad and says nothing about whether they are still in the league.
+// Independent of the person's own retirement: this takes the player out of ONE season's squad.
 export async function deleteSaisonSpielerAction(
   rawPayload: FLSaisonSpielerKeyPayload,
 ): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {

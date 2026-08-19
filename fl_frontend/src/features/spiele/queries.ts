@@ -1,18 +1,3 @@
-/**
- * SPIELE · cached reads
- *
- * The list read and the single read, both tagged and both invalidated by `actions.ts` in this
- * same slice — the pairing that keeps invalidation honest.
- *
- * Invariants:
- * - Every granular tag declared here has a matching `updateTag` in `actions.ts`.
- * - Omitting `saison_id` means the current season — the most common entries carry the base tag only.
- * - The single read declares the base tag only — a write rewrites fixtures it never named.
- *
- * See:
- * - docs/frontend/spec.md — section 1.4, the full cache-tag design
- */
-
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
@@ -26,9 +11,8 @@ import type { FLSpieleFilterParams } from "./types";
 export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleListResponse> {
   "use cache";
 
-  // The only granular tag kept for this resource: the admin patch action invalidates it by
-  // season. No tags by phase or status — a result edit changes a match's status, so that would need
-  // both the previous and the new value to be correct.
+  // The only granular tag, and `actions.ts` has its matching `updateTag`. None by phase or status:
+  // a result edit changes a match's status, so both the old and new value would have to invalidate.
   const tags: string[] = ["spiele"];
   if (filters.saison_id) tags.push(`spiele:saison_id:${filters.saison_id}`);
   cacheTag(...tags);
@@ -40,20 +24,8 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
 }
 
 /**
- * One match by its id, for the edit page whose subject IS that match.
- *
- * **The base tag alone, and that is not an oversight.** A season-scoped tag would need the season, which
- * is what this response exists to supply — and it would be wrong even if it were available: the patch
- * that resolves a bracket rewrites *other* fixtures of the same season, so nothing narrower
- * than `spiele` describes what one match write invalidates. The action invalidates `spiele`
- * unconditionally on every match write, so this entry can never outlive an edit.
- *
- * **Resolves `null` when the id matches no match, and the 404 → null conversion must stay INSIDE this
- * function.** In a production build, an error thrown out of a `"use cache"` scope reaches the awaiting
- * caller redacted to a digest-only `Error` — `instanceof` and `statusCode` are gone — so a catch at
- * the call site can never recognise the 404 and the edit page rendered the error page for an unknown
- * id. Only the 404 becomes a value; everything else still throws, so a backend outage never reads as
- * a missing fixture.
+ * **The base tag alone, and not by oversight**: a bracket-resolving patch rewrites *other* fixtures
+ * of the season, so nothing narrower describes what one match write invalidates.
  */
 export async function getSpiel(spielId: string): Promise<FLSpieleSingleResponse | null> {
   "use cache";
@@ -61,6 +33,8 @@ export async function getSpiel(spielId: string): Promise<FLSpieleSingleResponse 
   cacheTag("spiele");
   cacheLife("hours");
 
+  // The 404 becomes `null` INSIDE this function: an error thrown out of a `"use cache"` scope
+  // reaches the caller redacted to a digest in a production build, leaving no `statusCode` to read.
   return apiClient(`/spiele/${spielId}`, FLSpieleSingleResponseSchema).catch((error: unknown) => {
     if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
     throw error;

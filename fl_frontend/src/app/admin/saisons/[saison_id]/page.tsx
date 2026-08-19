@@ -16,16 +16,9 @@ import type { SaisonGruppenSwapContext, SaisonOffeneSpiel, SaisonRolloverContext
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The season editor. One season per URL.
- *
- * **The season is the SEGMENT here, not the sidemenu selector's `?saison_id=`.** That is the opposite of
- * the club and player editors, and it follows from what the page edits: those two edit a season-scoped
- * junction row belonging to a club or a person, so the selector says which row; this page's subject IS a
- * season, so it is addressed by id and the selector has nothing to add.
- *
- * No `generateMetadata` and no `generateStaticParams`, for the reasons the match editor records. **The
- * page itself resolves NOTHING** — every await happens inside the `Suspense` boundary, which is what
- * keeps a fallback-params route renderable (the match editor documents the crash).
+ * The season editor. The season is the SEGMENT, not the selector's `?saison_id=`: the club and
+ * player editors address a junction row, while this page's subject IS a season. It resolves
+ * nothing itself — see the match editor.
  */
 export default function AdminSaisonEditPage(props: NextPageProps<{ saison_id: string }>) {
   return (
@@ -39,9 +32,8 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   await connection();
   const saisonId = await resolveSaisonIdParam(params);
 
-  // The whole season list rather than `GET /saisons/{id}`: the rollover panel needs the OUTGOING season
-  // too, which is whichever one holds `active` — a single read by id could not name it, and a second read
-  // to find it would be the same list.
+  // The whole list, not `GET /saisons/{id}`: the rollover panel also needs whichever season holds
+  // `active`, which a read by id cannot name.
   const saisonsRes = await getSaisons();
   const saison = saisonsRes.saisons.find((candidate) => candidate.id === saisonId);
   if (!saison) {
@@ -51,38 +43,27 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const outgoing = saisonsRes.saisons.find((candidate) => candidate.status === "active") ?? null;
   const outgoingSaisonId = outgoing === null || outgoing.id === saison.id ? null : outgoing.id;
 
-  // Retired matchdays come back too; the filter below drops them, because only the live ones bound the
-  // dates. The flag keeps this page's cache key equal to the one `/admin/saisons` warms: that list
-  // reads every season with it, and its rows link here.
+  // Retired matchdays included, so this page's cache key equals the one `/admin/saisons` warms.
+  // The filter below drops them: only live matchdays bound the dates.
   const [spieltageRes, outgoingSpieleRes, teamsRes, playoffSpieleRes, gruppenSpieleRes] = await Promise.all([
     getSpieltage({ saison_id: saison.id, include_inactive: true }),
-    // Only fetched where there is something to warn about. A season that is already active has no
-    // rollover to present, and one with no incumbent has no outgoing fixtures to check.
+    // Only where there is something to warn about: an active season has no rollover to present, and
+    // one with no incumbent no outgoing fixtures to check.
     outgoingSaisonId === null || saison.status === "active" ? Promise.resolve(null) : getSpiele({ saison_id: outgoingSaisonId }),
-    // This season's clubs, for the swap control. `include_inactive` because this is an admin picker,
-    // and hiding a retired club that still holds a junction row would make a swap the
-    // endpoint accepts look impossible.
+    // `include_inactive` because an admin picker hiding a retired club that still holds a junction
+    // row would make a swap the endpoint accepts look impossible.
     getTeams({ saison_id: saison.id, include_inactive: true }),
-    // `playoffs` is the query alias for "not gruppenphase" and is exactly the set `REQ-SWAP-002`
-    // counts, so the page asks the endpoint's own question rather than fetching a whole season to
-    // filter it here.
+    // `playoffs` is exactly the set `REQ-SWAP-002` counts, so the page asks the endpoint's own
+    // question rather than filtering a whole season here.
     getSpiele({ saison_id: saison.id, saison_phase: "playoffs" }),
-    // The other half of the same question (`REQ-SWAP-004`), narrowed to the phase the rule asks about
-    // for the reason the line above is: which clubs have already taken part in their group.
+    // The other half of the same question (`REQ-SWAP-004`), narrowed to the phase the rule asks about.
     getSpiele({ saison_id: saison.id, saison_phase: "gruppenphase" }),
   ]);
 
   /**
-   * The outgoing season's unfinished matches — the precondition the ENDPOINT now enforces
-   * (`REQ-ACTIVATE-001`, decided 2026-08-08), listed here so the block is actionable rather than a 409.
-   *
-   * **"Unfinished" is `ergebnis === null && !is_canceled`, and it mirrors `unplayed_spiel_nrs` exactly.**
-   * Cancelling is the route past the refusal, so a cancelled fixture is settled: it is what turns a match
-   * nobody will ever play into a decision somebody recorded. A cancelled match that DOES carry a result
-   * is a forfeit and counts for the table, so it is settled either way.
-   *
-   * The two definitions have to agree. If this list is empty while the endpoint refuses, the page shows a
-   * live rollover button that always fails; if it is longer, the page blocks a rollover that would work.
+   * Listed so `REQ-ACTIVATE-001` blocks actionably rather than as a 409, which means "unfinished"
+   * must keep mirroring `unplayed_spiel_nrs`: too narrow offers a rollover that always fails, too
+   * wide blocks one that would work.
    */
   const offeneSpiele: SaisonOffeneSpiel[] = (outgoingSpieleRes?.spiele ?? [])
     .filter((spiel) => spiel.ergebnis === null && !spiel.is_canceled)
@@ -90,9 +71,8 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       id: spiel.id,
       spielNr: spiel.spiel_nr,
       datum: spiel.datum,
-      // A knockout slot the group phase has not filled has no team on that side — a normal state, so
-      // the shared slot placeholder stands in. The provenance label is not resolved here: the
-      // fixture's own page is where its wiring belongs.
+      // An unfilled knockout slot is a normal state, so the shared placeholder stands in. The
+      // provenance label belongs on the fixture's own page.
       paarung: `${spiel.team1?.name ?? PLACEHOLDER.slot} gegen ${spiel.team2?.name ?? PLACEHOLDER.slot}`,
     }))
     .sort((left, right) => left.spielNr - right.spielNr);
@@ -100,10 +80,8 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const rollover: SaisonRolloverContext = { outgoingSaisonId, offeneSpiele };
 
   /**
-   * What the group swap control stands on, assembled by the derivation both entry points
-   * share — so that what this page offers and what the club editor offers are the same
-   * question asked once. The grouped team shape is never requested, so the narrowing is a type guard
-   * rather than a branch anything reaches.
+   * Assembled by the derivation both entry points share, so this page and the club editor grade a
+   * swap pair identically.
    */
   const swap: SaisonGruppenSwapContext = buildGruppenSwapContext({
     teams: teamsRes.format === "list" ? teamsRes.teams : [],
@@ -111,25 +89,23 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     playoffSpiele: playoffSpieleRes.spiele,
   });
 
-  // The inner bound on the season's own dates (`REQ-DATE-004`): the start may not move past the first
-  // live matchday's beginn, the end not before the last one's ende.
+  // The inner bound on the season's dates (`REQ-DATE-004`): the start may not pass the first live
+  // matchday's beginn, nor the end precede the last one's ende.
 
-  // Retired matchdays do not bind — retiring is how a mis-dated one leaves the schedule. `undefined`
-  // while the season has no live matchday, which leaves both pickers unbounded.
+  // Retired matchdays do not bind — retiring is how a mis-dated one leaves the schedule.
   const liveBeginne = spieltageRes.spieltage.filter((spieltag) => spieltag.inactive_since === null).map((spieltag) => spieltag.beginn);
   const liveEnden = spieltageRes.spieltage.filter((spieltag) => spieltag.inactive_since === null).map((spieltag) => spieltag.ende);
   const spieltagBound =
     liveBeginne.length === 0
       ? undefined
       : {
-          // Lexicographic min/max is date order on YYYY-MM-DD, the comparison every span rule uses.
+          // Lexicographic min/max is date order on YYYY-MM-DD.
           startMax: [...liveBeginne].sort()[0] ?? "",
           endMin: [...liveEnden].sort().at(-1) ?? "",
         };
 
   return (
-    // Keyed by the state the drafts mirror — the match editor's reason: the same route pattern reconciles
-    // in place, and a saved season must reopen with its saved values.
+    // Keyed by the state the drafts mirror, for the match editor's reason.
     <AdminSaisonEditView
       key={JSON.stringify(saison)}
       saison={{

@@ -1,19 +1,10 @@
 """
 SCRIPTS · the documentation gate
 
-The entry point verify.sh runs. Every check lives in the package beside this file, one module per
-seam; what stays here is the name the rest of the corpus cites. A `<file> :: <symbol>` citation is
-answered by finding the symbol's own text inside the file it names, so the re-exports below are
-what keeps a citation of this file resolving.
-
-Invariants:
-- Every symbol the corpus cites as `check_docs.py :: <symbol>` is re-exported here.
-- The package is not named check_docs. A sibling package of that name carrying
-  __init__.py always resolves ahead of this file, which nothing could then import.
-
-See:
-- scripts/docs_gate/run.py — the run order, and the exit code this returns
-- docs/_standard/chapters/5-currency.md — what each check means, and its verdict
+The entry point verify.sh runs; the checks live in the package beside this file. A
+`<file> :: <symbol>` citation resolves by finding the symbol's text inside the file it names, so
+every symbol the corpus cites as `check_docs.py :: <symbol>` is re-exported below. The package is
+NOT named check_docs: a sibling of that name carrying __init__.py resolves ahead of this file.
 """
 
 from __future__ import annotations
@@ -36,8 +27,8 @@ from docs_gate.perkind import (
 from docs_gate.references import RULE_ID_RE
 from docs_gate.run import main
 
-# Named for export rather than for use here: a citation resolves by finding its symbol inside the
-# file it names, and every one below is cited from a document, a command file or a sibling checker.
+# Named for export rather than for use here: every one below is cited from a document, a command
+# file or a sibling checker.
 __all__ = [
     "CHECKS",
     "METADATA_LINE_RE",

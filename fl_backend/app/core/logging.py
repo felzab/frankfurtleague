@@ -1,15 +1,9 @@
 """
 CORE · structured logging
 
-One logger for the whole service: one JSON document per line in production, colourised human
-output in development. The field set is shared with the frontend logger so one parser reads both
-streams — the contract is `docs/logging/spec.md`.
-
-Invariants:
-- The correlation id is a ContextVar set by `CorrelationIdMiddleware`, never a parameter.
-- Nothing in the service writes to stdout directly — a stray `print` breaks one-document-per-line.
-- Log the field name, never the submitted value: payloads carry personal data.
-- `uvicorn.access` is off here; `CorrelationIdMiddleware` owns the per-request line.
+One logger for the whole service, and nothing else in it writes to stdout: a stray `print` breaks
+`docs/logging/spec.md :: L1`. Log the field NAME, never the submitted value -- payloads carry
+personal data.
 """
 
 import json
@@ -23,15 +17,14 @@ from app.core.config import BackendConfig
 
 FL_LOGGER_NAME = "frankfurtleague"
 
-# Boot and lifecycle lines run outside any request; the sentinel says so explicitly rather than
-# leaving the field absent, so a parser can rely on the key existing on every line.
+# A sentinel rather than an absent field, so a parser can rely on the key existing on every line.
 NO_REQUEST_SENTINEL = "SYSTEM"
 
 # Set by `fl_backend/app/core/middlewares.py :: CorrelationIdMiddleware`, read by every formatter below.
 correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default=NO_REQUEST_SENTINEL)
 
-# Optional structured fields a call site may pass via `extra=`. Listed once so both formatters and
-# the tests agree on what travels as a field rather than inside the message text.
+# Listed once, so both formatters and the frontend logger agree on what travels as a field rather
+# than inside the message text (`docs/logging/spec.md :: L2`).
 STRUCTURED_EXTRAS = ("error_code", "method", "path", "status", "duration_ms")
 
 
@@ -71,7 +64,7 @@ class JSONFormatter(logging.Formatter):
             value = getattr(record, field, None)
             if value is not None:
                 log_record[field] = value
-        # The same three-key object the frontend logger emits for an Error, so one parser reads both.
+        # The same three-key object the frontend logger emits for an Error.
         if record.exc_info and record.exc_info[1] is not None:
             log_record["error"] = {
                 "name": type(record.exc_info[1]).__name__,
@@ -144,8 +137,7 @@ def setup_custom_logger(config: BackendConfig):
             "uvicorn": {"level": "INFO", "propagate": True},
             "uvicorn.error": {"level": "INFO", "propagate": True},  # Startup/Shutdown
             # Explicitly OFF, not merely omitted: dictConfig resets every existing CHILD of a
-            # configured logger to propagate=True, so an unlisted `uvicorn.access` logs every request
-            # a second time despite `--no-access-log` (Dockerfile CMD).
+            # configured logger to propagate=True, so an unlisted one logs every request twice.
             "uvicorn.access": {"level": "INFO", "propagate": False},
             "watchfiles": {"level": "WARNING", "propagate": True},  # File reloader
         },

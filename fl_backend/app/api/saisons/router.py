@@ -1,18 +1,3 @@
-"""
-SAISONS · read endpoints
-
-Writing them is `admin_router.py`, a separate module so the two authorization levels never share
-a file.
-
-Invariants:
-- `/current` is declared before `/{saison_id}` and must stay there — matching is declaration order.
-- A season id is exactly 4 characters, matching every `saison_id` that references one.
-- `rules.win_points` / `draw_points` score every derived league table on read.
-
-See:
-- docs/frontend/spec.md — section 1.5, how a direct edit here reaches the frontend cache
-"""
-
 from fastapi import APIRouter, Depends
 
 from app.api.saisons.crud import pull_current_saison
@@ -40,8 +25,7 @@ async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsF
     """
     List seasons, optionally filtered by status (`past`, `active`, `future`).
 
-    Unlike the other resources, this does NOT default to the current season -- listing seasons is the
-    one case where "all of them" is the sensible default.
+    Unlike the other resources, this does NOT default to the current season.
     """
 
     db_filter = build_saisons_filter(filters=filters)
@@ -62,12 +46,7 @@ async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsF
 async def get_current_saison(
     saisons_collection: SaisonsCollection,
 ) -> FLSaisonsSingleResponse:
-    """
-    Return the season currently marked active.
-
-    This is what every other endpoint resolves an omitted `saison_id` against, so it sits on the hot
-    path of most page loads. Exactly one season is expected to have `status: "active"`.
-    """
+    """Return the season currently marked active -- what every other endpoint resolves an omitted `saison_id` against."""
 
     saison_raw = await pull_current_saison(saisons_collection=saisons_collection)
 
@@ -76,17 +55,11 @@ async def get_current_saison(
     return FLSaisonsSingleResponse(saison=saison)
 
 
-# Declared after `/current`: routes match in declaration order, so swapped, "current" is captured as a
-# saison id. The `objectid` convertor cannot help -- a season id is a four-character string, so the
-# parameter genuinely could match it.
+# Declared after `/current`: routes match in declaration order, and the `objectid` convertor cannot
+# help here, a season id being a four-character string (`docs/backend/spec.md :: I37`).
 @router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
 async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> FLSaisonsSingleResponse:
-    """
-    Return one season by its four-character id.
-
-    404 when no season carries that id, rather than an empty list — which is the reason this exists
-    separately from `GET /saisons` rather than as a filter on it.
-    """
+    """Return one season by its four-character id; 404 when none carries it, rather than an empty list."""
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
 

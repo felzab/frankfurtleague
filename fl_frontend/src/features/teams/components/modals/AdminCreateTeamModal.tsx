@@ -12,12 +12,10 @@ import { FormModal } from "@/shared/components/ui/FormModal";
 import type { TeamCreateSaisonOption } from "@/features/teams/types";
 
 /**
- * Takes its data as props rather than fetching: the trigger renders above the page's data boundary,
- * and the route wraps this modal in its own `Suspense` so the fetch never blocks the shell.
+ * Props rather than a fetch: the trigger renders above the page's data boundary.
  *
- * `saisonOptions` is only the PLANNED seasons (decided 2026-08-07): a team enters a season before it
- * starts, never after — so with none planned, the trigger still opens and the dialog says why there
- * is nothing to fill in, instead of offering a create the backend must refuse (REQ-ENTER-001).
+ * `saisonOptions` is only the PLANNED seasons — any other would be a create the backend must
+ * refuse (`REQ-ENTER-001`).
  */
 export function AdminCreateTeamModal({
   saisonOptions,
@@ -38,7 +36,6 @@ export function AdminCreateTeamModal({
           width={18}
           height={18}
         />
-        {/* Below `sm` the trigger is the bare plus continuing the search bar (decided 2026-08-07). */}
         <span className="hidden sm:inline">Neues Team anlegen</span>
       </Button>
 

@@ -1,44 +1,30 @@
-/**
- * ADMIN · navigation structure
- *
- * The admin sidemenu, and the icon dictionary it is validated against. Kept in one file precisely so
- * the two cannot disagree.
- */
-
 import { Calendar, ExclamationShape, Magnifier, MapPin, Medal, Person, PersonPencil, Persons, Sliders } from "@gravity-ui/icons";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
 
 /**
- * The icon dictionary lives beside the structure it must agree with, and `AdminIconName` is derived
- * from it — so an `iconName` typo below is a compile error instead of a nav item that silently
- * renders without an icon.
+ * `AdminIconName` is derived from this, so an `iconName` typo below is a compile error rather than a
+ * nav item that silently renders without an icon.
  */
 export const ADMIN_SIDEMENU_ICONS = {
   ExclamationShape,
   Magnifier,
   Medal,
   Person,
-  // The player list's own glyph: a person with a pencil, distinct from Schiedsrichter's bare Person
-  // and from Teams' Persons, so the three entries under Beteiligte are told apart at a glance.
   PersonPencil,
   Persons,
   MapPin,
-  // The season's own glyph, never a calendar -- that is the Spieltage entry's below. What this page
-  // edits is the competition's settings and the rollover, so controls read truer than a date range.
+  // The season's glyph, never a calendar — that is the Spieltage entry's below.
   Sliders,
-  // The matchday list's, and the public Spielplan's own (`DASHBOARD_SIDEMENU_ICONS`): the same
-  // matchdays seen for a different purpose, which the Finalrunden and Teams entries treat the same way.
   Calendar,
 } as const satisfies Record<string, React.ElementType>;
 
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
 
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
-  // First, and DELIBERATELY UNNAMED: everything below it is scoped by a season, so a heading here
-  // would name the thing the whole menu is already about. `SidemenuNavLinks` renders no label for an
-  // empty name.
+  // Deliberately unnamed: everything below is season-scoped, and `SidemenuNavLinks` renders neither a
+  // label nor a rule for an empty name.
   {
     category_name: "",
     sub_options: [
@@ -62,13 +48,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
 
   {
     category_name: "Spiele",
-    // The order these are REACHED IN: what needs doing, then one fixture, then the schedule they sit
-    // in, then the draw that decides the later ones. The queue leads because it alone answers "is
-    // there anything to do at all".
     sub_options: [
-      // "Handlungsbedarf", not "Übersicht": the page is a queue ranked by what each entry blocks, and an
-      // overview is what `spielsuche` below is. This label is also the collapsed tooltip and the page
-      // title in the bar, so they move together.
       {
         id: "action_required",
         label: "Handlungsbedarf",
@@ -95,9 +75,6 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           ],
         },
       },
-      // The structural surfaces come after the ones that reach a single fixture: a Spieltag is the
-      // block matches belong to and the Finalrunden are how the later ones are wired, so both are
-      // read to check the season's shape rather than to act on one match.
       {
         id: "spieltage",
         label: "Spieltage",
@@ -112,15 +89,12 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           note: "Sobald die KO-Runde begonnen hat, lassen sich keine Spieltage mehr anlegen.",
         },
       },
-      // Named AND iconed for the public bracket's own entry (`DASHBOARD_SIDEMENU_ICONS`), because it is the
-      // same rounds seen for a different purpose — a second word and a second glyph for one stage are two
-      // more things to learn for nothing.
       {
         id: "finalrunden",
         label: "Finalrunden",
         iconName: "Medal",
-        // The chip legend lives here rather than on the page, so the surface has ONE info glyph and
-        // it is the shell's — a second one beside the title would be two answers to one question.
+        // The chip legend lives in the shell's hint and not on the page, so the surface has one info
+        // glyph rather than two answers to one question.
         hint: {
           lead: "Woher jede Seite jedes KO-Spiels kommt und wer gerade darin steht. Zum Prüfen der Auslosung, bevor sie gespielt wird.",
           points: [
@@ -156,8 +130,6 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   {
     category_name: "Beteiligte",
     sub_options: [
-      // Named AND iconed for the public team list's own entry (`DASHBOARD_SIDEMENU_ICONS`), for the
-      // finalrunden entry's reason: the same clubs seen for a different purpose.
       {
         id: "teams",
         label: "Teams",
@@ -175,8 +147,6 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           note: "Eine Disqualifikation gilt für eine Saison und wird auf der Teamseite eingetragen. Aus einer Saison entfernt wird nie.",
         },
       },
-      // Directly below Teams, which is the order the two are reached in: a player is entered into a
-      // team's squad, so the team has to exist first.
       {
         id: "spieler",
         label: "Spieler",

@@ -13,15 +13,10 @@ import { PAGE_RISE } from "@/shared/components/ui/motion";
 import type { FLSpieler } from "../../schemas";
 
 /**
- * A team's squad list.
+ * `"use client"` is required: `Table.Body` takes a `renderEmptyState` render prop, which a Server
+ * Component may not pass.
  *
- * Every field except `vorname` renders through a fallback, and that is not defensiveness — `FLSpieler`
- * declares surname, number, level and position as nullable, because a squad entry is routinely created
- * before those are known. Removing a fallback renders a literal "null" the first time someone adds a
- * player mid-season.
- *
- * `"use client"` is required: the back button needs `useRouter`, and `Table.Body` takes a
- * `renderEmptyState` render prop, which a Server Component may not pass.
+ * The fallbacks are load-bearing — `FLSpieler` declares surname, number, level and position nullable.
  */
 export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; teamSpieler: FLSpieler[] }) {
   const router = useRouter();
@@ -102,9 +97,8 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
 
                   <Table.Cell className="w-1 px-1 py-4 whitespace-nowrap lg:px-4">
                     <div className="flex justify-end">
-                      {/* Blue, from this app's `info` pair rather than a HeroUI colour prop — the
-                          same treatment the "Heute" status chip uses. A position is a label, not a
-                          state, so it stays clear of the brand colour that marks interactive things. */}
+                      {/* This app's `info` pair, not a HeroUI colour prop. A position is a label,
+                          not a state, so it stays clear of the brand colour. */}
                       <Chip
                         size="sm"
                         className={`${PILL_RADIUS} bg-info/15 text-info-strong fluid-xxs font-semibold capitalize`}>

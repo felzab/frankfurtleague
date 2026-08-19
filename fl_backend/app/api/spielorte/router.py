@@ -1,14 +1,3 @@
-"""
-SPIELORTE · read endpoint
-
-Venues. Read-only; create, update and delete are admin-authorized and live in the admin router.
-
-Invariants:
-- Deletion is soft (`inactive_since` holds the retirement date); retired venues stay readable.
-- `maps_link` is free text — a Google Maps search string, not a URL; never render it into an href.
-- `default_mietpreis` is whole euros with no default: the patch writes wholesale, so one zeroes rents.
-"""
-
 from fastapi import APIRouter, Depends
 
 from app.api.spielorte.schemas import (
@@ -40,7 +29,7 @@ async def get_spielorte(
     """
     List venues.
 
-    Deactivated venues are soft-deleted rather than removed, so they remain retrievable for historical
+    Deactivated venues are soft-deleted rather than removed, so they stay retrievable for historical
     matches. `maps_link` is a Maps search string, not a URL.
     """
 
@@ -60,12 +49,7 @@ async def get_spielorte(
 
 @router.get(by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort")
 async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteCollection) -> FLSpielorteSingleResponse:
-    """
-    Return one venue by its id, deactivated ones included.
-
-    A caller holding an id was given it by something, and a historical match's venue is exactly the
-    case worth answering.
-    """
+    """Return one venue by its id, deactivated ones included -- a historical match's venue is the case worth answering."""
 
     spielort_raw = await pull_one_from_db(collection=spielorte_collection, db_filter={"_id": spielort_id})
 

@@ -12,18 +12,9 @@ import { SpieltagFieldLabel } from "./SpieltagFieldLabel";
 import type { SpieltagBanner } from "./banners";
 
 /**
- * When the matchday is played — and, within its phase, where it sits, because the order is `beginn`.
- * Moving a matchday is editing this pair.
- *
- * **The date control is the season slice's**, imported rather than rewritten: a matchday's
- * `beginn`/`ende` pair and a season's `start_date`/`end_date` pair are the same control doing the
- * same job, and writing a second picker is how two date fields in one admin acquire two different
- * popovers. The cross-feature import is legal — that lint is scoped to `core` and `shared`.
- *
- * **Both pickers are bounded by the season's own span** (`REQ-DATE-002`), so a day the endpoint would
- * refuse is greyed out rather than reported afterwards. The other span rule cannot be bounded here:
- * `REQ-DATE-003` refuses a span that no longer covers this matchday's own fixtures, and the fixtures
- * are not on this page — the rail states it instead.
+ * **Both pickers are bounded by the season's span** (`REQ-DATE-002`), so a day the endpoint would
+ * refuse is greyed out. `REQ-DATE-003` cannot be: the fixtures it reads are not on this page, so the
+ * rail states it instead.
  */
 export function FormZeitraumSection({
   beginn,
@@ -39,7 +30,6 @@ export function FormZeitraumSection({
   onEndeChange: (next: string) => void;
   /** The season's own `start_date`/`end_date`, which bound both pickers (`REQ-DATE-002`). */
   saisonSpan?: { start: string; end: string };
-  /** The editor's whole Hinweis list; the spot below takes its own entries out of it. */
   banners: readonly SpieltagBanner[];
 }) {
   const panel = formPanel();
@@ -47,8 +37,8 @@ export function FormZeitraumSection({
   /** The draft holds the payload's own strings and the picker wants a `CalendarDate` — see the season form. */
   const asCalendarDate = (value: string) => (value === "" ? null : parseDate(value));
 
-  // Parsed once for both pickers. `undefined` where the caller passed no span, which leaves the
-  // calendar unbounded rather than bounded to nothing.
+  // Parsed once for both pickers. `undefined` where no span was passed, which leaves the calendar
+  // unbounded rather than bounded to nothing.
   const spanStart = saisonSpan ? parseDate(saisonSpan.start) : undefined;
   const spanEnd = saisonSpan ? parseDate(saisonSpan.end) : undefined;
 

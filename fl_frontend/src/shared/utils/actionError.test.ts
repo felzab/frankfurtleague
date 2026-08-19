@@ -1,11 +1,3 @@
-/**
- * SHARED · action error mapping tests
- *
- * A thrown API error must come back as a `FormState` the form can toast — never escape to the error
- * page — and the 409 case must be distinguishable, because a unique-index refusal is an ordinary
- * outcome of a create (docs/logging/error-codes.md).
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 

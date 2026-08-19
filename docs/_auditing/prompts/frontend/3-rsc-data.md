@@ -21,9 +21,9 @@ SECTION A — CACHING, RSC, DATA FLOW
 A1. **Mutation → invalidation map.** The required table, one row per exported server action (derive
 the module list from a `"use server"` grep — never a hardcoded list): action | resource mutated |
 tags invalidated | tags used by the queries reading that resource | GAP. Derive the read side from
-every `use cache` function's `cacheTag` calls. Verify the ratified invariants hold: every granular
-tag has a matching `updateTag` in the same slice, and the base tags are invalidated
-unconditionally. Report the full table.
+every `use cache` function's `cacheTag` calls, and verify the ratified invariants hold: every
+granular tag has a matching `updateTag` in the same slice, and the base tags are invalidated
+unconditionally.
 
 A2. **`use cache` correctness.** Per cached function: `cacheTag` / `cacheLife` declared or silently
 defaulted; request-scoped reads (cookies, headers, searchParams, `Date.now()`, random) that would
@@ -39,10 +39,9 @@ entirely normal.
 
 A4. **Client boundary placement.** Per `"use client"` file: is the directive on the smallest
 interactive component, or is a subtree shipped for one leaf? Flag client files importing
-`src/core/*`. Before proposing any directive removal, grep the file for **render props** — a
-Server Component may not pass a function to a Client Component, neither `tsc` nor the build
-catches it on a dynamic route, and it throws at request time on the live page. The rule is in
-CLAUDE.md's repo-specific traps.
+`src/core/*`. **Before proposing any directive removal, grep the file for render props** — a
+Server Component may not pass one to a Client Component, and it throws at request time on a
+dynamic route with nothing in the toolchain catching it.
 
 A5. **Route conventions.** `await params` / `await searchParams` handling, `generateMetadata`
 correctness (self-canonicals, per-page titles; every `generateMetadata` doing a fetch must start
@@ -50,17 +49,16 @@ with `await connection()` too), searchParams parsed not cast.
 
 A6. **Hook correctness, keys and hydration.** Effects doing derived state or server-side work;
 unstable dependencies; state that should be URL state; hydration mismatch sources (clock reads,
-locale-dependent formatting, storage reads before mount). Keys belong to this pass in both
-senses — a wrong key loses component state as readily as it costs a render: index keys on
-reorderable lists, and keys unique only per subset (a per-season match number is not unique
-across sibling lists).
+locale-dependent formatting, storage reads before mount). Keys too — a wrong key loses component
+state as readily as it costs a render: index keys on reorderable lists, and keys unique only per
+subset (a per-season match number is not unique across sibling lists).
 
 SECTION B — TYPES AND VALIDATION
 
 B1. **Response validation, both directions.** The required table, one row per `apiClient` call site:
 schema passed | too permissive (`z.any` / `z.unknown` / `.passthrough` / needless `.optional`) |
-**fields the backend sends that the schema fails to declare** — zod's default strip mode silently
-discards them, and an audit checking only for over-permissiveness cannot see this class at all |
+**fields the backend sends that the schema fails to declare** — zod's default strip mode discards
+them silently, and an audit checking only for over-permissiveness cannot see this class at all |
 verdict.
 
 B2. **Server-action input validation.** Per action: client-supplied input parsed through a schema

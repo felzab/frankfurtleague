@@ -1,15 +1,3 @@
-"""
-SHARED · the API envelope
-
-Every response model extends `BaseAPIResponse`, and the frontend requires `acknowledged` on
-every response schema — these tests pin the contract from the backend side, so a model added
-without the envelope fails here rather than at a browser.
-
-`test_declares_the_envelope_on_every_untyped_route` covers the routes small enough to tempt a
-bare `JSONResponse`: an undeclared shape is a real shape the frontend schema can only guess at,
-so each one is a declared model — including the defaults.
-"""
-
 import inspect
 
 import pytest
@@ -32,7 +20,6 @@ RESPONSE_MODULES = [
 
 
 def _response_models():
-    """Every class in the API whose name ends in Response, except the base itself."""
     import importlib
 
     for module_path in RESPONSE_MODULES:
@@ -45,9 +32,8 @@ def _response_models():
 
 RESPONSE_MODELS = list(_response_models())
 
-# A parametrize over an empty list does not fail -- pytest's `empty_parameter_set_mark` defaults to
-# "skip", so a rename of the modules above would turn this whole guarantee into one silent skip. The
-# floor makes that a hard failure instead.
+# `empty_parameter_set_mark` defaults to skip, so renaming the modules above would turn this whole
+# guarantee into one silent skip. The floor makes that a hard failure instead.
 MINIMUM_EXPECTED_RESPONSE_MODELS = 20
 assert len(RESPONSE_MODELS) >= MINIMUM_EXPECTED_RESPONSE_MODELS, (
     f"discovered only {len(RESPONSE_MODELS)} response models across {len(RESPONSE_MODULES)} modules; "
@@ -67,9 +53,8 @@ def test_every_response_model_carries_the_envelope(name, model):
     [
         (CheckIsLiveResponse, {"acknowledged": 1, "status": "ok"}),
         (CheckIsReadyResponse, {"acknowledged": 1, "status": "ok"}),
-        # All three lists default empty: an edit resolving no bracket slot reports none, the ordinary
-        # answer for a group fixture; an undecided placing is nobody's problem; an edit displacing
-        # no team releases nothing.
+        # Every list defaults empty: an edit resolving no bracket slot is the ordinary answer for a
+        # group fixture, an undecided placing is nobody's problem, and displacing no team releases none.
         (FLPatchSpielDataResponse, {"acknowledged": 1, "advanced_to": [], "released_sides": [], "bracket_faults": []}),
     ],
 )
@@ -79,12 +64,7 @@ def test_declares_the_envelope_on_every_untyped_route(model, expected):
 
 
 def test_system_info_reports_the_api_version_as_a_number():
-    """
-    `api_version` serialises as an int, and `0` survives the round trip.
-
-    The frontend schema was `z.string().nonempty()` against an int, so `getSystemInfo` could never
-    have succeeded. Zero matters specifically: it is the current version and is falsy.
-    """
+    """Zero matters specifically: it is the current version and it is falsy, so a non-empty string mirror could never match."""
     dumped = SystemInfoResponse(api_version=0).model_dump()
 
     assert dumped == {"acknowledged": 1, "api_version": 0}

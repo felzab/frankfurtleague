@@ -1,12 +1,11 @@
 # Currency
 
-**Verified against:** `cda2912d`, 2026-08-19\
+**Verified against:** `889c31dd`, 2026-08-19\
 **Applies to:** every stamped page, and every change that touches what a documented claim
 describes.
 
 | ID    | Rule                                 |
 | ----- | ------------------------------------ |
-| CUR-1 | Current-state claims are anchored    |
 | CUR-2 | The same-commit rule                 |
 | CUR-3 | The stamp                            |
 | CUR-4 | The branch-impact restamp            |
@@ -14,22 +13,6 @@ describes.
 | CUR-6 | Accumulated staleness is the audit's |
 
 ---
-
-### CUR-1 — Current-state claims are anchored
-
-**Rule:** every claim about current behaviour cites something the gate can check (COR-6). A
-document that cannot state anchored claims is a document in the wrong shape — narrative prose
-about current behaviour moves into a spec sheet rather than being promised a re-read.
-
-**Why:** an unanchored claim is an assertion; an anchored one is a testable statement that fails
-detectably instead of going quietly, confidently wrong.
-
-**Exceptions:** —
-
-**Enforced by:** gate checks `citation` and `path` verify the anchors; that a claim carries one is
-`/docs:audit`'s.
-
-**Example:** —
 
 ### CUR-2 — The same-commit rule
 
@@ -50,12 +33,8 @@ Two answers are routinely missed, because every check stays green either way:
 **Why:** the moment of the change is the only moment fixing drift costs nothing — an hour later
 the author has moved on, a week later nobody knows the claim was ever true.
 
-**Exceptions:** —
-
 **Enforced by:** gate check `branch-impact` for the stamped pages a branch's changes reach; the
 close-out question covers the rest.
-
-**Example:** —
 
 ### CUR-3 — The stamp
 
@@ -78,13 +57,9 @@ required nor wrong. These never carry one, wherever they sit:
 **Why:** the stamp is what makes staleness measurable — without a reference commit, "is this
 still true" has no mechanical answer.
 
-**Exceptions:** —
-
 **Enforced by:** gate checks `stamp-format` (the exact shape, and the line it sits on), `stamp`
 (the SHA is an ancestor of `HEAD`, and a page edited on a branch moves its stamp) and
 `stamp-missing` (a page of a kind a path decides carries one at all).
-
-**Example:** —
 
 ### CUR-4 — The branch-impact restamp
 
@@ -104,54 +79,52 @@ citer cites, so it re-arms nothing.
 
 **Enforced by:** gate checks `branch-impact` and `stamp`.
 
-**Example:** —
-
 ### CUR-5 — The documentation gate
 
 **Rule:** the mechanical defence is `scripts/check_docs.py`, run by `./scripts/verify.sh` in its
 docs scope. This table is the one place its checks are listed; the script's docstring points here.
 
-| Check               | A failure means                                                                                                                                                                      | Verdict |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| `link`              | A relative markdown link points at nothing                                                                                                                                           | Fail    |
-| `anchor`            | An in-page `#anchor` link matches no heading in its file                                                                                                                             | Fail    |
-| `citation`          | A `<file> :: <anchor>` citation's file does not resolve, or is ambiguous, or the anchor is gone — see the scanning rules below                                                       | Fail    |
-| `path`              | A backticked repo path names something that is not there, and git does not ignore it                                                                                                 | Fail    |
-| `line-citation`     | A citation uses a line number (COR-6), backticked or bare                                                                                                                            | Fail    |
-| `module-header`     | A module header in INC-2's scope breaks its shape — the cap, a ruled or shouty line, a foreign list label, the title line, or a header sitting below the imports                     | Fail    |
-| `comment-length`    | A comment block the branch wrote breaks one of INC-9's two bounds                                                                                                                    | Fail    |
-| `comment-citation`  | A comment cites an audit id or a ledger row — neither survives its programme (INC-6)                                                                                                 | Fail    |
-| `readme-cap`        | A README runs past OUT-3's 120 lines                                                                                                                                                 | Fail    |
-| `owner-voice`       | A tracked file outside `.claude/` names its author in the third person (COR-11)                                                                                                      | Fail    |
-| `stamp`             | A stamped SHA is no ancestor of `HEAD`, or a page changed on the branch kept its stamp                                                                                               | Fail    |
-| `stamp-format`      | A stamp line deviates from CUR-3's exact shape, or from its line                                                                                                                     | Fail    |
-| `branch-impact`     | The branch materially changed a file a stamped page cites, and the page kept its stamp (CUR-4)                                                                                       | Fail    |
-| `rule-id`           | A cited rule id resolves to no rule heading in `docs/_standard/chapters/`, or resolves to more than one rule — including a bare `I<n>` in a comment that two spec sheets both define | Fail    |
-| `metadata-break`    | A metadata line breaks COR-8's hard break — carrying one where it must not, or missing one where it must                                                                             | Fail    |
-| `bare-path`         | A repository path named in a comment without backticks resolves to nothing                                                                                                           | Fail    |
-| `roadmap-shape`     | A ranked roadmap page disagrees with itself — an entry with no index row, a repeated rank, or a transient status — or sits on disk untracked                                         | Fail    |
-| `spec-spine`        | A spec sheet's four sections, or its contract's `1.<n>` numbering, departs from OUT-4                                                                                                | Fail    |
-| `invariant-row`     | An invariant row repeats a number, has the wrong column count, or states no failure mode (OUT-4)                                                                                     | Fail    |
-| `invariant-id`      | A spec sheet cites an invariant number no invariant table defines                                                                                                                    | Fail    |
-| `overview-spine`    | An overview does not open on "How it is organised" or close on "Read next" (OUT-5)                                                                                                   | Fail    |
-| `glossary-entry`    | A glossary entry's heading, or its `Is`/`In code`/`Trap`/`See` fields, departs from OUT-6                                                                                            | Fail    |
-| `header-see`        | A path on a module header's `See:` list resolves to no file                                                                                                                          | Fail    |
-| `template-fragment` | The pull request form no longer carries a fragment `check_pr_body.py :: TEMPLATE_FRAGMENTS` quotes verbatim                                                                          | Fail    |
-| `enforced-by`       | A rule's `Enforced by` field names a gate check the script does not emit                                                                                                             | Fail    |
-| `rule-shape`        | A rule in `docs/_standard/chapters/` breaks PRE-4's anatomy — its heading, its five fields in order, or its row in the chapter's table                                               | Fail    |
-| `rule-index`        | A rule has no line in `rules-index.md`, or takes more than one (PRE-4)                                                                                                               | Fail    |
-| `stamp-missing`     | A spec sheet, a surface overview, the glossary or a standard chapter carries no stamp (CUR-3)                                                                                        | Fail    |
-| `check-registry`    | This table and `check_docs.py :: CHECKS` disagree — a missing row, an extra row, or the wrong verdict                                                                                | Fail    |
-| `inputs`            | A tree or page another check reads is absent, which would leave that check passing without examining anything                                                                        | Fail    |
-| `unreadable`        | A tracked file cannot be decoded as UTF-8                                                                                                                                            | Fail    |
-| `segment-map`       | `/docs:audit`'s segment table does not partition the tree — a tracked file belongs to no segment or to more than one, or the table itself is missing                                 | Fail    |
-| `line-endings`      | A tracked text file holds CRLF in the working tree where `.gitattributes` mandates LF                                                                                                | Fail    |
-| `stamp`             | The stamped SHA is not in this clone — usually a shallow clone, not a defect                                                                                                         | Report  |
-| `history`           | A COR-3 history phrase appears in the branch diff — the hits must be read                                                                                                            | Report  |
-| `sha`               | A commit named in prose resolves to nothing in this clone — the hits must be read                                                                                                    | Report  |
-| `counts`            | A cardinal or an ordinal appears in the branch's added prose or comments (COR-4) — the hits must be read                                                                             | Report  |
-| `comment-citation`  | A comment the branch added names a roadmap id or a review round (INC-6)                                                                                                              | Report  |
-| `branch-scope`      | A branch-scoped check did not run: git could not answer for an input it reads — a clone shape, not a defect                                                                          | Report  |
+| Check               | A failure means                                                                                                                                                                                                                           | Verdict |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `link`              | A relative markdown link points at nothing                                                                                                                                                                                                | Fail    |
+| `anchor`            | An in-page `#anchor` link matches no heading in its file                                                                                                                                                                                  | Fail    |
+| `citation`          | A `<file> :: <anchor>` citation's file does not resolve, or is ambiguous, or the anchor is gone — see the scanning rules below                                                                                                            | Fail    |
+| `path`              | A backticked repo path names something that is not there, and git does not ignore it                                                                                                                                                      | Fail    |
+| `line-citation`     | A citation uses a line number (COR-6), backticked or bare                                                                                                                                                                                 | Fail    |
+| `module-header`     | A module header in INC-2's scope breaks its shape — the cap, a ruled or shouty line, a foreign list label, the title line, or a header sitting below the imports                                                                          | Fail    |
+| `comment-length`    | A comment block the branch wrote breaks one of INC-9's two bounds                                                                                                                                                                         | Fail    |
+| `comment-citation`  | A comment cites an audit id or a ledger row — neither survives its programme (INC-6)                                                                                                                                                      | Fail    |
+| `readme-cap`        | A README runs past OUT-3's 120 lines                                                                                                                                                                                                      | Fail    |
+| `owner-voice`       | A tracked file outside `.claude/` names its author in the third person (COR-11)                                                                                                                                                           | Fail    |
+| `stamp`             | A stamped SHA is no ancestor of `HEAD`, or a page changed on the branch kept its stamp                                                                                                                                                    | Fail    |
+| `stamp-format`      | A stamp line deviates from CUR-3's exact shape, or from its line                                                                                                                                                                          | Fail    |
+| `branch-impact`     | The branch materially changed a file a stamped page cites, and the page kept its stamp (CUR-4)                                                                                                                                            | Fail    |
+| `rule-id`           | A cited rule id resolves to neither a rule heading in `docs/_standard/chapters/` nor a line in `docs/_standard/rules-index.md`, or resolves to more than one rule — including a bare `I<n>` in a comment that two spec sheets both define | Fail    |
+| `metadata-break`    | A metadata line breaks COR-8's hard break — carrying one where it must not, or missing one where it must                                                                                                                                  | Fail    |
+| `bare-path`         | A repository path named in a comment without backticks resolves to nothing                                                                                                                                                                | Fail    |
+| `roadmap-shape`     | A ranked roadmap page disagrees with itself — an entry with no index row, a repeated rank, or a transient status — or sits on disk untracked                                                                                              | Fail    |
+| `spec-spine`        | A spec sheet's four sections, or its contract's `1.<n>` numbering, departs from OUT-4                                                                                                                                                     | Fail    |
+| `invariant-row`     | An invariant row repeats a number or has the wrong column count, or section 2 holds a row that is neither an invariant nor its header (OUT-4)                                                                                             | Fail    |
+| `invariant-id`      | A spec sheet cites an invariant number no invariant table defines                                                                                                                                                                         | Fail    |
+| `overview-spine`    | An overview does not open on "How it is organised" or close on "Read next" (OUT-5)                                                                                                                                                        | Fail    |
+| `glossary-entry`    | A glossary entry's heading, or its `Is`/`In code`/`Trap`/`See` fields, departs from OUT-6                                                                                                                                                 | Fail    |
+| `header-see`        | A path on a module header's `See:` list resolves to no file                                                                                                                                                                               | Fail    |
+| `template-fragment` | The pull request form no longer carries a fragment `check_pr_body.py :: TEMPLATE_FRAGMENTS` quotes verbatim                                                                                                                               | Fail    |
+| `enforced-by`       | A rule's `Enforced by` field names a gate check the script does not emit                                                                                                                                                                  | Fail    |
+| `rule-shape`        | A rule in `docs/_standard/chapters/` breaks PRE-4's anatomy — its heading, its fields in order, or its row in the chapter's table                                                                                                         | Fail    |
+| `rule-index`        | A rule has no line in `rules-index.md`, or takes more than one (PRE-4)                                                                                                                                                                    | Fail    |
+| `stamp-missing`     | A spec sheet, a surface overview, the glossary or a standard chapter carries no stamp (CUR-3)                                                                                                                                             | Fail    |
+| `check-registry`    | This table and `check_docs.py :: CHECKS` disagree — a missing row, an extra row, or the wrong verdict                                                                                                                                     | Fail    |
+| `inputs`            | A tree or page another check reads is absent, which would leave that check passing without examining anything                                                                                                                             | Fail    |
+| `unreadable`        | A tracked file cannot be decoded as UTF-8                                                                                                                                                                                                 | Fail    |
+| `segment-map`       | `/docs:audit`'s segment table does not partition the tree — a tracked file belongs to no segment or to more than one, or the table itself is missing                                                                                      | Fail    |
+| `line-endings`      | A tracked text file holds CRLF in the working tree where `.gitattributes` mandates LF                                                                                                                                                     | Fail    |
+| `stamp`             | The stamped SHA is not in this clone — usually a shallow clone, not a defect                                                                                                                                                              | Report  |
+| `history`           | A COR-3 history phrase appears in the branch diff — the hits must be read                                                                                                                                                                 | Report  |
+| `sha`               | A commit named in prose resolves to nothing in this clone — the hits must be read                                                                                                                                                         | Report  |
+| `counts`            | A cardinal or an ordinal appears in the branch's added prose or comments (COR-4) — the hits must be read                                                                                                                                  | Report  |
+| `comment-citation`  | A comment the branch added names a roadmap id or a review round (INC-6)                                                                                                                                                                   | Report  |
+| `branch-scope`      | A branch-scoped check did not run: git could not answer for an input it reads — a clone shape, not a defect                                                                                                                               | Report  |
 
 The scanning rules that keep it quiet:
 
@@ -174,12 +147,8 @@ The scanning rules that keep it quiet:
 **Why:** every other defence depends on someone remembering; this one does not — and the report
 rows report rather than fail because a check that cries wolf gets suppressed.
 
-**Exceptions:** —
-
 **Enforced by:** `./scripts/verify.sh` — the docs scope, part of every prescribed gate
 combination.
-
-**Example:** —
 
 ### CUR-6 — Accumulated staleness is the audit's
 
@@ -193,8 +162,4 @@ slice between the two — one branch's documentation, judged before its pull req
 and treating the sweep as a defence would weaken the mechanisms that hold without anyone
 remembering.
 
-**Exceptions:** —
-
 **Enforced by:** unenforced by design.
-
-**Example:** —

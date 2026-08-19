@@ -1,10 +1,9 @@
-<!--
-TEMPLATE — copy to docs/<surface>/overview.md; delete this block.
-Rules: ../chapters/3-corpus.md — the spine is OUT-5.
-  - Around 120 lines, treated as a ceiling (OUT-5).
-  - The relative links under "Read next" resolve from docs/<surface>/, not from this folder,
-    which is why the gate holds a template to every check but those that read a path.
--->
+# Surface overview
+
+**Shape:** OUT-5 in [`../chapters/3-corpus.md`](../chapters/3-corpus.md). Copy the page below to
+`docs/<surface>/overview.md` and delete this heading and these two lines. The relative links under
+"Read next" resolve from there rather than from this folder, which is why the gate holds a template
+to every check but those that read a path.
 
 # \<Surface\> — overview
 

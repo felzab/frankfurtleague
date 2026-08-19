@@ -1,15 +1,3 @@
-"""
-CORE · the constraints applied by a real MongoDB
-
-The sibling `test_constraints.py` asserts what the declarations say; this asserts what the
-engine does with them — `$jsonSchema` semantics are quietly non-obvious (`required` inside a
-nullable sub-schema, `bsonType: "int"` against `80.0`, a missing key indexing as null), so every
-one is asserted rather than assumed. The rejection cases are the defects that motivated the
-validators, measured in the live data (2026-08-02).
-
-Every test is marked `db` and deselected by default (`fl_backend/tests/README.md`).
-"""
-
 import asyncio
 import secrets
 from typing import Any, Awaitable, Callable
@@ -33,9 +21,7 @@ from app.core.constraints import (
 
 pytestmark = pytest.mark.db
 
-# The server's code for "this write failed the collection's validator", as opposed to any other
-# OperationFailure. Asserted on rather than caught broadly, so a test cannot pass because the insert
-# failed for an unrelated reason.
+# Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
 DOCUMENT_VALIDATION_FAILED = 121
 
 DATABASE_NAME = "fl_constraints_test"
@@ -51,7 +37,7 @@ ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314"
 
 
 def valid_documents() -> dict[str, dict[str, Any]]:
-    """One conforming document per collection, rebuilt on every call so no test can mutate another's."""
+    """Rebuilt on every call, so no test can mutate another's document."""
     return {
         "saisons": {
             "_id": SAISON_ID,
@@ -64,7 +50,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 "qualifiers_per_group": 2,
                 "number_of_groups": 4,
                 "teams_per_group": 4,
-                # Which levels this season offers -- a subset of the league's set.
+                # Which levels this season offers — a subset of the league's set.
                 "erlaubte_stufen": ["E1", "E2", "Q1", "Q2", "Q3", "Q4"],
             },
         },
@@ -87,8 +73,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "is_nachgetragen": False,
             "is_captain": False,
             "stufe": "Q2",
-            # `Angriff`, not `Sturm`: the two named the same position and the set closed on this
-            # one. A "valid document" spelling it the other way is one the validator refuses.
             "position": "Angriff",
             "nummer": "10",
             "inactive_since": None,
@@ -103,7 +87,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "ort": {"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
             "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER_OID, "name": "A. Referee", "payment": 20},
             "ergebnis": "2:1",
-            # Null on every fixture that did not finish level, which is almost all of them.
             "elfmeterschiessen": None,
             "spieltag_id": SPIELTAG_OID,
             "spiel_nr": 1,
@@ -113,9 +96,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         },
         "spieltage": {
             "_id": SPIELTAG_OID,
-            # No `name` and no `anzahl_spiele`: the first is composed by the reader and the second is
-            # derived from the season's rules. Neither is on a document, so neither belongs in one
-            # the validator is asked to accept.
+            # No `name` and no `anzahl_spiele`: one is composed by the reader, the other derived, and neither stored.
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
             "saison_phase": "gruppenphase",
@@ -142,7 +123,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
 
 
 def valid_document(collection: str, **overrides: Any) -> dict[str, Any]:
-    """A conforming document with the one field under test replaced."""
     document = valid_documents()[collection]
     document.update(overrides)
     return document
@@ -152,18 +132,7 @@ Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
 
 
 def on_a_database(container: Any, body: Body, *, constrained: bool = True) -> Any:
-    """
-    Run `body` against an empty database, optionally with the constraints already applied, then drop it.
-
-    One client and one event loop per call, deliberately. Motor binds to the loop it first runs on, so
-    a client shared across `asyncio.run` calls works right up until it does not, and the symptom reads
-    as a flake rather than as the fixture design it is. Applying to an empty database costs
-    milliseconds, so the isolation is close to free — and it is what lets a unique-index test insert
-    two colliding documents without any other test seeing them.
-
-    `constrained=False` is the production ordering in miniature: documents already in place, then the
-    constraints arriving on top of them.
-    """
+    """One client and event loop per call: Motor binds to the loop it first runs on. `constrained=False` is the production ordering."""
 
     async def _run() -> Any:
         client = AsyncIOMotorClient(container.get_connection_url())
@@ -181,8 +150,6 @@ def on_a_database(container: Any, body: Body, *, constrained: bool = True) -> An
 
 
 def insert_outcome(container: Any, collection: str, document: dict[str, Any]) -> str:
-    """`"accepted"`, or `"rejected"` when the collection's validator refused the write."""
-
     async def body(database: AsyncIOMotorDatabase) -> str:
         try:
             await database[collection].insert_one(document)
@@ -196,23 +163,16 @@ def insert_outcome(container: Any, collection: str, document: dict[str, Any]) ->
 
 @pytest.mark.parametrize("collection", sorted(COLLECTION_VALIDATORS))
 def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str):
-    """
-    The half that is easy to forget, and the half that takes the site down when it is wrong.
-
-    A validator that rejects everything enforces its rule perfectly and makes the collection
-    unwritable. These nine documents are the shapes production actually stores.
-    """
+    """A validator that rejects everything enforces its rule perfectly and makes the collection unwritable."""
     assert insert_outcome(mongo_container, collection, valid_documents()[collection]) == "accepted"
 
 
 @pytest.mark.parametrize(
     ("collection", "document", "why"),
     [
-        # The defect that motivated the validators: a team's full_name where a reference belongs -- unique,
-        # well-formed as a string, and wrong, which is why type enforcement is the half that matters.
+        # A team's `full_name` where a reference belongs: unique, well-formed and wrong.
         ("saison_spieler", valid_document("saison_spieler", team_id="Lessing-Gymnasium"), "a team name where a reference belongs"),
-        # An integral double (80.0, 0.0) that Pydantic accepts, so nothing looks wrong until something
-        # rounds -- the second such defect.
+        # An integral double Pydantic accepts, so nothing looks wrong until something rounds.
         (
             "spiele",
             valid_document("spiele", ort={**valid_documents()["spiele"]["ort"], "mietpreis": 80.0}),
@@ -227,8 +187,7 @@ def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str
             valid_document("spiele", team1={"team_id": TEAM_OID, "name": "Lessing", "tore": "2", "shorthand": "LE"}),
             "goals as a string",
         ),
-        # The shoot-out object has no variants, so unlike `teamN_quelle` the validator covers all of it
-        # -- both counts required, both typed.
+        # The shoot-out has no variants, so the validator covers all of it: both counts required, both typed.
         (
             "spiele",
             valid_document("spiele", ergebnis="2:2", elfmeterschiessen={"team1": "4", "team2": 3}),
@@ -239,9 +198,7 @@ def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str
             valid_document("spiele", ergebnis="2:2", elfmeterschiessen={"team1": 4}),
             "a shoot-out with only one side",
         ),
-        # `beginn` rather than a count: a matchday's expected count is derived on read and is on no
-        # document, so nothing rejects it. A date stored as a number is the same class of
-        # defect on a field the validator does constrain.
+        # `beginn` rather than a count: a matchday's count is on no document, so nothing rejects it.
         ("spieltage", valid_document("spieltage", beginn=20260315), "a date stored as a number"),
         ("spieler", valid_document("spieler", vorname=None), "a player with no first name"),
         ("teams", {k: v for k, v in valid_documents()["teams"].items() if k != "full_name"}, "a missing required field"),
@@ -250,17 +207,11 @@ def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str
     ids=lambda value: value if isinstance(value, str) else "",
 )
 def test_a_malformed_document_is_rejected(mongo_container: Any, collection: str, document: dict[str, Any], why: str):
-    """Every case is a defect class the validator must refuse; `why` names the one it guards against."""
     assert insert_outcome(mongo_container, collection, document) == "rejected", f"the validator let through {why}"
 
 
 def test_an_absent_embedded_object_is_still_accepted(mongo_container: Any):
-    """
-    A match with no venue and no referee, which is an ordinary fixture before it is scheduled.
-
-    `ort` names four required keys inside a schema that also permits null, and this is the assertion
-    that the two do not fight: MongoDB applies `required` only when the value really is an object.
-    """
+    """MongoDB applies `required` only when the value really is an object, so a nullable `ort` and its required keys do not fight."""
     assert insert_outcome(mongo_container, "spiele", valid_document("spiele", ort=None, schiedsrichter=None)) == "accepted"
 
 
@@ -275,8 +226,6 @@ def test_an_absent_embedded_object_is_still_accepted(mongo_container: Any):
     ids=[index.name for index in UNIQUE_INDEXES],
 )
 def test_each_unique_index_refuses_the_second_document(mongo_container: Any, collection: str, first: dict[str, Any], second: dict[str, Any]):
-    """Each of the four rules that was true in the data and enforced by nobody."""
-
     async def body(database: AsyncIOMotorDatabase) -> str:
         await database[collection].insert_one(first)
         try:
@@ -290,7 +239,7 @@ def test_each_unique_index_refuses_the_second_document(mongo_container: Any, col
 
 
 def test_the_same_spiel_nr_in_another_season_is_fine(mongo_container: Any):
-    """The index is compound for a reason: match 1 exists in every season the league has ever run."""
+    """The index is compound for a reason: match 1 exists in every season."""
 
     async def body(database: AsyncIOMotorDatabase) -> int:
         await database.spiele.insert_one(valid_documents()["spiele"])
@@ -301,12 +250,7 @@ def test_the_same_spiel_nr_in_another_season_is_fine(mongo_container: Any):
 
 
 def test_every_validator_is_attached_strictly(mongo_container: Any):
-    """
-    `strict` and `error`, read back off the server rather than off the constant that set them.
-
-    `moderate` would exempt documents that do not currently validate — precisely the set worth
-    catching — and `warn` writes to a server log nobody reads and lets the write land anyway.
-    """
+    """Not `moderate`, which exempts the documents worth catching, and not `warn`, which lets the write land."""
 
     async def body(database: AsyncIOMotorDatabase) -> dict[str, tuple[bool, str, str]]:
         found = {}
@@ -325,12 +269,7 @@ def test_every_validator_is_attached_strictly(mongo_container: Any):
 
 
 def test_applying_twice_changes_nothing(mongo_container: Any):
-    """
-    Idempotency is not a nicety here: this runs on every boot, and a redeploy is a restart.
-
-    A second `create_index` with the same name and options is a no-op; one with different options is an
-    error. This is the assertion that the declared options match what the first run actually built.
-    """
+    """A second `create_index` with the same name and options is a no-op; different options is an error, so the declared ones must match."""
 
     async def body(database: AsyncIOMotorDatabase) -> tuple[int, int]:
         second = await apply_constraints(database)
@@ -345,13 +284,7 @@ def test_applying_twice_changes_nothing(mongo_container: Any):
 
 
 def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_container: Any):
-    """
-    The accepted failure mode, asserted so it stays a failure.
-
-    A unique index cannot be built over data that already violates it. The tempting fix — catch it,
-    log it, carry on — would leave a database that looks constrained and is not, which is the one
-    outcome worse than having no index at all.
-    """
+    """The tempting fix — catch it, log it, carry on — leaves a database that looks constrained and is not."""
 
     async def body(database: AsyncIOMotorDatabase) -> str:
         await database.teams.insert_many([valid_documents()["teams"], valid_document("teams", _id=SPIELER_OID, name="Lessing II")])
@@ -366,15 +299,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_conta
 
 @pytest.mark.parametrize("constrained", [False, True], ids=["target absent", "target present"])
 def test_the_privilege_probe_answers_granted_and_writes_nothing(mongo_container: Any, constrained: bool):
-    """
-    The container authenticates as root, so the answer is "granted" — what is asserted is the cost.
-
-    Both server replies are exercised: an empty database answers `NamespaceNotFound` and a constrained
-    one answers `IndexNotFound`, and the probe must read either as "the action is held". The second is
-    the case that matters, because a populated database is what it meets in production.
-
-    Nothing may change either way — no collection created, and no index left hidden on a real one.
-    """
+    """Both replies: an empty database answers `NamespaceNotFound`, a constrained one `IndexNotFound`, and the probe must leave no trace."""
 
     async def body(database: AsyncIOMotorDatabase) -> tuple[str, list[str], list[str]]:
         answer = await probe_collmod_privilege(database)
@@ -389,12 +314,7 @@ def test_the_privilege_probe_answers_granted_and_writes_nothing(mongo_container:
 
 
 def test_every_needed_privilege_is_reported_independently(mongo_container: Any):
-    """
-    One report names every gap, rather than one gap per run.
-
-    A readWrite-only user holds `find` and lacks `collMod`, so this is the mixed verdict the table
-    exists for — an all-or-nothing answer would have hidden one of the two.
-    """
+    """A `readWrite` user holds `find` and lacks `collMod`: the mixed verdict an all-or-nothing answer would hide."""
     username = f"limited_{secrets.token_hex(4)}"
     password = secrets.token_hex(16)
 
@@ -419,13 +339,7 @@ def test_every_needed_privilege_is_reported_independently(mongo_container: Any):
 
 
 def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_container: Any):
-    """
-    The load-bearing claim of the validators' rollout, executed rather than read off a documentation page.
-
-    `readWrite` grants `createIndex` but not `collMod`, so a user holding it builds all four indexes
-    and attaches no validators — and the application then refuses to start. Everything about the Atlas
-    role setup rests on that being true of a real server, so a real server is asked.
-    """
+    """`readWrite` grants `createIndex` but not `collMod`: such a user builds every index, attaches no validator, and the app will not start."""
     username = f"limited_{secrets.token_hex(4)}"
     password = secrets.token_hex(16)
 
@@ -448,13 +362,7 @@ def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_container: A
 
 
 def test_the_check_mode_finds_what_the_validators_would_reject(mongo_container: Any):
-    """
-    `--check` previews the apply, and this is the proof that the preview is exact.
-
-    It reads the same validator document back as a QUERY — `$jsonSchema` is both — so there is no
-    second implementation of the rule to disagree with the first. Run against documents inserted
-    before the constraints existed, which is exactly the live situation it was written for.
-    """
+    """The validator document is read back as a query — `$jsonSchema` is both — so no second implementation can disagree."""
 
     async def body(database: AsyncIOMotorDatabase) -> tuple[int, list[Any], int]:
         await database.saison_spieler.insert_many(
@@ -463,7 +371,7 @@ def test_the_check_mode_finds_what_the_validators_would_reject(mongo_container: 
                 valid_document("saison_spieler", spieler_id=SPIELTAG_OID, team_id="Lessing-Gymnasium"),
             ]
         )
-        # Two junction rows for one player in one season, which is the rule the index enforces.
+        # Two junction rows for one team in one season, which is the rule the index enforces.
         await database.saison_teams.insert_many([valid_documents()["saison_teams"], valid_document("saison_teams", gruppe="B")])
 
         violations = {report.collection: report for report in await report_violations(database)}
@@ -482,13 +390,7 @@ def test_the_check_mode_finds_what_the_validators_would_reject(mongo_container: 
 
 
 def test_the_identity_report_names_the_user_and_its_roles(mongo_container: Any):
-    """
-    The instrument for "the role is right and on the wrong user", which no privilege probe can see.
-
-    A correct role attached to the wrong credential refuses exactly like a broken role, so the report
-    has to name who the server thinks it is talking to. Asserted against a user built for the purpose,
-    since the container's root user carries roles the test would have to hardcode.
-    """
+    """A correct role on the wrong credential refuses exactly like a broken role, which no privilege probe can see."""
     username = f"named_{secrets.token_hex(4)}"
     password = secrets.token_hex(16)
 

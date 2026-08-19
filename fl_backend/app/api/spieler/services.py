@@ -1,16 +1,3 @@
-"""
-SPIELER · aggregation pipeline
-
-Builds the read pipeline for `GET /spieler`. Players follow the same two-document shape as teams:
-`spieler` holds what does not change between seasons, the `saison_spieler` junction what does;
-the pipeline joins them and flattens the result into `FLSpieler`.
-
-Invariants:
-- Season filters are injected inside the `$lookup` sub-pipeline, never applied after the join.
-- Filter values keep their ObjectId type via `model_dump(context={"keep_oid": True})`.
-- `build_spieler_pipeline` flattens and `build_spieler_memberships_pipeline` does not.
-"""
-
 from typing import Any, Mapping
 
 from app.api.spieler.schemas import FLSpielerFilterParams
@@ -24,8 +11,8 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
 
     pipeline: list[Mapping[str, Any]] = []
 
-    # `include_inactive` is excluded from the dump: it is a switch whose False means "add a filter", so
-    # dumping it by value would write `include_inactive: False` into the query as a field to match on.
+    # `include_inactive` is excluded: a switch whose False means "add a filter", so dumping it by
+    # value would write it into the query as a field to match on.
     active_filters = filters.model_dump(
         exclude_none=True,
         exclude={"limit", "sort_by", "order", "include_inactive"},
@@ -36,12 +23,11 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
     if not filters.include_inactive:
         pipeline.append({"$match": {"inactive_since": None}})
 
-    # A sub-pipeline rather than a post-join `$match`: every filter here narrows the junction BEFORE
-    # the rows are attached, so the join never carries a season this request did not ask for.
+    # A sub-pipeline, not a post-join `$match`: these narrow the junction BEFORE the rows attach, so
+    # the join never carries a season this request did not ask for.
     lookup_pipeline: list[Mapping[str, Any]] = [{"$match": {"$expr": {"$eq": ["$spieler_id", "$$base_spieler_id"]}}}]
 
-    # Retired SQUAD ROWS, which is a different fact from a retired person: a player who left one
-    # team's squad still plays. Filtered inside the join, so it narrows before anything is unwound.
+    # Retired SQUAD ROWS, a different fact from a retired person, filtered before the unwind.
     if not filters.include_inactive:
         lookup_pipeline.append({"$match": {"inactive_since": None}})
 
@@ -60,15 +46,14 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
         }
     )
 
-    # One row per membership, so a player in two seasons is two documents -- which is the shape
-    # `GET /spieler` serves and the reason it cannot answer the admin list's question.
+    # One row per membership, so a player in two seasons is two documents.
     strict_join = bool(filters.saison_id or filters.team_id)
     pipeline.append(
         {
             "$unwind": {
                 "path": f"${AS_NAME}",
-                # Preserved unless a season or team filter is set: without one, a player with no squad
-                # row is still a player, and dropping them would make an unfiltered list incomplete.
+                # Preserved unless a season or team filter is set: without one, a player with no
+                # squad row is still a player.
                 "preserveNullAndEmptyArrays": not strict_join,
             }
         }
@@ -80,8 +65,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
                 "_id": 1,
                 "vorname": 1,
                 "nachname": 1,
-                # The PERSON's retirement, not the squad row's. The row's own `inactive_since` is a
-                # filter above and is deliberately not surfaced: a returned row is always a live one.
+                # The PERSON's retirement, not the squad row's, which is filtered above.
                 "inactive_since": 1,
                 "saison_id": f"${AS_NAME}.saison_id",
                 "team_id": f"${AS_NAME}.team_id",
@@ -95,7 +79,6 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
     )
 
     # After the projection, so a bare field name reaches the root copy rather than the nested one.
-    # `vorname`/`nachname` are tiebreakers, so an equal sort key still orders deterministically.
     pipeline.append(
         {
             "$sort": {
@@ -113,17 +96,10 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
 
 
 def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
-    """
-    Every player with every squad row they hold, for the admin list (`GET /spieler/memberships`).
+    """Every player with every squad row they hold.
 
-    Deliberately UNLIKE `build_spieler_pipeline`: no filters, no `$unwind`, no strict join. The admin
-    surface asks a player-centric question, so retired people stay in, retired squad rows stay in --
-    the list badges them and offers the reactivate -- and a player with no squad row at all comes
-    back with an empty list rather than disappearing or failing to validate.
-
-    Sorted by FORENAME then surname (decided 2026-08-07), which is how the admin list reads and how
-    the other admin lists are ordered. `nachname` is nullable and MongoDB sorts null before every
-    string, so two players sharing a forename put the surnameless one first rather than scattering.
+    UNLIKE `build_spieler_pipeline`: no filters, no `$unwind`, no strict join. Sorted by FORENAME
+    then surname, and MongoDB sorts a null `nachname` first.
     """
 
     return [
@@ -154,23 +130,15 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
     ]
 
 
-# The squad row names a team holding no `saison_teams` row for that season (decided 2026-08-08). A player
-# listed for a club that is not in the competition, which is the same dangling reference
-# `REQ-ELIGIBILITY-002` refuses on the match side.
+# The same dangling reference `REQ-ELIGIBILITY-002` refuses on the match side.
 SQUAD_TEAM_NOT_IN_SAISON = "REQ-SQUAD-001"
-
-# Two players in one squad wearing one number is PERMITTED (decided 2026-08-13), declared in
-# `app/core/domain.py :: UNENFORCED`. Refusing it on two write paths while the reactivate consulted
-# no rule was one behaviour spelled three ways.
 
 
 def normalised_nummer(nummer: str | None) -> str | None:
-    """
-    A squad number as any comparison of two reads them, or `None` where there is nothing to compare.
+    """A squad number as any comparison reads it, or `None`.
 
-    `nummer` is a nullable free-text STRING because numbers are worn rather than counted, so "7" and " 7 "
-    are one number and an empty string is no number at all. Leading zeros are NOT stripped: "07" is a shirt
-    somebody had printed, and deciding it is the same shirt as "7" is a judgement this rule does not make.
+    Leading zeros are NOT stripped: "07" is a shirt somebody had printed, and calling it the same
+    shirt as "7" is a judgement this rule does not make.
     """
 
     if nummer is None:
@@ -182,14 +150,10 @@ def normalised_nummer(nummer: str | None) -> str | None:
 
 
 def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
-    """
-    Why this squad row must be refused, as a `WriteRefusal` -- or `None`.
+    """Why this squad row must be refused, or `None`.
 
-    `team_in_saison` is whether the named team holds a junction row for the season, read by the caller.
-
-    **One rule.** A shared shirt number is refused neither here nor on any other write path, and is
-    declared permitted in `app/core/domain.py :: UNENFORCED`. The squad editor warns about one this
-    save would introduce and writes it anyway.
+    A shared shirt number is refused on no write path and is declared permitted in
+    `fl_backend/app/core/domain.py :: UNENFORCED`.
     """
 
     if not team_in_saison:

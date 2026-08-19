@@ -13,14 +13,9 @@ import type { CalendarDate } from "@internationalized/date";
 import type { SaisonBanner } from "./banners";
 
 /**
- * When the season runs.
- *
- * **The season contains its matchdays, and both directions are enforced** (decided 2026-08-08): a matchday
- * cannot reach outside the season (`REQ-DATE-002`), and the season cannot shrink under a live matchday
- * (`REQ-DATE-004`) — which is what `spieltagBound` greys out in the pickers below, so the illegal day is
- * unpickable rather than a 409. What the dates deliberately do NOT constrain is a match: a fixture is
- * held to its MATCHDAY's span (`REQ-DATE-001`), never to the season directly, and the rollover stays a
- * deliberate act rather than something the end date triggers.
+ * **The season contains its matchdays, both directions enforced**: `REQ-DATE-002` outward and
+ * `REQ-DATE-004` inward, which `spieltagBound` greys out below. A fixture is held to its MATCHDAY's
+ * span (`REQ-DATE-001`) and never to the season.
  */
 export function FormZeitraumSection({
   startDate,
@@ -37,18 +32,15 @@ export function FormZeitraumSection({
   onEndDateChange: (next: CalendarDate | null) => void;
   onFieldLeft: (paths: readonly string[]) => void;
   /**
-   * The span the live matchdays already occupy (`REQ-DATE-004`): the start picker closes past
-   * `startMax`, the end picker before `endMin`. Absent while the season has no live matchday, which
-   * leaves both pickers unbounded — a fresh season has nothing to sit above.
+   * The span the live matchdays occupy (`REQ-DATE-004`). Absent while the season has no live matchday,
+   * which leaves both pickers unbounded.
    */
   spieltagBound?: { startMax: string; endMin: string };
-  /** The editor's whole Hinweis list; the spot below takes its own entry out of it. */
   banners: readonly SaisonBanner[];
 }) {
   const panel = formPanel();
 
-  // Parsed once for both pickers, `undefined` where no matchday binds — the same shape the matchday
-  // form gives its season span.
+  // Parsed once for both pickers, `undefined` where no matchday binds.
   const startMax = spieltagBound ? parseDate(spieltagBound.startMax) : undefined;
   const endMin = spieltagBound ? parseDate(spieltagBound.endMin) : undefined;
 
@@ -99,9 +91,9 @@ export function FormZeitraumSection({
           />
         </div>
 
-        {/* The same rule the payload schema and the model validator both hold (decided 2026-08-08), said
-            here as well because the save bar is the other end of the page: a person editing the Ende
-            should read why it will be refused beside the field, not only when they press save. */}
+        {/* The same rule the payload schema and the model validator both hold, said here as well
+            because the save bar is the other end of the page: a person editing the Ende should read
+            why it will be refused beside the field. */}
         <InlineBanners
           banners={banners}
           spot="zeitraum"

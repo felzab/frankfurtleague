@@ -1,20 +1,3 @@
-/**
- * SPIELER · backend write calls
- *
- * Transport only. Authorization and cache invalidation belong to `actions.ts`, which is the sole
- * caller — a mutation invoked from anywhere else would bypass both.
- *
- * All of these use `authType: "admin"`; the backend's admin router rejects the base key.
- *
- * **The ids go in the PATH and never in the body**. The payload schemas still carry them,
- * because they back the admin forms and a form has to know which player and which season it is
- * editing — so each mutation below splits them off. A backend payload model that saw one would drop
- * it silently.
- *
- * **Both surfaces have a full soft-delete pair**, unlike the team junction: a squad row really can be
- * retired, because a player leaves a team mid-season.
- */
-
 import { apiClient } from "@/core/api";
 
 import { FLSaisonSpielerResponseSchema, FLSpielerSingleResponseSchema, FLSpielerWriteResponseSchema } from "./schemas";
@@ -40,8 +23,8 @@ export async function postSpieler(payload: FLPostSpielerPayload): Promise<FLSpie
   });
 }
 
-// No fan-out, unlike a team rename: a player's name is embedded in no other document, and squad
-// lists read it through a `$lookup` at request time.
+// The ids go in the PATH, never the body — a backend payload model that saw one would drop it
+// silently (frontend spec 1.3). No fan-out: squad lists read the name through a `$lookup`.
 export async function patchSpieler({ id, ...fields }: FLPatchSpielerPayload): Promise<FLSpielerSingleResponse> {
   return apiClient<FLSpielerSingleResponse>(`/spieler/${id}`, FLSpielerSingleResponseSchema, {
     method: "PATCH",
@@ -50,8 +33,7 @@ export async function patchSpieler({ id, ...fields }: FLPatchSpielerPayload): Pr
   });
 }
 
-// Soft: the backend stamps `inactive_since` and removes nothing. Their squad rows are
-// left alone — the seasons they played still happened.
+// Soft — the backend stamps `inactive_since`; the squad rows are left alone.
 export async function deleteSpieler({ id }: FLDeleteSpielerPayload): Promise<FLSpielerSingleResponse> {
   return apiClient<FLSpielerSingleResponse>(`/spieler/${id}`, FLSpielerSingleResponseSchema, {
     method: "DELETE",
@@ -82,8 +64,7 @@ export async function patchSaisonSpieler({ spieler_id, saison_id, ...body }: FLP
   });
 }
 
-// Soft, and the row is what it preserves: it stays as the record that this player was in this squad
-// wearing this number, which is still true after they leave.
+// Soft — the row stays as the record that this player wore this number in this squad.
 export async function deleteSaisonSpieler({ spieler_id, saison_id }: FLSaisonSpielerKeyPayload): Promise<FLSaisonSpielerResponse> {
   return apiClient<FLSaisonSpielerResponse>(`/spieler/${spieler_id}/saisons/${saison_id}`, FLSaisonSpielerResponseSchema, {
     method: "DELETE",
@@ -91,9 +72,8 @@ export async function deleteSaisonSpieler({ spieler_id, saison_id }: FLSaisonSpi
   });
 }
 
-// The one way back into a squad the player already has a row for. A second create is a 409 against
-// the index the retired row still holds, and reviving inside create would overwrite that row's
-// number, position and stufe.
+// The one way back in: a second create 409s against the index the retired row still holds, and
+// reviving inside create would overwrite that row's number, position and stufe.
 export async function reactivateSaisonSpieler({ spieler_id, saison_id }: FLSaisonSpielerKeyPayload): Promise<FLSaisonSpielerResponse> {
   return apiClient<FLSaisonSpielerResponse>(`/spieler/${spieler_id}/saisons/${saison_id}/reactivate`, FLSaisonSpielerResponseSchema, {
     method: "POST",

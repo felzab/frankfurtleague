@@ -1,15 +1,3 @@
-/**
- * CORE · request error reporting
- *
- * Next's `onRequestError` hook. Every unhandled server error passes through here on its way to the
- * log, which is how a thrown `APIMalformedDataError` reaches the structured logger with its zod issue
- * tree intact rather than being printed raw.
- *
- * The presence of the built `instrumentation.js` in the Docker image is checked by `verify.sh`: it is
- * emitted separately from the rest of the bundle and has gone missing from a standalone build before,
- * which silently disables all server error logging.
- */
-
 import { CORRELATION_HEADER, isWellFormedCorrelationId } from "./correlation";
 import { logger } from "./logging";
 
@@ -36,7 +24,6 @@ interface WebError extends Error {
   };
 }
 
-/** The edge-minted id off the failed request's own headers, whichever headers shape Next passes. */
 function correlationIdOf(request: NextRequestInfo): string | undefined {
   const headers = request.headers;
   if (!headers) return undefined;
@@ -50,9 +37,8 @@ export async function onRequestError(err: Error, request: unknown, context: Next
   const webErr = err as WebError;
   const cause = webErr.cause || {};
 
-  // Two ids doing different jobs: `correlation_id` names the page request that failed, the one
-  // nginx's edge line carries; `fetch_correlation_id` names the outbound call, distinct whenever the
-  // fetch ran as a cache fill (docs/logging/spec.md).
+  // Two different jobs: `correlation_id` names the page request that failed, `fetch_correlation_id`
+  // the outbound call -- distinct whenever the fetch ran as a cache fill (docs/logging/spec.md).
   const requestId = correlationIdOf((request ?? {}) as NextRequestInfo);
   const fetchId = cause.correlationId || webErr.correlationId;
 

@@ -1,17 +1,3 @@
-/**
- * APP · the club edit's undo
- *
- * Puts a club's own fields, its selected season's junction row, or both back the way they were —
- * one of the admin mutations that are route handlers rather than server actions. Revert to a server
- * action when E592 is fixed upstream.
- *
- * Invariants:
- * - `revalidateTag`, never `updateTag` — the latter is the server-action form and throws here.
- * - It guards itself: `proxy.ts` matches `/admin/:path*` only, so the session check is the control.
- * - The client holds both payloads — no admin write is recorded anywhere.
- * - The club half restores first, mirroring the save; a partial failure reports without invalidating.
- */
-
 import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
@@ -35,8 +21,7 @@ const UndoRequestSchema = z
   });
 
 export async function POST(request: NextRequest) {
-  // Same-origin only, matching the match undo and `api/client-error`: every browser sends this on a
-  // fetch, and the session check below is what actually authorizes the write.
+  // Same-origin only; the session check below is what authorizes the write.
   const secFetchSite = request.headers.get("sec-fetch-site");
   if (secFetchSite !== null && secFetchSite !== "same-origin") {
     return NextResponse.json({ success: false, error: "Access Denied" }, { status: 403 });
@@ -65,8 +50,7 @@ export async function POST(request: NextRequest) {
     if (saison !== undefined) {
       const operation = await patchSaisonTeam(saison);
       if (!operation.acknowledged) {
-        // The club half may already be restored; reported rather than papered over, and the caches
-        // are left alone for the match undo's reason.
+        // The first half may already be restored; reported rather than papered over.
         return {
           success: false as const,
           error:
@@ -77,9 +61,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Guarded, unlike the save: every write above is already committed, so an invalidation that throws
-    // must not turn a restore that happened into a reported failure. `{ expire: 0 }` because the admin
-    // is about to look at what they restored.
+    // Guarded because the write is already committed: a failed invalidation must not report a
+    // failure. `{ expire: 0 }` -- an undo tolerates no staleness, and `updateTag` throws here
+    // (`docs/frontend/spec.md` I14).
     try {
       const tags = new Set(["teams", "spiele"]);
       if (saison !== undefined) {
@@ -96,7 +80,6 @@ export async function POST(request: NextRequest) {
     return { success: true as const, message: "Die Änderung wurde zurückgenommen." };
   });
 
-  // Always 200: the body carries the outcome, and the client renders `error` in a toast. A non-2xx
-  // would make `fetch` look like a transport failure for an ordinary, reportable refusal.
+  // Always 200: the body carries the outcome, so a non-2xx would read as a transport failure.
   return NextResponse.json(result);
 }

@@ -5,21 +5,13 @@ import { Xmark } from "@gravity-ui/icons";
 import { BrandLink } from "../../ui/BrandLink";
 
 /**
- * The drawer's own header, on the phone only.
- *
- * **The drawer overlays the bar rather than opening beneath it** (my call), so while it is open the
- * bar's toggle is behind it — which is why the close control lives here, at the drawer's own right
- * edge, and why this row carries the brand: below `lg` the bar shows no mark at all, and the full
- * logo and wordmark belong on the panel that covers it.
- *
- * `h-(--navbar-height)` with a bottom border, so this row sits exactly where the bar it is covering
- * was.
+ * The drawer overlays the bar, so while it is open the bar's toggle is behind it — hence the close control here, and
+ * the brand the bar drops below `lg`. It takes the bar's height, sitting exactly where the row it covers was.
  */
 export function SidemenuDrawerHeader({ onClose }: { onClose: () => void }) {
   return (
     <div className="border-border flex h-(--navbar-height) shrink-0 items-center justify-between border-b px-4 lg:hidden">
-      {/* Closes the drawer as it navigates: this leaves the shell exactly as `SidemenuFooter`'s link
-          to the same page does, and the reason is written there. */}
+      {/* Closes the drawer as it navigates, for the reason `SidemenuFooter`'s link to the same page gives. */}
       <BrandLink
         title="Zur öffentlichen Website"
         onNavigate={onClose}

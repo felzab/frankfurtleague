@@ -7,18 +7,8 @@ import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import type { SpielBanner } from "./banners";
 
 /**
- * Whether the fixture was called off.
- *
- * **Its own panel, last, and in the danger tone.** `is_canceled` is the one control on this form that
- * describes the fixture rather than its data, and it used to sit above the fields — so the destructive
- * answer was where the eye lands first. Last is the danger-zone position of every settings page this will be compared to.
- *
- * **A cancelled match is not a match with no result.** The flag and the `ergebnis` are independent: a
- * fixture awarded without being played carries both, and that is what makes it count in the league table.
- * Nothing here clears the result.
- *
- * The hint that used to sit under the switch is gone: the callout below says the same thing and more, and
- * a hint earns its place only by saying something the others do not.
+ * **A cancelled match is not a match with no result**: the flag and `ergebnis` are independent, an
+ * awarded fixture carrying both, so nothing here clears the result.
  */
 export function FormCancelSection({
   spielIsCanceled,
@@ -27,7 +17,6 @@ export function FormCancelSection({
 }: {
   spielIsCanceled: boolean;
   onSpielIsCanceledChange: (value: boolean) => void;
-  /** The editor's whole Hinweis list; the three spots below take their own entries out of it. */
   banners: readonly SpielBanner[];
 }) {
   const styles = formPanel({ tone: "danger" });
@@ -52,8 +41,7 @@ export function FormCancelSection({
       </div>
 
       <div className={styles.body()}>
-        {/* No `aria-label`: "Spiel absagen" below sits inside the switch's own <label>, so an
-            aria-label would only override the visible text with a copy of itself. */}
+        {/* No `aria-label`: the text below is inside the switch's own `<label>` already. */}
         <Switch
           name="is_canceled"
           size="md"
@@ -67,27 +55,24 @@ export function FormCancelSection({
           </Switch.Content>
         </Switch>
 
-        {/* Announced, because the admin has just done it. The consequence nobody expects is that
-            `categorizeActionRequired` reports a cancelled fixture as cancelled and stops reporting it
-            under any of the four "fehlt" categories, so an absage quietly ends the chase for a date,
-            a venue and a referee. */}
+        {/* Announced, the admin having just done it. The unexpected consequence is that a
+            cancelled fixture stops being reported under the four "fehlt" categories, quietly
+            ending the chase for a date, a venue and a referee. */}
         <InlineBanners
           banners={banners}
           spot="absage-bedeutung"
           isAnnounced
         />
 
-        {/* The knockout-specific consequence, separate from the general one because it is the costlier
-            half and a single long callout is a callout that gets skipped. Not announced: the
-            general callout above already interrupts, and two alerts for one switch flip is a scolding. */}
+        {/* Separate from the general one, a single long callout being one that gets skipped. Not
+            announced: two alerts for one switch flip is a scolding. */}
         <InlineBanners
           banners={banners}
           spot="absage-turnierbaum"
         />
 
-        {/* Legal — a Wertung is entered exactly like this — but also the shape a mistaken
-            cancellation takes, so a warning rather than silence or a refusal. Standing, not
-            announced: it describes the combination, not the flip the admin just made. */}
+        {/* Legal — a Wertung is entered like this — but also the shape a mistake takes, so a
+            warning. Standing, not announced: it describes the combination, not the flip. */}
         <InlineBanners
           banners={banners}
           spot="absage-wertung"

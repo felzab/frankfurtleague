@@ -1,6 +1,5 @@
-// The "use client" directive is NOT redundant: `Table.Body` below takes a render
-// prop, and a Server Component cannot pass a function to a Client Component. Neither
-// tsc nor `next build` catches it -- the page is dynamic and never prerendered.
+// NOT redundant: `Table.Body` below takes a render prop, and a Server Component cannot pass a
+// function to a Client Component. Neither tsc nor `next build` catches it on a dynamic route.
 "use client";
 
 import { Badge, Table } from "@heroui/react";
@@ -17,19 +16,10 @@ import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 import type { FLGruppen } from "../../schemas";
 
 /**
- * How many of this row's fixtures were called off, beside the count of the ones that were played.
+ * Annotative and never additive: a forfeit is in both figures, so a `+1` would invite a reader to
+ * add it to the tally and reach a total the season never held.
  *
- * The number is annotative and never additive: a forfeit is in both figures, so a badge
- * reading `+1` would invite a reader to add it to the tally beside it and arrive at a total the
- * season never held.
- *
- * `InfoHint` and not `IconTooltip`, for the reason stated on
- * `fl_frontend/src/shared/components/ui/InfoHint.tsx` — this table is read on a phone, and its
- * `aria-label` is what a screen reader hears in place of the glyph.
- *
- * Red because the app already means "abgesagt" by it — the value
- * `fl_frontend/src/features/spiele/components/ui/SpielStatusChip.tsx` gives that status, so a card
- * and this badge say the same thing in the same colour.
+ * `InfoHint`, not `IconTooltip` — `InfoHint.tsx` carries why.
  */
 function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
   return (
@@ -40,9 +30,9 @@ function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
         <strong>Abgesagte Spiele</strong>
       </p>
       <p>{anzahl === 1 ? "Ein Spiel dieses Teams wurde abgesagt." : `${anzahl} Spiele dieses Teams wurden abgesagt.`}</p>
-      {/* Both directions of the forfeit rule, in the one place a reader meets it. Without
-          the first sentence a cancellation on a full match count reads as a rendering fault; without
-          the second, the number invites a subtraction the table would not survive. */}
+      {/* Both directions of the forfeit rule, in the one place a reader meets it: without the first
+          a cancellation on a full match count reads as a fault, without the second the number
+          invites a subtraction. */}
       <p>
         Ein abgesagtes Spiel kann trotzdem gewertet worden sein. Dann zählt es in dieser Tabelle ganz normal mit. Ohne Wertung zählt es nirgends
         mit, auch nicht als Niederlage.
@@ -64,26 +54,18 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
   }
 
   return (
-    /** The group panels ARE the collection this page renders, so they cascade as a card grid does
-        and each panel's table arrives whole. No page rise beside it: this container holds nothing
-        but the panels, and the leading panel's step is the same 8px over the same 300ms on the same
-        curve, so a rise here would only make that one panel travel the distance twice.
-
-        `role="list"` and `role="listitem"` are what the cascade selects, and they are also what this
-        markup owes a screen reader — four group standings are a list of four, however they are
-        boxed. */
+    /* The group panels ARE the collection, so they cascade as a card grid does. No page rise beside
+       it — the leading panel's step is identical, so a rise would make that panel travel twice. */
     <div
       role="list"
       className={`${CARDS_CASCADE} relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8`}>
       {typedObjectEntries(gruppenData).map(([gruppe, teamsData]) => {
-        /* The teams a bracket slot would seed from if the group ended now. Derived rather than
-             taken as row indices: a disqualified team holds no place and one that has played nothing
-             has no placing, and the seeding passes over both. */
+        /* Derived, never row indices: a disqualified team holds no place, one that has played
+           nothing has no placing, and the seeding passes over both. */
         const qualifying = computeQualifyingTeamIds({ teams: teamsData, qualifiersPerGroup });
 
-        /* Numbered as a `Platz` is, not as a row index: the count walks past a disqualified team, so
-             the ordinal is the number the bracket's derived "2. der Gruppe A" names. A row the count
-             passes over reads `N/A`, the same as a club that has played nothing. */
+        /* Numbered as a `Platz` is, not as a row index, so the ordinal is what the bracket's
+           "2. der Gruppe A" names. A row the count passes over reads `N/A`. */
         const platzByTeamId = computePlatzByTeamId(teamsData);
 
         return (
@@ -94,11 +76,10 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
             <div className="flex flex-col gap-1 pb-6">
               <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Saisontabelle</span>
               <h2 className="fluid-xl text-foreground font-black tracking-tight">Gruppe {gruppe}</h2>
-              {/* Not decoration: a team's own page shows its whole season, playoffs included, so the two
-                  pages disagree by design and only this line says why. */}
+              {/* Not decoration: a team's own page counts the playoffs too, so the two pages disagree
+                  by design and only this line says why. */}
               <p className="fluid-xxs text-foreground-muted font-medium">Gewertet werden nur Spiele der Gruppenphase.</p>
-              {/* Only once something is actually marked. A group whose matches have not started marks
-                    nobody, and a legend for an absent highlight reads as a rendering fault. */}
+              {/* Only once something is marked: a legend for an absent highlight reads as a fault. */}
               {qualifying.size > 0 && (
                 <p className="fluid-xxs text-foreground-muted font-medium">
                   Hervorgehoben {qualifying.size === 1 ? "ist das Team, das" : `sind die ${qualifying.size} Teams, die`} aktuell auf einem
@@ -141,21 +122,20 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                     <Table.Row
                       key={teamData.id}
                       className={`border-border border-b last:border-0 ${qualifying.has(teamData.id) ? "bg-brand/5" : ""}`}>
-                      {/** The playoff marker rides on this cell as a left rule, so it reads as an
-                           annotation on the position rather than as a highlight on the club. */}
+                      {/* A left rule on this cell, so the marker reads as an annotation on the
+                          POSITION rather than as a highlight on the club. */}
                       <Table.Cell
                         className={`fluid-xs w-fit py-4 pl-2 font-bold lg:px-4 ${
                           qualifying.has(teamData.id) ? "border-brand border-l-4" : "border-l-4 border-l-transparent"
                         }`}>
-                        {/* The colour is never the only carrier. A screen reader gets the same fact the
-                            rule and the legend give a sighted reader, in the cell that states the place. */}
+                        {/* Colour is never the only carrier: a screen reader gets the same fact the
+                            rule and the legend give, in the cell that states the place. */}
                         {qualifying.has(teamData.id) && <span className="sr-only">KO-Runden-Platz: </span>}
                         {(teamData.statistik.anzahl_gespielte_spiele === 0 ? undefined : platzByTeamId.get(teamData.id)) ?? "N/A"}
                       </Table.Cell>
 
                       {/* `overflow-visible` stays — the DQ badge is translated outside this cell on
-                          purpose. Truncation therefore has to live on the span below, not here; the
-                          a `truncate` on this cell would be inert for the same reason. */}
+                          purpose, so truncation has to live on the span below rather than here. */}
                       <Table.Cell className="fluid-xs overflow-visible px-1 py-4 lg:min-w-[200px] lg:px-4">
                         <TeamPopoverMenu
                           teamName={teamData.name}
@@ -179,8 +159,8 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                       </Table.Cell>
 
                       <Table.Cell className="text-foreground-muted px-1 py-4 text-center font-medium lg:px-2">
-                        {/* A flex row rather than two inline nodes: the cell is centred, and a badge
-                            sitting on the text baseline would drag the number off that centre. */}
+                        {/* A flex row, not two inline nodes: a badge on the text baseline would drag
+                            the number off the cell's centre. */}
                         <span className="inline-flex items-center justify-center gap-x-1">
                           {teamData.statistik.anzahl_gespielte_spiele}
                           {teamData.statistik.anzahl_abgesagte_spiele > 0 && (
@@ -189,10 +169,8 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         </span>
                       </Table.Cell>
 
-                      {/** `-strong`, not the plain accents: these are 13.9px text on a table row, and the
-                           fill-grade colours measure 3.02 (success), 1.76 (warning) and 4.43 (danger) there
-                           in the light theme. The rule is stated once, next to the tokens in globals.css:
-                           plain accent for fills, `-strong` for text. */}
+                      {/* `-strong`, not the plain accents: at this size the fill-grade colours measure
+                          3.02 (success), 1.76 (warning) and 4.43 (danger) in the light theme. */}
                       <Table.Cell className="fluid-xs px-1 py-4 text-center font-medium lg:px-2">
                         <span className="text-success-strong font-semibold">{teamData.statistik.siege}</span>-
                         <span className="text-warning-strong font-semibold">{teamData.statistik.unentschieden}</span>-

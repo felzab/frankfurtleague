@@ -1,24 +1,3 @@
-/**
- * CORE · the Zod mirror, checked against the published API surface
- *
- * The Pydantic schemas and the Zod `schemas.ts` modules beside this one are hand-maintained with
- * no generation step; this suite converts every exported Zod schema to JSON Schema, pairs it with
- * its component in the committed `fl_backend/openapi.json`, and compares the wire contract —
- * presence, required, nullable, primitive type, enum members. Patterns, lengths,
- * bounds and messages are deliberately not compared: the two sides diverge there by design, and
- * comparing validation policy produces failures nobody can act on.
- *
- * Invariants:
- * - Every component and Zod schema is either paired or in an exception list with its reason.
- * - Modules are walked and imported dynamically — a new slice is covered with nothing to
- *   remember, and `core` gains no static import of `features` or `shared`.
- * - Nested objects are not recursed into: each is its own pair, so a drift names the smallest
- *   component that moved.
- *
- * See:
- * - fl_backend/tests/api/test_openapi_document.py — what keeps the document this reads in step
- */
-
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -33,67 +12,47 @@ const DOCUMENT_PATH = path.resolve(SRC_DIR, "..", "..", "fl_backend", "openapi.j
 const REGENERATE = "cd fl_backend && python -m tests.openapi_document --write";
 
 /**
- * Backend component name → the frontend export it is mirrored by, where the two names differ.
+ * Backend component name → the frontend export mirroring it, where the two names differ.
  *
- * An alias keeps a pair CHECKED. Listing one of these as an exception instead would silently drop a
- * real mirror out of the comparison, which is the opposite of what the exception lists are for.
+ * An alias keeps a pair CHECKED; listing one as an exception instead would silently drop a real
+ * mirror out of the comparison.
  */
 const NAME_ALIASES: Record<string, string> = {
-  // The system schemas are named for the function that returns them (`checkIsLive`, `getSystemInfo`),
-  // which is the frontend's convention for a query's return type and not a mismatch to correct.
+  // Named for the function that returns them, the frontend's convention for a query's return type.
   CheckIsLiveResponse: "CheckIsLiveReturn",
   CheckIsReadyResponse: "CheckIsReadyReturn",
   SystemInfoResponse: "GetSystemInfoReturn",
 
-  // The backend keeps a separate model for STORED documents, and only
-  // `FLSpielJoined` reaches the wire. The frontend parses no stored document, so
-  // it has one shape and names it `FLSpiel`.
+  // Only the joined shape reaches the wire; the frontend parses no stored document, so it has one.
   FLSpielJoined: "FLSpiel",
 };
 
 /**
- * Components with no Zod mirror. Every entry is a deliberate absence, not a gap to close later.
- *
- * Adding a response model on the backend fails the pairing test until it is either mirrored or written
- * here — which is the whole point of keeping the list by hand.
+ * Components with no Zod mirror. A new backend response model fails the pairing test until it is
+ * mirrored or written here, which is why the list is kept by hand.
  */
 const BACKEND_ONLY: Record<string, string> = {
-  // FastAPI's own 422 body. `apiClient` throws APIBadStatusError on any non-2xx before a schema runs,
-  // so no frontend schema ever sees either of these.
-  HTTPValidationError: "FastAPI's validation error body; thrown on before any schema parses it",
-  ValidationError: "FastAPI's validation error body; thrown on before any schema parses it",
+  HTTPValidationError: "FastAPI's validation error body; thrown on any non-2xx before a schema parses it",
+  ValidationError: "FastAPI's validation error body; thrown on any non-2xx before a schema parses it",
 
-  // Every resource has a GET /{id} for uniform addressability, and not
-  // every one is called; the uncalled ones have no mirror, which the backend spec
-  // records as known-open. `/saisons/current` is why the season pair is mirrored.
   FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpieltageSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
 };
 
 /**
- * Zod schemas with no backend component. Same rule in the other direction.
- *
- * Note what is NOT here: a schema the backend genuinely publishes must be paired, and an unpaired one
- * appearing in this list is how a mirror silently stops being checked. Each entry says why no component
- * can exist, never merely that none does.
+ * Zod schemas with no backend component. Each entry says why no component CAN exist, never merely
+ * that none does — an entry for a schema the backend publishes silently stops checking that mirror.
  */
 const FRONTEND_ONLY: Record<string, string> = {
-  // Pydantic inlines a base model's fields into every subclass, so the envelope is published 35 times
-  // over and never as a component of its own. It is compared inside each response instead.
   BaseAPIResponse: "the envelope is inlined into every response rather than published as a component",
 
-  // `custom.py` spells these as Annotated type aliases, not models — a JSON Schema has nowhere to put
-  // a named scalar, so each is inlined at every use site and compared there.
   CustomDateString: "a Pydantic Annotated alias, inlined at each use site",
   CustomTimeString: "a Pydantic Annotated alias, inlined at each use site",
   CustomObjectIdString: "a Pydantic Annotated alias, inlined at each use site",
   ExternalUrl: "a Pydantic Annotated alias, inlined at each use site",
-  // The backend's twin is `PERSON_NAME_PATTERN`, a bare `Field(pattern=...)` applied per field
-  // rather than a named model, so it is published as a `pattern` keyword and never as a component.
   PersonName: "a shared validator applied per field; the backend spells it as a Field pattern",
 
-  // Literal aliases, likewise inlined. Their members ARE compared, on every field that uses one.
   FLGruppenNames: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSaisonPhase: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSaisonStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -101,55 +60,34 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSpielerStufe: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
 
-  // Assembled on the client from two responses; no endpoint returns either shape.
   FLSpielplan: "composed client-side from separate responses; no endpoint returns it",
   FLSpieltagWithSpiele: "composed client-side from separate responses; no endpoint returns it",
 
-  // Published inline at GET /teams as oneOf + discriminator rather than as a named component. Both
-  // members are paired, so the union's contents are checked even though the union itself is not.
   FLTeamsResponse: "the discriminated union is published inline at GET /teams; both members are paired",
 
-  // The same exemption one level down: a discriminated union is published inline on
-  // each `teamN_quelle` property rather than as a component. Both variants are
-  // paired, so every field of both is still compared.
   FLSpielQuelle: "the discriminated union is published inline on each teamN_quelle; both variants are paired",
 
-  // And once more, on the two responses that carry a fault list. All three variants are paired, so
-  // every field of every reason is still compared.
   FLBracketFault: "the discriminated union is published inline on each bracket_faults; all three variants are paired",
 
-  // A DELETE carries its id in the path and has no request body, so these describe the server action's
-  // own argument rather than anything on the wire. The reactivate POST is the same shape: an id in
-  // the path, an empty body.
   FLDeleteTeamPayload: "a DELETE takes its id from the path and has no request body",
   FLDeleteSpielerPayload: "a DELETE takes its id from the path and has no request body",
   FLReactivateTeamPayload: "the reactivate POST takes its id from the path and has no request body",
   FLReactivateSpielerPayload: "the reactivate POST takes its id from the path and has no request body",
-  // The squad junction's DELETE and reactivate share one key shape, because both address the row by
-  // its natural key and neither carries a body.
   FLSaisonSpielerKeyPayload: "the junction's DELETE and reactivate take both ids from the path, with no request body",
-  // The rollover is the same shape once more: `POST /saisons/{id}/activate` takes the season id from
-  // the path and sends nothing, which is what makes it impossible to activate the wrong season by
-  // mistyping a body field.
   FLActivateSaisonPayload: "the activate POST takes its id from the path and has no request body",
-  // The matchday's DELETE and reactivate share one key shape, for the junction's reason.
   FLSpieltagKeyPayload: "the matchday's DELETE and reactivate take the id from the path, with no request body",
-  // The venue's and the referee's pair, for the same reason.
   FLSchiedsrichterKeyPayload: "the referee's DELETE and reactivate take the id from the path, with no request body",
   FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
-  // One form creates the club AND enters it into a season — a club without a junction row would be
-  // invisible to every season-scoped read (backend spec I11) — so the argument spans two bodies.
+  // One form creates the row and its junction: without one it is invisible — backend spec I11 for a
+  // club, I33 for a player.
   FLCreateTeamFormPayload: "the create action's own argument; the action splits it into two requests",
-  // The same shape for players, and the same reason: a player without a squad row is invisible.
   FLCreateSpielerFormPayload: "the create action's own argument; the action splits it into two requests",
 };
 
 /**
- * Fields present on the frontend schema and absent from its backend twin, by pair.
- *
- * Every one of these is an id the backend reads from the PATH — RFC 5789 puts the target of a patch in
- * the request URI, so it is on no payload model.
+ * Fields on the frontend schema and absent from its backend twin, by pair. Every one is an id the
+ * backend reads from the PATH — RFC 5789 puts a patch's target in the URI, so no payload carries it.
  */
 const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSchiedsrichterPayload: ["id"],
@@ -159,10 +97,9 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSpielerPayload: ["id"],
   FLPatchSaisonPayload: ["id"],
   FLPatchSpieltagPayload: ["id"],
-  // The season a swap belongs to is the resource being acted on, so it is the path; the two clubs are
-  // the body. The control still has to know which season it is writing, hence the field here.
+  // The season is the resource acted on, so it is the path; the control still has to know which.
   FLSwapGruppenPayload: ["saison_id"],
-  // The junction row is addressed by its natural key, so BOTH ids live in the request URI.
+  // A junction row is addressed by its natural key, so BOTH ids live in the request URI.
   FLPostSaisonTeamPayload: ["team_id"],
   FLPatchSaisonTeamPayload: ["team_id", "saison_id"],
   FLPostSaisonSpielerPayload: ["spieler_id"],
@@ -171,6 +108,10 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
 
 type JsonSchema = Record<string, unknown>;
 
+/**
+ * The whole of what is compared. Patterns, lengths, bounds and messages diverge by design, and
+ * comparing validation policy produces failures nobody can act on.
+ */
 type FieldFacts = {
   required: boolean;
   nullable: boolean;
@@ -200,7 +141,7 @@ function isZodSchema(value: unknown): value is z.ZodType {
   return typeof value === "object" && value !== null && "_zod" in value;
 }
 
-/** Follow a JSON pointer `$ref`, with a depth cap so a malformed document cannot hang the suite. */
+/** Depth-capped, so a malformed document cannot hang the suite. */
 function deref(node: JsonSchema, root: JsonSchema): JsonSchema {
   let current = node;
   for (let hop = 0; hop < 8; hop += 1) {
@@ -217,21 +158,16 @@ function deref(node: JsonSchema, root: JsonSchema): JsonSchema {
 }
 
 /**
- * `integer` collapses into `number`.
- *
- * `z.literal([0, 1])` emits `number` where Pydantic emits `integer` for the same `Literal[0, 1]`. That
- * is a spelling difference between two JSON Schema emitters, not a disagreement about the wire.
+ * `integer` collapses into `number`: the two emitters spell the same `Literal[0, 1]` differently,
+ * which is not a disagreement about the wire.
  */
 function normalizeType(type: string): string {
   return type === "integer" ? "number" : type;
 }
 
 /**
- * Flatten a union into its leaves, following `$ref` on the way.
- *
- * Recursive because the two emitters nest differently: Pydantic writes one `anyOf` for `T | None`,
- * while Zod wraps a union inside the nullable's own union — `FLKontakt.telefon` arrives as an `anyOf`
- * holding an `anyOf`, and a single-level flatten reads its type as absent.
+ * Recursive because the emitters nest differently: Zod wraps a union inside the nullable's own
+ * union, and a single-level flatten reads the inner `anyOf`'s type as absent.
  */
 function collectBranches(node: JsonSchema, root: JsonSchema, into: JsonSchema[], depth = 0): void {
   if (depth > 8) return;
@@ -260,8 +196,7 @@ function factsFor(node: JsonSchema, root: JsonSchema, required: boolean): FieldF
       if (type === "null") nullable = true;
       else types.add(normalizeType(type));
     }
-    // An object with `properties` or `additionalProperties` and no `type` still describes an object;
-    // FLGruppen's RootModel is the case that reaches this.
+    // `properties` or `additionalProperties` with no `type` still describes an object.
     if (declared.length === 0 && (resolved.properties || resolved.additionalProperties)) types.add("object");
 
     if (Array.isArray(resolved.enum)) {
@@ -278,13 +213,9 @@ function factsFor(node: JsonSchema, root: JsonSchema, required: boolean): FieldF
 }
 
 /**
- * One object schema reduced to its fields.
- *
  * `allRequired` is the response-direction rule: FastAPI publishes the VALIDATION schema, so a field
- * carrying a default sits outside `required` even though the server always serialises it. No route sets
- * `response_model_exclude_unset`, so on a response every declared property is on the wire —
- * `acknowledged`, the three `format` discriminators and every `FLTeamStatistik` counter all depend on
- * this. On a request payload a default genuinely means optional, so the rule is not applied there.
+ * with a default sits outside `required` although the server always serialises it. On a request a
+ * default does mean optional.
  */
 function describeObject(node: JsonSchema, root: JsonSchema, allRequired: boolean): Map<string, FieldFacts> {
   const properties = (node.properties ?? {}) as Record<string, JsonSchema>;
@@ -388,8 +319,8 @@ describe("every shape is paired or recorded", () => {
   });
 
   it("has no component reached from both a request and a response while carrying a default", () => {
-    // The response-direction rule below would be ambiguous for such a component. None exists today; if
-    // one appears, this says so rather than letting the comparison quietly pick a side.
+    // The response-direction rule would be ambiguous for such a component, so fail rather than
+    // letting the comparison quietly pick a side.
     const requestReachable = new Set<string>();
     for (const operations of Object.values((document.paths ?? {}) as Record<string, Record<string, JsonSchema>>)) {
       for (const operation of Object.values(operations)) {
@@ -412,15 +343,13 @@ describe("every shape is paired or recorded", () => {
 describe("each pair agrees on the wire contract", () => {
   for (const { component, node, mirror, entry } of pairs) {
     it(`${component} matches ${mirror}Schema`, () => {
-      // `document`, not `components`: a `$ref` is the absolute pointer `#/components/schemas/X`, so it
-      // resolves from the document root and reads as a typeless node from anywhere else.
+      // `document`, not `components`: a `$ref` is absolute, so it resolves only from the root.
       const backend = describeObject(node, document, RESPONSE_REACHABLE.has(component));
       const converted = z.toJSONSchema(entry.schema, { io: "output" }) as JsonSchema;
       const frontend = describeObject(converted, converted, false);
 
-      // A `RootModel` over a constrained key map publishes `propertyNames`, not
-      // `properties`, so there is no field list to compare. The backend seeds every
-      // group and an omission fails the parse -- so compare the key sets instead.
+      // A `RootModel` over a constrained key map publishes `propertyNames` and no field list, so
+      // compare the key sets instead.
       const keyEnum = (node.propertyNames as JsonSchema | undefined)?.enum as unknown[] | undefined;
       if (keyEnum && backend.size === 0) {
         assert.deepEqual(

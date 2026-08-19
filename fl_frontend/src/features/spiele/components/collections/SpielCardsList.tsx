@@ -8,12 +8,7 @@ import { SpielCard } from "../ui/SpielCard";
 
 import type { FLSpiel } from "../../schemas";
 
-/**
- * `isAdmin` gives every card an edit link. A boolean rather than the callback this took before: since the
- * editor became a page, the only thing the admin variant needs is a URL, and a URL is derived
- * from the fixture rather than handed down — so the admin list that used to own the modal's state has
- * nothing left to own.
- */
+/** `isAdmin` gives every card an edit link, a URL being all the admin variant now needs. */
 export function SpielCardsList({
   spiele,
   today,
@@ -24,11 +19,8 @@ export function SpielCardsList({
   today: string;
   isAdmin?: boolean;
   /**
-   * Why each fixture needs a person, keyed by `spiel_id` — the admin triage list's, and nobody else's.
-   *
-   * A map rather than a field on the fixture, because a fault is derived over the whole season and
-   * arrives beside the matches rather than inside them. Absent on every public list, where
-   * the concept does not exist.
+   * Keyed by `spiel_id`. A map rather than a field on the fixture, a fault being derived over the
+   * whole season and arriving beside the matches rather than inside them.
    */
   faultsBySpielId?: ReadonlyMap<string, readonly string[]>;
 }) {
@@ -52,8 +44,7 @@ export function SpielCardsList({
 
         if (!hasFaults) return card;
 
-        // A faulted fixture is a NOTE plus a card, the note OUTSIDE it. The wrapper
-        // carries the `role="listitem"` and the card gives its own up, or the fixture
+        // The wrapper carries `role="listitem"` and the card gives its own up, or the fixture
         // announces twice. A real element, because the cascade staggers by `:nth-child`.
         return (
           <div
@@ -65,7 +56,7 @@ export function SpielCardsList({
                 <li key={sentence}>{sentence}</li>
               ))}
             </ul>
-            {/* The connectors: one short stem at each end of the note, mirrored (decided 2026-08-08),
+            {/* The connectors: one short stem at each end of the note, mirrored,
                 so the note and the card read as one drawn shape rather than a box floating over an
                 unrelated card. `bg-danger/30` matches the note's border. */}
             <div
@@ -82,14 +73,9 @@ export function SpielCardsList({
         );
       })}
 
-      {/* Guarded, so a list that has never been clicked mounts no overlay at all. This
-          component is instantiated once per collection — eight on the admin action-required accordion,
-          two on the landing grid, one each on spielsuche and the active spielplan tab
-          — so mounting unconditionally would put a full Modal.Backdrop / Container / Dialog tree
-          plus its react-aria overlay machinery on first paint at every one of them, to show nothing.
-          The cost is the close animation: unmounting on `null` skips HeroUI's exit transition, so the
-          modal disappears rather than fading. Accepted 2026-07-31 — the mount
-          saving is valued over the transition. */}
+      {/* Guarded, so a list never clicked mounts no overlay: this is instantiated once per
+          collection, and mounting unconditionally would put a dialog tree plus its react-aria
+          machinery on first paint at each. The accepted cost is HeroUI's exit transition. */}
       {selectedSpiel && (
         <SpielDetailsModal
           spielData={selectedSpiel}

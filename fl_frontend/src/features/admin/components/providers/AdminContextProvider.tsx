@@ -32,9 +32,8 @@ export function AdminProvider({
   saisonSpiele: FLSpiel[];
   children: ReactNode;
 }) {
-  // Memoised by hand because the React Compiler is deliberately off. A fresh object
-  // literal here is a new identity every render, re-rendering every `useAdmin()` consumer whenever
-  // only `children` changed.
+  // Memoised by hand: the React Compiler is deliberately off, so a fresh literal would re-render
+  // every `useAdmin()` consumer whenever only `children` changed.
   const value = useMemo(() => ({ spielorte, schiedsrichter, teams, saisonSpiele }), [spielorte, schiedsrichter, teams, saisonSpiele]);
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;

@@ -1,18 +1,7 @@
-"""
-SCRIPTS · the checks a page's kind decides
+"""SCRIPTS · the checks a page's kind decides.
 
-One check per document kind the standard shapes: a chapter's rules, the ranked roadmap, a spec
-sheet's spine, an overview's ends, the glossary's entries, the two registries and the sweep's
-partition. Each resolves its input through the tracked corpus, by glob or by name, so an absent
-one is `inputs`' finding and an un-added one is the reading check's own.
-
-Invariants:
-- A check whose input is missing says so, rather than examining nothing and passing.
-- Both registries are compared in both directions: a check with no row and a row with no check are
-  one defect seen from either side.
-
-See:
-- docs/_standard/chapters/3-corpus.md — the document shapes these checks hold a page to
+Each resolves its input through the tracked corpus, so an absent input is `inputs`' finding and
+an untracked one the reading check's own. A check whose input is missing says so, never passes.
 """
 
 from __future__ import annotations
@@ -52,41 +41,49 @@ from .kernel import (
     tracked_page,
 )
 
-# A metadata line: a bold label opening a line -- what a stamp, a Scope line and an entry's fields
-# all share. The label is bounded because a bold sentence ending in a colon is prose, and holding
-# prose to a layout rule gets a check ignored.
+# The label is bounded because a bold sentence ending in a colon is prose, and holding prose to a
+# layout rule gets a check ignored.
 METADATA_LINE_RE: Final = re.compile(r"^\*\*([A-Z][A-Za-z ]{0,30}):\*\*(?:\s|$)")
-# COR-8's break is a line ending, and two ways of omitting one join two entries on one line: the
-# characters `\` and `n`, and nothing at all. Arm two demands the second label abut what precedes
-# it; whitespace before it is spared.
+# Whitespace before the second label is spared: a report header may carry fields on one physical
+# line on purpose.
 METADATA_JOIN_RE: Final = re.compile(r"(?:(\\n)\s*|(?<=\S))\*\*([A-Z][A-Za-z ]{0,30}):\*\*")
 
 
-# PRE-4's anatomy: the heading opens on the id and states the rule as a claim, the fixed fields
-# follow in this order, and the id takes a row in its chapter's table and a line in the index.
 RULE_HEAD_RE: Final = re.compile(r"^((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2})\b(.*)$")
 RULE_CLAIM_RE: Final = re.compile(r"^\s+—\s+\S")
 RULE_FIELDS: Final[tuple[str, ...]] = ("Rule", "Why", "Exceptions", "Enforced by", "Example")
+# PRE-4 orders the fields but requires only these, so a page's set is a subsequence: an empty
+# optional field is deleted rather than filled with a dash.
+REQUIRED_RULE_FIELDS: Final[tuple[str, ...]] = ("Rule", "Enforced by")
 RULE_FIELD_RE: Final = re.compile(r"^[ \t]*\*\*([A-Z][A-Za-z ]{0,30}):\*\*", re.MULTILINE)
 CHAPTER_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2})\s*\|", re.MULTILINE)
 RULE_INDEX_LINE_RE: Final = re.compile(r"^[ \t]*[-*]\s+\*\*((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2}):\*\*", re.MULTILINE)
+# Runs to the next rule bullet or heading, not to a blank line: a list item's continuation is
+# indented under it, so a blank line inside one ends nothing.
+RULE_INDEX_BLOCK_RE: Final = re.compile(
+    r"^[ \t]*[-*]\s+\*\*(?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2}:\*\*(.*?)"
+    r"(?=^[ \t]*[-*][ \t]+\*\*(?:PRE|COR|INC|OUT|DEC|CUR)-|^#|\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+# Either emphasis marker: prettier rewrites `*text*` to `_text_`, so matching one spelling leaves
+# the claim unresolved from the first format run rather than from the moment it was written.
+INDEX_ENFORCED_RE: Final = re.compile(r"[*_]Enforced by[*_](.*)", re.DOTALL)
 
-# CUR-5's table, the one place the checks are listed, and the `Enforced by` field each rule ends on.
-# PRE-4 closes that field's vocabulary, so a bare backticked lower-case token in it names a check.
+# PRE-4 closes the `Enforced by` field's vocabulary, so a bare backticked lower-case token in it
+# names a check.
 CHECK_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*`([a-z][a-z-]*)`\s*\|.*\|\s*(Fail|Report)\s*\|\s*$", re.MULTILINE)
 ENFORCED_BY_RE: Final = re.compile(r"^[ \t]*\*\*Enforced by:\*\*(.*?)(?=\n[ \t]*\n|\Z)", re.MULTILINE | re.DOTALL)
 CHECK_NAME_RE: Final = re.compile(r"`([a-z][a-z0-9-]*)`")
 
 SEGMENT_HEADER_RE: Final = re.compile(r"^[ \t]*\|\s*Segment\s*\|\s*Globs\s*\|", re.MULTILINE)
 EXCLUDED_HEADER_RE: Final = re.compile(r"^[ \t]*\|\s*Excluded\s*\|\s*Why\s*\|", re.MULTILINE)
-# How many offending paths a finding names before it counts the rest: a folder moved wholesale
-# unclaims every file under it, and a finding that prints hundreds of them is one nobody reads.
+# A folder moved wholesale unclaims every file under it, and a finding printing hundreds of paths
+# is one nobody reads.
 SEGMENT_SAMPLE: Final = 8
 
 
-# What another check reads. A glob over a tree that is not there yields nothing, so an absent input
-# degrades the check reading it to silence with the run green -- these are named here so the
-# absence itself fails.
+# A glob over a tree that is not there yields nothing, so an absent input degrades the check
+# reading it to silence with the run green. Named here so the absence itself fails.
 REQUIRED_INPUTS: Final[tuple[str, ...]] = (
     CHAPTERS_DIR,
     RULES_INDEX_PAGE,
@@ -96,72 +93,62 @@ REQUIRED_INPUTS: Final[tuple[str, ...]] = (
     SWEEP_PAGE,
 )
 
-# `git ls-files --eol` answers every question this needs in one call: the working tree's endings,
-# the attributes in force, and git's own text/binary verdict.
+# `git ls-files --eol` answers endings, attributes and git's text/binary verdict in one call.
 LS_FILES_EOL_RE: Final = re.compile(r"^i/(\S+)\s+w/(\S+)\s+attr/(.*?)\s*\t(.*)$")
-# The working-tree verdicts that are not LF. Binary reads as `-text` and never appears here, which
-# is the classification a PNG needs: it holds CR-LF byte pairs legitimately.
+# Binary reads as `-text` and never appears here, which is what a PNG needs: it holds CR-LF byte
+# pairs legitimately.
 NON_LF_WORKTREE: Final[tuple[str, ...]] = ("crlf", "mixed")
 # What `.gitattributes` gives `*.bat` and `*.cmd`, and the only thing that exempts a file.
 CRLF_MANDATED: Final = "eol=crlf"
 
-# OUT-4's spine. The closing sections are fixed so that a contract growing cannot push Invariants
-# down and silently repoint every citation of section 3, which is also what makes an invariant
-# number safe to cite from a comment.
+# The closing sections are fixed so a growing contract cannot push Invariants down and silently
+# repoint every citation of section 3 — which is what makes an invariant number safe to cite.
 SPEC_SECTIONS: Final[tuple[str, ...]] = ("1. Contract", "2. Invariants", "3. Violation → remedy", "4. Known-open")
 SPEC_SUBSECTION_RE: Final = re.compile(r"^1\.(\d+)\b")
-SPEC_COLUMNS: Final = 4
-# An invariant's id, in the first cell of its row and wherever a sheet cites one. `L` is the logging
-# sheet's prefix and `I` every other sheet's; a citation crosses surfaces often enough that an id is
-# resolved against all of them.
+SPEC_COLUMNS: Final = 3
+# `L` is the logging sheet's prefix and `I` every other sheet's. A citation crosses surfaces often
+# enough that an id is resolved against every sheet.
 INVARIANT_ID_RE: Final = re.compile(r"^[ \t]*\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
 INVARIANT_REF_RE: Final = re.compile(r"(?<![A-Za-z0-9])([IL]\d{1,3}[a-z]?)(?![A-Za-z0-9])")
-# A `Breaks how` cell that only points elsewhere states no failure mode, which is the column's whole
-# job. Bounded to a cell with no sentence in it, so a real explanation opening "See the runbook, and
-# the request then 500s" is left alone.
-CROSS_REFERENCE_RE: Final = re.compile(r"^(?:see|as|per)\b[^.]*$", re.IGNORECASE)
+# The invariant table's other rows: what `INVARIANT_ID_RE` skips reaches no arm keyed on an id.
+TABLE_ROW_RE: Final = re.compile(r"^[ \t]*\|")
 
-# OUT-5's spine: an overview says how the surface is organised and hands the reader on.
 OVERVIEW_OPENING: Final = "How it is organised"
 OVERVIEW_CLOSING: Final = "Read next"
 
-# OUT-6's entry: one or more backticked terms, a gloss, then four fields in a fixed order. Several
-# terms share one entry where the code and the domain spell the same thing differently, so the head
+# Terms share an entry where the code and the domain spell the same thing differently, so the head
 # allows a `/` or a `·` between them.
 GLOSSARY_HEAD_RE: Final = re.compile(r"^`[^`]+`(?:\s*[/·]\s*`[^`]+`)*\s+—\s+\S.*$")
 GLOSSARY_FIELD_RE: Final = re.compile(r"^[ \t]*\*\*([A-Za-z][A-Za-z ]*):\*\*", re.MULTILINE)
 GLOSSARY_FIELDS: Final[tuple[str, ...]] = ("Is", "In code", "Trap", "See")
 
 
-# A spec sheet's invariant ids: the first cell of an invariant row, and a citation of one anywhere
-# else. The surface words are what disambiguates a citation of an id two sheets both define.
 INVARIANT_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(I\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
 
 
 ROADMAP_ID_DEF_RE: Final = re.compile(r"^[ \t]*\|\s*(?:\d+\s*\|\s*)?\*{0,2}([A-Z]{1,4}-\d{1,3})\*{0,2}\s*\|", re.MULTILINE)
 
-# The ranked roadmap: an entry heading, an index row, and the status an entry states.
-# The id is captured loose, so a malformed one is caught against the vocabulary rather than skipped.
+# The id is captured loose, so a malformed one is caught against the vocabulary, not skipped.
 ROADMAP_ENTRY_RE: Final = re.compile(r"^ {0,3}###\s+(\d+)\s+·\s+(\S+)\s+—", re.MULTILINE)
-# An index row must carry an id in its second cell, which separates it from the page's other
-# numeric tables -- a row reading `| 4 | 6 | walks |` counts fixtures, not entries.
+# An id in the second cell is what separates an index row from the page's other numeric tables:
+# a row reading `| 4 | 6 | walks |` counts fixtures, not entries.
 ROADMAP_INDEX_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(\d+)\s*\|\s*([A-Z]{1,4}-\d{1,3})\s*\|(.*)$", re.MULTILINE)
 ROADMAP_STATUS_RE: Final = re.compile(r"^[ \t]*\*\*Status:\*\*\s*(.+?)\s*\\?$", re.MULTILINE)
 # Closed exists for exactly one commit -- the one concluding an entry, whose successor deletes it.
 ROADMAP_TRANSIENT_STATUS: Final = "Closed"
 
-# COR-11's banned phrase. A quoted or backticked mention -- naming the phrase to ban it, as the rule
-# itself does -- is a mention rather than a use, so those spans come out before the search.
+# Quoted and backticked spans come out first: naming the phrase to ban it, as the rule itself
+# does, is a mention rather than a use.
 OWNER_PHRASE_RE: Final = re.compile(r"\bthe owner\b", re.IGNORECASE)
 QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
 OWNER_EXEMPT_PREFIX: Final = ".claude/"
 
 
 def rule_blocks(text: str) -> list[tuple[str, str, str]]:
-    """Each rule a chapter states: its id, the rest of its heading line, and the lines under it.
+    """Each rule a chapter states: id, the rest of the heading line, and the lines under it.
 
-    A block runs to the next heading at any level, so a rule's fields are read from its own text
-    and never from the rule below it. Fenced examples are already blanked by the caller.
+    Ends at the next heading of any level, so a rule's fields never come from the rule below.
+    Fenced examples arrive already blanked.
     """
     lines = text.split("\n")
     starts = [(number, head) for number, line in enumerate(lines) if (head := atx_heading(line, 3)) is not None]
@@ -176,12 +163,9 @@ def rule_blocks(text: str) -> list[tuple[str, str, str]]:
 
 
 def rule_ids() -> dict[str, list[str]]:
-    """Every rule id a chapter defines, mapped to the chapters defining it.
+    """Every rule id the standard defines, mapped to the pages defining it.
 
-    Empty when the chapters folder is untracked or missing, so every cited id then fails -- deleting
-    the standard out from under its citations is exactly what the rule-id check exists to catch. The
-    value is a list rather than a name because two homes for one id is itself a failure: a citation
-    that resolves twice cannot be followed, and it never dangles, so nothing else would find it.
+    Empty when the standard is gone, so every cited id then fails -- `rule-id`'s whole purpose.
     """
     ids: dict[str, list[str]] = {}
     for chapter in tracked_glob(CHAPTER_GLOB):
@@ -189,16 +173,22 @@ def rule_ids() -> dict[str, list[str]]:
             continue
         for rule_id, _, _ in rule_blocks(text):
             ids.setdefault(rule_id, []).append(chapter.relative_to(REPO_ROOT).as_posix())
+
+    index = tracked_page(RULES_INDEX_PAGE)
+    text = None if index is None else _readable(index)
+    for rule_id in [] if text is None else RULE_INDEX_LINE_RE.findall(text):
+        # The index is a fallback home, never an additional one: a rule with a chapter section
+        # would otherwise resolve twice, which the list value reports as a defect.
+        ids.setdefault(rule_id, [RULES_INDEX_PAGE])
     return ids
 
 
 @cache
 def roadmap_ids() -> frozenset[str]:
-    """Every hyphenated id the roadmap tables define, read from the tables rather than guessed.
+    """Every hyphenated id the roadmap tables define.
 
-    Derived, because the prefixes are open-ended and a hand-written pattern would catch `UTF-8`
-    the day someone writes it. An id with no hyphen (the earliest ones) is left out: two characters
-    and a digit is a shape that occurs in code for reasons that have nothing to do with the roadmap.
+    Read rather than guessed: the prefixes are open-ended, so a pattern would catch `UTF-8`. An
+    unhyphenated id is left out, that shape occurring in code for unrelated reasons.
     """
     ids: set[str] = set()
     for page in tracked_glob(ROADMAP_GLOB):
@@ -208,11 +198,10 @@ def roadmap_ids() -> frozenset[str]:
 
 
 def invariant_ids() -> dict[str, list[str]]:
-    """Every `I<n>` a spec sheet's invariant table defines, mapped to the sheets defining it.
+    """Every `I<n>` an invariant table defines, mapped to the sheets defining it.
 
-    OUT-4 makes the numbers permanent per sheet and says nothing about them being unique across
-    sheets, so the same number legitimately names different rules in different surfaces -- which is
-    what makes a bare one, cited from anywhere else, resolve to whichever sheet the reader opens.
+    OUT-4 makes a number permanent per sheet, not unique across them, so one id names different
+    rules on different sheets -- hence the list.
     """
     ids: dict[str, list[str]] = {}
     for spec in tracked_glob(SPEC_GLOB):
@@ -227,22 +216,9 @@ def invariant_ids() -> dict[str, list[str]]:
 
 
 def check_metadata_breaks(rel: str, body: str) -> list[Finding]:
-    """COR-8's hard break over every metadata block on a page: a stamp, a Scope line, an entry's fields.
+    """COR-8's hard break sits on a metadata entry's LAST physical line.
 
-    A block is a run of bold-labelled lines with no blank line between them; a line that carries no
-    label continues the entry above it, so the break belongs on an entry's LAST physical line.
-    Every entry but the last carries one, which is what renders them one per line instead of
-    flowing into a paragraph; the last carries none, having nothing below it to separate from.
-
-    Two entries sharing one physical line are caught here too, because the break that should have
-    parted them is this rule's. Neither half is malformed on its own, which is why the stamp's own
-    shape check cannot see it: a joined stamp is a complete entry followed by a complete entry.
-
-    Reading a second label as a join wherever it appears would fail a report header that carries two
-    fields on one line on purpose, so the abutting arm fires only where nothing at all separates the
-    two. Any whitespace spares it, which is wider than those headers need: a single space between
-    two fields reads as a join to a person and passes here. The narrower test would have to name the
-    separators it accepts, and a header is free to pick one nobody listed.
+    An unlabelled line continues the entry above it, so "last" is not the labelled line.
     """
     lines = body.split("\n")
     found: list[Finding] = []
@@ -257,9 +233,9 @@ def check_metadata_breaks(rel: str, body: str) -> list[Finding]:
             if match := METADATA_LINE_RE.match(lines[index]):
                 names.append(match.group(1))
                 ends.append(index)
-                # Backticked spans come out first: a rule quoting a label to name it, as chapter 0
-                # does, is a mention rather than a second entry. The opening label is re-matched on
-                # the scrubbed line because removing a span moves every offset after it.
+                # Backticked spans come out first: a rule quoting a label to name it is a mention,
+                # not a second entry. Re-matched on the scrubbed line, removing a span having
+                # moved every offset after it.
                 scrubbed = BACKTICK_SPAN_RE.sub("", lines[index])
                 opening = METADATA_LINE_RE.match(scrubbed)
                 if opening and (joined := METADATA_JOIN_RE.search(scrubbed, opening.end())):
@@ -273,6 +249,7 @@ def check_metadata_breaks(rel: str, body: str) -> list[Finding]:
                 ends[-1] = index
             index += 1
         for position, (name, end) in enumerate(zip(names, ends, strict=True)):
+            # The last entry carries no break, having nothing below it to part from.
             wanted = position < len(names) - 1
             if lines[end].rstrip().endswith("\\") is not wanted:
                 verb = "needs" if wanted else "must not carry"
@@ -293,17 +270,12 @@ def check_owner_voice(rel: str, body: str) -> list[Finding]:
 def check_stamp_missing() -> list[Finding]:
     """A page whose kind CUR-3 settles must carry a stamp carries one.
 
-    Every other stamp check polices a stamp that exists, so a page that should carry one and does
-    not is invisible to all of them -- and to `branch-impact`, which arms only on a stamped page,
-    leaving the files that page cites free to change under it. What the criterion turns on is what
-    a page claims, which no check can read; these kinds are the part of it a path decides, because
-    a spec sheet's contract, an overview's parts, the glossary's `In code` fields and a chapter's
-    account of this gate are current-state claims by the rule that shapes each of them.
+    Every other stamp check polices a stamp that exists, so an unstamped page is invisible to all.
     """
     found: list[Finding] = []
     for pattern in STAMP_REQUIRED_GLOBS:
-        # `tracked_glob` has pruned the skipped trees already, and an untracked page is nobody's to
-        # fail: it is absent from the checkout this stamp would be read in.
+        # An untracked page is nobody's to fail: it is absent from the checkout this stamp would
+        # be read in.
         for path in tracked_glob(pattern):
             if (body := _readable(path)) is None or STAMP_RE.search(body) is not None:
                 continue
@@ -317,21 +289,14 @@ def check_stamp_missing() -> list[Finding]:
 def check_roadmap() -> list[Finding]:
     """Each ranked roadmap page agrees with itself: index and entries, ranks, ids, no transient status.
 
-    A page's failure mode is that it quietly stops being trustworthy -- an entry with no index row
-    is invisible to the reader who only reads the table, a rank that disagrees with its heading
-    makes the working order ambiguous, and a `Closed` entry is one a closing commit's successor
-    never deleted. Nothing else looks at any of it.
-
-    Ranks run from 1 per page rather than across the folder, because each page is ranked only
-    against itself: product work and tooling work are not comparable, which is why there are two.
+    Ranks run from 1 per page, not across the folder: product and tooling work are not comparable.
     """
     found: list[Finding] = []
     for rel in ROADMAP_RANKED_PAGES:
         page = tracked_page(rel)
         if page is None:
-            # Absence is `check_inputs`' alone, and saying it twice reads as a gate crying wolf. A
-            # page sitting on disk untracked is neither absent nor selected by anything that reads
-            # the corpus, so this is the one place it is anything but green.
+            # Absence is `check_inputs`' alone. A page on disk but untracked is neither absent nor
+            # selected by anything reading the corpus, so this is the one place it is not green.
             if (REPO_ROOT / rel).exists():
                 found.append(Finding("fail", "roadmap-shape", rel, "untracked, so the ranked roadmap was read against nothing"))
             continue
@@ -355,8 +320,8 @@ def check_roadmap() -> list[Finding]:
         for entry_id in sorted(set(entries) - known):
             found.append(Finding("fail", "roadmap-shape", rel, f"entry id {entry_id} is defined by no tracked roadmap table"))
 
-        # Contiguous from 1, on each side: a gap makes "the next one" unanswerable, and a duplicate
-        # makes the working order ambiguous. A page holding no entry at all says nothing here.
+        # Contiguous from 1 on each side: a gap makes "the next one" unanswerable and a duplicate
+        # makes the working order ambiguous.
         for where, ranks in (("entry heading", sorted(entries.values())), ("index", sorted(rows.values()))):
             if ranks and ranks != list(range(1, len(ranks) + 1)):
                 detail = f"{where} ranks are {', '.join(str(rank) for rank in ranks)} -- they run 1 to {len(ranks)} without a gap or a repeat"
@@ -381,11 +346,10 @@ def _headings(body: str, level: int) -> list[str]:
 
 
 def _section(body: str, heading: str) -> str:
-    """One `## <heading>` section's body, empty where the page carries no such heading.
+    """One `## <heading>` section's body.
 
-    Located the same way `_headings` reads one, so the two can never disagree about where a section
-    starts. Matching the line verbatim instead empties the section on a trailing space, and a
-    subsection check over nothing passes.
+    Matched through `atx_heading`: a verbatim line match empties the section on a trailing space,
+    and a subsection check over nothing passes.
     """
     lines = body.split("\n")
     start = next((index for index, line in enumerate(lines) if atx_heading(line, 2) == heading), None)
@@ -396,11 +360,9 @@ def _section(body: str, heading: str) -> str:
 
 
 def check_spec_sheets() -> list[Finding]:
-    """OUT-4's spine over every spec sheet: the four sections, and the contract's numbering.
+    """OUT-4's spine over every spec sheet: its sections, and the contract's numbering.
 
-    A fifth closing section repoints every citation of "section 3" without changing a word of one,
-    and a gap in the contract's numbering does the same one level down. Neither is visible to a
-    reader of the page that moved.
+    An added section repoints every citation of "section 3" without changing a word of one.
     """
     sheets = tracked_glob(SPEC_GLOB)
     if not sheets:
@@ -424,12 +386,28 @@ def check_spec_sheets() -> list[Finding]:
     return found
 
 
-def check_invariant_tables() -> list[Finding]:
-    """Every invariant row states a failure mode, and every id a sheet cites resolves to one.
+def _separator_row(line: str) -> bool:
+    """Whether a table row is the dashes parting a header from the rows beneath it."""
+    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    return bool(cells) and all(cell and set(cell) <= set("-:") for cell in cells)
 
-    The `Breaks how` column is what makes an invariant actionable rather than a slogan, and it is
-    the column a hurried row leaves as a pointer. Ids resolve across sheets rather than within one,
-    because a surface citing another surface's invariant is ordinary and correct.
+
+def _opens_a_table(lines: list[str], index: int) -> bool:
+    """Whether the row at `index` opens a table: its header, or the separator under one.
+
+    Markdown renders a table only where the two are adjacent, so adjacency is the whole test.
+    """
+    if not _separator_row(lines[index]):
+        return _separator_row(lines[index + 1]) if index + 1 < len(lines) else False
+    above = lines[index - 1] if index else ""
+    return TABLE_ROW_RE.match(above) is not None and not _separator_row(above) and INVARIANT_ID_RE.match(above) is None
+
+
+def check_invariant_tables() -> list[Finding]:
+    """An invariant table holds invariant rows only, and cited ids resolve.
+
+    A foreign row reads as an invariant, held to none of the shape rules keyed on the id pattern.
+    Ids resolve across sheets, citing another surface's being ordinary.
     """
     sheets = tracked_glob(SPEC_GLOB)
     if not sheets:
@@ -442,8 +420,14 @@ def check_invariant_tables() -> list[Finding]:
     for sheet, body in bodies.items():
         rel = sheet.relative_to(REPO_ROOT).as_posix()
         seen: set[str] = set()
-        for line in _section(body, SPEC_SECTIONS[1]).split("\n"):
+        lines = _section(body, SPEC_SECTIONS[1]).split("\n")
+        for index, line in enumerate(lines):
             if (match := INVARIANT_ID_RE.match(line)) is None:
+                if TABLE_ROW_RE.match(line) is not None and not _opens_a_table(lines, index):
+                    # A stray separator excerpts to a row of dashes, which names nothing a reader can search for.
+                    shape = "a separator under no header" if _separator_row(line) else f"'{line.strip()[:60]}'"
+                    detail = f"a row in `## {SPEC_SECTIONS[1]}` is neither an invariant nor a header: {shape} (OUT-4)"
+                    found.append(Finding("fail", "invariant-row", rel, detail))
                 continue
             invariant = match.group(1)
             if invariant in seen:
@@ -452,8 +436,6 @@ def check_invariant_tables() -> list[Finding]:
             cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
             if len(cells) != SPEC_COLUMNS:
                 found.append(Finding("fail", "invariant-row", rel, f"{invariant} has {len(cells)} cells, not OUT-4's {SPEC_COLUMNS}"))
-            elif not cells[-1].strip("—- ") or CROSS_REFERENCE_RE.match(cells[-1]):
-                found.append(Finding("fail", "invariant-row", rel, f"{invariant} states no failure mode: '{cells[-1]}' (OUT-4)"))
         for cited in sorted(set(INVARIANT_REF_RE.findall(body)) - defined):
             found.append(Finding("fail", "invariant-id", rel, f"cites {cited}, which no tracked spec sheet's invariant table defines"))
     return found
@@ -462,9 +444,7 @@ def check_invariant_tables() -> list[Finding]:
 def check_overviews() -> list[Finding]:
     """OUT-5's spine: an overview opens on how the surface is organised and closes on where to go.
 
-    Both ends are load-bearing and neither is missed by a reader of the page: an overview that
-    stops naming its parts has started explaining mechanisms the spec sheet owns, and one with no
-    handoff is where a reader's trail goes cold.
+    One that stops naming its parts explains mechanisms the spec sheet owns.
     """
     overviews = tracked_glob(OVERVIEW_GLOB)
     if not overviews:
@@ -494,11 +474,9 @@ def _glossary_entries(body: str) -> list[tuple[str, str]]:
 
 
 def check_glossary() -> list[Finding]:
-    """OUT-6's entry shape: the term as code spells it, a gloss, then the four fields in order.
+    """OUT-6's entry shape: the term as code spells it, a gloss, then the fields in order.
 
-    The `Trap` field is the reason the glossary exists, and it is the one an entry written in a
-    hurry drops -- a term with no pitfall line costs the next reader the hour it was written to
-    save.
+    `Trap` is why the glossary exists and the field a hurried entry drops.
     """
     rel = GLOSSARY_PAGE
     page = tracked_page(rel)
@@ -523,12 +501,8 @@ def check_glossary() -> list[Finding]:
 def check_inputs() -> list[Finding]:
     """Every tree and page another check reads is present.
 
-    Each check below resolves its input with `tracked_glob` or `_read_text` and treats an empty
-    answer as nothing to say, which turns a deleted or moved input into a check that passes without
-    looking at anything. Naming them here is what makes the absence itself the finding.
-
-    Presence on disk, not in the index: this is the one place that separates "the tree is gone" from
-    "the tree is here and untracked", which every caller above reports as its own dangling citation.
+    A check treats an empty answer as nothing to say, so a moved input passes over nothing.
+    Presence on disk, not in the index: untracked is a caller's own finding.
     """
     return [
         Finding("fail", "inputs", rel, "missing -- the check reading it would otherwise pass without examining anything")
@@ -538,21 +512,17 @@ def check_inputs() -> list[Finding]:
 
 
 def check_line_endings() -> list[Finding]:
-    """A tracked text file holds LF in the working tree wherever `.gitattributes` mandates it.
+    """The working tree holds LF wherever `.gitattributes` mandates it.
 
-    The declaration takes effect at commit, so a CRLF working tree reads clean in the index and
-    breaks where the file runs: a shell script dies on its shebang on the Linux server, and the
-    formatter rejects the tree. Git's own verdict decides what counts as text, because a PNG holds
-    CR-LF byte pairs legitimately and an extension list is what gets that wrong. A file the
-    attributes give `eol=crlf` is exempt by construction, so `*.bat` and `*.cmd` need no list here.
+    The declaration takes effect at commit, so a CRLF tree reads clean in the index and breaks
+    where the file runs -- a shell script dies on its shebang on the server.
     """
-    # NUL-separated, so a path outside ASCII arrives as itself rather than octal-escaped inside
-    # quotes: the finding names the file a reader has to fix, and a spelling no checkout holds
-    # would send them looking for it.
+    # NUL-separated, so a path outside ASCII arrives as itself rather than octal-escaped: a
+    # spelling no checkout holds sends the reader looking for a file that is not there.
     listing = git("ls-files", "--eol", "-z")
     if listing is None:
-        # A run that cannot read the index proves nothing about the tree, and a check that says
-        # nothing is indistinguishable from a clean one.
+        # A run that cannot read the index proves nothing about the tree, and silence is
+        # indistinguishable from a clean answer.
         detail = "git could not report the tree's line endings, so nothing was held to `.gitattributes`"
         return [Finding("fail", "line-endings", ".gitattributes", detail)]
 
@@ -571,36 +541,57 @@ def check_line_endings() -> list[Finding]:
 def check_enforced_by() -> list[Finding]:
     """A rule's `Enforced by` field names gate checks this script actually emits.
 
-    The field is where the standard claims mechanical enforcement, and a claim that has drifted is
-    worse than an unenforced rule: it reads as covered. The whole field is read, because PRE-4
-    closes its vocabulary: what is not a check is a command, which carries a slash or a dot, or a
-    linter, which is named in prose beside the selection covering the rule. A bare backticked
-    lower-case token is therefore a claim about this gate wherever in the sentence it stands.
+    A drifted claim is worse than an unenforced rule: it reads as covered.
     """
     chapters = tracked_glob(CHAPTER_GLOB)
     if not chapters:
         return [Finding("fail", "enforced-by", CHAPTERS_DIR, "no tracked chapter, so no enforcement claim can be resolved")]
 
     found: list[Finding] = []
+
+    def resolve(rel: str, field: str) -> None:
+        field = " ".join(field.split())
+        for name in CHECK_NAME_RE.findall(field):
+            if name not in CHECKS:
+                detail = f"claims enforcement by gate check `{name}`, which this gate does not emit: {field[:80]}"
+                found.append(Finding("fail", "enforced-by", rel, detail))
+
     for chapter in chapters:
         rel = chapter.relative_to(REPO_ROOT).as_posix()
         if (text := _readable(chapter)) is None:
             continue  # reported as `unreadable` where the file is scanned in its own right
         for match in ENFORCED_BY_RE.finditer(text):
-            field = " ".join(match.group(1).split())
-            for name in CHECK_NAME_RE.findall(field):
-                if name not in CHECKS:
-                    detail = f"claims enforcement by gate check `{name}`, which this gate does not emit: {field[:80]}"
-                    found.append(Finding("fail", "enforced-by", rel, detail))
+            resolve(rel, match.group(1))
+
+    # A rule the index states alone claims enforcement there, and an unresolved name is the same
+    # defect wherever it is written.
+    index = tracked_page(RULES_INDEX_PAGE)
+    if index is not None and (text := _readable(index)) is not None:
+        for block in RULE_INDEX_BLOCK_RE.findall(text):
+            if (claim := INDEX_ENFORCED_RE.search(block)) is not None:
+                resolve(RULES_INDEX_PAGE, claim.group(1))
     return found
+
+
+def _ordered_subsequence(fields: tuple[str, ...], order: tuple[str, ...]) -> bool:
+    """Whether every field is drawn from `order` and they appear in it.
+
+    A duplicate fails: `index` finds the first match, so a repeated field advances the cursor only
+    where the order would have allowed another anyway.
+    """
+    cursor = -1
+    for name in fields:
+        if name not in order or (position := order.index(name)) <= cursor:
+            return False
+        cursor = position
+    return True
 
 
 def check_rule_shape() -> list[Finding]:
     """Every rule in the standard keeps PRE-4's anatomy, which is what the rest of this gate parses.
 
-    `rule-id` resolves a citation to a `### <ID>` heading and `enforced-by` reads the field that
-    heading's block ends on, so a rule written in another shape is not a style lapse: it is a rule
-    outside the reach of both, silently, while every citation of it still resolves.
+    A rule written in another shape falls outside `rule-id` and `enforced-by` while every citation
+    of it still resolves.
     """
     found: list[Finding] = []
     for chapter in tracked_glob(CHAPTER_GLOB):
@@ -613,8 +604,11 @@ def check_rule_shape() -> list[Finding]:
                 detail = f"{rule_id}'s heading is not `### {rule_id} — <the rule as a claim>` (PRE-4)"
                 found.append(Finding("fail", "rule-shape", rel, detail))
             fields = tuple(RULE_FIELD_RE.findall(block))
-            if fields != RULE_FIELDS:
-                detail = f"{rule_id} carries [{', '.join(fields)}] -- PRE-4 fixes them at [{', '.join(RULE_FIELDS)}], in that order"
+            if not _ordered_subsequence(fields, RULE_FIELDS):
+                detail = f"{rule_id} carries [{', '.join(fields)}] -- PRE-4 draws them from [{', '.join(RULE_FIELDS)}], in that order"
+                found.append(Finding("fail", "rule-shape", rel, detail))
+            elif missing := tuple(name for name in REQUIRED_RULE_FIELDS if name not in fields):
+                detail = f"{rule_id} states no {' and no '.join(f'**{name}:**' for name in missing)} -- PRE-4 requires both"
                 found.append(Finding("fail", "rule-shape", rel, detail))
             if rule_id not in tabled:
                 found.append(Finding("fail", "rule-shape", rel, f"{rule_id} has no row in this chapter's rule table (PRE-4)"))
@@ -624,9 +618,8 @@ def check_rule_shape() -> list[Finding]:
 def check_rule_index(rules: dict[str, list[str]]) -> list[Finding]:
     """Every rule takes one line in the rules index, and no rule takes two (PRE-4).
 
-    The index is what a session reads instead of six chapters, so a rule missing from it is a rule
-    most readers never meet. The other direction -- a line naming a rule no chapter states -- is
-    `rule-id`'s, which resolves every id on the page already.
+    The index is what a session reads instead of the chapters, so a rule missing from it is one
+    most readers never meet. The reverse is `rule-id`'s.
     """
     rel = RULES_INDEX_PAGE
     page = tracked_page(rel)
@@ -646,9 +639,8 @@ def check_rule_index(rules: dict[str, list[str]]) -> list[Finding]:
 def check_check_registry() -> list[Finding]:
     """CUR-5's table lists exactly the checks this script emits, at the verdicts it emits them.
 
-    The table is the one place the checks are written down, and nothing else reads it. A check
-    added without a row defends the repository while telling nobody what its failure means, and a
-    row outliving its check sends a reader looking for a defence that is gone.
+    A check with no row tells nobody what its failure means, and a row outliving its check sends
+    a reader after a defence that is gone.
     """
     rel = CURRENCY_PAGE
     page = tracked_page(rel)
@@ -678,12 +670,7 @@ def check_check_registry() -> list[Finding]:
 def _glob_table(text: str, header: re.Pattern[str], glob_cell: int = 1) -> dict[str, list[str]] | None:
     """A two-column table's first cell against its backticked globs, or None if absent.
 
-    `glob_cell` names the column holding them: the segment table reads `| Segment | Globs |`, the
-    excluded table `| Excluded | Why |`, so one carries its globs second and the other first.
-
-    Read from the command file rather than declared here, so the partition has one definition. Rows
-    end at the first line that does not open a table cell, which is what stops a following paragraph
-    being read as rows.
+    Read from the command file rather than declared here, so the partition has one definition.
     """
     opening = header.search(text)
     if opening is None:
@@ -703,10 +690,7 @@ def _glob_table(text: str, header: re.Pattern[str], glob_cell: int = 1) -> dict[
 def check_segment_map() -> list[Finding]:
     """`/docs:audit`'s segments claim every tracked file the sweep does not exclude, exactly once.
 
-    The command asserts the partition is total, and until the globs existed nothing could check it:
-    a file no segment claims is never dispatched to any agent, and reads afterwards as audited. A
-    file two segments claim is audited twice and reported twice, which costs a fix session the time
-    it takes to notice they are one defect.
+    A file no segment claims reaches no agent and reads afterwards as audited.
     """
     rel = SWEEP_PAGE
     page = tracked_page(rel)
@@ -721,9 +705,8 @@ def check_segment_map() -> list[Finding]:
     if excluded is None:
         return [Finding("fail", "segment-map", rel, "carries no `Excluded` / `Why` table -- without it every excluded file reads as unclaimed")]
 
-    # NUL-separated for the reason `tracked_files` is: git quotes a path outside ASCII, and a quoted
-    # spelling matches no glob -- so the check whose subject is "the partition is total" would answer
-    # from a listing missing exactly that path.
+    # NUL-separated for the reason `tracked_files` is: git quotes a path outside ASCII, and a
+    # quoted spelling matches no glob -- so "the partition is total" would answer off a short list.
     listing = git("ls-files", "-z")
     if listing is None:
         # The partition is total or it is not, and an unlisted tree answers neither.
@@ -759,9 +742,8 @@ def _sample(paths: list[str]) -> str:
 def check_template_fragments() -> list[Finding]:
     """The pull request form still carries every fragment the body gate quotes from it.
 
-    `check_pr_body.py :: TEMPLATE_FRAGMENTS` refuses a body still holding the form's placeholder
-    prose, by matching that prose verbatim. Reword the form and the check keeps passing every
-    body, including the unfilled one it exists to catch.
+    `check_pr_body.py :: TEMPLATE_FRAGMENTS` matches that prose verbatim, so rewording the form
+    leaves it passing every body, the unfilled one it exists to catch included.
     """
     rel = TEMPLATES_PAGE
     page = tracked_page(rel)

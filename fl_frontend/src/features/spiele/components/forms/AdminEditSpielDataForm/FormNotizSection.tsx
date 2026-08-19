@@ -12,15 +12,9 @@ import { useFieldStatus } from "./DraftStatusContext";
 import { FieldLabel } from "./FieldLabel";
 
 /**
- * The fixture's optional free-text note (roadmap item FE-2, decided 2026-08-02).
- *
- * **Its own panel, between Ergebnis and Absage.** The note is about the played game — exciting
- * moments, anything worth a sentence — but it must not sit inside the Ergebnis panel, whose fields
- * arm behind the deliberate unlock flip: a note is prose, not a score, and locking it would make
- * "add a sentence about the final" a two-step operation guarding against nothing.
- *
- * The text is public: it renders in the match details dialog every visitor can open, which is the
- * same trust `teams.description` and a disqualification's `grund` already carry.
+ * **Its own panel, outside Ergebnis**, whose fields arm behind a deliberate unlock flip: a note is
+ * prose rather than a score, and locking it would guard against nothing. The text is public — it
+ * renders in the details dialog every visitor can open.
  */
 export function FormNotizSection({
   notiz,
@@ -29,16 +23,15 @@ export function FormNotizSection({
 }: {
   notiz: string | null;
   onNotizChange: (value: string | null) => void;
-  /** Judged when the field is left, like every other field on this page. */
+  /** Judged when the field is left, as every other field on this page is. */
   onValidateFields: (paths: readonly string[]) => void;
 }) {
   const styles = formPanel();
   const status = useFieldStatus("notiz");
   const notizRef = useRef<HTMLTextAreaElement>(null);
 
-  // Whitespace counts as empty, exactly as the `notiz` descriptor in
-  // `fl_frontend/src/features/spiele/draftStatus.ts` reads it -- otherwise the button offers to remove
-  // a note the change list already reports as absent.
+  // Whitespace is empty, as `draftStatus.ts`'s `notiz` descriptor reads it, or the button offers
+  // to remove a note the change list already reports as absent.
   const hasNotiz = notiz !== null && notiz.trim() !== "";
 
   return (
@@ -62,8 +55,7 @@ export function FormNotizSection({
         <TextField
           name="notiz"
           value={notiz ?? ""}
-          // "" is held as null the moment it is typed, so the draft compares equal to a stored
-          // fixture without a note and the discard guard stays quiet.
+          // "" is held as null at once, so the draft compares equal to a fixture without a note.
           onChange={(next) => onNotizChange(next === "" ? null : next)}
           onBlur={() => onValidateFields(["notiz"])}
           isInvalid={status?.error ? true : undefined}>
@@ -87,8 +79,8 @@ export function FormNotizSection({
               <button
                 type="button"
                 onClick={() => {
-                  // The focus move precedes the state change that unmounts this button: focus left on
-                  // a removed element falls to <body>, and the next Tab restarts at the top of the page.
+                  // Focus moves BEFORE the state change unmounts this button: focus left on a
+                  // removed element falls to `<body>` and the next Tab restarts at the page top.
                   notizRef.current?.focus();
                   onNotizChange(null);
                 }}

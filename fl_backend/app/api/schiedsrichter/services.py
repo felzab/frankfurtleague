@@ -1,12 +1,3 @@
-"""
-SCHIEDSRICHTER · filter and sort construction
-
-Pure translation of `FLSchiedsrichterFilterParams` into a Mongo filter and sort. No I/O.
-
-In practice the frontend always calls the endpoint with no arguments, so these branches are effectively
-unexercised -- worth knowing before treating them as tested behaviour.
-"""
-
 from typing import Any, Sequence
 
 from app.api.schiedsrichter.schemas import FLSchiedsrichterFilterParams
@@ -29,26 +20,22 @@ def build_schiedsrichter_filter(
         context={"keep_oid": True},
     )
 
-    # Not part of the dump: `include_inactive` is a switch whose False means "add a filter", so a
-    # by-value dump would write `include_inactive: False` into the query as a field to match.
+    # A switch whose False means "add a filter", so a by-value dump would write it into the query as
+    # a field to match on.
     if not filters.include_inactive:
         query["inactive_since"] = None
 
     return query
 
 
-# The referee is still assigned to a fixture nobody has played (decided 2026-08-08) --
-# `REQ-RETIRE-003` for a venue, for the same reason. A played fixture never blocks: its
-# `schiedsrichter` is an embedded record of who officiated.
+# A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
 REFEREE_STILL_ASSIGNED = "REQ-RETIRE-004"
 
 
 def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:
-    """
-    Why retiring this referee must be refused, as a `WriteRefusal` -- or `None`.
+    """Why retiring this referee must be refused, or `None`.
 
-    `upcoming_spiel_nrs` is every fixture naming them that has no result and is not cancelled, which is
-    `unplayed_spiel_nrs`'s definition of "still to come".
+    `upcoming_spiel_nrs` is `unplayed_spiel_nrs`'s definition of "still to come".
     """
 
     if not upcoming_spiel_nrs:

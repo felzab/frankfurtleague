@@ -1,24 +1,3 @@
-"""
-SPIELTAGE · the write path against a real MongoDB
-
-Four things only a database proves. The SEQUENCE `REQ-DATE-002` is wired into on the way back in:
-retire a matchday, shrink the season past it, then ask for it back. The ECHO every write answers
-with, carrying a derived `anzahl_spiele` that sits on no document. WHICH PATCHES
-`REQ-SPIELTAG-002` reaches, which needs a real fixture count against a real season's rules. And the
-SPLIT the phase-transition rules read, which counts a matchday's fixtures by the phase
-each of them stores rather than by the matchday's own.
-
-Each step runs through the handler that performs it, so the premise is proved rather than assumed.
-
-Invariants:
-- The season shrink is asserted to SUCCEED; a refusal there would leave the reactivate case vacuous.
-- The default seed carries no `anzahl_spiele`; the one case seeding `99` asserts the echo ignores it.
-- Every test is marked `db` and deselected by default (`fl_backend/tests/README.md`).
-
-See:
-- docs/backend/spec.md — section 1.6, the two tiers and the marker
-"""
-
 import asyncio
 from typing import Any, Awaitable, Callable
 
@@ -46,8 +25,7 @@ DATABASE_NAME = "fl_spieltage_write_test"
 SAISON_ID = "2026"
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607300001")
 
-# The day a retirement is stamped with. Injected rather than read from the clock, which is what
-# `get_german_date_str` exists to make substitutable.
+# Injected rather than read from the clock, which `get_german_date_str` makes substitutable.
 RETIRED_ON = "2026-04-01"
 
 SAISON_START = "2026-01-01"
@@ -66,15 +44,13 @@ RULES = {
     "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
 }
 
-# What these rules imply, spelled out rather than computed: four groups of four give three group
-# matchdays of eight matches, and eight qualifiers play the last three rounds. A `schedule_for`
-# change that stops matching is visible here.
+# Spelled out rather than computed, so a `schedule_for` change that stops matching is visible here.
 GRUPPENPHASE_MATCHES = 8
 FINALE_MATCHES = 1
 
 
 def saison_document() -> dict[str, Any]:
-    """The season the matchday belongs to. `schedule` is derived on read and on no document."""
+    """`schedule` is derived on read and on no document."""
 
     return {
         "_id": SAISON_ID,
@@ -86,14 +62,7 @@ def saison_document() -> dict[str, Any]:
 
 
 def spieltag_document(**overrides: Any) -> dict[str, Any]:
-    """
-    One live matchday, late in its season and holding no fixtures.
-
-    It carries no `anzahl_spiele`, which is the shape `POST /spieltage` inserts: the count is derived
-    from the season's rules on every read and the payload has no field for it. Seeding it
-    this way is what makes the echo assertions below controls rather than readings of a stale key --
-    the one test that wants a stale key overrides it.
-    """
+    """No `anzahl_spiele`, the shape `POST /spieltage` inserts, so the echo assertions are controls rather than readings of a stale key."""
 
     return {
         "_id": SPIELTAG_OID,
@@ -110,13 +79,7 @@ Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
 
 
 def on_a_database(container: Any, body: Body) -> Any:
-    """
-    Seed a fresh database with the season and the matchday, run `body` against it, then drop it.
-
-    One client and one event loop per call, for the reason `tests/core/test_constraints_execution.py`
-    gives: Motor binds to the loop it first runs on, so a client shared across `asyncio.run` calls
-    works right up until it does not, and the symptom reads as a flake rather than as fixture design.
-    """
+    """One client and event loop per call: Motor binds to the loop it first runs on."""
 
     async def _run() -> Any:
         client = AsyncIOMotorClient(container.get_connection_url())
@@ -146,12 +109,7 @@ async def retire_the_matchday(database: AsyncIOMotorDatabase, spieltag_id: Objec
 
 
 async def move_the_seasons_end(database: AsyncIOMotorDatabase, end_date: str) -> None:
-    """
-    Through the endpoint that performs it, and the step that creates the state.
-
-    Asserted rather than assumed: `REQ-DATE-004` reads live matchdays only, so a retired one must not
-    block the shrink. If that ever changed, the reactivate case below would pass for the wrong reason.
-    """
+    """Asserted rather than assumed: `REQ-DATE-004` reads live matchdays only, so a retired one must not block the shrink."""
 
     response = await patch_saison(
         saison_id=SAISON_ID,
@@ -166,14 +124,7 @@ async def move_the_seasons_end(database: AsyncIOMotorDatabase, end_date: str) ->
 
 
 async def create_a_matchday(database: AsyncIOMotorDatabase) -> ObjectId:
-    """
-    A matchday made the way the admin makes one, so what follows acts on a real created document.
-
-    Always `gruppenphase`, and the phase is not a parameter: a `str` default would widen
-    `FLSaisonPhase` past its `Literal` and the payload would refuse it, which the gate's own `pyright`
-    catches because `[tool.pyright]` includes `tests`. The one case that needs another phase patches
-    into it, which is the move it is about anyway.
-    """
+    """Always `gruppenphase`; the phase is not a parameter because a `str` default would widen `FLSaisonPhase` past its `Literal`."""
 
     response = await post_spieltag(
         spieltag_data=FLPostSpieltagPayload(beginn="2026-03-07", ende="2026-03-08", saison_phase="gruppenphase", saison_id=SAISON_ID),
@@ -187,8 +138,6 @@ async def create_a_matchday(database: AsyncIOMotorDatabase) -> ObjectId:
 
 class TestAReactivatedMatchdayStaysInsideItsSeason:
     def test_the_season_shrinking_past_a_retired_matchday_refuses_the_way_back(self, mongo_container: Any):
-        """The three steps in order, and the state each one leaves is the next one's input."""
-
         async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
             await retire_the_matchday(database)
             # Now ends before the matchday begins, which is legal precisely because it is retired.
@@ -208,7 +157,7 @@ class TestAReactivatedMatchdayStaysInsideItsSeason:
         assert refusal.error_code == SPIELTAG_OUTSIDE_SAISON
 
     def test_the_refusal_leaves_the_matchday_retired(self, mongo_container: Any):
-        """A refused reactivation writes nothing, so the admin's repair is the dates rather than a retry."""
+        """A refused reactivation writes nothing, so the repair is the dates rather than a retry."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
             await retire_the_matchday(database)
@@ -229,7 +178,7 @@ class TestAReactivatedMatchdayStaysInsideItsSeason:
         assert stored["inactive_since"] == RETIRED_ON
 
     def test_the_refusal_names_both_spans(self, mongo_container: Any):
-        """The repair is a choice between two edits, so the message carries the matchday and the season."""
+        """The repair is a choice between two edits, so the message carries both spans."""
 
         async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
             await retire_the_matchday(database)
@@ -252,12 +201,7 @@ class TestAReactivatedMatchdayStaysInsideItsSeason:
         assert "2026-05-31" in message
 
     def test_a_matchday_the_shrunk_season_still_covers_comes_back(self, mongo_container: Any):
-        """
-        The other half, and the one that keeps the refusal from being a blanket one.
-
-        The same three steps with a shrink that stops short of the matchday: the containment still
-        holds, so nothing is refused and the matchday is live again.
-        """
+        """A shrink stopping short refuses nothing, or this is a blanket refusal."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
             await retire_the_matchday(database)
@@ -280,14 +224,7 @@ class TestAReactivatedMatchdayStaysInsideItsSeason:
 
 
 class TestAWriteEchoesTheMatchdayItChanged:
-    """
-    The round trip a matchday makes with `anzahl_spiele` on no document.
-
-    `POST` answers with an id alone and so never validates a stored matchday; the other three echo the
-    document they just changed, and the field is required on the read model. So the endpoints are
-    exercised against a matchday this suite CREATED, not one it seeded -- a seeded document can be
-    given whatever shape makes a test pass, and a created one has the shape the API actually produces.
-    """
+    """`anzahl_spiele` is on no document. Created rather than seeded, because a seeded document can be given any shape that passes."""
 
     def test_a_created_matchday_can_be_retired(self, mongo_container: Any):
         async def body(database: AsyncIOMotorDatabase) -> Any:
@@ -334,13 +271,7 @@ class TestAWriteEchoesTheMatchdayItChanged:
         assert response.updated_document.anzahl_spiele == GRUPPENPHASE_MATCHES
 
     def test_moving_the_phase_moves_the_count_the_echo_reports(self, mongo_container: Any):
-        """
-        The case that separates a derived echo from a remembered one.
-
-        `PATCH` can move the `saison_phase` the count follows from, so an echo carrying the count the
-        matchday had before the write would be wrong rather than merely absent. Nothing attached, so
-        `REQ-SPIELTAG-002` permits the move.
-        """
+        """`PATCH` can move the phase the count follows from, so a remembered echo would be wrong rather than merely absent."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
             created = await create_a_matchday(database)
@@ -359,13 +290,7 @@ class TestAWriteEchoesTheMatchdayItChanged:
         assert response.updated_document.anzahl_spiele == FINALE_MATCHES
 
     def test_a_stored_count_left_over_from_before_is_ignored(self, mongo_container: Any):
-        """
-        Documents in the database still carry the key, and the echo must not read it.
-
-        `extra="ignore"` means such a document validates either way, so a pass-through would look
-        correct on every matchday whose season never changed -- and be silently wrong on the ones that
-        are the whole reason the field stopped being stored.
-        """
+        """`extra="ignore"` validates such a document either way, so a pass-through would look correct wherever the season never changed."""
 
         stale_oid = ObjectId("6890a1b2c3d4e5f607300002")
 
@@ -380,22 +305,12 @@ class TestAWriteEchoesTheMatchdayItChanged:
 
 
 class TestAMatchdayOverItsPhaseKeepsItsDatesEditable:
-    """
-    `REQ-SPIELTAG-002` against the state only the database can hold.
-
-    The fixture count comes from a real `spiele` collection, and the phase count from the season's own
-    rules, so the two figures the refusal compares are produced the way the endpoint produces them. That
-    is the whole case: the rule reads a phase, and the endpoint runs it on every patch — including one
-    whose payload repeats the phase the matchday already has.
-
-    A season's fixtures are created outside the API, which is why nine of them can sit on a
-    matchday whose Gruppenphase accounts for eight, and why no edit here can move one out.
-    """
+    """`REQ-SPIELTAG-002` against a real `spiele` collection, so the refusal compares the figures the endpoint produces."""
 
     ATTACHED = GRUPPENPHASE_MATCHES + 1
 
     async def _with_fixtures_attached(self, database: AsyncIOMotorDatabase) -> None:
-        """Nine fixtures on the seeded matchday, dateless so `REQ-DATE-003` has nothing to hold."""
+        """Fixtures on the seeded matchday, dateless so `REQ-DATE-003` has nothing to hold."""
 
         for spiel_nr in range(1, self.ATTACHED + 1):
             await database.spiele.insert_one({"saison_id": SAISON_ID, "spieltag_id": SPIELTAG_OID, "spiel_nr": spiel_nr})
@@ -419,7 +334,7 @@ class TestAMatchdayOverItsPhaseKeepsItsDatesEditable:
         assert response.updated_document.ende == "2026-06-22"
 
     def test_a_move_into_a_smaller_phase_is_still_refused(self, mongo_container: Any):
-        """The other half: from a bad state the step that makes it worse is refused as it always was."""
+        """From a bad state the step that makes it worse is still refused."""
 
         async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
             await self._with_fixtures_attached(database)
@@ -441,21 +356,10 @@ class TestAMatchdayOverItsPhaseKeepsItsDatesEditable:
 
 
 class TestWhichPhaseChangesAreLegitimate:
-    """
-    `REQ-SPIELTAG-005` and `REQ-SPIELTAG-006` through the endpoint.
-
-    What only a database proves here is the SPLIT the boundary rule reads. Its two side counts come from
-    two `count_documents` calls against a real `spiele` collection, keyed on the FIXTURE's own
-    `saison_phase` -- a stored field this endpoint never writes and which need not agree with its
-    matchday's. Seeding fixtures that carry it is the whole point: a unit test can be handed the two
-    figures, and only this can prove the endpoint derives them the way the rule expects.
-
-    It also pins the ORDER the three phase rules answer in, which belongs to the endpoint rather than to
-    any one of them.
-    """
+    """Only a database proves the split: the side counts key on the fixture's own `saison_phase`, which this endpoint never writes."""
 
     async def _with_fixtures(self, database: AsyncIOMotorDatabase, saison_phase: str, count: int) -> None:
-        """Fixtures carrying their OWN phase, dateless so `REQ-DATE-003` has nothing to hold."""
+        """Fixtures carrying their own phase, dateless so `REQ-DATE-003` has nothing to hold."""
 
         for spiel_nr in range(1, count + 1):
             await database.spiele.insert_one(
@@ -472,14 +376,7 @@ class TestWhichPhaseChangesAreLegitimate:
         )
 
     def test_a_drawn_knockout_round_may_not_become_a_group_matchday(self, mongo_container: Any):
-        """
-        The reported case, end to end.
-
-        The row is moved to `viertelfinale` and its four fixtures seeded as `viertelfinale`, so matchday
-        and contents agree before the move under test. `REQ-SPIELTAG-002` cannot fire -- the Gruppenphase
-        accounts for eight and the row holds four -- which leaves the boundary rule as the only thing
-        that can refuse.
-        """
+        """`REQ-SPIELTAG-002` cannot fire on these counts, which leaves the boundary rule as the only thing that can refuse."""
 
         async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
             await database.spieltage.update_one({"_id": SPIELTAG_OID}, {"$set": {"saison_phase": "viertelfinale"}})
@@ -495,12 +392,7 @@ class TestWhichPhaseChangesAreLegitimate:
         assert refusal.error_code == SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY
 
     def test_an_empty_knockout_matchday_still_becomes_a_group_matchday(self, mongo_container: Any):
-        """
-        The capability an editable `saison_phase` keeps, from the same starting row with nothing on it.
-
-        This is the pair that makes the case above a rule about the FIXTURES rather than about the two
-        phases: identical move, identical row, opposite answer.
-        """
+        """Identical move, identical row, opposite answer — which makes the case above a rule about the fixtures."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
             await database.spieltage.update_one({"_id": SPIELTAG_OID}, {"$set": {"saison_phase": "viertelfinale"}})
@@ -513,13 +405,7 @@ class TestWhichPhaseChangesAreLegitimate:
         assert response.updated_document.anzahl_spiele == GRUPPENPHASE_MATCHES
 
     def test_a_matchday_may_be_moved_to_agree_with_the_fixtures_it_holds(self, mongo_container: Any):
-        """
-        The repair, which the same crossing has to allow in the other direction.
-
-        A `gruppenphase` row holding four `viertelfinale` fixtures shows them under no bracket round at
-        all. Moving it to `viertelfinale` is what fixes that, so a rule reading the crossing alone would
-        block the only edit that improves the state.
-        """
+        """A rule reading the crossing alone would block the only edit that improves the state."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
             await self._with_fixtures(database, "viertelfinale", 4)
@@ -531,7 +417,7 @@ class TestWhichPhaseChangesAreLegitimate:
         assert response.updated_document.saison_phase == "viertelfinale"
 
     def test_a_move_into_a_round_the_season_never_plays_is_refused(self, mongo_container: Any):
-        """Eight qualifiers play no round of sixteen, so `achtelfinale` is a round this season never reaches."""
+        """These rules send eight into the bracket, so `achtelfinale` is a round the season never reaches."""
 
         async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
             await database.spieltage.update_one({"_id": SPIELTAG_OID}, {"$set": {"saison_phase": "viertelfinale"}})
@@ -546,13 +432,7 @@ class TestWhichPhaseChangesAreLegitimate:
         assert refusal.error_code == SPIELTAG_MOVED_TO_UNPLAYED_PHASE
 
     def test_a_row_stranded_in_an_unplayed_round_keeps_its_dates_and_its_way_out(self, mongo_container: Any):
-        """
-        Both halves of grading the step, from the state the rule must not punish.
-
-        A row sitting in `achtelfinale` -- put there by a rules narrowing, or by a create predating
-        `REQ-SPIELTAG-004` -- has its dates corrected and is then moved somewhere real. A rule reading
-        the row's own phase would refuse the first and leave nothing to reach the second with.
-        """
+        """A rule reading the row's own phase would refuse the dates correction and leave no way to reach the move out."""
 
         async def body(database: AsyncIOMotorDatabase) -> tuple[Any, Any]:
             await database.spieltage.update_one({"_id": SPIELTAG_OID}, {"$set": {"saison_phase": "achtelfinale"}})
@@ -575,13 +455,7 @@ class TestWhichPhaseChangesAreLegitimate:
         assert moved_out.updated_document.saison_phase == "viertelfinale"
 
     def test_the_unplayed_round_is_answered_before_the_boundary(self, mongo_container: Any):
-        """
-        Both rules fire on this move, and the endpoint's order decides which the admin is told.
-
-        Eight group fixtures moved into `achtelfinale`: the round does not exist AND the fixtures would
-        be stranded. Naming the season's rules is the actionable half -- moving fixtures would not make
-        the round exist.
-        """
+        """Naming the season's rules is the actionable half: moving fixtures would not make the round exist."""
 
         async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
             await self._with_fixtures(database, "gruppenphase", GRUPPENPHASE_MATCHES)

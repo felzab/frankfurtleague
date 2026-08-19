@@ -9,7 +9,7 @@ import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
-// Not async — see the note on the schiedsrichter page; same split, same reason.
+// Not async — see the note on the schiedsrichter page.
 export default function AdminSpielortePage() {
   return (
     <AdminCrudShell
@@ -29,9 +29,8 @@ export default function AdminSpielortePage() {
 
 async function SpielorteTable() {
   await connection();
-  // Retired venues included: this list is the only surface that can bring one back. Its own
-  // cache entry, separate from the picker's `getSpielorte()` — the key is the arguments, so the picker
-  // keeps offering live venues only.
+  // Retired included: this list is the only surface that can bring one back. Its own cache entry,
+  // keyed by the arguments, so the picker keeps offering live venues only.
   const spielorteRes = await getSpielorte({ include_inactive: true });
 
   return <AdminSpielorteView spielorte={spielorteRes.spielorte} />;

@@ -1,18 +1,3 @@
-"""
-TESTS · shared fixtures for the schema suite, plus the one real `mongod` the session shares
-
-Every payload fixture is a factory returning a fresh, fully valid payload dict keyed `_id` rather
-than `id`; tests override the one field under test. What that buys, and when to reach for
-`assert_rejects` instead of a bare `pytest.raises`, are `docs/backend/spec.md` §1.6's.
-
-The container fixtures live here rather than in `api/conftest.py` because several suites want a
-database. Session-scoped, so one `mongod` serves all of them — and a second, on a
-single-node replica set, serves the tests that open a transaction, which a standalone refuses.
-
-Invariants:
-- Both containers are lazy: nothing starts until a `db`-marked test asks for one.
-"""
-
 import copy
 import logging
 import re
@@ -30,31 +15,22 @@ from app.core.config import BackendConfig
 from app.main import create_app
 from tests.config import build_test_config
 
-# testcontainers removes its reaper container from an `atexit` hook, which makes an HTTP call, which
-# urllib3 logs at DEBUG -- by which point pytest has closed the stream its capture handler writes to.
-
-# The logging module catches that itself and prints a full traceback to stderr, after a passing run
-# and with the teardown having succeeded.
-
-# Silenced at the source rather than by suppressing logging errors globally: `raiseExceptions = False`
-# would hide real handler failures too, and urllib3's DEBUG stream diagnoses nothing here.
+# testcontainers' reaper teardown logs after pytest closes its capture stream, printing a traceback on
+# a passing run. Not `raiseExceptions = False`: that would hide real handler failures too.
 logging.getLogger("urllib3").setLevel(logging.INFO)
 
 
 @pytest.fixture(scope="session")
 def test_config() -> BackendConfig:
-    """The suite's settings. Built in `tests/config.py`, which says why they are not a fixture alone."""
     return build_test_config()
 
 
 @pytest.fixture(scope="session")
 def app(test_config: BackendConfig) -> FastAPI:
-    """The application under test, built from `test_config` rather than from the environment."""
     return create_app(test_config)
 
 
-# 24-hex ObjectId strings. Fixed rather than generated: a failing test should point at the same
-# value every run.
+# Fixed rather than generated: a failing test points at the same value every run.
 TEAM_ID = "6890a1b2c3d4e5f607182930"
 SPIEL_ID = "6890a1b2c3d4e5f607182931"
 SPIELTAG_ID = "6890a1b2c3d4e5f607182932"
@@ -66,13 +42,7 @@ PayloadFactory = Callable[..., dict[str, Any]]
 
 
 def _factory(base: dict[str, Any]) -> PayloadFactory:
-    """
-    Returns a callable producing a fresh copy of `base`, with `**overrides` applied.
-
-    `deepcopy`, not a one-level dict comprehension: several bases nest dicts -- `team` embeds
-    `statistik()` and `address()`, `spiel` embeds four -- so a shallow copy would let two calls in one
-    test share the inner object, where a mutation to one is visible in the other.
-    """
+    """`deepcopy`, not shallow: several bases nest dicts, and two calls in one test would share the inner object."""
 
     def make(**overrides: Any) -> dict[str, Any]:
         payload = copy.deepcopy(base)
@@ -87,19 +57,7 @@ RejectsAssertion = Callable[[type[BaseModel], dict[str, Any], str], ValidationEr
 
 @pytest.fixture
 def assert_rejects() -> RejectsAssertion:
-    """
-    Assert a payload fails validation **because of a named field**, and return the error.
-
-    Use this wherever more than one field could plausibly fail, and always where the payload is
-    hand-built rather than produced by a factory — `docs/backend/spec.md` §1.6 carries the failure
-    mode it exists for.
-
-    A fixture rather than a module-level function because `--import-mode=importlib` does not put
-    `conftest` on `sys.path`; fixtures are how pytest shares helpers without an import.
-
-    The field is matched against the last element of the error location, so nested payloads work
-    (`("ort", "mietpreis")` matches `"mietpreis"`) without the caller spelling out the path.
-    """
+    """A fixture, not a helper: `--import-mode=importlib` keeps `conftest` off `sys.path`. When to prefer it: `docs/backend/spec.md` §1.6."""
 
     def _assert(model: type[BaseModel], payload: dict[str, Any], field: str) -> ValidationError:
         with pytest.raises(ValidationError) as excinfo:
@@ -192,8 +150,7 @@ def spiel(
             "_id": SPIEL_ID,
             "team1": spiel_team_field(),
             "team2": spiel_team_field(team_id=SPIELER_ID, name="Lessing", shorthand="LE", tore=1),
-            # A group-phase fixture: both sides are drawn by the schedule rather than fed by the
-            # standings or by an earlier match, so neither carries a source.
+            # A group-phase fixture: both sides are drawn by the schedule, so neither has a source.
             "team1_quelle": None,
             "team2_quelle": None,
             "datum": "2026-03-15",
@@ -201,7 +158,6 @@ def spiel(
             "ort": spiel_ort_field(),
             "schiedsrichter": spiel_schiedsrichter_field(),
             "ergebnis": "2:1",
-            # Null on every fixture that did not finish level, which is almost all of them.
             "elfmeterschiessen": None,
             "spieltag_id": SPIELTAG_ID,
             "spiel_nr": 1,
@@ -249,8 +205,7 @@ def spieler() -> PayloadFactory:
             "nachname": "Mustermann",
             "stufe": "Q2",
             "nummer": "10",
-            # `Angriff`, not `Sturm`: the two named the same position and the set closed on this
-            # one. A fixture spelling it the other way describes a document nothing may store.
+            # `Angriff`, not `Sturm`: the enum closed on this spelling.
             "position": "Angriff",
             "is_nachgetragen": False,
             "is_captain": False,
@@ -265,8 +220,7 @@ def spieltag() -> PayloadFactory:
     return _factory(
         {
             "_id": SPIELTAG_ID,
-            # No `name`: a matchday's is composed by the reader from its phase and its position, and
-            # this model has no field for one.
+            # No `name`: a matchday's label is composed by the reader.
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
             "anzahl_spiele": 4,
@@ -293,12 +247,8 @@ def saison() -> PayloadFactory:
                 "teams_per_group": 4,
                 "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
             },
-            # Derived and on no document, like the matchday's `anzahl_spiele` above: the router
-            # injects it before validation. Spelled out rather than computed, so a `schedule_for`
-            # change this fixture stops matching is visible here.
+            # Derived and on no document; spelled out rather than computed, so a `schedule_for` change shows here.
             "schedule": [
-                # Four groups of four give three group matchdays of eight matches, and eight
-                # qualifiers play the last three knockout rounds, never `achtelfinale`.
                 {"phase": "gruppenphase", "matchdays": 3, "matches_per_matchday": 8},
                 {"phase": "viertelfinale", "matchdays": 1, "matches_per_matchday": 4},
                 {"phase": "halbfinale", "matchdays": 1, "matches_per_matchday": 2},
@@ -308,28 +258,15 @@ def saison() -> PayloadFactory:
     )
 
 
-# The real mongod, for the `db` tier only
-
-
 @pytest.fixture(scope="session")
 def mongo_container() -> Iterator[Any]:
     """
-    A real `mongod`, started once for the whole session and thrown away after it.
+    Imported inside the function, so the default tier never pays for `testcontainers`.
 
-    `mongo:8` is pinned rather than `:latest` for the reason every other image in this repo is: a test
-    that silently starts running against a different engine version is a test whose result changed for
-    a reason nobody recorded.
-
-    The import is deliberately inside the function. This module holds the fast schema suite's fixtures
-    too, so it is imported on every run — importing `testcontainers` at module scope would make the
-    default tier depend on a package it never uses and pay for the import on every run.
-
-    `testcontainers.community.mongodb` is the current path; `testcontainers.mongodb` still resolves
-    and emits a DeprecationWarning.
-
-    Yields the CONTAINER, not a client, because the two consumers want different drivers: the pipeline
-    suite reads with pymongo and the constraint suite drives Motor, which needs the URL.
+    Yields the container rather than a client: pymongo and Motor each build their own.
     """
+    # The `community` path is the current one; the bare `testcontainers.mongodb` still resolves, on
+    # a DeprecationWarning.
     from testcontainers.community.mongodb import MongoDbContainer
 
     with MongoDbContainer("mongo:8") as container:
@@ -338,7 +275,6 @@ def mongo_container() -> Iterator[Any]:
 
 @pytest.fixture(scope="session")
 def mongo_database(mongo_container: Any) -> Iterator[Database]:
-    """The pymongo handle onto that container, on a database named for the suite rather than `test`."""
     client = mongo_container.get_connection_client()
     try:
         yield client["fl_test"]
@@ -346,57 +282,34 @@ def mongo_database(mongo_container: Any) -> Iterator[Database]:
         client.close()
 
 
-# How long to wait for the single node below to elect itself. Generous, because it is a container
-# start on a cold machine and not an operation whose latency means anything.
 REPLICA_SET_ELECTION_TIMEOUT_S = 60
 
 
 @pytest.fixture(scope="session")
 def mongo_replica_set_url() -> Iterator[str]:
-    """
-    A connection URL onto a single-node replica set, for the tests that open a TRANSACTION.
-
-    **`mongo_container` above cannot serve these, and the failure is not subtle**: a standalone `mongod`
-    answers any transaction with `IllegalOperation` — "transaction numbers are only allowed on a replica
-    set member or mongos" — so the write paths that take one (`swap_gruppen`, `activate_saison`,
-    `patch_spiel_data`) are unreachable there. Sessions and transactions need a replica set, and this
-    starts the smallest one there is.
-
-    **No authentication, and that is what keeps it to one container.** `mongod` refuses to start with
-    `--replSet` and `--auth` unless it is also given a keyFile for internal authentication, and a keyFile
-    is a bind-mounted file whose permissions `mongod` checks — which is the fragile half on a Windows
-    host. The suite's other container keeps its credentials, because three constraint tests create
-    limited users and connect as them, and those need auth enabled. So the two containers exist for two
-    genuinely different reasons rather than by duplication.
-
-    A SECOND container, and lazily: this is session-scoped like the first, so nothing starts it until a
-    test asks, and the default tier never sees either.
-
-    `directConnection=true` is required rather than cosmetic. The replica set advertises itself as
-    `127.0.0.1:27017`, which is the address INSIDE the container; a client doing ordinary topology
-    discovery would follow that and find nothing. A direct connection talks to the mapped port and skips
-    discovery, which is exactly right for a set with one member.
-    """
+    """A standalone `mongod` answers any transaction with `IllegalOperation`, so `mongo_container` cannot serve the transactional endpoints."""
 
     from testcontainers.core.container import DockerContainer
     from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
     container = (
         DockerContainer("mongo:8")
+        # No `--auth`: with `--replSet` mongod demands a bind-mounted keyFile whose permissions it checks,
+        # fragile on a Windows host. The other container keeps its credentials for the limited-user tests.
         .with_command("--replSet rs0 --bind_ip_all")
         .with_exposed_ports(27017)
         .waiting_for(LogMessageWaitStrategy(re.compile(r"waiting for connections", re.IGNORECASE)))
     )
 
     with container:
+        # `directConnection=true`: the set advertises its container-internal address, which topology discovery would follow and find nothing.
         url = f"mongodb://{container.get_container_host_ip()}:{container.get_exposed_port(27017)}/?directConnection=true"
 
         client = MongoClient(url)
         try:
             client.admin.command("replSetInitiate", {"_id": "rs0", "members": [{"_id": 0, "host": "127.0.0.1:27017"}]})
 
-            # Initiation returns before the node has elected itself, and the first write after it would
-            # fail with `NotWritablePrimary` — which reads as a broken test rather than as a race.
+            # Initiation returns before the node elects itself, and the first write then fails with `NotWritablePrimary`.
             deadline = time.monotonic() + REPLICA_SET_ELECTION_TIMEOUT_S
             while not client.admin.command("hello").get("isWritablePrimary"):
                 if time.monotonic() > deadline:

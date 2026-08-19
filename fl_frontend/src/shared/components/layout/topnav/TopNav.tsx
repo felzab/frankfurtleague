@@ -8,9 +8,8 @@ import { BrandLink } from "../../ui/BrandLink";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
 import { TopNavLinksDropdown } from "./TopNavLinksDropdown";
 
-// Sync, and the dropdown rendered bare: it holds no hooks needing a request, so a
-// Suspense boundary would guard nothing and add a resumable slot to the PPR shell.
-// `px-4` at every width, matching the sidemenu header, so the wordmark cannot shift.
+// Sync, with the dropdown rendered bare: it holds no hooks needing a request, so a Suspense boundary would
+// guard nothing and add a resumable slot to the PPR shell.
 export function TopNav() {
   return (
     <nav className="flex h-(--navbar-height) w-full items-center justify-between px-4">

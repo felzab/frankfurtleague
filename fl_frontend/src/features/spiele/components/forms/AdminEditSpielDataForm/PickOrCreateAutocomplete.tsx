@@ -17,26 +17,9 @@ import type { Key } from "@heroui/react";
 import type { ReactNode } from "react";
 
 /**
- * Pick an existing record, or open a modal and create one.
- *
- * **The create form is a real modal now, and that removed more than it added.** While the editor was a
- * dialog the create panel had to render *inside* the match form's own `<form>`, which is illegal to
- * nest — so it could not be a form, could not use native constraint validation, and hand-rolled both:
- * a `panelRef` walking `querySelectorAll("input, select, textarea")` and calling `checkValidity()` on
- * every control, plus a key handler intercepting Enter so it could never reach the outer form. A modal
- * portals to `document.body`, so it is outside that `<form>` in the DOM, and `EntityForm`'s own
- * `<Form>` does the validation those two were imitating.
- *
- * **A record created here is selected immediately.** The section exists to attach one to the match, and
- * reporting "angelegt" while leaving the picker empty is how a match got saved with no referee. `items`
- * still comes from the last server render, so the new record is held in `createdItems` and merged into
- * the collection — `Autocomplete.Value` resolves its label out of the react-aria collection and shows
- * the placeholder for a key it cannot find, so selecting an id the collection does not hold looks
- * exactly like nothing happening.
- *
- * **The popover closes as the modal opens.** Both entry points to "anlegen" live inside the open
- * popover, and leaving it open puts two react-aria overlays in competition for focus containment — the
- * modal traps focus while the popover is still trying to hold it.
+ * **The create form is a modal**, portalled out of the match form's `<form>` — a nested one is
+ * illegal. **A record created here is selected immediately**: an "angelegt" toast over an empty
+ * picker is how a match got saved with no referee.
  */
 export function PickOrCreateAutocomplete<TItem extends { id: string; name: string }>({
   label,
@@ -49,26 +32,23 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
   emptyStateText,
   renderCreateModal,
 }: {
-  /** "Spielort" — the visible field label and the modal trigger's noun. */
   label: string;
-  /** The field's dotted path in the patch payload: its `name`, its error key and its anchor. */
+  /** The dotted payload path: also its `name`, its error key and its anchor. */
   fieldPath: string;
   placeholder: string;
   items: TItem[];
   selectedId: string | null;
   /**
-   * Receives the resolved item, not the key. The caller cannot do that lookup itself: a record created
-   * in the modal exists only in this component's `createdItems` until the next server render, so
-   * resolving against the caller's own list would silently miss it — and did.
+   * The resolved item, not the key: a record created in the modal lives only in `createdItems` until
+   * the next server render, so a caller resolving against its own list would silently miss it.
    */
   onSelect: (item: TItem | null) => void;
-  /** "Neuen Spielort anlegen" — the footer button and the empty state's call to action. */
+  /** The footer button, and the empty state's call to action. */
   createLabel: string;
   emptyStateText: string;
   /**
-   * The create modal, rendered by the caller so this component needs to know nothing about the entity's
-   * draft shape, its action or its fields. The caller closes it and hands the finished record to
-   * `onCreated`, which is what selects it.
+   * Rendered by the caller, so this knows nothing of the entity's draft shape, action or fields. The
+   * caller hands the finished record to `onCreated`, which is what selects it.
    */
   renderCreateModal: (args: { isOpen: boolean; onClose: () => void; onCreated: (created: TItem) => void }) => ReactNode;
 }) {
@@ -80,10 +60,12 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
   // Records created in this session, still absent from the server-rendered `items`.
   const [createdItems, setCreatedItems] = useState<TItem[]>([]);
 
-  // Deduplicated on id, so a created record collapses into the real one once the server catches up.
+  // Deduplicated on id, so a created record collapses into the real one once the server catches
+  // up.
   const options = [...createdItems.filter((created) => !items.some((item) => item.id === created.id)), ...items];
 
   const openCreateModal = () => {
+    // The popover closes as the modal opens, or two react-aria overlays contend for focus.
     setIsOpen(false);
     setIsCreating(true);
   };
@@ -110,9 +92,9 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
         <FieldLabel path={fieldPath}>{label}</FieldLabel>
         <Autocomplete.Trigger className={FIELD_TRIGGER}>
           <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
-          {/* `ms-2` here rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
-              truncated name ends against this button (I30 in `docs/frontend/spec.md`). `hover: "css"`
-              because HeroUI renders this one as a plain `<button>` (`core/dismissControl.ts`). */}
+          {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
+              truncated name ends against this button (`docs/frontend/spec.md` I30). `hover: "css"`
+              because HeroUI renders this as a plain `<button>`. */}
           <Autocomplete.ClearButton
             type="button"
             {...dismissControl({ label: `${label}-Auswahl aufheben`, hover: "css", className: "ms-2" })}

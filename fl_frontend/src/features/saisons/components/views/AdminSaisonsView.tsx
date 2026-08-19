@@ -6,17 +6,13 @@ import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import type { AdminSaisonRow } from "@/features/saisons/types";
 
-// Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. `id` alone is
-// not enough — an admin looking for a season by when it ran should find it by year, so both dates
-// are searchable.
+// Module scope: a fresh array here would defeat `useFuzzySearch`'s memo on every render. The dates
+// are searchable because an admin looks for a season by when it ran.
 const SEARCH_KEYS = ["id", "start_date", "end_date"] as const;
 
 /**
- * One declaration over `AdminCrudView`, shared with the other admin list views.
- *
- * **Neither modal renderer is passed, and that is the whole shape of this resource.** The editor is a
- * page at `/admin/saisons/[saison_id]`, so the table's pencil is a `<Link>`; and there is no
- * delete at all, because a season that is over is `past` rather than gone.
+ * **Neither modal renderer is passed, and that is the shape of this resource**: the editor is a page,
+ * so the table's pencil is a `<Link>`, and there is no delete at all.
  */
 export function AdminSaisonsView({ saisons }: { saisons: AdminSaisonRow[] }) {
   return (

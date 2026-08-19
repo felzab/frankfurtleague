@@ -1,16 +1,3 @@
-/**
- * SPIELTAGE · cached read
- *
- * Invariants:
- * - Base tag only, cleared by `actions.ts` on every write — nothing narrower describes one.
- * - A Compass edit is served stale until the daily cacheLife expires.
- * - Matchdays arrive in played order; no consumer re-sorts, and the bracket depends on it.
- * - Omitting `saison_id` yields the current season — the backend resolves it.
- *
- * See:
- * - docs/glossary.md — Spieltag, and why it is not a Spiel
- */
-
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
@@ -25,8 +12,7 @@ export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promi
   "use cache";
 
   // Base tag only: one matchday write moves both the season-scoped admin list and the public
-  // Spielplan's default-season entry, so no granular tag describes it. Per CLAUDE.md §6, granular
-  // tags belong on `spiele` and `teams` alone.
+  // Spielplan's default-season entry, so no granular tag describes it.
   cacheTag("spieltage");
   cacheLife("days");
 
@@ -36,20 +22,9 @@ export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promi
 }
 
 /**
- * One matchday by its id, retired ones included — what the editor route resolves before it knows
- * which season to ask about, which is the addressability that keeps `GET /{id}` in place.
- *
- * Base tag only, like the list beside it: every matchday write clears `spieltage`, and a granular tag
- * per id would be one nothing invalidates on a write that moved a DIFFERENT matchday past this one.
- * It is a public read under the base key, so `"use cache"` is correct here — the rule against caching
- * is about ADMIN-scoped reads, which key on arguments rather than on caller identity.
- *
- * **Resolves `null` when the id matches no matchday, and the 404 → null conversion must stay INSIDE
- * this function** — `getSpiel` carries the full reasoning: a production build redacts an error thrown
- * out of a `"use cache"` scope to a digest-only `Error`, so a catch at the call site cannot recognise
- * the 404. Only the 404 becomes a value; everything else still throws, so a backend outage never
- * reads as a missing matchday. The `null` caches under the same base tag, which every matchday write
- * clears, and introduces no tag of its own.
+ * **The 404 → null conversion stays INSIDE the cache scope**: a production build redacts an error
+ * thrown out of one to a digest-only `Error`. `getSpiel` carries it in full. Public read under the
+ * base key, so `"use cache"` is right.
  */
 export async function getSpieltagById(spieltagId: string): Promise<FLSpieltageSingleResponse | null> {
   "use cache";

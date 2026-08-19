@@ -1,23 +1,7 @@
 #!/usr/bin/env bash
-#
-# PostToolUse hook on Edit|Write — reports a `text-fluid-*` class in frontend source for correction.
-# PostToolUse, so the write has already landed: the `{"decision":"block"}` payload sends the file
-# back to be fixed, and refusing it was never on offer at this event.
-#
-# WHY THIS IS A HOOK:
-#   The scale is spelled `fluid-sm` and lives outside Tailwind's `--text-*` namespace, so
-#   `text-fluid-sm` is not a utility — it matches no rule, applies no size, and silently inherits
-#   one. Nothing else in the toolchain catches it: tsc has no opinion on strings, and eslint's
-#   `no-unknown-classes` does not see a class it cannot resolve to a source. A stale class copied
-#   from an old commit or an LLM's memory would render at the wrong size with a green build.
-#
-# SCOPE: `fl_frontend/src/**/*.ts(x)` only. `globals.css` names the old spelling deliberately, to
-# say never to use it, and must not trip this.
-#
-# CONTRACT: prints nothing and exits 0 unless the written file is in scope AND contains the string.
-#
-# TARGET PLATFORM: any (Git Bash on Windows). Uses node rather than jq — jq is not installed here,
-# and node always is.
+# PostToolUse hook on Edit|Write — sends back a `fl_frontend/src` file carrying a `text-fluid-*` class.
+# The scale is spelled `fluid-sm` and sits outside Tailwind's `--text-*` namespace, so the prefixed
+# spelling matches no rule and applies no size while tsc, eslint and the build all stay green.
 
 file="$(node -e '
 let s = "";
@@ -35,6 +19,7 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
 # Forward slashes, so the path test works whatever separator the tool reported.
 normalised="${file//\\//}"
 
+# Source only: `globals.css` names the old spelling deliberately, to say never to use it.
 case "$normalised" in
   */fl_frontend/src/*.ts | */fl_frontend/src/*.tsx) ;;
   *) exit 0 ;;

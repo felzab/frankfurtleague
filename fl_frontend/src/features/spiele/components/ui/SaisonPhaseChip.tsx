@@ -5,8 +5,7 @@ import { PILL_RADIUS } from "@/shared/components/ui/badges";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 
-// Module scope, for the reason `SpielStatusChip` gives: the icon map allocates an
-// `<svg>` per phase and rebuilds all of them per render to read one.
+// Module scope, as in `SpielStatusChip`: this map allocates an `<svg>` per phase.
 const PHASE_ICONS: Record<FLSaisonPhase, React.ReactElement> = {
   gruppenphase: (
     <svg
@@ -48,8 +47,8 @@ const PHASE_ICONS: Record<FLSaisonPhase, React.ReactElement> = {
       />
     </svg>
   ),
-  // A thinner stroke, because this many entry arms in a 24-unit box cannot carry 2: what survives at
-  // 14px is the SILHOUETTE, a busy left edge collapsing to one output.
+  // A thinner stroke: this many entry arms in a 24-unit box cannot carry 2, and what survives at
+  // chip size is the silhouette.
   achtelfinale: (
     <svg
       xmlns="http://www.w3.org/2000/svg"

@@ -3,20 +3,14 @@
 # SCRIPTS · build both images and push them to GitHub Container Registry.
 #
 # Both images build, and the frontend is checked for `instrumentation.js`, before either is pushed:
-# a half-published pair lets production pull a frontend whose backend does not exist yet. The two
-# immutable tags are pushed before the two moving ones, so `:latest` moves as a pair of manifest
-# flips rather than across an image upload. Superseded LOCAL sha tags are pruned afterwards, while
-# registry retention stays a hand operation — a botched delete destroys the rollback history
-# `scripts/deploy.sh` reads, on the day it is needed most.
+# a half-published pair lets production pull a frontend whose backend does not exist yet. Registry
+# retention stays a hand operation — a botched delete destroys the rollback history.
 #
 #   ./scripts/publish.sh                 build and push from a clean tree
 #   ./scripts/publish.sh --allow-dirty   deliberate hotfix; the tag gets a -dirty suffix
 #   ./scripts/publish.sh --dry-run       build and label, but do not push
 #   ./scripts/publish.sh --verbose       stream each command's own output instead of capturing it
 #   ./scripts/publish.sh --help
-#
-# See:
-# - docs/ops/spec.md — the registry, the token it needs, and the pruning procedure
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
@@ -53,8 +47,7 @@ else
 A tag naming a commit must be reproducible FROM that commit, and this one would not be.
 Commit your work, or pass --allow-dirty for a deliberate hotfix."
   # A fingerprint of the tree, not just the commit: two hotfix builds from one commit are two
-  # different images, and one shared tag lets the second replace the first in the registry — a
-  # moving tag inside the class that exists to be immutable.
+  # images, and one shared tag would put a moving tag inside the class that exists to be immutable.
   DIRTY_ID="$( { git diff HEAD; git ls-files --others --exclude-standard -z | xargs -0 -r cat 2>/dev/null || true; } \
     | sha1sum | cut -c1-7 )"
   QUALIFIER="sha-${SHA}-dirty-${DIRTY_ID}"
@@ -64,9 +57,8 @@ builds of ${SHA} apart; it says nothing about which of them is which."
   ok "dirty at ${SHA} on ${BRANCH}"
 fi
 
-# `:latest` is production's default pull target and a `sha-` tag is a rollback target, so both name
-# a commit somebody else must resolve (docs/ops/spec.md I12). Any remote branch clears the bar, so
-# a release or a hotfix branch still publishes.
+# Both tags name a commit somebody else must resolve (docs/ops/spec.md I12). Any remote branch
+# clears the bar, so a release or a hotfix branch still publishes.
 step "The commit this build names"
 
 # Each remote is asked what it has, rather than `git branch -r`, whose tracking refs are a local
@@ -86,12 +78,10 @@ while IFS= read -r remote; do
 done <<< "$(git remote)"
 
 if (( ! ON_REMOTE )); then
-  # A remote that could not answer leaves the bar unproven rather than failed: the commit
-  # may well be on it, and nothing read here says otherwise.
+  # A remote that could not answer leaves the bar unproven rather than failed.
   if (( ${#UNASKED[@]} )); then
-    # One command per remote: `git ls-remote` takes one repository and reads a later name as a ref
-    # pattern, so a joined command asks the first alone — and answers exit 0 in silence once that
-    # one is reachable, which reads as this refusal disproved.
+    # One command per remote: `git ls-remote` reads a second name as a ref pattern, so a joined
+    # command asks the first alone and exits 0 in silence, which reads as this refusal disproved.
     unasked_names="$(printf '%s, ' "${UNASKED[@]}")"; unasked_names="${unasked_names%, }"
     unasked_cmds="$(printf '\n  git ls-remote --heads %s' "${UNASKED[@]}")"
     refuse "could not get a branch list from ${unasked_names} — so nothing establishes that
@@ -114,9 +104,8 @@ info "backend  -> ${TAG_BE} + ${IMAGE_BACKEND}"
 
 section "build"
 
-# `deploy.sh` reads these labels back, which is how the server answers "which commit is live?" and
-# "which tag do I roll back to?" without trusting a name that moves. `version` holds the whole
-# qualifier, fingerprint included; `revision` the commit.
+# `deploy.sh` reads these back, which is how the server answers "which commit is live?" without
+# trusting a name that moves. `version` holds the whole qualifier; `revision` the commit.
 build_one() {
   local name="$1" dockerfile="$2" context="$3" moving="$4" pinned="$5"
   step "Building ${name}"
@@ -138,8 +127,7 @@ build_one "backend"  "fl_backend/Dockerfile"  "fl_backend"  "$IMAGE_BACKEND"  "$
 # --- sanity check the frontend image before it can reach prod ---------------------------------------
 
 # At the repo root, instrumentation.ts compiles and passes the test gate, then is silently omitted
-# from the standalone output — which disables the startup environment gate and all production error
-# logging. One check keeps that out of the registry.
+# from the standalone output — disabling the startup env gate and all production error logging.
 step "Checking the frontend image is sound"
 PROBE_RC=0
 quietly docker run --rm --entrypoint sh "$IMAGE_FRONTEND" -c '[ -f .next/server/instrumentation.js ]' || PROBE_RC=$?
@@ -169,9 +157,8 @@ fi
 section "push"
 
 push_one() {
-  # Progress deliberately NOT captured: a first push is minutes of silence otherwise, which is
-  # indistinguishable from a hang. `$2` is what this particular failure leaves behind, which the
-  # caller knows and a helper pushing one name cannot.
+  # Progress deliberately NOT captured: a first push is otherwise minutes of silence, which is
+  # indistinguishable from a hang. `$2` is what this failure leaves behind, which only the caller knows.
   info "pushing $1"
   docker push "$1" || die "push failed for $1.
 If this is an authentication error, log in with a token carrying write:packages:
@@ -180,17 +167,15 @@ If this is an authentication error, log in with a token carrying write:packages:
 $2}"
 }
 
-# The immutable tags first, because they carry every layer. `deploy.sh` follows `:latest` or an
-# explicit pin and never sees these, so nothing in production can reach a half-pushed pair while they
-# upload.
+# The immutable tags first, because they carry every layer, and `deploy.sh` never sees them — so
+# nothing in production can reach a half-pushed pair while they upload.
 step "Pushing the pinned tag of each package"
 push_one "$TAG_FE"
 push_one "$TAG_BE"
 ok "${QUALIFIER} is in the registry for both packages"
 
-# Both layer sets are already up there, so each of these is a manifest write: the window in which the
-# registry serves a new frontend against an old backend is the gap between two sub-second flips
-# rather than the length of an image upload.
+# Both layer sets are already up there, so each of these is a manifest write: the window serving a
+# new frontend against an old backend is two sub-second flips, not an image upload.
 step "Moving the :latest tag of each package"
 push_one "$IMAGE_FRONTEND"
 push_one "$IMAGE_BACKEND" "THE FRONTEND'S :latest HAS ALREADY MOVED to ${QUALIFIER} and the backend's
@@ -201,18 +186,15 @@ ok "both moving tags now point at ${QUALIFIER}"
 # --- prune superseded LOCAL sha tags ---------------------------------------------------------------
 
 # A superseded build keeps its own sha tag, so it never becomes dangling and `docker image prune`
-# never reclaims it. The registry is what `scripts/deploy.sh` rolls back from, which makes the local
-# sha tag a build byproduct.
+# never reclaims it. `scripts/deploy.sh` rolls back from the registry, so this copy is a byproduct.
 
-# Deliberately after the push loop: everything removed here is already in the registry, the only copy
-# deploy.sh reads. `docker image rm` untags, and deletes the image only when no other tag points at
-# it — so the moving tags built above are safe.
+# After the push loop, so everything removed here is already in the registry. `docker image rm`
+# untags and deletes only when no other tag points at the image, so the moving tags are safe.
 section "prune"
 
 step "Pruning superseded local sha tags"
 # `docker image ls` accepts at most one repository argument, so this is two calls, each read on its
-# own: a listing that FAILED is empty too, and reported as "none" it describes this machine from a
-# command that never answered.
+# own: a listing that FAILED is empty too, and reporting that as "none" describes nothing.
 LS_RC=0
 listed_fe="$(docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}')" || LS_RC=$?
 listed_be="$(docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}')" || LS_RC=$?

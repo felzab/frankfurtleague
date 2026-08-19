@@ -1,17 +1,5 @@
 "use client";
 
-/**
- * SPIELE · what saving this draft would destroy, asked live
- *
- * Debounced `dry_run=true` against the write path, which applies the payload in memory and
- * resolves the bracket without writing — the warning names exactly the fixtures a
- * save would take a stored result from, not the fixtures that merely could lose one.
- *
- * Invariants:
- * - Keyed on the bracket-relevant fields alone — a venue edit cannot move an occupant.
- * - A stale response is discarded, never rendered: requests are debounced but not serialised.
- * - A failed preview clears the warning — an admin is never blocked from saving over an extra.
- */
 import { useEffect, useRef, useState } from "react";
 
 import { previewAdminSpielDataAction } from "../../../actions";
@@ -26,45 +14,34 @@ export type VoidPreview = {
   released: readonly number[];
 };
 
-/**
- * Long enough that typing a two-digit score is one request rather than two, short enough that the
- * warning has settled before a hand reaches Speichern. The request is read-only, so the cost of being
- * wrong in either direction is small — which is why this is a constant and not a setting.
- */
+/** One request for a two-digit score, settled before a hand reaches Speichern. */
 const PREVIEW_DEBOUNCE_MS = 450;
 
 /**
- * What saving `payload` would move and destroy, or `null` while that is unknown.
- *
- * `null` is "no answer", never "nothing would be destroyed" — the first render, an in-flight request
- * and a failed one all produce it, and a caller that rendered "nichts geht verloren" for `null` would
- * make a promise the preview never made.
- *
- * `buildPayload` is read through a ref and deliberately not a dependency: the form rebuilds it on
- * every render, so depending on it would fire a request per keystroke and the debounce would never
- * elapse. `previewKey` is what decides when to ask again.
+ * **`null` is "no answer", never "nothing would be destroyed"**: the first render, an in-flight
+ * request and a failed one all produce it, so a caller rendering reassurance would promise what the
+ * preview never said.
  */
 export function useVoidPreview({
   previewKey,
   buildPayload,
   isEnabled,
 }: {
-  /** A stable string over the fields that can move an occupant. Changing it is what triggers a fetch. */
+  /** Stable over the fields that can move an occupant; changing it is what triggers a fetch. */
   previewKey: string;
   buildPayload: () => FLPatchSpielDataPayloadDraft;
   /** False while there is nothing to preview — a group-phase fixture that feeds no bracket slot. */
   isEnabled: boolean;
 }): VoidPreview | null {
   /**
-   * The answer, **stored with the draft it answers**.
-   *
-   * That pairing is what makes the staleness rule enforceable rather than remembered: an answer is
-   * rendered only while the key it was computed for is still the current one, so a draft the admin has
-   * edited since shows nothing at all rather than the previous draft's fixtures. For a warning about
-   * destroying data, "no answer yet" is the only honest thing to say in that gap.
+   * **Stored with the draft it answers**, which makes the staleness rule enforceable rather than
+   * remembered: an answer renders only while its key is current, so an edited draft shows nothing
+   * rather than the previous draft's fixtures.
    */
   const [answered, setAnswered] = useState<{ key: string; preview: VoidPreview } | null>(null);
 
+  // Read through a ref, deliberately not a dependency: the form rebuilds `buildPayload` every
+  // render, so the debounce would never elapse. `previewKey` decides when to ask again.
   const buildPayloadRef = useRef(buildPayload);
   useEffect(() => {
     buildPayloadRef.current = buildPayload;
@@ -73,9 +50,8 @@ export function useVoidPreview({
   useEffect(() => {
     if (!isEnabled) return;
 
-    // Flipped by the cleanup and checked after the await. `AbortController` would cancel the fetch
-    // but not the server action's own round trip, and whatever comes back for a draft that has
-    // already changed must not reach the screen.
+    // `AbortController` would cancel the fetch but not the server action's round trip, and an
+    // answer for a draft that has already changed must not reach the screen.
     let isCurrent = true;
 
     const timer = setTimeout(async () => {
@@ -91,7 +67,6 @@ export function useVoidPreview({
     };
   }, [previewKey, isEnabled]);
 
-  // Derived at render rather than cleared in an effect: `isEnabled` and `previewKey` are both
-  // computed from the draft, so a state write here would be React re-deriving what it already knows.
+  // Derived at render rather than cleared in an effect: both inputs come from the draft already.
   return isEnabled && answered?.key === previewKey ? answered.preview : null;
 }

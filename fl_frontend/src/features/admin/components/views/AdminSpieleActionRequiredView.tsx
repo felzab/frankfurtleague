@@ -20,34 +20,16 @@ import type { Key } from "@heroui/react";
 import type { FLActionUrgency } from "../../utils";
 
 /**
- * Which section is on screen.
- *
- * **It lives in the URL and nowhere else, and that is a correctness requirement rather than a
- * convenience.** The App Router keeps an admin tree alive between navigations, so a selection held in
- * `useState` — or inside an uncontrolled `Tabs` — survives a round trip to the editor and comes back
- * describing the page as it was, which is the failure class `docs/frontend/spec.md` §1.10 records
- * against the editor's own draft. State derived from a search param cannot go stale that way, because
- * the URL is what changed; it is also what Next recommends for exactly this hazard, and it makes the
- * page linkable.
- * See: https://nextjs.org/docs/app/guides/preserving-ui-state
+ * In the URL and not `useState`: the App Router keeps an admin tree alive between navigations, so a
+ * held selection survives a round trip to the editor and comes back stale.
+ * https://nextjs.org/docs/app/guides/preserving-ui-state
  */
 const SECTION_PARAM = "section";
 
 /**
- * The count badge, graded by what the number means.
- *
- * **Green is reserved for zero** (decided 2026-08-07): a category with nothing in it is the one state
- * that needs no attention, and it is the only state the success accent may describe. Everything else
- * takes its own urgency's accent, so the colour says how much the number costs rather than merely that
- * it is not zero — red where a later fixture cannot resolve, amber where standings are waiting, blue
- * where it is administrative tidying that blocks nothing.
- *
- * Every pair is the app's colour rule: the plain accent at `/15` is a fill, its `-strong` companion is
- * text on that fill — the pairing `SpielStatusChip` and `Callout` were both measured at.
- *
- * `none` is `is_canceled`, and it takes the same blue as `details` (decided 2026-08-07): a cancelled
- * fixture asks nothing of anybody, which is exactly what the informational grade means, and a neutral
- * grey badge among seven coloured ones read as a control that had been switched off.
+ * Success is reserved for a cleared category. `none` is `is_canceled` and shares `details`' blue on
+ * purpose: a cancelled fixture asks nothing, and a grey badge among coloured ones read as a control
+ * that had been switched off.
  */
 const URGENCY_BADGE: Record<FLActionUrgency, string> = {
   blocking: "bg-danger/15 text-danger-strong",
@@ -59,9 +41,8 @@ const URGENCY_BADGE: Record<FLActionUrgency, string> = {
 const CLEARED_BADGE = "bg-success/15 text-success-strong";
 
 /**
- * On the selected tab the count lies on top of `Tabs.Indicator`'s brand fill, so a feedback tint would
- * be a second colour over a third. It borrows the fill's own foreground at low opacity, which reads on
- * the brand in both themes because that pairing is fixed while `--fg-base` flips.
+ * The selected count lies on `Tabs.Indicator`'s brand fill, so it borrows that fill's own foreground
+ * rather than adding a third colour — a pairing that holds in both themes while `--fg-base` flips.
  */
 const SELECTED_BADGE = "bg-brand-solid-foreground/20 text-brand-solid-foreground";
 
@@ -77,45 +58,28 @@ export function AdminSpieleActionRequiredView({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Memoised by hand because the React Compiler is deliberately off (see `next.config.ts`): without
-  // it, every section switch re-partitions the whole match list to produce the identical result.
+  // Memoised by hand: the React Compiler is deliberately off (`next.config.ts`), so without this
+  // every section switch re-partitions the whole match list for the identical result.
   const sections = useMemo(
     () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults }),
     [overviewSpiele, today, bracketFaults],
   );
 
-  // Derived here rather than in `buildActionRequiredSections`, which sorts matches and has no
-  // business deriving German. Keyed by `spiel_id` so each card states its OWN reasons: one shared
-  // box leaves the reader matching match numbers to cards by eye.
+  // Keyed by `spiel_id` so each card states its own reasons; one shared box leaves the reader
+  // matching match numbers to cards by eye.
   const faultsBySpielId = useMemo(() => groupBracketFaultsBySpielId(bracketFaults), [bracketFaults]);
 
-  /**
-   * All eight tabs, always, whatever the counts are (decided 2026-08-06).
-   *
-   * A strip that gains and loses tabs as fixtures are completed is a control that moves under the hand
-   * using it, and the badge already says which categories are clear.
-   */
   const activeSection =
     sections.find((section) => section.category === searchParams.get(SECTION_PARAM)) ??
-    // No section named, or a stale one: open the most urgent that has anything in it. Sections arrive
-    // in urgency order, so "the first non-empty" is exactly that, and an all-clear season falls
-    // through to the first tab rather than to none.
+    // No section named, or a stale one. Sections arrive in urgency order, so the first non-empty is
+    // the most urgent, and an all-clear season falls through to the first tab rather than to none.
     sections.find((section) => section.spiele.length > 0) ??
     sections[0];
 
   /**
-   * Moves the selection without leaving the page.
-   *
-   * `window.history.replaceState` rather than `router.replace`, and the reason is what this page
-   * costs: its query is deliberately uncached, so a router navigation would re-read the
-   * whole archive from FastAPI to change which of the already-loaded sections is on screen. The native
-   * History API is Next's documented escape for exactly this — it "integrates into the Next.js
-   * Router", so `useSearchParams` re-renders with the new value and browser history stays coherent.
-   * See: https://nextjs.org/docs/app/getting-started/linking-and-navigating
-   *
-   * `replaceState` and not `pushState`: Back on a triage list should leave the list, not walk an admin
-   * back through the sections they looked at. What has to survive is where they are now, and the
-   * current entry carries that either way.
+   * `replaceState` and not `router.replace`: the page's query is deliberately uncached, so a router
+   * navigation would re-read the whole archive just to switch sections. Not `pushState` — Back
+   * should leave the list rather than walk it.
    */
   const selectSection = (category: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -124,8 +88,7 @@ export function AdminSpieleActionRequiredView({
     window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
   };
 
-  // Only when the whole response is empty, which is a season nobody has created fixtures for yet.
-  // Without this the page renders a bordered, empty 44px tab bar and eight zero-panels.
+  // A season with no fixtures at all; without this it renders an empty tab bar over empty panels.
   if (activeSection === undefined) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
@@ -139,37 +102,19 @@ export function AdminSpieleActionRequiredView({
   }
 
   return (
-    // Every class below that can be `SpielplanView`'s is: one control, one job. What is
-    // NOT shared is the selection, which here comes from the URL (`SECTION_PARAM`).
-    // `selectedKey` is HeroUI v3's Tabs API, never the field components' `value`.
+    // `selectedKey` is HeroUI's Tabs API, never the field components' `value`.
     <Tabs
       selectedKey={activeSection.category}
       onSelectionChange={(key: Key) => selectSection(String(key))}
       className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center`}>
-      {/* The sticky bar is an ordinary element, and `Tabs.ListContainer` sits INSIDE it holding only
-          the track. Two reasons, both structural. The container is a collection-slot injector rather
-          than a wrapper — a sibling passed to it is swallowed, so the hint could not live there — and
-          its chevron buttons are positioned `start-1` / `end-1` against it, which is the track's edge
-          only while the container IS the track. Everything about the bar itself is `SpielplanView`'s
-          string, unchanged. */}
+      {/* `Tabs.ListContainer` holds only the track: it injects a collection slot rather than
+          wrapping, so a sibling passed to it is swallowed, and its chevrons are positioned against
+          it — the track's edge only while it is the track. */}
       <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8">
         <div className="lg:max-w-toolbar flex w-full max-w-full flex-row items-center justify-center gap-x-2 lg:w-[90%]">
-          {/* **No `overflow-x-auto` and no `scrollbar-hide` on the list, and that is the whole scroll
-              affordance.** `Tabs.ListContainer` already ships the best-practice answer for a strip
-              wider than its rail: a `ScrollShadow` scroller plus chevron buttons that a `:has()` rule
-              reveals ONLY while the shadow reports `data-left-scroll` / `data-right-scroll`. It works
-              by letting the list grow — HeroUI gives `.tabs__list` `w-max min-w-full` and says so at
-              the rule — so a list that scrolls itself hides the overflow from the detector and the
-              chevrons then never appear. Eight tabs overflow a phone, and shift-scroll is not an
-              affordance anyone should be expected to know.
-
-              `min-w-fit` undoes HeroUI's `min-w-full` on `.tabs__list`: that floor stretched the track
-              to the whole rail, so eight content-width tabs left a stretch of empty track after the
-              last one. `w-max` is the half that must stay — it is what lets the list outgrow the rail
-              and so what the overflow detection reads.
-
-              `bg-transparent` undoes the container's own `bg-default`: the track below carries the
-              app's surface, and two backgrounds would put a second rectangle behind it. */}
+          {/* No `overflow-x-auto` on the list: the container's chevrons appear only while its
+              `ScrollShadow` detects overflow, and a list that scrolls itself hides that. `w-max` is
+              the half of HeroUI's floor that must stay — it is what the detection reads. */}
           <Tabs.ListContainer className="max-w-full min-w-0 bg-transparent [&>div]:max-w-full [&>div]:min-w-0 [&>div]:[--scroll-shadow-size:24px]!">
             <Tabs.List
               aria-label="Kategorie auswählen"
@@ -183,9 +128,8 @@ export function AdminSpieleActionRequiredView({
                   <Tabs.Tab
                     key={section.category}
                     id={section.category}
-                    /* The tab says `short`, which is what keeps the strip on one row at desktop
-                     width. **`w-fit` undoes HeroUI's `w-full` on `.tabs__tab`**: left at `w-full`
-                     inside a `min-w-full` list, the tabs share the rail equally and become slabs. */
+                    /* `w-fit` undoes HeroUI's `w-full` on `.tabs__tab`: left at `w-full` the tabs
+                     share the rail equally and become slabs. */
                     className={`${TAB_ITEM} flex h-11 w-fit items-center gap-x-2 px-5 whitespace-nowrap md:px-6`}>
                     {label.short}
                     <span className={`${COUNT_BADGE} ${isActive ? SELECTED_BADGE : isCleared ? CLEARED_BADGE : URGENCY_BADGE[label.urgency]}`}>
@@ -198,12 +142,9 @@ export function AdminSpieleActionRequiredView({
             </Tabs.List>
           </Tabs.ListContainer>
 
-          {/* What the selected tab's one word covers, in the app's own "explain this surface"
-              affordance rather than as a line of prose over the grid (decided 2026-08-07). `InfoHint`
-              and not `IconTooltip`: react-aria's tooltip opens on hover and focus and deliberately
-              never on tap, so on the phone this page is worked from it would be unreachable. It reads
-              the ACTIVE section, so one glyph serves all eight categories and the toolbar keeps its
-              height whichever is selected. */}
+          {/* `InfoHint` and not `IconTooltip`: react-aria's tooltip opens on hover and focus and never
+              on tap, so on the phone this page is worked from it would be unreachable. It reads the
+              active section, so one glyph serves every category. */}
           <InfoHint label={`Was "${ACTION_REQUIRED_LABELS[activeSection.category].name}" umfasst`}>
             <p>
               <strong>{ACTION_REQUIRED_LABELS[activeSection.category].name}</strong>
@@ -224,9 +165,8 @@ export function AdminSpieleActionRequiredView({
               title="Keine Spiele in dieser Kategorie!"
             />
           ) : (
-            // The app's one card grid, holding its one admin match card. Faults reach the
-            // `bracket_fault` section alone — the one list already filtered by that diagnosis, and the
-            // only category whose tab cannot state the reason itself.
+            // Faults reach the `bracket_fault` section alone: the one list already filtered by that
+            // diagnosis, and the only category whose tab cannot state the reason itself.
             <div
               role="list"
               className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>

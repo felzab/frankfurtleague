@@ -1,19 +1,3 @@
-/**
- * CORE · authentication
- *
- * Auth.js with a Resend magic-link provider. Admin is an email ALLOWLIST, not a stored role —
- * checked at sign-in and again when the session is built.
- *
- * Invariants:
- * - The ONE place the frontend touches MongoDB directly, and only the `authjs` database.
- * - `getAdminSession()` is the single admin policy; it neither throws nor redirects, so check it.
- * - `role` is re-derived from ALLOWED_ADMIN_EMAILS on every session read, never stamped at
- *   sign-in — removing an address takes effect on the next request, not at expiry.
- *
- * See:
- * - docs/frontend/overview.md — the authentication section
- */
-
 import "server-only";
 
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
@@ -39,17 +23,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Resend({
       from: "no-reply@frankfurtleague.de",
-      // 15 minutes, down from the provider's 24-hour default: a sign-in link is a bearer credential
-      // sitting in an inbox. `LINK_VALIDITY_TEXT` in `authEmail.ts` states this number to the reader
-      // -- keep the two in step.
+      // Far below the provider's default: a sign-in link is a bearer credential sitting in an inbox.
+      // `fl_frontend/src/core/authEmail.ts :: LINK_VALIDITY_TEXT` states it to the reader -- keep
+      // the two in step.
       maxAge: 15 * 60,
       /**
-       * Replaces Auth.js's stock template, which sends an English subject ("Sign in to …") and a
-       * generic body on a German-only site. The message itself lives in `features/auth/email.ts` —
-       * edit it there, not here. This function is only the transport.
-       *
-       * Mirrors the provider's own implementation (`@auth/core/providers/resend.js`): same endpoint,
-       * same auth header, same error shape, so a Resend failure still surfaces the API's message.
+       * Transport only — the message is `fl_frontend/src/core/authEmail.ts`. Mirrors
+       * `@auth/core/providers/resend.js`: same endpoint, auth header and error shape, so a Resend
+       * failure still surfaces the API's message.
        */
       async sendVerificationRequest({ identifier: to, provider, url }) {
         const { subject, html, text } = buildMagicLinkEmail(url);
@@ -76,51 +57,42 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
   },
-  // Without `signIn`, Auth.js keeps its own unbranded form live at /api/auth/signin -- a second,
-  // unthrottled entry point to the same email-send surface, on a URL the app never links to.
+  // Without `signIn`, Auth.js keeps its own form live at /api/auth/signin: a second, unthrottled
+  // entry point to the same email-send surface.
   pages: { signIn: "/signin", error: "/signin" },
 
-  // 48 hours, long enough to span a weekend of matchdays without a fresh sign-in mid-round, for an
-  // interface whose only purpose is mutating league data. Sign-out ends a session on demand, and the
-  // `session` callback above re-derives `role` on every read.
+  // Long enough to span a weekend of matchdays without a sign-in mid-round. `role` is re-derived on
+  // every read by the `session` callback above, so removing an address takes effect immediately.
   session: {
     maxAge: 60 * 60 * 48,
-    updateAge: 60 * 60, // refresh the DB row at most hourly
+    updateAge: 60 * 60,
   },
 
-  // Explicit rather than inherited from @auth/core's own derivation, so a change to its cookie
-  // defaults cannot silently drop the flag. `config.ts` already refuses a non-loopback http:// value.
-
-  // Deliberately a string test and not `new URL(...)`: this is evaluated at module scope, and the
-  // Docker builder stage has no AUTH_URL at all, so constructing a URL here fails the image build.
+  // Set explicitly, so a change to @auth/core's cookie defaults cannot silently drop the flag. A
+  // string test, not `new URL(...)`: this runs at module scope, where the builder stage has no
+  // AUTH_URL and the construction would fail the image build.
   useSecureCookies: (frontend_config.AUTH_URL ?? "").toLowerCase().startsWith("https://"),
 
   logger: {
     error(error) {
-      // Matched on the type only: an unbounded `message.includes("AccessDenied")` test would swallow
-      // any wrapped or aggregated error quoting the string, and this stream is the main signal that
-      // authorization is misbehaving.
+      // On the type only: a `message.includes(...)` test would swallow any wrapped error quoting the
+      // string, and this stream is the main signal that authorization is misbehaving.
       if (error?.name === "AccessDenied") {
         logger.warn("auth.access_denied", { name: error.name, error_code: "FE-AUTH-001" });
         return;
       }
 
-      // Routed through the structured logger: raw console.error emitted the whole Error, and Auth.js
-      // errors on the Resend path routinely carry the submitted email address.
+      // Name only: Auth.js errors on the Resend path routinely carry the submitted email address.
       logger.error("auth.error", error, { name: error?.name, error_code: "FE-AUTH-002" });
     },
   },
 });
 
 /**
- * The single definition of the admin policy. Returns the session when the caller is an admin, and
- * `null` when it is not -- the caller decides whether that means `redirect()` or a refused action.
+ * The one definition of the admin policy: the session for an admin, `null` otherwise.
  *
- * Named `get...`, not `require...`, on purpose: `await getAdminSession();` on its own line guards
- * nothing. **The return value must be checked.**
- *
- * One definition for all eight callers (seven server actions plus the proxy): spelling the test out
- * at each site would make a change of policy eight edits, and a missed one invisible.
+ * Named `get...`, not `require...`: it neither throws nor redirects, so calling it on its own
+ * line guards nothing. **Check the return value.**
  */
 export async function getAdminSession(): Promise<Session | null> {
   const session = await auth();

@@ -1,22 +1,5 @@
 "use server";
 
-/**
- * SPIELE · server action
- *
- * The only writer in the slice, and the only place Spiel cache tags are invalidated. The
- * `"use server"` directive stays the first line — a misplaced one fails at request time.
- *
- * Invariants:
- * - Base tags invalidate unconditionally, granular only when a season id parses.
- * - `saison_id` stays an argument, never on the patch body: Pydantic would drop it silently.
- * - A failed season-id parse never fails the edit — work is not rejected over a cache concern.
- * - The base tags cover the bracket fixtures the backend advanced.
- * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the
- *   toast, not the error page (docs/logging/error-codes.md).
- *
- * See:
- * - docs/frontend/spec.md — invariants I2, I3, I4, I7
- */
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
@@ -32,17 +15,8 @@ import type { FormState } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
- * No `prevState` parameter: the caller awaits this inside a transition rather than through
- * `useActionState`. That hook exists to hold state you *render*; this form only pipes the result
- * into a toast and closes, so the reducer signature bought nothing and cost an effect. Matches
- * `patchSpielortAction` and the rest of the admin write path.
- */
-/**
- * The two scheduling refusals a match write can answer with, or `null` when the 409 is neither.
- *
- * Written to the shape stated in `fl_frontend/src/features/saisons/actions.ts`. `REQ-DATE-001` lands on
- * `datum`, the field that caused it, and is one sentence about that value. `REQ-CLASH-001` is about
- * ANOTHER fixture, which this form does not show, so it is two sentences with the action second.
+ * The scheduling refusals a match write can answer with. `REQ-DATE-001` lands on `datum`, the field
+ * that caused it; the others are about a fixture this form does not show.
  */
 function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -81,8 +55,8 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       };
     }
 
-    // The two scheduling refusals reach the form rather than the error page: both are about what was
-    // submitted, and the editor the admin is standing in is where the wrong value still sits.
+    // A refusal reaches the form rather than the error page: it is about what was submitted, and
+    // the editor is where the wrong value still sits.
     let patch_operation;
     try {
       patch_operation = await patchAdminSpielData(validated.data);
@@ -96,29 +70,25 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       return { success: false, error: "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // The base tags are not redundant with the granular ones below. The default
-    // read path sends no `saison_id`, so the commonest entries carry
-    // only `spiele` / `teams` and a season-only invalidation leaves them stale.
+    // Not redundant with the granular tags below: the default read path sends no `saison_id`, so
+    // the commonest entries carry only these and a season-only invalidation leaves them stale.
     updateTag("spiele");
     updateTag("teams");
 
-    // Season comes from the loaded spiel, never the patch body -- the backend's
-    // payload does not declare `saison_id` and Pydantic drops it. Validated with
-    // the spiel's own field schema, so no second copy of the rule can drift.
+    // From the loaded spiel, never the patch body — the backend's payload does not declare
+    // `saison_id` and Pydantic drops it. A failed parse costs a stale cache, never the edit.
     const saisonId = FLSpielSchema.shape.saison_id.safeParse(rawSaisonId);
     if (saisonId.success) {
       updateTag(`spiele:saison_id:${saisonId.data}`);
       updateTag(`teams:saison_id:${saisonId.data}`);
     }
 
-    // The resolved bracket fixtures are named in the toast, each with the result it
-    // destroyed. The faults it walked past ride along: the save
-    // that introduces one is when its cause is known.
+    // The faults the resolution walked past ride along: the save that introduces one is when its
+    // cause is known.
     return {
       success: Boolean(patch_operation.acknowledged),
       message: formatSpielUpdateMessage(patch_operation.advanced_to, patch_operation.bracket_faults, patch_operation.released_sides),
-      // Handed back whole, because the undo toast has to know WHICH fixtures lost a result before it
-      // can offer to put them back.
+      // Named rather than counted: the undo toast has to know WHICH fixtures lost a result.
       voidedFixtures: patch_operation.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),
       releasedFixtures: patch_operation.released_sides.map((released) => released.spiel_nr),
     };
@@ -126,18 +96,9 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
 }
 
 /**
- * What saving this payload would move and destroy — asked before the admin commits to it.
- *
- * `dry_run=true` writes nothing: the backend applies the payload in memory through the same
- * `apply_payload_to_spiel` the save uses and resolves the bracket against the result. So this is not a
- * prediction of the save, it is the save's own answer computed without the write.
- *
- * **No `updateTag` here, and there must never be one.** Nothing changed, so invalidating a cache would
- * evict every cached match list on each keystroke of a debounced preview.
- *
- * A failure returns an unsuccessful `FormState` and the form simply shows no warning. That is the
- * honest degradation: a preview is an extra, and an admin must never be blocked from saving because
- * the question could not be answered.
+ * The save's own answer without the write: `dry_run=true` applies the payload in memory through the
+ * same code the save uses. **No `updateTag` here, ever** — nothing changed, so it would evict every
+ * cached match list on every keystroke.
  */
 export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<NonNullable<FormState>> {
   return runAdminMutation("previewAdminSpielDataAction", async () => {
@@ -147,13 +108,13 @@ export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<
 
     const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
     if (!validated.success) {
-      // Silent by design: the draft is mid-edit and its own field validation already says so. A toast
-      // about an incomplete payload would fire while somebody was still typing into it.
+      // Silent by design: a toast about an incomplete payload would fire mid-keystroke, and the
+      // draft's own field validation already says so. A preview is an extra; it never blocks a save.
       return { success: false, error: "Die Vorschau konnte nicht berechnet werden." };
     }
 
-    // The two scheduling refusals reach the form rather than the error page: both are about what was
-    // submitted, and the editor the admin is standing in is where the wrong value still sits.
+    // A refusal reaches the form rather than the error page: it is about what was submitted, and
+    // the editor is where the wrong value still sits.
     let preview;
     try {
       preview = await previewAdminSpielData(validated.data);

@@ -1,18 +1,3 @@
-"""
-SYSTEM · liveness, readiness and diagnostics
-
-The one router without a blanket guard, because `/is_live` must be reachable by the container
-healthcheck — so any endpoint added here is public unless it declares otherwise.
-
-Invariants:
-- `/is_live` stays unguarded and never touches the database.
-- `/is_ready` and `/info` carry their guards individually.
-- `/is_ready` is the one that pings the database — the liveness/readiness distinction.
-
-See:
-- docs/ops/spec.md — section 1.1, where the healthcheck path is pinned
-"""
-
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
@@ -25,6 +10,8 @@ from app.core.db import get_database
 from app.core.exceptions import DatabaseUnavailableException
 from app.core.security import verify_access_system
 
+# The one router without a blanket guard, because `/is_live` must be reachable by the container
+# healthcheck -- so an endpoint added here is PUBLIC unless it declares otherwise.
 router = APIRouter(prefix=f"/api/v{API_VERSION}/system")
 
 
@@ -33,8 +20,8 @@ async def check_is_live(request: Request) -> JSONResponse:
     """
     Liveness: is this process serving requests?
 
-    Deliberately unauthenticated and deliberately does not touch the database -- this is what the
-    container healthcheck calls, and it must not fail for reasons a restart cannot fix.
+    Unauthenticated, and it does not touch the database: it must not fail for reasons a restart
+    cannot fix.
     """
     return JSONResponse(content={"acknowledged": 1, "status": "ok"}, status_code=status.HTTP_200_OK)
 

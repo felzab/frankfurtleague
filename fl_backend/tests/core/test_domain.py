@@ -1,16 +1,3 @@
-"""
-CORE · what makes `app/core/domain.py` a checked declaration, not a second document
-
-The module states the domain model as data, and none of it runs — without this file it would
-drift exactly the way a comment drifts. Every assertion answers one question: does the
-declaration cover the system, does it name real things, and is it still a declaration.
-
-Invariants:
-- Every collection sits in exactly one aggregate; every `REQ-*` code appears, none is invented.
-- Every field path, `implemented_by` and `tested_by` resolves against the real code.
-- No application module imports it — an imported declaration is an engine, not a declaration.
-"""
-
 import ast
 import importlib
 from pathlib import Path
@@ -33,8 +20,8 @@ from app.core.domain import AGGREGATES, FIELD_POLICIES, REFERENCES, RULES, UNENF
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
 
-# The read model of each collection that has one. `saison_teams` and `saison_spieler` are absent
-# because neither has a model of the row -- their fields are declared only by their `$jsonSchema`.
+# `saison_teams` and `saison_spieler` have no row model: their fields are declared by their
+# `$jsonSchema` alone.
 ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SAISONS: FLSaison,
     Collection.SPIELTAGE: FLSpieltag,
@@ -45,16 +32,15 @@ ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SCHIEDSRICHTER: FLSchiedsrichter,
 }
 
-# Codes that are not domain rules and so have no row in `RULES`. Each is a property of the transport
-# rather than of the league, and they live in `app/core/`, which is what the coverage test keys on --
-# a boundary rather than an exception list.
+# Not domain rules: each is a property of the transport, and sitting in `app/core/` is what the
+# coverage test keys on — a boundary rather than an exception list.
 PROTOCOL_CODES = frozenset({"REQ-AUTH-001", "REQ-AUTH-002", "REQ-AUTH-003", "REQ-AUTH-004", "REQ-VAL-001", "REQ-OID-001"})
 
 _CODE_PATTERN = "REQ-"
 
 
 def _codes_in(root: Path) -> set[str]:
-    """Every `REQ-*` code appearing anywhere under `root`, comments included."""
+    """Every `REQ-*` code under `root`, comments included."""
 
     found: set[str] = set()
     for path in sorted(root.rglob("*.py")):
@@ -74,8 +60,6 @@ def _validator_properties(collection: Collection) -> Mapping[str, Any]:
 
 
 def _resolves_in_validator(collection: Collection, path: str) -> bool:
-    """Walk a dotted path through the collection's `$jsonSchema`."""
-
     properties = _validator_properties(collection)
     *ancestors, leaf = path.split(".")
     for segment in ancestors:
@@ -87,14 +71,7 @@ def _resolves_in_validator(collection: Collection, path: str) -> bool:
 
 
 def _resolves_in_model(collection: Collection, path: str) -> bool:
-    """
-    Whether a SINGLE-segment path is a field of the collection's read model.
-
-    Only one segment, deliberately: a nested path through a Pydantic union -- `team1_quelle.spiel_nr`,
-    whose annotation is a discriminated union of two variants -- has no single answer, and the validator
-    resolves those completely. So the model is consulted for the fields the validator lacks, which are
-    exactly the derived ones, and those are all top-level.
-    """
+    """One segment deliberately: a nested path through a discriminated union has no single answer, and the validator resolves those."""
 
     model = ROOT_MODELS.get(collection)
 
@@ -113,12 +90,7 @@ def _import_symbol(dotted: str) -> Any:
 
 
 def test_every_collection_belongs_to_exactly_one_aggregate():
-    """
-    A collection in two aggregates has two consistency boundaries, which is not a boundary.
-
-    Keyed on `COLLECTION_VALIDATORS` rather than a list here, so adding a tenth collection to the
-    database fails this test until somebody decides which aggregate owns it.
-    """
+    """Keyed on `COLLECTION_VALIDATORS` rather than a list: a new collection fails here until an aggregate owns it."""
 
     placements: dict[str, list[str]] = {collection: [] for collection in COLLECTION_VALIDATORS}
     for aggregate in AGGREGATES:
@@ -134,13 +106,7 @@ def test_every_collection_belongs_to_exactly_one_aggregate():
 
 
 def test_every_domain_rule_the_application_defines_is_declared():
-    """
-    The coverage assertion, and the reason this file is not decoration.
-
-    A refusal added to a write path without a row here is a rule nothing documents -- so the scan is over
-    `app/api/`, where the domain lives, and `app/core/` is excluded because its codes describe the
-    transport (`PROTOCOL_CODES`).
-    """
+    """Scanned over `app/api/` alone: `app/core/`'s codes describe the transport, not the league."""
 
     declared = {rule.code for rule in RULES}
     in_api = _codes_in(APP_ROOT / "api")
@@ -150,12 +116,7 @@ def test_every_domain_rule_the_application_defines_is_declared():
 
 
 def test_the_protocol_codes_are_the_ones_outside_the_api_layer():
-    """
-    Pins the boundary the test above relies on.
-
-    If a code moves out of `app/core/` into a slice, or a new transport-level code appears, this fails
-    rather than letting `PROTOCOL_CODES` silently start excusing a real domain rule.
-    """
+    """Pins the boundary the coverage test rests on, so `PROTOCOL_CODES` cannot start excusing a real rule."""
 
     in_core = _codes_in(APP_ROOT / "core") - {rule.code for rule in RULES}
 
@@ -163,13 +124,7 @@ def test_the_protocol_codes_are_the_ones_outside_the_api_layer():
 
 
 def test_every_collection_is_declared_once():
-    """
-    The names agree across every place that needs them, which is what `Collection` exists for.
-
-    Written out separately in `db.py`'s accessors, in `constraints.py`'s validator keys and in this
-    model's tables, nothing would hold the three equal and a new collection could reach one and not the
-    others. Iterating the enum is the check a `Literal` could not carry without `get_args`.
-    """
+    """`db.py`'s accessors, `constraints.py`'s validator keys and `Collection` would otherwise drift, and a new one could reach only some."""
 
     declared = {collection.value for collection in Collection}
     validated = {str(collection) for collection in COLLECTION_VALIDATORS}
@@ -186,12 +141,7 @@ def test_every_collection_is_declared_once():
 
 
 def test_every_declared_value_is_used():
-    """
-    A vocabulary member no row uses is either a gap in the model or a word that should not be there.
-
-    `UNUSED_ACTIONS` is the exception list and it is asserted to be EXACT, not a floor: adding a member
-    without using it fails here, and using one that is listed as unused fails here too.
-    """
+    """`UNUSED_ACTIONS` is asserted exact rather than as a floor: an unused new member and a used listed one both fail."""
 
     used_actions = {reference.on_target_change for reference in REFERENCES} | {reference.on_target_removed for reference in REFERENCES}
     used_editability = {policy.editability for policy in FIELD_POLICIES}
@@ -208,7 +158,6 @@ def test_no_rule_code_is_declared_twice():
 
 
 def test_every_rule_names_a_declared_aggregate():
-    """A rule whose aggregate is a typo would sit in the table looking scoped to nothing."""
     names = {aggregate.name for aggregate in AGGREGATES}
 
     for rule in RULES:
@@ -225,7 +174,6 @@ def test_no_field_policy_is_declared_twice():
 
 @pytest.mark.parametrize("reference", REFERENCES, ids=lambda reference: f"{reference.source}->{reference.target}:{reference.fields[0]}")
 def test_every_reference_names_real_collections_and_real_fields(reference):
-    """Both ends resolve, so a renamed collection or field cannot leave a reference pointing at nothing."""
     assert reference.source in COLLECTION_VALIDATORS
     assert reference.target in COLLECTION_VALIDATORS
 
@@ -235,20 +183,13 @@ def test_every_reference_names_real_collections_and_real_fields(reference):
 
 @pytest.mark.parametrize("policy", FIELD_POLICIES, ids=lambda policy: f"{policy.collection}.{policy.field}")
 def test_every_field_policy_names_a_real_field(policy):
-    """A policy for a field neither the model nor the validator declares documents a rule about nothing."""
     assert policy.collection in COLLECTION_VALIDATORS
     assert _resolves(policy.collection, policy.field), f"{policy.collection}.{policy.field} is on neither the model nor the validator"
 
 
 @pytest.mark.parametrize("policy", FIELD_POLICIES, ids=lambda policy: f"{policy.collection}.{policy.field}")
 def test_a_derived_field_is_on_no_document(policy):
-    """
-    `DERIVED` claims the field is computed on read and stored nowhere, and this is what makes that true.
-
-    The distinction against `COMPOSED` is the whole point of having two values: `spiele.ergebnis` is also
-    never accepted from a client, and it IS stored -- so calling it derived would assert something false
-    about the database.
-    """
+    """What separates `DERIVED` from `COMPOSED`: `spiele.ergebnis` is also never accepted from a client and IS stored."""
 
     if policy.editability is not Editability.DERIVED:
         return
@@ -265,24 +206,17 @@ def test_a_derived_field_is_on_no_document(policy):
     "policy", [policy for policy in FIELD_POLICIES if policy.enforced_by], ids=lambda policy: f"{policy.collection}.{policy.field}"
 )
 def test_every_named_enforcer_resolves(policy):
-    """A dotted path that fails to import is a policy claiming an enforcement nothing provides."""
     assert callable(_import_symbol(policy.enforced_by))
 
 
 @pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)
 def test_every_rule_is_implemented_by_a_callable(rule):
-    """A rule whose `implemented_by` does not resolve is a refusal nothing in the code performs."""
     assert callable(_import_symbol(rule.implemented_by))
 
 
 @pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)
 def test_every_rule_names_a_test_that_exists(rule):
-    """
-    A `tested_by` citation is only worth having if it is checked; a renamed class makes it a dead link.
-
-    Parsed rather than imported: reading the class names out of the AST needs no fixtures and cannot run
-    another module's collection-time code.
-    """
+    """Parsed rather than imported: the AST needs no fixtures and cannot run another module's collection-time code."""
 
     path, _, class_name = rule.tested_by.partition("::")
     file = BACKEND_ROOT / path
@@ -296,13 +230,6 @@ def test_every_rule_names_a_test_that_exists(rule):
 
 
 def test_every_declaration_carries_its_reason():
-    """
-    An empty `boundary`, `note` or `reason` is the failure mode this module exists to prevent.
-
-    The rows are readable without them; they are just no longer an explanation, and a table of actions
-    with no reasons is what a reader would have had to reconstruct from the code anyway.
-    """
-
     for aggregate in AGGREGATES:
         assert aggregate.boundary.strip(), f"{aggregate.name} states no boundary"
     for reference in REFERENCES:
@@ -315,13 +242,7 @@ def test_every_declaration_carries_its_reason():
 
 
 def test_no_application_module_imports_the_domain_model():
-    """
-    The invariant that keeps this a declaration.
-
-    A production caller reading these tables turns them into an engine every write must remember to
-    consult -- which is bypassable. The refusal lives at the endpoint that owns the write instead.
-    Tests and documentation may read it; nothing under `app/` may.
-    """
+    """A caller reading these tables turns them into an engine every write must remember to consult; the refusal lives at the endpoint."""
 
     importers = [
         path.relative_to(BACKEND_ROOT).as_posix()

@@ -9,15 +9,10 @@ import type { SpielerTeamOption } from "@/features/spieler/types";
 import type { Key } from "@heroui/react";
 
 /**
- * The team picker, shared by the create form and the squad editor.
+ * Offers **the selected season's teams**, which is what stops a player being put in a team that is
+ * not in that season at all.
  *
- * A picked control, judged on CHANGE. It offers **the selected season's teams**, which is
- * what makes a transfer a two-click operation and what stops a player being put in a team that is not
- * in that season at all.
- *
- * **Nothing is disabled here, unlike `GruppeSelect`.** A squad has no capacity: a season's rules bound
- * how many teams a group holds, not how many players a team fields, so there is no full state to show
- * and no refusal for the trigger to anticipate.
+ * Nothing is disabled, unlike `GruppeSelect`: a squad has no capacity to be full of.
  */
 export function TeamSelect({
   value,
@@ -35,20 +30,16 @@ export function TeamSelect({
   /** The field's path in the enclosing payload, so `Form`'s `validationErrors` reach it by name. */
   name?: string;
   /**
-   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `name`.
-   * For a caller with no `<Form>` above it, and for one whose write is not the form's — the squad
-   * editor's entry control fires its own action and keeps its refusal out of the save bar's map.
+   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `name` — for
+   * a caller with no `<Form>`, and for the entry control whose write is not the form's.
    */
   error?: string;
   /** Off for the caller whose label is a marker-carrying `SpielerFieldLabel` rendered outside. */
   withOwnLabel?: boolean;
   /**
-   * Refuse an empty pick, and let the BROWSER say so.
-   *
-   * react-aria runs native constraint validation on submit, so the message is the user agent's own
-   * and arrives in the user's language — where letting the value reach the action instead surfaced
-   * Zod's English "expected string, received null" (decided 2026-08-07). It also renders the required
-   * asterisk, which `globals.css` then shows only inside a create form.
+   * Refuse an empty pick, and let the BROWSER say so — react-aria runs native constraint validation
+   * on submit. Letting the value reach the action instead surfaced Zod's English
+   * "expected string, received null".
    */
   isRequired?: boolean;
 }) {
@@ -57,9 +48,8 @@ export function TeamSelect({
     onChange(key.toString());
   };
 
-  // The id resolved to what the admin picked. A team the season does not offer still renders as
-  // itself rather than as the placeholder — it is a real state, and an empty trigger would read as
-  // "no team" instead.
+  // A team the season does not offer still renders as itself — an empty trigger would read as
+  // "no team", which is a different fact.
   const selected = teams.find((team) => team.teamId === value);
 
   return (
@@ -88,8 +78,7 @@ export function TeamSelect({
               textValue={team.name}
               className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
               {team.name}
-              {/* The TeamCard's chip: a declared fill, so a Kürzel is one colour on every surface that
-                  shows one — this row's own hover is a ground an alpha would have shifted against. */}
+              {/* A declared fill, not an alpha: this row's hover is a ground an alpha would shift against. */}
               <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide">
                 {team.shorthand}
               </span>

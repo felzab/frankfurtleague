@@ -1,13 +1,3 @@
-/**
- * SPIELER · derivation tests
- *
- * Covers the shared-shirt derivation, which decides whether a WARNING is raised — no write path refuses
- * the state, so nothing here can block a save. What the cases pin is that the warning fires on a state
- * this draft introduces and stays silent on one already stored: a standing duplicate must raise nothing,
- * a retired row must not count as a wearer, `"07"` must not be read as `"7"`, and an unchanged number
- * carried into another team must raise it after all.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -66,7 +56,7 @@ describe("isSquadNummerNewlyShared", () => {
     assert.equal(isSquadNummerNewlyShared({ draft: { teamId: TEAM_A, nummer: "8" }, stored: storedInA, takenInDraftTeam: ["7", "11"] }), false);
   });
 
-  // The sixteen live rows the API's declaration is about: standing, not caused by this edit.
+  // The standing duplicates the API permits: not caused by this edit.
   it("stays silent on a duplicate the row already stands in", () => {
     assert.equal(
       isSquadNummerNewlyShared({ draft: { teamId: TEAM_A, nummer: "7" }, stored: { teamId: TEAM_A, nummer: "7" }, takenInDraftTeam: ["7"] }),
@@ -74,7 +64,7 @@ describe("isSquadNummerNewlyShared", () => {
     );
   });
 
-  // The case comparing numbers alone gets wrong: the placement moved even though the shirt did not.
+  // The case comparing numbers alone gets wrong: the placement moved though the shirt did not.
   it("reports an unchanged number carried into a team that already wears it", () => {
     assert.equal(
       isSquadNummerNewlyShared({ draft: { teamId: TEAM_B, nummer: "7" }, stored: { teamId: TEAM_A, nummer: "7" }, takenInDraftTeam: ["7"] }),

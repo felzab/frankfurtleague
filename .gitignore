@@ -65,7 +65,7 @@ __pycache__/
 .ruff_cache/
 
 # Audit working documents, local-only by design: the repo is public and these carry findings not
-# yet fixed. A finished programme's permanent record is docs/_auditing/reports/. Ignored but not
+# yet fixed. A finished programme's account is written here beside its working files. Ignored but not
 # secret -- CLAUDE.md §1 carves this path out.
 docs/audit/
 

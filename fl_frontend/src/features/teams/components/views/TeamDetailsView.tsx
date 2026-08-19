@@ -1,16 +1,3 @@
-/**
- * TEAMS · the public team page
- *
- * Composition only: each section is its own component, and the page itself stays on the server. Two
- * leaves carry the `"use client"` — the fixture rail, which owns the details modal, and the back
- * control, which owns `router.back()`.
- *
- * Invariants:
- * - Nothing here hands a function to a client leaf; the callbacks live below the boundary, on the
- *   side that also holds the state (`docs/frontend/spec.md :: I13`).
- * - The figures are the season-wide scope this page asks for, and no other surface shows them.
- */
-
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 
 import { TeamDetailsBackButton } from "../ui/TeamDetailsBackButton";
@@ -23,6 +10,10 @@ import { TeamSaisonVerlauf } from "../ui/TeamSaisonVerlauf";
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLTeam } from "../../schemas";
 
+/**
+ * Composition only, and nothing here hands a function to a client leaf — the callbacks live below
+ * the boundary, on the side that holds the state (`docs/frontend/spec.md :: I13`).
+ */
 export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLTeam; teamSpiele: FLSpiel[]; today: string }) {
   return (
     <div className={`${PAGE_RISE} flex w-full flex-col gap-y-8 pb-12`}>

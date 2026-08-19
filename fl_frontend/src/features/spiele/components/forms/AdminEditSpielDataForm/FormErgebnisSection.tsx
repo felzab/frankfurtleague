@@ -19,32 +19,10 @@ const TORE_PATHS = ["team1.tore", "team2.tore"] as const;
 const ELFMETER_PATHS = ["elfmeterschiessen.team1", "elfmeterschiessen.team2"] as const;
 
 /**
- * How the fixture went: the goals, the shoot-out where one applies, and the outcome in words.
+ * **`NaN` is an empty goal in the UI, `null` one in the payload**: either conversion wrong turns an
+ * unplayed match into a 0:0 the backend counts as a real draw.
  *
- * **`NaN` is the empty goal value in the UI; `null` is the empty goal value in the payload.** HeroUI's
- * `NumberField` represents "no value" as `NaN`, while `FLSpielTeamField.tore` is `int | null`. The two
- * conversions at that boundary (`?? NaN` on the way in, `isNaN(val) ? null : val` on the way out) are
- * the reason this component holds no state for the scores itself. Getting either direction wrong turns
- * an unplayed match into a 0:0 one, which the backend then counts as a real draw in both teams'
- * statistics.
- *
- * Switching the result toggle OFF restores the goals the form was OPENED with, not `null`. Editing a
- * recorded result and changing your mind should leave the stored score intact — clearing it would
- * silently retract a played match's result, and the match would then drop out of the league table.
- *
- * **A result needs both sides.** `PATCH /spiele/{spiel_id}` derives `ergebnis` from the two goal counts
- * and reads through an absent side as no goals at all, so a fixture with an unresolved slot can never
- * carry one. The toggle says so rather than accepting scores the write path would discard.
- *
- * **The shoot-out appears only on a KNOCKOUT fixture that finished level**, which is the only shape it
- * can describe — the write path discards a record stored against any other, so offering the fields
- * elsewhere would take input the save then threw away. A group-phase draw is a final result
- * worth a point to each side, so it never appears there however the goals end up. Its counts are not
- * goals: they decide which side the bracket advances and leave the league table's draw untouched.
- *
- * **The scoreline readout moved to the rail's preview.** This panel used to render its own pill, which
- * meant two live answers to one question on one screen; the preview is the single one, and it shows the
- * chips and the date changing too.
+ * The shoot-out appears only on a KNOCKOUT that finished level.
  */
 export function FormErgebnisSection({
   spielData,
@@ -82,14 +60,13 @@ export function FormErgebnisSection({
   const handleErgebnisCanBeEditedToggle = (isSelected: boolean) => {
     onErgebnisCanBeEditedChange(isSelected);
     if (!isSelected) {
-      // `?? null` rather than the initial field: a side that was unresolved when the form opened has
-      // no goals to restore, and reading `.tore` off it would be reading off nothing.
+      // Restores the goals the form OPENED with rather than clearing them: clearing is a retraction
+      // that drops the match out of the table. `?? null` — a side unresolved then has none.
       if (team1Payload) onTeam1Change({ ...team1Payload, tore: spielData.team1?.tore ?? null });
       if (team2Payload) onTeam2Change({ ...team2Payload, tore: spielData.team2?.tore ?? null });
 
-      // The shoot-out is part of the result this switch puts back, and the one route out of the fields
-      // `isLevelKnockout` cannot see: restoring level goals leaves it true while the inputs unmount,
-      // so a half-entered record would go on blocking the save.
+      // The one route out `isLevelKnockout` cannot see: restoring level goals leaves it true while
+      // the inputs unmount, so a half-entered record would go on blocking the save.
       onElfmeterschiessenChange(spielData.elfmeterschiessen);
     }
   };
@@ -101,14 +78,12 @@ export function FormErgebnisSection({
     if (payload) onChange({ ...payload, tore: isNaN(val) ? null : val });
   };
 
-  // Offered on the shape that can hold a shoot-out, and only while the result is open for editing.
-  // The shape is `isLevelKnockout`'s, shared with the draft that retracts the record, so the two
-  // cannot disagree (`docs/frontend/spec.md` I33).
+  // `isLevelKnockout`'s shape, shared with the draft that retracts the record, so the panel and
+  // the form cannot disagree about whether one is held.
   const offersElfmeterschiessen = ergebnisIsEditable && isLevelKnockout(spielData.saison_phase, team1Payload, team2Payload);
 
   const handleElfmeterschiessenToggle = (isSelected: boolean) => {
-    // `null` on the way out, and both counts empty on the way in. An admin turning the switch off has
-    // said the fixture was not settled on penalties, which is a retraction rather than a blank form.
+    // `null` out, both counts empty in: switching off is a retraction, not a blank form.
     onElfmeterschiessenChange(isSelected ? { team1: null, team2: null } : null);
   };
 
@@ -123,9 +98,7 @@ export function FormErgebnisSection({
   const team1Tore = team1Payload?.tore ?? NaN;
   const team2Tore = team2Payload?.tore ?? NaN;
 
-  // Announced below, because the shoot-out decides which side the bracket advances and an admin who
-  // has just typed two numbers should read the consequence. `null` while either count is empty or the
-  // two are equal: a level shoot-out names nobody.
+  // `null` while either count is empty or the two are equal: a level shoot-out names nobody.
   const elfmeterSiegerName =
     elfmeterschiessen === null || elfmeterschiessen.team1 === null || elfmeterschiessen.team2 === null
       ? null
@@ -158,8 +131,7 @@ export function FormErgebnisSection({
       </div>
 
       <div className={styles.body()}>
-        {/* Named by its own visible content — an `aria-label` would override the visible text with a
-            copy of itself. */}
+        {/* Named by its visible content: an `aria-label` would override it with a copy. */}
         <div className="flex w-full flex-col gap-y-1.5">
           <Switch
             aria-describedby={bothSidesResolved ? undefined : "ergebnis-eintragen-hint"}
@@ -173,10 +145,9 @@ export function FormErgebnisSection({
               </Switch.Control>
             </Switch.Content>
           </Switch>
-          {/* Outside the `Switch`, which renders a `<label>`: as a child, this paragraph toggled the
-              switch on any click. Only the disabled state keeps a sentence — it explains a control
-              that refuses input, which has to be answered in place; what switching off does moved to
-              the panel's InfoHint. */}
+          {/* Outside the `Switch`, which renders a `<label>`: as a child it toggled the switch on
+              any click. Only the disabled state keeps a sentence, a refusal needing an answer in
+              place. */}
           {!bothSidesResolved && (
             <p
               id="ergebnis-eintragen-hint"
@@ -186,8 +157,8 @@ export function FormErgebnisSection({
           )}
         </div>
 
-        {/* Side by side from `sm` up: the two counts are one answer. Stacked on a phone, where two
-            steppers in a row leave neither enough width to be hit. */}
+        {/* Side by side from `sm`: the counts are one answer, but two steppers in a phone row
+            leave neither wide enough to hit. */}
         <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
           {(
             [
@@ -204,8 +175,7 @@ export function FormErgebnisSection({
               onChange={handleToreChange(slot)}
               onBlur={() => onValidateFields(TORE_PATHS)}
               className={ergebnisIsEditable ? "" : "opacity-50"}>
-              {/* The team's own name and nothing else — the panel title already says these are goals,
-                  and a fixture is edited by somebody reading names rather than slot numbers. */}
+              {/* The team's name alone: the panel title already says these are goals. */}
               <FieldLabel path={`${slot}.tore`}>{name}</FieldLabel>
               <NumberField.Group className={FIELD_GROUP}>
                 <NumberField.DecrementButton />
@@ -221,8 +191,6 @@ export function FormErgebnisSection({
           <div className="flex w-full flex-col gap-y-4">
             <Separator className="bg-border" />
 
-            {/* No hint sentence under this switch: what a shoot-out means for the bracket and the
-                table is the panel InfoHint's, and the outcome line below announces the winner live. */}
             <Switch
               isSelected={elfmeterschiessen !== null}
               onChange={handleElfmeterschiessenToggle}>
@@ -263,8 +231,8 @@ export function FormErgebnisSection({
           </div>
         )}
 
-        {/* The outcome is derived from two fields above, so a screen-reader user editing the score never
-            learns it changed unless it is announced. */}
+        {/* Derived from the fields above, so a screen-reader user editing the score learns it
+            changed only if it is announced. */}
         <div
           role="status"
           aria-live="polite"

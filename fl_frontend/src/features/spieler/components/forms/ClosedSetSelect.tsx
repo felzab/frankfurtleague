@@ -8,18 +8,10 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import type { Key } from "@heroui/react";
 
 /**
- * The picker behind Position and Stufe — two closed sets with identical shape.
+ * Judged on CHANGE rather than on blur — a selection is complete the moment it is made.
  *
- * A picked control, so it is judged on CHANGE rather than on blur: a selection is complete
- * the moment it is made, and there is no half-entered value to be wrong about.
- *
- * **Clearing is an option in the list, not a separate control.** Both fields are genuinely optional —
- * a squad is filled in over time — so "Keine Angabe" is the first entry and selects null. Without it
- * a value picked by accident could not be taken back, which is the state the eight normalised strays
- * came from: somebody typed `?` because the field could not be left empty in the sheet they copied.
- *
- * One generic component rather than two siblings: the two differ only in their option list and their
- * labels, and `GruppeSelect` stays separate because its options carry occupancy the trigger renders.
+ * **Clearing is an option in the list, not a control**: without "Keine Angabe" a value picked by
+ * accident could not be taken back.
  */
 export function ClosedSetSelect<TValue extends string>({
   value,
@@ -43,8 +35,8 @@ export function ClosedSetSelect<TValue extends string>({
   /** Off for the caller whose label is a marker-carrying `SpielerFieldLabel` rendered outside. */
   withOwnLabel?: boolean;
 }) {
-  // A sentinel rather than an empty string: HeroUI treats `""` as "no selection" and the item would
-  // never report as picked, so clearing would silently do nothing.
+  // A sentinel rather than `""`: HeroUI reads `""` as "no selection", so clearing would silently do
+  // nothing.
   const NONE = "__none__";
 
   const handleChange = (key: Key | null) => {
@@ -62,8 +54,8 @@ export function ClosedSetSelect<TValue extends string>({
       className="w-full">
       {withOwnLabel && <Label className={FIELD_LABEL}>{label}</Label>}
       <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
-        {/* From the prop, not `Select.Value` — the collection can lag a render behind and would show
-            HeroUI's English placeholder. Same reasoning as `SaisonSelector`'s trigger. */}
+        {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
+            show HeroUI's English placeholder. */}
         <span className={value ? "" : "text-foreground-muted"}>{value ?? placeholder}</span>
         <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
       </Select.Trigger>

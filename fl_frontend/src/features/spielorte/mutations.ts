@@ -1,16 +1,3 @@
-/**
- * SPIELORTE · backend write calls
- *
- * Transport only. Authorization and cache invalidation belong to `actions.ts`, which is the sole
- * caller — a mutation invoked from anywhere else would bypass both.
- *
- * All four use `authType: "admin"`; the backend's admin router rejects the base key.
- *
- * **The id goes in the PATH and never in the body**. The payload schemas still carry it,
- * because they back the admin form and the form has to know which venue it is editing — so each
- * mutation below splits it off. A backend payload model that saw an `id` would drop it silently.
- */
-
 import { apiClient } from "@/core/api";
 
 import { FLPatchSpielortResponseSchema, FLPostSpielortResponseSchema, FLSpielortWriteResponseSchema } from "./schemas";
@@ -32,6 +19,10 @@ export async function postSpielort(postSpielortPayload: FLPostSpielortPayload): 
   });
 }
 
+/**
+ * The id goes in the path and never in the body: the payload schema carries it for the form, so each
+ * mutation splits it off, and a backend model that saw an `id` would drop it silently.
+ */
 export async function patchSpielort({ id, ...fields }: FLPatchSpielortPayload): Promise<FLPatchSpielortResponse> {
   return apiClient<FLPatchSpielortResponse>(`/spielorte/${id}`, FLPatchSpielortResponseSchema, {
     method: "PATCH",
@@ -48,8 +39,8 @@ export async function deleteSpielort({ id }: FLSpielortKeyPayload): Promise<FLSp
   });
 }
 
-// The way back out of the soft delete: clearing `inactive_since` returns the venue to the picker and
-// to every default read, which is what makes retirement a state rather than a disappearance.
+// Clearing `inactive_since` returns the venue to the picker and to every default read, which makes
+// retirement a state rather than a disappearance.
 export async function reactivateSpielort({ id }: FLSpielortKeyPayload): Promise<FLSpielortWriteResponse> {
   return apiClient<FLSpielortWriteResponse>(`/spielorte/${id}/reactivate`, FLSpielortWriteResponseSchema, {
     method: "POST",

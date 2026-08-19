@@ -26,8 +26,8 @@ proposed token name compiles under the correct Tailwind namespace before recomme
 
 B2. **Dark-mode coverage.** Components styled for one theme; raw values that do not flip; `dark:`
 escape hatches beyond the recorded residual set. **Verify with one page load per theme, seeding
-the storage key before scripts run** — flipping `data-theme` on a live page gives stale readings,
-and emulating `prefers-color-scheme` does nothing while the app pins a default theme.
+the storage key before scripts run** — `docs/_auditing/lessons.md` §6 has why the alternatives
+read stale.
 
 B3. **Recipe conformance.** Hand-written class strings duplicating an existing recipe (the drift the
 recipes exist to prevent); the same semantic role styled differently across views; conditional
@@ -49,16 +49,14 @@ providers shipping data to routes that never read it. **Measure gzipped before f
 structurally real over-fetch is not worth a remediation row when the whole payload compresses to
 a few kilobytes.
 
-D7. **Rendering cost.** Expensive derived values without memoization: **the React Compiler is off by
-a measured decision recorded on its config key, so do not propose re-enabling it as a fix.**
-Provider value stability. And the admin tables' memo-plus-stable-props constraint, where an
-inline lambda at a call site silently defeats the memo — verify the constraint still holds at
-every call site.
+D7. **Rendering cost.** Expensive derived values without memoization — but `.claude/CLAUDE.md` §7
+forbids re-enabling the React Compiler, so **never propose it as a fix.** Provider value stability.
+And the admin tables' memo-plus-stable-props constraint, where an inline lambda at a call site
+silently defeats the memo — verify the constraint still holds at every call site.
 
 D8. **Assets and chunks.** Image handling (the app deliberately uses masked SVGs, not `next/image` —
 verify that remains true before recommending either direction), font loading, lazy-loaded chunks
-with honest loading states (`dynamic({ssr:false})` with no `loading` renders `null` — a
-dead-looking click), chunk contents versus what the route actually needs.
+with honest loading states, chunk contents versus what the route actually needs.
 
 Priority order: B3, B1, D6, D7, B2, D5, B4, D8.
 

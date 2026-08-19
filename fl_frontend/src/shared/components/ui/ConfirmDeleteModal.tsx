@@ -17,20 +17,8 @@ import type { ReactNode } from "react";
 type DeleteResult = { success: boolean; message?: string; error?: string };
 
 /**
- * The two-step destructive confirmation, once. `AdminDeleteSchiedsrichterModal` and
- * `AdminDeleteSpielortModal` were 133 and 125 lines that differed in six string literals, the
- * payload key and the action name.
- *
- * **Every caller in this app retires a row rather than removing one** (decided 2026-08-07). All five admin
- * deletes are soft: the endpoint stamps `inactive_since` and the document stays, and the row it came from
- * renders a Reaktivieren control the moment the write lands. So the verb and the escalation
- * sentence are the caller's, and they default to retirement — the copy that was hardcoded here said
- * "endgültig löschen" and "kann nicht rückgängig gemacht werden" about writes that are reversed by one
- * press, which is the one thing a confirmation dialog must not get wrong.
- *
- * `isPermanent` exists for a caller whose write genuinely cannot be taken back, and there is none today.
- * It is here rather than left for later because the alternative is the state this note describes: a dialog
- * that says "permanent" by default and is wrong every time it is used.
+ * **Every admin delete here retires a row rather than removing one**, so the verb and the escalation are the caller's.
+ * Claiming a write is permanent when one press reverses it is the one thing a confirmation must not get wrong.
  */
 export function ConfirmDeleteModal({
   isOpen,
@@ -55,26 +43,18 @@ export function ConfirmDeleteModal({
   consequence: ReactNode;
   onConfirm: () => Promise<DeleteResult>;
   successMessage: string;
-  /**
-   * The infinitive the question and the confirm button use. Defaults to `stilllegen`, because every
-   * caller today is a soft delete; a caller that truly removes something passes `löschen` and
-   * `isPermanent` together.
-   */
+  /** The infinitive the question and the confirm button use. A caller that truly removes something passes `isPermanent` too. */
   verb?: string;
-  /**
-   * Whether the write is irreversible. `false` — the default and the only value in use — makes the
-   * escalation say the row can be brought back, which is what every one of these endpoints does.
-   */
+  /** Whether the write is irreversible. `false` makes the escalation say the row can be brought back. */
   isPermanent?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
 
-  // The verb at the start of a sentence or on a button — German capitalises an infinitive used as a
-  // noun, which is what "Stilllegen" on a button is.
+  // German capitalises an infinitive used as a noun, which is what a verb on a button is.
   const capitalized = `${verb.charAt(0).toUpperCase()}${verb.slice(1)}`;
 
-  // Clean up the modal state smoothly AFTER it fades out
+  // Reset after the exit transition, or the step drops back to 1 while the dialog is still on screen.
   useEffect(() => {
     if (!isOpen) {
       const timer = setTimeout(() => setConfirmStep(1), 300);
@@ -92,8 +72,7 @@ export function ConfirmDeleteModal({
       const res = await onConfirm();
 
       if (!res.success) {
-        // The caller's own verb: a failure that says "Löschen fehlgeschlagen" about a retirement names
-        // an action the admin never asked for.
+        // The caller's own verb: a failure naming "Löschen" about a retirement names an action nobody asked for.
         appToast.danger(`${capitalized} fehlgeschlagen`, {
           description: res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.",
         });
@@ -111,8 +90,7 @@ export function ConfirmDeleteModal({
       onClose={onClose}
       heading={heading}
       size="confirm"
-      // A plain dialog is announced exactly like the create/edit ones, so without this the fact that
-      // the admin is being asked to confirm something destructive never reached a screen reader.
+      // A plain dialog is announced exactly like the create and edit ones, so the destructive framing would be silent.
       role="alertdialog"
       icon={
         <div className="bg-danger/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
@@ -133,11 +111,8 @@ export function ConfirmDeleteModal({
             wirklich {verb}?
           </p>
         ) : (
-          /* `role="alert"` because this panel replaces the step-1 copy in place: without it the
-             escalation is silent, and the only other signal is the button label quietly changing. */
-          /* Deliberately not animated: a danger escalation should register at once rather than fade
-             in over 400ms. ModalShell's blur sits on an empty sibling so no animation can run inside
-             it; `FormRolloverSection` keeps the same panel animated on its page. */
+          /* `role="alert"` because this panel replaces the step-1 copy in place, and the only other signal is the
+             button label changing. Deliberately not animated: a danger escalation should register at once. */
           <div
             role="alert"
             className="bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm">
@@ -165,10 +140,7 @@ export function ConfirmDeleteModal({
         )}
       </div>
 
-      {/* The same footer band as every other modal, from the same constant (decided 2026-08-07): a
-          separator that reaches the dialog's edges, then the pair sitting exactly as it does in the
-          create and edit forms. No width here — the band declares its own, and a `w-full` beside it
-          wins on source order and pulls it 2rem narrow, which is what made this dialog asymmetric. */}
+      {/* No width here — the band declares its own, and a `w-full` beside it wins on source order. */}
       <div className={`${MODAL_FOOTER_ROW} mt-6`}>
         <Button
           type="button"
@@ -184,8 +156,7 @@ export function ConfirmDeleteModal({
           isDisabled={isPending}
           className={formButton({ intent: "destructive" })}
           onPress={handleDelete}>
-          {/* Step 2's label is what escalates, so it has to say more than step 1's rather than the same
-              word twice. "endgültig" belongs only to a write that is actually final. */}
+          {/* Step 2's label escalates, so it says more than step 1's. "endgültig" belongs only to a final write. */}
           {isPending ? "Speichert..." : confirmStep === 1 ? capitalized : isPermanent ? `Ja, endgültig ${verb}` : `Ja, ${verb}`}
         </Button>
       </div>

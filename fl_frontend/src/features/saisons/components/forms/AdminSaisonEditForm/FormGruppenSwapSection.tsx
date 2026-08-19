@@ -35,12 +35,8 @@ const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
 };
 
 /**
- * One side of the swap: a club picker listing every club of the season with the group it holds.
- *
- * A picked control, so there is nothing to judge on blur — a selection is complete the
- * moment it is made. `unpickable` names the clubs this side may not take, and they stay VISIBLE and
- * disabled rather than disappearing, which is `GruppeSelect`'s rule for a full group: an admin should
- * see why a club cannot be chosen instead of wondering where it went.
+ * One side of the swap. An `unpickable` club stays VISIBLE and disabled rather than disappearing,
+ * which is `GruppeSelect`'s rule for a full group: an admin should see why, not wonder where it went.
  */
 function SwapTeamSelect({
   label,
@@ -102,15 +98,8 @@ function SwapTeamSelect({
 }
 
 /**
- * The exchange itself, drawn between the two pickers rather than beside them.
- *
- * **This is what makes the pair read as one operation.** Two selects and a button below them are three
- * controls a reader has to assemble; a connective carrying the two group letters is the operation
- * stated in the middle of its own operands — the origin/destination pattern airline search uses, minus
- * its reverse control, because a swap is symmetric and reversing the two sides would change nothing.
- *
- * `aria-hidden`, because it restates the two triggers plus the outcome callout below, and a screen
- * reader arriving at a third copy of the same fact learns nothing.
+ * **What makes the pair read as one operation** rather than three controls a reader assembles.
+ * `aria-hidden`, because it restates the two triggers and the callout below them.
  */
 function SwapConnective({ first, second }: { first: SaisonSwapTeam | null; second: SaisonSwapTeam | null }) {
   return (
@@ -133,35 +122,8 @@ function SwapConnective({ first, second }: { first: SaisonSwapTeam | null; secon
 }
 
 /**
- * The group swap: two clubs of this season exchange groups, in one write.
- *
- * **The one mid-season group change that is defensible.** A group decides which table counts a club's
- * results and which bracket slot its placing seeds, so moving a single club falsifies both —
- * which is why the club editor locks its Gruppe picker the moment the season is under way and the club
- * has a fixture. Two clubs exchanging keeps each group's size and leaves every drawn fixture facing the
- * opponents it was drawn against, and that lock's own message names this as the case that would be
- * defensible.
- *
- * **This panel is the swap's home, and the club editor's control is a second entry point into the same
- * write**. Here both sides are open, which is where an admin who has not yet decided which
- * two clubs to exchange belongs; the club editor fixes one side because its page has already named it.
- *
- * **A control rather than a field.** It writes the moment it is confirmed and never joins the save bar,
- * which is the shape the rollover takes above it and the retire controls take on the other editors.
- *
- * **A confirmation step rather than an undo offer.** The swap is its own inverse — running it again on
- * the same pair restores the season — so the useful protection is the sentence before it rather than a
- * fifteen-second window and a route handler afterwards (that machinery stays with the editors whose
- * save it belongs to).
- *
- * **Once a knockout fixture has taken place the control refuses rather than warns** (`REQ-SWAP-002`).
- * The standings have been consumed by the seeding, so there is no reading under which the swap is still
- * defensible — and the endpoint refuses the same thing and stays the authority.
- *
- * **A club that has already played in its group is offered and refused in place** (`REQ-SWAP-004`), a
- * pair that would double a club on one Spieltag is refused on the second picker (`REQ-SWAP-005`), and a
- * finished season closes the panel outright (`REQ-SWAP-003`). Each is the endpoint's rule said in the
- * form, so the panel offers only pairs the write path takes.
+ * Two clubs of this season exchange groups in one write. **A confirmation step rather than an undo
+ * offer**: the swap is its own inverse, so the useful protection is the sentence before it.
  */
 export function FormGruppenSwapSection({
   saisonId,
@@ -182,19 +144,15 @@ export function FormGruppenSwapSection({
 
   const isClosed = swap.playedKnockoutSpiele > 0;
 
-  // Two groups have to hold a club that can still be exchanged. A club that has played inside its
-  // group cannot leave it (`REQ-SWAP-004`), so counting it would offer a pair the endpoint 409s.
+  // A club that has played inside its group cannot leave it (`REQ-SWAP-004`), so counting it here
+  // would open the panel on a pair the endpoint 409s.
   const swappable = swap.teams.filter((team) => team.gespielteGruppenSpiele === 0);
   const hasTwoGruppen = new Set(swap.teams.map((team) => team.gruppe)).size >= 2;
   const hasTwoSwappableGruppen = new Set(swappable.map((team) => team.gruppe)).size >= 2;
 
   /**
-   * What EITHER picker may not take, keyed by club id with the reason shown beside it.
-   *
-   * `REQ-SWAP-004` said in the form: a club with a Gruppenphase fixture behind it that has taken place
-   * has taken part in a round robin it can no longer leave, whichever side of the exchange it is
-   * offered as. Disabled and still visible, which is `GruppeSelect`'s rule for a full group: an admin
-   * should see why a club cannot be chosen instead of wondering where it went.
+   * `REQ-SWAP-004` in the form, for EITHER picker: a club with a played Gruppenphase fixture is in a
+   * round robin it can no longer leave, whichever side of the exchange it is offered as.
    */
   const unpickable = new Map<string, string>();
   for (const team of swap.teams) {
@@ -202,11 +160,8 @@ export function FormGruppenSwapSection({
   }
 
   /**
-   * What the SECOND picker may not take on top of that, from the shared per-candidate rule.
-   *
-   * It is rebuilt against `first` rather than computed once because a Spieltag clash is a property of
-   * the PAIR (`REQ-SWAP-005`), so no club is unpickable on its own account. Offering any of them would
-   * be offering a request the write path answers with a 409.
+   * Rebuilt against `first` rather than computed once: a Spieltag clash is a property of the PAIR
+   * (`REQ-SWAP-005`), so no club is unpickable for the second picker on its own account.
    */
   const unpickableForSecond = new Map(unpickable);
   if (first) {
@@ -219,8 +174,8 @@ export function FormGruppenSwapSection({
   const handleFirstChange = (team: SaisonSwapTeam) => {
     setFirst(team);
     setIsConfirming(false);
-    // Cleared rather than kept: the new first pick can make the standing second one illegal, and a
-    // disabled row left selected is a pair the button would send and the endpoint would refuse.
+    // Cleared rather than kept: a disabled row left selected is a pair the button would send and the
+    // endpoint would refuse.
     if (second && findSwapPartnerRefusal(team, second) !== null) setSecond(null);
   };
 
@@ -249,15 +204,14 @@ export function FormGruppenSwapSection({
       appToast.success("Gruppen getauscht", { description: res.message });
       setFirst(null);
       setSecond(null);
-      // The action's own invalidation reaches the caches; this is what re-renders the page the admin is
-      // still standing on, whose pickers now have to show the groups the swap produced.
+      // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
+      // whose pickers now have to show the groups the swap produced.
       router.refresh();
     });
   };
 
-  // The sentence the disabled button is described by, rendered only while it is disabled for a
-  // reason a reader can act on — `FormErgebnisSection`'s shape. A swap in flight names nothing,
-  // because the label already says so.
+  // Rendered only while the button is disabled for a reason a reader can act on. A swap in flight
+  // names nothing: the label already says so.
   const missingPickHint = first === null ? "Wähle zwei Mannschaften aus zwei verschiedenen Gruppen." : "Wähle noch die zweite Mannschaft.";
   const isMissingAPick = first === null || second === null;
 
@@ -330,10 +284,9 @@ export function FormGruppenSwapSection({
               Gruppen, und dürfen in ihrer Gruppe noch nicht gespielt haben.
             </p>
 
-            {/* One group rather than two fields: the exchange is a single decision over two operands,
-                and the connective between them is where it is stated. `items-end` rather than a margin
-                on the connective — both pickers end in a 40px trigger, so aligning the row's bottoms
-                puts the chip on the triggers' line whatever height the fluid label resolves to. */}
+            {/* One group rather than two fields: the exchange is one decision over two operands.
+                `items-end` rather than a margin — both pickers end in the same trigger height, so
+                aligning the bottoms holds the chip on their line. */}
             <div
               role="group"
               aria-labelledby={PAIR_LABEL_ID}

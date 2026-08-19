@@ -17,16 +17,9 @@ import { TeamFieldLabel } from "./TeamFieldLabel";
 import type { FLPostTeamPayload } from "@/features/teams/schemas";
 
 /**
- * The club's identity: names, shorthand, website and the public description.
- *
- * **The Kürzel uppercases as it is typed** — the two letters are an identity held unique across
- * every club, retired ones included, so the field never lets a case variant look like a different
- * value. Whether the letters are actually free is the backend's to say; a 409 comes back onto this
- * field and into a toast (decided 2026-08-07).
- *
- * **The description is a preview with an edit control**, not an input: it is a paragraph, and a
- * one-line field made everything past its width practically uneditable. The modal edits a local
- * copy and applies it into the draft — nothing is saved until the page's own save.
+ * The Kürzel uppercases as it is typed: it is unique across every club, retired ones included, so
+ * a case variant must not look like a different value. Whether the letters are free is the
+ * backend's to say; its 409 lands on this field.
  */
 export function FormVereinSection({
   draft,
@@ -75,8 +68,6 @@ export function FormVereinSection({
           <TextField
             isRequired
             name="shorthand"
-            // Uppercased at the boundary, so the stored value and the typed value cannot differ by
-            // case alone.
             value={draft.shorthand}
             onChange={(next) => onChange({ ...draft, shorthand: next.toUpperCase() })}
             onBlur={() => onFieldLeft(["shorthand"])}
@@ -107,9 +98,8 @@ export function FormVereinSection({
 
         <div className="flex w-full flex-col gap-y-1">
           <TeamFieldLabel path="description">Beschreibung</TeamFieldLabel>
-          {/* A preview, deliberately not an input: pressing it opens the modal, exactly like the
-              pencil beside it, so the whole block is one large target for one action. The modal caps
-              at the schema's own 4096, and the loaded value came through a schema carrying it. */}
+          {/* A preview, deliberately not an input: a description is a paragraph. Pressing it opens
+              the modal, as the pencil does, so the block is one target for one action. */}
           <button
             type="button"
             onClick={() => setIsEditingDescription(true)}
