@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `889c31dd`, 2026-08-19\
+**Verified against:** `4393dba3`, 2026-08-19\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -524,13 +524,14 @@ already hidden inside `scripts`.
 reader not to edit the file.** A hand-edit type-checks, lints and builds. It then survives until
 somebody runs `pnpm brand` for an unrelated reason — a new icon size, a manifest entry — at which
 point the generator overwrites it inside a commit whose subject says something else entirely. Every
-other asset that script emits sits behind the same banner: `icon.svg`, the favicon and the manifest
-icons.
+other asset that script emits carries no banner at all: `icon.svg`, the favicon and the manifest
+icons rest on the convention alone.
 
 **The artifacts agree today.** What the generator emits for the component and what the repository
-holds differ in whitespace alone — the script writes each JSX element on one line and the formatter
-expands it — so the mark that renders is the mark the geometry produces, erosion filter included.
-This entry is about the missing check, not about a divergence.
+holds differ in whitespace alone — the script writes the filter primitives and the letter and
+speed-bar rects one to a line, and the formatter expands them — so the mark that renders is the mark
+the geometry produces, erosion filter included. This entry is about the missing check, not about a
+divergence.
 
 **The pattern exists already, on the other surface.** `fl_backend/openapi.json` is a committed
 generated artifact whose freshness is a test: it regenerates the document and compares
