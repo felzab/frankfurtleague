@@ -37,8 +37,8 @@ export const SPIELTAG_FACETS: readonly Facet<AdminSpieltagRow>[] = [
       { value: "unvollstaendig", label: "Weicht ab" },
     ],
     // A matchday's attached fixtures against what its phase expects, made filterable: the expected
-    // count is derived from the season's rules (ADR-0052) and nothing holds the two equal, so „Weicht
-    // ab“ is the shortlist of matchdays that diverge.
+    // count is derived from the season's rules and nothing holds the two equal, so „Weicht ab“ is
+    // the shortlist of matchdays that diverge.
     read: (spieltag) => [spieltag.spieleAngelegt === spieltag.anzahl_spiele ? "vollstaendig" : "unvollstaendig"],
   },
 ];

@@ -39,9 +39,6 @@ from .kernel import (
     tracked_files,
 )
 from .perkind import (
-    adr_numbers,
-    check_adr_index,
-    check_adr_meta,
     check_check_registry,
     check_enforced_by,
     check_glossary,
@@ -70,8 +67,8 @@ def main() -> int:
 
     files = tracked_files()
     if not files:
-        # Refused, not green (ADR-0066): an empty corpus is a tree this gate could not read, and a
-        # green exit under a line saying nothing was checked is the shape that ADR rejects.
+        # Refused, not green: an empty corpus is a tree this gate could not read, and a green exit
+        # under a line saying nothing was checked is the shape a refusal exists to prevent.
         print("      no tracked file matched -- nothing was read, so this run proves nothing", file=sys.stderr)
         return checker_kernel.EXIT_REFUSED
 
@@ -80,20 +77,17 @@ def main() -> int:
     # branch's commits as this one's.
     branch = Branch(checker_kernel.DEFAULT_BASE, checker_kernel.resolve_base())
 
-    existing_adrs = adr_numbers()
     existing_rules = rule_ids()
     existing_invariants = invariant_ids()
     additions = branch_additions(branch)
     findings: list[Finding] = []
     for path in files:
-        findings.extend(check_file(path, existing_adrs, existing_rules, existing_invariants))
+        findings.extend(check_file(path, existing_rules, existing_invariants))
     findings.extend(check_stamps(files))
     findings.extend(check_stamp_missing())
     findings.extend(check_stamp_freshness(branch))
     findings.extend(check_branch_impact(branch))
     findings.extend(check_branch_diff(branch))
-    findings.extend(check_adr_meta())
-    findings.extend(check_adr_index())
     findings.extend(check_roadmap())
     findings.extend(check_inputs())
     findings.extend(check_line_endings())
@@ -130,5 +124,5 @@ def main() -> int:
 
     docs = sum(1 for f in files if f.suffix == ".md")
     sources = len(files) - docs
-    print(f"\n      scanned {docs} documents and {sources} source files against {len(existing_adrs)} ADRs, {len(existing_rules)} rules")
+    print(f"\n      scanned {docs} documents and {sources} source files against {len(existing_rules)} rules")
     return checker_kernel.EXIT_FINDINGS if failures else checker_kernel.EXIT_OK

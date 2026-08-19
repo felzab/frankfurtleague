@@ -13,8 +13,7 @@ a table cannot carry. It does not repeat what a table already says, because the 
 nothing checks.
 
 **Nothing here runs.** Each rule is enforced at the endpoint that owns the write, by a pure function, and
-that is deliberate rather than incidental
-([ADR-0053](_decisions/0053-the-domain-model-is-declared-and-conformance-checked.md)).
+that is deliberate rather than incidental.
 
 **If you read one section, read [Aggregates](#aggregates).** Several of the boundaries are counter-intuitive
 and every one of those mistakes is expensive.
@@ -56,8 +55,7 @@ list, each entry stating the invariant that binds it.
 ### The ones that surprise everybody
 
 **`spiele` is one aggregate per SEASON, not per match.** Entering a result resolves the season's bracket in
-the same transaction and rewrites fixtures the request never named
-([ADR-0034](_decisions/0034-a-result-entry-resolves-the-whole-bracket.md)). So the consistency boundary of a
+the same transaction and rewrites fixtures the request never named. So the consistency boundary of a
 match write is _every fixture in that season_: `PATCH /spiele/{spiel_id}` looks like a single-document write
 and is not one. Every rule on this aggregate needs more than the fixture the request names — the matchday it
 sits in, the other fixtures sharing its venue, or the season's whole bracket.
@@ -65,12 +63,11 @@ sits in, the other fixtures sharing its venue, or the season's whole bracket.
 **`teams` is NOT inside `Saison`.** A club exists independently of any season, and what belongs to a season
 is the junction row. The practical test: a club's name, address and website are on `teams`; its group and
 its disqualification are on `saison_teams`; its league table is on neither, because it is derived from the
-matches ([ADR-0019](_decisions/0019-team-statistics-are-derived-from-spiele.md)).
+matches.
 
 **`spieltage` is its own aggregate even though `spiele` points at it.** Nothing holds a matchday and its
-fixtures true together: the matchday's position and its expected match count are each derived from elsewhere
-(ADR-0051, [ADR-0052](_decisions/0052-a-seasons-schedule-is-derived-from-its-rules.md)), and retiring one
-leaves its matches untouched. A reference is not a boundary.
+fixtures true together: the matchday's position and its expected match count are each derived from
+elsewhere, and retiring one leaves its matches untouched. A reference is not a boundary.
 
 ---
 
@@ -88,8 +85,7 @@ join. Renaming the target therefore has to reach every match that embeds it, and
 exactly that. What none of them touches is the point:
 
 - a venue's **`mietpreis`** and a referee's **`payment`** do not fan out. They record what _this fixture_
-  cost, so rewriting them would rewrite history
-  ([ADR-0021](_decisions/0021-store-what-was-true-then-derive-what-is-true-now.md), rule 2).
+  cost, so rewriting them would rewrite history.
 - a **disqualification** is not embedded at all. It is joined from the junction on every read, so entering
   one reaches every surface at once instead of needing a fan-out.
 
@@ -108,9 +104,7 @@ there is.
 
 No endpoint removes a `saisons`, `saison_teams` or `spiele` document, and each absence is its own decision
 rather than one oversight: removing a season orphans every `saison_id` in the database and a team leaves a
-season only by disqualification ([ADR-0026](_decisions/0026-one-active-season-and-one-path-to-it.md)), while
-a season's fixtures are created once, then cancelled or moved
-([ADR-0037](_decisions/0037-a-seasons-fixtures-are-created-once.md)).
+season only by disqualification, while a season's fixtures are created once, then cancelled or moved.
 
 ---
 
@@ -131,7 +125,7 @@ The fields of `rules` do not behave alike, and `FIELD_POLICIES` says which behav
 season is `past`, because the league table is scored from them on every read and nothing records what it
 said before. Some may never narrow below what already exists, because the data below would be stranded.
 `erlaubte_stufen` narrows freely even on a finished season, because it bounds what a **form offers** rather
-than what a stored squad row holds ([ADR-0048](_decisions/0048-position-and-stufe-are-closed-sets.md)).
+than what a stored squad row holds.
 
 **The freeze compares values, not the endpoint.** A date-only edit resubmits the whole `rules` object
 unchanged and passes, which is precisely what keeps the dates repairable. The season's `start_date` and
@@ -160,10 +154,10 @@ the English detail as a named pair, so the rule that decides a refusal is also w
 `judge_spieltag_occupancy` is the one signature that differs: it returns a `SpieltagVerdict` carrying a
 `WriteRefusal` beside the moves it plans, because a clash against a manual side is resolved rather than
 refused. A uniform `is_valid(operation) -> bool` cannot express that outcome, which is why there is no
-central evaluator (ADR-0053).
+central evaluator.
 
 **`RULES` is not the whole list of what a match write does.** The bracket resolution backs no row in it and
-**rewrites** fixtures the request never named (ADR-0034).
+**rewrites** fixtures the request never named.
 
 ### The checks run in the order somebody can act on
 
@@ -183,10 +177,9 @@ its reason and, where there is one, the surface that reports it instead. What se
 test: refusing would block a legitimate act rather than a mistake — a season being set up passes through
 several of these states on its way to being complete.
 
-Where a state is reported, the report is a page and never a stored flag: no bracket fault is stored
-([ADR-0039](_decisions/0039-a-bracket-fault-is-derived-on-demand.md)), and the mismatch between a matchday's
-fixtures and the count its phase implies is computed on the admin read (ADR-0052). Where an entry names no
-surface, nothing reports the state.
+Where a state is reported, the report is a page and never a stored flag: no bracket fault is stored, and the
+mismatch between a matchday's fixtures and the count its phase implies is computed on the admin read. Where
+an entry names no surface, nothing reports the state.
 
 ---
 
@@ -201,8 +194,7 @@ The division is deliberate:
 | **`find_*_refusal` functions** | Everything spanning more than one document                  | No validator sees more than one document                                 |
 | **The admin pages**            | Offering only legal choices, and reporting permitted states | A page may never be the only enforcement — a direct API call bypasses it |
 
-The boundary between the validators and the models is
-[ADR-0020](_decisions/0020-the-database-enforces-its-own-invariants.md) and is itself tested:
+The boundary between the validators and the models is itself tested:
 `fl_backend/tests/core/test_constraints.py :: test_no_validator_constrains_a_range_or_a_format` fails a
 validator that reaches past it, so widening the line is a decision rather than an improvement somebody slips
 in.
@@ -232,10 +224,6 @@ and become an engine a write can forget to consult.
 
 ## See also
 
-- **[`_decisions/0053`](_decisions/0053-the-domain-model-is-declared-and-conformance-checked.md)** — why this
-  is a declaration and not a runtime rules engine, and what that rejected
-- **[`_decisions/0052`](_decisions/0052-a-seasons-schedule-is-derived-from-its-rules.md)** — the season
-  schedule, the rules refusals and the phase set
 - **[`backend/spec.md`](backend/spec.md)** — the endpoint inventory and the backend's own invariants
 - **[`glossary.md`](glossary.md)** — the German vocabulary, which is not optional
 - **[`logging/error-codes.md`](logging/error-codes.md)** — how an error code reaches a log line and a German message

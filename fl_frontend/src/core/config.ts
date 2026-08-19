@@ -35,7 +35,7 @@ export const frontend_config = createEnv({
     }, "AUTH_URL must use https:// unless it points at localhost"),
     // AUTH_TRUST_HOST is deliberately NOT declared: @auth/core reads it only after
     // `AUTH_URL`, which is mandatory above. What stops a forged Host header is that
-    // plus nginx's catch-all default_server block (ADR-0011).
+    // plus nginx's catch-all default_server block.
     AUTH_SECRET: z.string(),
     AUTH_RESEND_KEY: z.string(),
 

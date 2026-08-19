@@ -46,8 +46,8 @@ programme's surface is still registered — it is filed as a roadmap item rather
 CONTEXT — derive, do not assume. Establish before enumerating anything: what this system is for and
 who uses it (`docs/README.md`, `docs/glossary.md`); what data it holds and which of it is personal;
 what is published to the public internet versus what sits behind authentication; what a wrong answer
-would look like to a reader who trusts the site. Read `docs/_decisions/` for the invariants already
-ratified — a hazard an ADR has already accepted is a recorded risk, not a finding.
+would look like to a reader who trusts the site. Read `.claude/CLAUDE.md` §7 and each spec sheet's
+invariants for what is already ratified — a hazard accepted there is a recorded risk, not a finding.
 
 THE CHECKS, in priority order:
 

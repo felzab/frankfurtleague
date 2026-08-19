@@ -5,14 +5,14 @@
 # back to be fixed, and refusing it was never on offer at this event.
 #
 # WHY THIS IS A HOOK:
-#   The type scale lives outside Tailwind's `--text-*` namespace (ADR-0018), so `text-fluid-sm` is
-#   not a utility — it matches no rule, applies no size, and silently inherits one. Nothing
-#   else in the toolchain catches it: tsc has no opinion on strings, and eslint's
+#   The scale is spelled `fluid-sm` and lives outside Tailwind's `--text-*` namespace, so
+#   `text-fluid-sm` is not a utility — it matches no rule, applies no size, and silently inherits
+#   one. Nothing else in the toolchain catches it: tsc has no opinion on strings, and eslint's
 #   `no-unknown-classes` does not see a class it cannot resolve to a source. A stale class copied
 #   from an old commit or an LLM's memory would render at the wrong size with a green build.
 #
-# SCOPE: `fl_frontend/src/**/*.ts(x)` only. `globals.css` and `docs/_decisions/0025-*` name the old
-# spelling deliberately, to say never to use it, and must not trip this.
+# SCOPE: `fl_frontend/src/**/*.ts(x)` only. `globals.css` names the old spelling deliberately, to
+# say never to use it, and must not trip this.
 #
 # CONTRACT: prints nothing and exits 0 unless the written file is in scope AND contains the string.
 #
@@ -43,7 +43,7 @@ esac
 if grep -q 'text-fluid-' "$file"; then
   # The backticks are Markdown in the refusal copy, not substitution.
   # shellcheck disable=SC2016
-  printf '%s' '{"decision":"block","reason":"This file contains `text-fluid-*`, which is not a utility (ADR-0018). The type scale is spelled `fluid-sm`, never `text-fluid-sm` — the tokens live outside Tailwind --text-* so no such class is generated, and it applies no font size at all. Replace every occurrence with the `fluid-*` form."}'
+  printf '%s' '{"decision":"block","reason":"This file contains `text-fluid-*`, which is not a utility. The type scale is spelled `fluid-sm`, never `text-fluid-sm` — the tokens live outside Tailwind --text-* so no such class is generated, and it applies no font size at all. Replace every occurrence with the `fluid-*` form."}'
 fi
 
 exit 0

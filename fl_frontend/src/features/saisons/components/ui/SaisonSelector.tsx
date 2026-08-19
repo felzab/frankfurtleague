@@ -28,7 +28,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
 
   // Validated against the list, never taken raw from the user-editable `?saison_id=`:
   // an unknown id shows nothing selected while the range below falls back to the
-  // current season. `resolveSaisonId` strips it server-side (ADR-0055).
+  // current season. `resolveSaisonId` strips it server-side.
   const requestedSaisonId = searchParams.get("saison_id");
   const activeSaisonData = saisons.find((saison) => saison.id === requestedSaisonId) ?? currentSaison;
   const activeSaisonId = activeSaisonData.id;
@@ -42,7 +42,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
     const selectedId = key.toString();
     const params = new URLSearchParams(searchParams.toString());
 
-    // The current season is the backend's default (ADR-0002), so it is represented by the ABSENCE of the
+    // The current season is the backend's default, so it is represented by the ABSENCE of the
     // parameter rather than by its value. Keeps the common URL clean and shareable.
     if (selectedId !== currentSaison.id) {
       params.set("saison_id", selectedId);

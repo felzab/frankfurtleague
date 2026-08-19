@@ -212,7 +212,7 @@ class TestFLTeamRecord:
             FLTeam.model_validate(stored)
 
     def test_carries_the_retirement_date(self, team):
-        """`inactive_since` is what a soft delete writes, so the model a delete echoes has to carry it (ADR-0025)."""
+        """`inactive_since` is what a soft delete writes, so the model a delete echoes has to carry it."""
         assert FLTeamRecord.model_validate(team(inactive_since="2026-03-01")).inactive_since == "2026-03-01"
 
     def test_shares_the_name_constraint(self, team, assert_rejects):

@@ -1,14 +1,14 @@
 """
 SPIELORTE · write endpoints
 
-Venues. Every mutation sits beside the reads for its resource, in a second router guarded at
-router level by `verify_access_admin` (ADR-0027).
+Venues. Every mutation sits beside the reads for its resource, in a second router guarded at router
+level by `verify_access_admin`.
 
 Invariants:
 - `maps_link` is derived server-side and on no payload — a search string, never rendered as an href.
 - `default_mietpreis` carries no default: the patch writes the payload back wholesale.
 - A rename fans out into every match embedding the venue.
-- Deletion is soft — matches embed a copy and reference it by id (ADR-0025).
+- Deletion is soft — matches embed a copy and reference it by id.
 """
 
 from typing import Annotated

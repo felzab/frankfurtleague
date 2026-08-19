@@ -23,8 +23,8 @@ grepping for the CRUD helpers in `app/core/crud.py` and for raw Motor calls (`up
 `delete_*`, `$set`, `$inc`, `find_one_and_*`, `bulk`); and the read pipelines from each
 `services.py`. The domain model splits identity from season-scoped data (`teams` / `saison_teams`,
 `spieler` / `saison_spieler`), and the `$lookup` and strict-join semantics in `teams/services.py` are
-load-bearing for several checks below. Every resource has an `admin_router.py` write surface
-(ADR-0027); read it rather than assuming which operations exist.
+load-bearing for several checks below. Every resource has an `admin_router.py` write surface; read it
+rather than assuming which operations exist.
 
 THE CHECKS, in priority order:
 
@@ -38,8 +38,9 @@ THE CHECKS, in priority order:
    `schiedsrichter` and team fields embedded in `spiele` documents, plus anything else you find.
    Per copy: which writes to the source fan out to it (the patch endpoints do, via
    `patch_many_in_db`), which deliberately do not (read the `admin_router.py` files for the recorded
-   reasons, and ADR-0021 for the rule), and for each non-fan-out, is the resulting staleness recorded
-   and intended, or silent? **A copy that can drift with no record of the decision is a finding.**
+   reasons, and the store-what-was-true rule below), and for each non-fan-out, is the resulting
+   staleness recorded and intended, or silent? **A copy that can drift with no record of the decision
+   is a finding.**
 
 3. **MULTI-DOCUMENT WRITE ATOMICITY.** Enumerate every endpoint performing more than one write. What
    happens when write N succeeds and write N+1 fails? Are Motor sessions or transactions used
@@ -47,8 +48,8 @@ THE CHECKS, in priority order:
    reflexively — state the actual partial states and what each costs, and present the remedies
    (transaction, ordering that fails safe, a recompute endpoint) as options with trade-offs.
 
-4. **STATISTICS DERIVATION INTEGRITY.** The league table is computed by an aggregation on every read
-   (ADR-0019), which removes one defect class and introduces a read-time one. Audit the pipeline in
+4. **STATISTICS DERIVATION INTEGRITY.** The league table is computed by an aggregation on every read,
+   which removes one defect class and introduces a read-time one. Audit the pipeline in
    `teams/services.py` against the season's real data: does a match land on exactly one side of
    exactly one team; is a team with no counting match served zeros rather than dropped; can a
    malformed `spiel` document break `GET /teams`, which the derivation makes depend on `spiele`; and
@@ -62,8 +63,8 @@ THE CHECKS, in priority order:
    emitted query? Per `$lookup`: what happens to a row whose junction document is missing (a strict
    join drops it — where is that right, and where does it hide data)?
 
-6. **SOFT-DELETE SEMANTICS.** Soft deletion is the nullable `inactive_since` date, never a boolean
-   (ADR-0025). Is it filtered consistently on every read path that should exclude retired entities?
+6. **SOFT-DELETE SEMANTICS.** Soft deletion is the nullable `inactive_since` date, never a boolean.
+   Is it filtered consistently on every read path that should exclude retired entities?
    Can a retired Schiedsrichter or Spielort still be assigned to a match by id? What does a consumer
    see for a match whose embedded entity was retired after the match was written? Note that
    `saisons`, `saison_teams` and `spiele` deliberately have no such field.
@@ -71,49 +72,42 @@ THE CHECKS, in priority order:
 7. **REFERENTIAL INTEGRITY AT THE BOUNDARIES.** For every id accepted by a write endpoint
    (`team_id`, `spielort_id`, `schiedsrichter_id`, …): is existence validated before the id is
    written or embedded? What does a read path do with an orphaned reference — drop the row, 500, or
-   serve it wrong? Include the unresolved bracket slot
-   ([ADR-0034](../../../_decisions/0034-a-result-entry-resolves-the-whole-bracket.md)): `team1` and
-   `team2` are nullable and their `teamN_quelle` siblings are not paired with them by any rule, so
-   report what each read path does with all four combinations rather than only the two that read
-   well.
+   serve it wrong? Include the unresolved bracket slot: `team1` and `team2` are nullable and their
+   `teamN_quelle` siblings are not paired with them by any rule, so report what each read path does
+   with all four combinations rather than only the two that read well.
 
 8. **OUT-OF-BAND WRITE SURFACE.** Every collection can still be edited directly in MongoDB, and
    Pydantic validates on the way **out**, so a stored document violating a read model produces a 500
    on the endpoint serving it. The `$jsonSchema` validators in `app/core/constraints.py` assert
-   types, presence and enums only (ADR-0020), which leaves every other Pydantic constraint
-   unprotected against a direct edit. This pass owns the resulting inventory, for the whole backend:
+   types, presence and enums only, which leaves every other Pydantic constraint unprotected against a
+   direct edit. This pass owns the resulting inventory, for the whole backend:
    the constraint | the read model carrying it | what a violating document does at read time.
    `saison_teams` and `saison_spieler` have no Pydantic model to mirror, so verify those against
    live data with `python -m app.core.constraints --check`.
 
 ALREADY DECIDED — report against these, do not re-litigate them:
 
-- [ADR-0019](../../../_decisions/0019-team-statistics-are-derived-from-spiele.md) — statistics are
-  derived from `spiele`, never stored, and this is **built**, not planned. A match counts when it has
-  an `ergebnis`; a cancelled match with a result is a forfeit and counts; points come from the
-  season's `rules`. A table recomputed per request reads as an obvious thing to cache — proposing
-  that is the ADR reversed, not a finding.
-- [ADR-0021](../../../_decisions/0021-store-what-was-true-then-derive-what-is-true-now.md) — the rule
-  check 2 measures against. Embedded names are display copies owed a fan-out; `mietpreis` and
-  `payment` are point-in-time records and are **not** stale copies of `default_mietpreis` /
-  `default_payment`. Report a missing fan-out; never propose normalising these away.
-- [ADR-0020](../../../_decisions/0020-the-database-enforces-its-own-invariants.md) — every collection
-  carries a `$jsonSchema` validator, and the uniqueness rules are unique indexes, declared in
-  `app/core/constraints.py` and reapplied on every boot. **The absence of any other index is
-  deliberate** and not a finding: at this data size a query index would be theatre. Two further
-  non-findings: the validators assert types, presence and enums only, so a missing `minLength` is the
-  recorded scope rather than a gap; and they duplicate the Pydantic models **by hand**, which
-  [ADR-0024](../../../_decisions/0024-the-third-copy-of-the-schema-is-checked-not-generated.md)
-  settles with measurements. A default-tier test compares the two copies, so drift between them is a
-  test failure, not an audit finding.
-- [ADR-0025](../../../_decisions/0025-soft-deletion-is-a-date-not-a-flag.md) and
-  [ADR-0026](../../../_decisions/0026-one-active-season-and-one-path-to-it.md) — creating never
+- **Statistics are derived from `spiele`**, never stored, and this is **built**, not planned. A match
+  counts when it has an `ergebnis`; a cancelled match with a result is a forfeit and counts; points
+  come from the season's `rules`. A table recomputed per request reads as an obvious thing to cache —
+  proposing that reverses a ratified decision rather than reporting a finding.
+- **Store what was true then, derive what is true now** — the rule check 2 measures against. Embedded
+  names are display copies owed a fan-out; `mietpreis` and `payment` are point-in-time records and
+  are **not** stale copies of `default_mietpreis` / `default_payment`. Report a missing fan-out;
+  never propose normalising these away.
+- **The database enforces its own invariants** — every collection carries a `$jsonSchema` validator,
+  and the uniqueness rules are unique indexes, declared in `app/core/constraints.py` and reapplied on
+  every boot. **The absence of any other index is deliberate** and not a finding: at this data size a
+  query index would be theatre. Two further non-findings: the validators assert types, presence and
+  enums only, so a missing `minLength` is the recorded scope rather than a gap; and they duplicate
+  the Pydantic models **by hand**, deliberately rather than by generation. A default-tier test
+  compares the two copies, so drift between them is a test failure, not an audit finding.
+- **Soft deletion is a date, not a flag, and one season is active by one path** — creating never
   revives a retired row, and a natural-key collision on create is a **409**, which is correct rather
   than a bug. `saison_teams` has no DELETE and `saisons` has no DELETE; neither is an incomplete CRUD
   surface to complete.
-- ADR-0058 — the two definitions of `ausstehend` (the server's filter includes today, the client's
-  label excludes it) are ratified. Verify the code still matches the ADR; the divergence itself is
-  not a finding.
+- **The two definitions of `ausstehend`** — the server's filter includes today, the client's label
+  excludes it — are ratified. Verify the code still matches; the divergence itself is not a finding.
 
 KNOWN OPEN ITEMS to place rather than re-derive: `docs/_roadmap/open-items.md` tracks the backend items
 that are open by decision. Verify each at the current code and cite the roadmap entry instead of

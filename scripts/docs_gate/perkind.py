@@ -1,10 +1,10 @@
 """
 SCRIPTS · the checks a page's kind decides
 
-One check per document kind the standard shapes: a chapter's rules, an ADR's anatomy, the ranked
-roadmap, a spec sheet's spine, an overview's ends, the glossary's entries, the two registries and
-the sweep's partition. Each resolves its input through the tracked corpus, by glob or by name, so
-an absent one is `inputs`' finding and an un-added one is the reading check's own.
+One check per document kind the standard shapes: a chapter's rules, the ranked roadmap, a spec
+sheet's spine, an overview's ends, the glossary's entries, the two registries and the sweep's
+partition. Each resolves its input through the tracked corpus, by glob or by name, so an absent
+one is `inputs`' finding and an un-added one is the reading check's own.
 
 Invariants:
 - A check whose input is missing says so, rather than examining nothing and passing.
@@ -25,15 +25,12 @@ from typing import Final
 import check_pr_body
 
 from .kernel import (
-    ADR_INDEX_PAGE,
     BACKTICK_RE,
     BACKTICK_SPAN_RE,
     CHAPTER_GLOB,
     CHAPTERS_DIR,
     CHECKS,
     CURRENCY_PAGE,
-    DECISION_GLOB,
-    DECISIONS_DIR,
     DOCS_DIR,
     GLOSSARY_PAGE,
     OVERVIEW_GLOB,
@@ -44,7 +41,6 @@ from .kernel import (
     SPEC_GLOB,
     STAMP_RE,
     STAMP_REQUIRED_GLOBS,
-    STAMP_START_RE,
     SWEEP_PAGE,
     TEMPLATES_PAGE,
     Finding,
@@ -94,7 +90,6 @@ SEGMENT_SAMPLE: Final = 8
 REQUIRED_INPUTS: Final[tuple[str, ...]] = (
     CHAPTERS_DIR,
     RULES_INDEX_PAGE,
-    DECISIONS_DIR,
     *ROADMAP_RANKED_PAGES,
     TEMPLATES_PAGE,
     GLOSSARY_PAGE,
@@ -160,28 +155,6 @@ ROADMAP_TRANSIENT_STATUS: Final = "Closed"
 OWNER_PHRASE_RE: Final = re.compile(r"\bthe owner\b", re.IGNORECASE)
 QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
 OWNER_EXEMPT_PREFIX: Final = ".claude/"
-
-
-# The ADR anatomy DEC-2 fixes, in order. adr-meta checks the shape; the reasoning lives in the rule.
-ADR_META_ORDER: Final[tuple[str, ...]] = ("Status", "Date", "Surface", "Supersedes", "Superseded by", "Source")
-ADR_META_RE: Final = re.compile(r"^[ \t]*\*\*(Status|Date|Surface|Supersedes|Superseded by|Source):\*\*\s*(.*)$")
-ADR_STATUS_RE: Final = re.compile(r"Accepted|Proposed|Deprecated|Superseded by ADR-\d{4}")
-ADR_H2S: Final[tuple[str, ...]] = ("Context", "Decision", "Consequences", "Alternatives considered")
-# An ADR's number, taken from its filename, and the shapes its metadata may hold besides `—`.
-ADR_FILE_RE: Final = re.compile(r"^(\d{4})-")
-ADR_REFERENCE_RE: Final = re.compile(r"ADR-(\d{4})")
-ISO_DATE_RE: Final = re.compile(r"\d{4}-\d{2}-\d{2}")
-ADR_INDEX_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*\[(\d{4})\]\(([^)]+)\)", re.MULTILINE)
-
-
-def adr_numbers() -> set[str]:
-    """The four-digit prefixes of every tracked ADR file.
-
-    Tracked rather than globbed off disk, so an `ADR-NNNN` citation resolves only where a clean
-    checkout would resolve it. A new ADR left un-added answers every citation of itself on the
-    machine that wrote it, which is a false green reached by forgetting one command.
-    """
-    return {m.group(1) for f in tracked_glob(DECISION_GLOB) if (m := ADR_FILE_RE.match(f.name))}
 
 
 def rule_blocks(text: str) -> list[tuple[str, str, str]]:
@@ -270,12 +243,7 @@ def check_metadata_breaks(rel: str, body: str) -> list[Finding]:
     two. Any whitespace spares it, which is wider than those headers need: a single space between
     two fields reads as a join to a person and passes here. The narrower test would have to name the
     separators it accepts, and a header is free to pick one nobody listed.
-
-    ADRs are excluded because `adr-meta` holds their metadata block to this same rule already, and
-    one defect reported twice reads as a check that cries wolf.
     """
-    if rel.startswith("docs/_decisions/"):
-        return []
     lines = body.split("\n")
     found: list[Finding] = []
     index = 0
@@ -346,101 +314,6 @@ def check_stamp_missing() -> list[Finding]:
     return found
 
 
-def check_adr_meta() -> list[Finding]:
-    """Every tracked ADR carries DEC-2's exact anatomy, DEC-3's status set, and DEC-6's reciprocity.
-
-    Tracked, so reciprocity is read over the set a clean checkout holds: an un-added ADR naming its
-    predecessor would otherwise fail that predecessor for a back-reference nobody else can see.
-    """
-    found: list[Finding] = []
-    # Number -> the two supersession fields, collected first so reciprocity can be checked across files.
-    supersedes: dict[str, str] = {}
-    superseded_by: dict[str, str] = {}
-
-    for path in tracked_glob(DECISION_GLOB):
-        match = ADR_FILE_RE.match(path.name)
-        if match is None:
-            continue
-        number = match.group(1)
-        rel = path.relative_to(REPO_ROOT).as_posix()
-        body = _readable(path)
-        if body is None:
-            found.append(Finding("fail", "adr-meta", rel, "unreadable"))
-            continue
-        lines = body.split("\n")
-
-        title = atx_heading(lines[0], 1) or ""
-        if not title.startswith(f"ADR-{number} — "):
-            found.append(Finding("fail", "adr-meta", rel, f"the H1 does not read `# ADR-{number} — <statement>` matching the filename"))
-
-        names: list[str] = []
-        values: dict[str, str] = {}
-        breaks: list[bool] = []
-        gapped = False
-        for line in lines:
-            if atx_heading(line, 2) is not None:
-                break
-            if meta := ADR_META_RE.match(line):
-                names.append(meta.group(1))
-                # COR-8's hard break is layout, not value: strip it before validating.
-                raw_value = meta.group(2).strip()
-                breaks.append(raw_value.endswith("\\"))
-                values[meta.group(1)] = raw_value.removesuffix("\\").strip()
-            elif names and not line.strip() and len(names) < len(ADR_META_ORDER):
-                gapped = True
-
-        if gapped:
-            found.append(Finding("fail", "adr-meta", rel, "a blank line inside the metadata block splits it into two paragraphs (DEC-2)"))
-        # Every metadata line but the last carries COR-8's hard break, which is what renders them one
-        # per line; the last carries none, because nothing follows it that could flow into it.
-        for index, (name, has_break) in enumerate(zip(names, breaks, strict=True)):
-            wanted = index < len(names) - 1
-            if has_break is not wanted:
-                detail = f"the {name} line {'needs' if wanted else 'must not carry'} COR-8's trailing hard break"
-                found.append(Finding("fail", "adr-meta", rel, detail))
-        if tuple(names) != ADR_META_ORDER:
-            found.append(Finding("fail", "adr-meta", rel, f"metadata lines are not exactly {', '.join(ADR_META_ORDER)}, in that order"))
-        else:
-            if ADR_STATUS_RE.fullmatch(values["Status"]) is None:
-                found.append(Finding("fail", "adr-meta", rel, f"Status '{values['Status']}' is outside DEC-3's closed set"))
-            if ISO_DATE_RE.fullmatch(values["Date"]) is None:
-                found.append(Finding("fail", "adr-meta", rel, f"Date '{values['Date']}' is not an ISO date"))
-            if not values["Source"]:
-                found.append(Finding("fail", "adr-meta", rel, "the Source line is empty"))
-            supersedes[number] = values["Supersedes"]
-            superseded_by[number] = values["Superseded by"]
-
-        h2s = tuple(_headings("\n".join(lines), 2))
-        if h2s != ADR_H2S:
-            found.append(Finding("fail", "adr-meta", rel, f"H2 sections are not exactly {', '.join(ADR_H2S)}, in that order"))
-
-        if any(STAMP_START_RE.match(line) for line in lines):
-            found.append(Finding("fail", "adr-meta", rel, "an ADR carries no stamp line -- it is dated, never re-verified (DEC-2)"))
-
-    def other_number(value: str, rel: str, field: str) -> str | None:
-        if value == "—":
-            return None
-        if m := ADR_REFERENCE_RE.fullmatch(value):
-            return m.group(1)
-        found.append(Finding("fail", "adr-meta", rel, f"{field} '{value}' is neither — nor a single ADR-NNNN"))
-        return None
-
-    for number, value in supersedes.items():
-        rel = f"docs/_decisions/{number}-*"
-        if (other := other_number(value, rel, "Supersedes")) is None:
-            continue
-        if superseded_by.get(other) != f"ADR-{number}":
-            found.append(Finding("fail", "adr-meta", rel, f"not reciprocal: ADR-{other} does not carry Superseded by ADR-{number}"))
-    for number, value in superseded_by.items():
-        rel = f"docs/_decisions/{number}-*"
-        if (other := other_number(value, rel, "Superseded by")) is None:
-            continue
-        if supersedes.get(other) != f"ADR-{number}":
-            found.append(Finding("fail", "adr-meta", rel, f"not reciprocal: ADR-{other} does not carry Supersedes ADR-{number}"))
-
-    return found
-
-
 def check_roadmap() -> list[Finding]:
     """Each ranked roadmap page agrees with itself: index and entries, ranks, ids, no transient status.
 
@@ -499,31 +372,6 @@ def check_roadmap() -> list[Finding]:
                 detail = f"index row {match.group(2)} states {ROADMAP_TRANSIENT_STATUS} -- {transient} deletes the entry"
                 found.append(Finding("fail", "roadmap-shape", rel, detail))
 
-    return found
-
-
-def check_adr_index() -> list[Finding]:
-    """Every tracked ADR file has an index row in docs/_decisions/README.md (DEC-7).
-
-    Only the missing-row direction lives here: a row pointing at a missing file is already a dead
-    link, and the link check reports it.
-    """
-    page = tracked_page(ADR_INDEX_PAGE)
-    content = None if page is None else _read_text(page)[0]
-    if content is None:
-        return [Finding("fail", "adr-index", ADR_INDEX_PAGE, "untracked, unreadable or missing")]
-
-    rows = ADR_INDEX_ROW_RE.findall(content)
-    indexed = {number for number, _ in rows}
-
-    found: list[Finding] = []
-    for number, target in rows:
-        if not target.startswith(number):
-            detail = f"row [{number}] links to {target}, a different number's file"
-            found.append(Finding("fail", "adr-index", ADR_INDEX_PAGE, detail))
-    for path in tracked_glob(DECISION_GLOB):
-        if (match := ADR_FILE_RE.match(path.name)) and match.group(1) not in indexed:
-            found.append(Finding("fail", "adr-index", ADR_INDEX_PAGE, f"no index row for {path.name}"))
     return found
 
 

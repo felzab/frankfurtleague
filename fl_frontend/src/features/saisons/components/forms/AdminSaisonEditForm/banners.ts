@@ -52,7 +52,7 @@ export function buildSaisonBanners({
   if (saisonStatus === "active") {
     // Two facts that do not follow from each other, which is why they are one entry rather than two:
     // this season is what every page without a selector shows, and the table behind it is scored on
-    // every read (ADR-0019) rather than stored.
+    // every read rather than stored.
     banners.push({
       id: "saison.active",
       severity: "info",
@@ -93,7 +93,7 @@ export function buildSaisonBanners({
   }
 
   // The one edit on this page whose effect is retroactive and invisible at the field: the table is
-  // scored on every read rather than stored (ADR-0019), so the numbers move with nothing announcing
+  // scored on every read rather than stored, so the numbers move with nothing announcing
   // that they did.
   if (isPointsChanged) {
     banners.push({

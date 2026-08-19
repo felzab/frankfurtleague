@@ -7,8 +7,8 @@
  * Invariants:
  * - `authType: "admin"` — the backend's admin router rejects the base key.
  * - The payload is sent whole: the backend writes it back with `$set`.
- * - `spiel_id` goes in the path and never in the body (ADR-0027); this is where it is split off.
- * - The response parses with its OWN schema — `strip` mode would drop the advanced fixtures (ADR-0034).
+ * - `spiel_id` goes in the path and never in the body; this is where it is split off.
+ * - The response parses with its OWN schema — `strip` mode would drop the advanced fixtures.
  *
  * See:
  * - docs/backend/spec.md — section 1.3, what the endpoint does with this payload
@@ -30,7 +30,7 @@ export const patchAdminSpielData = async ({ spiel_id, ...fields }: FLPatchSpielD
 
 /**
  * The same call with `dry_run=true`: the backend reports what saving this payload would move and
- * destroy, and writes nothing (ADR-0041).
+ * destroy, and writes nothing.
  *
  * **Deliberately the same endpoint, the same payload and the same response schema.** A preview built
  * as its own endpoint would be a second implementation of the write path's normalisation and refusal

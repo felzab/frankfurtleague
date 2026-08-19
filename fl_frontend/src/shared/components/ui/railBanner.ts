@@ -76,13 +76,13 @@ export function resolveRailBanners<B extends RailBanner>(banners: readonly B[]):
  *
  * A tuple rather than an array because `ConfirmSaveModal`'s body is this list and its sentence counts
  * it — "0 Hinweise gelten für diesen Entwurf" is a sentence the type now refuses to let anyone
- * render, rather than an invariant stated in a comment (ADR-0070).
+ * render, rather than an invariant stated in a comment.
  */
 export type BlockingBanners<B extends RailBanner = RailBanner> = readonly [B, ...B[]];
 
 /**
- * The resolved list narrowed to what stops a save, or `null` when nothing does — ADR-0070's gate, in
- * one place.
+ * The resolved list narrowed to what stops a save, or `null` when nothing does — the save
+ * confirmation's gate, in one place.
  *
  * Named rather than spelt at each editor because two things read it and they must not be able to
  * disagree: the submit confirms exactly when this is non-null, and `ConfirmSaveModal` renders what it

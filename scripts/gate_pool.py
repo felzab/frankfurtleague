@@ -11,12 +11,11 @@ this repository they are written down.
 Invariants:
 - Nothing is printed on a run that worked; verify.sh replays the captures in the serial order.
 - A worker's captures are the worker's own bytes, decoded and re-encoded by nothing in between.
-- A unit's status travels in the manifest and never in an exit code (ADR-0066).
+- A unit's status travels in the manifest and never in an exit code.
 - No worker is signalled from here; each worker's own interrupt trap reclaims what it made.
 
 See:
 - docs/ops/spec.md -- the scopes, the order they are replayed in, and the exit contract
-- ADR-0066 -- a checker answers four exit codes, and a refusal is not a failure
 """
 
 from __future__ import annotations
@@ -33,8 +32,8 @@ from typing import Final
 
 from checker_kernel import EXIT_INTERRUPTED, EXIT_OK, run
 
-# A word and not a number: every number in this column is an exit status a scope really returned
-# (ADR-0066), so a numeric sentinel would reach verify.sh through the arm meant for a real answer.
+# A word and not a number: every number in this column is an exit status a scope really returned,
+# so a numeric sentinel would reach verify.sh through the arm meant for a real answer.
 NOT_STARTED: Final = "not-started"
 
 MANIFEST: Final = "manifest.tsv"

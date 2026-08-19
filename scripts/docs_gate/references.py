@@ -1,9 +1,9 @@
 """
 SCRIPTS · what a page points at, and whether it is still there
 
-Citations, links, anchors, ADR numbers, rule ids and paths, and the per-file driver running every
-one of them over a single file. A comment is held to what a page is held to (INC-6), so a source
-file's extracted comments are read here exactly as a document's prose is.
+Citations, links, anchors, rule ids and paths, and the per-file driver running every one of them
+over a single file. A comment is held to what a page is held to (INC-6), so a source file's
+extracted comments are read here exactly as a document's prose is.
 
 Invariants:
 - A dead reference is caught at its form rather than its meaning: COR-6 bans a line-number
@@ -52,7 +52,6 @@ from .structure import _header_scoped, check_header_see, check_module_header
 BARE_PATH_RE: Final = re.compile(r"(?<![\w`/.\-])(?:" + "|".join(re.escape(p) for p in REPO_PREFIXES) + r")[\w./\-]*[\w/]")
 
 
-ADR_RE: Final = re.compile(r"\bADR-(\d{4})\b")
 # The fragment is captured rather than discarded: dropping it is what let a link to a heading that
 # no longer exists pass, since the file it names is still there. A title is CommonMark's; an empty
 # target is an in-page link.
@@ -141,7 +140,7 @@ def _check_citation(citation: str, rel: str) -> list[Finding]:
     return []
 
 
-def check_file(path: Path, existing_adrs: set[str], rules: dict[str, list[str]], invariants: dict[str, list[str]]) -> list[Finding]:
+def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, list[str]]) -> list[Finding]:
     """Every per-file check, for one file.
 
     A source file reaches all of it but the anchor check. INC-6 makes a comment a spec sheet's
@@ -172,10 +171,6 @@ def check_file(path: Path, existing_adrs: set[str], rules: dict[str, list[str]],
     else:
         found.extend(check_comment_citations(rel, body))
         found.extend(check_bare_paths(rel, body))
-
-    for number in sorted(set(ADR_RE.findall(body))):
-        if number not in existing_adrs:
-            found.append(Finding("fail", "adr", rel, f"ADR-{number} resolves to no tracked file in docs/_decisions/"))
 
     for rule_id in sorted(set(RULE_ID_RE.findall(body))):
         homes = rules.get(rule_id, [])
@@ -279,11 +274,11 @@ def check_comment_citations(rel: str, body: str) -> list[Finding]:
     found: list[Finding] = []
     for match in AUDIT_ID_RE.finditer(body):
         found.append(
-            Finding("fail", "comment-citation", rel, f"audit id `{match.group(0).strip()}` in a comment (INC-6) -- cite an ADR or a path")
+            Finding("fail", "comment-citation", rel, f"audit id `{match.group(0).strip()}` in a comment (INC-6) -- cite a path or a symbol")
         )
     for match in LEDGER_ROW_RE.finditer(body):
         found.append(
-            Finding("fail", "comment-citation", rel, f"ledger row `{match.group(0).strip()}` in a comment (INC-6) -- cite an ADR or a path")
+            Finding("fail", "comment-citation", rel, f"ledger row `{match.group(0).strip()}` in a comment (INC-6) -- cite a path or a symbol")
         )
     return found
 

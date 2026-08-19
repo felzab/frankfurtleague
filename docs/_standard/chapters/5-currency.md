@@ -69,12 +69,11 @@ stating what is true of this repository today carries one. A page whose own cont
 that navigates elsewhere has no claim that can go stale, so it needs none, and one there is neither
 required nor wrong. These never carry one, wherever they sit:
 
-- an ADR, dated and never re-verified (DEC-2)
 - a template, whose stamp line is a placeholder belonging to the copy
 - an instruction file — a prompt, a command, or a page of method — which tells a reader what to do
   rather than describing what is
-- a document addressed to a reader outside this repository: the root `README.md`, `CONTRIBUTING.md`
-  and `SECURITY.md`, for whom a commit id resolves to nothing
+- a document addressed to a reader outside this repository: the root `README.md` and `SECURITY.md`,
+  for whom a commit id resolves to nothing
 
 **Why:** the stamp is what makes staleness measurable — without a reference commit, "is this
 still true" has no mechanical answer.
@@ -101,7 +100,7 @@ gets suppressed.
 
 **Exceptions:** a page added on the branch — there is no earlier stamp to move. And a cited
 page whose whole delta is stamp lines — a restamp re-verifies its own page and changes nothing a
-citer cites, so it re-arms nothing (ADR-0059).
+citer cites, so it re-arms nothing.
 
 **Enforced by:** gate checks `branch-impact` and `stamp`.
 
@@ -114,7 +113,6 @@ docs scope. This table is the one place its checks are listed; the script's docs
 
 | Check               | A failure means                                                                                                                                                                      | Verdict |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| `adr`               | An `ADR-NNNN` citation resolves to no file in `docs/_decisions/`                                                                                                                     | Fail    |
 | `link`              | A relative markdown link points at nothing                                                                                                                                           | Fail    |
 | `anchor`            | An in-page `#anchor` link matches no heading in its file                                                                                                                             | Fail    |
 | `citation`          | A `<file> :: <anchor>` citation's file does not resolve, or is ambiguous, or the anchor is gone — see the scanning rules below                                                       | Fail    |
@@ -128,8 +126,6 @@ docs scope. This table is the one place its checks are listed; the script's docs
 | `stamp`             | A stamped SHA is no ancestor of `HEAD`, or a page changed on the branch kept its stamp                                                                                               | Fail    |
 | `stamp-format`      | A stamp line deviates from CUR-3's exact shape, or from its line                                                                                                                     | Fail    |
 | `branch-impact`     | The branch materially changed a file a stamped page cites, and the page kept its stamp (CUR-4)                                                                                       | Fail    |
-| `adr-meta`          | An ADR breaks DEC-2's anatomy, DEC-3's status set, DEC-6's reciprocity, or COR-8's hard break                                                                                        | Fail    |
-| `adr-index`         | An ADR has no row in the index (DEC-7)                                                                                                                                               | Fail    |
 | `rule-id`           | A cited rule id resolves to no rule heading in `docs/_standard/chapters/`, or resolves to more than one rule — including a bare `I<n>` in a comment that two spec sheets both define | Fail    |
 | `metadata-break`    | A metadata line breaks COR-8's hard break — carrying one where it must not, or missing one where it must                                                                             | Fail    |
 | `bare-path`         | A repository path named in a comment without backticks resolves to nothing                                                                                                           | Fail    |
@@ -168,7 +164,7 @@ The scanning rules that keep it quiet:
   directory, a cache, a nested worktree — cannot make one ambiguous, and a name that set does not
   answer resolves to nothing
 - a page a check reads as its subject, whether a glob selects it or a check names it, and every
-  `ADR-NNNN`, rule id, roadmap id and `I<n>` a citation resolves against, come from the tracked
+  rule id, roadmap id and `I<n>` a citation resolves against, come from the tracked
   files — a page `git add` has not reached selects nothing and resolves nothing, exactly as on a
   clean checkout. A path a page names is still answered from disk
 - source files are scanned comments-only (INC-6), and everything else is scanned in full

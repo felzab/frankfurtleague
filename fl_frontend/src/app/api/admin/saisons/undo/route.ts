@@ -2,7 +2,7 @@
  * APP · the season edit's undo
  *
  * Puts a season's dates and rules back the way they were — one of the admin mutations that are
- * route handlers rather than server actions (ADR-0049): the undo's toast outlives the page that
+ * route handlers rather than server actions: the undo's toast outlives the page that
  * raised it, and a server action dispatched from the landing route re-renders the abandoned
  * editor segment, which trips Next's E592 mid-stream. Revert to a server action when E592 is fixed.
  *
@@ -10,8 +10,8 @@
  * - `revalidateTag`, never `updateTag` — the latter is the server-action form and throws here.
  * - It guards itself: `proxy.ts` matches `/admin/:path*` only, so the session check is the control.
  * - The client holds the payload — no admin write is recorded anywhere.
- * - `status` is not on the payload: the rollover is not undoable through here (ADR-0026).
- * - Two tags, matching the save: `teams` travels with `saisons` because the table reads `rules` (ADR-0019).
+ * - `status` is not on the payload: the rollover is not undoable through here.
+ * - Two tags, matching the save: `teams` travels with `saisons` because the table reads `rules`.
  */
 
 import { revalidateTag } from "next/cache";

@@ -3,7 +3,7 @@ TEAMS · when a team may change group inside a season
 
 `find_gruppe_move_refusal`, pure, default tier. A picker lock alone is no rule (decided
 2026-08-08): without this check a direct request moves a team whose fixtures are already drawn.
-The group phase is a round robin inside each group (ADR-0052), so a team's fixtures ARE its
+The group phase is a round robin inside each group, so a team's fixtures ARE its
 group — moving it afterwards leaves every one of them played against the group it left.
 
 `REQ-ENTER-001` stays a different rule: it refuses ENTERING a season that is not `future`, and a

@@ -2,12 +2,12 @@
 SAISONS · read endpoints
 
 Writing them is `admin_router.py`, a separate module so the two authorization levels never share
-a file (ADR-0027).
+a file.
 
 Invariants:
 - `/current` is declared before `/{saison_id}` and must stay there — matching is declaration order.
 - A season id is exactly 4 characters, matching every `saison_id` that references one.
-- `rules.win_points` / `draw_points` score every derived league table on read (ADR-0019).
+- `rules.win_points` / `draw_points` score every derived league table on read.
 
 See:
 - docs/frontend/spec.md — section 1.5, how a direct edit here reaches the frontend cache

@@ -87,14 +87,11 @@ Divergences resolved during the work belong here too.>
 
 **Left undone.** <Explicitly, with the reason — including anything that could not be verified and
 why. Drop a heading rather than padding it: nothing left undone means no heading.>
-
-**Governed by.** <Links to any ADR the change touches.>
 ```
 
 `scripts/check_pr_body.py` refuses a body still carrying this form's placeholder prose, a body with
 no Verified section, a summary above the first heading past 500 words, and three or more
-**consecutive** list items each carrying a commit hash
-([ADR-0029](../_decisions/0029-a-pull-request-body-summarises-the-branch.md)). A line of prose
-breaks that run; a blank line does not (`scripts/check_pr_body.py :: longest_commit_run`). A body
-Dependabot opened is skipped whole (`scripts/check_pr_body.py :: BOT_AUTHORS`) — ADR-0029 governs
-human-authored bodies alone.
+**consecutive** list items each carrying a commit hash. A line of prose breaks that run; a blank
+line does not (`scripts/check_pr_body.py :: longest_commit_run`). A body Dependabot opened is
+skipped whole (`scripts/check_pr_body.py :: BOT_AUTHORS`); this form governs human-authored bodies
+alone.

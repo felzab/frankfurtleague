@@ -9,7 +9,7 @@
  *
  * Invariants:
  * - Never merged with `SpielCardCompact` or `SpielCardUltraCompact`; only their shared derivation is
- *   extracted (ADR-0005).
+ *   extracted.
  */
 import Link from "next/link";
 
@@ -39,7 +39,7 @@ export function SpielCard({
   /**
    * Where this fixture is edited, on the admin routes; absent on every public one.
    *
-   * A LINK, not a button, because the editor is a page now (ADR-0040). Three things follow that a
+   * A LINK, not a button, because the editor is a page now. Three things follow that a
    * button could not give: Next prefetches the route on approach, so the first tap pays for no chunk —
    * which is what the modal's hand-rolled idle preload existed to fake — and middle-click and
    * open-in-new-tab work, so an admin can line up several fixtures at once.
@@ -136,7 +136,7 @@ export function SpielCard({
             2.62:1 (success) and 3.83:1 (danger) here in the light theme. All three cards say `-strong`. */}
         {/* The shoot-out is a SECOND LINE under the score, never folded into it: the fixture finished
             level and the Saisontabelle counts it as a draw, so `2:2` has to stay the score this card
-            shows (ADR-0036). Inside the same grid cell, so the two 1fr team tracks are unaffected. */}
+            shows. Inside the same grid cell, so the two 1fr team tracks are unaffected. */}
         <span
           className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
           {spielErgebnis}

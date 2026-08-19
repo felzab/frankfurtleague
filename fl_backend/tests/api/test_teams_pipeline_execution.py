@@ -1,5 +1,5 @@
 """
-TEAMS · `build_team_pipeline` executed by a real MongoDB (ADR-0023)
+TEAMS · `build_team_pipeline` executed by a real MongoDB
 
 The sibling `test_teams_pipeline.py` asserts what the pipeline SAYS; this asserts what MongoDB
 COMPUTES from it — a `$cond` picking the wrong side, a `$sum` over the wrong field, a scope
@@ -51,11 +51,11 @@ def rows(
     Run the real pipeline and return the documents, in pipeline order.
 
     `scope` is not defaulted, for the same reason the structural suite does not default it: the
-    default lives on the model and is itself the decision (ADR-0022). A test that wants the default
+    default lives on the model and is itself the decision. A test that wants the default
     must get it from the model.
 
     `team_id` is a separate parameter rather than one of `**filters` because that is what it is on the
-    pipeline: `GET /teams/{team_id}` passes it as an argument, not as a filter field (ADR-0027).
+    pipeline: `GET /teams/{team_id}` passes it as an argument, not as a filter field.
     """
     params = FLTeamsFilterParams(saison_id=SAISON, **filters)
     if scope is not None:
@@ -69,7 +69,7 @@ def table(league: SeededLeague, **kwargs: Any) -> dict[str, dict[str, int]]:
     return {row["name"]: row["statistik"] for row in rows(league, **kwargs)}
 
 
-# The scope (ADR-0022)
+# The scope
 
 
 def test_the_default_scope_counts_only_the_gruppenphase(league: SeededLeague):
@@ -81,7 +81,7 @@ def test_the_gesamt_scope_adds_the_playoff_match(league: SeededLeague):
     """
     The same team, the same pipeline, one parameter apart.
 
-    This is the divergence ADR-0022 measured against the live database, reproduced from a fixture --
+    This is the divergence that keeps the default scope at `gruppenphase`, reproduced from a fixture --
     and the single assertion that would fail if the scope filtered on the wrong phase.
     """
     assert table(league, scope="gesamt")["Helmholtz"]["anzahl_gespielte_spiele"] == 4
@@ -101,7 +101,7 @@ def test_the_scopes_agree_for_a_team_with_no_playoff_match(league: SeededLeague)
     assert table(league)["Lessing"] == table(league, scope="gesamt")["Lessing"]
 
 
-# Which matches count (ADR-0019)
+# Which matches count
 
 
 def test_a_cancelled_match_carrying_a_result_still_counts(league: SeededLeague):
@@ -171,7 +171,7 @@ class TestACalledOffFixture:
 
     def test_it_moves_none_of_the_figures_the_table_is_built_from(self, league: SeededLeague):
         """
-        ADR-0019 unreversed, made observable: the figures read what they did before the cancellations existed.
+        The cancellation count stands apart: the figures read what they did before the cancellations existed.
 
         Asserted as the whole set rather than on `anzahl_gespielte_spiele` alone. A cancellation has no
         goal counts, so an accumulator that admitted it would land in `unentschieden` — `$eq: [null,
@@ -261,14 +261,14 @@ def test_the_junction_supplies_gruppe_and_disqualification(league: SeededLeague)
 
     assert by_name["Ohne"]["gruppe"] == "B"
     # The whole record travels, not a flag derived from it: the reason and the date are what FE-3's note
-    # renders, and a projection that flattened this to a boolean would pass a presence check (ADR-0047).
+    # renders, and a projection that flattened this to a boolean would pass a presence check.
     assert by_name["Lessing"]["disqualifikation"] == DISQUALIFIKATION
     assert by_name["Helmholtz"]["disqualifikation"] is None
 
 
 def test_a_stored_statistik_on_the_junction_is_ignored(league: SeededLeague):
     """
-    ADR-0019's whole point, made observable.
+    The table is derived and never read off a stored copy, made observable.
 
     Helmholtz's junction row carries a `statistik` of 99s. If any part of the pipeline read a stored
     copy -- or fell back to one -- these figures would be 99s instead of the derived numbers.

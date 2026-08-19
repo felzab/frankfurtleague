@@ -3,7 +3,7 @@
  *
  * A thrown API error must come back as a `FormState` the form can toast — never escape to the error
  * page — and the 409 case must be distinguishable, because a unique-index refusal is an ordinary
- * outcome of a create (ADR-0025, docs/logging/error-codes.md).
+ * outcome of a create (docs/logging/error-codes.md).
  */
 
 import assert from "node:assert/strict";
@@ -25,7 +25,7 @@ describe("toActionErrorResult", () => {
 
   it("gives each occupant refusal its own advice, and hands the code back", () => {
     // The code is the only channel a failure body has (`docs/logging/spec.md`, L4), so it has to
-    // survive the mapping: the form turns it into a message on a specific side (ADR-0042). A dropped
+    // survive the mapping: the form turns it into a message on a specific side. A dropped
     // code falls back to a toast naming no field.
     const refusals: [string, RegExp][] = [
       ["REQ-ELIGIBILITY-001", /disqualifiziert/],
@@ -44,7 +44,7 @@ describe("toActionErrorResult", () => {
 
   it("does not send an occupant refusal to reload the page, as a wiring refusal does", () => {
     // The two are both 409s on the same endpoint and the advice is opposite: the season has moved
-    // under a wiring refusal, and has not moved at all under an occupant one (ADR-0042).
+    // under a wiring refusal, and has not moved at all under an occupant one.
     const wiring = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode: "REQ-WIRING-001" }));
     const occupant = toActionErrorResult(
       new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode: "REQ-ELIGIBILITY-001" }),

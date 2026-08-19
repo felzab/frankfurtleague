@@ -54,7 +54,7 @@ export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () =>
             // an href.
             maps_link: `${draft.name}, ${formatAddressFull(draft.address)}`,
             default_mietpreis: draft.default_mietpreis,
-            // Just created, so current — and `null` is what current means (ADR-0025).
+            // Just created, so current — and `null` is what current means.
             inactive_since: null,
           });
         }

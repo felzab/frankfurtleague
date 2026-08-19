@@ -60,7 +60,7 @@ export function isSquadNummerNewlyShared({
  * Every live squad number in use in one season, by team, excluding one player's own rows.
  *
  * **Retired rows are excluded**: a player who left a team mid-season is not still wearing the shirt, and a
- * squad row really does retire — unlike a team's junction, which never leaves a season (ADR-0026).
+ * squad row really does retire — unlike a team's junction, which never leaves a season.
  *
  * Built from `GET /spieler/memberships`, which the squad editor already reads for the player it is
  * editing, so the check costs no request of its own.

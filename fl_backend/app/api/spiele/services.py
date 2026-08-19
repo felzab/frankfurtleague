@@ -3,17 +3,17 @@ SPIELE · query construction, the playoff bracket, and what the write path refus
 
 Pure throughout — no I/O — so the query semantics, the advancement algorithm and every refusal
 rule are testable without a database. `resolve_bracket` computes what every slot should hold,
-reports stored faults (ADR-0039) and names the result each advancement destroys (ADR-0041);
-`find_wiring_refusal` and the occupant pair decide what a patch may claim (ADR-0038, ADR-0042).
+reports stored faults and names the result each advancement destroys;
+`find_wiring_refusal` and the occupant pair decide what a patch may claim.
 
 Invariants:
 - `saison_phase="playoffs"` compiles to `!= "gruppenphase"` — a query alias, never a stored value.
-- `spiel_status` compiles to dates; `ausstehend` includes today, unlike the frontend's (ADR-0058).
+- `spiel_status` compiles to dates; `ausstehend` includes today, unlike the frontend's.
 - The disqualification lookup keys on each document's own `saison_id`, never a caller-resolved one.
-- A slot with a `quelle` is `resolve_bracket`'s; clearing it is the whole manual override (ADR-0034).
-- "Nothing to look up" leaves a slot alone; "the reference names nobody" empties it (ADR-0039).
-- Every fault the resolution derives is contained as well as reported (ADR-0039).
-- An occupant refusal applies only to a team the payload newly fields (ADR-0042).
+- A slot with a `quelle` is `resolve_bracket`'s; clearing it is the whole manual override.
+- "Nothing to look up" leaves a slot alone; "the reference names nobody" empties it.
+- Every fault the resolution derives is contained as well as reported.
+- An occupant refusal applies only to a team the payload newly fields.
 
 See:
 - docs/glossary.md — spiel_status, the two definitions side by side
@@ -98,12 +98,12 @@ def _joined_side(side: Literal["team1", "team2"]) -> Mapping[str, Any]:
     Three absences all mean the same thing to this expression and all resolve to `null` -- an empty
     lookup result (the team holds no `saison_teams` row for this season), a row whose
     `disqualifikation` is null, and a row missing the key entirely. Only the first two are reachable
-    now; the third is the pre-runbook document shape and costs nothing to survive (ADR-0047).
+    now; the third is the pre-runbook document shape and costs nothing to survive.
     """
 
     # `$let` and a field path rather than `$getField`, which reads better but needs MongoDB 5.0. This
     # form has worked since 2.6, and the test tier cannot speak for the production server's version --
-    # it runs `mongo:8` in a container (ADR-0023).
+    # it runs `mongo:8` in a container.
     matching_row = {"$filter": {"input": f"${SAISON_TEAMS_AS_NAME}", "cond": {"$eq": ["$$this.team_id", f"${side}.team_id"]}}}
     joined_record = {
         "$let": {
@@ -115,7 +115,7 @@ def _joined_side(side: Literal["team1", "team2"]) -> Mapping[str, Any]:
     return {
         "$cond": [
             # An unresolved bracket slot stays null rather than becoming an object holding only a
-            # disqualification (ADR-0034). `$eq` against null also catches a document missing the key.
+            # disqualification. `$eq` against null also catches a document missing the key.
             {"$eq": [f"${side}", None]},
             None,
             {"$mergeObjects": [f"${side}", {"disqualifikation": joined_record}]},
@@ -136,8 +136,7 @@ def build_spiele_pipeline(
     **The join is why `GET /spiele` is an aggregation at all**, and it was chosen over the cheaper
     alternative deliberately: a disqualification changes DURING a season, so denormalising it into the
     embedded team fields would put the fan-out on the one field most likely to be forgotten, and a
-    stale DQ badge is a visibly wrong answer on a public page (ADR-0021, rule 4). Read that decision
-    before reversing this into a stored flag.
+    stale DQ badge is a visibly wrong answer on a public page. Never reverse this into a stored flag.
 
     **Keyed on each DOCUMENT'S own `saison_id`, never on a season the caller resolved.**
     `find_bracket_faults` runs this over every season at once, so a fixed season would answer for the
@@ -218,7 +217,7 @@ class SlotAdvancement:
 
     `voided_ergebnis` and `voided_elfmeterschiessen` are what this fixture held at the moment the
     resolution ran, copied out before anything writes over them. Reporting only which fixtures MOVED
-    describes the harmless case and the destructive one in the same words (ADR-0041); both are `None`
+    describes the harmless case and the destructive one in the same words; both are `None`
     when a slot merely filled from empty, which is the ordinary case and the majority of them.
     """
 
@@ -247,7 +246,7 @@ def _is_same_team(left: FLSpielTeamField | None, right: FLSpielTeamField | None)
     Whether two fixture sides hold the same club, comparing the id alone.
 
     `name` and `shorthand` are display copies maintained by `PATCH /teams/{team_id}`'s fan-out
-    (ADR-0021, rule 3). Comparing them would make bracket resolution a second, partial rename fan-out
+    Comparing them would make bracket resolution a second, partial rename fan-out
     firing only on the matches a reference happens to point at.
     """
 
@@ -337,7 +336,7 @@ def _seed_from_gruppe(
         return None, False
 
     # A placing this group can never produce -- fewer teams than the number asks for. A typo, so the
-    # slot keeps whatever it holds, on the same reasoning as a `spiel_nr` naming no match (ADR-0034).
+    # slot keeps whatever it holds, on the same reasoning as a `spiel_nr` naming no match.
     if quelle.platz > standing.eligible:
         faults.append(
             FLBracketFaultGruppe(
@@ -379,7 +378,7 @@ def _occupant_of(
     """
 
     # No reference at all: a group-phase fixture, or a slot an admin has taken manual charge of by
-    # clearing it. Nothing here writes one (ADR-0034).
+    # clearing it. Nothing here writes one.
     if quelle is None:
         return stored, False
 
@@ -388,7 +387,7 @@ def _occupant_of(
 
     # A number this season has no match for, or a chain of references closing on itself. Neither states
     # an outcome, so neither removes a team -- and both are REPORTED, because a slot nothing mentions
-    # is one an admin cannot discover (ADR-0039).
+    # is one an admin cannot discover.
     if quelle.spiel_nr not in by_nr:
         faults.append(FLBracketFaultQuelle(reason="spiel_missing", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, quelle_spiel_nr=quelle.spiel_nr))
         return stored, False
@@ -445,12 +444,12 @@ def _resolve_sides(
 
     # Reported whether or not this pass moves an occupant: a fixture already holding the club its
     # source resolves to stores the contradiction rather than producing it, and the write path cannot
-    # refuse that (ADR-0038).
+    # refuse that.
     if both_sides_one_club and a_side_is_maintained:
         faults.append(FLBracketFaultSpiel(reason="same_team", spiel_id=spiel.id, spiel_nr=spiel_nr))
 
     # Two references resolving to one club make the fixture a team against itself, and no validator
-    # refuses a cross-field shape (ADR-0020). The memo records it as NOT maintained -- claiming a
+    # refuses a cross-field shape. The memo records it as NOT maintained -- claiming a
     # change would void its result and the subtree's.
     if an_occupant_changed and both_sides_one_club:
         memo[spiel_nr] = (spiel.team1, spiel.team2, False)
@@ -477,9 +476,9 @@ def _outcome_of(
     rather than emptied.
 
     `is_canceled` is deliberately not consulted: a cancelled match carrying a result is a forfeit and
-    counts exactly as any other result does (ADR-0019, invariant I1a). A fixture that finished level is
+    counts exactly as any other result does (invariant I1a). A fixture that finished level is
     decided by its shoot-out where one was played and by nothing else, so a level match without one
-    still has neither a `sieger` nor a `verlierer` and the slot it feeds stays empty (ADR-0036).
+    still has neither a `sieger` nor a `verlierer` and the slot it feeds stays empty.
     """
 
     spiel = by_nr[spiel_nr]
@@ -498,7 +497,7 @@ def _outcome_of(
 
     if team1.tore == team2.tore:
         # The fixture the goals cannot decide. A shoot-out settles it and is read only here, so the
-        # bracket and the table disagree about it on purpose (ADR-0036). A GRUPPENPHASE draw is final,
+        # bracket and the table disagree about it on purpose. A GRUPPENPHASE draw is final,
         # so this covers a hand edit.
         if spiel.saison_phase == "gruppenphase" or spiel.elfmeterschiessen is None:
             return None
@@ -577,7 +576,7 @@ def resolve_bracket(spiele: Iterable[FLSpiel], standings: Mapping[FLGruppenNames
                 team1=team1.model_copy(update={"tore": None}) if team1 is not None else None,
                 team2=team2.model_copy(update={"tore": None}) if team2 is not None else None,
                 # Read off the fixture as it stands, which is what the write below is about to
-                # replace. `None` here is the harmless case and says so (ADR-0041).
+                # replace. `None` here is the harmless case and says so.
                 voided_ergebnis=spiel.ergebnis,
                 voided_elfmeterschiessen=spiel.elfmeterschiessen,
             )
@@ -601,12 +600,12 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload) ->
     - **An unresolved fixture carries no goals at all.** Clearing one side drops the result, and the
       goals the OTHER side still holds would then stand against a fixture that has none -- the
       hand-edited shape `build_statistik_lookup_stage` restates its `team1.tore` filter to survive.
-    - **A shoot-out survives only on a KNOCKOUT fixture whose goals finished level** (ADR-0036). A
+    - **A shoot-out survives only on a KNOCKOUT fixture whose goals finished level**. A
       group draw is a final result with no tie to break, and a shoot-out on a fixture one side won by
       goals is a contradiction. Discarded rather than refused, because the goals are what say whether
       one was possible at all.
 
-    **Pure, and extracted so the preview and the save cannot disagree** (ADR-0041). `dry_run=true`
+    **Pure, and extracted so the preview and the save cannot disagree.** `dry_run=true`
     applies this in memory and resolves the bracket against the result; the save applies the same
     function and writes it. A second copy of these three rules, however faithful, would eventually
     predict a result the save does not produce -- which is worse than predicting nothing.
@@ -674,7 +673,7 @@ def find_eligibility_refusal(
     membership: Mapping[CustomObjectId, str | None],
 ) -> WriteRefusal | None:
     """
-    Why this patch's OCCUPANTS must be refused, or `None` when they are legal (ADR-0042).
+    Why this patch's OCCUPANTS must be refused, or `None` when they are legal.
 
     A sibling of `find_wiring_refusal` rather than a fifth rule inside it: that function's contract is
     that it decides wiring from wiring, and its input carries no membership data. The two also answer
@@ -705,7 +704,7 @@ def find_eligibility_refusal(
     Both rules apply only to a team this payload NEWLY fields. Resubmitting the stored occupant
     unchanged passes, and it has to: without that clause a fixture already holding such a team becomes
     uneditable, including by the very edit that would resolve it -- and the fixture whose occupant was
-    disqualified after being placed is exactly the one an admin needs to open (ADR-0039 reports it).
+    disqualified after being placed is exactly the one an admin needs to open (the triage list reports it).
 
     A `spiel_id` naming no fixture in the season returns `None`: the write's own 404 is the answer
     there, not an eligibility message.
@@ -873,7 +872,7 @@ def find_disqualified_occupants(spiele: Sequence[FLSpielJoined]) -> list[FLBrack
     """
     Every fixture fielding a team the season disqualified before the day it is played (decided 2026-08-08).
 
-    Derived on demand and stored nowhere, like the five bracket faults beside it (ADR-0039). It needs no
+    Derived on demand and stored nowhere, like the five bracket faults beside it. It needs no
     read of its own: `build_spiele_pipeline` already joins each side's `disqualifikation` record with its
     date, so the whole rule is a comparison between two fields of one document.
 
@@ -955,14 +954,14 @@ def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielData
     **A team plays at most one match per matchday**, which is a fact about football rather than a
     preference, and it is expressible in neither of the mechanisms the database applies: a
     `$jsonSchema` validator sees one document and a unique index reads one key, while the team sits in
-    either of two embedded fields (ADR-0042). So the rule lives here, at the write path.
+    either of two embedded fields. So the rule lives here, at the write path.
 
     The clash is resolved by MOVING, never by refusing, wherever the occupied side is the admin's own:
     fielding a team here is a statement about where it plays, and the other fixture is the one that has
     to give it up. Two cases refuse instead, and both refuse because moving would not stick or would
     undo the caller's own edit:
 
-    - **The occupied side carries a `quelle`.** It is the resolution's, not a person's (ADR-0034), so
+    - **The occupied side carries a `quelle`.** It is the resolution's, not a person's, so
       emptying it is reverted on the next pass -- a write that reports success and does not hold.
     - **Both sides of THIS payload name one club.** The fixture would be a team against itself, and
       there is nothing to move it to: the only side to empty is one the caller has just filled in.
@@ -1039,7 +1038,7 @@ def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
     return ("gruppe", quelle.gruppe, quelle.platz)
 
 
-# Bracket wiring the season cannot hold (ADR-0038): a source on a group fixture, a feeder that is
+# Bracket wiring the season cannot hold: a source on a group fixture, a feeder that is
 # dangling or not played first, one outcome in two slots, or a hand-set team on a maintained side.
 WIRING_UNSUPPORTED = "REQ-WIRING-001"
 
@@ -1052,7 +1051,7 @@ def _wiring_refusal(message: str) -> WriteRefusal:
 
 def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> WriteRefusal | None:
     """
-    Why this patch's bracket wiring must be refused, as a `WriteRefusal` -- or `None` when it is legal (ADR-0038).
+    Why this patch's bracket wiring must be refused, as a `WriteRefusal` -- or `None` when it is legal.
 
     Four rules, each a contradiction no season can hold — not a preference, and not a guess about how
     a draw should look:
@@ -1063,12 +1062,12 @@ def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPaylo
       season does not have resolves to nothing forever; a source in the same or a later round —
       the fixture itself included — asks a match to be decided by one that follows it, which is also
       what makes a cycle inexpressible through this endpoint. A group match never feeds a slot: the
-      first knockout round is seeded from the standings, every later round by matches (ADR-0034).
+      first knockout round is seeded from the standings, every later round by matches.
     - **One outcome fills one slot.** A `(spiel_nr, ausgang)` or `(gruppe, platz)` already feeding
       another slot of the season would put the same side into two fixtures of the bracket.
     - **A side with a source is the resolution's, not the caller's.** A team submitted against it
       that differs from the stored occupant would be silently reverted by the resolution inside this
-      same request (ADR-0034) — a write that reports success and does not stick. Refusing it turns
+      same request — a write that reports success and does not stick. Refusing it turns
       the stale-form race into an explicit 409 instead.
 
     The season list is read inside the caller's transaction and INCLUDES the fixture being patched,
@@ -1077,7 +1076,7 @@ def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPaylo
 
     This refusal exists at the WRITE PATH only. `resolve_bracket` keeps its non-destructive
     containment for the same shapes, because a season hand-edited in Compass never passed through
-    here and erasing teams over a typo destroys more than it reports (ADR-0034).
+    here and erasing teams over a typo destroys more than it reports.
     """
 
     stored = next((spiel for spiel in season if spiel.id == spiel_id), None)

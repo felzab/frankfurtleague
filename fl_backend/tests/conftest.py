@@ -6,7 +6,7 @@ than `id`; tests override the one field under test. What that buys, and when to 
 `assert_rejects` instead of a bare `pytest.raises`, are `docs/backend/spec.md` §1.6's.
 
 The container fixtures live here rather than in `api/conftest.py` because several suites want a
-database. Session-scoped, so one `mongod` serves all of them (ADR-0023) — and a second, on a
+database. Session-scoped, so one `mongod` serves all of them — and a second, on a
 single-node replica set, serves the tests that open a transaction, which a standalone refuses.
 
 Invariants:
@@ -193,7 +193,7 @@ def spiel(
             "team1": spiel_team_field(),
             "team2": spiel_team_field(team_id=SPIELER_ID, name="Lessing", shorthand="LE", tore=1),
             # A group-phase fixture: both sides are drawn by the schedule rather than fed by the
-            # standings or by an earlier match, so neither carries a source (ADR-0034).
+            # standings or by an earlier match, so neither carries a source.
             "team1_quelle": None,
             "team2_quelle": None,
             "datum": "2026-03-15",
@@ -201,7 +201,7 @@ def spiel(
             "ort": spiel_ort_field(),
             "schiedsrichter": spiel_schiedsrichter_field(),
             "ergebnis": "2:1",
-            # Null on every fixture that did not finish level, which is almost all of them (ADR-0036).
+            # Null on every fixture that did not finish level, which is almost all of them.
             "elfmeterschiessen": None,
             "spieltag_id": SPIELTAG_ID,
             "spiel_nr": 1,
@@ -249,8 +249,8 @@ def spieler() -> PayloadFactory:
             "nachname": "Mustermann",
             "stufe": "Q2",
             "nummer": "10",
-            # `Angriff`, not `Sturm`: the two named the same position and the set closed on this one
-            # (ADR-0048). A fixture spelling it the other way describes a document nothing may store.
+            # `Angriff`, not `Sturm`: the two named the same position and the set closed on this
+            # one. A fixture spelling it the other way describes a document nothing may store.
             "position": "Angriff",
             "is_nachgetragen": False,
             "is_captain": False,
@@ -265,8 +265,8 @@ def spieltag() -> PayloadFactory:
     return _factory(
         {
             "_id": SPIELTAG_ID,
-            # No `name`: a matchday's is composed by the reader from its phase and its position, and this
-            # model has no field for one (ADR-0051).
+            # No `name`: a matchday's is composed by the reader from its phase and its position, and
+            # this model has no field for one.
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
             "anzahl_spiele": 4,
@@ -293,8 +293,8 @@ def saison() -> PayloadFactory:
                 "teams_per_group": 4,
                 "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
             },
-            # Derived and on no document, like the matchday's `anzahl_spiele` above: the router injects
-            # it before validation (ADR-0052). Spelled out rather than computed, so a `schedule_for`
+            # Derived and on no document, like the matchday's `anzahl_spiele` above: the router
+            # injects it before validation. Spelled out rather than computed, so a `schedule_for`
             # change this fixture stops matching is visible here.
             "schedule": [
                 # Four groups of four give three group matchdays of eight matches, and eight
@@ -308,7 +308,7 @@ def saison() -> PayloadFactory:
     )
 
 
-# The real mongod, for the `db` tier only (ADR-0023)
+# The real mongod, for the `db` tier only
 
 
 @pytest.fixture(scope="session")

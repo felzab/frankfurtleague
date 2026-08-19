@@ -74,14 +74,14 @@ docs/            the documentation set
 |                                        |                                                                                                                                         |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | [Glossary](docs/glossary.md)           | The domain vocabulary is **German** and load-bearing — `Spiel`, `Spieltag`, `Saison`, `Schiedsrichter`. Read this first                 |
-| [Decisions](docs/_decisions/)          | Why the codebase is shaped the way it is, including the alternatives that lost                                                          |
+| [Domain](docs/domain.md)               | The league's own rules — how a bracket seeds, how a tiebreak runs, what a forfeit counts for                                            |
 | [Git](docs/_git/)                      | Branching, commits, PRs, the verification gate, and the repository settings that enforce them                                           |
 | Per surface                            | [frontend](docs/frontend/overview.md) · [backend](docs/backend/overview.md) · [ops](docs/ops/overview.md) — an overview and a spec each |
 | [`docs/ops/spec.md`](docs/ops/spec.md) | Every script, every gate scope, and what each one proves                                                                                |
 
 Several things here look like mistakes and are deliberate — three near-identical match cards, no barrel
-files, a `connection()` call that appears to defeat static rendering. Each has an ADR saying why.
-**Check [`docs/_decisions/`](docs/_decisions/) before "fixing" something that looks wrong.**
+files, a `connection()` call that appears to defeat static rendering. Each is a ratified decision.
+**Check [`.claude/CLAUDE.md`](.claude/CLAUDE.md) §7 before "fixing" something that looks wrong.**
 
 ## Contributing
 
@@ -89,9 +89,8 @@ Short-lived topic branches off `main`, one PR each, merged with a merge commit. 
 real weight here — they explain _why_ and record what was verified, and they are kept rather than
 squashed; [`docs/_git/spec.md`](docs/_git/spec.md) is the convention.
 
-Run the gate before opening a PR, at the scope [`CONTRIBUTING.md`](CONTRIBUTING.md) names. CI runs it too.
-
-Full detail — setup, how to report a bug, and where ideas go: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Run `./scripts/verify.sh` before opening a PR, at a scope covering every surface the branch touched;
+[`docs/ops/spec.md`](docs/ops/spec.md) has the table of what each scope runs. CI runs it too.
 
 ## Status
 

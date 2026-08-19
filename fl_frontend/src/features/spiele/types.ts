@@ -18,7 +18,7 @@ import type { FLSpielStatus } from "./schemas";
  * groups by it — `categorizeActionRequired` and the German labels stay there — but two surfaces read
  * the classification now: that list, and the edit page, which marks a field the category says somebody
  * is waiting on (`draftStatus.ts`). A type in `admin` would have made `spiele` depend on the
- * aggregator, which is the direction ADR-0004 moved the write path out of.
+ * aggregator, which is the dependency the Spiel write path stays out of `admin` to avoid.
  *
  * A literal union rather than a loose index signature: the categorisation builds a fully keyed
  * accumulator, so every read is checked and a mistyped category is a compile error instead of a

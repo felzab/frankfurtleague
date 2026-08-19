@@ -13,7 +13,7 @@ const SEARCH_KEYS = ["name", "schule", "kontakt.email", "kontakt.telefon"] as co
 
 /**
  * `renderEditModal` is deliberately not passed: the referee form edits on a page at
- * `/admin/schiedsrichter/[schiedsrichter_id]` (ADR-0040), so the table's pencil is a `<Link>` and the
+ * `/admin/schiedsrichter/[schiedsrichter_id]`, so the table's pencil is a `<Link>` and the
  * shared view renders no edit overlay — the arrangement Teams and Spieler already have.
  */
 export function AdminSchiedsrichterView({ schiedsrichter }: { schiedsrichter: FLSchiedsrichter[] }) {

@@ -8,9 +8,9 @@
  *
  * Invariants:
  * - No chip says a team went out of the group phase: that state and an undrawn bracket look the same
- *   from here, so the group's chip is either come-through or muted with no outcome word (ADR-0039).
+ *   from here, so the group's chip is either come-through or muted with no outcome word.
  * - A round that finished level claims no winner unless a later round fields the team, because the
- *   bracket is the only reader that takes one from a shoot-out (ADR-0036).
+ *   bracket is the only reader that takes one from a shoot-out.
  */
 
 import { Chip } from "@heroui/react";
@@ -82,7 +82,7 @@ const outcomeLabel = ({ phase, outcome }: SaisonPhaseVerlauf): string => {
     case "level":
       return `${round} unentschieden`;
     // The round's name and no verb: every other case ends in a word about how the round went, and
-    // this one has none to give (ADR-0039).
+    // this one has none to give.
     case "unknown":
       return round;
   }

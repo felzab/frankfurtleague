@@ -4,8 +4,8 @@ SCRIPTS · does this gate run cover what the branch actually changed?
 Run by verify.sh as its first step, because the scope flags are chosen by whoever types them and
 nothing else reads the diff back. The rule held is CLAUDE.md's gate section: the scope covers
 every surface the branch touched, and a comment-only edit is a documentation change whatever
-file holds it. Only a missed images scope fails; every other gap is reported — the reasoning,
-and why anything a parser cannot prove counts as code, is ADR-0030.
+file holds it. Only a missed images scope fails; every other gap is reported, and anything a
+parser cannot prove counts as code.
 
 Invariants:
 - The classifier suppresses the scope complaints and adds the documentation and formatter ones; it
@@ -56,7 +56,7 @@ def changed_files(base: str) -> list[str] | None:
     counts - which is the point, since the gate is usually run before the commit.
 
     None is not an empty list: no changed file is a clean branch, while a refused listing is every
-    scope complaint below passing unread (ADR-0066).
+    scope complaint below passing unread.
     """
     tracked = git("diff", "--name-only", base)
     untracked = git("ls-files", "--others", "--exclude-standard")
@@ -236,7 +236,7 @@ def check(base: str, ran: set[str]) -> list[Finding] | None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Is this gate run's scope wide enough for the diff? (ADR-0030)")
+    parser = argparse.ArgumentParser(description="Is this gate run's scope wide enough for the diff?")
     parser.add_argument("--ran", default="", help="the verify.sh scopes this run covers, space- or comma-separated")
     parser.add_argument(
         "--compare",
@@ -256,7 +256,7 @@ def main() -> int:
 
     base = resolve_base()
     if base is None:
-        # Refused, not green (ADR-0066): this checker's only question is about the diff, so with no
+        # Refused, not green: this checker's only question is about the diff, so with no
         # base it judged nothing. `check_docs.py` answers an advisory instead, because its
         # branch-scoped checks are one slice of a run that judged the corpus anyway.
         print(f"      no merge base with {DEFAULT_BASE} -- this run was not checked against the diff.")
@@ -266,7 +266,7 @@ def main() -> int:
 
     findings = check(base, ran)
     if findings is None:
-        # Refused, not green (ADR-0066): the mapping is the only thing that knows which scopes this
+        # Refused, not green: the mapping is the only thing that knows which scopes this
         # diff asks for, so a run that could not read the diff or launch it judged nothing.
         print("      the diff could not be read, or scripts/ci_scopes.sh could not be run --")
         print("      this run was not checked against the branch. bash is what runs it;")
@@ -275,7 +275,7 @@ def main() -> int:
 
     code = report_findings(findings)
     if code != EXIT_OK:
-        print("\n      The rule is CLAUDE.md, The gate. Why images fails where the rest report: ADR-0030.")
+        print("\n      The rule is CLAUDE.md, The gate.")
     return code
 
 

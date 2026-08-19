@@ -60,7 +60,7 @@ describe("buildSpielerBanners", () => {
     assert.equal(banner?.severity, "warning");
   });
 
-  // A `warning` is what routes it through the confirmation (ADR-0070); `info` would let the save pass
+  // A `warning` is what routes it through the confirmation; `info` would let the save pass
   // it in silence, and the API refuses the state nowhere.
   it("grades a newly shared shirt as a warning naming the number", () => {
     const [banner] = build({ newlySharedNummer: "1" });

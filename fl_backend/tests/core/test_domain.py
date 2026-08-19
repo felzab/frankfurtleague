@@ -8,7 +8,7 @@ declaration cover the system, does it name real things, and is it still a declar
 Invariants:
 - Every collection sits in exactly one aggregate; every `REQ-*` code appears, none is invented.
 - Every field path, `implemented_by` and `tested_by` resolves against the real code.
-- No application module imports it — an imported declaration is the engine ADR-0053 rejected.
+- No application module imports it — an imported declaration is an engine, not a declaration.
 """
 
 import ast
@@ -319,8 +319,8 @@ def test_no_application_module_imports_the_domain_model():
     The invariant that keeps this a declaration.
 
     A production caller reading these tables turns them into an engine every write must remember to
-    consult -- which is bypassable, and is the design ADR-0053 rejected in favour of the refusal living
-    at the endpoint that owns the write. Tests and documentation may read it; nothing under `app/` may.
+    consult -- which is bypassable. The refusal lives at the endpoint that owns the write instead.
+    Tests and documentation may read it; nothing under `app/` may.
     """
 
     importers = [

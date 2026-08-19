@@ -14,7 +14,7 @@ import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOv
  *
  * **Every team this mounts for is a real team.** A fixture side with no occupant yet renders its
  * provenance label as plain text and never reaches here, because there is no team page and no squad
- * to link to (ADR-0034) — which is why neither link is conditional.
+ * to link to — which is why neither link is conditional.
  */
 export function TeamPopoverMenu({
   teamName,

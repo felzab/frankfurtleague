@@ -1,10 +1,10 @@
 /* HeroUI is imported component-by-component rather than as `@import "@heroui/styles"`. That entry
    pulls in every component the package ships, and **Tailwind does not tree-shake CSS imported from a
    dependency**, so anything listed lands on the critical path of every page whether or not this app
-   renders it (ADR-0013).
+   renders it.
 
    **THERE ARE TWO OF THESE LISTS.** This one loads on every route; `app/admin/admin.css` loads only
-   under `/admin` and holds the components no public route can reach (ADR-0016). Adding a component
+   under `/admin` and holds the components no public route can reach. Adding a component
    means deciding which file it belongs in, and **checking both** — a component listed in neither
    renders unstyled, and one listed in both is shipped to visitors who never see it.
 
@@ -241,7 +241,7 @@
        the feedback accents above fits -- these exist so SaisonPhaseChip stops reaching into the raw
        palette. Values are Tailwind's sky/blue/indigo/purple/rose 700 verbatim, and each is used both
        as the label colour and as a /10 tint behind it. Blue sits between sky and indigo on the hue
-       wheel, which is where `achtelfinale` sits in the sequence (ADR-0052). */
+       wheel, which is where `achtelfinale` sits in the sequence. */
     --accent-phase-gruppenphase: oklch(50% 0.134 242.749);
     --accent-phase-achtelfinale: oklch(48.8% 0.243 264.376);
     --accent-phase-viertelfinale: oklch(45.7% 0.24 277.023);
@@ -419,7 +419,7 @@
    * `text-brand` is a colour. A size it does not recognise falls into the COLOUR group, where it
    * competes with the real colour class beside it and one of the two is dropped. Every HeroUI
    * component that accepts a `className` runs it through its own tailwind-variants instance, so this
-   * happens inside the library, where no configuration of ours reaches (ADR-0018).
+   * happens inside the library, where no configuration of ours reaches.
    *
    * These tokens therefore generate no utility at all; the `fluid-*` utilities further down read
    * them. `fluid-xxs` matches no tailwind-merge group in any instance — a class a library cannot
@@ -1120,7 +1120,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   padding-block: 0;
 }
 
-/* No scale in the arrival language, vendored ones included (ADR-0076, `@heroui/styles` 3.2.4).
+/* No scale in the arrival language, vendored ones included (`@heroui/styles` 3.2.4).
    Unlayered on `*`: inside a layer specificity loses, and tw-animate-css declares both properties
    `inherits: false`, so they land on the animating element. */
 *,
@@ -1143,7 +1143,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    - The looping decorations (ping / pulse / bounce) stop entirely -- autonomous repeating motion
      is the classic vestibular trigger. A loading indicator never joins them, whatever shape it
      takes: it is feedback rather than decoration, and a frozen one reports nothing about the wait
-     it exists to report (ADR-0077) -- which is why the vendored spinner is restarted below rather
+     it exists to report -- which is why the vendored spinner is restarted below rather
      than left as HeroUI ships it. A class joins the list only once somebody has checked what it
      RESTS as: `animation: none` holds an element at its unanimated style, which is the keyframe's
      start and not its end, so anything that fades or scales AWAY rests fully visible. One that
@@ -1178,7 +1178,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
 
   /* HeroUI stops its OWN spinner here (`spinner.css` ships `motion-reduce:animate-none`), and this
      app does not: `appToast.pending` raises a toast with `timeout: 0`, so its spinner is the only
-     thing saying the request is still running, and a frozen one reports nothing (ADR-0077). The
+     thing saying the request is still running, and a frozen one reports nothing. The
      value is the vendor's token, so an upgrade that retimes the spin carries this with it. */
   .spinner,
   .spinner::before,
@@ -1255,7 +1255,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    *
    * `AppToaster` supplies `Toast.Provider`'s `children` render function, so the tile, the text
    * hierarchy, the action button and the close button are ordinary TSX carrying ordinary utility
-   * classes (ADR-0043). What is left below is the part that has no element in that file to hang a
+   * classes. What is left below is the part that has no element in that file to hang a
    * class on: HeroUI writes the shell's own `class`, and the close button's visibility has to stay
    * keyed on an attribute only the library sets.
    *
@@ -1280,7 +1280,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   }
 
   /* Severity is the border and the timer bar, so the border is the one mark a settled toast
-     carries (ADR-0043). `/60` rather than a lighter tint: it does that work alone and has to read
+     carries. `/60` rather than a lighter tint: it does that work alone and has to read
      at a glance. */
   .toast--accent {
     @apply border-info/60;

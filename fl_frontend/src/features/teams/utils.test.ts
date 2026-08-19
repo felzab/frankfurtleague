@@ -3,7 +3,7 @@
  *
  * `computeQualifyingTeamIds` and `computePlatzByTeamId` have to agree with a rule that lives in
  * another language: the backend passes over the same two kinds of team when it seeds a bracket
- * slot (`_may_hold_a_platz`, ADR-0035), and nothing in either toolchain notices the sides
+ * slot (`_may_hold_a_platz`), and nothing in either toolchain notices the sides
  * drifting apart. A marked row the bracket does not advance is a confidently wrong public page, and
  * so is a milestone naming a round the team did not reach.
  */
@@ -24,7 +24,7 @@ const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart
  * One row of a standing, reduced to the three fields this derivation reads.
  *
  * The record's contents do not reach the subject here: a team is walked past because
- * `disqualifikation` is non-null, never because of what it says (ADR-0047).
+ * `disqualifikation` is non-null, never because of what it says.
  */
 const row = (seed: number, { gespielt = 3, disqualified = false } = {}) =>
   ({
@@ -120,7 +120,7 @@ const verlaufOf = (spiele: FLSpiel[], teamId = SUBJECT) => computeSaisonVerlauf(
 
 describe("computeSaisonVerlauf", () => {
   // Elimination and an undrawn bracket look identical from here, so `out` would tell a team it is
-  // eliminated while its bracket is being drawn — a state waiting fixes (ADR-0039).
+  // eliminated while its bracket is being drawn — a state waiting fixes.
   it("claims no outcome for a group phase the team has not visibly come through", () => {
     const verlauf = verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "3:1" }), fixture({ phase: "gruppenphase", ergebnis: "0:4" })]);
 
@@ -141,7 +141,7 @@ describe("computeSaisonVerlauf", () => {
   });
 
   // The group's half of the same bound: an organiser may seed a team into a knockout slot before its
-  // group has played anything (ADR-0042), and "überstanden" there claims a round that has not happened.
+  // group has played anything, and "überstanden" there claims a round that has not happened.
   it("claims no outcome for a group phase with no result, however deep the team is standing", () => {
     const verlauf = verlaufOf([fixture({ phase: "gruppenphase" }), fixture({ phase: "viertelfinale" })]);
 
@@ -178,7 +178,7 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
-  // A knockout finishing level is a draw to every reader but the bracket (ADR-0036), so with nothing
+  // A knockout finishing level is a draw to every reader but the bracket, so with nothing
   // downstream the page has no winner to name — and taking one from the shoot-out is what that
   // decision refuses.
   it("claims no winner for a round that finished level and led nowhere yet", () => {
@@ -196,7 +196,7 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
-  // A manual pick that did not qualify is warned and never refused (ADR-0042), so a beaten team in
+  // A manual pick that did not qualify is warned and never refused, so a beaten team in
   // the next round is a real state, and no page may call that team out of the round before it.
   it("reports a lost round as come through when a later round fields the team anyway", () => {
     const verlauf = verlaufOf([fixture({ phase: "viertelfinale", ergebnis: "0:2" }), fixture({ phase: "halbfinale" })]);
@@ -207,8 +207,8 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
-  // The bound on the rule above: an organiser may seed a team out of an unplayed round (ADR-0042
-  // warns a manual pick, never refuses it), so "überstanden" would sit beside a card with no score.
+  // The bound on the rule above: an organiser may seed a team out of an unplayed round (a manual pick is
+  // warned, never refused), so "überstanden" would sit beside a card with no score.
   it("claims no outcome for an unplayed round, however deep the team is standing", () => {
     const verlauf = verlaufOf([fixture({ phase: "viertelfinale" }), fixture({ phase: "halbfinale" })]);
 

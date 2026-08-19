@@ -4,7 +4,7 @@
  * The runner injects ACTIONS_RUNTIME_TOKEN and ACTIONS_RESULTS_URL — what buildx's type=gha cache
  * authenticates with — into JavaScript actions alone, never into a `run:` step, so this action reads
  * them and writes them to $GITHUB_ENV. Dependency-free and in-tree, it is less surface than a third
- * party one and needs no allowlist entry (ADR-0031, `docs/_git/spec.md`).
+ * party one and needs no allowlist entry (`docs/_git/spec.md`).
  *
  * Invariants:
  * - The token is masked before it is exported; the mask is what makes exporting it safe.
@@ -16,7 +16,7 @@ const { randomUUID } = require("node:crypto");
 
 // ACTIONS_CACHE_SERVICE_V2 is forwarded, never pinned here: buildx reads it to choose between the
 // v1 endpoint (ACTIONS_CACHE_URL) and the v2 one (ACTIONS_RESULTS_URL), and hardcoding the wrong
-// choice disables the cache silently (ADR-0031).
+// choice disables the cache silently.
 const NAMES = ["ACTIONS_RUNTIME_TOKEN", "ACTIONS_RESULTS_URL", "ACTIONS_CACHE_URL", "ACTIONS_CACHE_SERVICE_V2"];
 
 // Only the token is a credential; the other three are service endpoints and a boolean.

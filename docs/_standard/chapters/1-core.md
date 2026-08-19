@@ -2,7 +2,7 @@
 
 **Verified against:** `65c7775b`, 2026-08-19\
 **Applies to:** every written artifact — module headers, symbol docs, inline comments, `docs/`
-pages, ADRs, prompts, command files, commit messages and pull request bodies.
+pages, prompts, command files, commit messages and pull request bodies.
 
 | ID     | Rule                                     |
 | ------ | ---------------------------------------- |
@@ -25,7 +25,7 @@ pages, ADRs, prompts, command files, commit messages and pull request bodies.
 
 **Rule:** every document is fully understandable to someone meeting this repository for the first
 time. No reference to a conversation, a session or a past effort. No identifier that fails to
-resolve to something tracked — an ADR number, a roadmap id, a file path, a commit SHA. Reasoning a
+resolve to something tracked — a roadmap id, a rule id, a file path, a commit SHA. Reasoning a
 claim depends on is written out where the claim is made, never left behind a pointer to a file that
 is deleted by design.
 
@@ -45,7 +45,7 @@ belongs:
 
 - why this line looks like this — an inline comment, at the line
 - true of a module — its header
-- a decision with rejected alternatives — an ADR
+- a decision with rejected alternatives — the commit that took it, with the constraint at the line
 - a contract someone looks up — the surface spec sheet
 - what a surface is for — its overview
 - a rule every session must follow — CLAUDE.md, pointing at the source
@@ -64,8 +64,8 @@ the reason, and neither is the copy being short.
 
 **Enforced by:** `/docs:audit` (the duplication read).
 
-**Example:** a header says "never do <X>" in one line and cites ADR-<NNNN>; the ADR carries the
-argument; a reader who never opens it still knows the rule — what they lose is why, never what.
+**Example:** a header says "never do <X>" in one line; the commit that introduced it carries the
+argument; a reader who never runs `git log` still knows the rule — what they lose is why, never what.
 
 ### COR-3 — Name only what exists
 
@@ -78,8 +78,8 @@ history, and stays.
 **Why:** a page naming something that is gone reads exactly like one naming something live, and a
 reader has no way to tell the two apart without checking.
 
-**Exceptions:** a closed list — an ADR's Context, an ADR's `Superseded by` line,
-`docs/_roadmap/closed-items.md`, and the final reports in `docs/_auditing/reports/`. Each is a
+**Exceptions:** a closed list — `docs/_roadmap/closed-items.md`, and the final reports in
+`docs/_auditing/reports/`. Each is a
 record whose subject is what happened, and only within that job. A filed report is closed at its
 filing: it states the commit it was written against, so a template or a numbering that arrives
 afterwards never reaches back into it. What a reader would act on today — a pointer into another
@@ -89,7 +89,7 @@ document — is not shape, and stays subject to this rule.
 `/docs:audit`.
 
 **Example:** "Never branch a reduced variant off it: measured <date>, the trim is <n> KiB and both
-lookups run either way (ADR-<NNNN>)" — the constraint, never the story of a removal.
+lookups run either way" — the constraint, never the story of a removal.
 
 ### COR-4 — Ban the facts that rot fastest
 
@@ -160,7 +160,7 @@ rule, or the reason a constraint exists.
 
 - a backticked `<path> :: <symbol>` or `<path> :: <short quoted fragment>`
 - a bare backticked repository path
-- an ADR number
+- a rule id or a spec sheet's invariant id
 
 Never a line number, in any form.
 
@@ -169,7 +169,7 @@ is wrong the moment anything is inserted, and nothing can tell a correct one fro
 
 **Exceptions:** —
 
-**Enforced by:** gate checks `citation`, `path`, `adr` and `line-citation`.
+**Enforced by:** gate checks `citation`, `path`, `rule-id` and `line-citation`.
 
 **Example:** `<slice>/actions.ts :: <actionName>` — the file must exist, and the symbol must still
 appear in it.
@@ -187,8 +187,6 @@ to, so a table over it is furniture.
 
 **Exceptions:** each of these is read straight through rather than consulted at a point:
 
-- an ADR, whose four fixed H2s are its navigation — a table over `Context / Decision /
-Consequences / Alternatives considered` says only what DEC-2 already fixes
 - a command file under `.claude/`, which is a script for one run
 - a pass prompt under `docs/_auditing/prompts/`, which carries one lens and is read in order. A
   reference that happens to live beside the prompts — the shared protocol every pass reads
@@ -209,7 +207,7 @@ Consequences / Alternatives considered` says only what DEC-2 already fixes
 - bold the claim, never the paragraph
 - headings state the rule, not the topic
 - no nesting past three levels — deeper means the document needs splitting
-- metadata lines — a stamp, a Scope line, an ADR's six fields — each end with a hard break (a
+- metadata lines — a stamp, a Scope line — each end with a hard break (a
   trailing backslash) when another metadata line follows, so they render one per line rather than
   flowing into a paragraph; the last line of a block carries none, having nothing to separate from
 
@@ -244,7 +242,7 @@ half-life.
 
 **Rule:** a normative document — a chapter of this standard, a template, the rules index, a
 command file — never embeds a real path, symbol or value as an example. Examples use placeholders:
-`<slice>/queries.ts`, `ADR-<NNNN>`, `<date>`. Worked examples anchored to real code belong in spec
+`<slice>/queries.ts`, `<symbol>`, `<date>`. Worked examples anchored to real code belong in spec
 sheets and overviews, where the gate checks every citation. A rule's own subject may be a real
 path — naming `scripts/check_docs.py` as the enforcement is content, not an example.
 
@@ -260,8 +258,8 @@ spec sheet.
 
 ### COR-11 — The voice is mine
 
-**Rule:** the words "the owner" appear in no tracked file outside `.claude/` — a `docs/` page, an
-ADR, a commit message and a source comment alike, a comment being documentation. Everything so
+**Rule:** the words "the owner" appear in no tracked file outside `.claude/` — a `docs/` page, a
+commit message and a source comment alike, a comment being documentation. Everything so
 written speaks in my own voice: first person where a person acts, neutral imperative everywhere
 else. Files under `.claude/` are exempt, because they instruct the assistant and naming me as a
 third party is what makes them unambiguous.
@@ -285,7 +283,7 @@ never for one file, and never by approval. Where a file does not fit, **the file
 content that does not fit moves to a page whose shape holds it, or it goes.
 
 The shapes are fixed by a README's rule (OUT-3), a spec sheet's (OUT-4), an overview's (OUT-5), a
-glossary entry's (OUT-6), a module header's (INC-2), an ADR's (DEC-2) and a rule's own (PRE-4). A
+glossary entry's (OUT-6), a module header's (INC-2) and a rule's own (PRE-4). A
 template under [`templates/`](../templates/) instantiates the shape its rule fixes; where the two
 disagree, the rule decides (PRE-2). Where a rule requires something its template does not carry,
 nothing instantiates that requirement, and the two are brought back into line in the same commit.
@@ -297,7 +295,7 @@ instantiates nothing and every page becomes its own shape — the state the temp
 **Exceptions:** —
 
 **Enforced by:** gate check `readme-cap` for a README's line cap; gate checks `spec-spine`,
-`invariant-row`, `overview-spine`, `glossary-entry`, `module-header` and `adr-meta` for the shapes
+`invariant-row`, `overview-spine`, `glossary-entry` and `module-header` for the shapes
 they each hold. A README's remaining shape and a rule's own are review judgment, as is whether a
 deviation was repaired by moving the content or by widening the shape: both leave a green gate.
 

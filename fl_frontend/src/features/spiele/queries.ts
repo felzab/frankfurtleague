@@ -5,9 +5,9 @@
  * same slice — the pairing that keeps invalidation honest.
  *
  * Invariants:
- * - Every granular tag declared here has a matching `updateTag` in `actions.ts` (ADR-0001).
+ * - Every granular tag declared here has a matching `updateTag` in `actions.ts`.
  * - Omitting `saison_id` means the current season — the most common entries carry the base tag only.
- * - The single read declares the base tag only — a write rewrites fixtures it never named (ADR-0034).
+ * - The single read declares the base tag only — a write rewrites fixtures it never named.
  *
  * See:
  * - docs/frontend/spec.md — section 1.4, the full cache-tag design
@@ -26,7 +26,7 @@ import type { FLSpieleFilterParams } from "./types";
 export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleListResponse> {
   "use cache";
 
-  // The only granular tag kept for this resource (ADR-0001): the admin patch action invalidates it by
+  // The only granular tag kept for this resource: the admin patch action invalidates it by
   // season. No tags by phase or status — a result edit changes a match's status, so that would need
   // both the previous and the new value to be correct.
   const tags: string[] = ["spiele"];
@@ -40,13 +40,13 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
 }
 
 /**
- * One match by its id, for the edit page whose subject IS that match (ADR-0040).
+ * One match by its id, for the edit page whose subject IS that match.
  *
  * **The base tag alone, and that is not an oversight.** A season-scoped tag would need the season, which
  * is what this response exists to supply — and it would be wrong even if it were available: the patch
- * that resolves a bracket rewrites *other* fixtures of the same season (ADR-0034), so nothing narrower
+ * that resolves a bracket rewrites *other* fixtures of the same season, so nothing narrower
  * than `spiele` describes what one match write invalidates. The action invalidates `spiele`
- * unconditionally on every match write, so this entry can never outlive an edit (ADR-0001).
+ * unconditionally on every match write, so this entry can never outlive an edit.
  *
  * **Resolves `null` when the id matches no match, and the 404 → null conversion must stay INSIDE this
  * function.** In a production build, an error thrown out of a `"use cache"` scope reaches the awaiting

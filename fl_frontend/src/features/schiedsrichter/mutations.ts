@@ -6,7 +6,7 @@
  *
  * All four use `authType: "admin"`; the backend's admin router rejects the base key.
  *
- * **The id goes in the PATH and never in the body** (ADR-0027). The payload schemas still carry it,
+ * **The id goes in the PATH and never in the body**. The payload schemas still carry it,
  * because they back the admin form and the form has to know which referee it is editing — so each
  * mutation below splits it off. A backend payload model that saw an `id` would drop it silently.
  */
@@ -40,7 +40,7 @@ export async function patchSchiedsrichter({ id, ...fields }: FLPatchSchiedsricht
   });
 }
 
-// Soft: the backend stamps `inactive_since` and removes nothing (ADR-0025).
+// Soft: the backend stamps `inactive_since` and removes nothing.
 export async function deleteSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<FLSchiedsrichterWriteResponse> {
   return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}`, FLSchiedsrichterWriteResponseSchema, {
     method: "DELETE",
@@ -49,7 +49,7 @@ export async function deleteSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): 
 }
 
 // The way back out of the soft delete: clearing `inactive_since` returns the referee to the picker and
-// to every default read, which is what makes retirement a state rather than a disappearance (ADR-0025).
+// to every default read, which is what makes retirement a state rather than a disappearance.
 export async function reactivateSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<FLSchiedsrichterWriteResponse> {
   return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}/reactivate`, FLSchiedsrichterWriteResponseSchema, {
     method: "POST",

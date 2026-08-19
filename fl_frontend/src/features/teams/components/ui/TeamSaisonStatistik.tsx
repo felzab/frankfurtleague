@@ -2,7 +2,7 @@
  * TEAMS · the season's figures
  *
  * The figures the page asks `GET /teams` for at `statistik_scope=gesamt`, which counts every phase —
- * this is the only surface that shows them (ADR-0022). The line under the heading names the
+ * this is the only surface that shows them. The line under the heading names the
  * Saisontabelle outright, because the two pages report different numbers for the same team and a
  * contrast left to inference reads as a bug.
  */

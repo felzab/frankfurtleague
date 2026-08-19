@@ -66,9 +66,9 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     // in, then the draw that decides the later ones. The queue leads because it alone answers "is
     // there anything to do at all".
     sub_options: [
-      // "Handlungsbedarf", not "Übersicht": the page is a queue ranked by what each entry blocks
-      // (ADR-0044), and an overview is what `spielsuche` below is. This label is also the collapsed
-      // tooltip and the page title in the bar, so they move together.
+      // "Handlungsbedarf", not "Übersicht": the page is a queue ranked by what each entry blocks, and an
+      // overview is what `spielsuche` below is. This label is also the collapsed tooltip and the page
+      // title in the bar, so they move together.
       {
         id: "action_required",
         label: "Handlungsbedarf",

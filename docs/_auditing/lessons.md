@@ -22,10 +22,10 @@ dump at the end. Only one session edits this file at a time.
 
 **Cite what can move; restate nothing.** Which checks a script runs, which files trigger which gate,
 a library's behaviour and a version number all change underneath a lesson, so a lesson points at its
-source: `scripts/verify.sh` and `docs/ops/spec.md` §1.6 for the gate, `docs/_decisions/` for ratified
-decisions, the installed package for library behaviour. **Where a lesson names a file, function, flag
-or version, confirm it at that source before relying on it** — a named example illustrates the rule
-and is not a current-state claim.
+source: `scripts/verify.sh` and `docs/ops/spec.md` §1.6 for the gate, `.claude/CLAUDE.md` §7 for
+ratified decisions, the installed package for library behaviour. **Where a lesson names a file,
+function, flag or version, confirm it at that source before relying on it** — a named example
+illustrates the rule and is not a current-state claim.
 
 ---
 

@@ -12,8 +12,8 @@ the searches run.
 
 CONTEXT — derive, do not assume: read the **current** deprecation table in `.claude/CLAUDE.md` (the
 "Deprecations the toolchain will NOT catch" table) at run time, never a copy, and the
-ratified-decisions index beside it plus `docs/_decisions/`, several of which read as violations of
-that table and are deliberate. **Cite CLAUDE.md's sections by name — its numbering moves.**
+ratified-decisions index beside it, several rows of which read as violations of that table and are
+deliberate. **Cite CLAUDE.md's sections by name — its numbering moves.**
 
 THE CHECKS:
 
@@ -22,10 +22,9 @@ THE CHECKS:
    row has a _behavioural_ equivalent a literal grep would miss, check that too — the canonical
    example: zero matches for `getServerSideProps` does not mean the caching model is current; audit
    whether `use cache` sits at the data layer and where `await connection()` opts renders out of
-   prerendering (that check is what produced ADR-0006). For component-library rows, back a zero count
-   with evidence: enumerate the compound sub-components actually in use, and check for previous-major
-   prop idioms surviving on current components (`onClick` where react-aria expects `onPress`, and
-   similar).
+   prerendering. For component-library rows, back a zero count with evidence: enumerate the compound
+   sub-components actually in use, and check for previous-major prop idioms surviving on current
+   components (`onClick` where react-aria expects `onPress`, and similar).
 
 2. **Dead styling vocabulary.** Classes and tokens that compile and resolve to nothing — utilities
    from a previous library major, tokens renamed out from under their users, arbitrary values

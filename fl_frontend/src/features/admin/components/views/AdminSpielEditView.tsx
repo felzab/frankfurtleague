@@ -21,10 +21,9 @@ import type { ActionRequiredCategory } from "@/features/spiele/types";
  * The whole body of `/admin/spiele/[spiel_id]` — what the fixture is, then the form that edits it.
  *
  * **In `admin` rather than in `spiele`, and it reads `useAdmin()` so the form never has to.** The four
- * lookup lists are the aggregator's to gather (ADR-0008); `AdminEditSpielDataForm` takes them as props
- * because a `spiele` component reading the admin context would make the write path depend on `admin`,
- * which is the direction ADR-0004 moved it out of. This view is the bridge, and it is the only consumer
- * of that context.
+ * lookup lists are the aggregator's to gather; `AdminEditSpielDataForm` takes them as props
+ * because a `spiele` component reading the admin context would make the write path depend on `admin`.
+ * This view is the bridge, and it is the only consumer of that context.
  *
  * **It also computes which action-required categories this fixture falls into**, by calling the same
  * `categorizeActionRequired` the triage list uses over a single-element array. That keeps one copy of the
@@ -54,9 +53,9 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
    * `categorizeActionRequired` report the fixture as cancelled and stop reporting it under any of the
    * four "fehlt" categories, so "Offene Angaben" empties in real time instead of at the next load.
    *
-   * `bracketFaults` is deliberately not passed: a fault is a backend derivation over a whole season
-   * (ADR-0039) and this route reads one match, so re-deriving it here would be a second copy of a rule
-   * that exists to have only one.
+   * `bracketFaults` is deliberately not passed: a fault is a backend derivation over a whole season and
+   * this route reads one match, so re-deriving it here would be a second copy of a rule that exists to
+   * have only one.
    */
   const categorize = (spiel: FLSpielWithDraftFields): ReadonlySet<ActionRequiredCategory> =>
     new Set(

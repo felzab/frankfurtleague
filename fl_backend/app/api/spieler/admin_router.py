@@ -2,14 +2,14 @@
 SPIELER · write endpoints
 
 People, and their membership of a team's squad for a season — two surfaces, because a player
-moving clubs is not a new person. Guarded at router level by `verify_access_admin` (ADR-0027).
+moving clubs is not a new person. Guarded at router level by `verify_access_admin`.
 
 Invariants:
-- Deletion is soft on both collections, and they retire independently (ADR-0025).
-- Creating a squad row 409s on a repeat — `reactivate` is what brings a player back (ADR-0025).
+- Deletion is soft on both collections, and they retire independently.
+- Creating a squad row 409s on a repeat — `reactivate` is what brings a player back.
 - `nummer` is a string: squad numbers are worn, not counted.
-- `position` and `stufe` are closed sets (ADR-0048), here and in the `saison_spieler` validator.
-- `/spieler/{spieler_id}/saisons/{saison_id}` addresses a junction row, never the season (ADR-0027).
+- `position` and `stufe` are closed sets, here and in the `saison_spieler` validator.
+- `/spieler/{spieler_id}/saisons/{saison_id}` addresses a junction row, never the season.
 - `GET /memberships` returns people carrying junction rows — deliberately, like the teams twin.
 
 See:
@@ -86,7 +86,7 @@ async def get_spieler_memberships(spieler_collection: SpielerCollection) -> FLSp
     back as two rows nothing can tell apart. This is the player-centric question as one aggregation.
 
     In the admin router rather than the read router because only the admin surface asks it — the same
-    split that puts `GET /teams/memberships` beside the team writes (ADR-0027).
+    split that puts `GET /teams/memberships` beside the team writes.
 
     A static path beside `by_id` routes: the id convertor takes 24 hex characters, so
     `/spieler/memberships` can never be captured by an id route regardless of declaration order.
@@ -251,9 +251,9 @@ async def patch_saison_spieler(
     Changing `team_id` here is how a transfer is recorded, and it is the whole reason the junction
     exists separately from the person.
 
-    `position` and `stufe` are closed sets (ADR-0048), so a value outside either is a 422 rather than
-    a second spelling of a position the league already has. `nummer` stays free TEXT — a squad number is
-    worn rather than counted — and **a duplicate is permitted rather than refused** (decided
+    `position` and `stufe` are closed sets, so a value outside either is a 422 rather than a second
+    spelling of a position the league already has. `nummer` stays free TEXT — a squad number is worn
+    rather than counted — and **a duplicate is permitted rather than refused** (decided
     2026-08-13, declared in `fl_backend/app/core/domain.py :: UNENFORCED`). The league fields four
     goalkeepers wearing 1, and this endpoint answers the same way as the create and the reactivate.
     """

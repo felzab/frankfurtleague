@@ -84,15 +84,13 @@ flips with no trace of who flipped it or why, and the write that destroys the mo
 for — applying a bracket advancement clears the advanced fixture's `ergebnis` and `elfmeterschiessen`
 (`fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`), so correcting a quarter-final
 silently deletes a semi-final scoreline that a person had entered.
-[ADR-0041](../_decisions/0041-a-voided-result-is-named-before-it-is-lost.md) makes that destruction
-**visible** and deliberately does not make it **recoverable** beyond a fifteen-second undo — which is
-the question this entry carries.
+That destruction is made **visible** and deliberately not **recoverable** beyond a fifteen-second
+undo — which is the question this entry carries.
 
 **What the reference model does.** Federation administration software treats a disciplinary action as
 a case with an audit trail, because a disqualification is a decision somebody has to be able to
 justify later, and because a sanction that nobody can trace is a sanction that gets disputed. Part of
-that is built — a disqualification carries a reason and a date
-([ADR-0047](../_decisions/0047-a-disqualification-is-a-record-and-its-absence-is-the-null.md)) — but a
+that is built — a disqualification carries a reason and a date — but a
 reason and a date on the current state is not a history: it says why the team is disqualified, never
 what its standing was a week ago.
 
@@ -105,7 +103,7 @@ restore is offered:
 - **Where it goes:** a collection, because the page reads it. A log stream is out — `deploy.sh`
   recreates the containers and the history would end at the last deploy (`docs/logging/spec.md`).
 - **Whether a restore is offered:** yes, and that is the smarter undo. The bound to beat is the one
-  ADR-0041 already ships: fifteen seconds, held in the browser, gone on reload. An undo over a stored
+  the editor already ships: fifteen seconds, held in the browser, gone on reload. An undo over a stored
   log outlives the fifteen seconds and survives a reload, and it can restore a write nobody was
   watching at the time — which is the case the client-held one cannot reach.
 
@@ -116,8 +114,8 @@ a history of squad edits is a retention decision rather than a storage one.
 on 2026-08-12 that a second person will be writing in the season plan this year. Today the only person
 who can dispute an entry is the one who made it, and from the first shared write that stops being
 true. The cost of delay is the part that cannot be recovered — a log records from the day it exists
-and never backwards, so every write made before it lands is one nobody can reconstruct. ADR-0041
-raises the value of doing it meanwhile: the client-held undo makes the gap visible on the one surface
+and never backwards, so every write made before it lands is one nobody can reconstruct. The
+client-held undo raises the value of doing it meanwhile: it makes the gap visible on the one surface
 an admin uses most.
 
 ### 2 · BE-18 — Five states the code permits are named by neither half of the domain declaration
@@ -145,8 +143,7 @@ with no row fails, and a row naming no refusal fails.
 | `PATCH /spiele/{spiel_id}` writes the payload's side back wholesale, `name` and `shorthand` included, so a caller can store a display name that disagrees with the club `team_id` points at                                                                                         | `fl_backend/app/api/spiele/schemas.py :: FLSpielTeamField`                                                                         |
 
 The last row is about the two copied display fields alone. A fixture's `mietpreis` and `payment` are
-per-fixture values rather than stale copies of a default
-([ADR-0021](../_decisions/0021-store-what-was-true-then-derive-what-is-true-now.md)), and the same
+per-fixture values rather than stale copies of a default, and the same
 `$set` is what makes them work.
 
 **One of the five has a date on it, and the date is this year.** `post_saison_team`'s docstring
@@ -187,10 +184,8 @@ which BE-12 leans on for its own "what runs it".
 rollover actually being missed.
 
 **Every step of a rollover has a page; the sequence has nothing.** `/admin/saisons` creates the
-season, the Umstellung panel on `/admin/saisons/[saison_id]` activates it
-([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)), the team and player editors
-carry the junction rows, and `/admin/spieltage` builds the skeleton
-([ADR-0072](../_decisions/0072-the-matchday-editor-becomes-a-page.md)). Each clears its own
+season, the Umstellung panel on `/admin/saisons/[saison_id]` activates it, the team and player editors
+carry the junction rows, and `/admin/spieltage` builds the skeleton. Each clears its own
 caches as it saves. What no surface does is notice that the sequence has not started, or that it
 stopped half-way: nothing prompts for a step that is skipped.
 
@@ -208,7 +203,7 @@ message, is the actual scope.
 **What has to be settled when it is worked:**
 
 - **What triggers it.** A season's `end_date` is the obvious clock and is the wrong one on its own — a
-  season is over when its fixtures are played, and an early rollover is legitimate (ADR-0026). The
+  season is over when its fixtures are played, and an early rollover is legitimate. The
   honest trigger is probably a date approaching with the next season absent.
 - **What runs it.** A container with a cron, a scheduled GitHub Actions workflow hitting a guarded
   endpoint, or the host's own crontab. The workflow needs no new runtime and is already proven here by
@@ -262,67 +257,61 @@ exists are writes nobody can reconstruct.
 `fl_backend/app/api/saisons/schedule.py :: schedule_for` takes a season's rules and returns, per
 phase the season actually plays, how many matchdays it takes and how many matches each holds;
 `:: expected_matches` is what a matchday's `anzahl_spiele` reports.
-[ADR-0052](../_decisions/0052-a-seasons-schedule-is-derived-from-its-rules.md) stores none of it and
-refuses a rules combination that cannot be played
+Nothing stores any of it, and a rules combination that cannot be played is refused
 (`fl_backend/app/api/saisons/services.py :: find_rules_refusal`). So the shape of a season is already
 a pure function of what a create form collects, and the guided flow's structural half is a matter of
 showing that function's answer while the admin is still choosing.
 
 **The missing half is the draw, and its absence is a ratified decision rather than a gap.** `/spiele`
-has no `POST` and no `DELETE`:
-[ADR-0037](../_decisions/0037-a-seasons-fixtures-are-created-once.md) settled that a season's matches
-are drawn once, outside the API, that correcting a draw means editing the database directly, and that
-a `POST` would need a `spiel_nr` nobody can safely choose — the draw assigns it, and
-[ADR-0034](../_decisions/0034-a-result-entry-resolves-the-whole-bracket.md) wires the bracket through
-that number rather than through document ids. **Generating a season "fully" therefore means writing a
-draw**, which is the largest single piece of new backend here and the one that runs straight at
-ADR-0037. Whether the flow does that at all, or stops at a season whose structure is ready and leaves
-the draw where ADR-0037 put it, is a ruling this entry needs before the work starts.
+has no `POST` and no `DELETE`: a season's matches are drawn once, outside the API, correcting a draw
+means editing the database directly, and a `POST` would need a `spiel_nr` nobody can safely choose —
+the draw assigns it, and the bracket is wired through that number rather than through document ids.
+**Generating a season "fully" therefore means writing a draw**, which is the largest single piece of
+new backend here and the one that runs straight at the rule that a season's fixtures are created
+once. Whether the flow does that at all,
+or stops at a season whose structure is ready and leaves the draw outside the API, is a ruling this
+entry needs before the work starts.
 
 **Ending the flow by making the season live is the one thing it must not do.**
 `POST /saisons/{saison_id}/activate` is the only code path in the system that writes `status`, a
 created season is always `future`, and creating and activating are two steps **on purpose** — a
 single "create it and make it live" call turns a typo in a four-character season id into a silent
-rollover of the running season, produced by a form field (ADR-0026). A guided workflow that finishes
+rollover of the running season, produced by a form field. A guided workflow that finishes
 by making the season current is exactly that call with a wizard in front of it. The flow ends at a
 season that is ready and `future`; the rollover stays the panel on `/admin/saisons/[saison_id]`,
-where the outgoing season's unfinished fixtures are listed rather than counted (ADR-0072).
+where the outgoing season's unfinished fixtures are listed rather than counted.
 
 **The load-bearing question: a matchday row is created by hand, and whether it should be is open.**
 `/admin/spieltage` creates one at a time, and what a row supplies is its phase and its date span —
-its position, its name and its match count have each already left the document
-([ADR-0051](../_decisions/0051-a-matchdays-position-is-derived-not-stored.md), ADR-0052). My
+its position, its name and its match count have each already left the document. My
 direction is that the rows should follow from the rules as well. **If they do, generating a season
 stops being a feature and becomes a consequence**, because building the structure is then only
 applying the rules — and the flow's generation half is a read of `schedule_for` rather than a writer
 of anything. That is why the ordering matters: building the guided flow first means building
 generation against a model that is about to change, and rewriting it afterwards. The question is not
-free either — ADR-0051 keeps a knockout round splittable across several matchdays, and ADR-0037
-leaves `spiele.spieltag_id` with no fixture-level create or delete to move a fixture off a row a
-narrowing would remove.
+free either — a knockout round stays splittable across several matchdays, and `spiele.spieltag_id`
+has no fixture-level create or delete to move a fixture off a row a narrowing would remove.
 
 **A public write into application data would be the first of its kind here.** Every write that
 touches the league's own data sits behind `verify_access_admin`, declared at router level and
-inherited by the endpoints under it
-([ADR-0027](../_decisions/0027-the-write-path-is-resource-first-in-a-second-router.md)); the browser
+inherited by the endpoints under it; the browser
 side of that is an email allowlist checked at sign-in and re-derived on every session read
 (`fl_frontend/src/core/auth.ts`). The public unauthenticated writes that exist touch no application
-data — the sign-in action, which triggers an outbound email and writes into the Auth.js store alone
-([ADR-0007](../_decisions/0007-authjs-owns-a-direct-mongoclient.md)), and
+data — the sign-in action, which triggers an outbound email and writes into the Auth.js store alone, and
 `fl_frontend/src/app/api/client-error/route.ts`, which writes a log line — and each has its own
 `limit_req_zone` in `nginx/prod.conf`, keyed so that only the POST is limited. A self-registration
 page is the first that inserts a person. What that opens is listed under the undecided questions
 below rather than answered here.
 
-**Recognising a returning player has a shape already, and ADR-0025 refused the tempting version of
-it.** `spieler` holds the person and the `saison_spieler` junction holds everything a squad list
-shows; `uniq_spieler_id_saison_id` gives a person one row per season, so bringing back somebody who
+**Recognising a returning player has a shape already, and the tempting version of it is refused.**
+`spieler` holds the person and the `saison_spieler` junction holds everything a squad list shows;
+`uniq_spieler_id_saison_id` gives a person one row per season, so bringing back somebody who
 already has a retired row for that season is
-`POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate` and never a second create.
-[ADR-0025](../_decisions/0025-soft-deletion-is-a-date-not-a-flag.md) rejected making a create
-idempotent on a natural key because a two-letter shorthand cannot distinguish the same club returning
-from a different one wanting those letters, and getting it wrong repoints history silently. **A typed
-name is a weaker key than a shorthand**, so the same argument binds harder here: matching on a name
+`POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate` and never a second create. Making a
+create idempotent on a natural key was rejected because a two-letter shorthand cannot distinguish
+the same club returning from a different one wanting those letters, and getting it wrong repoints
+history silently. **A typed name is a weaker key than a shorthand**, so the same argument binds
+harder here: matching on a name
 has to propose a candidate rather than resolve one, and the resolution belongs to somebody who can be
 wrong out loud. `is_nachgetragen` is the field that already records a squad entry arriving after the
 season began, derived from the chosen season's status rather than asked
@@ -335,24 +324,23 @@ nothing here has a refusal to inherit — what it inherits is the obligation to 
 happens. The admin surfaces do that in two shapes:
 `fl_frontend/src/features/spieler/utils.ts :: isSquadNummerNewlyShared` decides only on a state the
 draft introduces, and the squad editor raises it as a `warning`, which routes the save through the
-confirmation ([ADR-0070](../_decisions/0070-a-draft-carrying-a-warning-is-confirmed-before-it-saves.md)).
+confirmation.
 A page where a whole team enters itself multiplies those writes and has no admin reading them, so
 whether a self-registered player may take a shirt somebody in the squad already wears — and who is
 told — is a product call this entry owns.
 
 **What the Saison page and its editor inherit.** The create form is a dialog today
 (`fl_frontend/src/features/saisons/components/modals/AdminCreateSaisonModal.tsx` over
-`fl_frontend/src/features/saisons/components/forms/AdminCreateSaisonForm.tsx`), and
-[ADR-0040](../_decisions/0040-a-form-that-outgrows-a-dialog-becomes-a-page.md) already fixes what
-happens when a form outgrows one: it becomes a page at its own route, with panels per section, a
-field judged when it is left, one save bar, a discard guard and an undo route handler. A flow that
+`fl_frontend/src/features/saisons/components/forms/AdminCreateSaisonForm.tsx`), and what happens
+when a form outgrows one is already fixed: it becomes a page at its own route, with panels per
+section, a field judged when it is left, one save bar, a discard guard and an undo route handler. A flow that
 also picks clubs and creates them passes that threshold by a distance, so the guided workflow is a
 page rather than a larger modal, and the pattern to copy is on
 `/admin/saisons/[saison_id]` — `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx`
 and the Zeitraum, Regeln, Gruppentausch and rollover sections beside it. The editor is where a wrong
 answer from the flow is corrected, so every field the flow collects has to be editable afterwards,
-and the narrowing refusals ADR-0052 lists are what the flow has to state while a value is still being
-chosen.
+and the narrowing refusals `find_rules_refusal` performs are what the flow has to state while a
+value is still being chosen.
 
 **Undecided, and each needs a ruling before the part depending on it starts:**
 
@@ -365,24 +353,21 @@ chosen.
   unauthenticated stranger — the trust `teams.description` and a disqualification's `grund` already
   carry, extended to somebody the league has not authenticated.
 - **What the form may ask for, and where the notice saying so lives.** `stufe` is the Hessen
-  Oberstufe ([ADR-0048](../_decisions/0048-position-and-stufe-are-closed-sets.md)), so the people
+  Oberstufe, so the people
   typing into this page are school pupils. The public route group
   `fl_frontend/src/app/(public)/(meta)/` holds `about`, `kontakt` and `team`.
 - **Where a representative's contact is kept.** `fl_backend/app/api/teams/schemas.py :: FLTeamRecord`
   carries a club's name, shorthand, description, site and address and no person, so this is a new
   collection or a new embedded record — and a new collection is a member of
   `fl_backend/app/core/collections.py :: Collection`, a hand-written `$jsonSchema` and its indexes in
-  `fl_backend/app/core/constraints.py`, and a row in every table that mirrors them
-  ([ADR-0020](../_decisions/0020-the-database-enforces-its-own-invariants.md),
-  [ADR-0024](../_decisions/0024-the-third-copy-of-the-schema-is-checked-not-generated.md),
-  [ADR-0054](../_decisions/0054-one-declaration-of-the-collection-names.md)).
+  `fl_backend/app/core/constraints.py`, and a row in every table that mirrors them.
 - **What sends the notification.** Resend is already the transport for the sign-in link, reached
   through Auth.js's provider rather than as a service anything else can call
   (`fl_frontend/src/core/auth.ts`, `fl_frontend/src/core/authEmail.ts`). A second sender is either a
   second call site against the same API or a reason to lift the transport out from under the provider.
 - **Whether the flow may enter a club it has just created.** A club never leaves a season once it is
-  entered: `saison_teams` has a POST and a PATCH and no DELETE, and the way out is disqualification
-  (ADR-0026). A club entered by a misclick in a wizard is therefore disqualified rather than removed,
+  entered: `saison_teams` has a POST and a PATCH and no DELETE, and the way out is disqualification.
+  A club entered by a misclick in a wizard is therefore disqualified rather than removed,
   which is a heavy consequence for a step in a flow designed to be fast.
 - **What a rate limit for this surface should be.** The existing zones are sized for a person signing
   in and for a crashing browser; a whole squad filling a form in one break is a different shape of
@@ -441,28 +426,27 @@ form (`AdminEditSpielDataForm.tsx :: AdminEditSpielDataForm`), the schemas, and 
 elements **across the board**.
 
 The Zod mirror is not a fourth place to keep in step by hand: it is checked against the published
-document, so one that falls behind `datum`'s new shape is a gate failure naming the field
-([ADR-0033](../_decisions/0033-the-zod-mirror-is-checked-against-the-published-document.md)).
+document, so one that falls behind `datum`'s new shape is a gate failure naming the field.
 
 Touchpoints to scope against when it is worked: `datum` in each schema mirror and in the DB documents;
 `computeSpielStatus`'s date comparisons and `formatSpielDisplay`'s labels, each in
 `fl_frontend/src/features/spiele/utils.ts`, and the card layouts over them; `sort_by=datum` on the
-backend; `searchable_datum` in the Spielsuche; and the `ausstehend` semantics
-[ADR-0058](../_decisions/0058-a-status-filter-is-not-a-status-label.md) fixed — a range makes the
-ausstehend/heute/vergangen ternary genuinely harder, and that ADR's intent (a fixture whose play
-window includes today is found by the upcoming filter and labelled `heute`) is what the range
-arithmetic has to preserve. Working it re-derives ADR-0058's definitions under ranges.
+backend; `searchable_datum` in the Spielsuche; and the `ausstehend` semantics, where a filter
+selects and a label partitions — a range makes the ausstehend/heute/vergangen ternary genuinely
+harder, and the intent (a fixture whose play window includes today is found by the upcoming filter
+and labelled `heute`) is what the range arithmetic has to preserve. Working it re-derives both
+definitions under ranges.
 
 ### 7 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
 **Effort:** L\
-**Path:** Independent — ADR-0032 is a floor; tracing waits on new dependencies and on a destination.
+**Path:** Independent — the correlation id is a floor; tracing waits on new dependencies and on a
+destination.
 
 **Implement the industry-standard shape of the correlation scope this repository runs a subset of** (my
-item, 2026-08-05).
-[ADR-0032](../_decisions/0032-one-correlation-id-per-request-one-document-per-line.md) settled **one id
+item, 2026-08-05). What runs today is **one id
 per request, propagated by an ordinary header, written into each service's JSON stream**. The
 recognised standard for the same job is **W3C Trace Context** — a `traceparent` header carrying a
 trace id, a span id and flags — usually implemented through **OpenTelemetry**, which records not just
@@ -510,13 +494,12 @@ independent of tracing.
 every dynamic caller, the uncached page-render reads included. What is left for OpenTelemetry is the
 half no application code can reach.
 
-**What it would supersede.** ADR-0032's decision that the identifier is a single id on a custom header.
-Reversing that means a new ADR carrying `Supersedes: ADR-0032`, and ADR-0032's own Status and
-`Superseded by` lines changing and nothing else
-([`_standard/chapters/4-decisions.md`](../_standard/chapters/4-decisions.md), DEC-6). What survives
-untouched is the stream contract, the error-code system and the edge's refusal of a client-supplied
-id — a `traceparent` from an untrusted client carries exactly the same log-injection risk and must be
-validated or replaced the same way.
+**What it would reverse.** That the identifier is a single id on a custom header. The reversal is
+recorded where it will be read — a comment at the line it constrains, a `.claude/CLAUDE.md` §7 line,
+or an invariant on `docs/logging/spec.md` — and the argument for it goes in the closing commit's
+body. What survives untouched is the stream contract, the error-code system and the edge's refusal
+of a client-supplied id — a `traceparent` from an untrusted client carries exactly the same
+log-injection risk and must be validated or replaced the same way.
 
 **Not measured:** the runtime cost of the instrumentation packages on this application, and whether a
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
@@ -529,8 +512,8 @@ should be guessed.
 **Effort:** M\
 **Path:** Independent — the spieler pages retire rows, so an `inactive_since` can accumulate at all.
 
-**`inactive_since` is a date rather than a flag so that a retired row can eventually be purged**
-([ADR-0025](../_decisions/0025-soft-deletion-is-a-date-not-a-flag.md)), and nothing purges one.
+**`inactive_since` is a date rather than a flag so that a retired row can eventually be purged**, and
+nothing purges one.
 
 The field is carried by `teams`, `spieler`, `saison_spieler`, `spieltage`, `spielorte` and
 `schiedsrichter`. A retired row stays forever, keeps its slot in whatever unique index covers it, and
@@ -548,7 +531,7 @@ than rediscovered.
 - **What still references the row.** This is the hard half and it is why the delete was soft in the
   first place: `spiele` embeds a copy of a venue, a referee and each team, and references each by id.
   A purge that is not preceded by a reachability check reintroduces exactly the orphaned references
-  ADR-0025 refused. `saison_spieler` is the collection with no such embedding.
+  the soft delete refused. `saison_spieler` is the collection with no such embedding.
 - **Whether releasing a shorthand from `uniq_shorthand` is a feature or a hazard.** Purging a retired
   club frees its shorthand for reuse, which is the point — and it also means a future club can hold
   letters that historical matches still name, if any survived the check above.
@@ -557,9 +540,8 @@ than rediscovered.
   and reaches nothing this could hang off, as FB-16 sets out — which makes the hand-run script the
   cheapest by a distance.
 
-`saisons` and `saison_teams` carry no such field and need none: neither has a delete at all
-([ADR-0026](../_decisions/0026-one-active-season-and-one-path-to-it.md)), so neither can accumulate a
-row to purge.
+`saisons` and `saison_teams` carry no such field and need none: neither has a delete at all, so
+neither can accumulate a row to purge.
 
 ### 9 · BE-7 — `typing` imports instead of `collections.abc`
 
@@ -584,8 +566,7 @@ selection leaves that family out.
 **Not a defect today, and the numbers say why** (found 2026-08-05, reviewing the bracket).
 
 `_decide_one_gruppe` walks every combination of outcomes for a group's outstanding fixtures and reports
-a placing only when the same team holds it in all of them
-([ADR-0035](../_decisions/0035-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md)).
+a placing only when the same team holds it in all of them.
 The walk is capped per group by `fl_backend/app/api/teams/services.py :: CERTAINTY_FIXTURE_LIMIT` — ten
 outstanding fixtures when it was measured on 2026-08-05 — and past the cap it reports no placing at
 all, which is the safe direction and, at ten unplayed matches, the honest one.

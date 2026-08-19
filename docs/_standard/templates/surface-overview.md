@@ -19,7 +19,7 @@ afternoon is worth more here than a complete description.\>
 
 \<The major parts and the boundaries between them, in a short paragraph or a directory tree. Say
 which constraints are enforced mechanically — a lint rule, a type, a test — and which are
-convention. Where a rule has a deliberate exception, name it and cite the ADR: an unexplained
+convention. Where a rule has a deliberate exception, name it and say why: an unexplained
 exception reads as a mistake and gets "fixed".\>
 
 ## \<Surface-specific section\>
@@ -32,4 +32,3 @@ work". A mermaid diagram earns its place where the shape is genuinely hard in pr
 
 - [`spec.md`](spec.md) — the contract, the invariants, and what breaks
 - [`../glossary.md`](../glossary.md) — the domain vocabulary
-- \<the ADRs that govern this surface, by number and title\>

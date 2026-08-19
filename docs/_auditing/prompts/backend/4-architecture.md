@@ -27,8 +27,8 @@ THE CHECKS, in priority order:
 2. **LAYER AND IMPORT DIRECTION.** `core` must not import from `api`; `shared` must not import from
    either. Report every wrong-direction or cross-resource import with its chain. Where a
    cross-resource import is legitimate — season resolution used by three routers, for example — name
-   it as legitimate and say why, following the aggregator pattern ADR-0008 ratifies on the frontend,
-   rather than flagging it raw.
+   it as legitimate and say why, following the aggregator pattern ratified on the frontend, rather
+   than flagging it raw.
 
 3. **EXCESS — code that should not exist.** The required table, one row per candidate: what | every
    site as `<file> :: <symbol>` | class from the table below | which copy or construct dies, and what
@@ -52,9 +52,9 @@ THE CHECKS, in priority order:
    - **Every `hand-rolled` row cites the API that replaces it**, verified at the installed version.
    - **Measure before proposing.** State the lines and exported names each row removes; a row with no
      number is filed INFO.
-   - Check `docs/_decisions/` before flagging a suspect. The `$jsonSchema` validators duplicate the
-     Pydantic models by hand on purpose (ADR-0024), and `app/core/domain.py` is a declaration nothing
-     may import from `app/` (ADR-0053).
+   - Check `.claude/CLAUDE.md` §7 before flagging a suspect. The `$jsonSchema` validators duplicate
+     the Pydantic models by hand on purpose, and `app/core/domain.py` is a declaration nothing may
+     import from `app/`.
 
 4. **TYPING AND MODERNISATION.** A known open item in `docs/_roadmap/open-items.md`: several modules
    import `Mapping` / `Sequence` / `Optional` / `Callable` from `typing` instead of
@@ -64,8 +64,8 @@ THE CHECKS, in priority order:
    `pyright` strictness gaps, `Any` leaks, missing return types on public functions.
 
 5. **TEST STRATEGY BY LAYER.** Establish what the suite actually covers before judging it. **A real
-   `mongod` fixture already exists**: ADR-0023 puts database-touching tests behind a `db` marker the
-   default tier deselects, so this pass inherits a working container fixture and decides the layer
+   `mongod` fixture already exists**: database-touching tests sit behind a `db` marker the default
+   tier deselects, so this pass inherits a working container fixture and decides the layer
    shapes on top of it rather than choosing a mechanism. Produce the required table: layer (schemas /
    filter builders / services and pipelines / routers and auth / crud) | what exists | what a defect
    there would look like | recommended suite shape and cost. Design ONE strategy across the untested

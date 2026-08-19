@@ -20,7 +20,7 @@
 #   merely compatible with it. Asking instead whether anything TRACKED is named would release every
 #   path git cannot place: a file that does not exist yet, a case-varied spelling, a path hidden
 #   inside a `--flag=value`. Each of those refuses here, which is what stops this route being wider
-#   than the tool route it mirrors (ADR-0060).
+#   than the tool route it mirrors.
 #
 # THE TOKEN PASS IS GATED BY THE CONDITIONS BELOW, each of them because a command that satisfies it
 # writes a path it never names:
@@ -39,11 +39,11 @@
 #   not the shell's own working directory. One spelled from a subdirectory therefore names a
 #   different file here than it does there — the same miss guard-standard-bash.sh records.
 #
-# WHAT IT DOES WHEN IT CANNOT TELL — it refuses, which is ADR-0060's posture: a payload node could
-# not read, a git that could not name the root, a pathspec git could not parse, and above all a path
-# git could not place. `git checkout -b` reaches none of that, because it matches no write shape, so
-# leaving `main` stays possible for as long as node runs at all — and node not running is the same
-# condition that stops the session holding this hook.
+# WHAT IT DOES WHEN IT CANNOT TELL — it refuses: a payload node could not read, a git that could not
+# name the root, a pathspec git could not parse, and above all a path git could not place.
+# `git checkout -b` reaches none of that, because it matches no write shape, so leaving `main` stays
+# possible for as long as node runs at all — and node not running is the same condition that stops
+# the session holding this hook.
 #
 # WHAT IT CANNOT SEE: a write no write shape describes. `pnpm format`, `sort -o f` and any program
 # reading its target out of a file rather than off the command line are invisible here, and the
@@ -76,9 +76,9 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
 ' 2>/dev/null)"
 read_status=$?
 
-# A payload node could not read is a question nobody answered, and refusing one is ADR-0060's
-# posture — the same status node absent or crashed leaves. A command that is the empty string is a
-# real answer and exits: there is nothing to guard.
+# A payload node could not read is a question nobody answered, so it refuses — the same status node
+# absent or crashed leaves. A command that is the empty string is a real answer and exits: there is
+# nothing to guard.
 [ "$read_status" -eq 0 ] || deny
 [ -n "$cmd" ] || exit 0
 
@@ -107,8 +107,8 @@ case "$padded" in
 esac
 
 # An inline interpreter names its target in source, where no verb and no redirect shows it.
-# `open(` counts whatever the mode says, so a read spelled that way refuses too — ADR-0060's
-# posture, and cheaper than a hole nothing observes.
+# `open(` counts whatever the mode says, so a read spelled that way refuses too — a false refusal is
+# cheaper than a hole nothing observes.
 case "$padded" in
   *"open("* | *"openSync"* | *".write"* | *"write_text"* | *"write_bytes"* | *"writeFile"*) writes=1 ;;
   *"appendFile"* | *"createWriteStream"* | *".rename"* | *".replace("* | *".remove"*) writes=1 ;;
@@ -237,7 +237,7 @@ const decide = (input) => {
 
   // A quoted path holding a space arrives split at the space, and the part past it is not ignored
   // on its own, so a write aimed inside the ignored tree is refused. A false refusal rather than a
-  // hole, which is the side ADR-0060 errs on.
+  // hole, which is the side to err on.
   const words = cmd
     .split(/[ \t]+/)
     .filter(Boolean)

@@ -43,9 +43,10 @@ holds a `*AnyDatabase` role. `collMod` is on the backend's user because it appli
 validators on every boot — what a user without it produces is the `collMod` row of
 [`../backend/spec.md`](../backend/spec.md) §4.
 
-The split is what [ADR-0007](../_decisions/0007-authjs-owns-a-direct-mongoclient.md) requires: the
-sanctioned exception is Auth.js reaching **its own** database. **Never give the two a shared login** —
-that makes the boundary a matter of trust rather than of configuration, and nothing then enforces it.
+The split is required, not incidental. Auth.js reaching **its own** database is the one sanctioned
+direct reach from the frontend into MongoDB; application data goes through FastAPI without exception
+([`../frontend/overview.md`](../frontend/overview.md)). **Never give the two a shared login** — that
+makes the boundary a matter of trust rather than of configuration, and nothing then enforces it.
 
 **Only nginx publishes ports** ([`spec.md`](spec.md) I1). The two application containers are reachable
 solely from inside the compose network, so anything not in nginx's routing table simply does not exist
@@ -64,9 +65,7 @@ configuration file in this repository:
   2026-08-01, which makes them a property to re-verify rather than assume.
 - **Cloudflare compresses what arrives uncompressed and passes through everything else**, and its
   own compression is _worse_ than the origin's on the same file — measured 2026-08-01 at 38.7 KB
-  (zstd, what Chrome negotiates) against 35.9 KB. So the origin keeps compressing
-  ([ADR-0015](../_decisions/0015-origin-keeps-compressing.md), which also names the conclusion this
-  measurement does NOT support).
+  (zstd, what Chrome negotiates) against 35.9 KB. So the origin keeps compressing.
 
 The origin remains the authority for routing, rate limiting and the security headers. Nothing here
 manages the Cloudflare account, its DNS records or its SSL mode, so what is configured there cannot be
@@ -107,7 +106,7 @@ shape:
   action id ships in a client chunk, and the client-error ingest — both outbound-effect endpoints
   anyone can call ([`spec.md`](spec.md) I4).
 - **`'unsafe-inline'` on `script-src` is deliberate** and its compensating control is the
-  `react/no-danger` lint rule ([ADR-0011](../_decisions/0011-single-enforced-csp.md)) — a nonce cannot
+  `react/no-danger` lint rule — a nonce cannot
   cover build-time prerendered HTML.
 - **The two application containers drop all capabilities** and set `no-new-privileges`; the nginx
   container does neither ([`spec.md`](spec.md) §4). The frontend runs as a non-root user, and
@@ -127,8 +126,7 @@ services' health, so an unhealthy deploy is never served. Rollback is pulling a 
 `:sha-<commit>` tag; the registry is the rollback mechanism.
 
 Each service has its own **public** package on GitHub Container Registry —
-`ghcr.io/felzab/frankfurtleague-frontend` and `-backend`
-([ADR-0012](../_decisions/0012-ghcr-two-public-packages.md)). Public is what lets the server pull
+`ghcr.io/felzab/frankfurtleague-frontend` and `-backend`. Public is what lets the server pull
 anonymously, so production holds no registry credentials at all. Every image carries OCI labels
 recording the commit it was built from — which is why `deploy.sh --status` can report the live commit
 truthfully even if a tag was moved.

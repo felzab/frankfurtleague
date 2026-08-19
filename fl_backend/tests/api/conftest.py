@@ -3,7 +3,7 @@ TESTS · the seeded league the team and spiele pipeline suites read
 
 `build_team_pipeline` and `build_spiele_pipeline` are dicts MongoDB executes: the schema suites
 prove a dict says the right thing, and only a database proves the right thing comes back — so
-everything here is behind the `db` marker (ADR-0023), and the `mongod` container is a session
+everything here is behind the `db` marker, and the `mongod` container is a session
 fixture in `tests/conftest.py` because the constraint suite wants the same one. A short list of
 teams and matches, sized so the expected figures can be worked out on paper — each row makes
 exactly one pipeline invariant observable, its purpose commented beside it below, and the
@@ -75,7 +75,7 @@ def _team(name: str, shorthand: str) -> dict[str, Any]:
             "stadtteil": "Ostend",
             "stadt": "Frankfurt am Main",
         },
-        # A club still in the league (ADR-0025). Present rather than omitted: Mongo matches a missing
+        # A club still in the league. Present rather than omitted: Mongo matches a missing
         # field against `None`, so a seed without it passes the base filter and then fails response
         # validation -- which reads as a projection bug.
         "inactive_since": None,
@@ -102,7 +102,7 @@ def _spiel(
     `team1.tore` / `team2.tore` filters exist to survive.
 
     A team name of `None` is a bracket slot whose occupant is not decided yet, which is a legal and
-    permanent-by-default state (ADR-0034) and the one the spiele pipeline's join has to survive.
+    permanent-by-default state, and the one the spiele pipeline's join has to survive.
     """
     return {
         "spiel_nr": nr,
@@ -128,8 +128,8 @@ def league(mongo_database: Database) -> SeededLeague:
     gesamt         Helmholtz 4 matches 2/1/1 10:7  7 pts   Bock 3  1/0/2  2:8  3 pts
     ======================================================================================
 
-    Helmholtz reading 3 against 4 is the cheapest proof the scope filters at all -- the same
-    divergence ADR-0022 measured against the live database.
+    Helmholtz reading 3 against 4 is the cheapest proof the scope filters at all -- the divergence
+    that keeps the league table's default scope at `gruppenphase`.
 
     Called off, which moves none of the figures above: Helmholtz 1 under `gruppenphase` and 2 under
     `gesamt`, Bock 1 and 2, Lessing 1 under both, Ohne 1 under both, Komplett 0 under both. Bock's
@@ -194,7 +194,7 @@ def league(mongo_database: Database) -> SeededLeague:
             # point of the spiele suite, though: both its sides are teams whose 2026 junction rows say
             # something the 2025 fixture must not pick up.
             _spiel(8, "gruppenphase", "Helmholtz", "Lessing", 7, 0, ergebnis="7:0", saison_id=PRIOR_SAISON),
-            # A bracket slot the group phase has not filled (ADR-0034). Carries no result, so it counts
+            # A bracket slot the group phase has not filled. Carries no result, so it counts
             # towards nothing here and exists only so the spiele join is proved against a null side.
             _spiel(9, "viertelfinale", None, "Bock", None, None, ergebnis=None),
             # Called off and never played. Helmholtz has counting matches and Ohne has none, so the

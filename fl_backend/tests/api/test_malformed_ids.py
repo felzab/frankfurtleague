@@ -1,7 +1,7 @@
 """
 CORE · what a malformed ObjectId answers in a path, and in a query
 
-ADR-0057 ratifies the split rather than tolerating it: a path identifies, so an id naming nothing is
+The split is deliberate rather than tolerated: a path identifies, so an id naming nothing is
 a 404, and a query validates, so a malformed one is a 422. Each is settled before a handler runs —
 the `objectid` convertor decides whether a route matches at all, and `CustomObjectId` decides a query
 value while FastAPI is still assembling the call.

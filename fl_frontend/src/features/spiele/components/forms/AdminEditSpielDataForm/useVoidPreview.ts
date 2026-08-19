@@ -4,7 +4,7 @@
  * SPIELE · what saving this draft would destroy, asked live
  *
  * Debounced `dry_run=true` against the write path, which applies the payload in memory and
- * resolves the bracket without writing (ADR-0041) — the warning names exactly the fixtures a
+ * resolves the bracket without writing — the warning names exactly the fixtures a
  * save would take a stored result from, not the fixtures that merely could lose one.
  *
  * Invariants:
@@ -20,9 +20,9 @@ import type { FLPatchSpielDataPayloadDraft } from "@/features/spiele/schemas";
 
 /** The `spiel_nr` of every other fixture a save would rewrite, split by what it would cost them. */
 export type VoidPreview = {
-  /** Fixtures whose stored result the bracket resolution would clear (ADR-0041). */
+  /** Fixtures whose stored result the bracket resolution would clear. */
   voided: readonly number[];
-  /** Fixtures a team would be released from, because it is being fielded on their Spieltag (ADR-0042). */
+  /** Fixtures a team would be released from, because it is being fielded on their Spieltag. */
   released: readonly number[];
 };
 

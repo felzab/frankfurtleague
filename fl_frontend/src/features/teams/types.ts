@@ -13,7 +13,7 @@ import type { FLCreateTeamFormPayload, FLDisqualifikation, FLGruppenNames, FLPat
 export type FLTeamsSortingOptions = "name";
 
 /**
- * Which matches the derived statistics count (ADR-0022).
+ * Which matches the derived statistics count.
  *
  * Omitting it is `"gruppenphase"`, the league table — the backend defaults it there rather than to
  * every phase, because both scopes return the same fields and a forgotten parameter must not produce
@@ -21,15 +21,15 @@ export type FLTeamsSortingOptions = "name";
  */
 export type FLTeamStatistikScope = "gruppenphase" | "gesamt";
 
-/** What narrows the LIST. One team by its id is an identity — `getTeam(id)` — not a filter (ADR-0027). */
+/** What narrows the LIST. One team by its id is an identity — `getTeam(id)` — not a filter. */
 export type FLTeamsFilterParams = {
   saison_id?: string;
   gruppe?: string;
   // A question about the junction, not a field on it: the row stores a `disqualifikation` record and
-  // no boolean, and the backend translates this into a null test (ADR-0047).
+  // no boolean, and the backend translates this into a null test.
   is_disqualified?: boolean;
   in_gruppen?: boolean;
-  // Retired clubs are excluded unless an admin picker asks for them (ADR-0025).
+  // Retired clubs are excluded unless an admin picker asks for them.
   include_inactive?: boolean;
   statistik_scope?: FLTeamStatistikScope;
 
@@ -119,7 +119,7 @@ export type AdminTeamRow = {
  * Whether the group may be edited, decided by the page from the season's status and the club's
  * fixtures (decided 2026-08-07): editable only while the season is `future` or the club has
  * no fixture in it. Why it is locked belongs to the swap control beneath the row, which grades
- * four conditions where this grades one (ADR-0071).
+ * four conditions where this grades one.
  */
 export type TeamGruppeLock = {
   locked: boolean;

@@ -59,8 +59,8 @@ Read each row's FULL text, including any "Forward constraint", before acting on
 it. The ledger row wins wherever it contradicts the source report, and later
 waves amend earlier rows.
 
-CLAUDE.md's ratified-decisions index and docs/_decisions/ list the decisions
-that read as violations and are deliberate. Do not "fix" one without an
+CLAUDE.md §7 lists the decisions that read as violations and are deliberate,
+and §6 the traps that fail silently. Do not "fix" a §7 row without an
 instruction that names it; if you believe one is wrong, say so and stop.
 
 PHASE 2 — FRONT-LOAD MY DECISIONS. From the verified rows, inventory

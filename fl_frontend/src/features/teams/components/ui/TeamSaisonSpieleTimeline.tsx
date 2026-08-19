@@ -8,7 +8,7 @@
  * (`docs/frontend/spec.md :: I13`).
  *
  * Invariants:
- * - The compact card is this rail's alone and is never merged with its two siblings (ADR-0005).
+ * - The compact card is this rail's alone and is never merged with its two siblings.
  */
 import { useState } from "react";
 

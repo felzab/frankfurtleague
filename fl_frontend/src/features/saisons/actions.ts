@@ -9,11 +9,11 @@
  * Invariants:
  * - Every action runs inside `runAdminMutation` — a 409 must reach the form, not the error page.
  * - Every action begins with `getAdminSession()` and CHECKS the result.
- * - Base tags only: a season IS the season, so no granular tag names anything (ADR-0001).
- * - `status` reaches no payload — `activateSaisonAction` calls the one endpoint that may (ADR-0026).
- * - The rollover invalidates four resources: an omitted `saison_id` means the current season
- *   (ADR-0002), so promoting changes `/spiele`, `/spieltage` and `/teams` too.
- * - A rules edit invalidates `teams` as well — the table is scored from `rules` on read (ADR-0019).
+ * - Base tags only: a season IS the season, so no granular tag names anything.
+ * - `status` reaches no payload — `activateSaisonAction` calls the one endpoint that may.
+ * - The rollover invalidates four resources: an omitted `saison_id` means the current season, so
+ *   promoting changes `/spiele`, `/spieltage` and `/teams` too.
+ * - A rules edit invalidates `teams` as well — the table is scored from `rules` on read.
  *
  * See:
  * - docs/frontend/spec.md — section 1.3, the action inventory
@@ -103,7 +103,7 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
  * What a season's own reads depend on, plus the league table.
  *
  * `teams` rather than `saisons` alone: `GET /teams` reads the season document on every call to score
- * the derived table from `rules.win_points` and `draw_points` (ADR-0019), so an edit to those two
+ * the derived table from `rules.win_points` and `draw_points`, so an edit to those two
  * changes every standing on the next read. The dates travel on the same payload, so this is
  * unconditional rather than a comparison against what moved -- a wrong "nothing changed" here serves a
  * stale table for a day.
@@ -116,7 +116,7 @@ function invalidateSaisonAndTable(): void {
 /**
  * Everything a change of active season is visible in.
  *
- * Every read that defaults an omitted `saison_id` to the current season (ADR-0002) answers differently
+ * Every read that defaults an omitted `saison_id` to the current season answers differently
  * the moment this succeeds, and none of those cache entries carries the promoted season's id -- they
  * are the entries for a request that named no season, which is most public traffic.
  */
@@ -142,7 +142,7 @@ export async function postSaisonAction(
     }
 
     // Two different 409s reach this call and the code separates them: `REQ-RULES-001` refuses a
-    // bracket the phase set cannot hold (ADR-0052) and is checked first, because a duplicate id
+    // bracket the phase set cannot hold and is checked first, because a duplicate id
     // arrives from the unique index with no code to inspect.
     let postOperation;
     try {
@@ -160,7 +160,7 @@ export async function postSaisonAction(
       return { success: false, error: "Beim Anlegen der neuen Saison ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // A created season is always `future` and never `active` (ADR-0026), so nothing that resolves the
+    // A created season is always `future` and never `active`, so nothing that resolves the
     // current season is affected -- the season list is.
     updateTag("saisons");
 
@@ -190,7 +190,7 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // All five rules refusals are reachable here (ADR-0052), and each has to reach the editor rather
+    // All five rules refusals are reachable here, and each has to reach the editor rather
     // than the error page -- the panel the admin is looking at is where the wrong value still sits.
     let patchOperation;
     try {
@@ -265,7 +265,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
 
     // `deactivated` is normally 1. Zero means this season already held `active`, a no-op worth
     // naming; more than one means the database had drifted into a state nothing can express and this
-    // call repaired it (ADR-0020).
+    // call repaired it.
     const demoted = activateOperation.deactivated;
     const message =
       demoted === 0
@@ -282,8 +282,8 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
  * The group swap. Two clubs exchange groups; the backend writes both junction rows in one transaction.
  *
  * **`spiele` is invalidated as well as `teams`**, because the same transaction rewrites every drawn
- * Gruppenphase fixture fielding either club — each club inherits the other's opponents, dates and venues
- * (ADR-0062). A schedule served from the cache afterwards would name the club that used to play there.
+ * Gruppenphase fixture fielding either club — each club inherits the other's opponents, dates and
+ * venues. A schedule served from the cache afterwards would name the club that used to play there.
  */
 export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promise<{
   success: boolean;
@@ -343,8 +343,8 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
           };
         }
         if (error.serverErrorCode === "REQ-SWAP-006") {
-          // ADR-0074 accepts this rule precisely because lifting the record is an open path, so the
-          // sentence names all three steps: an admin told only "no" has nothing left to try.
+          // This refusal stands only because lifting the record is an open path, so the sentence
+          // names all three steps: an admin told only "no" has nothing left to try.
           return {
             success: false,
             error:
@@ -359,14 +359,14 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
       return { success: false, error: "Beim Tausch der Gruppen ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // Both layers for this season (ADR-0001): the base tag serves the reads that named no season, the
+    // Both layers for this season: the base tag serves the reads that named no season, the
     // granular one those that named this one. A group decides which table counts a club's results.
     updateTag("teams");
     updateTag(`teams:saison_id:${validated.data.saison_id}`);
 
     // And the fixtures, on the same two layers, because the swap rewrote the sides of every drawn
     // Gruppenphase match either club was in. Without this the schedule pages keep serving the club that
-    // used to play there (ADR-0001).
+    // used to play there.
     updateTag("spiele");
     updateTag(`spiele:saison_id:${validated.data.saison_id}`);
 

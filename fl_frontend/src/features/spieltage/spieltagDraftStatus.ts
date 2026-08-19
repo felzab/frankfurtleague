@@ -9,7 +9,7 @@
  * - `path` is the payload's dotted path AND the input `name`, `FieldErrors` key and anchor id.
  * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
  * - There are exactly three rows, because a matchday stores nothing else a form may write: its
- *   position, its name and its expected match count are all derived (ADR-0051, ADR-0052).
+ *   position, its name and its expected match count are all derived.
  * - `inactive_since` is not a descriptor — retiring is a control, not a field.
  * - `saison_id` is not a descriptor — moving a matchday between seasons would strand its fixtures,
  *   so the patch payload does not carry one.

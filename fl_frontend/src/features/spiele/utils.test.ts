@@ -5,11 +5,11 @@
  * wording, and the wiring derivations the edit form's pickers are built from. `formatSpielDisplay` is
  * tested for placeholder agreement specifically: the drift it replaced had one card rendering "- : -"
  * while two others rendered "-:-" on the same screen, which no type can catch. `formatQuelle` is
- * tested because it is the ONLY place either codebase turns a stored bracket reference into German
- * (ADR-0034) — nothing else would notice the wording changing. The wiring derivations are tested
- * because what they exclude is what the form cannot offer (ADR-0038) — a wrong filter here silently
+ * tested because it is the ONLY place either codebase turns a stored bracket reference into German —
+ * nothing else would notice the wording changing. The wiring derivations are tested
+ * because what they exclude is what the form cannot offer — a wrong filter here silently
  * reopens an illegal pick. `listDependentSpiele` is tested for the opposite reason: what it INCLUDES is
- * what enables the edit page's dry-run preview before a result is destroyed (ADR-0041), and a missed
+ * what enables the edit page's dry-run preview before a result is destroyed, and a missed
  * case is a warning that never appears.
  */
 
@@ -138,7 +138,7 @@ describe("computeErgebnisFor", () => {
     assert.equal(computeErgebnisFor({ spiel: makeSpiel("٢:١"), teamId: TEAM_1 }), "?");
   });
 
-  // A fixture whose occupant the group phase has not produced yet (ADR-0034). The optional chaining
+  // A fixture whose occupant the group phase has not produced yet. The optional chaining
   // reaching `team1?.team_id` compiles either way, so only this pins the answer: an unresolved side
   // must get "unknown", never a scored result.
   it("returns '?' when the side being asked about has no occupant", () => {
@@ -179,7 +179,7 @@ describe("formatSpielDisplay", () => {
   });
 
   // The score stays the draw the Saisontabelle counts, and the shoot-out arrives as a separate value
-  // the cards render on a line of their own (ADR-0036).
+  // the cards render on a line of their own.
   it("keeps a shoot-out beside the score rather than inside it", () => {
     const settled = formatSpielDisplay({ ...spiel, ergebnis: "2:2", elfmeterschiessen: { team1: 4, team2: 3 } });
 
@@ -254,7 +254,7 @@ describe("deriveSlotHerkunft", () => {
   });
 
   // The source wins over the team, which is the rule the write path enforces: while a source stands,
-  // a hand-set team is reverted or refused (ADR-0038). Flipping this precedence would report a
+  // a hand-set team is reverted or refused. Flipping this precedence would report a
   // resolution-owned slot as manual on both surfaces at once.
   it("takes the source over the occupant, because the source is what maintains the slot", () => {
     assert.equal(deriveSlotHerkunft(team, { type: "gruppe", gruppe: "A", platz: 1 }), "quelle");
@@ -265,7 +265,7 @@ describe("formatSpielUpdateMessage", () => {
   /** A fixture that moved and lost nothing — the ordinary case, and the majority of them. */
   const moved = (spielNr: number): FLSpielAdvancement => ({ spiel_nr: spielNr, voided_ergebnis: null, voided_elfmeterschiessen: null });
 
-  /** A fixture whose stored scoreline the same save deleted (ADR-0041). */
+  /** A fixture whose stored scoreline the same save deleted. */
   const voided = (spielNr: number, ergebnis: string): FLSpielAdvancement => ({
     spiel_nr: spielNr,
     voided_ergebnis: ergebnis,
@@ -410,7 +410,7 @@ describe("toPatchPayload and buildUndoPayloads", () => {
   it("does not carry a side's joined disqualifikation onto the write path", () => {
     // Structural typing accepts the joined side wherever the stored one is asked for, so nothing in
     // the toolchain sees this: only Zod's `strip` keeps the join off the wire, and Pydantic's
-    // `extra="ignore"` keeps it out of the document (ADR-0021, rule 4).
+    // `extra="ignore"` keeps it out of the document.
     const joined = {
       ...fixture(29, "2:0"),
       team1: {
@@ -647,7 +647,7 @@ describe("listFeederSpiele", () => {
     );
   });
 
-  // The first knockout round is seeded from the group phase (ADR-0034): no match feeds it, so the
+  // The first knockout round is seeded from the group phase: no match feeds it, so the
   // sieger/verlierer answers legitimately do not exist for it.
   it("offers nothing to a fixture of the first knockout round", () => {
     assert.deepEqual(listFeederSpiele(season, { id: "id-25", saison_id: "2026", saison_phase: "viertelfinale" }), []);
@@ -691,8 +691,8 @@ describe("listDependentSpiele", () => {
     assert.ok(dependent.every((spiel) => spiel.saison_id === "2026"));
   });
 
-  // A group result changes the standings, which decide every placing seeded from that group
-  // (ADR-0035) — the route an admin correcting a group score actually takes.
+  // A group result changes the standings, which decide every placing seeded from that group — the
+  // route an admin correcting a group score actually takes.
   it("names the slots seeded from a group the fixture is played in", () => {
     const dependent = listDependentSpiele(season, { id: "id-1", saison_id: "2026", saison_phase: "gruppenphase", spiel_nr: 1 }, ["A"]);
     assert.deepEqual(

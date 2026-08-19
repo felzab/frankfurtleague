@@ -72,7 +72,7 @@ async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyErr
     Registered because the write path can hit a unique index on an ordinary, well-formed request: a
     second team claiming a shorthand, or a second squad row for a player in one season. Those are
     states, not malformed payloads, and a 500 would tell the admin the server is broken when the
-    server is in fact enforcing the rule (ADR-0020).
+    server is in fact enforcing the rule.
 
     The index NAME is logged rather than returned. It names the rule that was broken -- which is the
     useful thing when reading the log -- and it also names a collection and its fields, which the

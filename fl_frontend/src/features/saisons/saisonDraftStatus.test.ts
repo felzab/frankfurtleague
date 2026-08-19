@@ -31,7 +31,7 @@ describe("deriveSaisonDraftStatus", () => {
     assert.equal(status.isDirty, false);
     assert.equal(status.changed.length, 0);
     // Two dates plus the six fields of `rules`. `status` is deliberately not one: the rollover is a
-    // control writing through its own endpoint, never a draft the save bar counts (ADR-0026).
+    // control writing through its own endpoint, never a draft the save bar counts.
     assert.equal(status.fields.length, 8);
   });
 

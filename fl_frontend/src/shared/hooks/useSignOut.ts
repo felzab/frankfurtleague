@@ -11,7 +11,7 @@ import type { FormState } from "@/shared/types/types";
  * The sign-out's behaviour, without its appearance.
  *
  * **Two surfaces offer this control** — inline at the end of the shell's bar, and as a row in the
- * sidemenu footer's options menu (ADR-0046) — and they look nothing alike: one is a compact button on
+ * sidemenu footer's options menu — and they look nothing alike: one is a compact button on
  * a 54px bar, the other a full-width row in a 220px menu. What must NOT differ is what pressing
  * either one does, so the arming, the transition, the toast and the navigation live here and each
  * surface supplies only its own markup.

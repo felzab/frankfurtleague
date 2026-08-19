@@ -4,7 +4,7 @@ Rules: ../chapters/2-in-code.md
   - A directive ("use server", "use client") stays the file's first line, above the header.
   - In Python the docstring is the first statement, above the imports (INC-7). Title line first,
     then a blank line (ruff D205).
-  - Hard cap 20 lines including delimiters. Only an ADR that exists may be cited.
+  - Hard cap 20 lines including delimiters. Only a file that exists may be cited.
 -->
 
 **TypeScript**
@@ -23,7 +23,6 @@ Rules: ../chapters/2-in-code.md
  * - <another, or drop the list>
  *
  * See:
- * - ADR-<NNNN> — <short title>
  * - <the spec sheet or related module worth pointing at, or drop the list>
  */
 ```
@@ -40,7 +39,7 @@ Invariants:
 - <something true of this module that a reasonable change could violate silently>
 
 See:
-- ADR-<NNNN> — <short title>
+- <the spec sheet or related module worth pointing at, or drop the list>
 """
 
 <the imports start here, below the docstring>

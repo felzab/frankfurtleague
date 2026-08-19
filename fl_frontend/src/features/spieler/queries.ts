@@ -2,9 +2,8 @@
  * SPIELER · the player reads
  *
  * Invariants:
- * - Base tag only on the cached read — it spans every season, so no granular tag names a save
- *   (ADR-0001).
- * - `getSpielerMemberships` is admin-authed and therefore never cached (ADR-0009).
+ * - Base tag only on the cached read — it spans every season, so no granular tag names a save.
+ * - `getSpielerMemberships` is admin-authed and therefore never cached.
  * - Only `vorname` is guaranteed present; a squad is filled in over time.
  * - `getSpieler` flattens against one season; the admin surfaces read `getSpielerMemberships`.
  *
@@ -45,7 +44,7 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
  * `FLSpielerSchema` requires and the parse fails for everyone. The endpoint's docstring carries the
  * third reason and the measurements.
  *
- * **Uncached, and it stays uncached (ADR-0009).** `"use cache"` keys on a function's arguments and
+ * **Uncached, and it stays uncached.** `"use cache"` keys on a function's arguments and
  * never on caller identity, so a zero-argument admin-authed read cached here is one shared slot
  * holding data fetched with credentials no later caller presented. It carries no cache tag either —
  * a tag means nothing outside a cache scope — and one page load can pay for this read more than

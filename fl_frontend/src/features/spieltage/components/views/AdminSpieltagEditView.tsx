@@ -22,7 +22,7 @@ import type { AdminSpieltagRow } from "@/features/spieltage/types";
  * stays pinned below it, and every exit routes through the form's own discard guard.
  *
  * **The header carries the STORED label, phase and span.** Every one of them is derived from fields
- * the form below is editing (ADR-0051), so a header following the draft would leave the page with no
+ * the form below is editing, so a header following the draft would leave the page with no
  * fixed point to compare against — and the name in particular would appear to change under a picker
  * that had not been saved. The Geändert markers in the form report the difference instead.
  */

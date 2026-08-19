@@ -59,12 +59,12 @@ export function buildSpielBanners({
 }: {
   isKnockout: boolean;
   sides: readonly SpielBannerSide[];
-  /** Every team the bracket already fields — the client's proxy for "qualified" (ADR-0035). */
+  /** Every team the bracket already fields — the client's proxy for "qualified". */
   knockoutTeamIds: ReadonlySet<string>;
   /** The fixture is being called off in THIS edit, rather than having been off already. */
   isBeingCalledOff: boolean;
   isCanceled: boolean;
-  /** Fixtures whose occupants this one's result decides, empty where it decides none (ADR-0041). */
+  /** Fixtures whose occupants this one's result decides, empty where it decides none. */
   dependentSpielNummern: readonly number[];
   hasDecidedErgebnis: boolean;
   /** Fixtures the dry run says this save takes a stored result from, never ones that merely could. */

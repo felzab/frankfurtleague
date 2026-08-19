@@ -20,7 +20,7 @@ fl_backend/
 │   │                  exceptions · exception_handlers · middlewares · logging
 │   │                  collections · constraints · domain — the declarations read as data
 │   ├── api/<entity>/  one package per entity: router · admin_router · schemas · services · crud
-│   │                  saisons adds cache.py (ADR-0056) and schedule.py (ADR-0052)
+│   │                  saisons adds cache.py and schedule.py
 │   └── shared/        schemas reused across entities (addresses, kontakt, custom types)
 └── tests/             pytest — schema constraints by default; `-m db` adds a real mongod
 ```
@@ -58,12 +58,10 @@ rather than reached for directly.
 
 **The application refuses to start unless MongoDB answers and the database's own constraints apply.**
 `lifespan` pings the server, then `core/constraints.py` reapplies every `$jsonSchema` validator and
-unique index on every boot ([`spec.md`](spec.md) I9 and I15,
-[ADR-0020](../_decisions/0020-the-database-enforces-its-own-invariants.md)) — so the cluster cannot hold
+unique index on every boot ([`spec.md`](spec.md) I9 and I15) — so the cluster cannot hold
 a set this repository does not describe, and a constraint survives a restore. The validators are a
 hand-written third copy of the schema rather than a generated one
-([ADR-0024](../_decisions/0024-the-third-copy-of-the-schema-is-checked-not-generated.md), and
-[`spec.md`](spec.md) I17), which is what keeps the rules where a hand edit lands: `saison_teams` and
+([`spec.md`](spec.md) I17), which is what keeps the rules where a hand edit lands: `saison_teams` and
 `saison_spieler` have write payloads but no stored-document model, and Compass is reachable whatever the
 API offers. The database user's `collMod` requirement is [`spec.md`](spec.md) §4.
 
@@ -89,8 +87,7 @@ own, the full table, and the rule that every failure response is `{error_code, c
 
 ## Testing
 
-`fl_backend/tests/` runs in **two tiers**
-([ADR-0023](../_decisions/0023-a-real-mongod-behind-a-deselected-marker.md)): a default tier that needs no
+`fl_backend/tests/` runs in **two tiers**: a default tier that needs no
 database, and a `db` tier carrying `@pytest.mark.db`, deselected by default, that runs against a real
 `mongod`. What each tier executes is [`spec.md`](spec.md) §1.6, and what the suite reaches only
 indirectly is [`spec.md`](spec.md) §4.

@@ -14,7 +14,7 @@ import type { SchiedsrichterBanner } from "./banners";
 /**
  * What the referee is paid by default.
  *
- * **It is a default and never a stored copy** (ADR-0021 rule 2). What a match pays is `payment` on
+ * **It is a default and never a stored copy**. What a match pays is `payment` on
  * that match, agreed when it was scheduled; this number seeds the next one and rewrites none of them.
  * The backend's fan-out deliberately excludes it, so the Hinweis below is a statement about the write
  * path rather than a hope.

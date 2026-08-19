@@ -2,14 +2,14 @@
 TEAMS · read endpoints
 
 `GET /teams` in two shapes discriminated by `format` — a plain list, or the four groups — plus
-`GET /teams/{team_id}` for one team. Writing them is `admin_router.py` (ADR-0027).
+`GET /teams/{team_id}` for one team. Writing them is `admin_router.py`.
 
 Invariants:
 - Omitting `saison_id` means the current season, and flips the strict junction join on.
-- The season is resolved to a document, because the table is scored with its `rules` (ADR-0019).
-- `statistik_scope` defaults to `gruppenphase` — the league table is the no-argument answer (ADR-0022).
+- The season is resolved to a document, because the table is scored with its `rules`.
+- `statistik_scope` defaults to `gruppenphase` — the league table is the no-argument answer.
 - The grouped response always contains all four group keys, even when a group is empty.
-- Only the grouped shape reads the season's matches — it is a standing, the flat list is not (ADR-0035).
+- Only the grouped shape reads the season's matches — it is a standing, the flat list is not.
 - The head-to-head reads the same matches `statistik_scope` counted.
 
 See:
@@ -71,15 +71,15 @@ async def get_teams(
     every phase of the season. Both scopes return the same fields.
     """
 
-    # Omitting `saison_id` means the current season, not every season (ADR-0002): a field default
-    # cannot reach the database.
+    # Omitting `saison_id` means the current season, not every season: a field default cannot reach
+    # the database.
 
     # This also flips `strict_join` on: without a season the `$lookup` returns one row per season a
     # team ever played, and a team with no row survives with `gruppe` unset and then fails response
     # validation.
 
     # The season's `rules` come back with it, so the derived table is scored with that season's own win
-    # and draw points rather than a constant (ADR-0019).
+    # and draw points rather than a constant.
     filters.saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
     pipeline = build_team_pipeline(filters=filters, rules=saison_rules)
@@ -95,10 +95,10 @@ async def get_teams(
 
     # The grouped shape is a standing, so it is ordered by the competition's tiebreak chain rather than
     # by name -- and the chain's last criterion is the head-to-head table among teams nothing above it
-    # separated, which needs the matches (ADR-0035).
+    # separated, which needs the matches.
 
     # Filtered to the same matches the statistics counted, or the head-to-head would be drawn from a
-    # different set of results than the points it is breaking a tie in (ADR-0022).
+    # different set of results than the points it is breaking a tie in.
     spiele_filter: dict[str, Any] = {"saison_id": filters.saison_id}
     if filters.statistik_scope == "gruppenphase":
         spiele_filter["saison_phase"] = "gruppenphase"
@@ -126,7 +126,7 @@ async def get_team(
 
     The path names **which team**; the query still names **which season's figures to compute**, because
     `gruppe` and `statistik` are season-scoped — the former joined from a junction, the latter derived
-    from that season's matches on every read (ADR-0019). So `saison_id` and `statistik_scope` remain
+    from that season's matches on every read. So `saison_id` and `statistik_scope` remain
     query parameters here and are not a redundant second identifier.
 
     404 when the id names no team, and equally when it names a team with no junction row for the

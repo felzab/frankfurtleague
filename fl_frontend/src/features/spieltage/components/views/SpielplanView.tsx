@@ -12,7 +12,7 @@ import { spieltagLabels } from "../../utils";
 import type { FLSpielplan } from "../../schemas";
 
 export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
-  // Every matchday's label in one pass (ADR-0051). The list arrives in the backend's derived order, which
+  // Every matchday's label in one pass. The list arrives in the backend's derived order, which
   // is what the ordinal counts over -- so nothing here may re-sort it.
   const labels = spieltagLabels(spielplanData?.spieltage ?? []);
   // Without this the empty case renders a bordered, empty 44px tab bar and no panels.

@@ -18,7 +18,7 @@ export const SPIELER_CRUD_COPY = {
 /**
  * The four positions, in the order every picker offers them: from the goal outwards, which is how a
  * squad sheet is read rather than alphabetically. The closed set is `FLSpielerPositionSchema`'s
- * (ADR-0048) and this constant only decides the order they are shown in.
+ * and this constant only decides the order they are shown in.
  */
 export const POSITION_OPTIONS: readonly FLSpielerPosition[] = ["Tor", "Abwehr", "Mittelfeld", "Angriff"];
 
@@ -40,7 +40,7 @@ export function orderStufen(erlaubt: readonly FLSpielerStufe[]): FLSpielerStufe[
 /**
  * What a squad number may be, enforced at the input as well as in the schema.
  *
- * Still a STRING on the wire (ADR-0048) — a number is worn rather than counted, and it is not unique
+ * Still a STRING on the wire — a number is worn rather than counted, and it is not unique
  * within a squad — but digits only and at most four of them (decided 2026-08-07). The input carries
  * the bound so the browser refuses a fifth keystroke; the SCHEMA is what produces the message, because
  * the server action validates the payload and returns the field error the form renders inline.

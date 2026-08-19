@@ -41,7 +41,7 @@ export function Sidemenu<TIcon extends string>({
   linkPrefix: string;
   saisonMetadataDisplay: React.ReactNode;
   iconDictionary: Record<TIcon, React.ElementType>;
-  /** Forwarded to the footer's options menu; the bar carries the same control (ADR-0046). */
+  /** Forwarded to the footer's options menu; the bar carries the same control. */
   onSignOut?: () => Promise<FormState>;
   pathname: string;
   isMobileOpen: boolean;

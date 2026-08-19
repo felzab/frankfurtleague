@@ -4,7 +4,7 @@ TESTS · the published OpenAPI document, built and read
 `fl_backend/openapi.json` is committed because the frontend's contract test compares its Zod
 mirror against it and the frontend gate scope has no Python; the regenerated document maps to
 both scopes, which is what pulls the mirror check into the same pull request as the model change
-that needs it (ADR-0033). Not a test module — pytest collects `test_*.py`, so nothing here is
+that needs it. Not a test module — pytest collects `test_*.py`, so nothing here is
 collected.
 
 Run from `fl_backend/`: `python -m tests.openapi_document --write` rewrites the document, and
@@ -46,7 +46,7 @@ def serialize(document: dict[str, Any]) -> str:
 def _main() -> int:
     parser = argparse.ArgumentParser(
         prog="python -m tests.openapi_document",
-        description="Write or check fl_backend/openapi.json, the published API surface (ADR-0033).",
+        description="Write or check fl_backend/openapi.json, the published API surface.",
     )
     parser.add_argument("--write", action="store_true", help="rewrite the document from the current models")
     parser.add_argument("--check", action="store_true", help="report whether the committed document is stale; writes nothing")

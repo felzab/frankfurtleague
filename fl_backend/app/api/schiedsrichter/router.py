@@ -4,7 +4,7 @@ SCHIEDSRICHTER · read endpoint
 Read-only; create, update and delete are admin-authorized and live in the admin router.
 
 Invariants:
-- Deletion is soft (`inactive_since`, ADR-0025): matches embed a copy of the referee.
+- Deletion is soft (`inactive_since` holds the retirement date): matches embed a copy of the referee.
 - A rename fans out the name alone
   (`fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter`).
 - The filter parameters are effectively unexercised (`fl_backend/app/api/schiedsrichter/services.py`).

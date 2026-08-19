@@ -17,7 +17,7 @@ import type { FormState } from "@/shared/types/types";
 /**
  * The sidemenu's options menu, opening upward from the footer.
  *
- * The shell's bar offers the same two controls inline (ADR-0046); this is a second placement, and the
+ * The shell's bar offers the same two controls inline; this is a second placement, and the
  * sign-out's behaviour is `useSignOut`'s so the two cannot come to mean different things. **The
  * appearance is not shared, deliberately**: a full-width row in a 220px menu and a compact button on
  * a 54px bar are different shapes for the same action, and forcing one component to be both is what

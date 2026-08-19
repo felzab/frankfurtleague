@@ -51,7 +51,7 @@ dev = [
     # The type checker the editor already runs as Pylance. In the venv so `verify.sh` runs the SAME
     # one, rather than the gate and the editor disagreeing about whether the code is correct.
     "pyright>=1.1.406",
-    # Starts a real mongod for the `db`-marked tests (ADR-0023). Only those tests import it, and
+    # Starts a real mongod for the `db`-marked tests. Only those tests import it, and
     # they are deselected by default, so a normal `pytest` run never loads it or touches Docker.
     "testcontainers[mongodb]>=4.15.0",
 ]
@@ -96,7 +96,7 @@ indent-style = "space"
 # produced it. Deliberately NOT -q: quiet mode suppresses precisely the detail you need when
 # something breaks, and this suite is fast enough that verbosity costs nothing.
 #
-# -m "not db" is the half of ADR-0023 that keeps the default suite worth running. The db-marked
+# -m "not db" is what keeps the default suite worth running. The db-marked
 # tests start a container, which costs seconds and a Docker daemon; everything else is a dict in and
 # a model out and finishes in a third of a second. A command-line -m overrides this one, because
 # addopts are prepended to the arguments rather than merged -- so `pytest -m db` runs exactly the

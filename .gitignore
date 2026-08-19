@@ -35,7 +35,7 @@ secrets/
 
 # Fixture directories scripts/verify.sh and scripts/selfcheck.sh build; their EXIT trap misses
 # Ctrl-C and SIGKILL. Unignored, a leftover is an untracked change the next scoped run refuses
-# over, and one guard-branch-bash.sh denies on main (ADR-0060).
+# over, and one guard-branch-bash.sh denies on main.
 .tmp-*/
 
 # Docker Desktop on Windows creates these when Git Bash MSYS conversion mangles a bind-mount path

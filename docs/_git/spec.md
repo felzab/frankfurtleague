@@ -133,12 +133,11 @@ comment is anchored to.
 **Title:** the same shape as a commit subject. For a single-commit pull request, the commit subject
 verbatim.
 
-**Body: a summary of the branch, never an index of its commits**
-([ADR-0029](../_decisions/0029-a-pull-request-body-summarises-the-branch.md)). A single-commit pull
-request gets a pointer, because the commit body already says it; a multi-commit one opens with an
-orientation sentence and then summarises at the level no commit reaches. Three things only the body
-can carry, which is why the template's headings are what they are: what was verified and how, anything
-deliberately left undone, and a link to the ADR where the change touches a ratified decision.
+**Body: a summary of the branch, never an index of its commits.** A single-commit pull request gets
+a pointer, because the commit body already says it; a multi-commit one opens with an orientation
+sentence and then summarises at the level no commit reaches. Two things only the body can carry,
+which is why the template's headings are what they are: what was verified and how, and anything
+deliberately left undone.
 
 **A body must stand alone.** `docs/audit/` is gitignored, so a reviewer sees none of it — never point
 at anything under it from a body.
@@ -214,10 +213,10 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   query-pack problem would block merges for a reason unrelated to the change.
 - **Each required check is added by hand in this panel**, so a new workflow reports until someone
   adds it here. `verify` is `.github/workflows/verify.yml`'s aggregate job and `backend-db` a
-  separate job of the same workflow; `pr-body` holds the body to
-  [ADR-0029](../_decisions/0029-a-pull-request-body-summarises-the-branch.md) and is its own workflow
-  because it listens for `edited` — subscribing `verify.yml` to that event would rebuild both images
-  every time a description gained a comma.
+  separate job of the same workflow; `pr-body` holds the body to the form in
+  [`templates.md`](templates.md) and is its own workflow because it listens for `edited` —
+  subscribing `verify.yml` to that event would rebuild both images every time a description gained a
+  comma.
 - **"Require branches up to date to merge" stays off**
   (`strict_required_status_checks_policy`, read through
   `gh api repos/<owner>/<repo>/rules/branches/main`). A required check therefore passes against a
@@ -225,8 +224,7 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   Turning it on forces every open pull request to re-run after each base move, which the `images`
   job makes expensive.
 - **An action living in this repository needs no allowlist entry** — every action under
-  `.github/actions/` is read from the checkout
-  ([ADR-0031](../_decisions/0031-the-image-cache-is-the-actions-cache-service.md)).
+  `.github/actions/` is read from the checkout.
 - **Every action is pinned to a full commit SHA**, with the version in a trailing comment — the form
   Dependabot rewrites, so a routine upstream patch still arrives as a pull request that moves the
   pin and the comment together. An exact version tag is not enough: a tag is a mutable ref, so a
@@ -257,7 +255,7 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 | I3  | Every pull request a person opens is opened as a draft        | convention; a draft cannot be merged                  | A ready pull request can be merged before anyone has read it                                         |
 | I4  | Every commit on a branch carries a body                       | `scripts/check_commits.py`                            | The reasoning behind a change survives nowhere the diff can be read from                             |
 | I5  | No commit is signed as AI-generated                           | `scripts/check_commits.py :: BANNED`                  | A trailer claims authorship the convention refuses                                                   |
-| I6  | The gate's scope is checked against the diff before it runs   | `scripts/check_scope.py` (ADR-0030)                   | A run that skips the image build merges a packaging change nothing built                             |
+| I6  | The gate's scope is checked against the diff before it runs   | `scripts/check_scope.py`                              | A run that skips the image build merges a packaging change nothing built                             |
 | I7  | Required status checks are added by hand in the ruleset panel | the ruleset                                           | A new workflow reports forever and blocks nothing                                                    |
 | I8  | Every action is pinned to a full commit SHA                   | review of `.github/workflows/` and `.github/actions/` | A repointed tag, floating or exact, changes what CI executes without a commit                        |
 | I9  | Every workflow triggers on `pull_request`                     | `.github/workflows/`                                  | `pull_request_target` would hand a fork's run the repository's secrets and a write token             |
@@ -269,10 +267,10 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `remote rejected ... repository rule violations` on push | The ruleset: `main` takes changes only through a pull request                                                               | Mark the commits on a branch, rewind local `main`, push the branch — the commands are under this table |
 | `git pull` refuses to fast-forward                       | Local `main` has drifted                                                                                                    | Stop and look. `--ff-only` failing is the signal, not the problem                                      |
-| The gate refuses a run naming too few scopes             | The branch touches a packaging path (ADR-0030)                                                                              | Run the full form, images included                                                                     |
+| The gate refuses a run naming too few scopes             | The branch touches a packaging path                                                                                         | Run the full form, images included                                                                     |
 | The gate reports surfaces it did not prove               | A scoped run mid-work                                                                                                       | Expected. Report it rather than suppressing it                                                         |
 | A commit is refused by the `commit-msg` hook             | No body, an unwrapped line, a malformed subject, a trailer                                                                  | Rewrite the message to [`templates.md`](templates.md); `git commit -F` recovers a draft                |
-| A pull request check named `pr-body` fails               | The body indexes commits instead of summarising (ADR-0029)                                                                  | Rewrite the body; `gh pr edit --body-file` updates it in place                                         |
+| A pull request check named `pr-body` fails               | The body indexes commits instead of summarising                                                                             | Rewrite the body; `gh pr edit --body-file` updates it in place                                         |
 | A merge button is greyed out with every check green      | The pull request is still a draft                                                                                           | Marking it ready is the review, and it is mine                                                         |
 | CI fails instantly on an action reference                | The pin resolves to nothing — a version that never existed, or an annotated tag's own object instead of the commit under it | Resolve the tag to its commit and read `action.yml` at that SHA before writing the pin (§1.5)          |
 

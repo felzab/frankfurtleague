@@ -8,8 +8,8 @@
  * Invariants:
  * - `path` is the payload's dotted path AND the input `name`, `FieldErrors` key and anchor id.
  * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
- * - `maps_link` is not a descriptor — the backend derives it from the name and address (ADR-0021's
- *   neighbour on the read model), so there is no field for it to be a row of.
+ * - `maps_link` is not a descriptor — the backend derives it from the name and address, so there is
+ *   no field for it to be a row of.
  * - `inactive_since` is not a descriptor — retiring is a control, not a field.
  */
 

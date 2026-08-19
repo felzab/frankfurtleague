@@ -12,7 +12,7 @@ import type { FormState } from "@/shared/types/types";
  * Ends the admin's session, inline at the end of the bar.
  *
  * The behaviour is `useSignOut`'s and is shared with the sidemenu's options menu, which offers the
- * same control in a very different box (ADR-0046). What is this component's own is the compact shape
+ * same control in a very different box. What is this component's own is the compact shape
  * a 54px bar can hold: one glyph at rest, and a short prompt beside it once armed.
  *
  * **Escaping is deliberately easy** — moving focus away or pressing Escape disarms it. That is what

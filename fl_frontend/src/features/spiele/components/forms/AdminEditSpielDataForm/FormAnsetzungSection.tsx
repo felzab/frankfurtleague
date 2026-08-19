@@ -57,7 +57,7 @@ export function FormAnsetzungSection({
   return (
     <section className={styles.root()}>
       {/* No standing hint sentence: what it said lives in the InfoHint, on every panel alike — the
-          title carries the surface and the explanation appears when asked for (ADR-0040). */}
+          title carries the surface and the explanation appears when asked for. */}
       <div className={styles.header()}>
         <h2 className={styles.heading()}>
           Ansetzung

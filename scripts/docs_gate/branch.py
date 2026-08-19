@@ -8,7 +8,7 @@ by the caller and handed here as `Branch`.
 Invariants:
 - A check git cannot answer reports that it did not run. Reported rather than failed: a fork or a
   tarball has no base ref, and failing one would be wrong.
-- A restamp is not a material change (ADR-0059). Otherwise the remedy branch impact prescribes
+- A restamp is not a material change. Otherwise the remedy branch impact prescribes
   re-arms the check on every page citing the restamped one.
 
 See:
@@ -66,8 +66,8 @@ HUNK_HEADER_RE: Final = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
 # A short commit SHA named in prose, at git's abbreviation length and carrying a digit and a
-# letter. A longer hex run is an asset digest -- ADR-0017 tables those, and reading one as a commit
-# gets a check switched off.
+# letter. A longer hex run is an asset digest, and reading one as a commit gets a check switched
+# off.
 PROSE_SHA_RE: Final = re.compile(r"`([0-9a-f]{7,8})`")
 
 
@@ -272,7 +272,7 @@ def _absent_at_fork(fork: str, rel: str) -> bool:
 
     `_blob_at` answers None for both, and the two call for opposite things: a page added on this
     branch has no earlier state to compare and is passed over, while a blob git would not read is a
-    stamped page silently exempted from the check (ADR-0066).
+    stamped page silently exempted from the check.
 
     A listing is what separates them: it exits clean and empty for a path the commit does not hold,
     carries the entry for one it does, and fails only where git would not run. `cat-file -e` cannot,
@@ -290,10 +290,10 @@ def _stamp_only_delta(fork: str, rel: str) -> bool:
     """A markdown delta consisting only of moved stamp lines is a restamp, not a change.
 
     Restamping is the remedy branch-impact itself prescribes, and a remedy that re-arms the check
-    on every page citing the restamped one turns one edit into a repository-wide cascade
-    (ADR-0059). Nothing a citer cites lives on the stamp line, so real stamp lines are normalised
-    out of both versions before they are compared. Only a line carrying an actual SHA is
-    normalised: a placeholder stamp, like the shape example in the currency chapter, is content.
+    on every page citing the restamped one turns one edit into a repository-wide cascade. Nothing
+    a citer cites lives on the stamp line, so real stamp lines are normalised out of both versions
+    before they are compared. Only a line carrying an actual SHA is normalised: a placeholder
+    stamp, like the shape example in the currency chapter, is content.
     Anything unreadable stays material, which is the conservative direction.
     """
     if not rel.endswith(".md"):
@@ -342,7 +342,7 @@ def check_branch_impact(branch: Branch) -> list[Finding]:
 
     Material means more than comments, decided by check_scope's parser classifier -- anything it
     cannot prove comment-only counts, so shell, YAML and Dockerfiles always do, and markdown does
-    unless its whole delta is stamp lines, which is a restamp rather than a change (ADR-0059). A
+    unless its whole delta is stamp lines, which is a restamp rather than a change. A
     page added on the branch passes: its stamp is already this branch's work.
     """
     if (fork := branch.fork) is None:
@@ -410,7 +410,7 @@ def _unresolved_commits(shas: Iterable[str]) -> set[str] | None:
     commit either.
 
     None is not an empty set: nothing unresolved is a page whose references all hold, while a refused
-    batch is every SHA on every page passing unread (ADR-0066).
+    batch is every SHA on every page passing unread.
     """
     wanted = sorted(set(shas))
     if not wanted:

@@ -1,8 +1,8 @@
 """
 API · the committed OpenAPI document is the one this service publishes
 
-`fl_backend/openapi.json` is what the frontend's contract test compares its Zod mirror against
-(ADR-0033), so this suite is what keeps it fresh: change a Pydantic model without regenerating,
+`fl_backend/openapi.json` is what the frontend's contract test compares its Zod mirror against,
+so this suite is what keeps it fresh: change a Pydantic model without regenerating,
 and the gate fails here naming the component that moved. It runs in the default tier —
 `create_app(build_test_config())` needs no server, no database and no `.env`.
 

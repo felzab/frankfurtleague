@@ -33,5 +33,3 @@ lines.
 ## Read next
 
 - [`spec.md`](spec.md) — start here if the question is what a line contains or who mints the id.
-- [ADR-0032](../_decisions/0032-one-correlation-id-per-request-one-document-per-line.md) — why one
-  id per request and one document per line.

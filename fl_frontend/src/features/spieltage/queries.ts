@@ -2,9 +2,9 @@
  * SPIELTAGE · cached read
  *
  * Invariants:
- * - Base tag only, cleared by `actions.ts` on every write — nothing narrower describes one (ADR-0001).
- * - A Compass edit is served stale until the daily cacheLife expires (ADR-0028).
- * - Matchdays arrive in played order (ADR-0051); no consumer re-sorts, and the bracket depends on it.
+ * - Base tag only, cleared by `actions.ts` on every write — nothing narrower describes one.
+ * - A Compass edit is served stale until the daily cacheLife expires.
+ * - Matchdays arrive in played order; no consumer re-sorts, and the bracket depends on it.
  * - Omitting `saison_id` yields the current season — the backend resolves it.
  *
  * See:
@@ -37,13 +37,12 @@ export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promi
 
 /**
  * One matchday by its id, retired ones included — what the editor route resolves before it knows
- * which season to ask about (ADR-0027 kept this endpoint for exactly that addressability).
+ * which season to ask about, which is the addressability that keeps `GET /{id}` in place.
  *
  * Base tag only, like the list beside it: every matchday write clears `spieltage`, and a granular tag
- * per id would be one nothing invalidates on a write that moved a DIFFERENT matchday past this one
- * (ADR-0001). It is a public read under the base key, so `"use cache"` is correct here — the rule
- * against caching is about ADMIN-scoped reads, which key on arguments rather than on caller identity
- * (ADR-0009).
+ * per id would be one nothing invalidates on a write that moved a DIFFERENT matchday past this one.
+ * It is a public read under the base key, so `"use cache"` is correct here — the rule against caching
+ * is about ADMIN-scoped reads, which key on arguments rather than on caller identity.
  *
  * **Resolves `null` when the id matches no matchday, and the 404 → null conversion must stay INSIDE
  * this function** — `getSpiel` carries the full reasoning: a production build redacts an error thrown

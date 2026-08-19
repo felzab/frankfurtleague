@@ -27,7 +27,7 @@ documents.
 3. Write `docs/_auditing/reports/<yyyy-mm>-<surface>.md` following the template. The completeness bar
    is the owner's: every major change fully described; every minor change in at least one bullet. The
    report must be self-contained (COR-1) — no claim may depend on `docs/audit/programme/` surviving;
-   cite code, ADRs and git history. Report net lines changed across the programme, separating what
+   cite code and git history. Report net lines changed across the programme, separating what
    was relocated from what was removed: a reshaping that moves content between files is not a
    reduction, and a diffstat that excludes new untracked files overstates one.
 4. Harvest before deletion. Every still-open item — undecided questions, accepted deviations, `[!]`
@@ -40,8 +40,10 @@ documents.
      the channel `SECURITY.md` names. The report gives the area and says it is tracked there,
      nothing more.
 
-   Extract any newly ratified decision into `docs/_decisions/` first. An item whose reasoning lives
-   only in `docs/audit/programme/` is lost the moment that folder goes.
+   Record any newly ratified decision first, in the place it will be read — the destination picked
+   by how it fails: a comment at the line it constrains, a CLAUDE.md §7 row, or the spec sheet's
+   `## 2. Invariants` — with the argument in the closing commit's body. An item whose reasoning
+   lives only in `docs/audit/programme/` is lost the moment that folder goes.
 
 5. Update `docs/_auditing/lessons.md` with this programme's new lessons — missteps, false positives,
    environment traps — each verified before it is written, and merged into the existing sections

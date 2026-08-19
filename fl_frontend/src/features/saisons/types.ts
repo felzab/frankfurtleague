@@ -24,7 +24,7 @@ export type FLSaisonsFilterParams = {
 /**
  * The season's editable fields as the editor holds them — dates plus every field of `rules`.
  *
- * `status` is absent, and it is absent from the payload schemas for the same reason (ADR-0026): the
+ * `status` is absent, and it is absent from the payload schemas for the same reason: the
  * rollover endpoint is the only code path that writes it. Nothing on this page can put it in a draft.
  */
 export type SaisonDraftFields = {
@@ -113,7 +113,7 @@ export type SaisonSwapTeam = {
 };
 
 /**
- * What the group swap control knows about the season it is standing on (ADR-0062).
+ * What the group swap control knows about the season it is standing on.
  *
  * `playedKnockoutSpiele` is the endpoint's own window rule, counted for the page: any fixture outside
  * the Gruppenphase that has taken place closes the swap for good, because the bracket was seeded from

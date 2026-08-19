@@ -2,7 +2,7 @@
  * SPIELTAGE · route-parameter resolution
  *
  * Bridges a dynamic route segment to a validated matchday id. Out of `queries.ts` so a non-caching
- * function stays out of a `"use cache"` module (ADR-0003).
+ * function stays out of a `"use cache"` module.
  *
  * Invariants:
  * - Parse, never cast — an unvalidated segment is a backend request and a cache entry per variant.

@@ -2,7 +2,7 @@
 APP · the application factory
 
 Builds the FastAPI application: logging, exception handlers, the middlewares, and every router —
-`system`, then a read and a write router per resource (ADR-0027). `create_app()` is a function so
+`system`, then a read and a write router per resource. `create_app()` is a function so
 the composition root is a choice rather than an import side effect: `app/asgi.py` is the entry
 point, tests build their own app, and importing this module needs no environment.
 
@@ -42,8 +42,7 @@ from app.core.logging import setup_custom_logger
 from app.core.middlewares import CorrelationIdMiddleware
 
 # Reads under `verify_access_base`, writes under `verify_access_admin`. Order between the groups is not
-# significant: the `objectid` convertor keeps `/spiele/action_required` out of `/spiele/{spiel_id}`
-# (ADR-0027).
+# significant: the `objectid` convertor keeps `/spiele/action_required` out of `/spiele/{spiel_id}`.
 READ_ROUTERS = (spiele_router, teams_router, spieltage_router, spieler_router, saisons_router, spielorte_router, schiedsrichter_router)
 WRITE_ROUTERS = (
     spiele_admin_router,

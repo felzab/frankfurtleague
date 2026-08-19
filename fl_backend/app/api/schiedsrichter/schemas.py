@@ -43,7 +43,7 @@ class FLSchiedsrichter(BaseModel):
     schule: str | None
     default_payment: int = Field(ge=0)
     kontakt: FLKontakt
-    # The day this referee was retired, or null while they are available (ADR-0025).
+    # The day this referee was retired, or null while they are available.
     inactive_since: CustomOptionalDateString
 
 

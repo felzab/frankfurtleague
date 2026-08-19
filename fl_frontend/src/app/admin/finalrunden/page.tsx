@@ -18,11 +18,11 @@ import type { NextPageProps } from "@/shared/types/types";
  * for a different purpose: the public page renders the tree and this one renders the edges that
  * produced it. Both queries are the app's cached ones rather than an admin-only route — a season's
  * fixtures are public, and `AdminContextWrapper` already reads exactly these on the editor's route.
- * Nothing here is admin-authorized, so ADR-0009's no-cache rule does not reach it; what makes the page
- * admin-only is `admin/layout.tsx`'s session guard, which every route under it inherits.
+ * Nothing here is admin-authorized, so the never-cache rule for admin-scoped reads does not reach it;
+ * what makes the page admin-only is `admin/layout.tsx`'s session guard, which every route under it inherits.
  *
  * `?saison_id=` is honoured for the reason `/admin/spielsuche` honours it: a past season's draw is
- * still worth reading, and omitting the parameter means the current season in FastAPI (ADR-0002).
+ * still worth reading, and omitting the parameter means the current season in FastAPI.
  *
  * **No `generateMetadata`, like the match editor** — every `/admin` route is behind `proxy.ts` and the
  * layout's session check, so nothing here is crawled or shared.

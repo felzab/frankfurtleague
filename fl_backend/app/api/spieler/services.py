@@ -8,7 +8,7 @@ the pipeline joins them and flattens the result into `FLSpieler`.
 Invariants:
 - Season filters are injected inside the `$lookup` sub-pipeline, never applied after the join.
 - Filter values keep their ObjectId type via `model_dump(context={"keep_oid": True})`.
-- `build_spieler_pipeline` flattens and `build_spieler_memberships_pipeline` does not (ADR-0027).
+- `build_spieler_pipeline` flattens and `build_spieler_memberships_pipeline` does not.
 """
 
 from typing import Any, Mapping
@@ -32,7 +32,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
         context={"keep_oid": True},
     )
 
-    # Retired PEOPLE, filtered on the base collection before the join (ADR-0025).
+    # Retired PEOPLE, filtered on the base collection before the join.
     if not filters.include_inactive:
         pipeline.append({"$match": {"inactive_since": None}})
 
@@ -61,7 +61,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
     )
 
     # One row per membership, so a player in two seasons is two documents -- which is the shape
-    # `GET /spieler` serves and the reason it cannot answer the admin list's question (ADR-0027).
+    # `GET /spieler` serves and the reason it cannot answer the admin list's question.
     strict_join = bool(filters.saison_id or filters.team_id)
     pipeline.append(
         {

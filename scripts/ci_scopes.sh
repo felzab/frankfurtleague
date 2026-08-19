@@ -93,10 +93,10 @@ else
       fl_frontend/package.json|fl_frontend/pnpm-lock.yaml|fl_frontend/next.config.ts|fl_frontend/pnpm-workspace.yaml)
         frontend=true; images=true; docs=true ;;
       # `db` is emitted wherever `backend` is: the db tier is that same suite behind a marker
-      # (ADR-0023), so what breaks one can break the other. It is a line of its own so CI and
+      # so what breaks one can break the other. It is a line of its own so CI and
       # `check_scope.py` read this vocabulary rather than translating it.
       fl_backend/pyproject.toml|fl_backend/uv.lock) backend=true; db=true; images=true; docs=true ;;
-      # The published API surface, which the frontend's contract test reads (ADR-0033). It selects
+      # The published API surface, which the frontend's contract test reads. It selects
       # the frontend scope too: a change confined to fl_backend/ would otherwise never run the check
       # comparing a Pydantic model against its Zod mirror.
       fl_backend/openapi.json) backend=true; db=true; frontend=true; docs=true ;;

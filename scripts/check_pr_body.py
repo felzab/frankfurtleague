@@ -1,7 +1,7 @@
 """
 SCRIPTS · the pull request body gate
 
-Reads one body on stdin or from a file and holds it to ADR-0029 and the form in
+Reads one body on stdin or from a file and holds it to the form in
 docs/_git/templates.md. A body is not in the repository and does not exist before
 the pull request does, so this cannot run in verify.sh — .github/workflows/pr-body.yml is the
 one place it is addressable, and it listens for `edited` so a corrected body turns green without
@@ -11,8 +11,8 @@ Invariants:
 - A section is matched by name, bold optional: the merged corpus writes a bare `Verified.`, and
   failing it would be the check that cries wolf (CUR-5). `Reviewer's first look` is in the set
   because it is a heading of the same form — a body line opening with it ends the summary.
-- Verified is the one section never legitimately dropped; the other three headings are unchecked.
-- Three or more consecutive list items carrying commit hashes fail — the index ADR-0029 refuses.
+- Verified is the one section never legitimately dropped; every other heading is unchecked.
+- Three or more consecutive list items carrying commit hashes fail — a body never indexes its commits.
 - The summary has a reported target and a hard maximum, the report-then-fail shape check_commits.py
   uses; the numbers are at `SUMMARY_TARGET` and `SUMMARY_MAX`.
 - Dependabot bodies are skipped entirely — the bot writes its own.
@@ -49,7 +49,7 @@ TEMPLATE_FRAGMENTS: Final[tuple[str, ...]] = (
 # paragraph opening "Rankings. Twenty-eight entries ..." as a heading, cutting the measured
 # summary short in silence. Bold is optional; the header says why.
 SECTION_LEAD: Final = re.compile(
-    r"^\**(?:Verified|Decisions taken|Left undone|Governed by|Reviewer'?s first look)\b",
+    r"^\**(?:Verified|Decisions taken|Left undone|Reviewer'?s first look)\b",
     re.MULTILINE | re.IGNORECASE,
 )
 
@@ -100,7 +100,7 @@ def check_body(body: str, author: str = "") -> list[Finding]:
         findings.append(
             Finding(
                 "fail",
-                f"{hashes} consecutive list items carry a commit hash -- a body summarises the branch, it never indexes its commits (ADR-0029)",
+                f"{hashes} consecutive list items carry a commit hash -- a body summarises the branch, it never indexes its commits",
             )
         )
 
@@ -118,7 +118,7 @@ def check_body(body: str, author: str = "") -> list[Finding]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Pull request body gate (ADR-0029).")
+    parser = argparse.ArgumentParser(description="Pull request body gate.")
     parser.add_argument("body", help="path to a file holding the body, or - for stdin")
     parser.add_argument("--author", default="", help="the pull request author's login; bots are skipped")
     args = parser.parse_args()

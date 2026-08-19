@@ -2,8 +2,8 @@
  * TEAMS · the club reads
  *
  * Teams are reference data and cached for days, except `getTeamMemberships`, which is admin-authed
- * and therefore never cached (ADR-0009). The one thing that invalidates them is a Spiel
- * result edit — statistics are derived from the match documents on every read (ADR-0019), so a
+ * and therefore never cached. The one thing that invalidates them is a Spiel
+ * result edit — statistics are derived from the match documents on every read, so a
  * result edit changes this response without touching a team document. The invalidation therefore
  * lives in `features/spiele/actions.ts`, and dropping it as "unrelated" strands a public table.
  *
@@ -31,9 +31,9 @@ import type { FLTeamsFilterParams, FLTeamSingleFilterParams } from "./types";
 export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeamsResponse> {
   "use cache";
 
-  // The only granular tag kept for this resource (ADR-0001): a result change alters the season's team
+  // The only granular tag kept for this resource: a result change alters the season's team
   // statistics and nothing outside it, because the backend derives the table from that season's
-  // matches alone (ADR-0019).
+  // matches alone.
 
   // No gruppe, disqualifikation or in_gruppen tags -- no mutation in the app changes those
   // dimensions.
@@ -48,7 +48,7 @@ export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTea
 }
 
 /**
- * One team by its id, for the pages whose subject IS that team (ADR-0027).
+ * One team by its id, for the pages whose subject IS that team.
  *
  * Tagged exactly as `getTeams` is, because it reads the same documents through the same derivation —
  * a result edit moves this response too, and it is the `teams` tag that clears it.
@@ -82,7 +82,7 @@ export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams 
  * /teams/memberships`, admin-authed). The one read behind the club list and the club editor,
  * replacing a request per season: the season-scoped reads cannot answer a club-centric question.
  *
- * **Uncached, and it stays uncached (ADR-0009).** `"use cache"` keys on a function's arguments and
+ * **Uncached, and it stays uncached.** `"use cache"` keys on a function's arguments and
  * never on caller identity, so a zero-argument admin-authed read cached here is one shared slot
  * holding data fetched with credentials no later caller presented. It carries no cache tag either —
  * a tag means nothing outside a cache scope — and one page load can pay for this read more than

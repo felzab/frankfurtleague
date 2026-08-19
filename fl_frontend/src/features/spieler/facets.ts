@@ -33,7 +33,7 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
       { value: "ausgetragen", label: "Ausgetragen" },
     ],
     // Three states rather than two: a player with no row at all is a different fact from one whose row was
-    // retired, and the second keeps its number, position and stufe (ADR-0025).
+    // retired, and the second keeps its number, position and stufe.
     read: (spieler) => {
       if (spieler.selected === null) return ["ohne_kader"];
       return spieler.selected.inactive_since === null ? ["im_kader"] : ["ausgetragen"];
@@ -50,7 +50,7 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
     label: "Stufe",
     // The league's six rather than the season's `erlaubte_stufen`: a squad row's level is held to the
     // league's closed set, so a season narrowed after the fact still has rows carrying a level it no
-    // longer offers (ADR-0048).
+    // longer offers.
     options: STUFE_OPTIONS.map((stufe) => ({ value: stufe, label: stufe })),
     read: (spieler) => (spieler.selected?.stufe == null ? [] : [spieler.selected.stufe]),
   },
@@ -76,7 +76,7 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
       { value: "aktiv", label: "Aktiv" },
       { value: "stillgelegt", label: "Stillgelegt" },
     ],
-    // The PERSON's own retirement, which is independent of the squad row's above (ADR-0025). Labelled
+    // The PERSON's own retirement, which is independent of the squad row's above. Labelled
     // „Person“ rather than „Status“ so the two facets cannot be read as the same question.
     read: (spieler) => [spieler.inactive_since === null ? "aktiv" : "stillgelegt"],
   },

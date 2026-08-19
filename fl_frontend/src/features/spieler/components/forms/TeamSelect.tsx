@@ -11,7 +11,7 @@ import type { Key } from "@heroui/react";
 /**
  * The team picker, shared by the create form and the squad editor.
  *
- * A picked control, judged on CHANGE (ADR-0040). It offers **the selected season's teams**, which is
+ * A picked control, judged on CHANGE. It offers **the selected season's teams**, which is
  * what makes a transfer a two-click operation and what stops a player being put in a team that is not
  * in that season at all.
  *

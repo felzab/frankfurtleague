@@ -113,7 +113,7 @@ export function RowActionEdit({ label, ariaLabel, onPress }: { label: string; ar
 }
 
 /**
- * Brings a soft-deleted row back (ADR-0025) — the counterpart to `RowActionDelete`, shown in its
+ * Brings a soft-deleted row back — the counterpart to `RowActionDelete`, shown in its
  * place on a retired row. A single press, no confirmation step: unlike the delete it undoes, the
  * action is reversed by one press of the delete beside it.
  */

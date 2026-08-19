@@ -22,7 +22,7 @@ import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
  *
  * **Four rather than three, because the two kinds of source are the distinction worth seeing.** A
  * bracket is seeded from the standings in its first knockout round and fed by earlier matches in
- * every round after it (ADR-0034), so a group chip standing in a semi-final is visible as wrong from
+ * every round after it, so a group chip standing in a semi-final is visible as wrong from
  * across the room — which is exactly the review this page exists for, and exactly what a single
  * "has a source" colour would hide.
  *
@@ -94,7 +94,7 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
       <span className={`${LABEL_BADGE} ${chip} max-w-full whitespace-normal`}>{label}</span>
 
       {/* The occupant, in the two spellings every card uses: the club's own name, or the shared
-          placeholder for a side nobody stands in yet (ADR-0034). `break-words` and not `truncate` — a
+          placeholder for a side nobody stands in yet. `break-words` and not `truncate` — a
           review surface that hides half a club's name is one an admin cannot finish, and the row is
           free to grow. */}
       {team === null ? (
@@ -108,9 +108,9 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
 
 /**
  * A season's bracket wiring, round by round — the draw as one surface, so it can be reviewed before
- * it is played (ADR-0045).
+ * it is played.
  *
- * **`teamN_quelle` is the only record of the bracket's edges (ADR-0034) and no surface showed it.**
+ * **`teamN_quelle` is the only record of the bracket's edges and no surface showed it.**
  * The public bracket orders its rounds by the wiring and so draws its connecting lines correctly, but
  * it writes a slot's source out only while that slot is unresolved — so a played-out bracket states
  * the topology and none of the provenance, and checking a draw meant opening each fixture's editor
@@ -118,21 +118,21 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
  *
  * **It is a preview, not a form**, which is the shape established competition software settles a draw
  * review into: the organiser reads the whole stage as it would stand, and the fixtures are edited
- * where they are already edited. Every row therefore links into `/admin/spiele/[spiel_id]`
- * (ADR-0040) rather than carrying a control of its own — one save path, and no second write surface
- * to keep in step with the refusals the endpoint makes (ADR-0038).
+ * where they are already edited. Every row therefore links into `/admin/spiele/[spiel_id]` rather than
+ * carrying a control of its own — one save path, and no second write surface to keep in step with the
+ * refusals the endpoint makes.
  *
  * **The Gruppenphase is absent by construction, not filtered out for tidiness.** A group fixture's
  * sides are drawn by the schedule and the mechanism a `quelle` names does not exist in that phase, so
  * the write path refuses wiring on one — there is nothing about it this page could show.
  *
  * **It does not report bracket faults.** Those are derived per request over whole seasons by the
- * admin route (ADR-0039) and already have a durable home in the triage list; what no fault list can
+ * admin route and already have a durable home in the triage list; what no fault list can
  * give is this — a legal feeder picked on the wrong side is not a contradiction, and only reading the
  * draw finds it.
  */
 export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiele[] }) {
-  // Every round's label in one pass (ADR-0051). `rounds` arrives in played
+  // Every round's label in one pass. `rounds` arrives in played
   // order -- this view deliberately does NOT apply `orderRoundsByWiring` -- so
   // the ordinal counts the matchday's place in its phase.
   const labels = spieltagLabels(rounds);
@@ -242,8 +242,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                         key={spiel.id}
                         className="border-border border-b last:border-0">
                         {/* The match number, which is what a `spiel` reference names — so the column
-                            an admin reads a "Sieger 25." against is the column they look 25 up in
-                            (ADR-0034). */}
+                            an admin reads a "Sieger 25." against is the column they look 25 up in. */}
                         <Table.Cell className="fluid-sm py-4 pl-3 font-bold whitespace-nowrap lg:pl-4">{spiel.spiel_nr}</Table.Cell>
 
                         {/* The pair, in the same grid the header labels sit in — single-track on a
@@ -270,7 +269,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                               Ended right, the button's edge is exactly `pr-3` from the cell's, which
                               is the number's own inset on the far side of the row. */}
                           <div className="flex justify-end">
-                            {/* The match card's edit control, class for class (ADR-0044): the brand
+                            {/* The match card's edit control, class for class: the brand
                                 fill wherever `adminEditHref` is passed, so the one thing an admin
                                 presses looks the same on every admin surface. A `<Link>` and not a
                                 button, so Next prefetches on approach and middle-click still opens a

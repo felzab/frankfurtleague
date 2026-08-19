@@ -15,7 +15,7 @@ import { getAdminSession } from "@/core/auth";
  * streaming data before the session check resolved; wrapping makes rendering the page conditional on
  * the guard returning.
  *
- * `connection()` stays first, per ADR-0006 — the builder stage has no reachable Mongo, and a
+ * `connection()` stays first and is never removed — the builder stage has no reachable Mongo, and a
  * session lookup resolved at build time would fail `docker compose build`.
  *
  * **Known and accepted trade.** `proxy.ts` matches `/admin/:path*` and answers an unauthenticated

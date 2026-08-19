@@ -8,7 +8,7 @@
  * Invariants:
  * - `path` is the payload's dotted path AND the input `name`, `FieldErrors` key and anchor id.
  * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
- * - `status` is not a descriptor and cannot become one — the rollover is a control (ADR-0026).
+ * - `status` is not a descriptor and cannot become one — the rollover is a control.
  * - `id` is not one either: every `saison_id` in the database references it, so it never moves.
  */
 

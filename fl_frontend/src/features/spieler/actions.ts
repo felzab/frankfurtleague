@@ -8,10 +8,10 @@
  *
  * Invariants:
  * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the form.
- * - Base tag only, on every action: the cached spieler read spans every season (ADR-0001).
+ * - Base tag only, on every action: the cached spieler read spans every season.
  * - `spieler` is the ONLY resource invalidated — nothing under `spiele` or `teams` reads a squad row.
  * - A junction create 409 names reactivation: the unique index keeps indexing a retired row, and
- *   creating never revives (ADR-0025).
+ *   creating never revives.
  * - Create-and-enter is one action over two requests, person first — a player with no junction
  *   row is invisible to every season-scoped read.
  *
@@ -56,7 +56,7 @@ import type {
 } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
 
-// The index spans retired rows (ADR-0025), and reviving is deliberately not the create's job -- so
+// The index spans retired rows, and reviving is deliberately not the create's job -- so
 // the message names the one path that is.
 const ALREADY_IN_SAISON =
   "Dieser Spieler hat in dieser Saison bereits einen Kadereintrag, möglicherweise einen ausgetragenen. " +
@@ -181,7 +181,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
   });
 }
 
-// A soft delete: the backend stamps `inactive_since` (ADR-0025). The player's squad rows are left
+// A soft delete: the backend stamps `inactive_since`. The player's squad rows are left
 // alone -- the seasons they played still happened, and those squad lists should still name them.
 export async function deleteSpielerAction(
   rawPayload: FLDeleteSpielerPayload,
@@ -322,7 +322,7 @@ export async function patchSaisonSpielerAction(
 }
 
 // Soft, and independent of the person's own retirement: this takes the player out of ONE season's
-// squad and says nothing about whether they are still in the league (ADR-0025).
+// squad and says nothing about whether they are still in the league.
 export async function deleteSaisonSpielerAction(
   rawPayload: FLSaisonSpielerKeyPayload,
 ): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {

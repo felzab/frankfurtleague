@@ -16,7 +16,6 @@
 #   ./scripts/publish.sh --help
 #
 # See:
-# - ADR-0012 — one public package per service, so a tag says only which build it is
 # - docs/ops/spec.md — the registry, the token it needs, and the pruning procedure
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
@@ -87,7 +86,7 @@ while IFS= read -r remote; do
 done <<< "$(git remote)"
 
 if (( ! ON_REMOTE )); then
-  # A remote that could not answer leaves the bar unproven rather than failed (ADR-0066): the commit
+  # A remote that could not answer leaves the bar unproven rather than failed: the commit
   # may well be on it, and nothing read here says otherwise.
   if (( ${#UNASKED[@]} )); then
     # One command per remote: `git ls-remote` takes one repository and reads a later name as a ref

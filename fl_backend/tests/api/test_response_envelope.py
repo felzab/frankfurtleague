@@ -68,8 +68,8 @@ def test_every_response_model_carries_the_envelope(name, model):
         (CheckIsLiveResponse, {"acknowledged": 1, "status": "ok"}),
         (CheckIsReadyResponse, {"acknowledged": 1, "status": "ok"}),
         # All three lists default empty: an edit resolving no bracket slot reports none, the ordinary
-        # answer for a group fixture (ADR-0034); an undecided placing is nobody's problem (ADR-0035);
-        # an edit displacing no team releases nothing (ADR-0042).
+        # answer for a group fixture; an undecided placing is nobody's problem; an edit displacing
+        # no team releases nothing.
         (FLPatchSpielDataResponse, {"acknowledged": 1, "advanced_to": [], "released_sides": [], "bracket_faults": []}),
     ],
 )

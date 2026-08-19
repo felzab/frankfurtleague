@@ -2,7 +2,7 @@
  * SHARED · form section panel recipe
  *
  * One section of a form that owns a whole page. The counterpart for a form inside a dialog is no
- * panel at all — the reasoning for the split is on `overlayPanel` and in ADR-0040.
+ * panel at all — the reasoning for the split is on `overlayPanel`.
  */
 
 import { tv } from "tailwind-variants";
@@ -10,7 +10,7 @@ import { tv } from "tailwind-variants";
 /**
  * A titled section of a page-owned form.
  *
- * **Depth is a property of the container, not of the section** (ADR-0040). Inside a dialog a bordered
+ * **Depth is a property of the container, not of the section**. Inside a dialog a bordered
  * section is a second border around the same fields, which costs more comprehension than the grouping
  * buys. On a page there is no outer border to nest inside, so this is the FIRST level of grouping and
  * it does what a horizontal rule cannot: it gives each group its own edges on a narrow screen, where a
@@ -39,8 +39,8 @@ export const formPanel = tv({
     root: "bg-surface border-border flex w-full flex-col rounded-2xl border shadow-sm",
     header: "border-border flex flex-col gap-y-0.5 rounded-t-2xl border-b p-4 sm:p-5",
     /** The heading carries the panel's `InfoHint` INSIDE it, as an inline glyph on the text's own
-     * baseline — the panel's explanation lives there rather than in a standing hint sentence
-     * (ADR-0040), and inline is the one placement where an icon truly aligns with text. */
+     * baseline — the panel's explanation lives there rather than in a standing hint sentence, and
+     * inline is the one placement where an icon truly aligns with text. */
     heading: "fluid-base text-foreground font-extrabold tracking-tight",
     body: "flex w-full flex-col gap-y-5 p-4 sm:p-5",
   },

@@ -18,10 +18,10 @@ import type { FLPostSaisonPayload } from "@/features/saisons/schemas";
 /**
  * The values a new season starts from.
  *
- * **3/1/0 is a default here and nowhere else.** ADR-0019 refused a hardcoded scoring rule inside the
- * league table's derivation, and this is the opposite of that: it is the starting value of an editable
+ * **3/1/0 is a default here and nowhere else.** A hardcoded scoring rule inside the league table's
+ * derivation is forbidden, and this is the opposite of that: it is the starting value of an editable
  * field the admin sees before submitting, and what lands in the document is what they submitted. What
- * that ADR forbids is a constant the *reader* cannot see — a season whose points are implied rather than
+ * is forbidden is a constant the *reader* cannot see — a season whose points are implied rather than
  * stored.
  *
  * `erlaubte_stufen` starts as the whole league, because narrowing is the unusual choice and a picker that
@@ -51,7 +51,7 @@ const asCalendarDate = (value: string) => (value === "" ? null : parseDate(value
 /**
  * Creates a season. It is always created `future` and never `active` — making it live is a separate,
  * deliberate step on the season's own page, so an ordinary typo in a new season's id cannot become a
- * silent rollover of the live one (ADR-0026).
+ * silent rollover of the live one.
  *
  * **The id is typed rather than generated**, which makes this the one create form in the app that asks
  * for a key. `saisons._id` is the four-character string every `saison_id` in the database references, so

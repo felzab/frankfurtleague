@@ -13,7 +13,7 @@ const SEARCH_KEYS = ["name", "address.plz", "address.strasse", "address.stadttei
 
 /**
  * `renderEditModal` is deliberately not passed: the venue form edits on a page at
- * `/admin/spielorte/[spielort_id]` (ADR-0040), so the table's pencil is a `<Link>` and the shared
+ * `/admin/spielorte/[spielort_id]`, so the table's pencil is a `<Link>` and the shared
  * view renders no edit overlay — the arrangement Teams and Spieler already have.
  */
 export function AdminSpielorteView({ spielorte }: { spielorte: FLSpielort[] }) {

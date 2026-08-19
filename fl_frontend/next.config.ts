@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
     return [
       {
         // Scoped to `public/` — and not `immutable`: that promise holds only for a content-hashed
-        // filename, and `pnpm brand` rewrites these URLs in place (ADR-0017). `/_next/static` is
+        // filename, and `pnpm brand` rewrites these URLs in place. `/_next/static` is
         // untouched, where Next sets its own immutable header.
         source: "/icons/:path*",
         headers: [
@@ -65,7 +65,7 @@ const nextConfig: NextConfig = {
   // only with a measurement, and re-check the editor's freshness.
   cacheComponents: true,
   // No `reactCompiler`: measured at +40 KB gzipped per page load for memoization this app needs in
-  // two admin views, both hand-written (ADR-0014).
+  // two admin views, both hand-written.
 };
 
 export default nextConfig;

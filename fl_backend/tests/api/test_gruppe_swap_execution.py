@@ -1,5 +1,5 @@
 """
-SAISONS · the group swap against a real MongoDB (ADR-0062, ADR-0023)
+SAISONS · the group swap against a real MongoDB
 
 The claims about `swap_gruppen` that no unit test can make: both `saison_teams` rows move together
 with every fixture the two clubs are drawn into, or none of them moves.
@@ -74,7 +74,7 @@ def club(team_id: ObjectId) -> dict[str, Any]:
     """
     One `teams` document, carrying only the two fields the rewrite reads from it.
 
-    Those two are where `PATCH /teams/{team_id}` fans the display copies out FROM (ADR-0021 rule 3), so
+    Those two are where `PATCH /teams/{team_id}` fans the display copies out FROM, so
     a rewrite sourcing them anywhere else would be copying a copy.
     """
 
@@ -84,7 +84,7 @@ def club(team_id: ObjectId) -> dict[str, Any]:
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
-    """One embedded team field, in the shape `spiele` stores (ADR-0021)."""
+    """One embedded team field, in the shape `spiele` stores."""
 
     name, shorthand = NAMES[team_id]
 
@@ -264,7 +264,7 @@ class TestASwapCommitsBothRows:
 
 
 class TestTheDrawnFixturesMoveWithTheClubs:
-    """The second half of the write (ADR-0062): each club inherits the fixtures the other was drawn into."""
+    """The second half of the write: each club inherits the fixtures the other was drawn into."""
 
     def test_each_club_takes_over_the_others_fixtures(self, mongo_replica_set_url: str):
         """
@@ -285,7 +285,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
 
     def test_the_display_copies_move_with_the_id(self, mongo_replica_set_url: str):
         """
-        A side carries three copies of the club and all three have to agree (ADR-0021 rule 3).
+        A side carries three copies of the club and all three have to agree.
 
         Rewriting `team_id` alone is the failure this catches, and it is silent: every card would show
         the old club's name over the new club's fixture, and nothing in the type system objects.
@@ -346,7 +346,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
         The rewrite is the group phase's, and a bracket slot is not a group fixture.
 
         A knockout side is either the resolution's, which re-derives it from the standing on the next
-        pass (ADR-0034), or an admin's own manual pick, which is a statement about that club rather than
+        pass, or an admin's own manual pick, which is a statement about that club rather than
         about its group. Neither is something a group swap may rewrite.
         """
 
@@ -404,7 +404,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
 
     def test_no_club_is_fielded_twice_on_one_matchday(self, mongo_replica_set_url: str):
         """
-        ADR-0042's occupancy invariant survives the rewrite across the group phase, where it is a bijection.
+        The occupancy invariant survives the rewrite across the group phase, where it is a bijection.
 
         Over the fixtures `_rewrite_gruppenphase_sides` touches, each club's count on a given matchday
         becomes exactly what the other's was, and both were at most one — so both still are. Both fixtures
@@ -687,7 +687,7 @@ class TestTheRefusalsReadTheRealDocuments:
 
     def test_a_swap_that_would_field_a_club_twice_on_one_matchday_is_refused(self, mongo_replica_set_url: str):
         """
-        `REQ-SWAP-005`, against the state only this endpoint can reach (ADR-0042, ADR-0062).
+        `REQ-SWAP-005`, against the state only this endpoint can reach.
 
         Beta's group fixture and a bracket fixture holding Alpha as a MANUAL pick share a matchday, and
         Alpha's own group fixture is on another. The rewrite moves group sides and never bracket ones, so
@@ -754,7 +754,7 @@ class TestTheRefusalsReadTheRealDocuments:
 
     def test_a_matchday_already_holding_a_club_twice_does_not_refuse_the_swap(self, mongo_replica_set_url: str):
         """
-        Enforcement leaves the past alone (ADR-0042), so only a Spieltag the exchange BREAKS is counted.
+        Enforcement leaves the past alone, so only a Spieltag the exchange BREAKS is counted.
 
         Alpha already stands in a group fixture and a bracket pick on one matchday — a stored breach this
         swap did not cause, and one `report_relations` reports under `--check`. Refusing here would name a

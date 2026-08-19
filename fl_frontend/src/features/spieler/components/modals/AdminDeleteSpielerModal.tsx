@@ -7,7 +7,7 @@ import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 import type { AdminSpielerRow } from "@/features/spieler/types";
 
 /**
- * Retires the PERSON, not a squad row. The two are independent (ADR-0025): this takes the player out
+ * Retires the PERSON, not a squad row. The two are independent: this takes the player out
  * of the league entirely and leaves every squad they have ever been in intact, because those seasons
  * still happened. Taking them out of one season's squad is the editor's own control.
  */

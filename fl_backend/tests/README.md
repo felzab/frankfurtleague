@@ -19,8 +19,7 @@ frontend mirrors rather than enforces, plus what MongoDB actually does with them
 ## Two tiers, and one of them needs Docker
 
 `cd fl_backend && uv run pytest` runs the fast tier, which needs no daemon.
-`uv run pytest -m db` runs the tier that starts a real `mongod`
-([ADR-0023](../../docs/_decisions/0023-a-real-mongod-behind-a-deselected-marker.md)). Which tests
+`uv run pytest -m db` runs the tier that starts a real `mongod`. Which tests
 belong to which tier, why the split exists, and every convention the suite is written to are in the
 backend spec sheet — `fl_backend/` is the backend surface, and the surface owns its contract.
 

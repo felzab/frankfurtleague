@@ -22,7 +22,7 @@ import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spie
  * stays pinned below it, and every exit routes through the form's own discard guard.
  *
  * **The header owns the PERSON's retirement and nothing else** (decided 2026-08-07). The squad row's
- * own is a different fact (ADR-0025) and now sits at the foot of the form in the danger tone, beside
+ * own is a different fact and now sits at the foot of the form in the danger tone, beside
  * the season it belongs to — see `FormAustragenSection`. Keeping them apart is the point: retiring
  * the person takes them out of the league entirely, while taking them out of one squad says nothing
  * about whether they still play, and two controls that read alike invite the wrong one.

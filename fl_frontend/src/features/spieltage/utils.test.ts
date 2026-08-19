@@ -3,7 +3,7 @@
  *
  * Covers the bracket ordering and the per-phase matchday count. The case the ordering fixtures
  * reproduce is the 2026 draw as the page received it: quarter-finals sorted by `datum` put matches 25
- * and 28 on one branch while the semi-final between them named 25 and 27 — the wiring (ADR-0034) and
+ * and 28 on one branch while the semi-final between them named 25 and 27 — the wiring and
  * the index-drawn bracket lines disagreed, and only the lines were wrong.
  *
  * The count's cases are its three quiet ones: a retired matchday, a phase the season does not play,
@@ -27,7 +27,7 @@ function makeSpiel(spielNr: number, team1Quelle: FLSpielQuelle | null = null, te
 }
 
 // Keyed on `id` rather than a name: a matchday carries none, and the id is the handle every consumer
-// -- including `spieltagLabels` -- identifies one by (ADR-0051).
+// -- including `spieltagLabels` -- identifies one by.
 function makeRound(id: string, spiele: FLSpiel[]): FLSpieltagWithSpiele {
   return { id, spiele } as unknown as FLSpieltagWithSpiele;
 }
@@ -70,7 +70,7 @@ describe("orderRoundsByWiring", () => {
   });
 
   // A `gruppe` reference has no earlier match to order, and a dangling `spiel_nr` names none — both
-  // contribute no edge, exactly as the resolution reads them (ADR-0034, ADR-0035).
+  // contribute no edge, exactly as the resolution reads them.
   it("ignores gruppe references, nulls and spiel_nrs the previous round does not hold", () => {
     const gruppe: FLSpielQuelle = { type: "gruppe", gruppe: "A", platz: 1 };
     const rounds = orderRoundsByWiring([
@@ -140,7 +140,7 @@ describe("buildSpieltagPhaseProgress", () => {
     assert.deepEqual(held(progress, "halbfinale"), { phase: "halbfinale", angelegt: 0, erwartet: 1 });
   });
 
-  // Retiring one is how a mis-dated matchday leaves the schedule (ADR-0025), which is why
+  // Retiring one is how a mis-dated matchday leaves the schedule, which is why
   // `REQ-DATE-004` reads live matchdays alone — so a retired third matchday leaves the phase short.
   it("does not count a retired matchday", () => {
     const progress = buildSpieltagPhaseProgress(SCHEDULE_2026, [

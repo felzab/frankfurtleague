@@ -54,7 +54,7 @@ import type { CalendarDate, Time } from "@internationalized/date";
 import type { ReactNode } from "react";
 
 /**
- * How long the undo offer stands after a save that destroyed something (ADR-0041).
+ * How long the undo offer stands after a save that destroyed something.
  *
  * Long enough to read the sentence naming what went and decide; short enough that the offer is gone
  * before the page's copy of the season is stale enough for the replay to be refused.
@@ -62,7 +62,7 @@ import type { ReactNode } from "react";
 const UNDO_TIMEOUT_MS = 15000;
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0049).
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason.
  *
  * By the time the offer is pressed this component is unmounted and the browser is on another route,
  * and a server action dispatched from there makes Next re-render the editor segment it still holds in
@@ -98,7 +98,7 @@ async function postSpielUndo(
  *
  * The lookup lists arrive as props rather than from `useAdmin()`. They are only ever available on
  * admin routes, but reading the context here would make `spiele` depend on `admin` — the exact
- * direction the write path was moved out of `admin` to avoid (ADR-0004). The aggregator supplies them
+ * direction the write path was moved out of `admin` to avoid. The aggregator supplies them
  * instead, which is what an aggregator slice is for.
  *
  * **Every field is controlled, date and time included.** The draft has to be complete between
@@ -169,17 +169,17 @@ export function AdminEditSpielDataForm({
   const [uhrzeit, setUhrzeit] = useState<Time | null>(spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null);
 
   // Narrowed rather than seeded whole: a read's side carries the season's `disqualifikation`, and a
-  // draft holding it writes the join back into the match document (ADR-0021 rule 4).
+  // draft holding it writes the join back into the match document.
   const [team1Payload, setTeam1Payload] = useState<FLSpielTeamField | null>(toStoredSide(spielData.team1));
   const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(toStoredSide(spielData.team2));
 
   // Held beside the team rather than inside it: provenance survives the slot being filled, so the two
-  // move independently (ADR-0034).
+  // move independently.
   const [team1Quelle, setTeam1Quelle] = useState<FLSpielQuelle | null>(spielData.team1_quelle);
   const [team2Quelle, setTeam2Quelle] = useState<FLSpielQuelle | null>(spielData.team2_quelle);
 
   // A draft, so an emptied count is `null` rather than `0` — a side genuinely can miss every kick, so
-  // the two must not be the same value (ADR-0036).
+  // the two must not be the same value.
   const [elfmeterschiessen, setElfmeterschiessen] = useState<FLSpielElfmeterschiessenDraft | null>(spielData.elfmeterschiessen);
 
   const [notiz, setNotiz] = useState<string | null>(spielData.notiz);
@@ -200,7 +200,7 @@ export function AdminEditSpielDataForm({
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the message the
-  // server would have produced (ADR-0040). `onUnhandledErrors` catches a rejection on a payload path
+  // server would have produced. `onUnhandledErrors` catches a rejection on a payload path
   // that has no input -- see the note in `EntityForm`.
   const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
     schemas: { spiel: FLPatchSpielDataPayloadSchema },
@@ -211,7 +211,7 @@ export function AdminEditSpielDataForm({
   });
 
   // **The retraction, and it is derived rather than handled.** A shoot-out describes a knockout that
-  // finished level and nothing else (ADR-0036), so every route out of that shape drops the record
+  // finished level and nothing else, so every route out of that shape drops the record
   // here, where no handler added later can forget it.
   const elfmeterschiessenInDraft = isLevelKnockout(spielData.saison_phase, team1Payload, team2Payload) ? elfmeterschiessen : null;
 
@@ -232,7 +232,7 @@ export function AdminEditSpielDataForm({
   };
 
   // An empty picker is a legitimate answer, and it is how a bracket slot the group phase has not
-  // filled yet is recorded (ADR-0034) — so both sides submit as they stand, `null` included.
+  // filled yet is recorded — so both sides submit as they stand, `null` included.
   //
   // `spiel_id` is this fixture's own, already parsed, and `FLPatchSpielDataPayload` on the backend
   // omits it entirely — the Request-URI names the match — so it is a path no refusal can name and no
@@ -272,9 +272,9 @@ export function AdminEditSpielDataForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
-  // The fixtures whose occupants this one's result decides (ADR-0041). Read off the STORED sides: what
+  // The fixtures whose occupants this one's result decides. Read off the STORED sides: what
   // is already wired is what a save resolves, and a group is a property of the clubs in the fixture
-  // rather than of the fixture document (ADR-0021).
+  // rather than of the fixture document.
   const dependentSpiele = useMemo(() => {
     const gruppen = [spielData.team1, spielData.team2]
       .map((side) => teams.find((team) => team.id === side?.team_id)?.gruppe)
@@ -287,7 +287,7 @@ export function AdminEditSpielDataForm({
   // stage" (see `collectKnockoutTeamIds`). One derivation, so its readers cannot disagree.
   const knockoutTeamIds = useMemo(() => collectKnockoutTeamIds(saisonSpiele, spielData.id), [saisonSpiele, spielData.id]);
 
-  // Which fixture of the same Spieltag already fields each team (ADR-0042). Held here rather than in
+  // Which fixture of the same Spieltag already fields each team. Held here rather than in
   // the matchup panel, because the save's refusal lands on the side this map disables.
   const spieltagOccupancy = useMemo(
     () => collectSpieltagTeamOccupancy(saisonSpiele, { id: spielData.id, spieltag_id: spielData.spieltag_id }),
@@ -295,7 +295,7 @@ export function AdminEditSpielDataForm({
   );
 
   /**
-   * What saving right now would destroy, asked live and answered by the write path itself (ADR-0041).
+   * What saving right now would destroy, asked live and answered by the write path itself.
    *
    * Keyed on the fields that can move a bracket occupant and on nothing else: a venue or a kick-off
    * time cannot void a result anywhere, so keying on the whole draft would be a request per keystroke
@@ -323,7 +323,7 @@ export function AdminEditSpielDataForm({
   const isKnockout = spielData.saison_phase !== "gruppenphase";
 
   // A cancelled fixture with a DECIDED score is legal -- a Wertung is entered exactly like this and
-  // the table counts it (ADR-0019) -- but it is also the shape a mistaken cancellation takes.
+  // the table counts it -- but it is also the shape a mistaken cancellation takes.
   const tore1 = team1Payload?.tore ?? null;
   const tore2 = team2Payload?.tore ?? null;
   const hasDecidedErgebnis = tore1 !== null && tore2 !== null && !Number.isNaN(tore1) && !Number.isNaN(tore2) && tore1 !== tore2;
@@ -331,7 +331,7 @@ export function AdminEditSpielDataForm({
   /**
    * Every Hinweis this draft raises — the rail's list and the panels' inline callouts alike.
    *
-   * **The void and release entries name fixtures rather than possibilities** (ADR-0041). The preview
+   * **The void and release entries name fixtures rather than possibilities.** The preview
    * ran the actual resolution against this draft, so every number in them is a fixture whose stored
    * result this save deletes, not one that could lose it under some other edit — which is why a
    * `null` preview, meaning "no answer yet", contributes nothing rather than "nothing would be lost".
@@ -458,7 +458,7 @@ export function AdminEditSpielDataForm({
 
   /**
    * What both submit routes reach first: a draft carrying a warning or a danger is confirmed, and a
-   * clean one saves straight through (ADR-0070). The write itself is unchanged either way, undo
+   * clean one saves straight through. The write itself is unchanged either way, undo
    * included.
    */
   const requestSave = () => {
@@ -490,7 +490,7 @@ export function AdminEditSpielDataForm({
 
       if (!res.success) {
         // An occupant refusal names a rule and the FORM knows which side broke it -- the code is the
-        // only channel a failure body has (ADR-0042). A field error rather than a toast, so the
+        // only channel a failure body has. A field error rather than a toast, so the
         // message lands on the control the admin has to change.
         const occupantErrors = res.errorCode === undefined ? {} : placeOccupantRefusal(res.errorCode, res.error);
         const fieldErrorsFromServer = { ...(res.fieldErrors ?? {}), ...occupantErrors };
@@ -508,7 +508,7 @@ export function AdminEditSpielDataForm({
       setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
-      // The fixtures this save rewrote, put back from state only the client holds (ADR-0041). Built
+      // The fixtures this save rewrote, put back from state only the client holds. Built
       // BEFORE leaving: these are this render's props and the toast outlives the page. Offered on
       // EVERY save -- "I did not mean to save that" is the commoner mistake.
       const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
@@ -522,9 +522,9 @@ export function AdminEditSpielDataForm({
   };
 
   /**
-   * The undo toast: fifteen seconds to take a save back (ADR-0041), offered on every save.
+   * The undo toast: fifteen seconds to take a save back, offered on every save.
    *
-   * **The confirmation before a save is the carve-out, not the rule** (ADR-0070). A dialog on every
+   * **The confirmation before a save is the carve-out, not the rule.** A dialog on every
    * save would interrupt the case that is usually harmless, and the thirty-first is read without
    * being seen; undo costs nothing until it is wanted and is the only offer that helps the admin who
    * was not paying attention. What earns the dialog is a draft that has already raised a warning or
@@ -599,9 +599,9 @@ export function AdminEditSpielDataForm({
               appToast.close(pendingKey);
               console.warn("Undo dispatch failed", dispatchError);
 
-              // **The raw error stays in the description, and this is the one place that does it**
-              // (ADR-0043). The dispatch failed in the browser, so no server log holds the
-              // diagnosis. A failure that REACHED the server stays generic.
+              // **The raw error stays in the description, and this is the one place that does it.**
+              // The dispatch failed in the browser, so no server log holds the diagnosis. A failure
+              // that REACHED the server stays generic.
               appToast.danger("Rücknahme konnte nicht gesendet werden", {
                 description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
                 // Stated rather than derived, and for a reason no formula covers: this string is the

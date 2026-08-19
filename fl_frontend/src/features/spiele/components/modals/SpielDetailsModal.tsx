@@ -22,7 +22,7 @@ import type { FLSpiel, FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schem
  * A resolved side is a `TeamPopoverMenu` placed `top`, not the cards' `right`: this trigger is a wide
  * centred line, and only a vertical placement puts that width on the axis react-aria clamps to the
  * viewport. A side whose occupant is not yet known shows its provenance label as text, because there
- * is no team page to send anyone to (ADR-0034).
+ * is no team page to send anyone to.
  */
 function TeamNameLine({
   team,

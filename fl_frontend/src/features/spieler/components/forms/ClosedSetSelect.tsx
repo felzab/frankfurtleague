@@ -8,9 +8,9 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import type { Key } from "@heroui/react";
 
 /**
- * The picker behind Position and Stufe — two closed sets with identical shape (ADR-0048).
+ * The picker behind Position and Stufe — two closed sets with identical shape.
  *
- * A picked control, so it is judged on CHANGE rather than on blur (ADR-0040): a selection is complete
+ * A picked control, so it is judged on CHANGE rather than on blur: a selection is complete
  * the moment it is made, and there is no half-entered value to be wrong about.
  *
  * **Clearing is an option in the list, not a separate control.** Both fields are genuinely optional —

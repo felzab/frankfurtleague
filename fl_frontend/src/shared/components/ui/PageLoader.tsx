@@ -8,7 +8,7 @@ export function PageLoader() {
       <div className="relative flex items-center justify-center">
         {/* `motion-reduce:hidden`, not a dropped `animate-ping`: the keyframe declares only its end
             frames, so an unanimated halo rests as a full-size disc over the spinner rather than
-            invisible. The spinner is the readout and keeps turning (ADR-0077). */}
+            invisible. The spinner is the readout and keeps turning. */}
         <div className="bg-brand/20 absolute size-16 animate-ping rounded-full motion-reduce:hidden" />
 
         <div className="border-border border-t-brand size-12 animate-spin rounded-full border-4" />

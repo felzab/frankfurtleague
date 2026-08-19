@@ -30,7 +30,7 @@ const SCHIRI = "6890a1b2c3d4e5f607182950";
  * One resolved side, as a READ serves it.
  *
  * `disqualifikation` is on every one of them because the fixtures here are what an endpoint returns,
- * and an endpoint joins it (ADR-0021, rule 4). Nothing in this suite asserts on it — the helper exists
+ * and an endpoint joins it. Nothing in this suite asserts on it — the helper exists
  * so a side stays one call rather than five keys repeated per case.
  */
 const side = (team_id: string, name: string, shorthand: string, tore: number | null): FLSpielTeamFieldJoined => ({
@@ -206,7 +206,7 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
     );
   });
 
-  // ADR-0034: the resolution fills a side that has a source, so a side WITH a source and no team yet
+  // The resolution fills a side that has a source, so a side WITH a source and no team yet
   // is correct and must not be nagged about. Only "no team AND no source" is an open slot.
   it("marks an unwired knockout side and leaves a wired one alone", () => {
     const unwired = makeStored({ saison_phase: "halbfinale", team1: null, team1_quelle: null, ergebnis: null });

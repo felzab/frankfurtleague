@@ -10,7 +10,7 @@
  * - Base tags invalidate unconditionally, granular only when a season id parses.
  * - `saison_id` stays an argument, never on the patch body: Pydantic would drop it silently.
  * - A failed season-id parse never fails the edit — work is not rejected over a cache concern.
- * - The base tags cover the bracket fixtures the backend advanced (ADR-0001, ADR-0034).
+ * - The base tags cover the bracket fixtures the backend advanced.
  * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the
  *   toast, not the error page (docs/logging/error-codes.md).
  *
@@ -97,7 +97,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
     }
 
     // The base tags are not redundant with the granular ones below. The default
-    // read path sends no `saison_id` (ADR-0002), so the commonest entries carry
+    // read path sends no `saison_id`, so the commonest entries carry
     // only `spiele` / `teams` and a season-only invalidation leaves them stale.
     updateTag("spiele");
     updateTag("teams");
@@ -112,13 +112,13 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
     }
 
     // The resolved bracket fixtures are named in the toast, each with the result it
-    // destroyed (ADR-0034, ADR-0041). The faults it walked past ride along: the save
-    // that introduces one is when its cause is known (ADR-0039).
+    // destroyed. The faults it walked past ride along: the save
+    // that introduces one is when its cause is known.
     return {
       success: Boolean(patch_operation.acknowledged),
       message: formatSpielUpdateMessage(patch_operation.advanced_to, patch_operation.bracket_faults, patch_operation.released_sides),
       // Handed back whole, because the undo toast has to know WHICH fixtures lost a result before it
-      // can offer to put them back (ADR-0041).
+      // can offer to put them back.
       voidedFixtures: patch_operation.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),
       releasedFixtures: patch_operation.released_sides.map((released) => released.spiel_nr),
     };
@@ -126,7 +126,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
 }
 
 /**
- * What saving this payload would move and destroy — asked before the admin commits to it (ADR-0041).
+ * What saving this payload would move and destroy — asked before the admin commits to it.
  *
  * `dry_run=true` writes nothing: the backend applies the payload in memory through the same
  * `apply_payload_to_spiel` the save uses and resolves the bracket against the result. So this is not a

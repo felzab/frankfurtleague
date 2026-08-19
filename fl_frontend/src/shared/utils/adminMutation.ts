@@ -10,13 +10,12 @@
  *   2. **Convert a thrown API error into the result the caller renders.** `apiClient` throws on any
  *      non-2xx; without this boundary the throw crosses the server-action boundary, Next redacts it
  *      to a digest, and the admin's toast is replaced by the whole error page — for a 409 that is an
- *      ordinary, expected outcome (ADR-0025). The failure is logged HERE, with its codes and id,
+ *      ordinary, expected outcome. The failure is logged HERE, with its codes and id,
  *      because a handled error never reaches `onRequestError`.
  *
  * **Named for the mutation rather than the transport**, because it wraps both: the admin server
- * actions and the page-owned editors' undo route handlers. The handlers are handlers for a reason
- * recorded in [ADR-0049](../../../../docs/_decisions/0049-every-page-owned-editors-undo-is-a-route-handler.md)
- * — everything in this wrapper applies to them unchanged, which is part of why that shape was chosen.
+ * actions and the page-owned editors' undo route handlers — everything in this wrapper applies to
+ * them unchanged, which is part of why that shape was chosen.
  */
 
 import { unstable_rethrow } from "next/navigation";

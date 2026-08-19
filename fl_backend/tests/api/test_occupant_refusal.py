@@ -3,9 +3,9 @@ SPIELE · the write path's occupant rules, and the payload normalisation both pa
 
 Pure functions throughout, so every case runs in the default tier: `apply_payload_to_spiel` — the
 normalisation the save and the `dry_run=true` preview both apply, tested here because a drift
-would be invisible everywhere else (ADR-0041); `find_eligibility_refusal` and
-`find_disqualified_occupants` — a disqualified team, keyed on the fixture's date (ADR-0042);
-`judge_spieltag_occupancy` and `find_result_removal_refusal` — what a side may become (ADR-0042).
+would be invisible everywhere else; `find_eligibility_refusal` and
+`find_disqualified_occupants` — a disqualified team, keyed on the fixture's date;
+`judge_spieltag_occupancy` and `find_result_removal_refusal` — what a side may become.
 
 Refusals are asserted on their code, never their message. The season under test is one Spieltag
 of two group fixtures plus the knockout round — the smallest shape in which "same matchday" and
@@ -180,7 +180,7 @@ class TestApplyingThePayload:
         assert patched.team1 is not None and patched.team1.tore is None
 
     def test_a_shoot_out_is_discarded_on_a_group_fixture(self, season):
-        """A group draw is a final result and has no tie to break (ADR-0036)."""
+        """A group draw is a final result and has no tie to break."""
         patched = apply_payload_to_spiel(
             FLSpiel.model_validate(season[0]),
             payload_for(
@@ -239,7 +239,7 @@ class TestApplyingThePayload:
 
 
 class TestEligibility:
-    """A team the season records as unable to be there (ADR-0042), judged against the fixture's date."""
+    """A team the season records as unable to be there, judged against the fixture's date."""
 
     def test_saving_a_fixture_unchanged_is_legal(self, season):
         assert eligibility_for(season, 1, ALL_ELIGIBLE) is None
@@ -361,7 +361,7 @@ class TestEligibility:
         """
         The clause without which the one fixture needing an admin is the one nobody can open.
 
-        A team disqualified AFTER being placed is reported as a fault (ADR-0039) and resolving it means
+        A team disqualified AFTER being placed is reported as a fault, and resolving it means
         editing that very fixture — so resubmitting the stored occupant has to pass, on any date.
         """
         assert eligibility_for(season, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}) is None
@@ -429,7 +429,7 @@ class TestSpieltagOccupancy:
 
     def test_a_maintained_side_is_refused_rather_than_released(self, season):
         """
-        Emptying a side that carries a `quelle` is undone by the next resolution (ADR-0034).
+        Emptying a side that carries a `quelle` is undone by the next resolution.
 
         Spiel 29 and Spiel 30 share a Spieltag; 29's team2 is fed by Spiel 1's winner, so a team
         standing there cannot be moved out of it by fielding it in 30.
@@ -446,8 +446,7 @@ class TestSpieltagOccupancy:
         A team against itself, and there is nothing to move it to.
 
         The only side to empty is one the caller has just filled in. The wiring rules cannot see this
-        shape either: they key a source by identity, and these two sides carry no source at all
-        (ADR-0038).
+        shape either: they key a source by identity, and these two sides carry no source at all.
         """
         verdict = occupancy_for(season, 30, team1=team(BIEBER, "Bieber"), team2=team(BIEBER, "Bieber"))
 
@@ -472,7 +471,7 @@ def joined(*, nr: int, datum: str | None, side_disqualified_from: str | None, si
     One JOINED fixture, which is the shape `build_spiele_pipeline` returns.
 
     The joined side carries the whole `disqualifikation` record rather than a flag, so the fault can name
-    the day it took effect without a second read (ADR-0047).
+    the day it took effect without a second read.
     """
 
     def occupant(team_id: str, name: str, disqualified_from: str | None) -> dict[str, Any]:
@@ -510,7 +509,7 @@ class TestTheDisqualifiedOccupantFault:
     A fixture fielding a team the season disqualified before the day it is played (decided 2026-08-08).
 
     Derived, never stored, and it empties nothing: what to do about the fixture — cancel it, award it, or
-    replace the team — is a competition decision (ADR-0039, ADR-0042).
+    replace the team — is a competition decision.
     """
 
     def test_a_fixture_with_no_disqualified_side_is_clean(self):
@@ -556,7 +555,7 @@ class TestTheDisqualifiedOccupantFault:
         assert faults[0].spiel_datum is None
 
     def test_either_side_is_reported(self):
-        """A `quelle` sits on either side (ADR-0034) and so does an occupant, so both are walked."""
+        """A `quelle` sits on either side and so does an occupant, so both are walked."""
 
         faults = occupant_faults(joined(nr=2, datum="2026-04-01", side_disqualified_from="2026-03-15", side="team2"))
 

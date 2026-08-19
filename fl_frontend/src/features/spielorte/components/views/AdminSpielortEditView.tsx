@@ -38,7 +38,7 @@ export function AdminSpielortEditView({
   inactiveSince,
 }: {
   spielort: { id: string; name: string; address: FLAddress; default_mietpreis: number };
-  /** The day this venue was retired, or `null` while it is in use (ADR-0025) — on no field of the form. */
+  /** The day this venue was retired, or `null` while it is in use — on no field of the form. */
   inactiveSince: string | null;
 }) {
   const router = useRouter();

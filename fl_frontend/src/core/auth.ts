@@ -5,7 +5,7 @@
  * checked at sign-in and again when the session is built.
  *
  * Invariants:
- * - The ONE place the frontend touches MongoDB directly, and only the `authjs` database (ADR-0007).
+ * - The ONE place the frontend touches MongoDB directly, and only the `authjs` database.
  * - `getAdminSession()` is the single admin policy; it neither throws nor redirects, so check it.
  * - `role` is re-derived from ALLOWED_ADMIN_EMAILS on every session read, never stamped at
  *   sign-in — removing an address takes effect on the next request, not at expiry.
@@ -92,8 +92,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   // defaults cannot silently drop the flag. `config.ts` already refuses a non-loopback http:// value.
 
   // Deliberately a string test and not `new URL(...)`: this is evaluated at module scope, and the
-  // Docker builder stage has no AUTH_URL at all, so constructing a URL here fails the image build
-  // (ADR-0006).
+  // Docker builder stage has no AUTH_URL at all, so constructing a URL here fails the image build.
   useSecureCookies: (frontend_config.AUTH_URL ?? "").toLowerCase().startsWith("https://"),
 
   logger: {

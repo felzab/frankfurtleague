@@ -7,7 +7,7 @@
  *
  * Invariants:
  * - The matcher stays scoped to `/admin` — `auth()` is a Mongo round trip, never on a public load.
- * - No `callbackUrl` on the redirect — honouring one needs an allowlist first (ADR-0061).
+ * - No `callbackUrl` on the redirect — honouring one needs an allowlist first.
  * - A server-action request is never redirected — the HTML reply breaks the RSC stream; the
  *   action's own `getAdminSession()` is what refuses it.
  * - This file is `proxy.ts`, not `middleware.ts` — the latter is the deprecated name.
@@ -21,9 +21,8 @@ import { NextResponse } from "next/server";
 import { auth } from "./core/auth";
 
 /**
- * This file does NOT emit a per-request nonce CSP, following the decision to
- * keep a single enforced policy in `nginx.conf` -- see ADR-0011 for the measurements
- * behind it. The matcher is scoped back to `/admin` as a result: `auth()` resolves the session, and
+ * This file does NOT emit a per-request nonce CSP: there is one enforced policy and it lives in
+ * `nginx.conf`. The matcher is scoped back to `/admin` as a result: `auth()` resolves the session, and
  * that is a Mongo round-trip, so it must never sit in front of a public page load.
  */
 export default auth((req) => {
@@ -37,7 +36,7 @@ export default auth((req) => {
   }
 
   // Not logged in -> send to sign in, with no callbackUrl: honouring one needs the destination
-  // checked against an allowlist first, and deep-linking does not earn that (ADR-0061).
+  // checked against an allowlist first, and deep-linking does not earn that.
   if (!isLoggedIn) {
     return NextResponse.redirect(new URL("/signin", req.nextUrl));
   }

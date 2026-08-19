@@ -40,8 +40,8 @@ SKIP_DIRS: Final[tuple[str, ...]] = ("docs/audit", "node_modules", ".venv")
 # A template is a page in a templates/ directory, or one whose name ends -template.md.
 TEMPLATE_MARKERS: Final[tuple[str, ...]] = ("/templates/", "-template.md")
 # Exempt only what resolves from where the template is COPIED to: a placeholder stamp, paths
-# belonging to the destination, a relative link naming the copy's sibling. ADR numbers, rule ids
-# and citations are the template's own and are checked.
+# belonging to the destination, a relative link naming the copy's sibling. Rule ids and citations
+# are the template's own and are checked.
 TEMPLATE_EXEMPT_CHECKS: Final[frozenset[str]] = frozenset({"stamp-format", "path", "link"})
 
 # The comment-bearing source suffixes the gate scans (INC-6).
@@ -108,18 +108,15 @@ STAMP_LINE_NUMBER: Final = 3
 # a glob that SELECTS a page, the page a check NAMES and a finding's own file cannot drift apart.
 DOCS_DIR: Final = "docs"
 CHAPTERS_DIR: Final = f"{DOCS_DIR}/_standard/chapters"
-DECISIONS_DIR: Final = f"{DOCS_DIR}/_decisions"
 ROADMAP_DIR: Final = f"{DOCS_DIR}/_roadmap"
 SPEC_GLOB: Final = f"{DOCS_DIR}/*/spec.md"
 OVERVIEW_GLOB: Final = f"{DOCS_DIR}/*/overview.md"
 CHAPTER_GLOB: Final = f"{CHAPTERS_DIR}/*.md"
-DECISION_GLOB: Final = f"{DECISIONS_DIR}/*.md"
 ROADMAP_GLOB: Final = f"{ROADMAP_DIR}/*.md"
 # A fixed page is its own glob, so one spelling answers `tracked_glob` and `tracked_page` alike.
 GLOSSARY_PAGE: Final = f"{DOCS_DIR}/glossary.md"
 RULES_INDEX_PAGE: Final = f"{DOCS_DIR}/_standard/rules-index.md"
 CURRENCY_PAGE: Final = f"{CHAPTERS_DIR}/5-currency.md"
-ADR_INDEX_PAGE: Final = f"{DECISIONS_DIR}/README.md"
 ROADMAP_PAGE: Final = f"{ROADMAP_DIR}/open-items.md"
 ROADMAP_TOOLING_PAGE: Final = f"{ROADMAP_DIR}/tooling-items.md"
 TEMPLATES_PAGE: Final = f"{DOCS_DIR}/_git/templates.md"
@@ -141,9 +138,6 @@ Severity = Literal["fail", "report"]
 # CUR-5's table to this mapping and `Finding` refuses a name absent from it, so a check cannot
 # reach a run before its row in that table exists.
 CHECKS: Final[dict[str, frozenset[Severity]]] = {
-    "adr": frozenset({"fail"}),
-    "adr-index": frozenset({"fail"}),
-    "adr-meta": frozenset({"fail"}),
     "anchor": frozenset({"fail"}),
     "bare-path": frozenset({"fail"}),
     "branch-impact": frozenset({"fail"}),
@@ -211,7 +205,7 @@ class Finding:
 
 
 def is_placeholder(text: str) -> bool:
-    """Template scaffolding, not a reference. `<sha>`, `ADR-NNNN`, `app/api/*/router.py`."""
+    """Template scaffolding, not a reference. `<sha>`, `NNNN`, `app/api/*/router.py`."""
     return bool(set("<>{}*?") & set(text)) or "NNNN" in text or "…" in text
 
 
@@ -484,9 +478,9 @@ def _jsonc_comments(text: str) -> str:
 def comments_only(text: str, suffix: str) -> str:
     """Everything outside a comment blanked out, with the line count preserved.
 
-    A path or an ADR number inside executable code is a string the program uses, not a claim made to
-    a reader, so only comments are scanned. A `//` inside a URL is harmless: link checking skips
-    http and https regardless.
+    A path inside executable code is a string the program uses, not a claim made to a reader, so
+    only comments are scanned. A `//` inside a URL is harmless: link checking skips http and https
+    regardless.
 
     Two of the four readers are exact and two are not. Python is tokenized and JSON is scanned, so
     a marker inside a literal reaches nothing. TypeScript is read a line at a time, so a line whose

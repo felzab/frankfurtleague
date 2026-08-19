@@ -39,7 +39,7 @@ def build_schiedsrichter_filter(
 
 # The referee is still assigned to a fixture nobody has played (decided 2026-08-08) --
 # `REQ-RETIRE-003` for a venue, for the same reason. A played fixture never blocks: its
-# `schiedsrichter` is an embedded record (ADR-0021 rule 2).
+# `schiedsrichter` is an embedded record of who officiated.
 REFEREE_STILL_ASSIGNED = "REQ-RETIRE-004"
 
 

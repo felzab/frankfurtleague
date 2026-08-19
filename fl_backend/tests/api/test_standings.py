@@ -3,7 +3,7 @@ TEAMS · the group standing: the tiebreak chain, and when a placing becomes fina
 
 `build_gruppen` and `build_decided_standings` are pure, so every case runs in the default tier —
 including the ones that matter most, which are about results that have NOT happened yet and
-could not be staged in a database at all (ADR-0035). The last case takes the standing back into
+could not be staged in a database at all. The last case takes the standing back into
 `resolve_bracket`, because a slot seeded from an undecided placing is the confidently-wrong
 public page this design exists to prevent.
 
@@ -31,7 +31,7 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
 
 # What `disqualifikation` holds for a team that is out. Its CONTENTS do not reach this file's subject --
-# the standing walks past a team because the field is non-null, never because of what it says (ADR-0047)
+# the standing walks past a team because the field is non-null, never because of what it says
 # -- so one value serves every case here.
 DISQUALIFIZIERT = {"grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
 
@@ -46,7 +46,7 @@ def a_team(team: PayloadFactory, statistik: PayloadFactory) -> TeamFactory:
     One club in group A, with its derived table stated directly.
 
     The figures are set rather than computed from the matches below, exactly as production does it: the
-    numbers come from the aggregation (ADR-0019) and the standing consumes them. A case may
+    numbers come from the aggregation and the standing consumes them. A case may
     therefore state a table that its match list does not add up to, which is the point — the head-to-head
     criterion is the only one that reads the matches, so every other case can leave them out.
     """
@@ -95,7 +95,7 @@ def standing(teams: list[FLTeam], documents: list[dict[str, Any]]):
 
 
 class TestTheChain:
-    """Points, goal difference, goals scored, then the head-to-head table (ADR-0035)."""
+    """Points, goal difference, goals scored, then the head-to-head table."""
 
     def test_ranks_on_points_first(self, a_team: TeamFactory):
         """The first criterion, and the one every other is subordinate to."""
@@ -287,8 +287,8 @@ class TestWhenAPlacingIsFinal:
         """
         A called-off fixture with nothing recorded awards nobody anything, so it does not hold the group open.
 
-        The counterpart is `test_bracket.py`'s forfeit case: cancelled WITH a result counts in full
-        (ADR-0019), and that one is already in the figures the pipeline hands over.
+        The counterpart is `test_bracket.py`'s forfeit case: cancelled WITH a result counts in full,
+        and that one is already in the figures the pipeline hands over.
         """
 
         teams = [a_team(1, punkte=9), a_team(2, punkte=6)]
@@ -344,7 +344,7 @@ def gruppe_faults(resolution: BracketResolution) -> list[tuple[int, str, int, st
 
     The isinstance is the assertion rather than a concession to the type checker: only a group
     reference carries a `gruppe` and a `platz`, so a fault of any other variant reaching this module
-    would be one reported against the wrong shape (ADR-0039).
+    would be one reported against the wrong shape.
     """
 
     faults = []
@@ -382,7 +382,7 @@ class TestSeedingTheSlot:
         Not decided yet is a real answer — the slot is empty — and it is not a problem anybody is told about.
 
         A slot seeded from an earlier state of the table gives that team back the moment a result stops
-        supporting it, which is the same rule a corrected match result follows (ADR-0034).
+        supporting it, which is the same rule a corrected match result follows.
         """
 
         teams = [a_team(1, punkte=3), a_team(2, punkte=3)]

@@ -78,7 +78,7 @@ def test_accepts_a_match_with_no_date_venue_or_referee(spiel):
 
 class TestUnresolvedSides:
     """
-    A bracket slot whose occupant the group phase has not produced yet (ADR-0034).
+    A bracket slot whose occupant the group phase has not produced yet.
 
     The four cases below are the four combinations of `teamN` and `teamN_quelle`, and the point of
     the parametrised one is that ALL of them validate. Nothing pairs the two fields, so no case here
@@ -138,7 +138,7 @@ class TestUnresolvedSides:
 
 class TestShootout:
     """
-    `elfmeterschiessen`: how a knockout that finished level was settled (ADR-0036).
+    `elfmeterschiessen`: how a knockout that finished level was settled.
 
     A scoreline of its own, never a third number inside `ergebnis` — both ends parse that string to
     derive win/draw/loss, and the league table counts this fixture as the draw it was.

@@ -22,7 +22,7 @@ date with `origin/main`, and you are on a branch named for the change (CLAUDE.md
    | Read                                | For                                                                                 |
    | ----------------------------------- | ----------------------------------------------------------------------------------- |
    | `docs/_roadmap/protocol.md`         | Which page an entry belongs on, the ranking rubric (§1), the status derivation (§3) |
-   | `docs/_roadmap/README.md`           | What belongs on the roadmap, and what belongs in an ADR or a spec sheet instead     |
+   | `docs/_roadmap/README.md`           | What belongs on the roadmap, and what belongs to a settled decision or a spec sheet |
    | `docs/_roadmap/open-items.md`       | Every open product entry, and the shape "What every entry carries" fixes            |
    | `docs/_roadmap/tooling-items.md`    | Every open tooling entry, written in that same shape                                |
    | `docs/_roadmap/closed-items.md`     | The retired ids, and the numbers already spent                                      |
@@ -44,7 +44,8 @@ date with `origin/main`, and you are on a branch named for the change (CLAUDE.md
    item, establish and write down:
 
    - **What it touches**, cited as COR-6 requires — `` `<path> :: <symbol>` `` or a repository path.
-   - **What is already decided.** Search `docs/_decisions/` and cite the ADR by number.
+   - **What is already decided.** Search CLAUDE.md §7 and the spec sheets' `## 2. Invariants`, and
+     state in prose what each one settles.
    - **Who consumes it** — the entries, endpoints, components and collections that would change with
      it, and which of those are already in the file.
    - **What makes it non-trivial.** If it is trivial, say so and return to step 2.
@@ -107,8 +108,8 @@ date with `origin/main`, and you are on a branch named for the change (CLAUDE.md
    - The audit pass prompt under `docs/_auditing/prompts/` that owns the check, where the entry's
      `Path` line names a pass. The reference is mutual: the prompt names the id, and the entry's
      `Path` line names the prompt.
-   - **Never a source comment.** INC-6 bans a roadmap id there — a comment states the constraint and
-     cites the ADR.
+   - **Never a source comment.** INC-6 bans a roadmap id there — a comment states the constraint
+     itself.
 
    Leave every other reference alone.
 

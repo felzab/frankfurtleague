@@ -31,18 +31,18 @@ import type { FLAddress } from "@/shared/schemas";
 import type { ReactNode } from "react";
 
 /**
- * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). It stands
+ * How long the undo offer stands after a save. It stands
  * on every save, confirmed or not: a confirmation is the carve-out for a draft carrying a warning
- * or a danger, and undo is what still helps the admin who was not paying attention (ADR-0070).
+ * or a danger, and undo is what still helps the admin who was not paying attention.
  */
 const UNDO_TIMEOUT_MS = 15000;
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0049: an undo
- * belongs to a page-owned editor, and nothing else becomes a route handler): by the time the offer
- * is pressed this component is unmounted and the browser is on another route, and a server action
- * dispatched from there trips Next's E592 invariant and is truncated mid-response.
- * **Revert this to a server action once E592 is fixed upstream**; the ADR names that condition.
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason (an undo belongs to
+ * a page-owned editor, and nothing else becomes a route handler): by the time the offer is pressed
+ * this component is unmounted and the browser is on another route, and a server action dispatched
+ * from there trips Next's E592 invariant and is truncated mid-response.
+ * **Revert this to a server action once E592 is fixed upstream.**
  */
 async function postSpielortUndo(payload: FLPatchSpielortPayload): Promise<{ success: boolean; message?: string; error?: string }> {
   const response = await fetch("/api/admin/spielorte/undo", {
@@ -62,7 +62,7 @@ async function postSpielortUndo(payload: FLPatchSpielortPayload): Promise<{ succ
 
 /**
  * The venue editor's form: three panels, a sticky summary rail, and one derivation behind both — the
- * match editor's shape (ADR-0040) over a venue. Every field is controlled, judged when it is left
+ * match editor's shape over a venue. Every field is controlled, judged when it is left
  * with the same schema the action parses, and marked in place when its draft differs from stored.
  *
  * **The undo replays the identity too.** Both halves of the fan-out — the embedded `ort.name` and the
@@ -77,7 +77,7 @@ export function AdminSpielortEditForm({
 }: {
   spielort: { id: string; name: string; address: FLAddress; default_mietpreis: number };
   /** Retirement is a fact about the row rather than a field this form commits, so it arrives beside
-   * the values rather than inside them (ADR-0025). */
+   * the values rather than inside them. */
   isRetired: boolean;
   registerRequestLeave?: (requestLeave: () => void) => void;
   pageHeader?: ReactNode;
@@ -202,7 +202,7 @@ export function AdminSpielortEditForm({
 
   /**
    * What both submit routes reach first: a draft carrying a warning or a danger is confirmed, and a
-   * clean one saves straight through (ADR-0070). The write itself is unchanged either way, undo
+   * clean one saves straight through. The write itself is unchanged either way, undo
    * included.
    */
   const requestSave = () => {
@@ -219,7 +219,7 @@ export function AdminSpielortEditForm({
   const handleFormSubmit = () => {
     startTransition(async () => {
       // Read before the write, because the props still hold the pre-save values here and the toast
-      // that replays them outlives this component (ADR-0041, ADR-0049).
+      // that replays them outlives this component.
       const undoPayload: FLPatchSpielortPayload = {
         id: spielort.id,
         name: spielort.name,
@@ -252,14 +252,13 @@ export function AdminSpielortEditForm({
   };
 
   /**
-   * The undo toast: fifteen seconds to take the save back (ADR-0041's window over ADR-0049's
-   * transport). The pitfalls the match editor documents all apply and are all mirrored here: the
-   * toast outlives this component, so the press runs in a detached closure — `router.refresh()` is
-   * what re-renders a screen the action's own revalidation can no longer reach (the router instance
-   * is a stable singleton, legal after unmount); the replay uses the TWO-ARGUMENT `then`, so a
-   * failure downstream of a committed restore is never blamed on the transport; and the pending
-   * spinner is `appToast.pending`, closed by its own key, because a toast without an explicit
-   * timeout inherits a four-second default that would retire it mid-flight.
+   * The undo toast: fifteen seconds to take the save back. The pitfalls the match editor documents
+   * all apply and are all mirrored here: the toast outlives this component, so the press runs in a
+   * detached closure — `router.refresh()` is what re-renders a screen the action's own revalidation
+   * can no longer reach (the router instance is a stable singleton, legal after unmount); the replay
+   * uses the TWO-ARGUMENT `then`, so a failure downstream of a committed restore is never blamed on
+   * the transport; and the pending spinner is `appToast.pending`, closed by its own key, because a
+   * toast without an explicit timeout inherits a four-second default that would retire it mid-flight.
    *
    * Always a success rather than a warning, as the squad editor's is: every field this save writes is
    * a short value the admin can retype, and the fan-out is replayed in full by the undo, which sends

@@ -8,8 +8,7 @@
  * the pieces that open something of their own have to be lifted clear of it.
  *
  * Invariants:
- * - Never merged with `SpielCard` or `SpielCardCompact`; only their shared derivation is extracted
- *   (ADR-0005).
+ * - Never merged with `SpielCard` or `SpielCardCompact`; only their shared derivation is extracted.
  */
 import { Card } from "@heroui/react";
 
@@ -76,7 +75,7 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
           {/* The result in the status chips' tint formula -- the reference chip look.
               This is the bracket's card, so it is the one that most often carries a shoot-out: the
               line below it names how a level knockout was settled WITHOUT changing the score, which
-              stays the draw the Saisontabelle counts (ADR-0036). It sits inside the `auto` track, so
+              stays the draw the Saisontabelle counts. It sits inside the `auto` track, so
               the two `1fr` team tracks keep their widths. */}
           <span
             className={`fluid-xs flex flex-col items-center rounded-md px-1.5 py-0.5 text-center font-extrabold ${

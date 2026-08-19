@@ -15,7 +15,7 @@ import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
 
 /**
  * **A matchday is created into the season the sidemenu selector holds**, which is why there is no season
- * picker in the form. The order is derived, so there is no next-free-position to compute either (ADR-0051).
+ * picker in the form. The order is derived, so there is no next-free-position to compute either.
  *
  * TWO states in which no matchday can be created, and the dialog refuses BEFORE the request in both
  * (decided 2026-08-08). `saisonId` is null where the league has no seasons at all — a fresh database — and

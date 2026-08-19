@@ -170,7 +170,7 @@ function TableFallback() {
 
 /**
  * The matchday list, which is the one admin resource that is not a table at any width — phase-headed
- * sections of cards, so a heading's box has to be reserved between the groups (ADR-0050).
+ * sections of cards, so a heading's box has to be reserved between the groups.
  *
  * Its card carries the real card's own responsive classes rather than standing in for one of the two
  * arrangements, so it measures what arrives at both widths instead of on one side of the breakpoint.

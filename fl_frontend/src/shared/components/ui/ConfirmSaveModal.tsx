@@ -15,16 +15,16 @@ import type { BlockingBanners } from "./railBanner";
 /**
  * "This draft still carries these warnings — save anyway?"
  *
- * **The inverse of `ConfirmDeleteModal`, and that is the whole design** (ADR-0070). There the danger
+ * **The inverse of `ConfirmDeleteModal`, and that is the whole design**. There the danger
  * is in pressing the button, so the dialog exists to make the admin stop; here the danger is already
  * in the draft and the dialog exists to make them read it. So it is single-step, and its body is the
  * banners themselves rather than a sentence about them — a dialog that summarised "es gibt 2
- * Hinweise" would be one more thing to click past, which is precisely what ADR-0041 rejected a
- * blanket confirmation for.
+ * Hinweise" would be one more thing to click past, which is why no save carries a blanket
+ * confirmation.
  *
  * **It appears only on a draft that raised a `warning` or a `danger`.** A clean draft saves straight
- * through, and the fifteen-second undo stands either way — the confirmation narrows ADR-0041's rule
- * rather than replacing its safety net.
+ * through, and the fifteen-second undo stands either way — the confirmation narrows that rule rather
+ * than replacing its safety net.
  *
  * **`banners` is the snapshot the gate took, and it is also what opens the dialog** — one value, so
  * there is no second state that could say "open" while the list says "nothing to show". `null` is

@@ -1,7 +1,7 @@
 """
 API · every mutation is admin-guarded, checked against the published surface
 
-ADR-0027 puts the guard on the router, so an endpoint reaches the wrong authorization only by
+The guard sits on the router, so an endpoint reaches the wrong authorization only by
 being written in the wrong file — this suite is the net under that. The inventory of record is
 `app.openapi()["paths"]`: `include_router` mounts each router as a `_IncludedRouter` wrapper
 rather than flattening it, so filtering `app.routes` for `APIRoute` finds only `GET /`.
@@ -9,7 +9,7 @@ rather than flattening it, so filtering `app.routes` for `APIRoute` finds only `
 Invariants:
 - Every non-GET operation carries `verify_access_admin`.
 - No operation carries more than one guard (`test_every_operation_carries_exactly_one_guard`).
-- A GET need not be base-guarded: `GET /spiele/action_required` is admin on purpose (ADR-0009).
+- A GET need not be base-guarded: `GET /spiele/action_required` is admin on purpose.
 """
 
 import re
@@ -128,7 +128,7 @@ def test_the_mutation_inventory_is_the_size_the_write_path_built():
     A guard-coverage suite that finds no mutations passes vacuously, which is its own failure mode.
 
     Pinned to the count rather than to `> 0`: the inventory shrinking is exactly as interesting as it
-    growing, and both should be a deliberate edit to this line (ADR-0027 built 30 across seven slices,
-    and ADR-0062's group swap is the 31st).
+    growing, and both should be a deliberate edit to this line (30 across seven slices, plus the
+    group swap).
     """
     assert len(MUTATIONS) == 31

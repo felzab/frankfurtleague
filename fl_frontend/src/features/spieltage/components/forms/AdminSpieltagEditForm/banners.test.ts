@@ -1,8 +1,8 @@
 /**
  * SPIELTAGE · matchday editor banner tests
  *
- * This list is the evidence ADR-0072 rests on — the enumeration of what a three-field form has to say
- * — so the gates are asserted here rather than clicked. Two of them mirror a backend refusal
+ * This list is the enumeration of what a three-field form has to say, so the gates are asserted here
+ * rather than clicked. Two of them mirror a backend refusal
  * arithmetically (`REQ-RETIRE-002`, `REQ-RETIRE-005`), and a mirror that drifts would disable a
  * control the endpoint would have accepted, or offer one it will refuse.
  */

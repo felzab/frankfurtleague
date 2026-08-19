@@ -1,5 +1,5 @@
 """
-TEAMS · `build_team_pipeline` — the derived league table (ADR-0019)
+TEAMS · `build_team_pipeline` — the derived league table
 
 What is pinned is the set of rules the pipeline encodes: which matches count, which phase they
 come from, where the points come from, which were called off, and what a team with no matches is
@@ -7,7 +7,7 @@ served — the parts a later edit can get wrong silently. Deliberately structura
 database: locating each stage by name rather than asserting the stage list keeps a refactor green.
 
 `test_teams_pipeline_execution.py` is the other half and does not replace this one: this file
-fails when a rule is DELETED, that one when a rule is present but WRONG (ADR-0023).
+fails when a rule is DELETED, that one when a rule is present but WRONG.
 """
 
 from typing import Any, Mapping
@@ -37,7 +37,7 @@ Pipeline = list[Mapping[str, Any]]
 
 
 # `scope` is deliberately not defaulted. It has a default on the model, and that default is itself a
-# decision (ADR-0022) -- restating it here would let the model's default change while every test
+# decision -- restating it here would let the model's default change while every test
 # kept passing.
 def build(
     *,
@@ -89,7 +89,7 @@ def test_requires_a_resolved_saison_id():
 
 
 def test_counts_a_match_exactly_when_it_carries_an_ergebnis():
-    """The counting rule (ADR-0019), and that it is scoped to the requested season rather than all of them."""
+    """The counting rule, and that it is scoped to the requested season rather than all of them."""
     match_stage = statistik_stage(build())["pipeline"][0]["$match"]
 
     assert match_stage["ergebnis"] == {"$ne": None}
@@ -98,7 +98,7 @@ def test_counts_a_match_exactly_when_it_carries_an_ergebnis():
 
 def test_counts_only_the_gruppenphase_unless_asked_otherwise():
     """
-    The default scope, and it is the decision rather than a convenience (ADR-0022).
+    The default scope, and it is the decision rather than a convenience.
 
     Both scopes return the same fields, so a caller that forgets the parameter gets a plausible table
     either way — which is why the safe value has to be the one you get by saying nothing.
@@ -119,8 +119,7 @@ def test_the_scope_narrows_the_matches_and_nothing_else():
     """
     The two tables are one pipeline.
 
-    A scope that changed the projection, the sort or the fallback would make them two, which is the
-    arrangement ADR-0019 exists to avoid.
+    A scope that changed the projection, the sort or the fallback would make them two.
     """
     gruppenphase, gesamt = build(), build(scope="gesamt")
 
@@ -144,9 +143,9 @@ class TestTheAbsageLookup:
     """
     The count of the fixtures that were called off — the one place `is_canceled` is read.
 
-    Separate from the figures beside it, which is what keeps ADR-0019 intact: these cases pin that the
-    flag reaches this lookup and nothing else, that the flag alone selects, and that the scope applies
-    to it — the ways a "clearly-named separate count" quietly stops being one.
+    Separate from the figures beside it, which is what keeps the flag out of the scoring: these cases
+    pin that the flag reaches this lookup and nothing else, that the flag alone selects, and that the
+    scope applies to it — the ways a "clearly-named separate count" quietly stops being one.
     """
 
     def test_it_selects_on_the_flag_and_nothing_else(self):
@@ -163,7 +162,7 @@ class TestTheAbsageLookup:
         assert "ergebnis" not in match_stage
 
     def test_it_is_the_only_stage_reading_the_flag(self):
-        """ADR-0019's boundary, asserted rather than commented: a second reader of `is_canceled` would be the decision reversed."""
+        """The boundary, asserted rather than commented: a second reader would bring `is_canceled` into the scoring."""
         assert repr(build()).count("is_canceled") == 1
 
     def test_it_counts_rather_than_carrying_the_documents_back(self):
@@ -172,7 +171,7 @@ class TestTheAbsageLookup:
 
     def test_it_selects_the_same_matches_the_figures_are_derived_from(self):
         """
-        The scope rule reaches both lookups (ADR-0022).
+        The scope rule reaches both lookups.
 
         A count of cancellations over every phase, beside a match count over the Gruppenphase alone,
         would render as a badge claiming games the table was never counting in the first place.
@@ -227,7 +226,7 @@ def test_the_cancellation_count_survives_the_zeroed_fallback():
 
 
 def test_reads_statistik_from_no_stored_copy():
-    """The junction supplies gruppe and disqualification; `statistik` comes from no stored copy (ADR-0019)."""
+    """The junction supplies gruppe and disqualification; `statistik` comes from no stored copy."""
     projected = projection(build())
 
     assert projected["statistik"]["$mergeObjects"][0] == {
@@ -240,7 +239,7 @@ def test_reads_statistik_from_no_stored_copy():
 
 class TestTheDisqualifiedFilterIsTranslated:
     """
-    `is_disqualified` is a QUESTION and the junction stores no boolean to answer it with (ADR-0047).
+    `is_disqualified` is a QUESTION and the junction stores no boolean to answer it with.
 
     Three cases because the translation has three outcomes and two of them are easy to get wrong: a
     dumped `True` would match nothing at all, and a dumped `False` would match nothing either — both
@@ -261,7 +260,7 @@ class TestTheDisqualifiedFilterIsTranslated:
 
 def test_there_is_exactly_one_team_shape():
     """
-    One projection, whatever the caller asked for (ADR-0027).
+    One projection, whatever the caller asked for.
 
     Asserted as the FULL key set rather than a spot check: a reduced variant would be added by
     branching here, and a test that only looked for `statistik` would keep passing while a caller

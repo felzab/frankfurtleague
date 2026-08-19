@@ -95,9 +95,9 @@ THE CHECKS, in priority order:
 
 CROSS-SURFACE QUESTIONS: which manual steps are accepted ritual, and which are traps that depend on
 the operator remembering something undocumented, is knowledge only I have — collect and batch these
-per the shared protocol. The frontend-container recreation after an out-of-band reference edit
-(ADR-0028) is a known example of an accepted manual step; check `docs/ops/spec.md` for the others
-before filing any of them as findings.
+per the shared protocol. The frontend-container recreation after an out-of-band reference edit is a
+known example of an accepted manual step; check `docs/ops/spec.md` for the others before filing any
+of them as findings.
 
 BOUNDARIES — not this pass: nginx security posture, headers, TLS, rate limits, secret reachability →
 `ops 2` · application-code findings discovered while probing images → file as questions or rows for

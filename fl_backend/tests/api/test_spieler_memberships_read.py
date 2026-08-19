@@ -7,7 +7,7 @@ three reasons — the strict join, the unwind, and the missing `saison_id` — b
 separate way the composed alternative fails, and two of them fail silently.
 
 The structural half asserts what the pipeline says and the `db`-marked half what MongoDB
-computes from it (ADR-0023) — a structural test fails when a rule is deleted, an executing one
+computes from it — a structural test fails when a rule is deleted, an executing one
 when a rule is present and wrong.
 """
 
@@ -73,7 +73,7 @@ class TestTheMembershipsPipeline:
             "stufe": 1,
             "is_nachgetragen": 1,
             "is_captain": 1,
-            # Unlike the team junction, a squad row really can be retired (ADR-0025), and the admin
+            # Unlike the team junction, a squad row really can be retired, and the admin
             # list badges it in place. Dropping this field would make a retired row look live.
             "inactive_since": 1,
         }
@@ -147,7 +147,7 @@ class TestTheResponseModel:
         assert response.spieler[0].memberships == []
 
     def test_a_membership_refuses_a_position_outside_the_closed_set(self):
-        """ADR-0048, at the read boundary: `Sturm` is a spelling outside the closed set."""
+        """The closed set at the read boundary: `Sturm` is a spelling outside it."""
         with pytest.raises(ValidationError):
             FLSpielerWithMemberships.model_validate(
                 {
@@ -171,7 +171,7 @@ class TestTheResponseModel:
             )
 
     def test_a_membership_accepts_a_null_position_and_stufe(self):
-        """A squad entry is filled in over time, so both stay nullable (ADR-0048)."""
+        """A squad entry is filled in over time, so both stay nullable."""
         player = FLSpielerWithMemberships.model_validate(
             {
                 "_id": str(SPIELER_OIDS["Abel"]),
@@ -197,7 +197,7 @@ class TestTheResponseModel:
         assert player.memberships[0].stufe is None
 
 
-# Executed by a real MongoDB (ADR-0023)
+# Executed by a real MongoDB
 
 
 def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
@@ -238,7 +238,7 @@ def squads(mongo_database: Database) -> Database:
     mongo_database.spieler.insert_many(
         [
             _spieler("Abel"),
-            # The PERSON is retired; their squad row is not. The two are independent (ADR-0025).
+            # The PERSON is retired; their squad row is not. The two are independent.
             _spieler("Baum", inactive_since="2026-05-01"),
             _spieler("Cordes"),
             _spieler("Ohne"),
@@ -287,7 +287,7 @@ class TestTheMembershipsPipelineExecuted:
         The row the list badges and offers the reactivate on.
 
         Hiding it would leave the admin no way to bring the player back, because a second create is a
-        409 against the index the retired row still holds (ADR-0025).
+        409 against the index the retired row still holds.
         """
         rows = {row.saison_id: row for row in self._by_surname(squads)["Cordes"].memberships}
 

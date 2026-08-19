@@ -5,10 +5,10 @@ Serves `GET /spiele`, the most-hit endpoint in the application; every mutation l
 router. Authorization is the router-level `verify_access_base` dependency.
 
 Invariants:
-- Omitting `saison_id` means the current season, resolved in the handler (ADR-0002).
+- Omitting `saison_id` means the current season, resolved in the handler.
 - `saison_phase="playoffs"` is a query-only alias for `!= "gruppenphase"`, never a stored value.
 - Both reads run `build_spiele_pipeline` — a plain `find` misses the joined `disqualifikation`
-  and returns a shape `FLSpielJoined` refuses loudly (ADR-0021).
+  and returns a shape `FLSpielJoined` refuses loudly.
 
 See:
 - docs/backend/spec.md — section 1.2, the full parameter contract
@@ -55,7 +55,7 @@ async def get_spiele(
     `spiel_status` is resolved against the current German date: `ausstehend` includes today.
     """
 
-    # Omitting `saison_id` means "the current season", not "every season" (ADR-0002). Resolved here
+    # Omitting `saison_id` means "the current season", not "every season". Resolved here
     # rather than as a field default because a default cannot reach the database.
     if filters.saison_id is None:
         filters.saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
@@ -65,7 +65,7 @@ async def get_spiele(
 
     # An aggregation rather than a find: the one `$lookup` joins each side's disqualification from
     # `saison_teams`, so a badge renders without a second request. Embedding it instead would go stale
-    # mid-season on a public page (ADR-0021, rule 4).
+    # mid-season on a public page.
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(db_filter=db_filter, sort_by=db_sort, limit=filters.limit),
