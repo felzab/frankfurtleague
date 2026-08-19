@@ -391,12 +391,23 @@ and the over-length block named above surfaces only when somebody rewrites it.
 containing `docker compose`, or `docker-compose` followed by a space, unless that same command also
 names the local compose file. A search for the phrase and a heredoc writing it into a document each
 contain it, so each is denied — with the message written for someone about to operate the production
-stack by mistake.
+stack by mistake. Both shapes were hit during the decision-record demolition on 2026-08-19: a grep
+whose search pattern was the phrase, and a heredoc writing `.claude/CLAUDE.md` §5 — the repository's
+own rule about that command, which cannot be stated without naming it. The second is the one to sit
+with, because the refusal falls on the sentence that carries the rule.
 
 **A false refusal costs more than the inconvenience.** A guard is worth obeying only while every
 refusal it issues is worth obeying. One that fires on a command it has no business refusing invites
 that command to be reworded rather than reconsidered, and a wording that gets around a false refusal
 gets around a true one just as well.
+
+**The escape is textual in the same way, and that half is a hole rather than a nuisance.** The second
+`case` releases any command whose text contains `docker-compose.local.yml`, wherever it sits — in a
+trailing comment, in an unrelated quoted argument, in a path the command never opens. So a command
+that genuinely drives the production definition is allowed through by a mention of the local file it
+is not using, which is the single outcome this guard exists to prevent. The refusal half is loud and
+one command away from resolved; this half is observable only as a production stack that was operated
+by mistake, and the hook's own header says there is no error to notice when that happens.
 
 **What the narrowing has to preserve.** The branch guard is settled on the asymmetry: a false refusal
 is one command away from resolved, while a hole is not observable
@@ -405,9 +416,18 @@ whether it occurs. A match at a command position — the start of the command or
 separator, allowing a leading `sudo` or an environment assignment — still refuses
 `docker compose --project-name x up`, which an allowlist of subcommands would let through.
 
-**Done when:** the guard refuses every invocation shape and allows a command that only names one,
-and `scripts/selfcheck.sh` asserts each. It already drives this hook for a bare invocation, for the
-local file named, and for a command that is not compose at all, so the probes have a home.
+**The repository already holds the shape both halves want.** `.claude/hooks/guard-branch-bash.sh`
+splits the command into words and reasons about `words[0]` and `words[1]` rather than about the
+string — it takes the program's basename and its subcommand, and reads path-like tokens out of the
+argument vector. Deciding the same way answers both halves at once: the refusal fires only when the
+invoked program is `docker` with `compose` first, or is `docker-compose`, and the escape fires only
+when `-f` actually carries the local file as its value.
+
+**Done when:** the guard refuses every invocation shape, allows a command that only names one, and
+**refuses an invocation that names the local file somewhere other than a `-f` value**, with
+`scripts/selfcheck.sh` asserting each. It already drives this hook for a bare invocation, for the
+local file named, and for a command that is not compose at all, so the probes have a home; the third
+assertion above is the one with no probe today.
 
 ### 7 · OPS-63 — A comment claims two files hold the same pattern, and nothing holds them to it
 
