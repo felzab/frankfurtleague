@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 
-import { useDebouncedUrlQuery } from "../../hooks/useDebouncedUrlQuery";
+import { useFacetSelection } from "../../hooks/useFacetSelection";
 import { useFuzzySearch } from "../../hooks/useFuzzySearch";
-import { useUrlFilters } from "../../hooks/useUrlFilters";
+import { useUrlQuery } from "../../hooks/useUrlQuery";
 import { applyFacets } from "../../utils/facets";
 import { AdminCrudFallback } from "./AdminCrudFallback";
 import { FilterLeiste } from "./FilterLeiste";
@@ -38,10 +38,11 @@ const NO_FACETS: readonly never[] = [];
  * **Filtering runs before the search.** Both orders return the same rows and this one hands Fuse the
  * smaller list.
  *
- * **Collection-identity constraint.** This component calls `useSearchParams()` via `useDebouncedUrlQuery`, so it
- * re-renders on every navigation — including while it sits in a hidden Activity tree, where a
- * react-aria collection that re-renders can stop committing rows. The table passed to `renderTable`
- * must therefore be `React.memo`'d and must use `Table.Body`'s `items` + render-function form.
+ * **Collection-identity constraint.** This component calls `useSearchParams()` — via `useUrlQuery` and
+ * `useFacetSelection` — so it re-renders on every navigation, including while it sits in a hidden
+ * Activity tree, where a react-aria collection that re-renders can stop committing rows. The table
+ * passed to `renderTable` must therefore be `React.memo`'d and must use `Table.Body`'s `items` +
+ * render-function form.
  * `narrowedItems` and `filteredItems` are both memoised here and the two setters are `useState`
  * setters; **do not add an inline lambda or a fresh array** to the `renderTable` call. Note that
  * `query` is inherently unstable — a navigation to a route with a different `q` changes it and
@@ -89,10 +90,10 @@ export function AdminCrudView<TItem extends { id: string }>({
    */
   renderDeleteModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
 }) {
-  // The search FIELD is the shell's (`AdminCrudSearch`); the two meet in the URL, so this only
-  // reads the debounced value.
-  const { urlValue: query } = useDebouncedUrlQuery();
-  const { selection } = useUrlFilters(facets);
+  // Every control that narrows this list is elsewhere — the field in the shell's `AdminCrudSearch`,
+  // the facets in the bar below — and they meet it in the URL, so this side only reads.
+  const query = useUrlQuery();
+  const selection = useFacetSelection(facets);
   const [editingItem, setEditingItem] = useState<TItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<TItem | null>(null);
 

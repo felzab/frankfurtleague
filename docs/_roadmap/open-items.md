@@ -60,7 +60,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 5   | BE-17 | Every server-ordered name list sorts in byte order              | BE, FE          | M      | Open     | —          |
 | 6   | FE-15 | Vendored overlays enter at a scale the app's own set never uses | FE              | S      | Closed   | —          |
 | 7   | FE-14 | The two loaders answer reduced motion in opposite directions    | FE              | S      | Closed   | —          |
-| 8   | FE-16 | The filter hooks are mounted for machinery nobody reads         | FE              | S      | Open     | —          |
+| 8   | FE-16 | The filter hooks are mounted for machinery nobody reads         | FE              | S      | Closed   | —          |
 | 9   | FE-1  | A fixture carries one date, not a play window                   | FE, BE          | XL     | Open     | —          |
 | 10  | LOG-2 | A cached read's call joins to no render                         | FE, BE, Ops     | L      | Open     | —          |
 | 11  | BE-12 | Nothing purges a row whose `inactive_since` is old              | BE, DB          | M      | Open     | —          |
@@ -516,7 +516,7 @@ dropping the animation class would have left exactly the same disc.
 
 ### 8 · FE-16 — The filter hooks are mounted for machinery their caller never reads
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE\
 **Effort:** S\
 **Path:** Independent. Its stated window — the change that removed the losing filter concept — has
@@ -545,6 +545,14 @@ and two places a reader has to look to find where a selection came from.
 the control is** — and both sites are shared components, so it reaches every admin table and the
 Spielsuche at once. That is the argument for doing it deliberately in the commit that is already
 going to rewrite these files, rather than opportunistically in one that is not.
+
+**Concluded with no ADR** — the entry named the fix and nothing about it had a rejected alternative
+worth recording (DEC-1). The read halves are `useUrlQuery` and `useFacetSelection`; the writers keep
+their machinery and stay with the controls. Two findings the entry did not name were rehomed rather
+than dropped: `useUrlFilters`'s `toggle`, which no caller anywhere in `src` read, is gone; and
+`FilterLeiste` is now a gate over a private row component, so a resource declaring no facet mounts
+neither hook — the Rules of Hooks put a return above a hook call out of reach, which is why it takes
+a boundary rather than an early return.
 
 ### 9 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
