@@ -1,3 +1,6 @@
+import { deriveDraftStatus } from "@/shared/utils/draftStatus";
+
+import type { FLDraftStatus, FLFieldDescriptor, FLFieldStatus } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLSpielerPosition, FLSpielerStufe } from "./schemas";
 import type { SpielerTeamOption } from "./types";
@@ -21,51 +24,19 @@ export type FLSpielerDraftFields = {
 
 export type FLSpielerFieldGroup = "Person" | "Kader";
 
-export type FLSpielerFieldStatus = {
-  path: string;
-  label: string;
-  group: FLSpielerFieldGroup;
-  isChanged: boolean;
-  error: string | null;
-  storedText: string | null;
-  draftText: string | null;
-};
+export type FLSpielerFieldStatus = FLFieldStatus<FLSpielerFieldGroup>;
 
-export type FLSpielerDraftStatus = {
-  fields: readonly FLSpielerFieldStatus[];
-  byPath: ReadonlyMap<string, FLSpielerFieldStatus>;
-  changed: readonly FLSpielerFieldStatus[];
-  invalid: readonly FLSpielerFieldStatus[];
-  isDirty: boolean;
-};
-
-type FieldDescriptor = {
-  /** The payloads' dotted path AND the input `name`, `FieldErrors` key and anchor id. */
-  path: string;
-  label: string;
-  group: FLSpielerFieldGroup;
-  read: (source: FLSpielerDraftFields) => string | null;
-  /** Restricts the row to drafts where it exists — the squad rows. Defaults to always. */
-  appliesTo?: (source: FLSpielerDraftFields) => boolean;
-  /** Widened where a schema reports a field's failures under several keys. Defaults to `[path]`. */
-  errorPaths?: readonly string[];
-};
+export type FLSpielerDraftStatus = FLDraftStatus<FLSpielerFieldGroup>;
 
 const emptyAsNull = (value: string): string | null => (value.trim() === "" ? null : value.trim());
 
-/**
- * `read` returns DISPLAY text that doubles as the comparison key: every field formats to a string
- * that changes exactly when the value does.
- *
- * A field with no row here is invisible to the whole edit page.
- */
-const FIELD_DESCRIPTORS: readonly FieldDescriptor[] = [
+const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpielerFieldGroup>[] = [
   { path: "vorname", label: "Vorname", group: "Person", read: (source) => emptyAsNull(source.vorname) },
   { path: "nachname", label: "Nachname", group: "Person", read: (source) => emptyAsNull(source.nachname) },
 ];
 
 /** Built per call: `team_id` needs the season's team list, since a change row showing an id is one nobody can check. */
-function squadDescriptors(teams: readonly SpielerTeamOption[]): readonly FieldDescriptor[] {
+function squadDescriptors(teams: readonly SpielerTeamOption[]): readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpielerFieldGroup>[] {
   const nameById = new Map(teams.map((team) => [team.teamId, team.name]));
 
   return [
@@ -126,34 +97,5 @@ export function deriveSpielerDraftStatus({
   /** The selected season's teams, for resolving `team_id` to the name the picker showed. */
   teams: readonly SpielerTeamOption[];
 }): FLSpielerDraftStatus {
-  const descriptors = [...FIELD_DESCRIPTORS, ...squadDescriptors(teams)];
-
-  const fields = descriptors
-    .filter((descriptor) => descriptor.appliesTo?.(draft) ?? true)
-    .map((descriptor): FLSpielerFieldStatus => {
-      const storedText = descriptor.read(stored);
-      const draftText = descriptor.read(draft);
-      const error =
-        (descriptor.errorPaths ?? [descriptor.path]).map((path) => fieldErrors[path]).find((message) => message !== undefined) ?? null;
-
-      return {
-        path: descriptor.path,
-        label: descriptor.label,
-        group: descriptor.group,
-        isChanged: storedText !== draftText,
-        error,
-        storedText,
-        draftText,
-      };
-    });
-
-  const changed = fields.filter((field) => field.isChanged);
-
-  return {
-    fields,
-    byPath: new Map(fields.map((field) => [field.path, field])),
-    changed,
-    invalid: fields.filter((field) => field.error !== null),
-    isDirty: changed.length > 0,
-  };
+  return deriveDraftStatus({ descriptors: [...FIELD_DESCRIPTORS, ...squadDescriptors(teams)], stored, draft, fieldErrors });
 }

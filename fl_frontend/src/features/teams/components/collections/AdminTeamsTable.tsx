@@ -56,7 +56,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   const renderStatusBadges = (team: AdminTeamRow) => (
     <div className="flex flex-wrap items-center gap-1.5">
       {team.inactive_since !== null && (
-        <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(team.inactive_since ?? "")}</span>
+        <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(team.inactive_since)}</span>
       )}
       {team.selected === null && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Nicht aufgenommen</span>}
       {team.selected?.disqualifikation != null && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>Disqualifiziert</span>}

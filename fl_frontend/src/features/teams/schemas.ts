@@ -3,6 +3,8 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, ExternalUrlSchema, FLAddressSchema } from "@/shared/schemas";
 
+import { DESCRIPTION_MAX_LENGTH } from "./constants";
+
 /**
  * Mirrors `FLGruppenNames` — a closed set, so a group outside it is a malformed response. German
  * error because the group picker binds this schema too, and an untouched picker submits null.
@@ -46,7 +48,7 @@ export const FLTeamSchema = z.object({
   // Out of THIS season. Joined from the junction on every read, so it cannot go stale.
   disqualifikation: FLDisqualifikationSchema.nullable(),
   shorthand: z.string().length(2),
-  description: z.string().max(4096),
+  description: z.string().max(DESCRIPTION_MAX_LENGTH),
   full_name: z.string().nonempty(),
   // Rendered straight into an href on a public page -- see ExternalUrlSchema for why not z.url().
   website_url: ExternalUrlSchema,
@@ -104,7 +106,9 @@ const teamPayloadFields = {
   name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
   // Exactly two characters, held unique across every club — retired ones included.
   shorthand: z.string().length(2, { error: "Das Kürzel besteht aus genau 2 Zeichen." }),
-  description: z.string().max(4096, { error: "Die Beschreibung darf höchstens 4096 Zeichen lang sein." }),
+  description: z
+    .string()
+    .max(DESCRIPTION_MAX_LENGTH, { error: `Die Beschreibung darf höchstens ${String(DESCRIPTION_MAX_LENGTH)} Zeichen lang sein.` }),
   full_name: z.string().nonempty({ error: "Bitte gib den vollständigen Namen ein." }),
   website_url: ExternalUrlSchema,
   address: FLAddressSchema,
@@ -151,7 +155,7 @@ export const FLTeamRecordSchema = z.object({
 
   name: z.string().nonempty(),
   shorthand: z.string().length(2),
-  description: z.string().max(4096),
+  description: z.string().max(DESCRIPTION_MAX_LENGTH),
   full_name: z.string().nonempty(),
   website_url: ExternalUrlSchema,
   address: FLAddressSchema,

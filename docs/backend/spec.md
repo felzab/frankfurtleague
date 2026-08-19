@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `889c31dd`, 2026-08-19\
+**Verified against:** `4393dba3`, 2026-08-19\
 **Scope:** `fl_backend/`
 
 | Section                                                                        | Answers                                                         |
@@ -273,7 +273,7 @@ indirectly is §4.
 
 | Tier        | Selected by         | Needs Docker | Cost                                                  |
 | ----------- | ------------------- | ------------ | ----------------------------------------------------- |
-| **Default** | everything unmarked | no           | under a second                                        |
+| **Default** | everything unmarked | no           | 4.8s warm (2026-08-19)                                |
 | **`db`**    | `@pytest.mark.db`   | yes          | 14.3s warm (2026-08-05); cold adds the `mongo:8` pull |
 
 `fl_backend/pyproject.toml :: addopts` deselects the marker, so a bare `pytest` runs the fast tier only.

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { ArrowRotateLeft, Copy, Pencil, TrashBin } from "@gravity-ui/icons";
+import { ArrowRotateLeft, Copy, TrashBin } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
@@ -64,25 +64,6 @@ export function RowActionCopy({ label, ariaLabel, onPress }: { label: string; ar
         className={ACTION_BUTTON_CLASS}
         onPress={onPress}>
         <Copy
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </Button>
-    </IconTooltip>
-  );
-}
-
-export function RowActionEdit({ label, ariaLabel, onPress }: { label: string; ariaLabel: string; onPress: () => void }) {
-  return (
-    <IconTooltip label={label}>
-      <Button
-        isIconOnly
-        aria-label={ariaLabel}
-        variant="ghost"
-        className={ACTION_BUTTON_CLASS}
-        onPress={onPress}>
-        <Pencil
           aria-hidden="true"
           width={18}
           height={18}

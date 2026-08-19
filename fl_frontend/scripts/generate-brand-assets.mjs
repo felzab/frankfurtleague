@@ -244,24 +244,12 @@ function flLogoComponent() {
   return `import { useId } from "react";
 
 /**
- * The FL mark, as rendered in the app's chrome.
- *
- * **Generated - do not edit by hand.** Run ${BT}pnpm brand${BT} from ${BT}fl_frontend/${BT}; that script owns the
- * geometry and emits this file alongside the icons, so the header mark and the app icons cannot drift
- * apart.
- *
- * This is the full mark - offset shadow, outline and print erosion - matching ${BT}apple-icon.png${BT}, the
- * manifest icons and the Open Graph card. **Only the favicon is clean**, because at 16px the outline
- * doubles every edge into noise; the header renders at 32-34 CSS px, which is 64-68 device pixels,
- * and the texture resolves fine there.
- *
- * The letters are rectangles rather than ${BT}<text>${BT}: the same drawing has to rasterise identically in
- * the browser and in librsvg when the PNGs are built, and librsvg has no Impact.
+ * **Generated — do not edit by hand.** ${BT}pnpm brand${BT} owns the geometry and emits this beside the icons, so the two cannot
+ * drift. The letters are rectangles rather than ${BT}<text>${BT}, librsvg rasterising the PNGs and having no Impact.
  */
 export function FLLogo({ className = "size-8" }: { className?: string }) {
-  // The filter id must be unique per instance: more than one logo can share a page, duplicate ids
-  // are invalid, and ${BT}url(#…)${BT} resolves to the first match - so every later logo would silently
-  // borrow the first one's filter.
+  // Unique per instance: ${BT}url(#…)${BT} resolves to the first match, so a second logo on the page would
+  // silently borrow the first one's filter.
   const filterId = useId();
 
   return (
@@ -271,9 +259,8 @@ export function FLLogo({ className = "size-8" }: { className?: string }) {
       className={className}
       role="presentation">
       <defs>
-        {/* Two passes: turbulence roughens the outline, then a second, coarser turbulence is
-            thresholded into specks and punched out of the letters. The three numbers below are the
-            erosion strength - change them in the generator, not here. */}
+        {/* Turbulence roughens the outline, then a coarser one is thresholded into specks and punched out of the
+            letters. Change the erosion strength in the generator, not here. */}
         <filter
           id={filterId}
           x="-18%"
@@ -288,7 +275,7 @@ export function FLLogo({ className = "size-8" }: { className?: string }) {
         </filter>
       </defs>
 
-      {/* The tile takes the theme token, not a literal, so it tracks --accent-brand-solid. */}
+      {/* The tile takes the theme token rather than a literal, so it tracks ${BT}--accent-brand-solid${BT}. */}
       <rect
         width="512"
         height="512"
@@ -296,7 +283,7 @@ export function FLLogo({ className = "size-8" }: { className?: string }) {
         className="fill-brand-solid"
       />
 
-      {/* skewX gives the italic; the translate re-centres what the skew pushed left. */}
+      {/* ${BT}skewX${BT} gives the italic; the translate re-centres what the skew pushed left. */}
       <g transform="${SKEW}">
 ${rects(16, 16, MAROON_DEEP, 8, true)}
 ${rects(16, 16, "none", 8, false)}

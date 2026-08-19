@@ -2,9 +2,8 @@
    does not tree-shake a dependency's CSS. Order is HeroUI's `components/index.css`;
    which stylesheet a component belongs in is `docs/frontend/spec.md` §1.11. */
 
-/* Four entries back no direct import: `disclosure`/`disclosure-group` back `Accordion`, `spinner` is
-   `Button`'s loading state, `empty-state` is `ListBox`'s `renderEmptyState`, and `typography` is held
-   for `Typography`. */
+/* Three entries back no direct import: `disclosure`/`disclosure-group` back `Accordion`, `spinner` is
+   `Button`'s loading state, and `empty-state` is `ListBox`'s `renderEmptyState`. */
 @layer theme, base, components, utilities;
 
 @import "tailwindcss";
@@ -76,9 +75,6 @@
 
 /* Pickers */
 @import "@heroui/styles/components/select.css" layer(components);
-
-/* Typography */
-@import "@heroui/styles/components/typography.css" layer(components);
 
 /* Utilities */
 @import "@heroui/styles/components/scroll-shadow.css" layer(components);
@@ -332,10 +328,6 @@
   --fl-type-3xl: clamp(1.875rem, 1.53rem + 1.7vw, 2.625rem);
   --fl-type-3xl--leading: 1.2;
 
-  /* 36px to 56px */
-  --fl-type-4xl: clamp(2.25rem, 1.73rem + 2.6vw, 3.5rem);
-  --fl-type-4xl--leading: 1.1;
-
   /* Page-width archetypes. Pick one rather than spelling a cap inline: a page and
      the toolbar above it have to resolve to the SAME number. NOT `prose` —
      Tailwind ships --max-width-prose, and both namespaces feed max-w-*. */
@@ -442,11 +434,6 @@ html:has([data-app-shell]) {
 @utility fluid-3xl {
   font-size: var(--fl-type-3xl);
   line-height: var(--fl-type-3xl--leading);
-}
-
-@utility fluid-4xl {
-  font-size: var(--fl-type-4xl);
-  line-height: var(--fl-type-4xl--leading);
 }
 
 /* Only for a NARROW, CENTRED scroll container. On the 72px collapsed sidemenu
@@ -870,10 +857,6 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   .toast-region:focus-within .toast__timer,
   .toast:hover .toast__timer {
     animation-play-state: paused;
-  }
-
-  .accordion__item:after {
-    @apply hidden!;
   }
 
   /* The soccer-field motif, built on --color-field-* so it is one decision rather

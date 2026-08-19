@@ -8,5 +8,8 @@ export const TEAMS_CRUD_COPY = {
 /** In the order every picker offers them. The closed set is `FLGruppenNames`'s. */
 export const GRUPPEN_OPTIONS: readonly FLGruppenNames[] = ["A", "B", "C", "D"];
 
-/** The description's length bound, mirrored from the backend model and enforced at the textarea. */
+/**
+ * The description's bound, mirrored from the backend models, which each spell it as a literal.
+ * Every frontend enforcement point reads it from here, so no two can disagree about the cap.
+ */
 export const DESCRIPTION_MAX_LENGTH = 4096;

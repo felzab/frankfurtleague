@@ -216,23 +216,23 @@ describe("deriveSlotHerkunft", () => {
   const quelle = { type: "spiel", spiel_nr: 25, ausgang: "sieger" } as const;
 
   it("reads a slot with a source as the resolution's, whether or not the winner has arrived", () => {
-    assert.equal(deriveSlotHerkunft(null, quelle), "quelle");
-    assert.equal(deriveSlotHerkunft(team, quelle), "quelle");
+    assert.equal(deriveSlotHerkunft({ team: null, quelle }), "quelle");
+    assert.equal(deriveSlotHerkunft({ team, quelle }), "quelle");
   });
 
   it("reads an occupied slot with no source as the admin's own", () => {
-    assert.equal(deriveSlotHerkunft(team, null), "manuell");
+    assert.equal(deriveSlotHerkunft({ team, quelle: null }), "manuell");
   });
 
   // The state both surfaces exist to surface: nothing fills this side, and no later result will.
   it("reads a slot with neither a team nor a source as maintained by nobody", () => {
-    assert.equal(deriveSlotHerkunft(null, null), "offen");
+    assert.equal(deriveSlotHerkunft({ team: null, quelle: null }), "offen");
   });
 
   // The precedence the write path enforces: flipped, a resolution-owned slot would read as manual
   // on both surfaces at once.
   it("takes the source over the occupant, because the source is what maintains the slot", () => {
-    assert.equal(deriveSlotHerkunft(team, { type: "gruppe", gruppe: "A", platz: 1 }), "quelle");
+    assert.equal(deriveSlotHerkunft({ team, quelle: { type: "gruppe", gruppe: "A", platz: 1 } }), "quelle");
   });
 });
 

@@ -14,9 +14,9 @@ import type { FLSpielplan } from "../../schemas";
 export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
   // The list arrives in the backend's derived order, which is what the ordinal counts over — so
   // nothing here may re-sort it.
-  const labels = spieltagLabels(spielplanData?.spieltage ?? []);
+  const labels = spieltagLabels(spielplanData.spieltage);
   // Without this the empty case renders a bordered, empty 44px tab bar and no panels.
-  if (!spielplanData?.spieltage?.length) {
+  if (!spielplanData.spieltage.length) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
         <EmptyState
@@ -42,7 +42,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
             {/* `min-w-fit` undoes the container's `min-w-full`, whose floor stretched the track
                 across the whole rail; `w-max` lets the list outgrow it. */}
             <Tabs.List className={`${TAB_TRACK} flex w-max min-w-fit flex-row items-center gap-1 p-1.5 shadow-sm`}>
-              {spielplanData?.spieltage.map((spieltagData) => {
+              {spielplanData.spieltage.map((spieltagData) => {
                 return (
                   <Tabs.Tab
                     key={spieltagData.id}
@@ -60,7 +60,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
         </div>
       </div>
 
-      {spielplanData?.spieltage.map((spieltagData) => (
+      {spielplanData.spieltage.map((spieltagData) => (
         <Tabs.Panel
           key={spieltagData.id}
           id={spieltagData.id}

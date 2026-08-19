@@ -1,12 +1,9 @@
 import { revalidateTag } from "next/cache";
-import { NextResponse } from "next/server";
 
-import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { logger } from "@/core/logging";
 import { patchSpieltag } from "@/features/spieltage/mutations";
 import { FLPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";
-import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
+import { handleUndoRequest } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
@@ -19,49 +16,24 @@ const REPLAY_REFUSALS: Record<string, string> = {
 };
 
 export async function POST(request: NextRequest) {
-  // Same-origin only; the session check below is what authorizes the write.
-  const secFetchSite = request.headers.get("sec-fetch-site");
-  if (secFetchSite !== null && secFetchSite !== "same-origin") {
-    return NextResponse.json({ success: false, error: "Access Denied" }, { status: 403 });
-  }
+  return handleUndoRequest(request, {
+    mutationName: "undoAdminSpieltagEdit",
+    schema: FLPatchSpieltagPayloadSchema,
+    restore: async (payload) => {
+      let operation;
+      try {
+        operation = await patchSpieltag(payload);
+      } catch (error) {
+        const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
+        const refusal = code == null ? undefined : REPLAY_REFUSALS[code];
+        if (refusal !== undefined) return refusal;
+        throw error;
+      }
 
-  const result = await runAdminMutation("undoAdminSpieltagEdit", async () => {
-    if (!(await getAdminSession())) {
-      return { success: false as const, error: ADMIN_FORBIDDEN };
-    }
-
-    const body: unknown = await request.json().catch(() => null);
-    const parsed = FLPatchSpieltagPayloadSchema.safeParse(body);
-    if (!parsed.success) {
-      return { success: false as const, error: "Die Rücknahme konnte nicht ausgeführt werden." };
-    }
-
-    let operation;
-    try {
-      operation = await patchSpieltag(parsed.data);
-    } catch (error) {
-      const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
-      const refusal = code == null ? undefined : REPLAY_REFUSALS[code];
-      if (refusal !== undefined) return { success: false as const, error: refusal };
-      throw error;
-    }
-
-    if (!operation.acknowledged) {
-      return { success: false as const, error: "Die Rücknahme wurde abgebrochen. Prüfe den Spieltag." };
-    }
-
-    // Guarded because the write is already committed: a failed invalidation must not report a
-    // failure. `{ expire: 0 }` -- an undo tolerates no staleness, and `updateTag` throws here
-    // (`docs/frontend/spec.md` I14).
-    try {
+      return operation.acknowledged ? undefined : "Die Rücknahme wurde abgebrochen. Prüfe den Spieltag.";
+    },
+    invalidate: () => {
       revalidateTag("spieltage", { expire: 0 });
-    } catch (invalidationError) {
-      logger.warn("Undo committed but cache invalidation failed", { error_code: "FE-ACT-002", error: String(invalidationError) });
-    }
-
-    return { success: true as const, message: "Die Änderung wurde zurückgenommen." };
+    },
   });
-
-  // Always 200: the body carries the outcome, so a non-2xx would read as a transport failure.
-  return NextResponse.json(result);
 }
