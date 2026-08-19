@@ -57,16 +57,14 @@ function SaisonBadge({ status }: { status: TeamSaisonContext["saisonStatus"] }) 
 
 /**
  * The group swap with ONE side already decided — the club editor's entry point into the swap the
- * season editor owns (ADR-0071).
+ * season editor owns.
  *
  * **One picker, because the page has already answered "which club".** That is the whole difference from
- * `FormGruppenSwapSection`: this surface's subject is a club, so asking for it again is the shape
- * ADR-0062 measured the club editor against and rejected. It writes the same
- * `POST /saisons/{saison_id}/gruppen/swap` in the same single transaction, and `REQ-ENTER-004`'s lock
- * above it is neither consulted nor relaxed.
+ * `FormGruppenSwapSection`. It writes the same `POST /saisons/{saison_id}/gruppen/swap` in the same
+ * single transaction, and `REQ-ENTER-004`'s lock above it is neither consulted nor relaxed.
  *
  * **The offer is graded by the shared rule** (`findSwapPartnerRefusal`), so a club this picker accepts
- * is one the endpoint accepts (ADR-0038). Everything that refuses every pair alike — a finished season,
+ * is one the endpoint accepts. Everything that refuses every pair alike — a finished season,
  * a knockout that has begun, this club having played its own group — closes the control instead, because
  * a per-row reason would send an admin to look at the wrong club.
  */
@@ -132,7 +130,7 @@ function GruppenTauschControl({
       <p className={FORM_SECTION_HEADING}>Gruppe tauschen</p>
 
       {/* The whole-control closures, in the endpoint's own order — season, then bracket, then this
-          club's own round robin (ADR-0062). Each refuses every pair alike, so none of them is a row. */}
+          club's own round robin. Each refuses every pair alike, so none of them is a row. */}
       {saisonStatus === "past" ? (
         <Callout
           severity="info"
@@ -293,7 +291,7 @@ function GruppenTauschControl({
  * its results mean for two tables and the seeding, so the select renders only while the season is
  * `future` or the club has no fixture in it yet (decided 2026-08-07). A locked group is a read-only
  * row naming why, and directly under it the operation that name refers to: a swap of two clubs, which
- * is the one mid-season group change that keeps both groups whole (ADR-0062, ADR-0071).
+ * is the one mid-season group change that keeps both groups whole.
  *
  * **The swap control appears only while the group is locked**, because that is the state it answers.
  * With the picker still free a direct change is both legal and simpler, and offering two routes to one
@@ -329,7 +327,7 @@ export function FormSaisonSection({
   gruppe: FLGruppenNames | null;
   onGruppeChange: (next: FLGruppenNames) => void;
   onValidateSelection: (paths: readonly string[], selected: { gruppe: FLGruppenNames }) => void;
-  /** The selected season's swap state, from `buildGruppenSwapContext` (ADR-0071). */
+  /** The selected season's swap state, from `buildGruppenSwapContext`. */
   swap: SaisonGruppenSwapContext;
   teamId: string;
 }) {

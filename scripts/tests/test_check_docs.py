@@ -74,17 +74,6 @@ FRONTEND_SPEC: Final = "docs/frontend/spec.md"
 OVERVIEW: Final = "docs/backend/overview.md"
 FRONTEND_OVERVIEW: Final = "docs/frontend/overview.md"
 EXTRA_CHAPTER: Final = "docs/_standard/chapters/9-extra.md"
-ADR: Final = "docs/_decisions/0001-the-gate-has-a-fixture-net.md"
-SECOND_ADR: Final = "docs/_decisions/0002-a-record-with-wrong-values.md"
-THIRD_ADR: Final = "docs/_decisions/0003-a-record-naming-another.md"
-# Written by a plant and deliberately never staged: the record a citation resolves to on the
-# machine that wrote it and on no clean checkout, which is the whole of what `tracked_glob` buys.
-FOURTH_ADR: Final = "docs/_decisions/0004-a-record-nobody-added.md"
-# What a reciprocity finding names in place of a path: `check_adr_meta` reports across records and
-# has only the number to hand.
-SECOND_ADR_GLOB: Final = "docs/_decisions/0002-*"
-THIRD_ADR_GLOB: Final = "docs/_decisions/0003-*"
-ADR_INDEX: Final = "docs/_decisions/README.md"
 ROADMAP: Final = "docs/_roadmap/open-items.md"
 # The tooling half of the split roadmap, so the shape check has more than the one ranked page to
 # loop over.
@@ -359,16 +348,6 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             "",
             "- **CUR-5:** every gate check takes a row in the currency chapter's table.",
         ),
-        ADR_INDEX: _page(
-            _heading(1, "Decisions"),
-            "",
-            "**Folder purpose:** one file per decision, append-only.",
-            "",
-            "| ADR | Title |",
-            "| --- | --- |",
-            "| [0001](0001-the-gate-has-a-fixture-net.md) | The gate has a fixture net |",
-        ),
-        ADR: _adr("0001", "The documentation gate has a fixture net"),
         ROADMAP: _page(
             _heading(1, "Open items"),
             "",
@@ -488,36 +467,6 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             "}",
         ),
     }
-
-
-def _adr(number: str, title: str) -> str:
-    """One decision record in the anatomy `adr-meta` holds every ADR to."""
-    return _page(
-        _heading(1, "ADR-" + number + " — " + title),
-        "",
-        "**Status:** Accepted\\",
-        "**Date:** " + STAMP_DATE + "\\",
-        "**Surface:** ops\\",
-        "**Supersedes:** —\\",
-        "**Superseded by:** —\\",
-        "**Source:** Decided while rebuilding the gate.",
-        "",
-        _heading(2, "Context"),
-        "",
-        "Nothing exercised the gate's checks.",
-        "",
-        _heading(2, "Decision"),
-        "",
-        "A corpus with a planted violation per check.",
-        "",
-        _heading(2, "Consequences"),
-        "",
-        "A rewrite of the gate has a regression net.",
-        "",
-        _heading(2, "Alternatives considered"),
-        "",
-        "A hand review, rejected as unrepeatable.",
-    )
 
 
 # --- the fixture repository ---------------------------------------------------------------------
@@ -702,7 +651,7 @@ def _assert_corpus_restored() -> None:
 
     `git checkout HEAD -- .` reaches only paths HEAD knows and `git clean` skips whatever the index
     tracks, so a plant that staged a NEW file would leave it on disk and in `git ls-files` -- part of
-    the corpus every case below it is measured against. Three plants stage one, which is what makes
+    the corpus every case below it is measured against. One plant stages one, which is what makes
     this assertion load-bearing rather than a written-down constraint, and it costs one process
     against the forty a run already spends.
     """
@@ -783,30 +732,6 @@ def _delete(rel: str) -> None:
     (root / rel).unlink()
 
 
-def _index_row(rel: str) -> str:
-    """The row `adr-index` reads, so a record a plant adds does not also read as one with no row."""
-    name = Path(rel).name
-    return "| [" + name[:4] + "](" + name + ") | A record a plant added |"
-
-
-def _plant_second_adr() -> None:
-    """Both producers: an index row naming another number's file, and a file with no row at all."""
-    _write(_gate().root, SECOND_ADR, _adr("0002", "A decision with no index row"))
-    _stage(SECOND_ADR)
-    _append(ADR_INDEX, "| [0003](0001-the-gate-has-a-fixture-net.md) | A row naming another number's file |")
-
-
-def _plant_adr_citations() -> None:
-    """Both producers: a number with no file anywhere, and one whose file is on disk but un-added.
-
-    The second is what pins `tracked_glob`. A number with no file cannot tell a tracked record from
-    a merely present one, so on its own this case stays green with the resolver reading the disk.
-    """
-    _append(NOTES, "See ADR-9999 for the argument.")
-    _write(_gate().root, FOURTH_ADR, _adr("0004", "A record nobody added"))
-    _append(NOTES, "See ADR-0004 for the rest of it.")
-
-
 def _plant_rule_index() -> None:
     """Both producers: a rule with no line in the index, and a rule taking two."""
     _drop(RULES_INDEX, "- **COR-1:** write for a reader with no context.")
@@ -863,7 +788,7 @@ def _plant_spec_spines() -> None:
 def _plant_check_registry() -> None:
     """Three producers: a row this gate does not emit, a check with no row, and a row at the wrong verdict."""
     _append(CURRENCY, "| `not-a-check` | The finding names it | Fail |", restamp=True)
-    _drop(CURRENCY, "| `adr` | The finding names it | Fail |")
+    _drop(CURRENCY, "| `unreadable` | The finding names it | Fail |")
     _replace(CURRENCY, "| `link` | The finding names it | Fail |", "| `link` | The finding names it | Report |")
 
 
@@ -929,38 +854,6 @@ def _plant_segment_map() -> None:
     and the second row naming the same glob claims each document twice.
     """
     _replace(SWEEP, FOLDER_SEGMENT, "| Folders | `docs/**` |\n| Also the documents | `docs/**` |")
-
-
-def _plant_adr_meta() -> None:
-    """Twelve of the thirteen shapes DEC-2 and DEC-3 fix, across three records.
-
-    Split three ways because the checks gate each other: a record whose metadata lines are out of
-    order never reaches the value checks, and a supersession has to point at a record that exists.
-    Both extra records are given index rows, so `adr-index` is not dragged in beside them.
-    """
-    _replace(ADR, _heading(1, "ADR-0001 — The documentation gate has a fixture net"), _heading(1, "ADR-0002 — A title naming another number"))
-    _replace(ADR, "**Status:** Accepted\\", "**Date:** 2026-08-10\\\n\n**Status:** Accepted")
-    _replace(ADR, _heading(2, "Context"), _heading(2, "Background"))
-    # A placeholder value, so `stamp-format` and `check_stamps` both step over the line that DEC-2 bans.
-    _append(ADR, "**Verified against:** `<sha>`, " + STAMP_DATE)
-    _write(
-        _gate().root,
-        SECOND_ADR,
-        _adr("0002", "A record whose values are wrong")
-        .replace("**Status:** Accepted\\", "**Status:** Perhaps\\")
-        .replace("**Date:** " + STAMP_DATE + "\\", "**Date:** a Tuesday\\")
-        .replace("**Supersedes:** —\\", "**Supersedes:** an earlier one\\")
-        .replace("**Source:** Decided while rebuilding the gate.", "**Source:**"),
-    )
-    _write(
-        _gate().root,
-        THIRD_ADR,
-        _adr("0003", "A record whose supersession is not returned")
-        .replace("**Supersedes:** —\\", "**Supersedes:** ADR-0002\\")
-        .replace("**Superseded by:** —\\", "**Superseded by:** ADR-0002\\"),
-    )
-    _stage(SECOND_ADR, THIRD_ADR)
-    _append(ADR_INDEX, _index_row(SECOND_ADR), _index_row(THIRD_ADR))
 
 
 def _plant_crlf() -> None:
@@ -1176,7 +1069,7 @@ def _plant_citations() -> None:
     _append(NOTES, "`docs/gone.md :: symbol` names nothing.")
     _append(TEMPLATES, "`notes.md :: a bare name can be made to resolve twice` resolves more than once.")
     _append(SWEEP, "`docs/data.bin :: anything` cannot be read.")
-    _append(ADR_INDEX, "`docs/notes.md :: no such anchor` resolves to a page without it.")
+    _append(TWIN_NOTES, "`docs/notes.md :: no such anchor` resolves to a page without it.")
 
 
 def _plant_anchors() -> None:
@@ -1248,9 +1141,6 @@ class Case:
 
 
 CASES: Final[tuple[Case, ...]] = (
-    Case("adr", _fails("adr", NOTES, NOTES), _plant_adr_citations),
-    Case("adr-index", _fails("adr-index", ADR_INDEX, ADR_INDEX), _plant_second_adr),
-    Case("adr-meta", _fails("adr-meta", *[ADR] * 6, *[SECOND_ADR] * 3, SECOND_ADR_GLOB, *[THIRD_ADR_GLOB] * 2), _plant_adr_meta),
     Case("anchor", _fails("anchor", NOTES, ROADMAP), _plant_anchors),
     Case(
         "bare-path",
@@ -1260,7 +1150,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("branch-scope", _reports("branch-scope", *[BRANCH_DIFF] * 3), _plant_branch_scope, _undo_branch_scope),
     Case("branch-impact", _fails("branch-impact", BACKEND_SPEC), lambda: _append(SAMPLE, "EXTRA = 2")),
     Case("check-registry", _fails("check-registry", CURRENCY, CURRENCY, CURRENCY), _plant_check_registry),
-    Case("citation", _fails("citation", NOTES, ROADMAP, ROADMAP, TEMPLATES, SWEEP, ADR_INDEX), _plant_citations),
+    Case("citation", _fails("citation", NOTES, ROADMAP, ROADMAP, TEMPLATES, SWEEP, TWIN_NOTES), _plant_citations),
     Case(
         "comment-citation",
         _fails("comment-citation", SAMPLE, SECOND_SAMPLE) + _reports("comment-citation", SAMPLE, SAMPLE),

@@ -29,7 +29,7 @@ export default function AdminSpielortePage() {
 
 async function SpielorteTable() {
   await connection();
-  // Retired venues included: this list is the only surface that can bring one back (ADR-0025). Its own
+  // Retired venues included: this list is the only surface that can bring one back. Its own
   // cache entry, separate from the picker's `getSpielorte()` — the key is the arguments, so the picker
   // keeps offering live venues only.
   const spielorteRes = await getSpielorte({ include_inactive: true });

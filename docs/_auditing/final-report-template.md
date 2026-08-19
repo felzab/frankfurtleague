@@ -6,8 +6,8 @@ Rules: the close phase is `docs/_auditing/programme.md` §1.5; the shape rules a
   - `<Angle-bracketed text>` is a placeholder to replace. Every other line copies verbatim, section
     numbers and names included: a later report on the same surface is compared against this one
     section by section.
-  - This report outlives `docs/audit/`, so no reference into that tree may carry substance. Cite
-    ADRs, code and git history, which outlive the programme.
+  - This report outlives `docs/audit/`, so no reference into that tree may carry substance. Cite the
+    ratified decisions, code and git history, which outlive the programme.
   - The repository is public. A remediated finding is described in full, defect and fix alike. An
     unremediated one is named only at a level an attacker cannot act on — the area and the fact that
     work remains, never the reachable path, the missing guard or the payload. Its detail goes to a
@@ -66,7 +66,8 @@ reading: the surface grew, the lenses got sharper, or the guardrails are not hol
 \<One `###` subsection per theme — security, correctness, caching, boundaries and types,
 deduplication, accessibility, performance, guardrails, cleanup. Within a theme, each major change
 gives **the defect** (what was wrong and what it cost), **the fix** (what shipped, citing the file or
-the ADR), **the visible effect** (what a user or a developer notices now), and any measurement.
+the ratified decision), **the visible effect** (what a user or a developer notices now), and any
+measurement.
 
 Full sentences telling a story, not a changelog: the reader is me in a year, or someone meeting the
 project for the first time. Finding IDs appear in passing for greppability, never as a sentence's
@@ -76,8 +77,9 @@ The completeness bar applies hardest here.\>
 
 ## 4. Decisions ratified
 
-\<One table: the decisions this programme settled into ADRs and into the CLAUDE.md ratified-decisions
-index, each with a one-line description and its ADR link.\>
+\<One table: the decisions this programme settled into the CLAUDE.md ratified-decisions index and
+into the governing spec sheet's invariants, each with a one-line description and where it is
+recorded.\>
 
 ## 5. Where the audit was wrong
 

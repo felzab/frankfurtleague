@@ -1,18 +1,18 @@
 """
 SPIELE · write endpoints, and the one admin-only read
 
-Every mutation sits in a second router guarded at router level by `verify_access_admin` (ADR-0027).
-There is no POST and no DELETE (ADR-0037): fixtures are created once, then cancelled or moved.
-`apply_payload_to_spiel` normalises for both the save and the `dry_run=true` preview (ADR-0041).
+Every mutation sits in a second router guarded at router level by `verify_access_admin`. There is no
+POST and no DELETE: fixtures are created once, then cancelled or moved. `apply_payload_to_spiel`
+normalises for both the save and the `dry_run=true` preview.
 
 Invariants:
-- `ergebnis` is derived from the `tore` values, never accepted from the client (ADR-0034).
-- `elfmeterschiessen` is accepted only on a level knockout fixture, else discarded (ADR-0036).
+- `ergebnis` is derived from the `tore` values, never accepted from the client.
+- `elfmeterschiessen` is accepted only on a level knockout fixture, else discarded.
 - The `$set` keys come from the payload's field set — an omitted field overwrites, hence no defaults.
 - `dry_run=true` opens no transaction and writes nothing, and every refusal runs in `judge` first.
-- Wiring and occupant refusals are distinct 409 codes: the advice differs (ADR-0038, ADR-0042).
-- `patch_spiel_data` writes no team document (ADR-0019) but does advance the bracket (ADR-0034).
-- `/action_required` derives its faults and is uncached (ADR-0039, ADR-0009); the id routes cannot
+- Wiring and occupant refusals are distinct 409 codes: the advice differs.
+- `patch_spiel_data` writes no team document but does advance the bracket.
+- `/action_required` derives its faults and is uncached; the id routes cannot
   capture it, because they take `objectid` (`fl_backend/app/core/routing.py :: by_id`).
 
 See:
@@ -89,18 +89,18 @@ async def get_spiele_action_required(
     A match qualifies if it is cancelled, is missing a date, time, venue or referee, is in the past
     with no result recorded, or is a knockout fixture with a side that has neither a team nor a
     `quelle`. That last shape is legal and permanent-by-default: nothing resolves such a slot and
-    nothing else reminds the admin that it is theirs (ADR-0038). A Gruppenphase fixture is exempt --
+    nothing else reminds the admin that it is theirs. A Gruppenphase fixture is exempt --
     an unscheduled group match is an unfilled schedule, not an orphaned slot, and every group fixture
     legitimately carries no `quelle` forever. Not season-filtered: it spans every season.
 
-    **`bracket_faults` is derived here rather than filtered** (ADR-0039). A fault is a contradiction
+    **`bracket_faults` is derived here rather than filtered.** A fault is a contradiction
     between documents -- a `quelle` naming a match the season does not have, a cycle, a placing no
     standing will produce, a fixture resolving to one club -- so no Mongo filter can select one, and
     the resolution is what decides them. Every fixture a fault names is added to `spiele` below, so the
     client holds the document behind each fault whether or not the filter also selected it.
 
     Deliberately uncached on the frontend — admin-authorized data does not belong in a shared cache
-    (ADR-0009), and a derived fault list would be wrong the moment a document changed under it anyway.
+    and a derived fault list would be wrong the moment a document changed under it anyway.
     """
 
     # Through `build_spiele_pipeline`, as the public reads are: this list renders through the same
@@ -167,39 +167,39 @@ async def patch_spiel_data(
     `elfmeterschiessen` records how a knockout that finished level was settled, and is kept only on a
     fixture outside the Gruppenphase whose two goal counts are equal; anywhere else it is discarded
     rather than refused, because a group draw is a final result and the goals are what say whether a
-    shoot-out was possible at all (ADR-0036). It decides the bracket below and is invisible to the
-    league table, which counts the match as the draw it was (ADR-0019).
+    shoot-out was possible at all. It decides the bracket below and is invisible to the league table,
+    which counts the match as the draw it was.
 
     **A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is
     the winner of match 25, so entering that match's result fills the slot, correcting it later moves
-    the right team in, and deleting it empties the slot again (ADR-0034). A slot referring to a group
+    the right team in, and deleting it empties the slot again. A slot referring to a group
     placing is filled the same way, once no remaining fixture in that group can still change who holds
-    it (ADR-0035). Every fixture written either way is named in `advanced_to`.
+    it. Every fixture written either way is named in `advanced_to`.
 
     `bracket_faults` names every stored contradiction this season's resolution walked past: a `platz`
     its group will never produce, a placing the tiebreak chain cannot separate in a group that has
     finished, a `quelle` naming a match the season does not have, a chain of references that closes on
-    itself, and a fixture whose two sides resolve to one club (ADR-0039). A group still being played is
+    itself, and a fixture whose two sides resolve to one club. A group still being played is
     not reported: that placing is simply not decided yet. The same list is re-derivable at
     `GET /spiele/action_required`, so missing it here is not losing it.
 
     The league table follows on its own: team statistics are computed from the match documents by
     `GET /teams`, so a result entered here is reflected the next time that table is read.
 
-    **`dry_run=true` answers the same question and writes nothing** (ADR-0041). It applies the payload
+    **`dry_run=true` answers the same question and writes nothing.** It applies the payload
     in memory through `apply_payload_to_spiel`, resolves the bracket against the season that produces,
     and returns the same response -- so the edit surface can name exactly which fixtures a save would
     take a stored result from, before the admin commits to it. Every refusal below runs first, so a
     preview either reports the save's own 409 or the save's own outcome; it can never promise a write
     that would then be refused.
 
-    **Wiring the season cannot hold is refused with a 409** (`REQ-WIRING-001`, ADR-0038) before
+    **Wiring the season cannot hold is refused with a 409** (`REQ-WIRING-001`) before
     anything is written: a `quelle` on a Gruppenphase fixture, a `spiel` source the season does not
     have or that is not played before this fixture, one outcome feeding two slots, and a team
     submitted against a side a `quelle` maintains. The form does not offer these shapes, so a request
     carrying one is stale or racing another admin -- reloading is the way past the 409.
 
-    **An occupant the season cannot hold is refused with a 409 of its own** (ADR-0042), because the
+    **An occupant the season cannot hold is refused with a 409 of its own**, because the
     advice differs and "reload the page" is wrong for it. `REQ-ELIGIBILITY-001` is a disqualified team
     being newly fielded, `REQ-ELIGIBILITY-002` a team with no `saison_teams` row for the season, and
     `REQ-SPIELTAG-001` a team that would then stand in two fixtures of one Spieltag on a side the
@@ -227,11 +227,11 @@ async def patch_spiel_data(
     saison_id = stored.saison_id
 
     # Every rule the write path applies to the payload, in one place, so the preview below and the
-    # save cannot normalise it differently (ADR-0041).
+    # save cannot normalise it differently.
     patched = apply_payload_to_spiel(stored, spiel_data)
 
     # The season's own scoring, which the standing behind a `gruppe` reference derives from, exactly as
-    # `GET /teams` derives the table (ADR-0019). Read outside any transaction: no season document is
+    # `GET /teams` derives the table. Read outside any transaction: no season document is
     # written here.
     _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
 
@@ -247,14 +247,14 @@ async def patch_spiel_data(
         season_raw = await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
         season = FLSpielListAdapter.validate_python(season_raw)
 
-        # `find_wiring_refusal`'s rules (ADR-0038): wiring on a group fixture, a source the season
+        # `find_wiring_refusal`'s rules: wiring on a group fixture, a source the season
         # cannot honour, one outcome feeding two slots, a hand-set team on a maintained side. The form
         # prevents these, so a request carrying one is stale or raced.
         wiring_refusal = find_wiring_refusal(spiel_id, spiel_data, season)
         if wiring_refusal is not None:
             raise DocumentConflictException.from_refusal(wiring_refusal)
 
-        # The occupants, which the wiring rules deliberately say nothing about (ADR-0042). The junction
+        # The occupants, which the wiring rules deliberately say nothing about. The junction
         # is read through the session on the write path, so a disqualification committed by this same
         # transaction is visible to the rule that reads it.
         membership = await pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=saison_id, session=session)
@@ -335,7 +335,7 @@ async def patch_spiel_data(
 
     if dry_run:
         # No transaction and no write. The refusals above have already run, so a preview answers either
-        # the same 409 the save would or the exact list of fixtures the save would rewrite (ADR-0041).
+        # the same 409 the save would or the exact list of fixtures the save would rewrite.
         season, releases = await judge(session=None)
         advanced_to, released_sides, bracket_faults = await preview_bracket_after_patch(
             teams_collection=teams_collection,

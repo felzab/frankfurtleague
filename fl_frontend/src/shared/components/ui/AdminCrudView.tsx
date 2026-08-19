@@ -79,14 +79,14 @@ export function AdminCrudView<TItem extends { id: string }>({
   renderTable: (args: { query: string; filteredItems: TItem[]; onEdit: (item: TItem) => void; onDelete: (item: TItem) => void }) => ReactNode;
   /**
    * Optional, because an editor is not necessarily a dialog: a resource whose form outgrew one edits
-   * on a page instead (ADR-0040), and its table renders a link where the others wire `onEdit`. Teams
+   * on a page instead, and its table renders a link where the others wire `onEdit`. Teams
    * and Spieler are those cases; the resources with dialog editors pass a modal.
    */
   renderEditModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
   /**
    * Optional, because not every resource can be removed: a season is never deleted and never retired —
    * one that is over is `past`, and deleting it would orphan every spiel, spieltag and junction row
-   * carrying its id (ADR-0026). Saisons is that case; every other resource passes one.
+   * carrying its id. Saisons is that case; every other resource passes one.
    */
   renderDeleteModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
 }) {

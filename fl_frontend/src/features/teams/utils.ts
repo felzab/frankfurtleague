@@ -2,14 +2,14 @@
  * TEAMS · derivations
  *
  * Pure derivation over a group's standing and over one team's own season — no I/O and no caching,
- * which is why it stays out of `queries.ts` (ADR-0003).
+ * which is why it stays out of `queries.ts`.
  *
  * Invariants:
- * - The list is consumed in arrival order — the ranked order also seeds the bracket (ADR-0035).
+ * - The list is consumed in arrival order — the ranked order also seeds the bracket.
  * - The qualifying marker mirrors `_may_hold_a_platz`, or the page marks one team and the
  *   bracket seeds another.
  * - A season's progress never reports a team out of the group phase: that is evidenced by absence
- *   alone, which an undrawn bracket also looks like (ADR-0035).
+ *   alone, which an undrawn bracket also looks like.
  */
 
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
@@ -27,7 +27,7 @@ import type { GruppeOffer } from "./types";
  *
  * The backend's `offered_gruppen` + `find_entry_refusal` read on the memberships read: the season
  * runs the first `rules.number_of_groups` of the closed set, each taking `rules.teams_per_group`
- * rows, and every junction row counts — a disqualified team never leaves its season (ADR-0026), so
+ * rows, and every junction row counts — a disqualified team never leaves its season, so
  * its place stays taken. The pickers disable what `POST /teams/{team_id}/saisons` would refuse
  * (REQ-ENTER-002/003), which stays the authoritative check.
  */
@@ -71,7 +71,7 @@ const mayHoldAPlatz = (team: FLTeam): boolean => team.disqualifikation === null 
  *
  * "Currently" is the whole claim. This reads the table as it stands and says nothing about whether the
  * place is safe; the bracket seeds only once no remaining fixture can change it, which is a stricter
- * question and a different function (ADR-0035).
+ * question and a different function.
  */
 export const computeQualifyingTeamIds = ({
   teams,
@@ -129,7 +129,7 @@ export type SaisonPhaseOutcome =
    * The round happened and nothing here can say how it went. **Only the group phase reaches this, and
    * it must never acquire an outcome word.** Passing a group is evidenced by a knockout fixture and
    * failing one only by the absence of that fixture — which an undrawn bracket looks exactly like, so
-   * reading the absence as elimination would report a state that waiting fixes (ADR-0039).
+   * reading the absence as elimination would report a state that waiting fixes.
    */
   | "unknown";
 
@@ -142,7 +142,7 @@ export type SaisonPhaseVerlauf = {
  * Each round this team has a fixture in, in the order a season plays them, and how that round went.
  *
  * Derived from the fixtures the team page already holds — no endpoint, no stored field and no second
- * request. `is_canceled` is deliberately not read (ADR-0019), and neither state it can be in asks to
+ * request. `is_canceled` is deliberately not read, and neither state it can be in asks to
  * be: a cancelled fixture carrying a result is a forfeit and decided its round like any other, and
  * one carrying none has decided nothing — it is replayed or forfeited later, so its round is as open
  * as an unplayed one: `pending` for a knockout round, and the round's name with no outcome word for
@@ -153,8 +153,8 @@ export type SaisonPhaseVerlauf = {
  * - Only a round the team has a fixture in produces an entry, so a season that plays no
  *   `achtelfinale` yields none rather than one saying the team failed to reach it.
  * - The group phase resolves to `advanced` or `unknown` and to nothing else. Absence of a knockout
- *   fixture is not elimination, and reading it as one would report a state that waiting fixes
- *   (ADR-0039) — an empty public page is honest where a wrong one is not (ADR-0035).
+ *   fixture is not elimination, and reading it as one would report a state that waiting fixes — an
+ *   empty public page is honest where a wrong one is not.
  */
 export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSpiel[]; teamId: string }): SaisonPhaseVerlauf[] => {
   const byPhase = new Map<FLSaisonPhase, FLSpiel[]>();
@@ -173,7 +173,7 @@ export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSp
   const verlauf: SaisonPhaseVerlauf[] = [];
 
   // The declared sequence rather than a written-out list of rounds, so a season configured for a
-  // different set of knockout rounds needs no edit here (ADR-0052).
+  // different set of knockout rounds needs no edit here.
   for (const phase of SAISON_PHASE_OPTIONS) {
     const fixtures = byPhase.get(phase);
     if (fixtures === undefined) continue;
@@ -182,7 +182,7 @@ export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSp
 
     if (phase === "gruppenphase") {
       // Two readings and never a third: a knockout fixture beside a group that was actually played is
-      // evidence the group was come through, and anything else is evidence of nothing at all (ADR-0039).
+      // evidence the group was come through, and anything else is evidence of nothing at all.
       const played = fixtures.some((spiel) => computeErgebnisFor({ spiel, teamId }) !== "?");
       verlauf.push({ phase, outcome: advanced && played ? "advanced" : "unknown" });
       continue;
@@ -199,12 +199,12 @@ export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSp
  * bracket's own movement everywhere else.
  *
  * **Advancement is read off a later round's occupancy, never off a shoot-out.** A knockout that
- * finished level is a draw to every reader but the bracket (ADR-0036), so this cannot take a winner
+ * finished level is a draw to every reader but the bracket, so this cannot take a winner
  * from `elfmeterschiessen` — but a team standing in the round after it went through, whatever the
  * goals said, and that is a fact about where the team is rather than about how the tie broke.
  *
  * **Occupancy outranks a loss for that same reason.** A manual pick that did not qualify is warned
- * and never refused (ADR-0042), so an organiser can field a beaten team in the next round — the
+ * and never refused, so an organiser can field a beaten team in the next round — the
  * withdrawal replacement — and `out` claims a run that ended, which a later fixture is the evidence
  * it did not. Reading the loss first would chip that round "ausgeschieden" beside a chip for the
  * round the team is standing in, which is one page contradicting itself.

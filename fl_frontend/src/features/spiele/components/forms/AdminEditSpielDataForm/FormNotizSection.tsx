@@ -20,7 +20,7 @@ import { FieldLabel } from "./FieldLabel";
  * "add a sentence about the final" a two-step operation guarding against nothing.
  *
  * The text is public: it renders in the match details dialog every visitor can open, which is the
- * same trust `teams.description` and a disqualification's `grund` already carry (ADR-0047).
+ * same trust `teams.description` and a disqualification's `grund` already carry.
  */
 export function FormNotizSection({
   notiz,
@@ -29,7 +29,7 @@ export function FormNotizSection({
 }: {
   notiz: string | null;
   onNotizChange: (value: string | null) => void;
-  /** Judged when the field is left, like every other field on this page (ADR-0040). */
+  /** Judged when the field is left, like every other field on this page. */
   onValidateFields: (paths: readonly string[]) => void;
 }) {
   const styles = formPanel();

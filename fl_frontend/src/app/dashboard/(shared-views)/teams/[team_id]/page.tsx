@@ -16,7 +16,7 @@ import type { Metadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ team_id: string }>): Promise<Metadata> {
   // connection() for the same reason the page has one: the Docker builder stage has no reachable
-  // FastAPI, so an unguarded getTeam() here would fail `docker compose build` (ADR-0006).
+  // FastAPI, so an unguarded getTeam() here would fail `docker compose build`.
   await connection();
   const team_id = await resolveTeamId(props.params);
 
@@ -75,7 +75,7 @@ async function TeamDetailsContent(props: NextPageProps<{ team_id: string }>) {
 
   const [teamRes, spieleRes] = await Promise.all([
     // "gesamt", not the default: this page shows the team's whole season, playoffs
-    // included, and is the only surface that does (ADR-0022). It resolves null for
+    // included, and is the only surface that does. It resolves null for
     // "no such team" -- the 404 conversion is the query's, for the reason stated there.
     getTeam(team_id, { saison_id: specifiedSaisonId, statistik_scope: "gesamt" }),
     getSpiele({ team_id: team_id, saison_id: specifiedSaisonId }),
@@ -85,7 +85,7 @@ async function TeamDetailsContent(props: NextPageProps<{ team_id: string }>) {
     notFound();
   }
 
-  // Legal here: the scope is already dynamic via the connection() above (ADR-0006).
+  // Legal here: the scope is already dynamic via the connection() above.
   const today = getGermanTodayStr();
 
   return (

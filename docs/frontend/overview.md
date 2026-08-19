@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `78d32af9`, 2026-08-19\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -31,11 +31,10 @@ Two boundaries are **enforced by ESLint**, not convention: `core` may not import
 `features`, and `shared` may not import from `features` ([`spec.md`](spec.md) I9). Where a shared
 component needs feature data it takes it through props or children. `admin` is the deliberate exception
 to slice independence — an **aggregator** that legitimately imports from other slices, which is why the
-lint is scoped to `core` and `shared` rather than banning cross-feature imports generally
-([ADR-0008](../_decisions/0008-admin-is-an-aggregator-slice.md)).
+lint is scoped to `core` and `shared` rather than banning cross-feature imports generally.
 
-**There are no barrel files** ([`spec.md`](spec.md) I10,
-[ADR-0003](../_decisions/0003-no-barrel-files.md)) and **exports are named** except where Next.js
+**There are no barrel files** ([`spec.md`](spec.md) I10) and **exports are named** except where
+Next.js
 requires a default ([`spec.md`](spec.md) I11). Import from the file you mean.
 
 ## Data flow
@@ -63,22 +62,21 @@ and what an edit made straight in MongoDB costs is §1.5.
 Data-fetching pages call `await connection()` before fetching. This looks like it defeats static
 rendering and is deliberate: the Docker builder stage has **no reachable backend**, so a page that tried
 to prerender its data would fail the image build rather than merely render slowly
-([`spec.md`](spec.md) I6, [ADR-0006](../_decisions/0006-connection-guards-every-data-fetch.md)).
+([`spec.md`](spec.md) I6).
 
 ## Styling
 
 `fl_frontend/src/app/globals.css` is the style entry point for every route: the token layer, the
 `@theme` mapping, the focus exceptions, and the HeroUI import block.
 **`fl_frontend/src/app/admin/admin.css` is a second, smaller one**, imported by the admin layout and
-therefore loaded only under `/admin`, holding the component stylesheets no public route can reach
-([ADR-0016](../_decisions/0016-admin-only-css-split.md), which measures what that keeps out of a public page).
+therefore loaded only under `/admin`, holding the component stylesheets no public route can reach.
 
 **HeroUI is imported component-by-component, not as `@import "@heroui/styles"`**: that package's entry
-pulls in every component it ships, and **Tailwind does not tree-shake CSS imported from a dependency**
-([ADR-0013](../_decisions/0013-per-component-heroui-css.md)). The cost of that mechanism is one
-maintenance rule, and it is the whole reason the import block carries a header: **a component whose CSS
-is not imported renders unstyled and fails nothing** — not `tsc`, not `next build`, not ESLint. The
-checklist that rule comes down to, both stylesheets included, is [`spec.md`](spec.md) §1.11.
+pulls in every component it ships, and **Tailwind does not tree-shake CSS imported from a
+dependency**. The cost of that mechanism is one maintenance rule, and it is the whole reason the
+import block carries a header: **a component whose CSS is not imported renders unstyled and fails
+nothing** — not `tsc`, not `next build`, not ESLint. The checklist that rule comes down to, both
+stylesheets included, is [`spec.md`](spec.md) §1.11.
 
 `browserslist` in `package.json` is Tailwind v4's own support matrix (Chrome/Edge 111, Firefox 128,
 Safari and iOS 16.4). It is not a guess about the audience: the stylesheet uses `oklch()`, `color-mix()`
@@ -99,8 +97,7 @@ Auth.js with a Resend magic-link provider and a MongoDB adapter. Two things are 
 
 First, this is the **one place the frontend touches MongoDB directly**: a separate `authjs` database, no
 business entities, and it exists because the adapter has no HTTP transport and sits on the hot path of
-every authorization check. Application data goes through FastAPI without exception
-([ADR-0007](../_decisions/0007-authjs-owns-a-direct-mongoclient.md)).
+every authorization check. Application data goes through FastAPI without exception.
 
 Second, **admin is an email allowlist**, not a stored role. `ALLOWED_ADMIN_EMAILS` is checked at sign-in
 and again when the session is built. `getAdminSession()` is the single definition of that policy, and

@@ -115,8 +115,8 @@ jobs:
             sudo tar -xJ --strip-components=1 -C /usr/local/bin "shellcheck-v${version}/shellcheck"
           shellcheck --version
       # Only typescript is wanted here, and a pnpm install is the only way to get it at the pinned
-      # version. Without it the comment classifier's TypeScript half — the delicate one, and why
-      # ADR-0030 uses a parser rather than a regex — is exercised nowhere.
+      # version. Without it the comment classifier's TypeScript half — the delicate one, and why it
+      # parses rather than matching a regex — is exercised nowhere.
       - uses: ./.github/actions/frontend-toolchain
       - name: Run the scripts scope
         run: ./scripts/verify.sh --scripts
@@ -184,7 +184,7 @@ jobs:
       - name: Run the backend scope
         run: ./scripts/verify.sh --backend
 
-  # The `db`-marked backend tests, which start a real mongod (ADR-0023). A separate job rather than
+  # The `db`-marked backend tests, which start a real mongod. A separate job rather than
   # a step in `backend`: jobs run concurrently, so the mongod pull costs no wall-clock time. The
   # marker belongs to the suite, not to this pipeline.
   backend-db:
@@ -280,7 +280,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # buildx talks to the Actions cache service itself (ADR-0031), so there is no actions/cache
+      # buildx talks to the Actions cache service itself, so there is no actions/cache
       # step and no cache directory to carry. This action exists because the runner injects the
       # service credentials into JavaScript actions alone.
       - uses: ./.github/actions/actions-runtime-env

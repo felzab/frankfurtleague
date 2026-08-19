@@ -47,7 +47,7 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
           isRequired
           name="shorthand"
           // Uppercased at the boundary, so the stored value and the typed value cannot differ by
-          // case alone — the two letters are unique across every club (ADR-0025).
+          // case alone — the two letters are unique across every club.
           value={draft.shorthand}
           onChange={(next) => onChange({ ...draft, shorthand: next.toUpperCase() })}
           maxLength={2}

@@ -28,8 +28,8 @@ Do not change any source files. The ledger and the wave-reports stub are the onl
 3. Inventory the reports: read each report's **summary table and verdict or fix-priority sections
    only** — never a whole report. Build the source-reports table from them.
 4. Collect Wave 0 material: every cross-surface question the reports filed, every owner decision they
-   flagged, and every finding that contradicts a ratified decision (check `docs/_decisions/README.md`
-   — such findings become "confirm or supersede the ADR" entries, never fix rows).
+   flagged, and every finding that contradicts a ratified decision (check CLAUDE.md §7 — such
+   findings become "confirm or overturn the decision" entries, never fix rows).
 5. Build the cross-report overlap map by scanning the reports' finding IDs and file references for
    the same underlying defect under different lenses. These become fix-once rows.
 6. Build the **guardrail backlog** (Part 1b) by merging every report's "controls that would prevent

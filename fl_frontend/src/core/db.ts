@@ -5,7 +5,7 @@
  * targets the separate `authjs` database and has no HTTP transport.
  *
  * Invariants:
- * - Only `core/auth.ts` may import this (ADR-0007); application data goes through FastAPI.
+ * - Only `core/auth.ts` may import this; application data goes through FastAPI.
  * - The development branch caches the client on `global`, or hot reloads exhaust the pool.
  *
  * See:

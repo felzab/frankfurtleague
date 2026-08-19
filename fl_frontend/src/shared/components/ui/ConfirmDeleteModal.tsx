@@ -23,7 +23,7 @@ type DeleteResult = { success: boolean; message?: string; error?: string };
  *
  * **Every caller in this app retires a row rather than removing one** (decided 2026-08-07). All five admin
  * deletes are soft: the endpoint stamps `inactive_since` and the document stays, and the row it came from
- * renders a Reaktivieren control the moment the write lands (ADR-0025). So the verb and the escalation
+ * renders a Reaktivieren control the moment the write lands. So the verb and the escalation
  * sentence are the caller's, and they default to retirement — the copy that was hardcoded here said
  * "endgültig löschen" and "kann nicht rückgängig gemacht werden" about writes that are reversed by one
  * press, which is the one thing a confirmation dialog must not get wrong.

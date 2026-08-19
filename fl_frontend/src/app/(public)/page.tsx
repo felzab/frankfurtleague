@@ -142,7 +142,7 @@ export default function LandingPage() {
 /**
  * The season named by the hero badge, from the same daily `saisons` cache the fixtures below read —
  * so a rollover through `/admin` moves the badge and the fixtures together, and neither can name a
- * season the other has left (ADR-0002, ADR-0028). `connection()` precedes the fetch per ADR-0006.
+ * season the other has left. `connection()` precedes the fetch: the Docker builder stage cannot reach FastAPI.
  */
 async function CurrentSaisonLabel() {
   await connection();

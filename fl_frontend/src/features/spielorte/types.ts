@@ -20,7 +20,7 @@ export type SpielortDraft = FLPostSpielortPayload;
 export type FLSpielorteSortingOptions = "name";
 
 export type FLSpielorteFilterParams = {
-  // A switch, not a value to match on: retirement is a date (ADR-0025), and a caller wanting the retired
+  // A switch, not a value to match on: retirement is a date, and a caller wanting the retired
   // venues wants them alongside the live ones — the admin list, which is where one is reactivated. The
   // match editor's picker leaves it off.
   include_inactive?: boolean;

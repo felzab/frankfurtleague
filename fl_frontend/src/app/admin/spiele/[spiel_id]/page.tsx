@@ -13,7 +13,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The match editor (ADR-0040). One fixture per URL, so an admin can be sent to the exact thing that
+ * The match editor. One fixture per URL, so an admin can be sent to the exact thing that
  * needs fixing and can come back to it after a reload.
  *
  * **No `generateMetadata`.** Every `/admin` route is behind `proxy.ts` and the layout's session check,
@@ -25,7 +25,7 @@ import type { NextPageProps } from "@/shared/types/types";
  * else, so which season's teams and fixtures the pickers must offer is only known once the match has
  * been read — `AdminContextWrapper` is then given that season rather than defaulting to the current one,
  * which is what makes editing a past season's fixture correct rather than silently offering this
- * season's clubs (ADR-0002).
+ * season's clubs.
  */
 /**
  * The page itself resolves NOTHING, and that is what keeps this route renderable.
@@ -70,7 +70,7 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
 
   return (
     // The fixture's OWN season, not the current one: the pickers offer the teams and the legal feeder
-    // matches of the season being edited (ADR-0038), and `/admin/spielsuche?saison_id=` can reach a past
+    // matches of the season being edited, and `/admin/spielsuche?saison_id=` can reach a past
     // season's fixtures.
     <AdminContextWrapper saison_id={spielRes.spiel.saison_id}>
       {/* Keyed by the fixture's STORED STATE, and it is not decoration. `/admin/spiele/A →

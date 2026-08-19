@@ -35,9 +35,10 @@ Run these before check 1, in order.
    them by section instead of re-reporting, and respect their "already correct" lists. If an earlier
    pass has not run, say so in the header, run anyway, and expect the ledger to have overlap to
    untangle.
-6. **Read the ratified decisions** — CLAUDE.md's ratified-decisions index and `docs/_decisions/`.
-   They list patterns that read as violations and are deliberate. A finding that contradicts an ADR
-   is not a finding; it is at most a clearly-labelled "decision to revisit" entry naming the ADR.
+6. **Read the ratified decisions** — `.claude/CLAUDE.md` §7, and §6 for the traps that fail silently.
+   They list patterns that read as violations and are deliberate. A finding that contradicts a §7 row
+   or a spec sheet's invariant is not a finding; it is at most a clearly-labelled "decision to
+   revisit" entry naming the row or the invariant id.
 7. **Write the coverage-ledger skeleton** to the report file — every check number, empty result
    columns — before starting check 1.
 

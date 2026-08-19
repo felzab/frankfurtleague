@@ -12,6 +12,5 @@ forms it is written in.
 
 ## Read next
 
-- [`../_decisions/`](../_decisions/) — why a convention here is shaped the way it is, argued once per decision
 - [`../ops/spec.md`](../ops/spec.md) — the gate's scope table, and every script `scripts/` holds
 - [`../ops/runbooks.md`](../ops/runbooks.md) — the procedures run on the server, once a change is live

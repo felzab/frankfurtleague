@@ -1,10 +1,10 @@
 <!--
 TEMPLATE — copy to docs/<surface>/spec.md; delete this block.
 Rules: ../chapters/3-corpus.md — the spine is OUT-4.
-  - Every claim carries an anchored citation: `<path> :: <symbol>` or an ADR number, never a
+  - Every claim carries an anchored citation: `<path> :: <symbol>` or a rule id, never a
     line number (COR-6).
-  - Invariant numbers are permanent. A retired invariant keeps its `I<n>`, and rules folded out
-    of retired ADRs cite these anchors — renumbering silently breaks them.
+  - Invariant numbers are permanent. A retired invariant keeps its `I<n>`, and source comments
+    cite these anchors — renumbering silently breaks them.
 -->
 
 # \<Surface\> — spec
@@ -55,6 +55,6 @@ kind.\>
 \<Accepted gaps, each with what owns it — explicit here so a known limitation never reads as an
 oversight and gets "fixed".\>
 
-| #     | Item     | State                                                        |
-| ----- | -------- | ------------------------------------------------------------ |
-| \<n\> | \<item\> | \<Open / Accepted, plus the roadmap id or ADR that owns it\> |
+| #     | Item     | State                                                 |
+| ----- | -------- | ----------------------------------------------------- |
+| \<n\> | \<item\> | \<Open / Accepted, plus the roadmap id that owns it\> |

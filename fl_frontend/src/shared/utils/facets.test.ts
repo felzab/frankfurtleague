@@ -176,7 +176,7 @@ describe("countActiveFacets", () => {
  * Every facet set in the app, discovered rather than listed.
  *
  * **Imported DYNAMICALLY, by a computed path, and that is a boundary rather than a style.** This file
- * lives in `shared`, which may not import `features` (ADR-0008, enforced by ESLint) — the same constraint
+ * lives in `shared`, which may not import `features` (enforced by ESLint) — the same constraint
  * `core/apiContract.test.ts` solves the same way. Walking the tree has the bonus that a new slice's facets
  * are covered with nothing to remember.
  */

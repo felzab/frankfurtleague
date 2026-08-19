@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
  * its heading and its children, so they are all this component.
  *
  * A form that has outgrown a dialog gets a route instead of a wider variant here — the match editor is
- * the case, and ADR-0040 carries the measurements that decided it.
+ * the case.
  */
 export function FormModal({
   isOpen,

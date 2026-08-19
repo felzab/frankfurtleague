@@ -1,8 +1,8 @@
 """SCRIPTS · the parse floor, asserted rather than commented
 
 `checker_kernel.py :: PARSE_FLOOR` is the oldest interpreter that REACHES a checker, and a runtime
-guard cannot print from a file that interpreter will not compile. A comment is not a guard
-(ADR-0066), so every module a checker can import is parsed at the floor here.
+guard cannot print from a file that interpreter will not compile. A comment is not a guard, so
+every module a checker can import is parsed at the floor here.
 
 Invariants:
 - Stdlib only, for the reason `test_check_docs.py` gives.

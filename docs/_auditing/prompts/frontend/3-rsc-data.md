@@ -11,18 +11,17 @@ table (A3), and the per-call-site response-validation table (B1). Report each in
 gap rows.
 
 CONTEXT — derive, do not assume: `cacheComponents` is on; data reaches the frontend exclusively
-through `src/core/api.ts` against FastAPI. The caching design is ratified — two granular tags with
-unconditional base tags (ADR-0001), the season default server-side (ADR-0002), `connection()`
-preceding every page fetch (ADR-0006), no `generateStaticParams` (`docs/frontend/spec.md :: I28`),
-the uncached admin-authed reads (ADR-0009). This pass audits **conformance to those decisions**, not
-the decisions.
+through `src/core/api.ts` against FastAPI. The caching design is ratified in `.claude/CLAUDE.md` §7 —
+two granular tags with unconditional base tags, the season default server-side, `connection()`
+preceding every page fetch, no `generateStaticParams` (`docs/frontend/spec.md :: I28`), the uncached
+admin-authed reads. This pass audits **conformance to those decisions**, not the decisions.
 
 SECTION A — CACHING, RSC, DATA FLOW
 
 A1. **Mutation → invalidation map.** The required table, one row per exported server action (derive
 the module list from a `"use server"` grep — never a hardcoded list): action | resource mutated |
 tags invalidated | tags used by the queries reading that resource | GAP. Derive the read side from
-every `use cache` function's `cacheTag` calls. Verify ADR-0001's invariants hold: every granular
+every `use cache` function's `cacheTag` calls. Verify the ratified invariants hold: every granular
 tag has a matching `updateTag` in the same slice, and the base tags are invalidated
 unconditionally. Report the full table.
 
@@ -47,7 +46,7 @@ CLAUDE.md's repo-specific traps.
 
 A5. **Route conventions.** `await params` / `await searchParams` handling, `generateMetadata`
 correctness (self-canonicals, per-page titles; every `generateMetadata` doing a fetch must start
-with `await connection()` — ADR-0006 applies to it too), searchParams parsed not cast.
+with `await connection()` too), searchParams parsed not cast.
 
 A6. **Hook correctness, keys and hydration.** Effects doing derived state or server-side work;
 unstable dependencies; state that should be URL state; hydration mismatch sources (clock reads,
@@ -75,8 +74,8 @@ narrowing, shape-assuming catch blocks. `noUncheckedIndexedAccess` is on — any
 must be a genuine remaining hole, not something the compiler already rejects.
 
 B5. **Env contract.** Every env var consumed in `src` is declared and validated in `core/config.ts`;
-anything declared but never consumed (names only, never values; check ADR-0010 before flagging
-the system key).
+anything declared but never consumed (names only, never values; check `.claude/CLAUDE.md` §7 before
+flagging the system key).
 
 Priority order: A1, B1, A3, A2, B2, A4, B4, B3, A5, B5, A6.
 

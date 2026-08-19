@@ -153,7 +153,7 @@ def branch_commits(base: str) -> list[str] | None:
     """The branch's non-merge commits, or None where git could not list them.
 
     None is not an empty list: no commit is a branch with nothing on it, while a refused listing is
-    every message passing unread (ADR-0066).
+    every message passing unread.
     """
     # --no-merges drops the merge commits GitHub writes; their subject is not ours to choose.
     out = git("rev-list", "--no-merges", f"{base}..HEAD")
@@ -298,7 +298,7 @@ def main() -> int:
 
     base = resolve_base(args.base)
     if base is None:
-        # Refused, not green (ADR-0066): every commit this reads is named by the base, so with none
+        # Refused, not green: every commit this reads is named by the base, so with none
         # it judged nothing. `--message-file` returns above and never reaches here, which keeps the
         # commit-msg hook working on a clone that has no base ref.
         print(f"      nothing here is named {args.base} or origin/{args.base} -- no commit message was checked.")
@@ -308,7 +308,7 @@ def main() -> int:
 
     commits = branch_commits(base)
     if commits is None:
-        # Refused, not green (ADR-0066): the range is what names every message this reads, so a
+        # Refused, not green: the range is what names every message this reads, so a
         # listing git would not give is the whole branch passing unread.
         print(f"      git could not list this branch's commits against {base[:7]} -- none was checked.")
         return EXIT_REFUSED

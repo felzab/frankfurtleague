@@ -38,10 +38,10 @@ Particularly welcome:
   its limits.
 - **Social engineering** of the maintainer or of anyone involved in the league.
 - **Anything requiring physical access** to the server, or a compromised admin device.
-- **`'unsafe-inline'` in the Content-Security-Policy.** This is a known, deliberate trade-off with a
-  documented compensating control — see
-  [ADR-0011](docs/_decisions/0011-single-enforced-csp.md). A demonstrated injection that the policy
-  fails to stop is very much in scope; the directive by itself is not.
+- **`'unsafe-inline'` in the Content-Security-Policy.** A deliberate trade-off: a per-request nonce
+  cannot cover build-time prerendered HTML, so the `react/no-danger` ESLint rule is the compensating
+  control — see [security headers](docs/ops/spec.md#14-security-headers). A demonstrated injection
+  that the policy fails to stop is very much in scope; the directive by itself is not.
 
 ## Please do not
 

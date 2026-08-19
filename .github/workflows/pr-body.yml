@@ -1,4 +1,4 @@
-# Holds a pull request body to ADR-0029 and docs/_git/templates.md.
+# Holds a pull request body to the form in docs/_git/templates.md.
 #
 # A SEPARATE workflow from verify.yml on purpose. This one has to listen for `edited`, so that a
 # body corrected after review turns the check green without an unrelated push — and subscribing

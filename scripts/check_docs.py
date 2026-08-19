@@ -7,9 +7,8 @@ answered by finding the symbol's own text inside the file it names, so the re-ex
 what keeps a citation of this file resolving.
 
 Invariants:
-- Every symbol the corpus cites as `check_docs.py :: <symbol>` is re-exported here, ADR-0059's
-  included -- a merged ADR is never edited, so only this file can answer it.
-- The package is not named check_docs (ADR-0068). A sibling package of that name carrying
+- Every symbol the corpus cites as `check_docs.py :: <symbol>` is re-exported here.
+- The package is not named check_docs. A sibling package of that name carrying
   __init__.py always resolves ahead of this file, which nothing could then import.
 
 See:
@@ -25,7 +24,6 @@ from checker_kernel import run
 from docs_gate.branch import _stamp_only_delta, check_branch_impact, check_comment_bounds
 from docs_gate.kernel import CHECKS, SCANNED_SUFFIXES
 from docs_gate.perkind import (
-    ADR_META_RE,
     METADATA_LINE_RE,
     RULE_FIELD_RE,
     check_enforced_by,
@@ -41,7 +39,6 @@ from docs_gate.run import main
 # Named for export rather than for use here: a citation resolves by finding its symbol inside the
 # file it names, and every one below is cited from a document, a command file or a sibling checker.
 __all__ = [
-    "ADR_META_RE",
     "CHECKS",
     "METADATA_LINE_RE",
     "RULE_FIELD_RE",

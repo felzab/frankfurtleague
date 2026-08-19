@@ -9,19 +9,19 @@ import type { AdminSpieltagRow } from "@/features/spieltage/types";
 import type { SpieltagPhaseProgress } from "@/features/spieltage/utils";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. A matchday is
-// found by its derived label or by either date; `label` is a field of the row, not of the document
-// (ADR-0051), because a search matches what is read.
+// found by its derived label or by either date; `label` is a field of the row, not of the document,
+// because a search matches what is read.
 const SEARCH_KEYS = ["label", "beginn", "ende"] as const;
 
 /**
  * A declaration over `AdminCrudView` whose `renderTable` is not a table.
  *
  * That slot is a slot: it takes whatever places many of one thing, and what a matchday list needs is
- * a phase-sectioned ordered list rather than a grid of cells (ADR-0050). The search, the edit overlay
+ * a phase-sectioned ordered list rather than a grid of cells. The search, the edit overlay
  * and the retire overlay are the ones every admin resource gets.
  *
  * `renderEditModal` is deliberately not passed: the matchday form edits on a page at
- * `/admin/spieltage/[spieltag_id]` (ADR-0072), so the row's pencil is a `<Link>` and the shared view
+ * `/admin/spieltage/[spieltag_id]`, so the row's pencil is a `<Link>` and the shared view
  * renders no edit overlay.
  */
 export function AdminSpieltageView({

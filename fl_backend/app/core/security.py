@@ -7,7 +7,7 @@ users before ever calling this service.
 
 Invariants:
 - Keys are compared with `secrets.compare_digest`, never `==`.
-- A resource router guards at router level, so its endpoints inherit it (ADR-0027); the system
+- A resource router guards at router level, so its endpoints inherit it; the system
   router guards per endpoint, and an endpoint added there is public unless it declares otherwise.
 - The expected key is read per request through `Depends(get_config)`, never captured at import.
 - `/system/is_live` is deliberately unguarded — it is the container healthcheck.

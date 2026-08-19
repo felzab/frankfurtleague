@@ -8,7 +8,7 @@
  * - Team, Ort and Schiedsrichter options derive from the matches in hand, never fetched — a
  *   facet built that way cannot offer a value that narrows to nothing.
  * - The admin set is larger than the public one; the difference is completeness, not access.
- * - `status` reads through `computeSpielStatus`, the cards' own function (ADR-0058) — the chip
+ * - `status` reads through `computeSpielStatus`, the cards' own function — the chip
  *   and the facet cannot disagree.
  * - Every facet is built inside one `useMemo` per surface, keyed on the fixture list.
  */
@@ -105,7 +105,7 @@ export function buildSpielFacets({
     ],
     // `ergebnis === null` is the same rule the action-required list's `ergebnis_pending` uses and the
     // same one the rollover panel counts: a cancelled fixture WITH a result is a forfeit and counts as
-    // played (ADR-0019).
+    // played.
     read: (spiel) => [spiel.ergebnis === null ? "offen" : "gewertet"],
   };
 

@@ -45,8 +45,8 @@ THE CHECKS, in priority order:
    from (internet / compose-net / frontend-key-holder) | verdict. Every mutating route must require
    the admin tier; every gap is a finding with a one-sentence exploit. Include the key comparison
    itself: constant-time or not, and what a missing or malformed header returns. Check the `system`
-   tier branch against ADR-0010 (deliberately kept — never remove the env declaration while the
-   branch stays).
+   tier branch, which is deliberately kept — never remove the env declaration while the branch
+   stays.
 
 2. **QUERY INJECTION SURFACE.** Every place user-influenced input becomes part of a Mongo query or
    pipeline: can an attacker introduce operator keys (`$where`, `$gt`, dict-shaped values where a
@@ -66,7 +66,7 @@ THE CHECKS, in priority order:
 
 5. **DATA-EXPOSURE REVIEW.** Which endpoints serve personal data (contact fields) at which tier — is
    anything personal reachable at `base` tier that only the admin UI needs? Is retired data (a
-   non-null `inactive_since`, ADR-0025) still served anywhere it should not be?
+   non-null `inactive_since`) still served anywhere it should not be?
 
 6. **DEPENDENCY AND RUNTIME SURFACE.** Audit the dependency set for known advisories using the
    available tooling (`uv` or `pip-audit` if present — say which ran); check pins in `pyproject.toml`
@@ -82,7 +82,7 @@ THE CHECKS, in priority order:
 
 8. **TOPOLOGY-ONLY CONTROLS INVENTORY.** Every control that exists _only_ as network topology, with
    no in-band check: list them with what breaks if an nginx location is ever added or the compose
-   network changes. The retired revalidation route (ADR-0028) is the pattern — the point is that each
+   network changes. The retired revalidation route is the pattern — the point is that each
    such control is _named_, so no future nginx edit removes one unknowingly. Hand the list to
    `ops 2`, which owns the nginx side.
 

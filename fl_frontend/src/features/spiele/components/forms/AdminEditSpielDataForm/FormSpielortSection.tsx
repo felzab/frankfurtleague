@@ -18,7 +18,7 @@ import type { FLSpielort } from "@/features/spielorte/schemas";
  * The price is subordinate to the choice rather than its peer — it is a property *of* the venue — so the
  * two sit in a 2fr/1fr grid instead of a 50/50 one. It is prefilled from the venue's own
  * `default_mietpreis` and then editable, because what a fixture actually cost is a property of the
- * fixture (ADR-0021).
+ * fixture.
  */
 export function FormSpielortSection({
   spielorte,

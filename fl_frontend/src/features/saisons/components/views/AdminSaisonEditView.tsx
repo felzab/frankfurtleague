@@ -20,7 +20,7 @@ import type { SaisonDraftFields, SaisonGruppenSwapContext, SaisonRolloverContext
  *
  * **The header carries no control.** On the club and player editors it owns the retirement, because a
  * person or a club can be retired; a season cannot be — one that is over is `past`, and the only thing
- * that writes `status` is the rollover, which is a whole panel rather than a button (ADR-0026). So the
+ * that writes `status` is the rollover, which is a whole panel rather than a button. So the
  * header names the season, and every write on this page is below it.
  *
  * **The season's dates and its status are stated where they can be changed** — the Zeitraum panel's
@@ -35,7 +35,7 @@ export function AdminSaisonEditView({
 }: {
   saison: { id: string; status: FLSaisonStatus } & SaisonDraftFields;
   rollover: SaisonRolloverContext;
-  /** This season's clubs and their groups, plus the knockout count that closes the swap (ADR-0062). */
+  /** This season's clubs and their groups, plus the knockout count that closes the swap. */
   swap: SaisonGruppenSwapContext;
   /** The span the live matchdays already occupy, which the date pickers may not shrink past. */
   spieltagBound?: { startMax: string; endMin: string };

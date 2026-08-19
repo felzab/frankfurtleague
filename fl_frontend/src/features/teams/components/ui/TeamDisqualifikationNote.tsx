@@ -2,7 +2,7 @@
  * TEAMS · why a team is out of this season
  *
  * The record as entered, and nothing when there is none — a team is disqualified exactly when the
- * field is not null (ADR-0047). `grund` is written for publication and reaches the reader as typed:
+ * field is not null. `grund` is written for publication and reaches the reader as typed:
  * never mapped to a label, never shortened.
  *
  * Not a `Callout`: that component's grades each describe what an admin's save is about to do, and

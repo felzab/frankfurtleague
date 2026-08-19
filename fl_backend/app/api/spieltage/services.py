@@ -3,7 +3,7 @@ SPIELTAGE · filter construction, the derived order, and the derived match count
 
 Pure translation of `FLSpieltageFilterParams` into a Mongo filter and sort, plus the two things a
 matchday does not store: its position, of which `order_spieltage` is the only expression in the
-system (ADR-0051), and its match count, which `with_expected_matches` attaches (ADR-0052).
+system, and its match count, which `with_expected_matches` attaches.
 
 Invariants:
 - The natural order is total: `PHASE_RANK[saison_phase]`, then `beginn`, then `_id`.
@@ -51,9 +51,9 @@ def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
     it, `orderRoundsByWiring` anchors its walk on the last element of it, and the admin list sections by
     the phase it leads with. Nothing stores it, so nothing can contradict it.
 
-    **It is also what the DISPLAYED NAME is composed from** (ADR-0051), which is why the final tie-break is
-    the id and not a name: a matchday has no name to break a tie with, and one derived from this order
-    could not also decide it.
+    **It is also what the DISPLAYED NAME is composed from**, which is why the final tie-break is the id
+    and not a name: a matchday has no name to break a tie with, and one derived from this order could
+    not also decide it.
     """
 
     return sorted(spieltage, key=lambda spieltag: (PHASE_RANK[spieltag.saison_phase], spieltag.beginn, str(spieltag.id)))
@@ -65,7 +65,7 @@ def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
     if filters.saison_phase == "playoffs":
         query["saison_phase"] = {"$ne": "gruppenphase"}
 
-    # Retired matchdays stay out unless asked for (ADR-0025). Their matches are unaffected either way:
+    # Retired matchdays stay out unless asked for. Their matches are unaffected either way:
     # this filters `spieltage`, and `GET /spiele` never joins it.
     if not filters.include_inactive:
         query["inactive_since"] = None
@@ -78,13 +78,13 @@ def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules)
     One raw matchday with its derived `anzahl_spiele` attached, ready to validate.
 
     Injected into the DOCUMENT rather than set on the model afterwards, because the field is required on
-    `FLSpieltag` and sits on no document (ADR-0052) -- so a matchday reaching validation without it is a
-    500, and doing it here means the model's own bound (`ge=0`) still judges the derived value.
+    `FLSpieltag` and sits on no document -- so a matchday reaching validation without it is a 500, and
+    doing it here means the model's own bound (`ge=0`) still judges the derived value.
 
     **Every path that validates a stored matchday goes through this, writes as much as reads.** A write
     endpoint echoes the document it just changed, and `PATCH` can move the `saison_phase` the count is
     derived from, so an echo skipping this would answer with a stale number even once it stopped raising.
-    One home for the derivation is also what ADR-0052 is for: a second one is a second answer.
+    One home for the derivation is the whole point: a second one is a second answer.
     """
 
     return {**spieltag_raw, "anzahl_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
@@ -97,12 +97,12 @@ SPIELTAG_HOLDS_PLAYED = "REQ-RETIRE-002"
 
 # A matchday moved to a phase accounting for fewer matches than it holds. Too few is legal: a season
 # being set up passes through every count. Too many is a state no setup reaches, because a single
-# round robin fixes the number (ADR-0052).
+# round robin fixes the number.
 SPIELTAG_OVER_ITS_PHASE = "REQ-SPIELTAG-002"
 
 # Retiring would leave the phase below the count its rules imply (decided 2026-08-13); nothing else
-# counts rows. The figure is a FLOOR, never a ceiling -- a split round is two rows for one phase
-# (ADR-0051) -- so only the step going below it is refused.
+# counts rows. The figure is a FLOOR, never a ceiling -- a split round is two rows for one phase --
+# so only the step going below it is refused.
 SPIELTAG_BELOW_IMPLIED_COUNT = "REQ-RETIRE-005"
 
 
@@ -120,8 +120,8 @@ def find_spieltag_retire_refusal(*, played_count: int, live_in_phase: int, impli
 
     `live_in_phase` INCLUDES this matchday -- it is the phase's live rows as they stand before the
     retirement -- and `implied_in_phase` is `implied_matchdays` for that phase. A phase above the floor
-    retires down to it and no further, which is what keeps a split round (ADR-0051) reducible back to
-    one matchday but not to none.
+    retires down to it and no further, which is what keeps a split round reducible back to one matchday
+    but not to none.
 
     **What is refused is the STEP across the floor, never the state below it.** A phase already short
     was put there by a create or by a rules change rather than by a retirement, so refusing one there
@@ -160,9 +160,9 @@ def find_spieltag_retire_refusal(*, played_count: int, live_in_phase: int, impli
 # could still produce one.
 SPIELTAG_MOVED_TO_UNPLAYED_PHASE = "REQ-SPIELTAG-005"
 
-# A matchday carrying fixtures MOVED across the gruppenphase/knockout boundary (ADR-0075). The
-# bracket selects rounds by the MATCHDAY's phase and fixtures by the FIXTURE's, so the move
-# strands one against the other.
+# A matchday carrying fixtures MOVED across the gruppenphase/knockout boundary. The bracket selects
+# rounds by the MATCHDAY's phase and fixtures by the FIXTURE's, so the move strands one against the
+# other.
 SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY = "REQ-SPIELTAG-006"
 
 
@@ -173,7 +173,7 @@ def find_spieltag_unplayed_phase_refusal(
     implied_in_proposed: int,
 ) -> WriteRefusal | None:
     """
-    Why moving this matchday into the proposed round must be refused, as a `WriteRefusal` (ADR-0075).
+    Why moving this matchday into the proposed round must be refused, as a `WriteRefusal`.
 
     The edit path's mirror of `REQ-SPIELTAG-004`. `implied_in_proposed` is `implied_matchdays` for the
     PROPOSED phase, and zero means the season's rules produce no such round -- so the row would report a
@@ -206,13 +206,13 @@ def find_spieltag_boundary_refusal(
     fixtures_on_proposed_side: int,
 ) -> WriteRefusal | None:
     """
-    Why this matchday may not cross the gruppenphase/knockout boundary, as a `WriteRefusal` (ADR-0075).
+    Why this matchday may not cross the gruppenphase/knockout boundary, as a `WriteRefusal`.
 
-    `saison_phase` is an editable input on purpose (ADR-0052) -- which matchday is the quarter-final is a
-    scheduling decision. What ADR-0052 never asked is whether every transition should be reachable, and
-    this one is not once the matchday carries fixtures: the bracket selects its rounds by the MATCHDAY's
-    phase and its fixtures by the FIXTURE's, and no endpoint writes `spiele.saison_phase` (ADR-0037), so
-    after the move those fixtures sit on the far side of that join with nothing able to bring them across.
+    `saison_phase` is an editable input on purpose -- which matchday is the quarter-final is a
+    scheduling decision. Editable does not make every transition reachable, though, and this one is not
+    once the matchday carries fixtures: the bracket selects its rounds by the MATCHDAY's phase and its
+    fixtures by the FIXTURE's, and no endpoint writes `spiele.saison_phase`, so after the move those
+    fixtures sit on the far side of that join with nothing able to bring them across.
 
     **The two counts split this matchday's fixtures by the FIXTURE's own phase**, on the one boundary the
     bracket cares about: `gruppenphase` against every knockout round. Judged LAST of the phase rules,
@@ -258,7 +258,7 @@ def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int, exp
     attached fixture moved into it, which is the right answer: those fixtures have nowhere to be played.
 
     **What is refused is the STEP that narrows the count, never the state of already being over one.** A
-    season's fixtures are created outside the API (ADR-0037) and no payload carries `spieltag_id`, so a
+    season's fixtures are created outside the API and no payload carries `spieltag_id`, so a
     matchday holding more than its phase accounts for was put there by data this endpoint never wrote --
     and refusing every edit to it would take its DATES with them, by a rule about its phase, while leaving
     the fixtures exactly where they were. A move into a phase narrower still is refused from that state
@@ -281,8 +281,8 @@ def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int, exp
 
 
 # **A postponed match PROLONGS the matchday, with no exception**: an escape-hatch marker would be a
-# second statement of the same fact -- the shape ADR-0034 refused for `is_manual` and ADR-0025 for a
-# boolean beside a date.
+# second statement of the same fact -- the shape refused for a flag beside `quelle`, and for a boolean
+# beside a retirement date.
 
 # The matchday's own span falls outside its season's. A matchday is a named block of that season's
 # fixtures, so one running before the season opens or after it closes is a block of a competition that
@@ -340,7 +340,7 @@ SPIELTAG_KNOCKOUT_STARTED = "REQ-SPIELTAG-003"
 
 # A matchday in a phase the bracket never reaches (decided 2026-08-13). The ONE count question with
 # an exact answer rather than a floor: a round never played cannot be split across dates. How many a
-# played phase holds is not refused (ADR-0051).
+# played phase holds is not refused.
 SPIELTAG_PHASE_NOT_PLAYED = "REQ-SPIELTAG-004"
 
 
@@ -357,7 +357,7 @@ def find_spieltag_create_refusal(
     `implied_in_phase` is `implied_matchdays` for the proposed phase; zero means the season's rules
     produce no such round at all, which is `REQ-SPIELTAG-004`. **A non-zero figure is not a quota** --
     nothing here compares it against how many rows the phase already holds, because a phase may
-    legitimately be split across more matchdays than the minimum (ADR-0051).
+    legitimately be split across more matchdays than the minimum.
 
     `earliest_knockout_beginn` is the lowest `beginn` among the season's matchdays whose phase is not
     `gruppenphase`, or `None` where it has none -- a season still in its group phase, or one not drawn yet.

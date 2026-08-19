@@ -53,7 +53,7 @@ export type FLSpielDraftFields = {
 };
 
 /**
- * Whether the draft, as it now stands, is the one shape a shoot-out can describe (ADR-0036).
+ * Whether the draft, as it now stands, is the one shape a shoot-out can describe.
  *
  * **The single statement of the condition, because its readers must not disagree about it**: the
  * Ergebnis panel offers the fields on it, the form retracts the record when it stops holding, and the
@@ -82,7 +82,7 @@ export function isLevelKnockout(saisonPhase: FLSpiel["saison_phase"], team1: FLS
  *
  * `ergebnis` is derived here the way the backend derives it — a scoreline only when both counts are
  * present — because the stored string belongs to the stored goals and contradicts the draft the moment
- * either is edited. The shoot-out follows ADR-0036: kept only on a knockout fixture that finished level,
+ * either is edited. The shoot-out is kept only on a knockout fixture that finished level,
  * discarded anywhere else, exactly as the write path discards it, so the preview cannot promise
  * something the save throws away.
  *
@@ -249,10 +249,10 @@ const sameCount = (a: number | null, b: number | null): boolean => {
  * Every field the editor can change, in the order the change list reads them.
  *
  * **`besetzung_missing` marks the SOURCE, not the occupant**, and that is the whole reason
- * `isEmpty` exists. A knockout side with a source and no team yet is correct — the resolution fills it
- * (ADR-0034) — so a marker on `teamN.team_id` would nag on every unplayed semi-final in the season. The
- * category's own rule is "no team AND no source", which is exactly the predicate below, and ADR-0038
- * makes the source the question you answer first, so the marker sits on the control you would use.
+ * `isEmpty` exists. A knockout side with a source and no team yet is correct — the resolution fills it —
+ * so a marker on `teamN.team_id` would nag on every unplayed semi-final in the season. The category's
+ * own rule is "no team AND no source", which is exactly the predicate below, and the source is the
+ * question you answer first, so the marker sits on the control you would use.
  *
  * **`ergebnis_pending` marks BOTH goal fields.** A result needs both counts and each is separately
  * empty, so one marker would leave the other side looking finished.

@@ -1,11 +1,11 @@
 """
-SPIELTAGE · the write path against a real MongoDB (ADR-0023)
+SPIELTAGE · the write path against a real MongoDB
 
 Four things only a database proves. The SEQUENCE `REQ-DATE-002` is wired into on the way back in:
 retire a matchday, shrink the season past it, then ask for it back. The ECHO every write answers
-with, carrying a derived `anzahl_spiele` that sits on no document (ADR-0052). WHICH PATCHES
+with, carrying a derived `anzahl_spiele` that sits on no document. WHICH PATCHES
 `REQ-SPIELTAG-002` reaches, which needs a real fixture count against a real season's rules. And the
-SPLIT the phase-transition rules read (ADR-0075), which counts a matchday's fixtures by the phase
+SPLIT the phase-transition rules read, which counts a matchday's fixtures by the phase
 each of them stores rather than by the matchday's own.
 
 Each step runs through the handler that performs it, so the premise is proved rather than assumed.
@@ -74,7 +74,7 @@ FINALE_MATCHES = 1
 
 
 def saison_document() -> dict[str, Any]:
-    """The season the matchday belongs to. `schedule` is derived on read and on no document (ADR-0052)."""
+    """The season the matchday belongs to. `schedule` is derived on read and on no document."""
 
     return {
         "_id": SAISON_ID,
@@ -90,7 +90,7 @@ def spieltag_document(**overrides: Any) -> dict[str, Any]:
     One live matchday, late in its season and holding no fixtures.
 
     It carries no `anzahl_spiele`, which is the shape `POST /spieltage` inserts: the count is derived
-    from the season's rules on every read (ADR-0052) and the payload has no field for it. Seeding it
+    from the season's rules on every read and the payload has no field for it. Seeding it
     this way is what makes the echo assertions below controls rather than readings of a stale key --
     the one test that wants a stale key overrides it.
     """
@@ -134,7 +134,7 @@ def on_a_database(container: Any, body: Body) -> Any:
 
 
 async def retire_the_matchday(database: AsyncIOMotorDatabase, spieltag_id: ObjectId = SPIELTAG_OID) -> Any:
-    """Through the endpoint that performs it: `DELETE` stamps `inactive_since` (ADR-0025)."""
+    """Through the endpoint that performs it: `DELETE` stamps `inactive_since`."""
 
     return await delete_spieltag(
         spieltag_id=spieltag_id,
@@ -281,7 +281,7 @@ class TestAReactivatedMatchdayStaysInsideItsSeason:
 
 class TestAWriteEchoesTheMatchdayItChanged:
     """
-    The round trip a matchday makes once ADR-0052 took `anzahl_spiele` off the document.
+    The round trip a matchday makes with `anzahl_spiele` on no document.
 
     `POST` answers with an id alone and so never validates a stored matchday; the other three echo the
     document they just changed, and the field is required on the read model. So the endpoints are
@@ -360,7 +360,7 @@ class TestAWriteEchoesTheMatchdayItChanged:
 
     def test_a_stored_count_left_over_from_before_is_ignored(self, mongo_container: Any):
         """
-        The documents ADR-0052 left behind still carry the key, and the echo must not read it.
+        Documents in the database still carry the key, and the echo must not read it.
 
         `extra="ignore"` means such a document validates either way, so a pass-through would look
         correct on every matchday whose season never changed -- and be silently wrong on the ones that
@@ -388,7 +388,7 @@ class TestAMatchdayOverItsPhaseKeepsItsDatesEditable:
     is the whole case: the rule reads a phase, and the endpoint runs it on every patch — including one
     whose payload repeats the phase the matchday already has.
 
-    A season's fixtures are created outside the API (ADR-0037), which is why nine of them can sit on a
+    A season's fixtures are created outside the API, which is why nine of them can sit on a
     matchday whose Gruppenphase accounts for eight, and why no edit here can move one out.
     """
 
@@ -442,7 +442,7 @@ class TestAMatchdayOverItsPhaseKeepsItsDatesEditable:
 
 class TestWhichPhaseChangesAreLegitimate:
     """
-    `REQ-SPIELTAG-005` and `REQ-SPIELTAG-006` through the endpoint (ADR-0075).
+    `REQ-SPIELTAG-005` and `REQ-SPIELTAG-006` through the endpoint.
 
     What only a database proves here is the SPLIT the boundary rule reads. Its two side counts come from
     two `count_documents` calls against a real `spiele` collection, keyed on the FIXTURE's own
@@ -496,7 +496,7 @@ class TestWhichPhaseChangesAreLegitimate:
 
     def test_an_empty_knockout_matchday_still_becomes_a_group_matchday(self, mongo_container: Any):
         """
-        The capability ADR-0052 keeps, from the same starting row with nothing on it.
+        The capability an editable `saison_phase` keeps, from the same starting row with nothing on it.
 
         This is the pair that makes the case above a rule about the FIXTURES rather than about the two
         phases: identical move, identical row, opposite answer.

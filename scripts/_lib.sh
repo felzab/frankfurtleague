@@ -27,7 +27,7 @@ cd "$REPO_ROOT"
 
 # --- Image naming -----------------------------------------------------------------------------------
 
-# One package per service (ADR-0012). The packages are public, which is what makes anonymous pulls
+# One package per service. The packages are public, which is what makes anonymous pulls
 # work — no docker login on the server, and no token that expires mid-deploy. A pull failing to
 # authenticate means a package was left private.
 REGISTRY="ghcr.io"
@@ -635,7 +635,7 @@ adopt_ending() { # $1 the worker's exit status
   return 0
 }
 
-# A deliberate refusal, its own ending rather than a shade of a pass or a failure: ADR-0030's scope
+# A deliberate refusal, its own ending rather than a shade of a pass or a failure: the gate's scope
 # refusal is one, a checker meeting an input outside its parsed subset another. In both the check
 # ran, and its result cannot stand as a verdict.
 

@@ -1,7 +1,7 @@
 /**
  * SCHIEDSRICHTER · referee editor banner tests
  *
- * The rename is the one banner on this editor that stops a save (ADR-0070), and the gate behind it is
+ * The rename is the one banner on this editor that stops a save, and the gate behind it is
  * a single boolean the form derives from the draft status — so the grade is asserted here rather than
  * clicked, where a warning quietly demoted to `info` would look identical.
  */

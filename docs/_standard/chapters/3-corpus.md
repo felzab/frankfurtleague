@@ -1,38 +1,39 @@
 # The documentation corpus
 
-**Verified against:** `1bd1e930`, 2026-08-13\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Applies to:** the `docs/` tree — its layers, its layout, and every README in the repository.
 
-| ID    | Rule                                |
-| ----- | ----------------------------------- |
-| OUT-1 | Three layers, three update triggers |
-| OUT-2 | The folder layout                   |
-| OUT-3 | A README is orientation, plus one   |
-| OUT-4 | The spec-sheet spine                |
-| OUT-5 | The overview spine                  |
-| OUT-6 | The glossary                        |
-| OUT-7 | Diagrams                            |
-| OUT-8 | The surface                         |
-| OUT-9 | The word is layer                   |
+| ID    | Rule                              |
+| ----- | --------------------------------- |
+| OUT-1 | Two layers, two update triggers   |
+| OUT-2 | The folder layout                 |
+| OUT-3 | A README is orientation, plus one |
+| OUT-4 | The spec-sheet spine              |
+| OUT-5 | The overview spine                |
+| OUT-6 | The glossary                      |
+| OUT-7 | Diagrams                          |
+| OUT-8 | The surface                       |
+| OUT-9 | The word is layer                 |
 
 ---
 
-### OUT-1 — Three layers, three update triggers
+### OUT-1 — Two layers, two update triggers
 
-**Rule:** `docs/` holds three layers:
+**Rule:** `docs/` holds two layers:
 
-- the ADR log — why it is like this; append-only, reversal is a new number
 - the spec sheets — the current contract; edited when a constraint changes
 - the surface overviews — what a surface is for; rewritten only when that changes
 
-A new page is one of the three, or one of the named exceptions, or it does not go in.
+A new page is one of the two, or one of the named exceptions, or it does not go in. Why something
+is built this way sits at the constraint itself — a comment at the line, a CLAUDE.md §7 line, or a
+spec-sheet invariant — with the argument in the commit that made it.
 
 **Why:** each layer's update trigger is attached to work that happens anyway, which is what lets
 the corpus stay true without a scheduled review.
 
 **Exceptions:** the cross-cutting references (OUT-8), the process folders (`docs/_standard/`,
 `docs/_auditing/`, `docs/_git/`, `docs/_roadmap/`), and `docs/domain.md` — a narrative over
-tables a test walks, so its claims are checked rather than reviewed (ADR-0053).
+tables a test walks, so its claims are checked rather than reviewed.
 
 **Enforced by:** unenforced — review judgment.
 
@@ -43,13 +44,12 @@ tables a test walks, so its claims are checked rather than reviewed (ADR-0053).
 **Rule:** one directory per surface, each holding that surface's overview and spec. A directory
 holds a collection; a single cross-cutting reference lives at the root as a file until two or
 three share a theme. The underscore prefix marks the cross-cutting meta collections
-(`docs/_standard/`, `docs/_decisions/`) so they sort above the surfaces and never read as a fourth
-one. The ADR log stays one flat, globally numbered folder, browsed by surface through its index. A
-per-slice page exists only where a slice deviates from what the surface spec already describes.
+(`docs/_standard/`, `docs/_auditing/`, `docs/_git/`, `docs/_roadmap/`) so they sort above the
+surfaces and never read as a surface themselves. A per-slice page exists only where a slice deviates
+from what the surface spec already describes.
 
-**Why:** surfaces own descriptions; the log owns decisions — decisions routinely span surfaces,
-and a number is a permanent identity cited from code, so a surface-filed ADR hides from the other
-surfaces and breaks its citations the day scope moves.
+**Why:** a surface owns its own description, so the folder a reader opens is the one named after
+the question they are asking; a page filed anywhere else hides from the surface it describes.
 
 **Exceptions:** —
 
@@ -96,7 +96,7 @@ claim carries an anchored citation (COR-6), and every invariant states its failu
 **Why:** fixed closing sections make separate spec sheets read as one document, and a contract that
 grows inside section 1 is what keeps those numbers fixed — a fifth contract section would otherwise
 push Invariants down and silently repoint every citation of "section 3". Permanent invariant
-numbers do the same job one level down, for a comment or an ADR citing `I<n>`.
+numbers do the same job one level down, for a comment citing `I<n>`.
 
 **Exceptions:** —
 
@@ -111,8 +111,8 @@ mode; gate check `invariant-id` for a cited number resolving to a defined invari
 
 **Rule:** an overview opens with two or three sentences, then "How it is organised", then the
 sections the surface needs, then "Read next" — around 120 lines, treated as a ceiling. It says
-what the surface is for and names its parts; mechanisms belong in the spec sheet, arguments in
-ADRs.
+what the surface is for and names its parts; mechanisms belong in the spec sheet, and the argument
+for a mechanism in the commit that introduced it.
 
 **Why:** an overview that is growing has started explaining mechanisms the spec sheet already
 owns, and the ceiling is what makes that drift visible.
@@ -147,8 +147,7 @@ costs an hour to rediscover and thirty seconds to write down.
 
 **Rule:** diagrams are mermaid, so they render in-repo without a build step. C4 levels 1–3 only —
 never a code diagram. They live in overviews, plus a spec sheet where a data flow is genuinely
-hard in prose; never in an ADR, which is an argument, and an argument is prose. No square brackets
-inside quoted node labels — write `<path>/:id`, not `<path>/[id]`.
+hard in prose. No square brackets inside quoted node labels — write `<path>/:id`, not `<path>/[id]`.
 
 **Why:** a code diagram duplicates the source and rots immediately; code layout goes in the spec
 sheet as a directory tree, which is cheap to keep right.
@@ -180,7 +179,7 @@ each has exactly one home, and that is the property worth organising around.
 
 ### OUT-9 — The word is layer
 
-**Rule:** the three shapes of OUT-1 are called layers, and layer is the only word for them — never
+**Rule:** the two shapes of OUT-1 are called layers, and layer is the only word for them — never
 introduce a second term for the same concept anywhere in `docs/`.
 
 **Why:** two words for one concept read as two concepts, and every future page has to pick one.

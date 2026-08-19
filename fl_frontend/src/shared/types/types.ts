@@ -94,12 +94,12 @@ export type FormState = {
    * code is the only channel a refusal has — and one code per rule is what the code table's own rule
    * asks for, since "team1 is disqualified" and "team2 is disqualified" are one failure mode. The
    * form places the message, because it holds the payload it submitted and the same team data the
-   * picker derives its chips from (ADR-0042). Absent on every failure no field could own.
+   * picker derives its chips from. Absent on every failure no field could own.
    */
   errorCode?: string;
   /**
    * The `spiel_nr` of every OTHER fixture a match write moved: those whose stored result it destroyed,
-   * and those a team was released from (ADR-0041, ADR-0042).
+   * and those a team was released from.
    *
    * Read by the edit page's live warning, which asks for them through `dry_run=true` before a save,
    * and by the undo toast, which needs to know which fixtures to put back. Both empty on the ordinary

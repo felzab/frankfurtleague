@@ -22,7 +22,7 @@ import { tv } from "tailwind-variants";
  *
  * A form that owns a whole PAGE is the other case and has its own recipe in `formPanel.ts`: with no
  * outer border to nest inside, one panel per section is the first level of grouping rather than the
- * second (ADR-0040). Which of the two applies is decided by the container, never by the section.
+ * second. Which of the two applies is decided by the container, never by the section.
  */
 export const overlayPanel = tv({
   base: "bg-surface border-border text-foreground rounded-xl border shadow-lg",

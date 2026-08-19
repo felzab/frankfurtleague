@@ -58,8 +58,8 @@ export default function AdminSpielerPage(props: NextPageProps) {
 async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
   const requestedSaisonId = await resolveSaisonId(searchParams);
-  // The list below makes the same read, and this call is still its own round trip: uncached by
-  // ADR-0009, and `apiClient`'s timeout signal opts every call out of Next's fetch memoization.
+  // The list below makes the same read, and this call is still its own round trip: no admin read is
+  // cached, and `apiClient`'s timeout signal opts every call out of Next's fetch memoization.
   // Cheap enough on an admin page loaded a handful of times a day.
   const [saisonsRes, teamsRes, spielerRes] = await Promise.all([getSaisons(), getTeamMemberships(), getSpielerMemberships()]);
 

@@ -17,12 +17,12 @@ import type { Key } from "@heroui/react";
 /**
  * The three fields a matchday carries, shared by the create and edit dialogs.
  *
- * **A dialog rather than a page, and that is the decision this file rests on.** ADR-0040's threshold is a
- * form that OUTGREW a dialog: three scalar controls, no nested object, no junction row and no lookup list
- * do not reach it, and the Spielort form beside it is the same size in the same container.
+ * **A dialog rather than a page, and that is the decision this file rests on.** The threshold for a
+ * page is a form that OUTGREW a dialog: three scalar controls, no nested object, no junction row and
+ * no lookup list do not reach it, and the Spielort form beside it is the same size in the same container.
  *
  * **The position, the match count and the NAME are all derived, and adding a control for any of them
- * would be a regression** (ADR-0051, ADR-0052). Where a matchday sits in its season comes from
+ * would be a regression.** Where a matchday sits in its season comes from
  * `saison_phase` and `beginn`, both on this form; how many matches it expects comes from the season's
  * rules and that same phase; and what it is called comes from the phase and the position. So the fields
  * that decide all three are ones an admin was going to fill in anyway, and no derived value can be wrong
@@ -31,7 +31,7 @@ import type { Key } from "@heroui/react";
  * **The date control is the season slice's**, imported rather than rewritten. A matchday's
  * `beginn`/`ende` pair and a season's `start_date`/`end_date` pair are the same control doing the same
  * job, and writing a second picker is how two date fields in one admin acquire two different popovers.
- * The cross-feature import is legal: that lint is scoped to `core` and `shared` (ADR-0008).
+ * The cross-feature import is legal: that lint is scoped to `core` and `shared`.
  *
  * `saison_id` is NOT here. The create form supplies it from the page's selected season, and the patch
  * payload does not carry it at all: moving a matchday between seasons would strand its matches, which
@@ -60,7 +60,7 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
   /**
    * Every phase with this season's expected match count, and whether the fixtures already attached would
    * still fit (`REQ-SPIELTAG-002`). From `buildSpieltagPhaseOffer`, so the counts are the SERVED schedule
-   * rather than arithmetic repeated here (ADR-0052).
+   * rather than arithmetic repeated here.
    */
   phaseOffer: readonly SpieltagPhaseOffer[];
   /**
@@ -165,7 +165,7 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
       </div>
 
       {/* Neither the position nor the expected match count is a field, so the form names what decides
-          each of them instead (ADR-0051, ADR-0052). Without this the reader has no way to know the
+          each of them instead. Without this the reader has no way to know the
           list's order is not arbitrary, or where the `x / y` count on each row comes from. */}
       <Callout
         severity="info"

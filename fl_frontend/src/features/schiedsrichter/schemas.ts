@@ -44,7 +44,7 @@ export const FLSchiedsrichterSchema = z.object({
   schule: z.string().nullable(),
   default_payment: z.int().nonnegative(),
   kontakt: FLKontaktSchema,
-  // The day the referee was retired, null while they officiate (ADR-0025). Deactivation goes through
+  // The day the referee was retired, null while they officiate. Deactivation goes through
   // DELETE, so it is on no payload.
   inactive_since: CustomDateStringSchema.nullable(),
 });

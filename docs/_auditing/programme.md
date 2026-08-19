@@ -265,9 +265,8 @@ substitute chain.
 ### 4.2 Read what the formatter changed
 
 The gate writes nothing, so no run of it leaves a diff to commit. Formatting happens at commit time:
-`.githooks/pre-commit` formats the staged files and re-stages them
-([ADR-0065](../_decisions/0065-formatting-happens-at-commit-time.md)), which puts every reformat
-inside one of the wave's own commits. **Read those hunks** — the formatter can corrupt a conditional
+`.githooks/pre-commit` formats the staged files and re-stages them, which puts every reformat inside
+one of the wave's own commits. **Read those hunks** — the formatter can corrupt a conditional
 class string, and nothing else in the gate sees that.
 
 ### 4.3 Confirm the exit gate and the guardrails
@@ -283,7 +282,7 @@ sequence a control lands under is [`ledger-template.md`](ledger-template.md) Par
 
 ### 4.4 Independent review
 
-Review the wave's full diff as unreviewed code from a stranger, against CLAUDE.md and the ADRs.
+Review the wave's full diff as unreviewed code from a stranger, against CLAUDE.md.
 Verify every ticked row against the diff at **all** its call sites, not the one the report named. Fix
 what it finds before proceeding.
 

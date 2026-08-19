@@ -14,10 +14,9 @@ import type { AdminSpieltagRow } from "@/features/spieltage/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The matchday editor (ADR-0072). One matchday per URL, and no season in it: a matchday carries its
+ * The matchday editor. One matchday per URL, and no season in it: a matchday carries its
  * own `saison_id`, so reading it is what tells the page which season's rules bound the form — the
- * same arrangement the match editor uses, and what `GET /spieltage/{spieltag_id}` was kept for
- * (ADR-0027).
+ * same arrangement the match editor uses, and what `GET /spieltage/{spieltag_id}` was kept for.
  *
  * No `generateMetadata` and no `generateStaticParams`, for the reasons the match editor records.
  * **The page itself resolves NOTHING** — every await happens inside the `Suspense` boundary, which
@@ -36,9 +35,9 @@ export default function AdminSpieltagEditPage(props: NextPageProps<{ spieltag_id
  *
  * **Two rounds of reads, because the first answers which season to ask about.** The addressed
  * matchday resolves retired or not, and its `saison_id` is what the second round needs: the season's
- * span bounds both date pickers (`REQ-DATE-002`), its schedule decides what the phase picker offers
- * (ADR-0052), and its whole matchday list is what the label and the ordinal are counted over
- * (ADR-0051) — none of which is knowable from one row.
+ * span bounds both date pickers (`REQ-DATE-002`), its schedule decides what the phase picker offers,
+ * and its whole matchday list is what the label and the ordinal are counted over — none of which is
+ * knowable from one row.
  *
  * **`livePhaseCount` is counted here rather than in the form**, because it is a fact about the phase
  * across the whole season while the form holds one matchday. It is the count as it stands, this
@@ -74,7 +73,7 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
     notFound();
   }
 
-  // The label and the ordinal together, counted per phase over the order the API returned (ADR-0051).
+  // The label and the ordinal together, counted per phase over the order the API returned.
   // One pass over the season rather than per row, because the label needs the phase's total.
   const derived = spieltagLabels(siblingsRes.spieltage).get(spieltag.id);
 

@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `4b8e5166`, 2026-08-19\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -59,11 +59,10 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 10  | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
 | 11  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops     | S      | Open     | —          |
 | 12  | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
-| 13  | DOC-8  | A later decision falsifies a fact an earlier ADR states | Docs        | —      | Standing | —          |
-| 14  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
-| 15  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
-| 16  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
-| 17  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
+| 13  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
+| 14  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
+| 15  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
+| 16  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -106,9 +105,8 @@ and what separates the internet from them is a shared secret rather than a route
 no bundle is given a key. `docker-compose.local.yml` sets `API_URL=http://backend:8000`, the Docker
 network name, which is a call that never leaves the network. The three more specific blocks above it
 — `= /api/client-error`, `/api/admin/` and `/api/auth` — proxy to Next rather than to FastAPI and are
-public by design ([ADR-0049](../_decisions/0049-every-page-owned-editors-undo-is-a-route-handler.md),
-[`docs/logging/spec.md`](../logging/spec.md)); a prefix match keeps them ahead of this one, and none
-of them is what this entry is about.
+public by design ([`docs/logging/spec.md`](../logging/spec.md)); a prefix match keeps them ahead of
+this one, and none of them is what this entry is about.
 
 **The sharpest consequence is that one key covers data of two different kinds.**
 `fl_backend/app/api/schiedsrichter/schemas.py` carries `kontakt: FLKontakt` — an email address and a
@@ -182,7 +180,7 @@ delimiter class holds a space and a slash but **no newline**, so a `git` beginni
 not the `git` the strip looks for at all: `tr -s ' \t' ' '` collapses runs of spaces and tabs ahead
 of it and leaves every other whitespace byte alone. Either way no subcommand is read, and no other
 arm of the shared block has anything to match. That block is byte-identical in
-`.claude/hooks/guard-branch-bash.sh` and `.claude/hooks/guard-standard-bash.sh` (ADR-0067), so both
+`.claude/hooks/guard-branch-bash.sh` and `.claude/hooks/guard-standard-bash.sh`, so both
 guards lose the same thing.
 
 **Measured 2026-08-12 by driving both hooks against a throwaway repository whose HEAD is `main`, and
@@ -287,7 +285,8 @@ whether they should share one helper rather than a spelling each.
 **Status:** Open\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
-**Path:** Independent. One classifier arm and a fixture pair; the ADR is the larger half.
+**Path:** Independent. One classifier arm and a fixture pair; arguing the third immateriality test is
+the larger half.
 
 **`branch-impact` (CUR-4) fires on any change to a cited file, and a bot cannot answer it.** A
 Dependabot pull request bumping a pinned action changes a workflow, so every stamped page citing that
@@ -300,7 +299,7 @@ It recurs on the monthly schedule.
 comment cannot invalidate a claim neither page makes, so the rule is asking a human to confirm
 something that did not change.
 
-**The repository already answers this shape.** ADR-0059 established that a restamp is not a material
+**The repository already answers this shape.** A restamp is not a material
 change, and `scripts/docs_gate/branch.py :: _material` already dispatches to two immateriality tests
 — `scripts/check_scope.py :: is_comment_only` for parseable source, and
 `scripts/docs_gate/branch.py :: _stamp_only_delta` for markdown. **A third sibling is the fix**: a
@@ -312,14 +311,14 @@ sides — a different action is a different thing — and one changed line that 
 the whole delta material again. The fixture net needs both cases: a pin-only delta that is immaterial,
 and a pin-plus-one-line delta that is not.
 
-**Not a bot exemption, and the ADR should say why.** Deciding by author gets it wrong in both
-directions: a human making the identical bump is still blocked, and a bot making a substantive
+**Not a bot exemption, and the comment on the test should say why.** Deciding by author gets it
+wrong in both directions: a human making the identical bump is still blocked, and a bot making a substantive
 workflow change passes unchecked. **The question is what changed, not who changed it** — which is
 also what keeps a human's identical bump answerable by the same rule.
 
 **The residual risk, stated rather than hidden:** a major-version bump that alters behaviour a page
-describes while touching only the pin line. That is the same risk ADR-0059 already accepted, and it
-belongs to the review of the version bump rather than to a stamp on an unrelated page.
+describes while touching only the pin line. That is the same risk the stamp-only test already
+accepts, and it belongs to the review of the version bump rather than to a stamp on an unrelated page.
 
 ### 5 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
 
@@ -347,11 +346,10 @@ take it by diffing the file against the fork point and comparing its `//` lines 
 `branch_additions` returns.
 
 **The citation half is the sharper one and has to be named on its own.** `check_added_citations`
-(INC-6) sees none of that region, so an `ADR-NNNN` written inside one of those blocks can dangle
+(INC-6) sees none of that region, so a citation written inside one of those blocks can dangle
 **silently and permanently** — nothing resolves it on a branch, and nothing resolves it in a standing
-sweep either. There is one live reference today: `.claude/hooks/guard-branch-bash.sh` cites ADR-0060
-inside a `//` comment. It happens to resolve; nothing in the repository is checking that it still
-does, and nothing would notice when it stops.
+sweep either. One written there today would resolve or dangle unobserved either way, and nothing
+would notice the day it stopped resolving.
 
 **The length half is the loud one, which is why it ranks under the other.** A breach is harmless
 until it is found and obvious once it is: `check_comment_length` (INC-9) has never measured those 43
@@ -359,11 +357,11 @@ blocks, and one is already over — `.claude/hooks/docs-rules-index.sh`'s contai
 lines and 328 characters against caps of three and 250. `check_history_phrases` (COR-3) and
 `check_counts` (COR-4) are blind in the same region for the same reason.
 
-**This sits outside ADR-0030's accepted boundary, and not marginally.** That decision governs
-`scripts/check_scope.py`'s scope classifier, and every limit it accepts errs toward _more_ checking:
+**This sits outside the scope classifier's accepted boundary, and not marginally.** That boundary is
+`scripts/check_scope.py`'s, and every limit it accepts errs toward _more_ checking:
 what no parser can prove is code, so the full gate is demanded. Here unreadable means checked by
 nothing and reported as nothing — a different module, a different check family, and the opposite
-failure direction, so nothing in ADR-0030 can be cited to accept it.
+failure direction, so that boundary cannot be cited to accept it.
 
 **What the change has to be scoped for.** INC-6's `Enforced by` names its checks over every tracked
 TypeScript, JavaScript, Python and shell file, and for the embedded-JavaScript region of a shell file
@@ -375,8 +373,8 @@ how the next dangling citation gets written into the one place a reader trusts m
 
 **What teaching the reader would newly raise is one advisory, not forty-three**, which is what makes
 this a rider rather than its own change. Measured on 2026-08-12 by running the real checkers over a
-body carrying only the `//` text of all ten files: ADR resolution, rule-id, citation, line-citation,
-bare-path and voice raise **nothing**, because the `//` blocks are clean and every ADR in them
+body carrying only the `//` text of all ten files: rule-id, citation, line-citation, bare-path and
+voice raise **nothing**, because the `//` blocks are clean and every citation in them
 resolves; COR-3's `check_history_phrases` raises nothing; and COR-4's `check_counts` raises **one
 advisory over three lines**. The reason is structural rather than lucky — COR-3, COR-4 and
 `check_comment_length` all read `branch_additions`, so they cannot fire on a line no branch added,
@@ -400,9 +398,8 @@ refusal it issues is worth obeying. One that fires on a command it has no busine
 that command to be reworded rather than reconsidered, and a wording that gets around a false refusal
 gets around a true one just as well.
 
-**What the narrowing has to preserve.**
-[ADR-0060](../_decisions/0060-the-branch-guard-compares-canonical-paths.md) settled the asymmetry for
-the branch guard: a false refusal is one command away from resolved, while a hole is not observable
+**What the narrowing has to preserve.** The branch guard is settled on the asymmetry: a false refusal
+is one command away from resolved, while a hole is not observable
 at all. The same asymmetry binds here, so the test to reach for is where the phrase sits rather than
 whether it occurs. A match at a command position — the start of the command or the far side of a
 separator, allowing a leading `sudo` or an environment assignment — still refuses
@@ -426,8 +423,7 @@ schema to JSON Schema, pairs it with its component in the committed `fl_backend/
 compares presence, required, nullable, primitive type and enum members. Its header states the
 boundary in terms: patterns, lengths, bounds and messages are deliberately not compared, because the
 two sides diverge there by design and comparing validation policy produces failures nobody can act
-on. That is [ADR-0033](../_decisions/0033-the-zod-mirror-is-checked-against-the-published-document.md),
-and **this entry does not propose moving it.**
+on. **This entry does not propose moving that boundary.**
 
 **What nothing checks is a narrower claim, made in prose, that one specific pair is the same text.**
 `fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX` carries the comment
@@ -450,11 +446,11 @@ would make a recurrence invisible.
 
 - **Check the declared pairs.** A list of `(python symbol, typescript symbol)` pairs whose patterns
   must be byte-identical, compared in the frontend suite that already reads across the boundary. It
-  says nothing about the pairs not on the list, which is what keeps it inside ADR-0033.
+  says nothing about the pairs not on the list, which is what keeps it inside that boundary.
 - **Drop the claim.** Delete the mirroring sentence, let the two ends diverge like every other
   validation policy, and accept the 422 as the contract. Cheapest, and it gives up the one property
   that makes the frontend message trustworthy.
-- **Generate one end from the other.** Refused for the mirror as a whole (ADR-0033), and refusing it
+- **Generate one end from the other.** Refused for the mirror as a whole, and refusing it
   for one constant is the same argument at a smaller scale.
 
 ### 8 · OPS-60 — The gate's wall clock is one scope, and that scope runs serially
@@ -486,7 +482,7 @@ each spawning a shell, and the fixture net builds a throwaway git repository per
 **The estimate is half a day, and most of it is not the code.** Any change to how the probes execute
 must prove no verdict moved: 218 probes, a before-baseline, a verdict-set diff, and a required zero.
 `scripts/selfcheck.sh` also owns the four-code exit contract's classifier, so splitting the scope
-re-opens ADR-0066's eleven measured rank/finding/exit combinations.
+re-opens that contract's eleven measured rank/finding/exit combinations.
 
 **What it buys, and what it does not.** Taking `scripts` to roughly 55s takes the whole gate to
 about 60s, at which point `frontend` at 57s becomes the new floor and the next lever is `next
@@ -515,8 +511,7 @@ This entry is about the missing check, not about a divergence.
 
 **The pattern exists already, on the other surface.** `fl_backend/openapi.json` is a committed
 generated artifact whose freshness is a test: it regenerates the document and compares
-([ADR-0033](../_decisions/0033-the-zod-mirror-is-checked-against-the-published-document.md),
-`fl_backend/tests/openapi_document.py`). What is missing here is not the idea but its application to
+(`fl_backend/tests/openapi_document.py`). What is missing here is not the idea but its application to
 the generator on the other surface, which is why the effort is small.
 
 **What keeps it from being free.** Only the text artifact compares cleanly. The images go through
@@ -544,15 +539,15 @@ and the field is where the standard says what is mechanically defended.
 
 **The clear instance is `anchor`.** It is emitted in the same pass as `link`, over a markdown page
 and over a source comment alike, and it is what resolves the heading a link's fragment names. INC-6
-names `link` and stops there; COR-6 names `citation`, `path`, `adr` and `line-citation` and stops
+names `link` and stops there; COR-6 names `citation`, `path`, `rule-id` and `line-citation` and stops
 there. A reader of either rule learns that a link's target is verified and never that its anchor is.
 Most of what no rule claims defends the gate itself rather than a rule — its own registry, its
 inputs, the repository's line endings — and that is correct, which is why this direction cannot be
 closed by requiring every check to be claimed.
 
 **The clear unenforced clause is OUT-7's.** It fixes what a diagram may be, and part of that is
-decidable by reading the page: a fence naming a diagram language that is not mermaid, a diagram
-inside an ADR, and a `[` inside a quoted node label. The level clause is not decidable in general.
+decidable by reading the page: a fence naming a diagram language that is not mermaid, and a `[`
+inside a quoted node label. The level clause is not decidable in general.
 Its `Enforced by` field claims review judgment for the whole rule, so the part a parser could settle
 is settled by nobody, and the field is accurate about it.
 
@@ -615,11 +610,10 @@ machine — sixteen cores, repository clean — against the invocations the gate
    and 4.8 s. **Use `content`**: the suspicion this entry was filed with is discharged by choosing
    the key, not by an argument about it.
 3. **Can CI persist one?** **Out of scope, decided 2026-08-12: the local win only.** It needs no CI
-   change to collect, so `.github/workflows/verify.yml` is left alone and
-   [ADR-0031](../_decisions/0031-the-image-cache-is-the-actions-cache-service.md) — which settles the
-   image build cache as buildx's `type=gha` and deletes the `actions/cache` step — needs no
-   revisiting, nor does `.claude/CLAUDE.md` §7's row for it. This is a boundary on the work rather
-   than a question still open inside it, and reopening it is a decision recorded beside ADR-0031.
+   change to collect, so `.github/workflows/verify.yml` is left alone and the image build cache —
+   buildx's `type=gha`, with no `actions/cache` step — needs no
+   revisiting, nor does `.claude/CLAUDE.md` §7's line for it. This is a boundary on the work rather
+   than a question still open inside it, and reopening it is its own decision.
 
 **Done when:** `fl_frontend/package.json`'s two scripts pass `--cache`, eslint's passes
 `--cache-strategy content` with it, and `fl_frontend/.gitignore` carries the line for eslint's cache
@@ -656,8 +650,8 @@ runtime is charged to every change, and a spawn is the part of this work that do
 the size of the file it is asked about. Against that, nothing is wrong with the answers: the
 classifier is correct, and what a slow gate costs is patience.
 
-**What must not change.** [ADR-0030](../_decisions/0030-the-gate-refuses-an-undersized-scope.md)
-makes the carve-out reach exactly as far as a parser does, so a batched run still has to answer
+**What must not change.** The carve-out reaches exactly as far as a parser does, so a batched run
+still has to answer
 "same" only where a parser proved it, and still has to count every error — a file that will not
 parse, a missing toolchain, a crashed process — as code. A batch that loses which pair produced
 which verdict, or that turns one file's parse failure into a verdict for the rest, is worse than the
@@ -666,45 +660,7 @@ spawning it replaced.
 **Not measured:** what the spawns actually cost, and how much of a gate run is attributable to them.
 The mechanism above is read from the code; the magnitude is not.
 
-### 13 · DOC-8 — A later decision can falsify a fact an earlier ADR states, and nothing links the two
-
-**Status:** Standing\
-**Surfaces:** Docs\
-**Effort:** —\
-**Path:** Independent — no pass covers it, and only the trigger below reopens it.
-
-**One instance exists, and it is live.**
-[ADR-0037](../_decisions/0037-a-seasons-fixtures-are-created-once.md)'s Consequences names
-`spieltage.anzahl_spiele` as a stored count of the matches in a matchday, maintained by hand.
-[ADR-0052](../_decisions/0052-a-seasons-schedule-is-derived-from-its-rules.md) made that false: the
-count is derived from the season's rules and stored on no document.
-
-**Neither ADR points at the other, and both are right to be shaped that way.** ADR-0037's Status is
-`Accepted` with an empty `Superseded by`, which is correct — its decision, that `/spiele` has no
-`POST` and no `DELETE`, stands untouched. What moved is a supporting fact its reasoning leans on,
-inside a section a reader is invited to read as current.
-
-**The corpus rules leave no move, and that is deliberate rather than an oversight.** DEC-4 makes an
-ADR's reasoning immutable once merged; DEC-6's reversal is a new number plus exactly two lines in
-the old one, which is the procedure for a decision being reversed and not for a fact inside one
-going stale. Editing ADR-0037's Consequences to agree with ADR-0052 is precisely the edit DEC-4
-forbids, and it would also erase the record of what was believed when the decision was taken.
-
-**What it costs today is bounded, which is why this stands rather than being worked.** A reader
-reaching the field through the code has PRE-1's ladder, which puts the code above the ADR, and
-ADR-0052's never-clause sits in `.claude/CLAUDE.md` §7 where a session meets it before touching the
-field. The exposure is the reader who arrives at ADR-0037 on its own and takes its Consequences for
-current state.
-
-**What a decision would have to settle**, if a second instance makes it worth taking: whether a
-falsified supporting fact is recorded at all, and if so where — the superseding decision's own text
-is the one place that can carry it without touching what is immutable, and a rule saying so would
-have to be written into the decisions chapter rather than practised ad hoc.
-
-**Trigger to revisit:** a second ADR found stating a fact a later one falsified, or any change to
-what DEC-6's two lines carry.
-
-### 14 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 13 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -743,7 +699,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 15 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 14 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -788,7 +744,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 16 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 15 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -811,8 +767,8 @@ whose prefixes disagree with the chapters is a divergence the gate could resolve
 instead of matching a shape.
 
 **The metadata pattern is anchored at column 0.** `scripts/check_docs.py :: METADATA_LINE_RE`
-requires its bold label to open the line, where `scripts/check_docs.py :: ADR_META_RE` and
-`scripts/check_docs.py :: RULE_FIELD_RE` read metadata blocks of their own and each tolerate leading
+requires its bold label to open the line, where `scripts/check_docs.py :: RULE_FIELD_RE` reads a
+metadata block of its own and tolerates leading
 whitespace — so `scripts/check_docs.py :: check_metadata_breaks` cannot see a metadata block
 nested inside a list item or a blockquote, and COR-8's hard break goes unchecked there. Widening it
 is not free: this is a discovery pattern run across every page, an indented bold label is a shape
@@ -822,7 +778,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a chapter added to the standard under a prefix the patterns do not carry, or
 the first page that needs a metadata block indented.
 
-### 17 · DOC-4 — A stamp is required by a path and owed by a claim
+### 16 · DOC-4 — A stamp is required by a path and owed by a claim
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -839,8 +795,8 @@ nothing reports the omission — and `branch-impact` arms only on a stamped page
 page cites may change under it with nothing ever asking for it to be re-verified. That is precisely
 the staleness the stamp exists to measure, running unmeasured on the pages the stamp never reached.
 
-**Why inverting the default is not free.** The exempt kinds CUR-3 names are decidable by path: an
-ADR, a template, an instruction file, a document addressed to a reader outside this repository. The
+**Why inverting the default is not free.** The exempt kinds CUR-3 names are decidable by path: a
+template, an instruction file, a document addressed to a reader outside this repository. The
 class it leaves open is not. A page whose own content is the table that navigates elsewhere needs no
 stamp and is not wrong to carry one, so an inverted rule reports it and the report names no defect.
 Naming those pages in the check is the outcome to avoid — a list of names is what deciding by kind

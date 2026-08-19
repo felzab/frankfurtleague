@@ -5,14 +5,14 @@
  *
  * The app's toast region, mounted once in `RootProviders` above the router so a toast survives
  * the navigation that raised it; `shared/utils/appToast.ts` owns what one says and for how long.
- * In `core` because `RootProviders` mounts it and `core` may not import `shared` (ADR-0008).
+ * In `core` because `RootProviders` mounts it and `core` may not import `shared`.
  * The markup is ours through `Toast.Provider`'s children render function — ordinary TSX the
- * toolchain reads — rather than CSS overrides against vendored selectors (ADR-0043).
+ * toolchain reads — rather than CSS overrides against vendored selectors.
  *
  * Invariants:
- * - The CSS surface is exactly the two `globals.css` rules ADR-0043 names, written against
+ * - The CSS surface is exactly the two `globals.css` toast rules, written against
  *   HeroUI 3.2.3.
- * - One stylesheet serves both surfaces (ADR-0016) — `admin.css` must not gain a second copy.
+ * - One stylesheet serves both surfaces — `admin.css` must not gain a second copy.
  */
 import { tv } from "tailwind-variants";
 

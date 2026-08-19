@@ -6,7 +6,7 @@ from its own copy drifts into its own behaviour. The exit code below is the cont
 reads back.
 
 Invariants:
-- Python 3.14 is the floor. Below it a checker crashes at import rather than refusing (ADR-0066):
+- Python 3.14 is the floor. Below it a checker crashes at import rather than refusing:
   its own body may use syntax an older interpreter cannot parse, and nothing runs earlier to say so.
 - `git()` never raises, a command that failed answers None rather than an empty string, and it runs
   from the repository root, so a caller's pathspec is repo-relative and never relative to the cwd.

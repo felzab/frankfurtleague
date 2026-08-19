@@ -19,7 +19,7 @@ import type { SpieltagBanner } from "./banners";
  *
  * **A button rather than a field.** It writes the moment it is pressed and never joins the save bar,
  * because there is no half-entered state for the bar to hold. Reversible either way, which is why it
- * is not a confirmation dialog: the delete is soft (ADR-0025) and `reactivate` puts the matchday back
+ * is not a confirmation dialog: the delete is soft and `reactivate` puts the matchday back
  * with its fixtures untouched — they were never touched.
  *
  * **Both refusals are stated before the press rather than explained after it.** `REQ-RETIRE-002`
@@ -36,7 +36,7 @@ export function FormStilllegenSection({
   banners,
 }: {
   spieltagId: string;
-  /** The matchday's derived name, so the buttons say which one they act on (ADR-0051). */
+  /** The matchday's derived name, so the buttons say which one they act on. */
   label: string;
   inactiveSince: string | null;
   /** Whether the page can see a reason the retirement would be refused. */

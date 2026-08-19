@@ -79,7 +79,6 @@ rest. Nothing here is a sample.
    | Segment                     | Globs                                                                                                                                                                                                                                                      |
    | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
    | Auditing method             | `docs/_auditing/**`                                                                                                                                                                                                                                        |
-   | Decisions                   | `docs/_decisions/**`                                                                                                                                                                                                                                       |
    | Git workflow                | `docs/_git/**`                                                                                                                                                                                                                                             |
    | Roadmap                     | `docs/_roadmap/**`                                                                                                                                                                                                                                         |
    | Documentation standard      | `docs/_standard/**`                                                                                                                                                                                                                                        |
@@ -89,7 +88,7 @@ rest. Nothing here is a sample.
    | Ops documents               | `docs/ops/**`                                                                                                                                                                                                                                              |
    | Loose documents             | `docs/*`                                                                                                                                                                                                                                                   |
    | Assistant instructions      | `.claude/CLAUDE.md` · `.claude/commands/**`                                                                                                                                                                                                                |
-   | Public root documents       | `README.md` · `CONTRIBUTING.md` · `SECURITY.md`                                                                                                                                                                                                            |
+   | Public root documents       | `README.md` · `SECURITY.md`                                                                                                                                                                                                                                |
    | Frontend source             | `fl_frontend/src/**`                                                                                                                                                                                                                                       |
    | Backend source              | `fl_backend/app/**`                                                                                                                                                                                                                                        |
    | Backend tests               | `fl_backend/tests/**`                                                                                                                                                                                                                                      |
@@ -115,8 +114,7 @@ rest. Nothing here is a sample.
    below, the finding format, the ground rules, and the rules for either mode above. Each agent reads
    `docs/_standard/chapters/1-core.md` plus the chapter for its shape —
    `docs/_standard/chapters/2-in-code.md` for source, `docs/_standard/chapters/3-corpus.md` for
-   `/docs`, `docs/_standard/chapters/4-decisions.md` for ADRs,
-   `docs/_standard/chapters/5-currency.md` for stamps — and applies the rules from there.
+   `/docs`, `docs/_standard/chapters/5-currency.md` for stamps — and applies the rules from there.
 
    **Settle how an agent reports finishing and how it reports being blocked before launching any of
    them.** Each prompt carries a closing line it prints either way: the report path when it finished,
@@ -137,18 +135,18 @@ rest. Nothing here is a sample.
 
    ### The check classes
 
-   | #   | Class                                      | The question the agent answers                                                                                                                  |
-   | --- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-   | C1  | **Cold read** (COR-1)                      | Could someone who has never seen this repository, this conversation or any earlier session act on every sentence?                               |
-   | C2  | **Said twice** (COR-2)                     | Is a fact here stated somewhere else in this same segment, so the copies can disagree later?                                                    |
-   | C3  | **Names what exists** (COR-3)              | Does every file, symbol, field, endpoint and behaviour named still exist, including the ones named in prose rather than cited?                  |
-   | C4  | **Still true** (PRE-2, COR-4)              | Read the code the claim describes. Does it still do that?                                                                                       |
-   | C5  | **Evidence holds** (COR-6, CUR-1)          | Does each anchored citation support the claim made beside it?                                                                                   |
-   | C6  | **Doubt is stated** (COR-9)                | Is anything unverified written as fact, or a plan written as a description?                                                                     |
-   | C7  | **Shape** (COR-7, COR-8, COR-10)           | Does the page meet the shape rules? Judge against the chapter's text, never from memory                                                         |
-   | C8  | **Its own shape**                          | Does it meet the rules for what this document _is_ — an ADR, a spec sheet, an overview, a module header, an endpoint docstring, a stamped page? |
-   | C9  | **Comment altitude** (INC-1, INC-2, INC-9) | Does a comment say what its code already says, or a module header or block break the shape those rules fix?                                     |
-   | C10 | **Earns its place** (COR-5)                | Should this text exist at all? This is the class that proposes a deletion, and COR-5 holds a page and a comment to separate bars                |
+   | #   | Class                                      | The question the agent answers                                                                                                          |
+   | --- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+   | C1  | **Cold read** (COR-1)                      | Could someone who has never seen this repository, this conversation or any earlier session act on every sentence?                       |
+   | C2  | **Said twice** (COR-2)                     | Is a fact here stated somewhere else in this same segment, so the copies can disagree later?                                            |
+   | C3  | **Names what exists** (COR-3)              | Does every file, symbol, field, endpoint and behaviour named still exist, including the ones named in prose rather than cited?          |
+   | C4  | **Still true** (PRE-2, COR-4)              | Read the code the claim describes. Does it still do that?                                                                               |
+   | C5  | **Evidence holds** (COR-6, CUR-1)          | Does each anchored citation support the claim made beside it?                                                                           |
+   | C6  | **Doubt is stated** (COR-9)                | Is anything unverified written as fact, or a plan written as a description?                                                             |
+   | C7  | **Shape** (COR-7, COR-8, COR-10)           | Does the page meet the shape rules? Judge against the chapter's text, never from memory                                                 |
+   | C8  | **Its own shape**                          | Does it meet the rules for what this document _is_ — a spec sheet, an overview, a module header, an endpoint docstring, a stamped page? |
+   | C9  | **Comment altitude** (INC-1, INC-2, INC-9) | Does a comment say what its code already says, or a module header or block break the shape those rules fix?                             |
+   | C10 | **Earns its place** (COR-5)                | Should this text exist at all? This is the class that proposes a deletion, and COR-5 holds a page and a comment to separate bars        |
 
    ### The finding format, one row each
 
@@ -187,10 +185,11 @@ rest. Nothing here is a sample.
    corpus can see:
 
    - **The cross-segment COR-2 check.** The same fact in a spec sheet and an overview, in CLAUDE.md
-     and an ADR, in a command file and the document it wraps.
-   - **CLAUDE.md against `docs/_decisions/`.** Any disagreement is a defect in CLAUDE.md (PRE-2),
-     including its ratified-decisions index carrying a row no ADR backs, or missing one an ADR
-     decided.
+     and a spec sheet, in a command file and the document it wraps.
+   - **CLAUDE.md §7 against the code and the spec sheets.** Those rows are the record of what was
+     ratified, so each is read against what it names: a row naming a symbol or a behaviour the code
+     does not carry is a defect in CLAUDE.md (PRE-2), while a row the code contradicts is a defect
+     in the code rather than in the row.
    - **`docs/_standard/` against itself**, held to its own rules.
    - **Every rule against the template it points at.** The shape belongs in one of them and is cited
      from the other: a rule restating a shape its template also carries, and a template that does not
@@ -236,7 +235,7 @@ rest. Nothing here is a sample.
    that ships.
 
 5. **Fix in verdict order** — `Wrong` first. `docs/_standard/` governs how each repair is written
-   (COR-3, COR-9, DEC-4, DEC-6).
+   (COR-3, COR-9).
 
    Where a row changes the corpus rather than a sentence:
 

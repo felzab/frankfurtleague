@@ -8,8 +8,7 @@
  * Invariants:
  * - Nothing here hands a function to a client leaf; the callbacks live below the boundary, on the
  *   side that also holds the state (`docs/frontend/spec.md :: I13`).
- * - The figures are the season-wide scope this page asks for, and no other surface shows them
- *   (ADR-0022).
+ * - The figures are the season-wide scope this page asks for, and no other surface shows them.
  */
 
 import { PAGE_RISE } from "@/shared/components/ui/motion";

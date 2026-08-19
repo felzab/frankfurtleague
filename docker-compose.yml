@@ -12,7 +12,7 @@
 #   • nginx waits on both upstreams being HEALTHY, not merely started, so an unhealthy deploy is
 #     never served to anyone.
 #   • The moving `:latest` tag of each package is what `deploy.sh` pulls with no argument. Rollback
-#     pins the immutable `:sha-<commit>` tag instead. One package per service — see ADR-0012.
+#     pins the immutable `:sha-<commit>` tag instead. One package per service.
 #   • Keep this file and docker-compose.local.yml in step. A difference here is a difference the
 #     local stack will not have caught.
 #

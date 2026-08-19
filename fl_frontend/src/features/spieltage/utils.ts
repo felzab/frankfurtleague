@@ -1,16 +1,16 @@
 /**
  * SPIELTAGE · derivations
  *
- * Pure derivation over a season's matchdays — no I/O, no caching (ADR-0003). Two things live
+ * Pure derivation over a season's matchdays — no I/O, no caching. Two things live
  * here: the bracket's column order, and the NAME a matchday is shown under, which no document
- * stores (ADR-0051).
+ * stores.
  *
  * Invariants:
- * - The bracket's edges are `teamN_quelle` only (ADR-0034) — position in a round is geometry,
+ * - The bracket's edges are `teamN_quelle` only — position in a round is geometry,
  *   not topology.
  * - The LAST round anchors the walk, ordering each earlier one — which is why the backend's
- *   derived arrival order has to be right rather than plausible (ADR-0051).
- * - A fixture nothing references keeps its arrival order, after the referenced ones (ADR-0035).
+ *   derived arrival order has to be right rather than plausible.
+ * - A fixture nothing references keeps its arrival order, after the referenced ones.
  *
  * See:
  * - docs/glossary.md — Quelle, for the two variants and what they reference
@@ -72,15 +72,15 @@ export const orderRoundsByWiring = (rounds: readonly FLSpieltagWithSpiele[]): FL
 /**
  * What one matchday is called, from its phase and its place within that phase.
  *
- * **A matchday stores no name** (ADR-0051). One carries no information: a group-phase matchday is its
+ * **A matchday stores no name.** One carries no information: a group-phase matchday is its
  * ordinal, a knockout matchday is its round. Both were already derivable — the ordinal from the order the
  * backend returns, the round from `PHASE_LABELS` — so a stored name was a second statement of the same
  * fact, and one nothing held consistent: two matchdays could share a name, and one called "Finale" could
  * sit in the `gruppenphase`.
  *
  * **It is composed here rather than served by the API**, because it is German display text. `quelle` set
- * that precedent: a reference carries no label, and what a reader sees is derived where it is shown
- * (ADR-0034). The backend has no German vocabulary for the phases and gains none for this.
+ * that precedent: a reference carries no label, and what a reader sees is derived where it is shown.
+ * The backend has no German vocabulary for the phases and gains none for this.
  *
  * `ordinal` is 1-based and counted per phase over the arrival order. `countInPhase` decides whether a
  * knockout round needs distinguishing at all:
@@ -104,7 +104,7 @@ export function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaiso
  * or re-scan the list for every one.
  *
  * The input must be in the API's order, and nothing here re-sorts it: the backend already answered that
- * question (ADR-0051).
+ * question.
  */
 export function spieltagLabels(
   spieltage: readonly { id: string; saison_phase: FLSaisonPhase }[],
@@ -131,7 +131,7 @@ export function spieltagLabels(
 /** One phase of a season, with the matchdays it holds against the number its rules imply. */
 export type SpieltagPhaseProgress = {
   phase: FLSaisonPhase;
-  /** Live matchdays the season holds in this phase. A retired one does not count (ADR-0025). */
+  /** Live matchdays the season holds in this phase. A retired one does not count. */
   angelegt: number;
   /** How many the season's rules imply. Zero for a phase this season's bracket does not reach. */
   erwartet: number;
@@ -141,7 +141,7 @@ export type SpieltagPhaseProgress = {
  * Every phase, with the matchdays the season holds in it and the number `FLSaison.schedule` implies —
  * the matchday-level twin of the per-row `spieleAngelegt` against `anzahl_spiele`.
  *
- * **The count is the SERVED schedule, never recomputed here** (ADR-0052), for the reason
+ * **The count is the SERVED schedule, never recomputed here**, for the reason
  * `buildSpieltagPhaseOffer` gives one level down: an odd group needs an extra round, and a hand-written
  * copy that gets it wrong would report a complete phase as short.
  *
@@ -153,7 +153,7 @@ export type SpieltagPhaseProgress = {
  * which is why `REQ-DATE-004` reads live matchdays alone — so a phase whose third matchday is retired
  * is genuinely a matchday short until something replaces it.
  *
- * **Reported, never refused** (ADR-0052). A season being set up passes through every intermediate count
+ * **Reported, never refused.** A season being set up passes through every intermediate count
  * on the way to complete, so a phase short of matchdays is the ordinary state rather than a mistake.
  *
  * An empty `schedule` means no season was resolved rather than a season that plays nothing, so this
@@ -195,7 +195,7 @@ export type SpieltagPhaseOffer = {
  * Every phase, with this season's expected match count and whether a matchday holding `attachedCount`
  * fixtures may take it — the browser's half of `REQ-SPIELTAG-002`.
  *
- * **The counts are the SERVED schedule, never recomputed here** (ADR-0052). The arithmetic has a case a
+ * **The counts are the SERVED schedule, never recomputed here.** The arithmetic has a case a
  * hand-written copy gets wrong — an odd group needs an extra round, because one team sits out each round
  * — and a copy that undercounts disables a phase the endpoint would have accepted, which is worse than
  * not checking at all. `FLSaison.schedule` is that derivation on the wire.

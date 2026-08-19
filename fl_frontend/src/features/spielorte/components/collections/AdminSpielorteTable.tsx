@@ -130,7 +130,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
         ariaLabel={`Adresse von ${ort.name} kopieren`}
         onPress={() => handleCopyAddress(ort)}
       />
-      {/* A link rather than a press: the venue form edits on a page (ADR-0040), so the pencil is a
+      {/* A link rather than a press: the venue form edits on a page, so the pencil is a
           navigation and the shared view renders no edit overlay. */}
       <RowActionLink
         href={`/admin/spielorte/${ort.id}`}

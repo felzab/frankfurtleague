@@ -41,8 +41,8 @@ reduced-motion block must stay unlayered), `@utility` definitions used or dead.
 SECTION D — PERFORMANCE
 
 D5. **Server waterfalls.** Sequential awaits that should be parallel; any resolver re-introducing a
-serialised lookup in front of page queries (the season default is server-side by ADR-0002 —
-nothing should front-run it).
+serialised lookup in front of page queries (the season default is resolved server-side — nothing
+should front-run it).
 
 D6. **Client payload.** Whole datasets crossing the RSC boundary for a rendered subset; context
 providers shipping data to routes that never read it. **Measure gzipped before filing.** A

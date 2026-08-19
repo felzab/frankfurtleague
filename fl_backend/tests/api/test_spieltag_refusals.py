@@ -5,7 +5,7 @@ Pure functions, so all of it runs in the default tier. The retire and phase rule
 matchday is a container whose contents it does not know about: `REQ-RETIRE-002` refuses retiring one
 that holds a played match — the public Spielplan joins fixtures onto the matchdays it received, so
 the results would go with the container — and `REQ-SPIELTAG-002` refuses a move into a phase
-accounting for fewer matches than the matchday already holds (ADR-0052). `REQ-SPIELTAG-003` is the
+accounting for fewer matches than the matchday already holds. `REQ-SPIELTAG-003` is the
 create rule: a season whose knockout is under way takes no new matchday.
 
 Asserted on the code, never the message: the code is the contract the form reads.
@@ -78,8 +78,8 @@ class TestAPhaseKeepsTheMatchdaysItsRulesImply:
 
     Until this existed a season could be emptied of a phase it still had to play, one unplayed
     matchday at a time, with nothing refusing a single step. Two things it must NOT do. Cap the count:
-    a round split across two dates is two matchday rows for one phase, which ADR-0051 ratified and
-    composes `Viertelfinale (1)` / `Viertelfinale (2)` for. And refuse a phase that is already short,
+    a round split across two dates is two matchday rows for one phase, which the reader composes
+    `Viertelfinale (1)` / `Viertelfinale (2)` for. And refuse a phase that is already short,
     which is the state every season starts in and which no retirement produced. All three directions
     are asserted below, because a rule failing either of the last two passes every rejection test here.
     """
@@ -110,7 +110,7 @@ class TestAPhaseKeepsTheMatchdaysItsRulesImply:
 
     def test_a_split_round_stays_reducible_to_one(self):
         """
-        The capability this rule must not take away (ADR-0051).
+        The capability this rule must not take away.
 
         A quarter-final split across two dates is 2 live rows against a floor of 1. Retiring one of
         them is a schedule being consolidated rather than a gap, so it passes; retiring the survivor
@@ -152,7 +152,7 @@ class TestAMatchdayBelongsToAPhaseTheSeasonPlays:
 
     A season sending eight teams into the bracket plays no round of sixteen, so `schedule_for` lists
     no `achtelfinale` for it — and a round nobody plays cannot be split across dates either, which is
-    why refusing here contradicts nothing ADR-0051 ratified.
+    why refusing here contradicts nothing.
     """
 
     TODAY = "2026-08-08"
@@ -207,7 +207,7 @@ class TestAMatchdayBelongsToAPhaseTheSeasonPlays:
 
     def test_the_implied_count_is_not_treated_as_a_quota(self):
         """
-        The rule this one must not become (ADR-0051).
+        The rule this one must not become.
 
         Nothing is passed here about how many rows the phase already holds, and that is the design: a
         create is refused on WHICH phase and never on how many of that phase there are.
@@ -227,11 +227,11 @@ class TestAMatchdayBelongsToAPhaseTheSeasonPlays:
 
 class TestWhichPhaseChangesAreLegitimate:
     """
-    `REQ-SPIELTAG-005` and `REQ-SPIELTAG-006` — the transition matrix (ADR-0075).
+    `REQ-SPIELTAG-005` and `REQ-SPIELTAG-006` — the transition matrix.
 
-    ADR-0052 kept `saison_phase` editable because which matchday is the quarter-final is a scheduling
-    decision, and correcting a mislabelled row is the ordinary case. It never asked whether EVERY
-    transition should be reachable. Two are not: a move into a round the season's rules never produce,
+    `saison_phase` is editable because which matchday is the quarter-final is a scheduling decision,
+    and correcting a mislabelled row is the ordinary case. That does not make EVERY
+    transition reachable. Two are not: a move into a round the season's rules never produce,
     and a move that carries a matchday across the gruppenphase/knockout boundary away from the fixtures
     it holds.
 
@@ -289,7 +289,7 @@ class TestWhichPhaseChangesAreLegitimate:
         The reported case and its mirror, refused in both directions for one reason.
 
         `/dashboard/playoffs` selects its rounds by the MATCHDAY's phase and its fixtures by the
-        FIXTURE's, and no endpoint writes `spiele.saison_phase` (ADR-0037) — so after this move the four
+        FIXTURE's, and no endpoint writes `spiele.saison_phase` — so after this move the four
         fixtures sit on the far side of the join from their own matchday, with nothing able to bring
         them across.
         """
@@ -308,10 +308,10 @@ class TestWhichPhaseChangesAreLegitimate:
     @pytest.mark.parametrize(("stored", "proposed"), [("viertelfinale", "gruppenphase"), ("gruppenphase", "halbfinale")])
     def test_an_empty_matchday_crosses_freely(self, stored, proposed):
         """
-        The capability this rule must not take away (ADR-0052).
+        The capability this rule must not take away.
 
         A matchday created before its fixtures are drawn and given the wrong phase is the ordinary
-        setup mistake, and correcting it is the scheduling decision ADR-0052 deliberately kept editable.
+        setup mistake, and correcting it is the scheduling decision `saison_phase` stays editable for.
         Nothing is stranded, because there is nothing on the row to strand.
         """
 
@@ -371,7 +371,7 @@ class TestWhichPhaseChangesAreLegitimate:
 
     def test_relabelling_one_knockout_round_as_another_stays_open(self):
         """
-        The cell ADR-0052's argument rests on, asserted so a later rule cannot quietly close it.
+        The cell that keeps `saison_phase` editable, asserted so a later rule cannot quietly close it.
 
         Which matchday is the quarter-final is a scheduling decision, and a knockout matchday keeps its
         fixtures on the same side of the boundary whichever round it is called — so the count rule
@@ -422,7 +422,7 @@ class TestChangingThePhase:
     `REQ-SPIELTAG-002`. What it refuses is the MOVE into a phase too small, never the state of one.
 
     A matchday can only be over its phase's count from data the API never wrote — no payload carries
-    `spieltag_id` and `/spiele` has no POST (ADR-0037) — so a refusal on the state would cost that
+    `spieltag_id` and `/spiele` has no POST — so a refusal on the state would cost that
     matchday its DATES as well, over a mismatch nothing on this endpoint can repair. Both directions are
     asserted below, because a rule reading the state alone passes every rejection test here.
     """
@@ -435,7 +435,7 @@ class TestChangingThePhase:
         The direction that stays permitted, deliberately.
 
         A season being set up holds fewer fixtures than its rules imply at every point on the way to
-        holding all of them (ADR-0052), so refusing here would refuse the setup rather than a mistake.
+        holding all of them, so refusing here would refuse the setup rather than a mistake.
         """
 
         assert find_spieltag_phase_refusal(attached_count=0, expected_count=8, expected_in_stored_phase=8) is None

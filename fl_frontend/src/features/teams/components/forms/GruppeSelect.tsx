@@ -12,7 +12,7 @@ import type { Key } from "@heroui/react";
 /**
  * The group picker, shared by the create form and the junction editor.
  *
- * A picked control, so it is judged on CHANGE rather than on blur (ADR-0040): a selection is
+ * A picked control, so it is judged on CHANGE rather than on blur: a selection is
  * complete the moment it is made, and there is no half-entered value to be wrong about.
  *
  * **It offers the season's own groups, with their fill state** (decided 2026-08-07): `offer` is the

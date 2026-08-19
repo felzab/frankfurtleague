@@ -38,7 +38,7 @@ export default function AdminSpieltagePage(props: NextPageProps) {
         </Suspense>
       }>
       {/* `sections`, because this is the one admin list that is not a table at any width: it arrives
-          as phase-headed groups of cards (ADR-0050), and the table shape would reserve the wrong box
+          as phase-headed groups of cards, and the table shape would reserve the wrong box
           on every viewport rather than on one side of a breakpoint. */}
       <Suspense fallback={<AdminCrudFallback shape="sections" />}>
         <SpieltageList searchParams={props.searchParams} />
@@ -71,7 +71,7 @@ async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]
 /**
  * The season, plus the one fact that can close the create window.
  *
- * The order is derived, so there is no next-free-position to work out (ADR-0051) — but `REQ-SPIELTAG-003`
+ * The order is derived, so there is no next-free-position to work out — but `REQ-SPIELTAG-003`
  * refuses a create once the season's knockout phase is under way, and "under way" is the earliest
  * non-group matchday beginning today or earlier. That is a read this page is already making, so the
  * trigger can refuse BEFORE the request rather than opening a dialog onto a 409 (decided 2026-08-08).
@@ -109,11 +109,11 @@ async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextP
  *
  * **Two reads, and the second is what makes this more than a list of stored fields.** `GET /spiele` for the
  * season gives the fixtures actually attached to each matchday, which is the only way the expected count —
- * derived from the season's rules and the matchday's phase (ADR-0052) — can be checked against reality.
+ * derived from the season's rules and the matchday's phase — can be checked against reality.
  * Retired matchdays are included for the same reason the delete is soft: their matches are untouched and
  * still resolve, so hiding the matchday would hide why those fixtures are where they are.
  *
- * **The order is the API's and this page does not reorder it** (ADR-0051). What it adds is the `ordinal`:
+ * **The order is the API's and this page does not reorder it**. What it adds is the `ordinal`:
  * a 1-based counter per phase, assigned by walking the received order once. Assigning it here rather than
  * in the list is what keeps it out of the client bundle and out of the filtered view — a filter that hides
  * the second matchday must not renumber the third.
@@ -153,7 +153,7 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     }
   }
 
-  // The ordinal and the label together, counted per phase over the order the API returned (ADR-0051). One
+  // The ordinal and the label together, counted per phase over the order the API returned. One
   // pass rather than per row, because the label needs to know how many matchdays the phase holds.
   const labels = spieltagLabels(spieltageRes.spieltage);
 

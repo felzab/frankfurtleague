@@ -23,7 +23,7 @@ const eslintConfig = defineConfig([
       "react/no-unescaped-entities": "off",
 
       // Bans `dangerouslySetInnerHTML`. It is the compensating control for the CSP keeping
-      // 'unsafe-inline' on script-src, so the CSP does not mitigate script injection (ADR-0011).
+      // 'unsafe-inline' on script-src, so the CSP does not mitigate script injection.
       "react/no-danger": "error",
 
       // Keeps type-only imports out of the runtime graph, so a client component importing a type
@@ -35,7 +35,7 @@ const eslintConfig = defineConfig([
   },
 
   // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
-  // so a blanket cross-feature ban would flag mostly-correct sites (ADR-0008).
+  // so a blanket cross-feature ban would flag mostly-correct sites.
   {
     files: ["src/core/**/*.{ts,tsx}"],
     rules: { "no-restricted-imports": ["error", { patterns: [LAYER_BOUNDARY.core] }] },

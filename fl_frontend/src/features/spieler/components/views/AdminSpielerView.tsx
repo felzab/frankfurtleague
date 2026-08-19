@@ -19,7 +19,7 @@ const SEARCH_KEYS = ["fullName", "selected.teamName", "selected.nummer"] as cons
  *
  * The items are player-centric rows spanning every season, with the selected season's squad row
  * beside them. `renderEditModal` is deliberately not passed: the player form edits on a page at
- * `/admin/spieler/[spieler_id]` (ADR-0040), so the table's pencil is a `<Link>` and the shared view
+ * `/admin/spieler/[spieler_id]`, so the table's pencil is a `<Link>` and the shared view
  * renders no edit overlay.
  *
  * **The facets are the one set in the app that is built rather than declared**, because the team facet's

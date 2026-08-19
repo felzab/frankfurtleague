@@ -1,7 +1,7 @@
 name: Expose the Actions runtime to later steps
 description: >-
   Re-exports the Actions cache service credentials so a plain `docker buildx build` in a `run:` step
-  can use the type=gha cache backend. Local to this repository on purpose — see ADR-0031.
+  can use the type=gha cache backend. Local to this repository on purpose.
 
 runs:
   using: node24

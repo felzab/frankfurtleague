@@ -37,7 +37,7 @@ const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
 /**
  * One side of the swap: a club picker listing every club of the season with the group it holds.
  *
- * A picked control, so there is nothing to judge on blur (ADR-0040) — a selection is complete the
+ * A picked control, so there is nothing to judge on blur — a selection is complete the
  * moment it is made. `unpickable` names the clubs this side may not take, and they stay VISIBLE and
  * disabled rather than disappearing, which is `GruppeSelect`'s rule for a full group: an admin should
  * see why a club cannot be chosen instead of wondering where it went.
@@ -133,17 +133,17 @@ function SwapConnective({ first, second }: { first: SaisonSwapTeam | null; secon
 }
 
 /**
- * The group swap: two clubs of this season exchange groups, in one write (ADR-0062).
+ * The group swap: two clubs of this season exchange groups, in one write.
  *
  * **The one mid-season group change that is defensible.** A group decides which table counts a club's
- * results and which bracket slot its placing seeds (ADR-0035), so moving a single club falsifies both —
+ * results and which bracket slot its placing seeds, so moving a single club falsifies both —
  * which is why the club editor locks its Gruppe picker the moment the season is under way and the club
  * has a fixture. Two clubs exchanging keeps each group's size and leaves every drawn fixture facing the
  * opponents it was drawn against, and that lock's own message names this as the case that would be
  * defensible.
  *
  * **This panel is the swap's home, and the club editor's control is a second entry point into the same
- * write** (ADR-0071). Here both sides are open, which is where an admin who has not yet decided which
+ * write**. Here both sides are open, which is where an admin who has not yet decided which
  * two clubs to exchange belongs; the club editor fixes one side because its page has already named it.
  *
  * **A control rather than a field.** It writes the moment it is confirmed and never joins the save bar,
@@ -151,12 +151,12 @@ function SwapConnective({ first, second }: { first: SaisonSwapTeam | null; secon
  *
  * **A confirmation step rather than an undo offer.** The swap is its own inverse — running it again on
  * the same pair restores the season — so the useful protection is the sentence before it rather than a
- * fifteen-second window and a route handler afterwards (ADR-0049 keeps that machinery for the editors
- * whose save it belongs to).
+ * fifteen-second window and a route handler afterwards (that machinery stays with the editors whose
+ * save it belongs to).
  *
  * **Once a knockout fixture has taken place the control refuses rather than warns** (`REQ-SWAP-002`).
  * The standings have been consumed by the seeding, so there is no reading under which the swap is still
- * defensible — and the endpoint refuses the same thing and stays the authority (ADR-0038).
+ * defensible — and the endpoint refuses the same thing and stays the authority.
  *
  * **A club that has already played in its group is offered and refused in place** (`REQ-SWAP-004`), a
  * pair that would double a club on one Spieltag is refused on the second picker (`REQ-SWAP-005`), and a
@@ -206,7 +206,7 @@ export function FormGruppenSwapSection({
    *
    * It is rebuilt against `first` rather than computed once because a Spieltag clash is a property of
    * the PAIR (`REQ-SWAP-005`), so no club is unpickable on its own account. Offering any of them would
-   * be offering a request the write path answers with a 409 (ADR-0038).
+   * be offering a request the write path answers with a 409.
    */
   const unpickableForSecond = new Map(unpickable);
   if (first) {

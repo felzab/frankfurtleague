@@ -22,7 +22,7 @@ export async function getSpielorte(filters: FLSpielorteFilterParams = {}): Promi
   "use cache";
 
   // Base tag only: every venue write clears the whole list, and `include_inactive` splits this into
-  // two entries under one tag rather than into two things to invalidate (ADR-0001).
+  // two entries under one tag rather than into two things to invalidate.
   cacheTag("spielorte");
   cacheLife("days");
 

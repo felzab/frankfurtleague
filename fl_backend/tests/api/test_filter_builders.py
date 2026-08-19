@@ -42,7 +42,7 @@ class TestSaisonsFilter:
         assert build_saisons_filter(filters=filters) == {"status": "active"}
 
     def test_a_season_id_is_not_a_filter_term(self):
-        """One season by its id is an identity served by `GET /saisons/{saison_id}`, never a list filter (ADR-0027)."""
+        """One season by its id is an identity served by `GET /saisons/{saison_id}`, never a list filter."""
         filters = FLSaisonsFilterOptions.model_validate({"saison_id": "2526", "status": "past"})
 
         assert build_saisons_filter(filters=filters) == {"status": "past"}
@@ -80,7 +80,7 @@ class TestSpieleFilter:
     def test_status_maps_to_a_date_comparison_against_today(self):
         """All three date branches at once.
 
-        `ausstehend` is `$gte` — it INCLUDES today, as intent rather than accident (ADR-0058):
+        `ausstehend` is `$gte` — it INCLUDES today, as intent rather than accident:
         the landing page's upcoming list must show today's fixtures, so a tightening to `$gt`
         is the regression this assertion exists to refuse.
         """
@@ -127,10 +127,10 @@ class TestSpieltageFilter:
 
 class TestSpieltageOrder:
     """
-    The derived order, which is also what the displayed name is composed from (ADR-0051).
+    The derived order, which is also what the displayed name is composed from.
 
     A stored position offers nothing to assert but its type, so every ordering defect it permits is
-    invisible to a suite (ADR-0051). A derived one is assertable, which is what these cases do.
+    invisible to a suite. A derived one is assertable, which is what these cases do.
 
     Each matchday is identified by its `_id` rather than by a name, because a matchday carries no name --
     the id is both the final tie-break and the only stable handle a test has on one.
@@ -204,7 +204,7 @@ class TestSpieltageOrder:
 
         Without a final tie-break two calls can disagree, and the public Spielplan's tabs then move between
         reloads. The tie-break is the id rather than a name for two reasons: a matchday has none, and the
-        name a reader sees is composed FROM this order, so using it here would be circular (ADR-0051).
+        name a reader sees is composed FROM this order, so using it here would be circular.
         """
         same_day = [
             self._spieltag(oid=self.B, phase="gruppenphase", beginn="2026-03-07"),

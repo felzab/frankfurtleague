@@ -20,7 +20,7 @@ and backend security passes — do not duplicate their tables here.
 
 CONTEXT — derive from the configs, not from memory: nginx fronts everything; `/api` routes to
 FastAPI, everything else to Next; the browser never reaches FastAPI directly; several protections are
-deliberate _absences_ (no invalidation endpoint for the reference caches — ADR-0028; FastAPI's
+deliberate _absences_ (no invalidation endpoint for the reference caches; FastAPI's
 `/docs` unreachable from outside because it sits at the app root, which nginx sends to Next). An
 absence-as-control is invisible in a config review unless it is on a list — building that list is
 this pass's most important output.
@@ -37,13 +37,12 @@ THE CHECKS, in priority order:
 2. **TOPOLOGY-ONLY CONTROLS.** Merge `backend 3`'s inventory, where present, with your own from
    check 1: every control that is purely an absence or a network boundary, each with what it
    protects, what breaks it (an added location, a compose network change, a port publish), and where
-   it is documented. The retired revalidation route, recorded in ADR-0028, is the model; an
-   undocumented one is a finding.
+   it is documented. The retired revalidation route is the model; an undocumented one is a finding.
 
 3. **HEADER POSTURE.** The served security headers versus the committed configs (on the running stack
    via `local.sh` if available, else static): CSP (one enforced policy retaining `'unsafe-inline'` is
-   **ratified** — ADR-0011 with `react/no-danger` as the compensating control; do not re-litigate it,
-   but verify the compensating rule is still `error`), HSTS, X-Content-Type-Options, Referrer-Policy,
+   **ratified**, with `react/no-danger` as the compensating control; do not re-litigate it, but
+   verify the compensating rule is still `error`), HSTS, X-Content-Type-Options, Referrer-Policy,
    frame-ancestors and X-Frame-Options, and per-location header inheritance — nginx `add_header`
    inheritance is per-block-replacing, so verify no location silently drops the set.
 
@@ -72,8 +71,8 @@ THE CHECKS, in priority order:
    failing visibly?
 
 SEVERITY HONESTY: rate findings for the attacker position that can actually reach them. A
-compose-network-only exposure is real but is not an internet-facing CRITICAL. Cite ADRs before
-flagging any ratified posture.
+compose-network-only exposure is real but is not an internet-facing CRITICAL. Cite the
+`.claude/CLAUDE.md` §7 row or the spec-sheet invariant before flagging any ratified posture.
 
 BOUNDARIES — not this pass: image contents, script correctness, CI mechanics and pipeline excess →
 `ops 1` · application auth logic → the surface programmes · FastAPI-side injection and leakage →

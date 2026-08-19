@@ -16,7 +16,7 @@ import type { SaisonGruppenSwapContext, SaisonOffeneSpiel, SaisonRolloverContext
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The season editor (ADR-0040). One season per URL.
+ * The season editor. One season per URL.
  *
  * **The season is the SEGMENT here, not the sidemenu selector's `?saison_id=`.** That is the opposite of
  * the club and player editors, and it follows from what the page edits: those two edit a season-scoped
@@ -60,7 +60,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     // rollover to present, and one with no incumbent has no outgoing fixtures to check.
     outgoingSaisonId === null || saison.status === "active" ? Promise.resolve(null) : getSpiele({ saison_id: outgoingSaisonId }),
     // This season's clubs, for the swap control. `include_inactive` because this is an admin picker,
-    // and hiding a retired club that still holds a junction row (ADR-0025) would make a swap the
+    // and hiding a retired club that still holds a junction row would make a swap the
     // endpoint accepts look impossible.
     getTeams({ saison_id: saison.id, include_inactive: true }),
     // `playoffs` is the query alias for "not gruppenphase" and is exactly the set `REQ-SWAP-002`
@@ -79,7 +79,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
    * **"Unfinished" is `ergebnis === null && !is_canceled`, and it mirrors `unplayed_spiel_nrs` exactly.**
    * Cancelling is the route past the refusal, so a cancelled fixture is settled: it is what turns a match
    * nobody will ever play into a decision somebody recorded. A cancelled match that DOES carry a result
-   * is a forfeit and counts for the table (ADR-0019), so it is settled either way.
+   * is a forfeit and counts for the table, so it is settled either way.
    *
    * The two definitions have to agree. If this list is empty while the endpoint refuses, the page shows a
    * live rollover button that always fails; if it is longer, the page blocks a rollover that would work.
@@ -100,8 +100,8 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const rollover: SaisonRolloverContext = { outgoingSaisonId, offeneSpiele };
 
   /**
-   * What the group swap control stands on (ADR-0062), assembled by the derivation both entry points
-   * share (ADR-0071) — so that what this page offers and what the club editor offers are the same
+   * What the group swap control stands on, assembled by the derivation both entry points
+   * share — so that what this page offers and what the club editor offers are the same
    * question asked once. The grouped team shape is never requested, so the narrowing is a type guard
    * rather than a branch anything reaches.
    */

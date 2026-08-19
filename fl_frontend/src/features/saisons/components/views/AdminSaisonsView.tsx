@@ -15,8 +15,8 @@ const SEARCH_KEYS = ["id", "start_date", "end_date"] as const;
  * One declaration over `AdminCrudView`, shared with the other admin list views.
  *
  * **Neither modal renderer is passed, and that is the whole shape of this resource.** The editor is a
- * page at `/admin/saisons/[saison_id]` (ADR-0040), so the table's pencil is a `<Link>`; and there is no
- * delete at all, because a season that is over is `past` rather than gone (ADR-0026).
+ * page at `/admin/saisons/[saison_id]`, so the table's pencil is a `<Link>`; and there is no
+ * delete at all, because a season that is over is `past` rather than gone.
  */
 export function AdminSaisonsView({ saisons }: { saisons: AdminSaisonRow[] }) {
   return (

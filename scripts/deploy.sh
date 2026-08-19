@@ -153,7 +153,7 @@ Deploy the build both packages have:  ./scripts/deploy.sh ${RUNNING_BE}"
 
   step "Published builds available to roll back to"
   # Two calls: `docker image ls` accepts at most one repository argument. Matched on the tag, not a
-  # `-sha-` substring — the tag is `sha-1a2b3c4` with no service prefix (ADR-0012), so a substring
+  # `-sha-` substring — the tag is `sha-1a2b3c4` with no service prefix, so a substring
   # match reports "none pinned" forever.
   local_tags="$( { docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; \
                    docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; } | sort)"

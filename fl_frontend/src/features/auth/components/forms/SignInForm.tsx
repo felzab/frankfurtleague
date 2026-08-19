@@ -30,7 +30,7 @@ export function SignInForm() {
     if (hasFieldErrors(state.fieldErrors)) return;
 
     // No "Schließen" action and no hand-set timeout: the close control is
-    // permanently visible on the frontmost toast (ADR-0043), so a dismiss button
+    // permanently visible on the frontmost toast, so a dismiss button
     // duplicates it, and the duration follows the message length.
     appToast.danger("Anmeldung fehlgeschlagen", {
       description: state.error ?? "Ein unerwarteter Fehler ist aufgetreten.",

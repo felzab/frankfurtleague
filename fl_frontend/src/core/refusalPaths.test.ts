@@ -11,7 +11,7 @@
  * - Every exempt path is DATA below, carrying why it is unreachable — so a payload gaining a field
  *   nobody decided about fails here rather than shipping.
  * - Every discovery carries a floor, so a rename that finds nothing fails instead of passing.
- * - Modules are imported dynamically, so `core` gains no static import of `features` (ADR-0008).
+ * - Modules are imported dynamically, so `core` gains no static import of `features`.
  * - Which BRANCH renders a control is invisible here: both of `FormKaderSection`'s count as rendered.
  *
  * See:
@@ -212,7 +212,7 @@ function payloadPaths(node: JsonSchema, prefix = ""): string[] {
 
 /** An id the wire carries in the path, taken from a record this page already loaded and parsed. */
 const IN_THE_PATH = "in the request URI, off an already-parsed record — no input, and no refusal names it";
-const THE_PAGE_SEASON = "the page's selected season, parsed at `.length(4)` before the control renders (ADR-0055)";
+const THE_PAGE_SEASON = "the page's selected season, parsed at `.length(4)` before the control renders";
 
 /** A whole payload that IS an id in the path: a row button or a dialog, with no form under it. */
 const NO_FORM_AT_ALL = "a row button's whole argument: an id in the path, no request body, no form";
@@ -256,7 +256,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   },
 
   FLPostSpieltagPayloadSchema: {
-    saison_id: "the page's season, resolved against the season list before the dialog opens (ADR-0055)",
+    saison_id: "the page's season, resolved against the season list before the dialog opens",
   },
 
   FLPostSaisonTeamPayloadSchema: { team_id: IN_THE_PATH, saison_id: THE_PAGE_SEASON },
@@ -280,7 +280,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLSwapGruppenPayloadSchema: {
     saison_id: IN_THE_PATH,
     team1_id: "the page's own club, or the season editor's first pick — never typed",
-    team2_id: "picked from clubs the swap already graded, each id off a parsed record (ADR-0071)",
+    team2_id: "picked from clubs the swap already graded, each id off a parsed record",
   },
 
   FLPatchSpielDataPayloadSchema: {

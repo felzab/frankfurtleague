@@ -13,10 +13,8 @@ model that has a zod mirror, both directions, no field omitted. It is the pass's
 CONTEXT — derive, do not assume: the Pydantic models live in `app/api/*/schemas.py` and
 `app/shared/schemas/`; their zod mirrors in `fl_frontend/src/features/*/schemas.ts` and
 `fl_frontend/src/shared/schemas.ts`. The two are **hand-maintained mirrors with no generation step**
-— a ratified decision
-([ADR-0033](../../../_decisions/0033-the-zod-mirror-is-checked-against-the-published-document.md)),
-not a defect to report. A gate check already compares presence, required, nullable, primitive type
-and enum members against the committed `fl_backend/openapi.json`
+— a ratified decision, not a defect to report. A gate check already compares presence, required,
+nullable, primitive type and enum members against the committed `fl_backend/openapi.json`
 (`fl_frontend/src/core/apiContract.test.ts`), so **this pass's subject is what that check deliberately
 leaves out**: ranges, patterns, lengths, formats and the shapes recorded in its exception lists.
 The backend is the ratified source of truth; the frontend mirrors it. Pydantic validates on the way
@@ -53,7 +51,7 @@ THE CHECKS, in priority order:
 
 4. **REQUEST-MODEL BOUNDS.** Every query, path and body parameter: bounded (`ge` / `le` on limits,
    `Literal` for enums, validated id types), correct defaults (an omitted `saison_id` means the
-   current season, resolved in the handler — ADR-0002; never a field default), and alias handling
+   current season, resolved in the handler; never a field default), and alias handling
    (`serialization_alias` / `by_alias` used correctly — a name-versus-alias mismatch fails silently
    at this boundary rather than raising). Unknown-field behaviour: what does each write model do with
    an undeclared field — silently drop it, where the frontend might believe it was sent?
@@ -69,8 +67,8 @@ THE CHECKS, in priority order:
    surfaced with enough structure to act on and no more.
 
 7. **SEMANTIC CONTRACTS.** Where both sides _derive_ the same concept independently — status
-   derivation (`ausstehend` / `heute`, ratified as ADR-0058; verify the code still matches the ADR
-   rather than reporting the divergence), score formatting, phase aliases (`"playoffs"` compiles to a
+   derivation (`ausstehend` / `heute` — ratified; verify the code still matches rather than
+   reporting the divergence), score formatting, phase aliases (`"playoffs"` compiles to a
    filter and never appears on a document — see `docs/glossary.md`) — name every derivation pair and
    state whether the two agree at the boundaries: today, null, empty.
 

@@ -33,18 +33,18 @@ import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { ReactNode } from "react";
 
 /**
- * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). It stands
- * on every save, confirmed or not: a confirmation is the carve-out for a draft carrying a warning
- * or a danger, and undo is what still helps the admin who was not paying attention (ADR-0070).
+ * How long the undo offer stands after a save. It stands on every save, confirmed or not: a
+ * confirmation is the carve-out for a draft carrying a warning or a danger, and undo is what still
+ * helps the admin who was not paying attention.
  */
 const UNDO_TIMEOUT_MS = 15000;
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0049: an undo
- * belongs to a page-owned editor, and nothing else becomes a route handler): by the time the offer
- * is pressed this component is unmounted and the browser is on another route, and a server action
- * dispatched from there trips Next's E592 invariant and is truncated mid-response.
- * **Revert this to a server action once E592 is fixed upstream**; the ADR names that condition.
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason: by the time the
+ * offer is pressed this component is unmounted and the browser is on another route, and a server
+ * action dispatched from there trips Next's E592 invariant and is truncated mid-response. An undo
+ * belongs to a page-owned editor, and nothing else becomes a route handler.
+ * **Revert this to a server action once E592 is fixed upstream.**
  */
 async function postSpieltagUndo(payload: FLPatchSpieltagPayload): Promise<{ success: boolean; message?: string; error?: string }> {
   const response = await fetch("/api/admin/spieltage/undo", {
@@ -64,11 +64,11 @@ async function postSpieltagUndo(payload: FLPatchSpieltagPayload): Promise<{ succ
 
 /**
  * The matchday editor's form: three panels over three fields, a sticky summary rail, and one
- * derivation behind both — the match editor's shape (ADR-0040) over a matchday.
+ * derivation behind both — the match editor's shape over a matchday.
  *
- * **Three fields on a page is ADR-0072's decision and not an oversight.** What earns the page is what
+ * **Three fields on a page is deliberate.** What earns the page is what
  * the form has to SAY rather than how much it holds: the name, the position and the expected match
- * count are all derived and none of them is a field (ADR-0051, ADR-0052), and six backend refusals
+ * count are all derived and none of them is a field, and six backend refusals
  * stand behind the three controls that are. The rail is where all of that goes.
  */
 export function AdminSpieltagEditForm({
@@ -82,7 +82,7 @@ export function AdminSpieltagEditForm({
   spieltag: AdminSpieltagRow;
   /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
   saisonSpan?: { start: string; end: string };
-  /** The season's derived per-phase counts, which decide what the phase picker may offer (ADR-0052). */
+  /** The season's derived per-phase counts, which decide what the phase picker may offer. */
   saisonSchedule?: readonly FLSaisonPhaseSchedule[];
   /** Live matchdays the STORED phase holds, this one included — half of `REQ-RETIRE-005`. */
   livePhaseCount: number;
@@ -148,7 +148,7 @@ export function AdminSpieltagEditForm({
   }, [formRef]);
 
   // Both dates are pickers rather than typed fields, so every control on this form is judged on
-  // change (ADR-0040) — and the cross-field span rule reports on `ende`, so both paths refresh
+  // change — and the cross-field span rule reports on `ende`, so both paths refresh
   // together or its message never clears.
   const validatePicked = (paths: readonly string[], picked: Partial<FLSpieltagDraftFields>) =>
     validatePaths("spieltag", { ...buildPayload(), ...picked }, paths);
@@ -218,7 +218,7 @@ export function AdminSpieltagEditForm({
 
   /**
    * What both submit routes reach first: a draft carrying a warning or a danger is confirmed, and a
-   * clean one saves straight through (ADR-0070). The write itself is unchanged either way, undo
+   * clean one saves straight through. The write itself is unchanged either way, undo
    * included.
    */
   const requestSave = () => {
@@ -235,7 +235,7 @@ export function AdminSpieltagEditForm({
   const handleFormSubmit = () => {
     startTransition(async () => {
       // Read before the write, because the props still hold the pre-save values here and the toast
-      // that replays them outlives this component (ADR-0041, ADR-0049).
+      // that replays them outlives this component.
       const undoPayload: FLPatchSpieltagPayload = {
         id: spieltag.id,
         beginn: spieltag.beginn,
@@ -268,8 +268,8 @@ export function AdminSpieltagEditForm({
   };
 
   /**
-   * The undo toast: fifteen seconds to take the save back (ADR-0041's window over ADR-0049's
-   * transport). The pitfalls the match editor documents all apply and are all mirrored here: the
+   * The undo toast: fifteen seconds to take the save back, over the same `fetch` transport. The
+   * pitfalls the match editor documents all apply and are all mirrored here: the
    * toast outlives this component, so the press runs in a detached closure — `router.refresh()` is
    * what re-renders a screen the action's own revalidation can no longer reach (the router instance
    * is a stable singleton, legal after unmount); the replay uses the TWO-ARGUMENT `then`, so a

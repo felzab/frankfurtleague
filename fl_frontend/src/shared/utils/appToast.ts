@@ -3,7 +3,7 @@
  *
  * Wraps HeroUI's `toast` so the two things every producer used to get wrong are decided here:
  * how long a message stays, and which half of it is the outcome. `AppToaster` owns what a toast
- * looks like; this owns what one says and for how long (ADR-0043).
+ * looks like; this owns what one says and for how long.
  *
  * Invariants:
  * - A title is an outcome, a description is the detail — never a sentence pair joined into the title.

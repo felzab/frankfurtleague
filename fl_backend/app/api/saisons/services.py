@@ -8,7 +8,7 @@ everything below them decides whether a season write is one the competition can 
 Invariants:
 - An edit that would strand existing data is refused at the write (decided 2026-08-07).
 - A finished season's competitive rules are frozen — only the dates stay editable (decided 2026-08-07).
-- `MAX_QUALIFIERS` is `2 ** len(KNOCKOUT_PHASES)`: the rule widens by adding a phase (ADR-0052).
+- `MAX_QUALIFIERS` is `2 ** len(KNOCKOUT_PHASES)`: the rule widens by adding a phase.
 - A refusal returns a `WriteRefusal` and never raises — the caller owns the status code.
 - The checks run in the order an admin can act on them, like `find_entry_refusal`.
 
@@ -70,8 +70,8 @@ RULES_GROUPS_IN_USE = "REQ-RULES-002"
 RULES_CAPACITY_BELOW_USE = "REQ-RULES-003"
 
 # `qualifiers_per_group` would drop below the highest placing a bracket slot names, leaving it
-# referencing a placing its group cannot produce. The resolution reports that as a bracket fault
-# (ADR-0039), but to whoever opens triage rather than the cause.
+# referencing a placing its group cannot produce. The resolution reports that as a bracket fault, but
+# to whoever opens triage rather than the cause.
 RULES_QUALIFIERS_BELOW_WIRING = "REQ-RULES-004"
 
 # A `past` season's competitive rules. Frozen because the table is derived: editing them rewrites a
@@ -84,12 +84,12 @@ RULES_SAISON_FINISHED = "REQ-RULES-005"
 RULES_QUALIFIERS_ABOVE_GROUP = "REQ-RULES-007"
 
 # The narrowing would leave a matchday holding more fixtures than its phase accounts for (decided
-# 2026-08-08). The expected count derives from these rules (ADR-0052), and a matchday over it is a
-# state no season setup passes through, unlike being under.
+# 2026-08-08). The expected count derives from these rules, and a matchday over it is a state no
+# season setup passes through, unlike being under.
 RULES_MATCHDAY_OVER_ITS_PHASE = "REQ-RULES-006"
 
 # The three fields a finished season freezes. The dates stay editable, and so does `erlaubte_stufen`,
-# which bounds what a form offers and never what a stored squad row holds (ADR-0048).
+# which bounds what a form offers and never what a stored squad row holds.
 FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers_per_group")
 
 
@@ -107,7 +107,7 @@ def find_rules_refusal(
 
     `stored` is `None` on a create, where there is nothing to strand and nothing frozen: only the rules
     that read the proposed payload alone apply. `occupancy_by_gruppe` counts `saison_teams` rows per group, disqualified rows included,
-    because a team never leaves a season (ADR-0026) and its place stays taken. `highest_wired_platz` is
+    because a team never leaves a season and its place stays taken. `highest_wired_platz` is
     the largest `platz` any of the season's bracket slots names, or 0 where none does.
 
     `attached_by_phase` is the LARGEST fixture count any single matchday of each phase already holds --

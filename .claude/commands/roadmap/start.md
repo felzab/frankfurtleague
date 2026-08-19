@@ -75,17 +75,18 @@ you are on a branch named for the change (CLAUDE.md §2).
 
    **Commit 1 — the closing commit.** The work itself, plus:
 
-   - **An ADR for every decision taken**, per `docs/_standard/chapters/4-decisions.md`, with its row
-     added to `docs/_decisions/README.md`. A decision recorded only in a commit body is one nobody
-     finds.
+   - **Every decision taken recorded where it will be read**, the destination picked by how it
+     fails: a silent failure to a comment at the line it constrains (INC-9 caps it at 250
+     characters) or to a gate check, a loud one to a CLAUDE.md §7 row, a domain rule to the spec
+     sheet's `## 2. Invariants`. **The argument goes in this commit's body**, which `git blame`
+     reaches from the constraint — `scripts/check_commits.py` refuses a commit with none.
    - **Every reference to the ID updated**, which CLAUDE.md's same-commit rule requires.
      `git grep -n "<ID>"` enumerates them. They live in the `## 4. Known-open` table of a surface
-     spec sheet (its `#` column), in an audit pass prompt under `docs/_auditing/prompts/`, in ADR
-     bodies, and in source comments. A comment keeps the constraint and cites the ADR — INC-6 bans
-     the roadmap id there.
+     spec sheet (its `#` column) and in an audit pass prompt under `docs/_auditing/prompts/`. INC-6
+     bans the roadmap id from a source comment, which carries the constraint itself.
    - On the entry's ranked page: set the entry's `Status` to **Closed** in the index table and in
-     the entry itself, and add a short block naming what concluded it — the ADR numbers, and where
-     each finding that was _not_ a decision was rehomed. **The entry stays.**
+     the entry itself, and add a short block naming what concluded it — where each decision was
+     recorded, and where each finding that was _not_ a decision was rehomed. **The entry stays.**
 
    **Commit 2 — the removal commit.** The entry's ranked page and `docs/_roadmap/closed-items.md`,
    nothing else:

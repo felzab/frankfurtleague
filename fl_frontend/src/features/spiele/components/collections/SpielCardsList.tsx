@@ -10,7 +10,7 @@ import type { FLSpiel } from "../../schemas";
 
 /**
  * `isAdmin` gives every card an edit link. A boolean rather than the callback this took before: since the
- * editor became a page (ADR-0040) the only thing the admin variant needs is a URL, and a URL is derived
+ * editor became a page, the only thing the admin variant needs is a URL, and a URL is derived
  * from the fixture rather than handed down — so the admin list that used to own the modal's state has
  * nothing left to own.
  */
@@ -27,7 +27,7 @@ export function SpielCardsList({
    * Why each fixture needs a person, keyed by `spiel_id` — the admin triage list's, and nobody else's.
    *
    * A map rather than a field on the fixture, because a fault is derived over the whole season and
-   * arrives beside the matches rather than inside them (ADR-0039). Absent on every public list, where
+   * arrives beside the matches rather than inside them. Absent on every public list, where
    * the concept does not exist.
    */
   faultsBySpielId?: ReadonlyMap<string, readonly string[]>;

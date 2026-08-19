@@ -5,9 +5,9 @@ Only `vorname` is required — everything else may be null while a squad entry i
 filled in. Mirrored by `FLSpielerSchema` in the frontend.
 
 Invariants:
-- `position` and `stufe` are closed sets (ADR-0048); the `saison_spieler` validator refuses others.
+- `position` and `stufe` are closed sets; the `saison_spieler` validator refuses others.
 - `nummer` is a string and stays free text — not unique within a squad, worn rather than counted.
-- The person and the squad row retire independently (ADR-0025).
+- The person and the squad row retire independently.
 """
 
 from typing import Literal
@@ -26,7 +26,7 @@ FLSpielerPosition = Literal["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 
 # The Hessen Oberstufe, both phases. E2 holds no row today and is still offered: the phases run in
 # sequence, so a set stopping at what the current season happens to contain would refuse a legitimate
-# entry the moment the year turns (ADR-0048).
+# entry the moment the year turns.
 FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 
 # A person's name: Unicode letters and the separators a real one uses, because an ASCII rule would
@@ -55,7 +55,7 @@ class FLSpieler(BaseModel):
     team_id: CustomObjectId
     # The day this PERSON left the league, or null. Distinct from the squad row's own
     # `inactive_since`: a player who left one team's squad has a retired junction row and is very much
-    # still a player (ADR-0025).
+    # still a player.
     inactive_since: CustomOptionalDateString
 
 
@@ -68,7 +68,7 @@ class FLSpielerFilterParams(BaseModel):
     team_id: CustomObjectId | None = None
     saison_id: str | None = None
     is_nachgetragen: bool | None = None
-    # Closed since ADR-0048, so a misspelled year now comes back 422 rather than as an empty squad.
+    # A closed set, so a misspelled year comes back 422 rather than as an empty squad.
     stufe: FLSpielerStufe | None = None
     include_inactive: bool = False
 
@@ -91,10 +91,10 @@ class FLPatchSpielerPayload(BaseModel):
     """
     Replaces the person's names WHOLESALE.
 
-    Every field is required with no default (ADR-0047's rule, which the team junction states for the
-    same reason). The handler `$set`s this model's dump. A field with a default would therefore let a form that
-    forgot it write that default over a stored value -- silently, because nothing distinguishes
-    "omitted" from "deliberately cleared" once the dump is built. An omitted `nachname` is a 422.
+    Every field is required with no default, as on the team junction and for the same reason. The
+    handler `$set`s this model's dump. A field with a default would therefore let a form that forgot
+    it write that default over a stored value -- silently, because nothing distinguishes "omitted"
+    from "deliberately cleared" once the dump is built. An omitted `nachname` is a 422.
     """
 
     vorname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
@@ -179,7 +179,7 @@ class FLSpielerMembership(BaseModel):
 
     Carries `inactive_since`, which the team junction's equivalent does not and cannot: a squad row
     really is retired when a player leaves a team mid-season, while a team never leaves a season at
-    all (ADR-0026). The admin list badges a retired row in place and offers the reactivate beside it.
+    all. The admin list badges a retired row in place and offers the reactivate beside it.
     """
 
     saison_id: str
@@ -196,9 +196,9 @@ class FLSpielerWithMemberships(BaseModel):
     """
     The person as stored, plus every squad row they hold -- the admin list's one read.
 
-    A DIFFERENT question from `FLSpieler`, not a projection of it (ADR-0027). `FLSpieler` is one
-    player FLATTENED against one season, which is why it carries a `team_id` and no `saison_id`: the
-    read that produces it unwinds the junction, so a player in two seasons comes back as two
+    A DIFFERENT question from `FLSpieler`, not a projection of it. `FLSpieler` is one player
+    FLATTENED against one season, which is why it carries a `team_id` and no `saison_id`: the read
+    that produces it unwinds the junction, so a player in two seasons comes back as two
     indistinguishable rows and a player in none fails validation on the `team_id` they have not got.
     The admin surface asks "every player, and which squads hold them", which that shape cannot answer
     at any filter setting.
@@ -209,7 +209,7 @@ class FLSpielerWithMemberships(BaseModel):
     vorname: str = Field(min_length=1)
     nachname: str | None
     # The day the PERSON left the league. A squad row's own retirement is on the membership above,
-    # and the two are independent (ADR-0025).
+    # and the two are independent.
     inactive_since: CustomOptionalDateString
     memberships: list[FLSpielerMembership]
 

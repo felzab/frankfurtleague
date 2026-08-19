@@ -3,7 +3,7 @@ TEAMS · when two clubs may exchange groups inside a season
 
 `find_gruppe_swap_refusal`, pure, default tier. A swap is the one mid-season group change that
 keeps every group's size and every drawn fixture intact, which is why it exists beside the lock
-`REQ-ENTER-004` applies to a MOVE rather than relaxing it (ADR-0062).
+`REQ-ENTER-004` applies to a MOVE rather than relaxing it.
 
 Six rules, and the order between them is asserted here as well as the rules themselves: a pair
 that is not a swap is refused as one before anything about the season is consulted, a season that
@@ -170,7 +170,7 @@ class TestAFinishedSeasonIsFrozen:
 
     def test_a_past_season_is_refused(self):
         """
-        A finished season's table is derived from these groups on every read (ADR-0019).
+        A finished season's table is derived from these groups on every read.
 
         So exchanging them rewrites who won a competition that is over, with nothing anywhere recording
         what it used to say — the same harm `REQ-RULES-005` refuses over `win_points`.
@@ -254,7 +254,7 @@ class TestTheRoundRobinClosesTheWindow:
 
 
 class TestASpieltagNeverHoldsAClubTwice:
-    """`REQ-SWAP-005`: the exchange may not leave a club standing in two matches of one Spieltag (ADR-0042)."""
+    """`REQ-SWAP-005`: the exchange may not leave a club standing in two matches of one Spieltag."""
 
     def test_a_swap_that_doubles_nobody_passes(self):
         """Zero is the ordinary season, where the bracket has no manual pick sharing a Spieltag with a group fixture."""
@@ -315,12 +315,12 @@ def fixture(team1, team2, datum: str | None = "2026-05-01"):
 
 class TestASwapNeverFieldsADisqualifiedClub:
     """
-    `REQ-SWAP-006` (ADR-0074). The swap was a back door around `REQ-ELIGIBILITY-001`.
+    `REQ-SWAP-006`. The swap was a back door around `REQ-ELIGIBILITY-001`.
 
     `_rewrite_gruppenphase_sides` writes fixture documents without passing `patch_spiel_data`, so it
-    could move a disqualified club onto fixtures that path would refuse. **Forwards only**: ADR-0042's
-    rule is that enforcement leaves the past alone, so a fixture dated before the disqualification is
-    untouched and stays a person's choice between a forfeit and a replacement.
+    could move a disqualified club onto fixtures that path would refuse. **Forwards only**: enforcement
+    leaves the past alone, so a fixture dated before the disqualification is untouched and stays a
+    person's choice between a forfeit and a replacement.
     """
 
     def test_nothing_disqualified_counts_nothing(self):
@@ -350,7 +350,7 @@ class TestASwapNeverFieldsADisqualifiedClub:
         )
 
     def test_a_fixture_before_the_disqualification_does_not(self):
-        """ADR-0042's line, and the half that makes this rule defensible rather than a blanket refusal."""
+        """Where enforcement stops, and the half that makes this rule defensible rather than a blanket refusal."""
 
         assert (
             fixtures_newly_fielding_a_disqualified_club(
@@ -425,7 +425,7 @@ class TestASwapNeverFieldsADisqualifiedClub:
 
         assert refusal is not None
         assert refusal.error_code == SWAP_FIELDS_DISQUALIFIED
-        # The two-step escape is what makes a guard with an override acceptable (ADR-0069's test).
+        # The two-step escape is what makes a guard with an override acceptable.
         assert "lift the disqualification" in refusal.message
 
     def test_every_terminal_refusal_is_answered_first(self):

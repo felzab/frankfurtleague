@@ -65,7 +65,7 @@ export async function register() {
   const { frontend_config } = await import("./core/config");
 
   // In the JSON format everything reaching console.* -- above all Next's own multi-line `⨯ Error`
-  // dumps -- is wrapped into the one-document-per-line envelope the logger writes (ADR-0032).
+  // dumps -- is wrapped into the one-document-per-line envelope the logger writes.
   // Installed here, before the first request can error.
   if (frontend_config.LOG_FORMAT === "json") {
     const { installConsoleShim } = await import("./core/consoleShim");

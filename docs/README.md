@@ -1,6 +1,6 @@
 # Documentation
 
-**Verified against:** `9f04f46`, 2026-08-12\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Folder purpose:** everything written down about Frankfurt-League — a Next.js frontend, a FastAPI backend, MongoDB, deployed with Docker Compose behind nginx on a single host.
 
 ## Folder overview
@@ -15,7 +15,6 @@
 | [`backend/spec.md`](backend/spec.md)                     | Its exact contract — endpoints, error codes, the test suite                                 |
 | [`ops/overview.md`](ops/overview.md)                     | How the system is built, routed and deployed                                                |
 | [`ops/spec.md`](ops/spec.md)                             | Compose, nginx, the scripts and every gate scope                                            |
-| [`_decisions/`](_decisions/)                             | Why something is built this way, and whether it is deliberate                               |
 | [`_git/`](_git/)                                         | Branching, commits, pull requests, the gate, repository settings                            |
 | [`_git/templates.md`](_git/templates.md)                 | Writing a commit message or a pull request body                                             |
 | [`ops/runbooks.md`](ops/runbooks.md)                     | The recurring procedures, and what this repository cannot record about the host             |
@@ -37,8 +36,8 @@ Read in this order. About an hour, and it is the shortest path back to changing 
    edited. Two of its aggregates are counter-intuitive and both mistakes are expensive.
 3. **The three surface overviews** — [frontend](frontend/overview.md), [backend](backend/overview.md),
    [ops](ops/overview.md). What each part is, and why it is shaped that way.
-4. **The [ADR index](_decisions/README.md)** — one line per decision. The fastest answer to "why is it
-   like this", and the reason you will not re-litigate settled questions.
+4. **[`.claude/CLAUDE.md`](../.claude/CLAUDE.md) §7** — one line per ratified decision. The fastest
+   answer to "why is it like this", and the reason you will not re-litigate settled questions.
 5. **[`_git/`](_git/)** — how to actually ship a change.
 
 The specs are reference, not reading. Look things up in them; do not read them through.

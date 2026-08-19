@@ -5,8 +5,8 @@ One Motor client, created in the FastAPI lifespan and attached to `app.state`. C
 reached through the typed dependencies in `dependencies.py`, never constructed ad hoc.
 
 Invariants:
-- The app refuses to start if MongoDB is unreachable or the constraints cannot apply (ADR-0020).
-- `get_teams_collection` is the season-independent club document — the junction is separate (ADR-0019).
+- The app refuses to start if MongoDB is unreachable or the constraints cannot apply.
+- `get_teams_collection` is the season-independent club document — the junction is separate.
 
 See:
 - docs/backend/spec.md — invariant I9
@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
         await app.state.db_client.admin.command("ping")
 
         # The database's own constraints, declared in this repository and reapplied on every boot so
-        # the cluster can never quietly hold a different set (ADR-0020).
+        # the cluster can never quietly hold a different set.
         try:
             constraints = await apply_constraints(app.state.db_client[config.db_base_name])
         except Exception:

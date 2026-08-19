@@ -6,13 +6,13 @@
  *
  * All of these use `authType: "admin"`; the backend's admin router rejects the base key.
  *
- * **The ids go in the PATH and never in the body** (ADR-0027). The payload schemas still carry them,
+ * **The ids go in the PATH and never in the body**. The payload schemas still carry them,
  * because they back the admin forms and a form has to know which club and which season it is
  * editing — so each mutation below splits them off. A backend payload model that saw one would drop
  * it silently.
  *
  * **The junction has a POST and a PATCH and no DELETE**, and none may be added: a team never leaves
- * a season, disqualification is the only way out (ADR-0026).
+ * a season, disqualification is the only way out.
  */
 
 import { apiClient } from "@/core/api";
@@ -41,7 +41,7 @@ export async function postTeam(postTeamPayload: FLPostTeamPayload): Promise<FLPo
 }
 
 // The response carries `fanned_out_to_spiele`: the backend rewrites the name and shorthand embedded
-// in every match the club plays in (ADR-0021 rule 3), and the count is how that silent half is seen.
+// in every match the club plays in, and the count is how that silent half is seen.
 export async function patchTeam({ id, ...fields }: FLPatchTeamPayload): Promise<FLPatchTeamResponse> {
   return apiClient<FLPatchTeamResponse>(`/teams/${id}`, FLPatchTeamResponseSchema, {
     method: "PATCH",
@@ -50,7 +50,7 @@ export async function patchTeam({ id, ...fields }: FLPatchTeamPayload): Promise<
   });
 }
 
-// Soft: the backend stamps `inactive_since` and removes nothing (ADR-0025).
+// Soft: the backend stamps `inactive_since` and removes nothing.
 export async function deleteTeam({ id }: FLDeleteTeamPayload): Promise<FLTeamWriteResponse> {
   return apiClient<FLTeamWriteResponse>(`/teams/${id}`, FLTeamWriteResponseSchema, {
     method: "DELETE",
@@ -58,8 +58,8 @@ export async function deleteTeam({ id }: FLDeleteTeamPayload): Promise<FLTeamWri
   });
 }
 
-// The one way back: creating never revives, because a shorthand cannot say WHICH club is meant
-// (ADR-0025). An id can, so reactivation names one and carries no body.
+// The one way back: creating never revives, because a shorthand cannot say WHICH club is meant. An id
+// can, so reactivation names one and carries no body.
 export async function reactivateTeam({ id }: FLReactivateTeamPayload): Promise<FLTeamWriteResponse> {
   return apiClient<FLTeamWriteResponse>(`/teams/${id}/reactivate`, FLTeamWriteResponseSchema, {
     method: "POST",

@@ -33,7 +33,7 @@
 # prints the deny JSON the PreToolUse event understands, which stops the tool call before it writes.
 #
 #   WHAT IT DOES WHEN IT CANNOT TELL. Every question below has a "no idea" case, and every one of
-#   them denies — git unable to answer, node absent, a payload naming no path (ADR-0060).
+#   them denies — git unable to answer, node absent, a payload naming no path.
 #
 #   A DETACHED HEAD IS ALLOWED, and that is the one "cannot tell" case that is not a refusal.
 #   `git branch --show-current` prints nothing and succeeds when no branch is checked out, which is a
@@ -65,7 +65,7 @@ fi
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$repo_root" ] || deny
 
-# Containment is decided by node on canonical paths, never textually (ADR-0060). An inside verdict
+# Containment is decided by node on canonical paths, never textually. An inside verdict
 # appends the repository-relative path on its own line, because the git questions below are asked
 # about a path rather than about a boundary.
 

@@ -108,7 +108,7 @@ function ClearFieldButton({
  *
  * **Controlled, like every sibling section.** The two fields hold calendar objects and the form converts
  * them at the payload boundary. They are controlled for two reasons that both arrived with the page: the
- * draft payload has to be complete for a field to be judged when it is left (ADR-0040), and a React 19
+ * draft payload has to be complete for a field to be judged when it is left, and a React 19
  * form `action` resets uncontrolled inputs when it resolves — which on a page the admin stays on would
  * blank exactly these two fields.
  *
@@ -117,7 +117,7 @@ function ClearFieldButton({
  * has typed the day and not yet the month.
  *
  * **Neither field carries a `Description`.** "Wähle das Datum aus, an dem das Spiel stattfindet" under a
- * label reading "Spieldatum" is the label again in more words (ADR-0040).
+ * label reading "Spieldatum" is the label again in more words.
  */
 export function FormDateTimeSection({
   datum,

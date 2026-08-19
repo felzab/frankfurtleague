@@ -1,6 +1,6 @@
 # Roadmap
 
-**Verified against:** `9f04f46`, 2026-08-12\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Folder purpose:** open items with their full analysis, the log of everything that has left, and the protocol they are all kept under.
 
 ## Folder overview
@@ -18,5 +18,6 @@ A **finding or an undecided question with real analysis behind it and no decisio
 analysis is the deliverable, so the decision is taken with it in hand. Issue-shaped feature work is
 parked here too, so it is ranked alongside everything else rather than left in the tracker.
 
-Elsewhere: a decided thing is an ADR in [`../_decisions/`](../_decisions/); a defect under active
-remediation is a ledger row in `docs/audit/`; a contract the spec sheets track stays there.
+Elsewhere: a decided thing is recorded where it will be read and argued in the commit that took it;
+a defect under active remediation is a ledger row in `docs/audit/`; a contract the spec sheets track
+stays there.

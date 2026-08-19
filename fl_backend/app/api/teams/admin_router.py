@@ -1,15 +1,14 @@
 """
 TEAMS · write endpoints
 
-Clubs, and their membership of a season. Guarded at router level by `verify_access_admin`
-(ADR-0027).
+Clubs, and their membership of a season. Guarded at router level by `verify_access_admin`.
 
 Invariants:
-- A rename fans the club's name into every match embedding it, unconditionally (ADR-0021).
+- A rename fans the club's name into every match embedding it, unconditionally.
 - Deletion is soft; `uniq_shorthand` keeps indexing a retired club, so a taken shorthand 409s.
-- A team never leaves a season — the junction has a POST and a PATCH and no DELETE (ADR-0026).
+- A team never leaves a season — the junction has a POST and a PATCH and no DELETE.
 - A write echoes `FLTeamRecord`, never `FLTeam` — the strict join would 404 a just-created club.
-- `/teams/{team_id}/saisons/{saison_id}` addresses a junction row, never the season (ADR-0027).
+- `/teams/{team_id}/saisons/{saison_id}` addresses a junction row, never the season.
 
 See:
 - docs/glossary.md — "the season junctions"
@@ -70,7 +69,7 @@ async def get_team_memberships(teams_collection: TeamsCollection) -> FLTeamsMemb
     client-side union. This is the club-centric question as one aggregation instead.
 
     In the admin router rather than the read router because only the admin surface asks it — the
-    same split that puts `GET /spiele/action_required` beside the match writes (ADR-0027).
+    same split that puts `GET /spiele/action_required` beside the match writes.
 
     A static path beside `by_id` routes: the id convertor takes 24 hex characters, so
     `/teams/memberships` can never be captured by an id route regardless of declaration order.
@@ -89,8 +88,8 @@ async def post_team(
     """
     Create a club.
 
-    `shorthand` is unique across every club, retired ones included, and the database enforces it
-    (ADR-0020) — a duplicate comes back as 409, not as a second team.
+    `shorthand` is unique across every club, retired ones included, and the database enforces it — a
+    duplicate comes back as 409, not as a second team.
 
     **It never revives a retired club, and that is deliberate.** A shorthand collision has two possible
     meanings — the same club returning, or a different club wanting two letters the old one still
@@ -130,7 +129,7 @@ async def patch_team(
 
     **It runs for every club, with no exception to remember.** The embedded `name` is a display copy of
     this document and carries nothing else — a bracket slot's source is the match's own `teamN_quelle`,
-    which no path under `team1.`/`team2.` reaches (ADR-0021, ADR-0034).
+    which no path under `team1.`/`team2.` reaches.
     """
 
     updated_raw = await patch_one_in_db(
@@ -171,7 +170,7 @@ async def delete_team(
 
     **Refused with a 409 (`REQ-RETIRE-001`) while the club is entered in an `active` or `future`
     season.** Retiring hides the club from every picker and default list while its fixtures are
-    still being played or drawn; a club leaves a running season only by disqualification (ADR-0026).
+    still being played or drawn; a club leaves a running season only by disqualification.
     A club whose seasons are all `past`, or that is in no season, retires normally.
 
     Matches embed a copy of the team and reference it by id, so a hard delete would orphan every
@@ -261,7 +260,7 @@ async def post_saison_team(
 
     One row per team per season, enforced by a unique index; a second attempt is a 409. Creating is a
     plain insert rather than a revive, because no row here is ever retired — a team leaves a season
-    only by disqualification (ADR-0026).
+    only by disqualification.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_team_data.saison_id})
@@ -275,7 +274,7 @@ async def post_saison_team(
         saison_status=str(saison_raw["status"]),
         gruppe=saison_team_data.gruppe,
         # Validated rather than read raw, so a season document still missing the two capacity keys
-        # fails loudly here instead of entering a team against a bound nobody chose (ADR-0035's rule).
+        # fails loudly here instead of entering a team against a bound nobody chose.
         rules=FLSaisonRules.model_validate(saison_raw["rules"]),
         occupied=len(occupied_rows),
     )
@@ -289,7 +288,7 @@ async def post_saison_team(
             "team_id": team_id,
             "gruppe": saison_team_data.gruppe,
             # Written explicitly rather than left off: the key is required by the validator and by
-            # `FLTeam`, and a row without it is unreadable rather than merely undecorated (ADR-0047).
+            # `FLTeam`, and a row without it is unreadable rather than merely undecorated.
             "disqualifikation": None,
         },
     )
@@ -318,11 +317,11 @@ async def patch_saison_team(
     """
     Change which group a team is in for a season, or disqualify it.
 
-    Disqualification is how a team leaves a season; there is no delete here (ADR-0026). It is a RECORD
-    carrying the reason and the effective date, and `null` is what lifting one looks like — there is no
-    boolean beside it to contradict it (ADR-0047). The record is read by `GET /teams` and joined into
-    match data rather than copied (ADR-0021), so entering it here reaches every surface that shows a DQ
-    badge with no second write to keep in step.
+    Disqualification is how a team leaves a season; there is no delete here. It is a RECORD carrying
+    the reason and the effective date, and `null` is what lifting one looks like — there is no boolean
+    beside it to contradict it. The record is read by `GET /teams` and joined into match data rather
+    than copied, so entering it here reaches every surface that shows a DQ badge with no second write
+    to keep in step.
 
     Both writable fields are required on the payload, so this replaces them wholesale. An omitted
     `disqualifikation` is a 422 rather than a team quietly reinstated by a form that forgot the field.
@@ -344,7 +343,7 @@ async def patch_saison_team(
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
 
         # Whether this team's group phase is already drawn, which is what closes the window. Counted over
-        # both sides, because a fixture fields a team on either (ADR-0034).
+        # both sides, because a fixture fields a team on either.
         fixtures_drawn = await spiele_collection.count_documents(
             {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}
         )

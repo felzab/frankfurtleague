@@ -31,7 +31,7 @@ class WriteRefusal:
 
     The code is the whole channel. A failure body is `{error_code, correlation_id}` and nothing else
     (`app/core/exception_handlers.py :: error_response`), so the message below is for the log and the code is
-    what the form reads to decide which field the refusal belongs to (ADR-0042).
+    what the form reads to decide which field the refusal belongs to.
 
     A named pair rather than a `(str, str)` tuple, because both members are strings: a tuple built the other
     way round type-checks, lints and passes any test asserting only that a refusal was produced, and ships

@@ -20,7 +20,7 @@ export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = 
   "use cache";
 
   // Base tag only: every referee write clears the whole list, and `include_inactive` splits this into
-  // two entries under one tag rather than into two things to invalidate (ADR-0001).
+  // two entries under one tag rather than into two things to invalidate.
   cacheTag("schiedsrichter");
   cacheLife("days");
 

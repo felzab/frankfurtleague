@@ -1,16 +1,15 @@
 """
 SPIELTAGE · write endpoints
 
-Matchdays: named blocks of fixtures inside a season. Guarded at router level by
-`verify_access_admin` (ADR-0027).
+Matchdays: named blocks of fixtures inside a season. Guarded at router level by `verify_access_admin`.
 
 Invariants:
-- No payload carries a position and none may gain one — a matchday's place is derived (ADR-0051).
+- No payload carries a position and none may gain one — a matchday's place is derived.
 - Deletion is soft: `spiele.spieltag_id` points here and nothing cascades.
 - Soft is not harmless — `REQ-RETIRE-002` refuses retiring a matchday holding a played match.
 - Nor is reactivating — `REQ-DATE-002` refuses one whose span the season no longer covers.
-- `anzahl_spiele` is derived (ADR-0052); `REQ-SPIELTAG-002` refuses a MOVE into a phase too small for it.
-- A phase change is graded as a STEP, never as the state the row already sits in (ADR-0075).
+- `anzahl_spiele` is derived; `REQ-SPIELTAG-002` refuses a MOVE into a phase too small for it.
+- A phase change is graded as a STEP, never as the state the row already sits in.
 - Every echo goes through `with_expected_matches`: the field is required and sits on no document.
 """
 
@@ -63,15 +62,14 @@ async def post_spieltag(
 
     Where it sits in the season follows from what it is: the phase in bracket order, then `beginn`. So a
     matchday created out of sequence is not a matchday in the wrong place — it is one whose phase or date
-    is wrong, and correcting either moves it (ADR-0051). Its NAME follows from the same two facts, which is
-    why the payload carries none (ADR-0051).
+    is wrong, and correcting either moves it. Its NAME follows from the same two facts, which is why the
+    payload carries none.
 
     **Three refusals.** The phase has to be one the season's rules actually produce
     (`REQ-SPIELTAG-004`, decided 2026-08-13) — a season sending eight teams into the bracket plays no
     round of sixteen, so an `achtelfinale` matchday there belongs to a round nobody plays. **That is a
     rule about WHICH phase and never about how many:** the matchday count a phase implies is a floor
-    rather than a quota, because a round split across two dates is two matchdays for one phase
-    (ADR-0051).
+    rather than a quota, because a round split across two dates is two matchdays for one phase.
 
     A season whose knockout phase is already under way takes no new matchdays at all
     (`REQ-SPIELTAG-003`, decided 2026-08-08) — "under way" meaning its earliest non-group matchday begins
@@ -137,23 +135,23 @@ async def patch_spieltag(
     matchday is picked up by every consumer on the next read.
 
     **A phase accounting for fewer matches than the matchday already holds is refused**
-    (`REQ-SPIELTAG-002`, ADR-0052). A single round robin per group fixes that number, so moving a matchday
+    (`REQ-SPIELTAG-002`). A single round robin per group fixes that number, so moving a matchday
     of eight group fixtures into a Finale would leave seven of them with nowhere to be played. The other
     direction -- fewer fixtures than expected -- is left alone, because that is every season part-way
     through being set up.
 
     **What that refuses is the MOVE, never the state.** A matchday already holding more fixtures than its
-    phase accounts for got there from data this API never wrote (ADR-0037), and refusing a payload that
-    repeats its own phase would cost it its dates as well, over a mismatch no edit here can repair. Moving
-    one from that state into a narrower phase still is refused, because it makes the mismatch worse.
+    phase accounts for got there from data this API never wrote, and refusing a payload that repeats its
+    own phase would cost it its dates as well, over a mismatch no edit here can repair. Moving one from
+    that state into a narrower phase still is refused, because it makes the mismatch worse.
 
-    **Two transitions are refused outright, whatever the counts say** (ADR-0075). A move into a round the
+    **Two transitions are refused outright, whatever the counts say.** A move into a round the
     season's rules never produce is `REQ-SPIELTAG-005`, the mirror of the create's `REQ-SPIELTAG-004`. And
     a matchday carrying fixtures may not cross the gruppenphase/knockout boundary away from them
     (`REQ-SPIELTAG-006`): the bracket selects rounds by the MATCHDAY's phase and fixtures by the
     FIXTURE's, and no endpoint writes `spiele.saison_phase`, so the move would strand every one of them
     with nothing able to repair it. **An EMPTY matchday crosses freely** — correcting a mislabelled row is
-    the scheduling decision ADR-0052 kept editable.
+    exactly the scheduling decision `saison_phase` stays editable for.
     """
 
     stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
@@ -167,13 +165,13 @@ async def patch_spieltag(
 
     # Split by the FIXTURE's own `saison_phase`, which this endpoint never writes and which need not
     # agree with its matchday's -- so the transition rule can tell a move away from the fixtures from a
-    # move towards them (ADR-0075).
+    # move towards them.
     attached_knockout = await spiele_collection.count_documents({"spieltag_id": spieltag_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}})
     on_group_side = attached - attached_knockout
     stored_phase = stored_raw["saison_phase"]
 
     # First of the three phase rules, matching how the create orders `REQ-SPIELTAG-004`: a round the
-    # season never plays is wrong whatever the matchday holds (ADR-0075).
+    # season never plays is wrong whatever the matchday holds.
     unplayed_refusal = find_spieltag_unplayed_phase_refusal(
         stored_phase=stored_phase,
         proposed_phase=spieltag_data.saison_phase,
@@ -193,7 +191,7 @@ async def patch_spieltag(
         raise DocumentConflictException.from_refusal(refusal)
 
     # Last of the three, because it is the widest statement: the count rule above names two numbers an
-    # admin can compare, where this one is about the join the whole bracket is drawn from (ADR-0075).
+    # admin can compare, where this one is about the join the whole bracket is drawn from.
     boundary_refusal = find_spieltag_boundary_refusal(
         stored_phase=stored_phase,
         proposed_phase=spieltag_data.saison_phase,
@@ -258,8 +256,8 @@ async def delete_spieltag(
     decided 2026-08-13). Until this existed a season could be emptied of a phase it still had to play,
     one unplayed matchday at a time, with nothing anywhere to refuse a single step. The derived figure
     is a **floor, never a ceiling** — a phase may hold more rows than the rules imply, because a round
-    split across two dates is two matchdays (ADR-0051) — so a phase above the floor retires back down
-    to it and stops there. A phase already **below** the floor is not refused (`REQ-RETIRE-005`): no
+    split across two dates is two matchdays — so a phase above the floor retires back down to it and
+    stops there. A phase already **below** the floor is not refused (`REQ-RETIRE-005`): no
     retirement put it there, and the emptying above is still refused at its first step.
 
     **The floor governs this endpoint and `POST /spieltage`, and nothing watches `PATCH`**, which can

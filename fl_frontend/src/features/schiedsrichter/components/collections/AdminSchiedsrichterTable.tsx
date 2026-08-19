@@ -109,7 +109,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         ariaLabel={`Kontaktdaten von ${schiedsrichter.name} kopieren`}
         onPress={() => handleCopyKontakt(schiedsrichter)}
       />
-      {/* A link rather than a press: the referee form edits on a page (ADR-0040), so the pencil is a
+      {/* A link rather than a press: the referee form edits on a page, so the pencil is a
           navigation and the shared view renders no edit overlay. */}
       <RowActionLink
         href={`/admin/schiedsrichter/${schiedsrichter.id}`}

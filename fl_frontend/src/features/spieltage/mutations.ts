@@ -6,13 +6,12 @@
  *
  * All of these use `authType: "admin"`; the backend's admin router rejects the base key.
  *
- * **The id goes in the PATH and never in the body** (ADR-0027). The patch payload schema still carries
+ * **The id goes in the PATH and never in the body.** The patch payload schema still carries
  * one, because it backs the admin form and a form has to know which matchday it is editing, so the
  * mutation splits it off — a backend payload model that saw one would drop it silently.
  *
  * **Deletion is SOFT and has its own way back.** `spiele.spieltag_id` points here and nothing
- * cascades, so a hard delete would leave every one of a matchday's matches referencing nothing
- * (ADR-0025).
+ * cascades, so a hard delete would leave every one of a matchday's matches referencing nothing.
  */
 
 import { apiClient } from "@/core/api";

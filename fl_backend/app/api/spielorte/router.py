@@ -4,7 +4,7 @@ SPIELORTE · read endpoint
 Venues. Read-only; create, update and delete are admin-authorized and live in the admin router.
 
 Invariants:
-- Deletion is soft (`inactive_since`, ADR-0025); retired venues stay readable.
+- Deletion is soft (`inactive_since` holds the retirement date); retired venues stay readable.
 - `maps_link` is free text — a Google Maps search string, not a URL; never render it into an href.
 - `default_mietpreis` is whole euros with no default: the patch writes wholesale, so one zeroes rents.
 """

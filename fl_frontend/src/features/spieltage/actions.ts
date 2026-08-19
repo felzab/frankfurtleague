@@ -9,10 +9,10 @@
  * Invariants:
  * - Every action checks `getAdminSession()` and runs in `runAdminMutation` (docs/logging/error-codes.md).
  * - Base tag only — the admin list and the public Spielplan span differently, so no granular tag
- *   names one write (ADR-0001).
+ *   names one write.
  * - `spieltage` is the only resource invalidated — `GET /spiele` never joins `spieltage`.
  * - Seven 409s and none is a unique index: four guard the matchday's contents and three its
- *   container; a matchday's place and name are derived, so there is nothing to claim (ADR-0051).
+ *   container; a matchday's place and name are derived, so there is nothing to claim.
  *
  * See:
  * - docs/frontend/spec.md — section 1.3, the action inventory
@@ -129,7 +129,7 @@ export async function postSpieltagAction(
     return {
       success: true,
       spieltag_id: postOperation.spieltag_id,
-      // No name to echo: one is composed by the reader from the phase and the position (ADR-0051), and
+      // No name to echo: one is composed by the reader from the phase and the position, and
       // the position is only known once this matchday is in the list beside its siblings.
       message: "Spieltag angelegt.",
     };
@@ -180,7 +180,7 @@ export async function patchSpieltagAction(
   });
 }
 
-// Soft: the backend stamps `inactive_since` and removes nothing (ADR-0025). Its matches stay
+// Soft: the backend stamps `inactive_since` and removes nothing. Its matches stay
 // resolvable, but they leave the public Spielplan with the matchday, which is why one holding a
 // result is refused (`REQ-RETIRE-002`).
 export async function deleteSpieltagAction(rawPayload: FLSpieltagKeyPayload): Promise<{

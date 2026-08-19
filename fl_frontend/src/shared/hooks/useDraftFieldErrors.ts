@@ -4,7 +4,7 @@
  * SHARED · the one field-error map an editor form renders
  *
  * Composes the two halves of a draft form's validation — the messages a submit produced and the
- * verdicts the browser reaches from the payload schema (ADR-0040) — so the merge happens in here and
+ * verdicts the browser reaches from the payload schema — so the merge happens in here and
  * no form can wire its order wrong. A submit judges the whole draft and therefore supersedes every
  * verdict before it; a verdict recorded afterwards speaks about a path the submit named only where
  * it judged a different value than the submit did.
@@ -102,7 +102,7 @@ export function mergeFieldVerdicts(submitErrors: FieldErrors, verdicts: FieldVer
  * the payload; `validatePaths` takes it, so which schema judged a field is readable at the call.
  *
  * The schema each key holds is the one the matching server action parses, which is what stops the
- * browser and the server stating different rules (ADR-0040, `docs/frontend/spec.md` I18).
+ * browser and the server stating different rules (`docs/frontend/spec.md` I18).
  */
 export function useDraftFieldErrors<TSchema extends string>({
   schemas,

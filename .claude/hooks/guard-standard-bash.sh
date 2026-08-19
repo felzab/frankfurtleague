@@ -54,8 +54,8 @@ ask() {
   exit 0
 }
 
-# The command string, out of the tool payload. An unreadable payload asks rather than exits, for the
-# reason ADR-0060 gives: nothing downstream can answer a question this one could not.
+# The command string, out of the tool payload. An unreadable payload asks rather than exits, because
+# nothing downstream can answer a question this one could not.
 cmd="$(node -e '
 let s = "";
 process.stdin.on("data", (d) => (s += d)).on("end", () => {
@@ -97,8 +97,8 @@ case "$padded" in
 esac
 
 # An inline interpreter names its target in source, where no verb and no redirect shows it.
-# `open(` counts whatever the mode says, so a read spelled that way refuses too — ADR-0060's
-# posture, and cheaper than a hole nothing observes.
+# `open(` counts whatever the mode says, so a read spelled that way refuses too — a false refusal is
+# cheaper than a hole nothing observes.
 case "$padded" in
   *"open("* | *"openSync"* | *".write"* | *"write_text"* | *"write_bytes"* | *"writeFile"*) writes=1 ;;
   *"appendFile"* | *"createWriteStream"* | *".rename"* | *".replace("* | *".remove"*) writes=1 ;;

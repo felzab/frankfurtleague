@@ -19,7 +19,7 @@ import type { FLGruppen } from "../../schemas";
 /**
  * How many of this row's fixtures were called off, beside the count of the ones that were played.
  *
- * The number is annotative and never additive: a forfeit is in both figures (ADR-0063), so a badge
+ * The number is annotative and never additive: a forfeit is in both figures, so a badge
  * reading `+1` would invite a reader to add it to the tally beside it and arrive at a total the
  * season never held.
  *
@@ -40,7 +40,7 @@ function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
         <strong>Abgesagte Spiele</strong>
       </p>
       <p>{anzahl === 1 ? "Ein Spiel dieses Teams wurde abgesagt." : `${anzahl} Spiele dieses Teams wurden abgesagt.`}</p>
-      {/* Both directions of the forfeit rule, in the one place a reader meets it (ADR-0019). Without
+      {/* Both directions of the forfeit rule, in the one place a reader meets it. Without
           the first sentence a cancellation on a full match count reads as a rendering fault; without
           the second, the number invites a subtraction the table would not survive. */}
       <p>
@@ -78,7 +78,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
       {typedObjectEntries(gruppenData).map(([gruppe, teamsData]) => {
         /* The teams a bracket slot would seed from if the group ended now. Derived rather than
              taken as row indices: a disqualified team holds no place and one that has played nothing
-             has no placing, and the seeding passes over both (ADR-0035). */
+             has no placing, and the seeding passes over both. */
         const qualifying = computeQualifyingTeamIds({ teams: teamsData, qualifiersPerGroup });
 
         /* Numbered as a `Platz` is, not as a row index: the count walks past a disqualified team, so
@@ -95,7 +95,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
               <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Saisontabelle</span>
               <h2 className="fluid-xl text-foreground font-black tracking-tight">Gruppe {gruppe}</h2>
               {/* Not decoration: a team's own page shows its whole season, playoffs included, so the two
-                  pages disagree by design and only this line says why (ADR-0022). */}
+                  pages disagree by design and only this line says why. */}
               <p className="fluid-xxs text-foreground-muted font-medium">Gewertet werden nur Spiele der Gruppenphase.</p>
               {/* Only once something is actually marked. A group whose matches have not started marks
                     nobody, and a legend for an absent highlight reads as a rendering fault. */}

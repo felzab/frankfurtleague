@@ -1,9 +1,8 @@
 # Logging — spec
 
-**Verified against:** `78d32af9`, 2026-08-19\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Scope:** the correlation id, the log stream on all three surfaces, the browser-crash path, and
-the development formats.\
-**Governing decision:** [ADR-0032](../_decisions/0032-one-correlation-id-per-request-one-document-per-line.md)
+the development formats.
 
 | Section                                            | Answers                                        |
 | -------------------------------------------------- | ---------------------------------------------- |
@@ -43,8 +42,7 @@ carries a freshly minted id of its own (`fl_frontend/src/core/api.ts :: apiClien
 - A **cache fill**'s backend access line joins to the frontend error if the fill fails, because the
   error carries the fill's id — but never to the page view that triggered the fill.
 - An **uncached read inside a page render** runs under the real request id, seeding the scope
-  explicitly. The admin-authed reads are the ones in this position, uncached by
-  [ADR-0009](../_decisions/0009-admin-scoped-reads-are-never-cached.md) and listed in
+  explicitly. The admin-authed reads are the ones in this position, never cached and listed in
   [`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) — and being uncached is what makes
   the seeding legal, since `headers()` inside a `"use cache"` scope raises
   `next-request-in-use-cache` rather than failing quietly.

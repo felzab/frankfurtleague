@@ -21,13 +21,13 @@ import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
  * **`ergebnis` is derived here the way the backend derives it** — a scoreline only when both counts are
  * present — because the stored `ergebnis` string belongs to the stored goals and would contradict the
  * draft the moment either is edited. Same for the shoot-out: the write path keeps a record only on a
- * knockout fixture that finished level and discards it anywhere else (ADR-0036), so a preview that
+ * knockout fixture that finished level and discards it anywhere else, so a preview that
  * showed one on a 3:1 would promise something the save throws away.
  *
  * **Not `SpielCardCompact` itself**, though it renders the same information. That card mounts
  * `SpielTeamSlot`, which mounts a `TeamPopoverMenu` — a popover whose links navigate away, on a page
- * holding unsaved changes — and suppressing it would mean a mode flag on a card ADR-0005 forbids
- * growing modes on. This is a mirror; that card is a link into detail.
+ * holding unsaved changes — and suppressing it would mean a mode flag on a card that must not grow
+ * modes. This is a mirror; that card is a link into detail.
  *
  * **It shows the DRAFT and says so.** When anything is unsaved the panel takes a brand border and a
  * "Nicht gespeichert" chip, so a glance can never read it as what is stored. The previous values are
@@ -46,7 +46,7 @@ export function SpielDraftPreview({
   const { datum, uhrzeit, ergebnis, elfmeterschiessen } = formatSpielDisplay(previewSpiel);
   const spielStatus = computeSpielStatus({ datum: previewSpiel.datum, isCanceled: previewSpiel.is_canceled, today });
 
-  // Team, then provenance, then the shared placeholder — the fall-through every card uses (ADR-0034),
+  // Team, then provenance, then the shared placeholder — the fall-through every card uses,
   // so this names a side exactly as the bracket will.
   const team1Name = previewSpiel.team1?.name || formatQuelle(previewSpiel.team1_quelle) || PLACEHOLDER.slot;
   const team2Name = previewSpiel.team2?.name || formatQuelle(previewSpiel.team2_quelle) || PLACEHOLDER.slot;
@@ -77,7 +77,7 @@ export function SpielDraftPreview({
           }`}>
           {ergebnis}
           {/* A second line under the score, never folded into it: the fixture finished level and the
-              Saisontabelle counts it as a draw, so the score has to stay the score (ADR-0036). */}
+              Saisontabelle counts it as a draw, so the score has to stay the score. */}
           {elfmeterschiessen !== null && <span className="fluid-xxs font-semibold whitespace-nowrap">{elfmeterschiessen}</span>}
         </span>
         <span className="fluid-xs text-foreground min-w-0 truncate text-left font-bold">{team2Name}</span>

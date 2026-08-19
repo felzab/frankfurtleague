@@ -14,11 +14,11 @@ import type { SpielBanner } from "./banners";
  * answer was where the eye lands first. Last is the danger-zone position of every settings page this will be compared to.
  *
  * **A cancelled match is not a match with no result.** The flag and the `ergebnis` are independent: a
- * fixture awarded without being played carries both, and that is what makes it count in the league table
- * (ADR-0019). Nothing here clears the result.
+ * fixture awarded without being played carries both, and that is what makes it count in the league table.
+ * Nothing here clears the result.
  *
  * The hint that used to sit under the switch is gone: the callout below says the same thing and more, and
- * a hint earns its place only by saying something the others do not (ADR-0040).
+ * a hint earns its place only by saying something the others do not.
  */
 export function FormCancelSection({
   spielIsCanceled,
@@ -78,7 +78,7 @@ export function FormCancelSection({
         />
 
         {/* The knockout-specific consequence, separate from the general one because it is the costlier
-            half and a single long callout is a callout that gets skipped (ADR-0040). Not announced: the
+            half and a single long callout is a callout that gets skipped. Not announced: the
             general callout above already interrupts, and two alerts for one switch flip is a scolding. */}
         <InlineBanners
           banners={banners}

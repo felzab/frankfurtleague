@@ -41,7 +41,7 @@ export function AdminTeamEditView({
   gruppeLocked: boolean;
   /** The selected season's groups with their fill state, from `buildGruppeOffer`. */
   gruppeOffer: readonly GruppeOffer[];
-  /** The selected season's swap state, for the club editor's entry point into it (ADR-0071). */
+  /** The selected season's swap state, for the club editor's entry point into it. */
   swap: SaisonGruppenSwapContext;
   today: string;
 }) {

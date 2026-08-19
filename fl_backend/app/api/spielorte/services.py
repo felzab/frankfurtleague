@@ -23,8 +23,8 @@ def build_spielorte_filter(filters: FLSpielorteFilterParams) -> dict[str, Any]:
     query: dict[str, Any] = {}
 
     # Matching null rather than testing absence: `inactive_since` is required and carries null while
-    # the venue is live (ADR-0025), so this is an equality test. It would also match a document missing
-    # the key, which the validator forbids.
+    # the venue is live, so this is an equality test. It would also match a document missing the key,
+    # which the validator forbids.
     if not filters.include_inactive:
         query["inactive_since"] = None
 
@@ -35,8 +35,8 @@ def build_spielorte_filter(filters: FLSpielorteFilterParams) -> dict[str, Any]:
 # out of every picker while matches are still scheduled there -- the state the soft delete exists to
 # prevent, reached through the soft delete itself.
 
-# A played fixture never blocks: its `ort` is an embedded record of where the match was held (ADR-0021
-# rule 2), so the venue document has nothing left to supply.
+# A played fixture never blocks: its `ort` is an embedded record of where the match was held, so the
+# venue document has nothing left to supply.
 VENUE_STILL_BOOKED = "REQ-RETIRE-003"
 
 

@@ -112,7 +112,7 @@ export const FIELD_ERROR = "fluid-xxs text-danger mt-1 font-bold";
  * this uppercase 12px micro-label was the largest thing in each section it was smaller than the inputs
  * under it, so the page had nothing to read a structure from. A panel now carries a real `fluid-base`
  * title (`formPanel`), and this marks a group within one — "Termin", "Spielort", "Schiedsrichter"
- * inside "Ansetzung" (ADR-0040).
+ * inside "Ansetzung".
  *
  * **`text-foreground-muted`, and the colour is the point.** Demoting it by size alone left it at
  * `fluid-xs font-bold text-foreground` — character for character the same recipe as `FIELD_LABEL`

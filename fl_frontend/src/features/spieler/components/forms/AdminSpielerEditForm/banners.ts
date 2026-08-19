@@ -111,7 +111,7 @@ export function buildSpielerBanners({
 
   // A `warning` and never a refusal: the state is permitted on every write path
   // (`fl_backend/app/core/domain.py :: UNENFORCED`), and the grade is what routes
-  // the save through the confirmation (ADR-0070).
+  // the save through the confirmation.
   if (newlySharedNummer !== null) {
     banners.push({
       id: "spieler.nummer-geteilt",

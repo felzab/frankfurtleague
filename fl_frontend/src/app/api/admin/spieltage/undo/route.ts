@@ -2,8 +2,7 @@
  * APP · the matchday edit's undo
  *
  * Puts a matchday's phase and span back the way they were — one of the admin mutations that are route
- * handlers rather than server actions (ADR-0049, the E592 diagnosis). Revert to a server action when
- * E592 is fixed upstream.
+ * handlers rather than server actions. Revert to a server action when E592 is fixed upstream.
  *
  * Invariants:
  * - `revalidateTag`, never `updateTag` — the latter is the server-action form and throws here.

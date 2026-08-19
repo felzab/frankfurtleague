@@ -52,7 +52,7 @@ async function SaisonsTable() {
   const saisons = saisonsRes.saisons;
 
   // One read per season rather than one for all of them: `GET /spieltage` narrows by exactly one
-  // season and an omitted `saison_id` means the current one (ADR-0002), so there is no "every season"
+  // season and an omitted `saison_id` means the current one, so there is no "every season"
   // call to make.
   const spieltageBySaison = await Promise.all(
     saisons.map(async (saison) => {

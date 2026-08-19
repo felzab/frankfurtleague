@@ -2,10 +2,10 @@
 CORE · path parameter convertors
 
 One custom URL convertor, `objectid`, and the helper that spells a path with it. It exists
-because `GET /spiele/action_required` and `GET /spiele/{spiel_id}` live in different routers
-(ADR-0027), so declaration order cannot separate them — constraining the parameter to 24 hex
-characters removes the ambiguity at its source, whatever order the routers are included in. A
-malformed id is therefore a 404 rather than a 422: a path identifies, a query validates (ADR-0057).
+because `GET /spiele/action_required` and `GET /spiele/{spiel_id}` live in different routers, so
+declaration order cannot separate them — constraining the parameter to 24 hex characters removes
+the ambiguity at its source, whatever order the routers are included in. A malformed id is
+therefore a 404 rather than a 422: a path identifies, a query validates.
 
 Invariants:
 - Registration is an import side effect — `by_id()` is what keeps this module's import real.

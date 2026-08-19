@@ -8,11 +8,10 @@
  * Consumers of these lists — the Spiel edit form in particular — receive them as PROPS rather than
  * reading the context, so entity slices never depend on `admin`.
  *
- * `saisonSpiele` is the season's whole fixture list, and it exists here for the match picker: a
- * bracket source is picked from the season's legal feeder matches rather than typed as a number
- * (ADR-0038), and the edit dialog holds one match, not its season. It carries the same season the
- * `teams` list does, so on the one route that can show another season's matches the form checks the
- * `saison_id` before offering anything.
+ * `saisonSpiele` is the season's whole fixture list, and it exists here for the match picker: a bracket
+ * source is picked from the season's legal feeder matches rather than typed as a number, and the edit
+ * dialog holds one match, not its season. It carries the same season the `teams` list does, so on the one
+ * route that can show another season's matches the form checks the `saison_id` before offering anything.
  */
 
 import type { FLSchiedsrichter } from "../schiedsrichter/schemas";

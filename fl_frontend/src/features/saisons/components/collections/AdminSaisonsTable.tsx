@@ -20,7 +20,7 @@ import type { AdminSaisonRow } from "../../types";
  *
  * **No delete control and no retire control, on any row.** A season is never deleted — that would orphan
  * every spiel, spieltag and junction row carrying its id, none of which cascades — and it is not
- * retirable either: one that is over is `past`, which is what "gone" means here (ADR-0026). So the row's
+ * retirable either: one that is over is `past`, which is what "gone" means here. So the row's
  * actions are all reads and one edit link, and the seasons page is the one admin table with three
  * columns of facts and nothing destructive in it.
  *

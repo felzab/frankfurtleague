@@ -2,7 +2,7 @@
 
 `checker_kernel.py :: EXIT_CRASH` is what a checker's import-time floor guard raises, and two shell
 arms read that status back as a number of their own to tell an interpreter below the floor from a
-checker that failed. A comment is not a guard (ADR-0066), so the pairing is asserted here.
+checker that failed. A comment is not a guard, so the pairing is asserted here.
 
 Invariants:
 - Stdlib only, for the reason `test_check_docs.py` gives.

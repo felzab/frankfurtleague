@@ -34,8 +34,7 @@ stop.
 
 4. **Load the standard**: `docs/_standard/rules-index.md`, then the chapter for each shape in the
    subset — `docs/_standard/chapters/2-in-code.md` for source comments,
-   `docs/_standard/chapters/3-corpus.md` for `/docs` pages,
-   `docs/_standard/chapters/4-decisions.md` for ADRs, and
+   `docs/_standard/chapters/3-corpus.md` for `/docs` pages, and
    `docs/_standard/chapters/5-currency.md` wherever anything is stamped.
 
 5. **Audit the subset with the check classes** from [`audit.md`](audit.md#the-check-classes), applied from there rather
@@ -61,8 +60,8 @@ stop.
 
    **One run, at the end.** `--docs --format` is the floor for the slice, the formatter being what
    holds the prose and the comments this command rewrites; where the branch touched more than
-   documentation the gate refuses that scope and names the one it needs (ADR-0030), and the run is
-   repeated at that scope.
+   documentation the gate refuses that scope and names the one it needs, and the run is repeated at
+   that scope.
 
    Report **net lines, separating relocated from removed** — a reshaping that moves content between
    files is not a reduction, and a diffstat that excludes new untracked files overstates one. The

@@ -4,7 +4,7 @@
  * Every X on the site is this recipe plus a German name for what goes — a search field's clear, a
  * picker's, a dialog's close, a callout's and a toast's dismiss. It lives in `core` rather than beside
  * the other recipes in `shared` because `core/providers/AppToaster.tsx` renders one and `core` may not
- * reach into `shared` (ADR-0008).
+ * reach into `shared`.
  *
  * Invariants:
  * - A call site names what goes; nothing may fall through to the English "Close" HeroUI hardcodes into

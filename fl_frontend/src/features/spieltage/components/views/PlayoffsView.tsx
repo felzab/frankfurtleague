@@ -37,10 +37,10 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
 
   // The bracket lines below pair matches by index, so the indices have to follow the wiring: the
   // Spiele arrive in `datum` order, which puts 25 and 28 on one branch of a fixture whose sides name
-  // 25 and 27. ADR-0034 stores the edges; a date respects none.
+  // 25 and 27. `teamN_quelle` stores the edges; a date respects none.
   const rounds = orderRoundsByWiring(playoffsSpieltage);
   // Labelled from the PLAYED order rather than from `rounds`, which `orderRoundsByWiring` re-arranges by
-  // the bracket's wiring: the ordinal counts a matchday's place in its phase, not its column (ADR-0051).
+  // the bracket's wiring: the ordinal counts a matchday's place in its phase, not its column.
   const labels = spieltagLabels(playoffsSpieltage);
 
   return (

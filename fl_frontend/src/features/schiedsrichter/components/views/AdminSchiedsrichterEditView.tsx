@@ -34,7 +34,7 @@ export function AdminSchiedsrichterEditView({
   inactiveSince,
 }: {
   schiedsrichter: { id: string; name: string; schule: string | null; kontakt: FLKontakt; default_payment: number };
-  /** The day this referee was retired, or `null` while they officiate (ADR-0025) — on no field of the form. */
+  /** The day this referee was retired, or `null` while they officiate — on no field of the form. */
   inactiveSince: string | null;
 }) {
   const router = useRouter();

@@ -14,8 +14,8 @@
 import { z } from "zod";
 
 // A LITERAL SPACE, never `\s`: the class sits INSIDE the anchors, so `\s` there lets the value carry the
-// newlines and tabs they exclude. ADR-0033 keeps patterns out of the contract comparison, so nothing
-// catches this one drifting from the backend's.
+// newlines and tabs they exclude. Patterns are out of the contract comparison, so nothing catches
+// this one drifting from the backend's.
 const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{3,20})$/);
 
 /**
@@ -74,8 +74,7 @@ export const ExternalUrlSchema = z.url({
  * ASCII rule, and the live data already holds `Körner`, `El Damarawy` and `Anouar`. Space, hyphen and
  * apostrophe are in because a double-barrelled or particled name is not a defect; digits and every
  * other symbol are out, which is what stops a note being typed into a name field — a `(C)` captain
- * marker inside a name field is the shape `is_captain` exists to hold instead (ADR-0048's sibling
- * problem).
+ * marker inside a name field is the shape `is_captain` exists to hold instead.
  *
  * **On the WRITE path only.** A read model that refuses a stored name 500s the whole response for
  * one bad row rather than showing it: one name the rule cannot accept takes the squad list down for

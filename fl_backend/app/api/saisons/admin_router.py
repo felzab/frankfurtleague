@@ -2,17 +2,16 @@
 SAISONS · write endpoints
 
 Creating a season, editing its dates and rules, the rollover, and the group swap. The guard is
-router-level, so every endpoint added here is admin-guarded by construction (ADR-0027) — never move
-it onto one.
+router-level, so every endpoint added here is admin-guarded by construction — never move it onto one.
 
 Invariants:
-- Exactly one season is `active`; `activate_saison` is the only writer of `status` (ADR-0026).
+- Exactly one season is `active`; `activate_saison` is the only writer of `status`.
 - There is no DELETE — retiring a season would orphan every spiel, spieltag and junction row.
 - A created season is always `future`, so a typo in a new id cannot roll over the live one.
-- A group swap writes both junction rows or neither — one transaction, never two calls (ADR-0062).
+- A group swap writes both junction rows or neither — one transaction, never two calls.
 - It rewrites the two clubs' Gruppenphase sides in that same transaction, and never their `tore`.
 - Both of its windows read "has taken place" through the one predicate, `_has_taken_place`.
-- It refuses an exchange that would field a club twice on one Spieltag (ADR-0042, `_spieltag_clashes`).
+- It refuses an exchange that would field a club twice on one Spieltag (`_spieltag_clashes`).
 
 See:
 - docs/backend/spec.md — section 1.1, the season write endpoints
@@ -93,9 +92,9 @@ def _spieltag_clashes(
     """
     How many Spieltage would hold one of these two clubs twice once they exchange (`REQ-SWAP-005`).
 
-    A club plays at most one match per Spieltag (ADR-0042), and the match write path is the only thing
-    enforcing it -- so this endpoint, which writes fixture documents without passing that path, is the
-    one place that can create the state `judge_spieltag_occupancy` exists to refuse.
+    A club plays at most one match per Spieltag, and the match write path is the only thing enforcing
+    it -- so this endpoint, which writes fixture documents without passing that path, is the one place
+    that can create the state `judge_spieltag_occupancy` exists to refuse.
 
     **The exchange is a bijection over the Gruppenphase and touches nothing else**, so after it a club
     stands in its OWN knockout fixtures plus the OTHER's group ones. A Spieltag holding a group fixture
@@ -104,9 +103,9 @@ def _spieltag_clashes(
     carries its own `saison_phase` and a fixture's need not agree with it.
 
     **Only a Spieltag the exchange BREAKS is counted, never one that was already broken.** Enforcement
-    leaves the past alone (ADR-0042), and refusing over a stored breach this swap did not cause would
-    name a bound that is not what an admin has to fix. A fixture attached to no Spieltag is nobody's
-    business here, for the reason `REQ-RULES-006` skips one.
+    leaves the past alone, and refusing over a stored breach this swap did not cause would name a bound
+    that is not what an admin has to fix. A fixture attached to no Spieltag is nobody's business here,
+    for the reason `REQ-RULES-006` skips one.
 
     The caller's projections have to carry `spieltag_id` and both `team_id`s.
     """
@@ -151,10 +150,10 @@ async def _rewrite_gruppenphase_sides(
     """
     Rewrites each club's side of these fixtures to the other club, and returns how many were touched.
 
-    The second half of a group swap (ADR-0062). A group phase is a round robin, so a club's fixtures are
-    the ones its group draws — exchanging the two junction rows without exchanging the fixtures leaves
-    each club scheduled against the group it left. Rewriting them is what makes the swap read as the one
-    club having become the other.
+    The second half of a group swap. A group phase is a round robin, so a club's fixtures are the ones
+    its group draws — exchanging the two junction rows without exchanging the fixtures leaves each club
+    scheduled against the group it left. Rewriting them is what makes the swap read as the one club
+    having become the other.
 
     **The fixtures are named by `_id` from a snapshot read before any write.** Filtering on the club
     instead would let the second pass match what the first has just written and swap it straight back —
@@ -162,8 +161,8 @@ async def _rewrite_gruppenphase_sides(
     disjoint by `(fixture, slot)`, so a fixture somehow fielding both clubs is exchanged correctly too.
 
     **`name` and `shorthand` come from the `teams` documents**, which is where `PATCH /teams/{team_id}`
-    fans them out from (ADR-0021 rule 3) — not from another fixture's embedded copy, which is a copy of
-    the same thing one drift away from being wrong.
+    fans them out from — not from another fixture's embedded copy, which is a copy of the same thing
+    one drift away from being wrong.
     """
 
     identities = await pull_many_from_db(
@@ -223,8 +222,8 @@ async def post_saison(
     Making it live is a separate, deliberate step — `POST /saisons/{saison_id}/activate`.
 
     The rules are refused if they describe a competition with no bracket — `number_of_groups x
-    qualifiers_per_group` has to be a power of two the phase set can hold (`REQ-RULES-001`, ADR-0052),
-    and `REQ-RULES-007` refuses more qualifiers than a group holds. Every other RULES rule reads stored
+    qualifiers_per_group` has to be a power of two the phase set can hold (`REQ-RULES-001`), and
+    `REQ-RULES-007` refuses more qualifiers than a group holds. Every other RULES rule reads stored
     data, which a season with no teams and no fixtures has none of.
 
     **The span has to be long enough to hold the schedule those rules imply** (`REQ-DATE-005`, decided
@@ -261,7 +260,7 @@ async def post_saison(
     )
 
     # A created season is `future`, so no cached answer is strictly wrong yet -- dropped anyway,
-    # because "every season write drops the cache" is a rule worth keeping unconditional (ADR-0056).
+    # because "every season write drops the cache" is a rule worth keeping unconditional.
     invalidate_saison_cache()
 
     return FLPostSaisonResponse(
@@ -283,12 +282,12 @@ async def patch_saison(
     Update a season's dates and scoring rules. `status` is deliberately not part of the payload.
 
     Editing `rules.win_points` or `draw_points` changes **every league table for this season on the
-    next read** — the standings are derived from the matches rather than stored (ADR-0019), so there is
-    no migration to run and equally nothing to announce that the numbers moved. Which is exactly why a
+    next read** — the standings are derived from the matches rather than stored, so there is no
+    migration to run and equally nothing to announce that the numbers moved. Which is exactly why a
     `past` season freezes them: `REQ-RULES-005` refuses the edit rather than silently rewriting who won a
     finished competition.
 
-    **Most of these refusals read the season's own data** (ADR-0052, docs/domain.md). The rules
+    **Most of these refusals read the season's own data.** The rules
     decide the shape of the competition, so narrowing one below what already exists strands it: a group the
     season stops running while teams are still entered in it, a group left over its own capacity, a bracket
     slot naming a placing that can no longer be reached, or a matchday left holding more fixtures than its
@@ -299,16 +298,16 @@ async def patch_saison(
 
     stored_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
 
-    # Group occupancy, disqualified rows included: a team never leaves a season (ADR-0026), so its place
-    # stays taken and a narrowing has to account for it.
+    # Group occupancy, disqualified rows included: a team never leaves a season, so its place stays
+    # taken and a narrowing has to account for it.
     occupancy: dict[Any, int] = {}
     async for row in saison_teams_collection.find({"saison_id": saison_id}, {"gruppe": 1}):
         gruppe = row.get("gruppe")
         if gruppe is not None:
             occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
 
-    # The highest group placing any of this season's bracket slots names. Read from both sides, because a
-    # `quelle` sits on either (ADR-0034), and 0 where the season has no group-seeded slot at all.
+    # The highest group placing any of this season's bracket slots names. Read from both sides, because
+    # a `quelle` sits on either, and 0 where the season has no group-seeded slot at all.
     highest_platz = 0
     async for spiel in spiele_collection.find(
         {"saison_id": saison_id, "$or": [{"team1_quelle.type": "gruppe"}, {"team2_quelle.type": "gruppe"}]},
@@ -339,8 +338,8 @@ async def patch_saison(
 
     refusal = find_rules_refusal(
         saison_status=str(stored_raw["status"]),
-        # Validated rather than read raw, so a season document still missing a rules key fails loudly here
-        # instead of being compared against a default nobody chose (ADR-0035's rule).
+        # Validated rather than read raw, so a season document still missing a rules key fails loudly
+        # here instead of being compared against a default nobody chose.
         stored=FLSaisonRules.model_validate(stored_raw["rules"]),
         proposed=saison_data.rules,
         occupancy_by_gruppe=occupancy,
@@ -376,7 +375,7 @@ async def patch_saison(
         raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
     # After the write has landed: the cached copy of this season -- and of "current", if this is the
-    # running season -- now describes rules or dates the database no longer holds (ADR-0056).
+    # running season -- now describes rules or dates the database no longer holds.
     invalidate_saison_cache()
 
     return FLPatchSaisonResponse(updated_document=FLSaison.model_validate(with_schedule(updated_document_raw)))
@@ -394,7 +393,7 @@ async def activate_saison(
 
     This is the **only** path to `status: "active"` — no other endpoint writes the field, so "exactly
     one active season" holds by construction rather than by convention. `pull_current_saison` and every
-    endpoint defaulting an omitted `saison_id` (ADR-0002) depend on it.
+    endpoint defaulting an omitted `saison_id` depend on it.
 
     Both writes run in one transaction, so the league is never briefly without an active season and
     never briefly with two.
@@ -452,7 +451,7 @@ async def activate_saison(
 
     # Outside the transaction blocks, so the drop happens only once the commit has: an aborted
     # rollover leaves the cache nothing to unlearn. This write moves which season "current" names,
-    # the entry the cache exists for (ADR-0056).
+    # the entry the cache exists for.
     invalidate_saison_cache()
 
     # The read above already proved the row exists, so this is a type narrowing rather than a branch
@@ -475,12 +474,12 @@ async def swap_gruppen(
     """
     Exchange the groups of two clubs entered in this season, as one write.
 
-    **The one mid-season group change that is defensible** (ADR-0062). A group decides which table counts
-    a club's results and which bracket slot its placing seeds (ADR-0035), so moving a single club
-    falsifies both; two clubs exchanging keeps each group's size and leaves every drawn fixture facing
-    the opponents it was drawn against.
+    **The one mid-season group change that is defensible.** A group decides which table counts a club's
+    results and which bracket slot its placing seeds, so moving a single club falsifies both; two clubs
+    exchanging keeps each group's size and leaves every drawn fixture facing the opponents it was drawn
+    against.
 
-    **On the season rather than on the club** (ADR-0027's grain): `PATCH /teams/{team_id}/saisons/{saison_id}`
+    **On the season rather than on the club**: `PATCH /teams/{team_id}/saisons/{saison_id}`
     addresses one junction row, so a swap done there is two requests with a window between them in which
     one group is a club short and the other a club over — and a failure after the first leaves the season
     in that state with nothing to say so. Both rows are written in **one transaction**, so the season
@@ -511,7 +510,7 @@ async def swap_gruppen(
     two clubs while `REQ-SWAP-002` counts the season's.
 
     **Refused with a 409 of its own where the exchange would field a club twice on one Spieltag**
-    (`REQ-SWAP-005`, ADR-0042). The rewrite below moves a group side and never a bracket one, so a
+    (`REQ-SWAP-005`). The rewrite below moves a group side and never a bracket one, so a
     Spieltag holding a group fixture of one club beside a bracket fixture whose manual pick is the other
     doubles a club the moment they exchange. It is answered LAST because it is the only one of the five an
     admin can act on — `_spieltag_clashes` says which, and moving either fixture or clearing that manual
@@ -530,8 +529,8 @@ async def swap_gruppen(
     """
 
     # A read first, so an unknown season is a 404 rather than a 409 about two clubs holding no row in a
-    # season nobody has (ADR-0057). Inside the transaction it would roll back either way; the ordering is
-    # what makes the failure legible.
+    # season nobody has. Inside the transaction it would roll back either way; the ordering is what
+    # makes the failure legible.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
     async def exchange_the_two_gruppen(session: AsyncIOMotorClientSession) -> FLSwapGruppenResponse:
@@ -549,8 +548,8 @@ async def swap_gruppen(
         )
         gruppe_of = {row["team_id"]: row["gruppe"] for row in rows}
 
-        # The day each club's disqualification took effect, or None while it competes (ADR-0047). Read
-        # from the same rows as the groups, so `REQ-SWAP-006` cannot judge a club against a stale record.
+        # The day each club's disqualification took effect, or None while it competes. Read from the
+        # same rows as the groups, so `REQ-SWAP-006` cannot judge a club against a stale record.
         disqualified_since = {row["team_id"]: (row.get("disqualifikation") or {}).get("datum") for row in rows}
 
         # Read again in-session, and not from the 404 read above: `activate_saison` moves this field in a

@@ -4,14 +4,14 @@
  * The Pydantic schemas and the Zod `schemas.ts` modules beside this one are hand-maintained with
  * no generation step; this suite converts every exported Zod schema to JSON Schema, pairs it with
  * its component in the committed `fl_backend/openapi.json`, and compares the wire contract —
- * presence, required, nullable, primitive type, enum members (ADR-0033). Patterns, lengths,
+ * presence, required, nullable, primitive type, enum members. Patterns, lengths,
  * bounds and messages are deliberately not compared: the two sides diverge there by design, and
  * comparing validation policy produces failures nobody can act on.
  *
  * Invariants:
  * - Every component and Zod schema is either paired or in an exception list with its reason.
  * - Modules are walked and imported dynamically — a new slice is covered with nothing to
- *   remember, and `core` gains no static import of `features` or `shared` (ADR-0008).
+ *   remember, and `core` gains no static import of `features` or `shared`.
  * - Nested objects are not recursed into: each is its own pair, so a drift names the smallest
  *   component that moved.
  *
@@ -63,12 +63,12 @@ const BACKEND_ONLY: Record<string, string> = {
   HTTPValidationError: "FastAPI's validation error body; thrown on before any schema parses it",
   ValidationError: "FastAPI's validation error body; thrown on before any schema parses it",
 
-  // ADR-0027 gives every resource a GET /{id} for uniform addressability, and not
+  // Every resource has a GET /{id} for uniform addressability, and not
   // every one is called; the uncalled ones have no mirror, which the backend spec
   // records as known-open. `/saisons/current` is why the season pair is mirrored.
-  FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0027)",
-  FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0027)",
-  FLSpieltageSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0027)",
+  FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
+  FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
+  FLSpieltageSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
 };
 
 /**

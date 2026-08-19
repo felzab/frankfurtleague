@@ -1,6 +1,6 @@
 # In-code documentation
 
-**Verified against:** `3140a7f`, 2026-08-10\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Applies to:** source files — `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`,
 `scripts/` and `.claude/hooks/`: module headers, symbol docs, inline comments and test docstrings.
 The hooks are exempt from INC-2 alone: their uniform label rows are what keeps a folder of
@@ -35,7 +35,7 @@ date on its own.
 **Enforced by:** unenforced — review judgment.
 
 **Example:** "Resolved here, not as a field default: a default is a constant and cannot query the
-DB (ADR-<NNNN>)" — the why the line cannot say.
+DB" — the why the line cannot say.
 
 ### INC-2 — The module header shape
 
@@ -63,17 +63,17 @@ judgment: counting sentences mechanically breaks on every abbreviation.
 ### INC-3 — Header content
 
 **Rule:** `Invariants:` holds only statements a reasonable change could violate silently — never a
-summary of what the code does. A decision is cited by ADR number with at most a one-line gloss,
-never restated: the header says what is true here, the ADR says why and what lost. A header
-passage outgrowing about five lines, or repeated in a second file, is an ADR that has not been
-written yet — and only an ADR that exists may be cited, so writing it is part of the same change.
+summary of what the code does. A decision is stated as the constraint it imposes, never as the
+argument behind it: the header says what is true here, and the commit that made it says what lost.
+A header passage outgrowing about five lines, or repeated in a second file, belongs in a
+spec-sheet invariant instead, written in the same change.
 
 **Why:** the header is the copy nobody revisits, so an argument restated there goes stale in the
 place a reader trusts most.
 
 **Exceptions:** —
 
-**Enforced by:** unenforced — review judgment; the citation itself by gate check `adr`.
+**Enforced by:** unenforced — review judgment.
 
 **Example:** `Invariants: <field> reaches the action as an argument, never on the request body.` —
 a change could move it, and nothing would fail loudly.
@@ -111,8 +111,8 @@ change; a description of the line prevents nothing.
 
 ### INC-6 — Comment citations are gate-checked
 
-**Rule:** a comment cites the way `docs/` cites (COR-6) — an ADR number or an anchored
-`<path> :: <symbol>`, never an audit id, a ledger row, a roadmap id, a session or an issue number.
+**Rule:** a comment cites the way `docs/` cites (COR-6) — an anchored `<path> :: <symbol>`, a rule
+id or an invariant id, never an audit id, a ledger row, a roadmap id, a session or an issue number.
 Issue numbers are banned because the 2026-08-01 repository recreation destroyed every issue that
 existed, and an unrecorded reason is a rule somebody eventually overturns by accident. A link to
 code outside this repository is pinned to a commit: a `blob/main/…#L36-L49` link drifts silently and
@@ -133,11 +133,11 @@ because a comment sits where a reader trusts most.
 
 **Exceptions:** —
 
-**Enforced by:** gate checks `adr`, `citation`, `line-citation`, `comment-citation`, `path`,
+**Enforced by:** gate checks `citation`, `line-citation`, `comment-citation`, `path`,
 `bare-path`, `link` and `rule-id`, over comments; an issue number, a session and an unpinned outside
 link are review judgment.
 
-**Example:** `// … to be correct (ADR-<NNNN>).` — never `// … to be correct (ledger <row>).`
+**Example:** `// … to be correct (<path> :: <symbol>).` — never `// … to be correct (ledger <row>).`
 
 ### INC-7 — Placement mechanics
 
@@ -181,7 +181,7 @@ through.
 **Rule:** an inline comment block satisfies **both** bounds at once — at most **3 lines** and at
 most **250 characters**, measured on the comment text with the markers and the indentation
 stripped. Neither bound stands alone: three lines at full width and one very long line are the same
-comment with its line breaks moved. Past either, the reasoning is an ADR or a spec-sheet invariant,
+comment with its line breaks moved. Past either, the reasoning belongs in a spec-sheet invariant,
 and the comment is the line that cites it. A module header is not an inline comment and keeps
 INC-2's separate 20-line cap; a symbol doc is INC-4's.
 
@@ -195,5 +195,5 @@ Measured 2026-08-09 across 1,569 blocks: 82% were already inside the line bound 
 **Enforced by:** gate check `comment-length`, over the blocks a branch writes. A block the branch
 only touched is left to `/docs:audit`, which owns accumulated staleness (CUR-6).
 
-**Example:** "The obvious alternative needs both the old and the new value to be correct
-(ADR-<NNNN>)." — the constraint plus its citation, in the space the bounds allow.
+**Example:** "The obvious alternative needs both the old and the new value to be correct." — the
+constraint, in the space the bounds allow.

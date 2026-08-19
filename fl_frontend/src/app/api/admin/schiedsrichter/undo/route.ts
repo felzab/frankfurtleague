@@ -2,8 +2,8 @@
  * APP · the referee edit's undo
  *
  * Puts a referee's name, school, contact and standard fee back the way they were — one of the admin
- * mutations that are route handlers rather than server actions (ADR-0049, the E592 diagnosis).
- * Revert to a server action when E592 is fixed upstream.
+ * mutations that are route handlers rather than server actions. Revert to a server action when E592
+ * is fixed upstream.
  *
  * Invariants:
  * - `revalidateTag`, never `updateTag` — the latter is the server-action form and throws here.

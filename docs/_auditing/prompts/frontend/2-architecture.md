@@ -20,9 +20,9 @@ THE CHECKS:
 1. **Feature-slice conformance.** The conventions are ratified: slice module layout (queries /
    mutations / actions / schemas / types / constants plus the sanctioned optional
    `utils.ts` / `resolvers.ts`), component category folders with one allowed nesting level, and named
-   exports — ADR-0003 settles each of those — plus the aggregator exception (ADR-0008) and the Spiel
-   write path's home (ADR-0004). Which slices deviate — and which put data fetching, business logic
-   or schema definitions inside component files instead of the designated module?
+   exports — each of those is settled — plus the aggregator exception and the Spiel write path's home
+   in `spiele`. Which slices deviate — and which put data fetching, business logic or schema
+   definitions inside component files instead of the designated module?
 
 2. **Layer boundaries, as an edge table.** Derive the actual import graph (`core` ↔ `shared` ↔
    `features`, cross-feature edges) and report it as a table of edges, **never as prose** — prose
@@ -59,9 +59,9 @@ THE CHECKS:
    - The shared recipes and shells (`card`, `formButton`, `ModalShell`, `EntityForm`, `EmptyState`,
      the formatters) are the enforcement layer, so the `duplicated` shape to hunt hardest is
      **bypass**: hand-written strings or components duplicating a recipe that already exists.
-   - Check `docs/_decisions/` before flagging a suspect. The `SpielCard` variants are kept separate
-     on purpose (ADR-0005), and ADR-0003 forbids the barrel file that would make several dead exports look
-     reachable.
+   - Check `.claude/CLAUDE.md` §7 before flagging a suspect. The `SpielCard` variants are kept
+     separate on purpose, and the barrel file that would make several dead exports look reachable is
+     forbidden.
 
 4. **Naming and organisation consistency.** Export and file name mismatches, handler-naming drift
    from `handleX`, folder-depth violations, and English/German drift: the domain vocabulary appears

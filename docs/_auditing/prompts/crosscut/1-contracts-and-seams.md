@@ -41,8 +41,8 @@ THE CHECKS, in priority order:
    path and query parameters sent versus declared | verdict. Then the inverse table, one row per
    backend route: route | callers, or NONE. **A call with no route is a defect that only appears at
    runtime** — resolve the path as it is actually constructed, including any interpolation, not as it
-   is written in a template. A route with no caller is not automatically dead: check ADR-0027, which
-   ratifies `GET /{id}` existing on every resource with most having no caller.
+   is written in a template. A route with no caller is not automatically dead: `GET /{id}` is
+   ratified as existing on every resource, most of them with no caller.
 
 2. **SCHEMA-TO-ROUTE BINDING.** The field-level comparison of every Pydantic model against its zod
    mirror belongs to `backend 2` — cite it where its report is the one you consulted, and do not
@@ -73,7 +73,7 @@ THE CHECKS, in priority order:
    other becomes | verdict. Sweep for enums and literal unions, status and phase vocabularies, date
    and time formats, score formatting, and validation rules. **A divergence here is a wrong answer,
    not a crash**, so nothing surfaces it except comparison. Constraints on the fix column: the
-   hand-maintained zod mirror is ratified (ADR-0033) and is never proposed for generation, and every
+   hand-maintained zod mirror is ratified and is never proposed for generation, and every
    other row names which definition dies rather than proposing a third home for both.
 
 6. **ERROR CONTRACT, END TO END.** Trace one representative failure of each class — validation error,
@@ -87,16 +87,16 @@ THE CHECKS, in priority order:
    one surface and supplied by neither compose file, a name that differs by surface, a value whose
    format one side assumes and the other does not validate. Then the topology half: every control
    that exists only because of where things sit in the network, cross-checked against the nginx
-   configs — the retired revalidation route (ADR-0028) is the pattern. **State what breaks each
+   configs — the retired revalidation route is the pattern. **State what breaks each
    control**, because that list is what a future nginx or compose edit gets checked against.
 
 8. **CONTRACT ENFORCEMENT.** For each seam above, name what would catch a regression today: a test, a
    lint rule, a schema check, or nothing. The required table: seam | current enforcement | what a
    regression would look like in production | cheapest control that would catch it. **This table is
    the pass's most durable output** — the seams have no owner, so every one left unenforced will
-   drift again. On a re-run, start from the previous programme's enforcement decisions in
-   `docs/_decisions/` and the controls actually present in the gate: a seam already enforced needs
-   its control verified, not its contract re-derived.
+   drift again. On a re-run, start from the enforcement decisions in `.claude/CLAUDE.md` §7 and the
+   controls actually present in the gate: a seam already enforced needs its control verified, not its
+   contract re-derived.
 
 CROSS-SURFACE QUESTIONS: at a seam, "which side is right" is frequently a product decision rather
 than a technical one, and picking silently produces a fix in the wrong half. Collect and batch every

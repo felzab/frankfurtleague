@@ -54,10 +54,10 @@ have to be kept describing themselves.
 A single commit would delete the entry without the file ever having said it was finished. Both
 commits go in **one pull request**, and `/roadmap:start <ID>` performs both.
 
-| #     | Commit                 | Contains                                                                                                                                                                                                                                                                               |
-| ----- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | **The closing commit** | The work itself, the ADR(s), and every reference updated across the repository. On the entry's own ranked page: its `Status` becomes **Closed**, and it gains a short block naming what concluded it — the ADRs, and where each non-decision finding was rehomed. **The entry stays.** |
-| **2** | **The removal commit** | The entry's ranked page and `closed-items.md` only: delete the entry and its index row, renumber the rows below, insert any new entries, fix every `Path` line that named the ID, and **add the closed row**. **The body names commit 1's SHA.**                                       |
+| #     | Commit                 | Contains                                                                                                                                                                                                                                                                                                                                  |
+| ----- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | **The closing commit** | The work itself, every decision recorded where it will be read, and every reference updated across the repository. On the entry's own ranked page: its `Status` becomes **Closed**, and it gains a short block naming what concluded it — where each decision went, and where each non-decision finding was rehomed. **The entry stays.** |
+| **2** | **The removal commit** | The entry's ranked page and `closed-items.md` only: delete the entry and its index row, renumber the rows below, insert any new entries, fix every `Path` line that named the ID, and **add the closed row**. **The body names commit 1's SHA.**                                                                                          |
 
 The SHA lives in commit 2 because **a commit cannot cite its own hash**, and commit 1 — the one that
 closed the item — is what both the body and the `Closed in` column point at.
@@ -86,13 +86,13 @@ One row per removal, in [`closed-items.md`](closed-items.md):
 
 A closed set, governing every ranked page:
 
-| Status       | Means                                                                                                                                                                           |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Open**     | Nothing decided, nothing blocking. Pick it up whenever                                                                                                                          |
-| **Decided**  | The argument is settled and recorded as an ADR; the work is not done. The entry is now an instruction, not a question                                                           |
-| **Blocked**  | Waiting on another entry on the same page. The `Depends on` column names which — a dependency marked _soft_ there is an ordering preference, not a block                        |
-| **Standing** | No scheduled action — a caution, or a finding with a recorded trigger rather than a plan                                                                                        |
-| **Closed**   | Concluded, awaiting removal. **This status exists for exactly one commit**: §2's removal commit deletes the entry, cites the closing one, and adds the row to `closed-items.md` |
+| Status       | Means                                                                                                                                                                                                                   |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Open**     | Nothing decided, nothing blocking. Pick it up whenever                                                                                                                                                                  |
+| **Decided**  | The argument is settled and recorded where it will be read — a comment at the line it constrains, a CLAUDE.md §7 line, or a spec-sheet invariant. The work is not done: the entry is now an instruction, not a question |
+| **Blocked**  | Waiting on another entry on the same page. The `Depends on` column names which — a dependency marked _soft_ there is an ordering preference, not a block                                                                |
+| **Standing** | No scheduled action — a caution, or a finding with a recorded trigger rather than a plan                                                                                                                                |
+| **Closed**   | Concluded, awaiting removal. **This status exists for exactly one commit**: §2's removal commit deletes the entry, cites the closing one, and adds the row to `closed-items.md`                                         |
 
 ### The derivation
 
@@ -107,7 +107,7 @@ state**, not only the rows the session worked on. The first match wins:
 | 1   | Concluded this session, entry still present                             | **Closed**   |
 | 2   | An entry its `Depends on` names is still on the page and still blocking | **Blocked**  |
 | 3   | A caution or a finding with a recorded trigger rather than a plan       | **Standing** |
-| 4   | An ADR settles the argument and the work remains                        | **Decided**  |
+| 4   | The argument is settled and recorded, and the work remains              | **Decided**  |
 | 5   | Otherwise                                                               | **Open**     |
 
 A status that contradicts the `Depends on` beside it is the failure this rule exists to catch, so

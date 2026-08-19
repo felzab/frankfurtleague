@@ -78,7 +78,7 @@ class CustomObjectIdAnnotation:
         Declared rather than inferred because neither mode can read it off the core schema. Validation
         would take the first step of the chain, which is the string, only for as long as nobody puts a
         constraint in front of it; serialization walks to the last step, a plain validator function no
-        JSON schema can describe. `openapi.json` is a published contract (ADR-0033), so it says what it
+        JSON schema can describe. `openapi.json` is a published contract, so it says what it
         means here instead of tracking a shape chosen for other reasons.
 
         Deliberately not a `return_schema` on the serializer: it would declare the same string and fix
@@ -108,7 +108,7 @@ CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_
 
 # A LITERAL SPACE, never `\s`: the class sits INSIDE the anchors, so `\s` there lets the value carry the
 # newlines and tabs they exclude. `fl_frontend/src/shared/schemas.ts :: PHONE_REGEX` repeats it by hand,
-# and nothing compares the two (ADR-0033).
+# and nothing compares the two.
 PHONE_REGEX = r"^([+]?[ 0-9\-().]{3,20})$"
 
 # Byte-for-byte the regex zod uses for `z.regexes.domain`, because `ExternalUrlSchema` tests the parsed

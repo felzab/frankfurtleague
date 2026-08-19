@@ -3,11 +3,11 @@ SAISONS · the schedule a season's rules imply
 
 Pure arithmetic over `FLSaisonRules`: how many matchdays the competition has, which phase each is
 in, and how many matches each holds. `anzahl_spiele` is never stored: the rules determine it fully,
-and a stored copy is one nothing reconciles (ADR-0052).
+and a stored copy is one nothing reconciles.
 
 Invariants:
 - A bye is modelled, never refused (decided 2026-08-07): an odd group is a withdrawal, not an error.
-- The qualifiers must be a power of two; the ceiling is what the phase set holds (ADR-0052).
+- The qualifiers must be a power of two; the ceiling is what the phase set holds.
 
 See:
 - docs/domain.md — the derived-versus-stored rule this module is the largest instance of
@@ -124,8 +124,8 @@ def implied_matchdays(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
     How many matchdays of this phase the rules imply — a FLOOR on the live rows, never a ceiling.
 
     A season needs at least this many to play the phase out and may legitimately hold more: a round
-    split across two dates is two matchday rows for one phase, which ADR-0051 ratified and composes
-    the `Viertelfinale (1)` / `Viertelfinale (2)` label for. So above this figure is a schedule
+    split across two dates is two matchday rows for one phase, which the composed
+    `Viertelfinale (1)` / `Viertelfinale (2)` label exists for. So above this figure is a schedule
     somebody chose, and below it is a gap.
 
     Zero for a phase this season's bracket never reaches, which is the one case where the answer is
@@ -142,9 +142,9 @@ def expected_matches(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
     """
     How many matches one matchday of this phase should hold.
 
-    This is what `spieltage.anzahl_spiele` reports (ADR-0052). Zero for a knockout round this season's
-    bracket does not reach, which is the honest answer: a season sending eight teams into the bracket
-    plays no round of sixteen, so a matchday claiming to be one is a matchday in a phase nobody runs.
+    This is what `spieltage.anzahl_spiele` reports. Zero for a knockout round this season's bracket
+    does not reach, which is the honest answer: a season sending eight teams into the bracket plays no
+    round of sixteen, so a matchday claiming to be one is a matchday in a phase nobody runs.
     """
 
     for entry in schedule_for(rules):

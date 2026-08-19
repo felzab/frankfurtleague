@@ -35,19 +35,19 @@ import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
 
 /**
- * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). It stands
+ * How long the undo offer stands after a save. It stands
  * on every save, confirmed or not: a confirmation is the carve-out for a draft carrying a warning
- * or a danger, and undo is what still helps the admin who was not paying attention (ADR-0070). The
+ * or a danger, and undo is what still helps the admin who was not paying attention. The
  * rollover is not a save at all and carries its own confirmation — see `FormRolloverSection` for why.
  */
 const UNDO_TIMEOUT_MS = 15000;
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0049: an undo
- * belongs to a page-owned editor, and nothing else becomes a route handler): by the time the offer is
- * pressed this component is unmounted and the browser is on another route, and a server action
- * dispatched from there trips Next's E592 invariant and is truncated mid-response.
- * **Revert this to a server action once E592 is fixed upstream**; the ADR names that condition.
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason (an undo belongs to
+ * a page-owned editor, and nothing else becomes a route handler): by the time the offer is pressed
+ * this component is unmounted and the browser is on another route, and a server action dispatched
+ * from there trips Next's E592 invariant and is truncated mid-response.
+ * **Revert this to a server action once E592 is fixed upstream.**
  */
 async function postSaisonUndo(payload: FLPatchSaisonPayload): Promise<{ success: boolean; message?: string; error?: string }> {
   const response = await fetch("/api/admin/saisons/undo", {
@@ -67,14 +67,14 @@ async function postSaisonUndo(payload: FLPatchSaisonPayload): Promise<{ success:
 
 /**
  * The season editor's form: two panels, the rollover control, a sticky summary rail, and one derivation
- * behind all of it — the match editor's shape (ADR-0040) over a season. Every field is controlled,
+ * behind all of it — the match editor's shape over a season. Every field is controlled,
  * judged when it is left with the same schema the action parses, and marked in place when its draft
  * differs from stored.
  *
  * **One save bar over ONE endpoint**, unlike the club and squad editors: `PATCH /saisons/{saison_id}`
  * replaces the dates and the whole `rules` object in a single write, so there is no partial-failure
  * state to report. What this page has instead of a second endpoint is a second KIND of write — the
- * rollover, which is a control rather than a field and never touches the draft (ADR-0026).
+ * rollover, which is a control rather than a field and never touches the draft.
  *
  * **`status` reaches nothing here by construction.** It is on no payload, has no descriptor row, and no
  * state atom below holds it.
@@ -89,7 +89,7 @@ export function AdminSaisonEditForm({
 }: {
   saison: { id: string; status: FLSaisonStatus } & SaisonDraftFields;
   rollover: SaisonRolloverContext;
-  /** This season's clubs and their groups, plus the knockout count that closes the swap (ADR-0062). */
+  /** This season's clubs and their groups, plus the knockout count that closes the swap. */
   swap: SaisonGruppenSwapContext;
   /** The span the live matchdays already occupy, which the date pickers may not shrink past. */
   spieltagBound?: { startMax: string; endMin: string };
@@ -240,7 +240,7 @@ export function AdminSaisonEditForm({
 
   /**
    * What both submit routes reach first: a draft carrying a warning or a danger is confirmed, and a
-   * clean one saves straight through (ADR-0070). The write itself is unchanged either way, undo
+   * clean one saves straight through. The write itself is unchanged either way, undo
    * included.
    */
   const requestSave = () => {
@@ -257,7 +257,7 @@ export function AdminSaisonEditForm({
   const handleFormSubmit = () => {
     startTransition(async () => {
       // Built BEFORE the write, from this render's props: they still carry what was stored, and the
-      // toast that offers the undo outlives this page (ADR-0041, ADR-0049).
+      // toast that offers the undo outlives this page.
       const undoPayload: FLPatchSaisonPayload = {
         id: saison.id,
         start_date: saison.start_date,
@@ -291,14 +291,13 @@ export function AdminSaisonEditForm({
   };
 
   /**
-   * The undo toast: fifteen seconds to take the save back (ADR-0041's window over ADR-0049's
-   * transport). The pitfalls the match editor documents all apply and are all mirrored here: the toast
-   * outlives this component, so the press runs in a detached closure — `router.refresh()` is what
-   * re-renders a screen the action's own revalidation can no longer reach (the router instance is a
-   * stable singleton, legal after unmount); the replay uses the TWO-ARGUMENT `then`, so a failure
-   * downstream of a committed restore is never blamed on the transport; and the pending spinner is
-   * `appToast.pending`, closed by its own key, because a toast without an explicit timeout inherits a
-   * four-second default that would retire it mid-flight.
+   * The undo toast: fifteen seconds to take the save back. The pitfalls the match editor documents
+   * all apply and are all mirrored here: the toast outlives this component, so the press runs in a
+   * detached closure — `router.refresh()` is what re-renders a screen the action's own revalidation
+   * can no longer reach (the router instance is a stable singleton, legal after unmount); the replay
+   * uses the TWO-ARGUMENT `then`, so a failure downstream of a committed restore is never blamed on
+   * the transport; and the pending spinner is `appToast.pending`, closed by its own key, because a
+   * toast without an explicit timeout inherits a four-second default that would retire it mid-flight.
    *
    * **A warning rather than a success where the points moved**, which the club editor's undo also does:
    * every standing for this season was rescored by the save, and a table that silently reads
@@ -395,7 +394,7 @@ export function AdminSaisonEditForm({
                 />
 
                 {/* Above the rollover, and below the two field panels: a control rather than a field,
-                    but the one control on this page that a later run of itself undoes (ADR-0062). */}
+                    but the one control on this page that a later run of itself undoes. */}
                 <FormGruppenSwapSection
                   saisonId={saison.id}
                   swap={swap}

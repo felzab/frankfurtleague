@@ -85,8 +85,8 @@ describe("every editor raising the save confirmation", () => {
 
       assert.ok(source.includes("resolveBlockingBanners(banners)"), `${file} derives its gate some other way`);
 
-      // The whole of ADR-0070's snapshot clause: the dialog's list has to be state, because a value
-      // recomputed each render can change while the admin is reading what they are agreeing to.
+      // The dialog's list has to be state, because a value recomputed each render can change while
+      // the admin is reading what they are agreeing to.
       const held = SNAPSHOT_STATE.exec(source)?.[1];
       assert.ok(held, `${file} holds no BlockingBanners snapshot in state`);
       assert.ok(source.includes(`banners={${held}}`), `${file} renders the dialog on something other than its snapshot`);

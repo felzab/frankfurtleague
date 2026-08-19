@@ -1,8 +1,8 @@
 /**
  * APP · the match edit's undo
  *
- * Puts a batch of fixtures back the way they were, in the order given (ADR-0041) — one of the
- * admin mutations that are route handlers rather than server actions (ADR-0049): the undo's toast
+ * Puts a batch of fixtures back the way they were, in the order given — one of the
+ * admin mutations that are route handlers rather than server actions: the undo's toast
  * outlives the page that raised it, and a server action dispatched from the landing route
  * re-renders the abandoned editor segment, which trips Next's E592 invariant mid-stream and
  * truncates the response. Revert to a server action when E592 is fixed upstream.

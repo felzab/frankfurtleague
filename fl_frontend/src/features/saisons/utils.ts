@@ -39,12 +39,12 @@ export function searchWithoutSaisonId(searchParams: Awaited<NextPageProps["searc
 }
 
 /**
- * Whether this fixture is one that happened, as both swap windows ask it (ADR-0062).
+ * Whether this fixture is one that happened, as both swap windows ask it.
  *
  * **The mirror of `fl_backend/app/api/saisons/admin_router.py :: _has_taken_place`, and it has to stay
  * one.** The endpoint refuses on its answer and every surface offering a swap decides what to offer on
  * the same answer, so a clause on one side and not the other either offers a pair the write path 409s
- * or hides a swap that would have worked (ADR-0038).
+ * or hides a swap that would have worked.
  *
  * The goal counts are the clause a reader would not predict: `PATCH /spiele/{spiel_id}` derives
  * `ergebnis` from BOTH counts and drops the goals only when a SIDE is absent, so a fixture with two
@@ -52,7 +52,7 @@ export function searchWithoutSaisonId(searchParams: Awaited<NextPageProps["searc
  * about a match that was played.
  *
  * Not built from `computeSpielStatus`: a status label is not a filter and `ausstehend` is not a
- * partition (ADR-0058).
+ * partition.
  */
 function hasTakenPlace(spiel: FLSpiel): boolean {
   // `?? null` collapses the two absences into one: an unresolved slot has no side at all and a resolved
@@ -83,10 +83,9 @@ function countSpieleProSpieltag(spiele: readonly FLSpiel[]): Map<string, Record<
 }
 
 /**
- * Everything a swap control stands on, assembled from one season's clubs and its two fixture sets
- * (ADR-0062) — and assembled HERE rather than at each page, because both entry points have to answer
- * `find_gruppe_swap_refusal`'s questions identically or one of them offers what the other refuses
- * (ADR-0071).
+ * Everything a swap control stands on, assembled from one season's clubs and its two fixture sets —
+ * and assembled HERE rather than at each page, because both entry points have to answer
+ * `find_gruppe_swap_refusal`'s questions identically or one of them offers what the other refuses.
  *
  * `teams` is the season's junction rows, which the strict join makes `GET /teams?saison_id=`: a club
  * with no row is absent from it and is precisely the club the write path refuses. The knockout count is
@@ -134,14 +133,14 @@ export function buildGruppenSwapContext({
 /**
  * Whether exchanging these two clubs would leave one of them in two matches of one Spieltag.
  *
- * **`REQ-SWAP-005` said in the form (ADR-0038), mirroring `_spieltag_clashes` on the server.** A swap
+ * **`REQ-SWAP-005` said in the form, mirroring `_spieltag_clashes` on the server.** A swap
  * moves each club's Gruppenphase fixtures to the other and leaves the bracket ones where they are, so
  * afterwards a club stands in its OWN `koSpieleProSpieltag` plus the OTHER's `gruppenSpieleProSpieltag`.
- * A club plays at most one match per Spieltag (ADR-0042).
+ * A club plays at most one match per Spieltag.
  *
  * **Only a Spieltag the exchange BREAKS counts, never one already broken.** The server draws the line in
- * the same place, because enforcement leaves stored breaches alone (ADR-0042) — and a stricter client
- * would hide a swap the endpoint accepts, which is ADR-0038's failure in the other direction.
+ * the same place, because enforcement leaves stored breaches alone — and a stricter client would hide
+ * a swap the endpoint accepts.
  */
 function wouldFieldAClubTwice(first: SaisonSwapTeam, second: SaisonSwapTeam): boolean {
   const breaksASpieltag = (keeps: SaisonSwapTeam, gives: SaisonSwapTeam) =>

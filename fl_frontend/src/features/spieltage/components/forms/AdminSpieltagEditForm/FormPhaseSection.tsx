@@ -18,16 +18,16 @@ import type { SpieltagBanner } from "./banners";
 
 /**
  * Which round of the season this matchday belongs to — and, because the order and the name both
- * follow from it, where it sits and what it is called (ADR-0051).
+ * follow from it, where it sits and what it is called.
  *
  * **A phase accounting for fewer matches than this matchday already holds is offered and disabled**,
  * never hidden: the treatment `GruppeSelect` gives a full group, so an admin sees why a phase cannot
  * be picked rather than wondering where it went. The endpoint refuses the same shape
  * (`REQ-SPIELTAG-002`), and the counts come from `FLSaison.schedule` rather than from arithmetic
- * repeated here (ADR-0052).
+ * repeated here.
  *
  * A picker, so it is judged on change rather than on blur — a selection is complete the moment it is
- * made and there is no half-entered value to be wrong about (ADR-0040).
+ * made and there is no half-entered value to be wrong about.
  */
 export function FormPhaseSection({
   phase,

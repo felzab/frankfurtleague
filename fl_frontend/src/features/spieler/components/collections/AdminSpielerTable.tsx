@@ -33,7 +33,7 @@ const SHORTHAND_CHIP =
  * player with no squad row in that season is listed too, showing that instead of squad data — which
  * is the state the memberships read exists to make visible and the season-scoped read cannot.
  *
- * **Two independent retirements meet on one row** (ADR-0025), and keeping them apart is this
+ * **Two independent retirements meet on one row**, and keeping them apart is this
  * component's main job. The trash control retires the PERSON; a retired SQUAD ROW is badged with its
  * own restore control beside it, because reviving a row is a different endpoint that preserves the
  * number, position and stufe the row still carries. A row can be in either state, both, or neither.
@@ -124,7 +124,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       </RowActionLink>
 
       {/* The SQUAD ROW's restore, offered only where there is a retired row to restore. Distinct
-          from the person's below, and it preserves the number, position and stufe (ADR-0025). */}
+          from the person's below, and it preserves the number, position and stufe. */}
       {spieler.selected?.inactive_since != null && (
         <RowActionRestore
           label="Kadereintrag reaktivieren"

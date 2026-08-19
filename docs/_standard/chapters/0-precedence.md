@@ -1,6 +1,6 @@
 # Precedence
 
-**Verified against:** `7555ecd`, 2026-08-10\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Applies to:** any disagreement between two written sources, and the placement and shape of every
 rule in this standard.
 
@@ -18,10 +18,9 @@ rule in this standard.
 **Rule:** when two sources disagree, the higher one wins:
 
 1. the code, and what it actually does
-2. an ADR, for anything it decided
-3. a spec sheet, for a current contract
-4. CLAUDE.md, which summarises 2 and 3
-5. an overview, which is orientation
+2. a spec sheet, for a current contract
+3. CLAUDE.md, which summarises the code and the specs
+4. an overview, which is orientation
 
 **Why:** a disagreement needs one deterministic answer, or every conflict becomes a fresh judgment
 call taken under pressure.
@@ -35,7 +34,7 @@ call taken under pressure.
 ### PRE-2 — Correct the summary, never the source
 
 **Rule:** when a summary disagrees with what it summarises, the source decides and the summary is
-corrected — CLAUDE.md to the ADR, an index to its entries, a README to its chapters. Where any
+corrected — CLAUDE.md to the spec sheet, an index to its entries, a README to its chapters. Where any
 document disagrees with the code, the document is wrong: fix it in the same commit that discovered
 it.
 
@@ -51,7 +50,7 @@ it.
 
 **Rule:** every rule is stated in full in exactly one place — its home — and every other mention
 states the claim briefly and cites the home. The enforcement layer (CLAUDE.md, the gate's messages)
-states rules; the reasoning layer (these chapters, the ADRs) carries the argument.
+states rules; the reasoning layer (these chapters) carries the argument.
 
 **Why:** two full copies of a rule disagree eventually, and the copy nobody revisits is the one
 that goes stale.

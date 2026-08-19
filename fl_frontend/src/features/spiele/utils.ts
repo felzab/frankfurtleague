@@ -7,11 +7,11 @@
  *
  * Invariants:
  * - `computeSpielStatus` lets cancellation override the date and excludes today from
- *   `ausstehend`, unlike the server (ADR-0058) — a filter selects, a label partitions.
+ *   `ausstehend`, unlike the server — a filter selects, a label partitions.
  * - `computeErgebnisFor` answers "?" whenever uncertain — a two-way branch would render a
  *   confident loss for a team that did not play.
  * - It reads `ergebnis` alone: a shoot-out is "D" here, matching the league table — only the
- *   bracket takes a winner from it (ADR-0036).
+ *   bracket takes a winner from it.
  *
  * See:
  * - docs/glossary.md — spiel_status, for the two definitions and why they differ
@@ -56,7 +56,7 @@ export const computeSpielStatus = ({
  * `"-:-"` in the compact and playoff cards, on the same screen.
  *
  * **This is derivation only. The three `SpielCard` components stay separate** — they are justified
- * variance, not copy-paste (ADR-0005).
+ * variance, not copy-paste.
  */
 export const formatSpielDisplay = (spiel: Pick<FLSpiel, "datum" | "uhrzeit" | "ergebnis" | "elfmeterschiessen">) => ({
   datum: formatSpielDatum(spiel.datum),
@@ -70,7 +70,7 @@ export const formatSpielDisplay = (spiel: Pick<FLSpiel, "datum" | "uhrzeit" | "e
  * played — which is every match but a handful.
  *
  * **Returned beside the score and never folded into it.** The fixture finished level and the league
- * table counts it as a draw (ADR-0036), so a card that showed `4:3` where `2:2` belongs would state the
+ * table counts it as a draw, so a card that showed `4:3` where `2:2` belongs would state the
  * opposite of what the Saisontabelle does about the same match. Every caller renders the two together.
  *
  * `i. E.` is "im Elfmeterschießen". The two spaces are `\u202F`, a narrow no-break space, written as an
@@ -118,7 +118,7 @@ export const computeErgebnisFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: 
 /**
  * What a card shows in place of a side whose occupant is not known yet.
  *
- * The label is DERIVED, never stored: `quelle` is a reference and carries no German (ADR-0034), so this
+ * The label is DERIVED, never stored: `quelle` is a reference and carries no German, so this
  * is the single place the bracket's vocabulary exists. `null` in means the slot has no source at all —
  * a group-phase fixture, or one an admin has taken manual charge of — and the caller falls through to
  * `PLACEHOLDER.slot`.
@@ -146,10 +146,10 @@ export const formatQuelle = (quelle: FLSpielQuelle | null): string | null => {
 /**
  * Who maintains one side of a fixture — the three answers a slot's two fields add up to.
  *
- * A `quelle` and a team are independent and all four combinations are stored states (ADR-0034), but
+ * A `quelle` and a team are independent and all four combinations are stored states, but
  * only one question has three answers: **what fills this side from here on.** A source owns the slot
  * and the resolution writes it; with no source the slot is the admin's, occupied or not; and a side
- * that is the admin's AND empty is filled by nobody at all (ADR-0034).
+ * that is the admin's AND empty is filled by nobody at all.
  *
  * - `quelle` — a source names it, so the resolution maintains it.
  * - `manuell` — no source, a team standing in it. The admin's, and settled.
@@ -170,12 +170,12 @@ export const deriveSlotHerkunft = (team: FLSpielTeamField | null, quelle: FLSpie
  * both comparisons.
  *
  * Mirrors `PHASE_RANK` in `fl_backend/app/api/spiele/schemas.py` and exists for the same rule: a
- * bracket slot is fed only by a knockout match of an earlier round (ADR-0038). The form derives its
+ * bracket slot is fed only by a knockout match of an earlier round. The form derives its
  * legal options from this; the backend refuses anything outside them.
  *
  * **Derived from `SAISON_PHASE_OPTIONS` rather than written out**, exactly as the backend derives its
  * copy from `PHASE_ORDER`. A hand-written map is a second statement of the sequence, and adding a round
- * would then compile with that round ranked nowhere (ADR-0052).
+ * would then compile with that round ranked nowhere.
  */
 export const PHASE_RANK: Record<FLSaisonPhase, number> = Object.fromEntries(SAISON_PHASE_OPTIONS.map((phase, rank) => [phase, rank])) as Record<
   FLSaisonPhase,
@@ -218,7 +218,7 @@ export const collectUsedQuelleKeys = (saisonSpiele: readonly FLSpiel[], editedSp
  * map is what lets the picker say so where the answer is refused, instead of accepting a pick that
  * silently leaves the team in both fixtures. Stored sides only, like `collectUsedQuelleKeys`: other
  * fixtures' drafts are not visible here, and the edited fixture's own sides are the caller's to
- * check against its draft. The write-path refusal is the backend's half (ADR-0042); this
+ * check against its draft. The write-path refusal is the backend's half; this
  * is the UI half that makes the rule readable.
  */
 export const collectSpieltagTeamOccupancy = (
@@ -243,7 +243,7 @@ export const collectSpieltagTeamOccupancy = (
  * The client's honest proxy for "qualified for the knockout stage": a team standing in no bracket
  * fixture at all has, as far as the stored season says, not advanced — and hand-picking it into a
  * knockout slot deserves a warning. It is a proxy, not a derivation: re-deriving who SHOULD have
- * advanced from the standings is exactly what ADR-0035 keeps out of the client, so this reads only
+ * advanced from the standings is exactly what the client never does, so this reads only
  * what the bracket already holds. A warning, never a refusal — an admin correcting a hand-run
  * season is allowed to know better.
  */
@@ -262,7 +262,7 @@ export const collectKnockoutTeamIds = (saisonSpiele: readonly FLSpiel[], editedS
 
 /**
  * Whether `feeder` plays in the round directly before `target`'s — the round a slot is ordinarily
- * fed from (ADR-0034), and therefore the recommendation the feeder picker marks. The picker's list
+ * fed from, and therefore the recommendation the feeder picker marks. The picker's list
  * legitimately spans every earlier round; for a final that is quarter- AND semi-finals, and the
  * chip is what says which of them the bracket ordinarily means.
  */
@@ -271,7 +271,7 @@ export const isDirectlyPrecedingRound = (feeder: Pick<FLSpiel, "saison_phase">, 
 
 /**
  * The matches a slot of `target` may legally be fed by: knockout matches of the same season in a
- * strictly earlier round, in bracket order (ADR-0038).
+ * strictly earlier round, in bracket order.
  *
  * Strictly earlier is also what makes a cycle unpickable — every offered edge points backwards in the
  * running order, so no chain of them can close. The season filter matters on the one surface whose
@@ -292,8 +292,8 @@ export const listFeederSpiele = (saisonSpiele: readonly FLSpiel[], target: Pick<
 /**
  * One side of a read fixture, narrowed to what the match document actually stores.
  *
- * A read serves the joined side, which carries the season's `disqualifikation` looked up per request
- * (ADR-0021 rule 4). Structural typing accepts that object wherever the stored shape is asked for, so
+ * A read serves the joined side, which carries the season's `disqualifikation` looked up per request.
+ * Structural typing accepts that object wherever the stored shape is asked for, so
  * without this the join rides into the editor's draft and back onto the write path — where Zod's
  * `strip` mode is the only thing keeping it off the wire and Pydantic's `extra="ignore"` the only
  * thing keeping it out of the document.
@@ -306,7 +306,7 @@ export const toStoredSide = (side: FLSpielTeamFieldJoined | null): FLSpielTeamFi
 /**
  * One stored fixture as the payload that would restore it.
  *
- * **What the undo toast is built from** (ADR-0041). A save that resolves the bracket can delete a
+ * **What the undo toast is built from.** A save that resolves the bracket can delete a
  * result somebody entered in a fixture the request never named, and nothing on the server keeps the
  * old value — no admin write is recorded anywhere. The page that was looking at the
  * season is therefore the only place those values still exist, and this turns each of them back into
@@ -359,7 +359,7 @@ export const toPatchPayload = (spiel: FLSpiel): FLPatchSpielDataPayload => ({
 export const spielStateKey = (spiel: FLSpiel): string => `${spiel.id}:${JSON.stringify(toPatchPayload(spiel))}`;
 
 /**
- * The requests that put a season back the way it was before one save (ADR-0041).
+ * The requests that put a season back the way it was before one save.
  *
  * **Order is the whole correctness argument.** The edited fixture goes first, because restoring it is
  * what makes the resolution put the occupants back downstream; each fixture whose result that save
@@ -386,7 +386,7 @@ export const buildUndoPayloads = (
 };
 
 /**
- * Where one fixture is edited (ADR-0040).
+ * Where one fixture is edited.
  *
  * One spelling of the route, because three surfaces need it — the match cards, the action-required list,
  * and any later triage view that deep-links into a single fixture. A path built at each site is how two
@@ -396,7 +396,7 @@ export const adminSpielEditHref = (spielId: string): string => `/admin/spiele/${
 
 /**
  * The fixtures whose occupants this one's result decides — what tells the edit surface a dry-run
- * preview is worth requesting at all (ADR-0041).
+ * preview is worth requesting at all.
  *
  * The inverse direction to `listFeederSpiele`, and over stored wiring rather than legal candidates: a
  * fixture is dependent when it actually names this one as a source, or when it seeds a placing from a
@@ -404,15 +404,15 @@ export const adminSpielEditHref = (spielId: string): string => `/admin/spiele/${
  *
  * **Both routes matter, and the group one is the route an admin meets first.** A knockout slot fed by
  * `{type: "spiel"}` is voided when the match it names changes hands; a slot fed by `{type: "gruppe"}` is
- * voided when the standings that decide the placing change, which is what a corrected group result does
- * (ADR-0035). `ausgang` is not compared, because either outcome of this fixture moves the slot.
+ * voided when the standings that decide the placing change, which is what a corrected group result does.
+ * `ausgang` is not compared, because either outcome of this fixture moves the slot.
  *
  * `gruppen` is the groups this fixture is played in, which a match document does not carry — `FLSpiel`
- * embeds its sides and a group lives on the `saison_teams` junction the team list already joins
- * (ADR-0021). Empty for a knockout fixture, where the group route cannot apply.
+ * embeds its sides and a group lives on the `saison_teams` junction the team list already joins.
+ * Empty for a knockout fixture, where the group route cannot apply.
  *
  * **This states the wiring; it does not predict the loss.** Whether a save actually voids a stored
- * result is the dry run's answer (ADR-0041) — this list only decides whether a preview request is
+ * result is the dry run's answer — this list only decides whether a preview request is
  * worth issuing, so a dependent fixture listed here is one whose result *can* be affected, and the
  * dry run names the ones that actually are.
  */
@@ -441,11 +441,11 @@ export const listDependentSpiele = (
  * that cost.
  *
  * `PATCH /spiele/{spiel_id}` resolves the season's bracket, so entering a result can fill a later
- * fixture's slot — and correcting one can empty a slot that should never have been filled (ADR-0034).
+ * fixture's slot — and correcting one can empty a slot that should never have been filled.
  * The wording is therefore **"aktualisiert" rather than "eingetragen"**: `advanced_to` reports what
  * changed, and an emptied fixture is in it exactly as a filled one is.
  *
- * **A destroyed result gets its own sentence** (ADR-0041). A moved `Paarung` and a deleted scoreline
+ * **A destroyed result gets its own sentence.** A moved `Paarung` and a deleted scoreline
  * are two different facts, and a reader told specifically that a pairing changed reasonably concludes
  * the rest of the fixture did not.
  *
@@ -470,7 +470,7 @@ export const formatSpielUpdateMessage = (
     );
   }
 
-  // A sentence of its own, and the whole point of the shape change (ADR-0041). A cleared result is a
+  // A sentence of its own, and the whole point of the shape change. A cleared result is a
   // different fact from a slot changing occupant, and one message about a `Paarung` tells an admin
   // nothing about the scoreline they just deleted.
   const voided = advancedTo.filter((advancement) => advancement.voided_ergebnis !== null);
@@ -483,7 +483,7 @@ export const formatSpielUpdateMessage = (
   }
 
   // The other write this endpoint can make: a team fielded here leaves the fixture it played on the
-  // same Spieltag (ADR-0042). Named per fixture rather than counted, because the admin has to know
+  // same Spieltag. Named per fixture rather than counted, because the admin has to know
   // which side of which match is now empty.
   for (const released of releasedSides) {
     sentences.push(
@@ -510,11 +510,11 @@ const joinSpiele = (advancements: readonly { spiel_nr: number }[]): string =>
   new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(advancements.map((entry) => String(entry.spiel_nr)));
 
 /**
- * Why one derived fault needs a person, in a sentence an admin can act on (ADR-0039).
+ * Why one derived fault needs a person, in a sentence an admin can act on.
  *
  * Six reasons, and every one of them names the fixture to open and what is wrong inside it. Only states
  * no further result can fix reach here — a group that is still being played produces none of them,
- * because a placing that is not decided yet needs nobody's attention (ADR-0035).
+ * because a placing that is not decided yet needs nobody's attention.
  *
  * These serve the save's TOAST, which arrives with no fixture in sight — so every sentence names its
  * match number. The triage list's per-card notes use `describeBracketFaultOnCard` below, which says the

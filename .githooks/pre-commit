@@ -2,7 +2,7 @@
 #
 # GITHOOKS · format the staged files and re-stage them, so every commit is born formatted.
 #
-# Formatting happens at commit time and the gate only checks (ADR-0065).
+# Formatting happens at commit time and the gate only checks.
 #
 # What reaches the index is formatted from the index, never read back off disk, so an editor
 # autosave or a second agent writing while prettier runs cannot put unstaged content in the commit.

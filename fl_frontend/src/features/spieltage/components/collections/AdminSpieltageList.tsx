@@ -22,12 +22,12 @@ import type { SpieltagPhaseProgress } from "../../utils";
 /**
  * The season's matchdays, sectioned by phase and in the order they are played.
  *
- * **Not a table, and not the public Spielplan's tab strip either** (decided 2026-08-07, ADR-0050). The
+ * **Not a table, and not the public Spielplan's tab strip either.** The
  * Spielplan shows one matchday at a time because a reader's question is what is being played on it; the
  * admin's questions are comparisons BETWEEN matchdays — are the phases right, does the expected fixture
  * count match what is attached — and a strip showing one matchday hides both.
  *
- * **The order arrives already correct and this list does not re-sort it** (ADR-0051). It is derived on the
+ * **The order arrives already correct and this list does not re-sort it.** It is derived on the
  * backend from `saison_phase` in bracket order, then `beginn`, then `_id`, so there is no stored position
  * to render, no collision to detect and no reordering control to offer. What the row shows instead is an
  * `ordinal` — its 1-based place within its phase section, assigned by the page from the order it received.
@@ -35,7 +35,7 @@ import type { SpieltagPhaseProgress } from "../../utils";
  * where the row actually is.
  *
  * **`spieleAngelegt` against `anzahl_spiele` is one of the two facts only this surface can catch.** The
- * expected count follows from the season's rules and this matchday's phase (ADR-0052); the attached count
+ * expected count follows from the season's rules and this matchday's phase; the attached count
  * is how many fixtures carry its id. Nothing refuses a disagreement, because a season being set up passes
  * through every intermediate count on the way — so showing the two together is what makes the gap visible
  * without making the intermediate states illegal.
@@ -85,7 +85,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   // rendered empty: an empty heading reads as something missing rather than something not reached.
 
   // No sort inside a section — the rows arrive in the played order, and re-sorting here would be a
-  // second answer to a question the backend already answered (ADR-0051).
+  // second answer to a question the backend already answered.
   const byPhase = new Map<FLSaisonPhase, AdminSpieltagRow[]>();
   for (const spieltag of filteredSpieltage) {
     const section = byPhase.get(spieltag.saison_phase);
@@ -109,7 +109,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
    * `erwartet > 0` keeps a round this season's bracket does not reach off the list — it is not short of a
    * matchday, it plays none. A phase whose only matchday is RETIRED is on the list, and that is what makes
    * „aktiven“ load-bearing in the rendered sentence: retiring one is how a mis-dated matchday leaves the
-   * schedule (ADR-0025), so the phase does still need another, but it is on screen and „Ohne Spieltag“
+   * schedule, so the phase does still need another, but it is on screen and „Ohne Spieltag“
    * would be false beside it.
    */
   const phasesWithout = SAISON_PHASE_OPTIONS.filter((phase) => {
@@ -130,7 +130,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
    * and above a single card under `?status=stillgelegt`. That is the deliberate trade for `phasesWithout`
    * above reading these same season-wide numbers rather than the rows.
    *
-   * **Reported, never refused** (ADR-0052): a season being set up reaches its phases in order, so a
+   * **Reported, never refused**: a season being set up reaches its phases in order, so a
    * phase short of matchdays is the ordinary state on the way to complete.
    */
   const renderPhaseCount = (phase: FLSaisonPhase, shownCount: number) => {
@@ -181,7 +181,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
 
   const renderActions = (spieltag: AdminSpieltagRow) => (
     <RowActions>
-      {/* A link rather than a press: the matchday form edits on a page (ADR-0072), so the pencil is
+      {/* A link rather than a press: the matchday form edits on a page, so the pencil is
           a navigation and the shared view renders no edit overlay. */}
       <RowActionLink
         href={`/admin/spieltage/${spieltag.id}`}
@@ -234,7 +234,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
           className="flex w-full flex-col gap-3">
           {/* The phase's own chip as the section heading, so the admin list and every match card name a
               phase with the same word and the same colour. `h2` because the page's title is the shell
-              bar's (ADR-0046). */}
+              bar's. */}
           <h2 className="flex flex-row items-center gap-x-3">
             <SaisonPhaseChip saisonPhase={phase} />
             {renderPhaseCount(phase, rows.length)}

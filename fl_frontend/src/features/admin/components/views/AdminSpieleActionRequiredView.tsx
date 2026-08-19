@@ -107,7 +107,7 @@ export function AdminSpieleActionRequiredView({
    * Moves the selection without leaving the page.
    *
    * `window.history.replaceState` rather than `router.replace`, and the reason is what this page
-   * costs: its query is deliberately uncached (ADR-0009), so a router navigation would re-read the
+   * costs: its query is deliberately uncached, so a router navigation would re-read the
    * whole archive from FastAPI to change which of the already-loaded sections is on screen. The native
    * History API is Next's documented escape for exactly this — it "integrates into the Next.js
    * Router", so `useSearchParams` re-renders with the new value and browser history stays coherent.
@@ -226,7 +226,7 @@ export function AdminSpieleActionRequiredView({
           ) : (
             // The app's one card grid, holding its one admin match card. Faults reach the
             // `bracket_fault` section alone — the one list already filtered by that diagnosis, and the
-            // only category whose tab cannot state the reason itself (ADR-0044).
+            // only category whose tab cannot state the reason itself.
             <div
               role="list"
               className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>

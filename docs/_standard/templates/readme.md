@@ -26,7 +26,7 @@ Rules: ../chapters/3-corpus.md — the shape is OUT-3.
 ## \<The one thing to know first\>
 
 \<The constraint, convention or entry point a reader must have before opening anything above.
-Reasoning belongs in an ADR; a contract belongs in a spec sheet. Omit this section entirely
+Reasoning belongs at the constraint it governs; a contract belongs in a spec sheet. Omit this section entirely
 where the table is enough.\>
 
 ## Read next

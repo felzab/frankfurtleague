@@ -22,7 +22,7 @@ export type FLSpielerFilterParams = {
   saison_id?: string;
   is_nachgetragen?: boolean;
   stufe?: FLSpielerStufe;
-  // Retired people and retired squad rows are excluded unless an admin surface asks for them (ADR-0025).
+  // Retired people and retired squad rows are excluded unless an admin surface asks for them.
   include_inactive?: boolean;
 
   limit?: number;
@@ -139,7 +139,7 @@ export type SpielerCreateSaisonOption = {
 /**
  * One row of the admin player list: EVERY player across every season, carrying the selected season's
  * squad row where one exists. Assembled by the page from `GET /spieler/memberships`, which is the
- * only read that answers the player-centric question (ADR-0027).
+ * only read that answers the player-centric question.
  */
 export type AdminSpielerRow = {
   id: string;

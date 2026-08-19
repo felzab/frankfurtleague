@@ -5,8 +5,8 @@
 # Read-only as a formatter: prettier runs in check mode everywhere, so no run reformats a tracked
 # file — with one write this script does not control, `next build` rewriting the tracked
 # `fl_frontend/tsconfig.json` when a `compilerOptions` key is absent, which the frontend CI job
-# catches by diffing that one path (not ADR-0065's retired whole-tree compensation). Before any
-# scope runs, `scripts/check_scope.py` refuses a run narrower than the branch's diff (ADR-0030).
+# catches by diffing that one path. Before any scope runs, `scripts/check_scope.py` refuses a run
+# narrower than the branch's diff.
 # Never name another tool's flag in this block: `scripts/selfcheck.sh` reads every double-dashed
 # word here as a flag this script must accept.
 #
@@ -190,8 +190,8 @@ change. Its own reason is above." ;;
 # --- scope -------------------------------------------------------------------------------------------
 
 # Before any scope runs, because refusing an undersized run in two seconds is the point: the same
-# refusal after a next build has already cost the minutes it exists to save. This is where ADR-0030
-# stops depending on memory.
+# refusal after a next build has already cost the minutes it exists to save. This is where the
+# scope rule stops depending on memory.
 
 # Parent only. A worker is given one scope and the parent has already asked this question for the
 # whole run, so asking again would put a second `scope` row in the table it replays into.
@@ -330,8 +330,8 @@ if (( RUN_SCRIPTS )); then
   # this ends the run rather than reporting a scope it cannot describe.
 
   # A broken ledger is this gate's own plumbing, never the change under test, so each fault below
-  # crashes rather than reporting a finding — `replay_scope`'s idiom, and the ending ADR-0066 gives
-  # an event nothing in the tree can fix.
+  # crashes rather than reporting a finding — `replay_scope`'s idiom, and the ending for an event
+  # nothing in the tree can fix.
   replay_selfcheck() {
     local verb message records=0 declared=""
     [[ -r "$FL_SELFCHECK_LEDGER" ]] \
@@ -368,8 +368,7 @@ if (( RUN_SCRIPTS )); then
   ok "the gate's own python is clean"
 
   # The types, for the reason `scripts/pyrightconfig.json` records: the gate is built from this
-  # python, and a type error in `scripts/check_scope.py` is a gate that reports the wrong scope
-  # (ADR-0030).
+  # python, and a type error in `scripts/check_scope.py` is a gate that reports the wrong scope.
 
   # Run from inside scripts/, because that is where pyright finds its config. `$PY` is an absolute
   # path from `venv_python`, so the `cd` does not disturb it.
@@ -399,7 +398,7 @@ fi
 
 # --- docs ------------------------------------------------------------------------------------------
 
-# A dangling ADR number, a dead link and a citation whose anchor has gone are invisible to every
+# A dangling rule id, a dead link and a citation whose anchor has gone are invisible to every
 # other check here, and each still reads as though it means something. The standard's other currency
 # defences depend on memory; this one does not (CUR-5).
 if (( RUN_DOCS )); then
@@ -614,7 +613,7 @@ fi
 
 # The other test tier, split from the default one because it needs the Docker daemon `--quick` exists
 # to avoid. Without it `pytest -m db` runs only in CI, so a change breaking the pipeline against a
-# real mongod passes every local gate (ADR-0023).
+# real mongod passes every local gate.
 if (( RUN_DB )); then
   section db
 
@@ -632,7 +631,7 @@ fi
 if (( RUN_IMAGES )); then
   section images
 
-  # CI sets VERIFY_IMAGES_CACHE=gha to carry layers between runs (ADR-0031), paired with a
+  # CI sets VERIFY_IMAGES_CACHE=gha to carry layers between runs, paired with a
   # docker-container builder because the default driver cannot export a cache. Unset, this is a plain
   # build against the daemon's own warm layer cache.
 
@@ -653,10 +652,10 @@ this step in the job."
       # entries, because a scope is one cache key and buildx overwrites rather than merges.
 
       # `version` is deliberately unpinned: buildx picks the live cache service from
-      # ACTIONS_CACHE_SERVICE_V2, and naming a retired one silently disables the cache (ADR-0031).
+      # ACTIONS_CACHE_SERVICE_V2, and naming a retired one silently disables the cache.
 
       # The cache scope stays the bare image name while the tag carries the run: a scope holding a
-      # run id would miss every previous run's layers, which is the cache switched off (ADR-0031).
+      # run id would miss every previous run's layers, which is the cache switched off.
       quietly docker buildx build --load \
         --cache-from "type=gha,scope=${name}" \
         --cache-to "type=gha,scope=${name},mode=max" \

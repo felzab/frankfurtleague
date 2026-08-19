@@ -5,10 +5,10 @@ One declaration of what this database holds, so a name is written once for every
 it: the accessors in `db.py`, the validators in `constraints.py`, and the tables in `domain.py`. A
 `StrEnum` rather than a `Literal` because a collection name never crosses the wire, and iteration
 is what lets `test_every_collection_is_declared_once` catch a collection added to one of those
-places and not the others (ADR-0054).
+places and not the others.
 
 Invariants:
-- There is deliberately no equivalent declaration of field names (ADR-0054, ADR-0024).
+- There is deliberately no equivalent declaration of field names.
 """
 
 from enum import StrEnum
@@ -23,7 +23,7 @@ class Collection(StrEnum):
     SAISON_SPIELER = "saison_spieler"
     #: Fixtures, one document per match; the consistency boundary is the season (`fl_backend/app/core/domain.py :: AGGREGATES`).
     SPIELE = "spiele"
-    #: Matchdays: named blocks of a season's fixtures, though the name itself is derived (ADR-0051).
+    #: Matchdays: named blocks of a season's fixtures, though the name itself is derived.
     SPIELTAGE = "spieltage"
     #: Clubs, season-independent.
     TEAMS = "teams"

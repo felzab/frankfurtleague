@@ -2,7 +2,7 @@
  * TEAMS · who the team is
  *
  * The record itself — name, school, the outward links and the club's own description. It names
- * the page's record, so its `h2` is the heading the shell's `h1` sits above (ADR-0046).
+ * the page's record, so its `h2` is the heading the shell's `h1` sits above.
  */
 
 import Link from "next/link";

@@ -5,7 +5,7 @@
  * client module becomes a client reference on the server side.
  *
  * The page's name and its explanation are NOT here — they are the navigation structure's, which the
- * shell's bar renders, so the title an admin reads is the nav item they clicked (ADR-0046).
+ * shell's bar renders, so the title an admin reads is the nav item they clicked.
  */
 
 import type { FLSaisonPhase } from "./schemas";
@@ -23,7 +23,7 @@ export const SAISONS_CRUD_COPY = {
  * **The schema owns the SET and this owns the SEQUENCE** — the same split `POSITION_OPTIONS` makes for
  * the player positions. It is the competition's own order rather than a presentation choice: a season
  * plays its group phase and then each knockout round in turn, which is why the bracket rules can rank
- * phases against it (ADR-0052).
+ * phases against it.
  */
 export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = ["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"];
 

@@ -7,10 +7,10 @@
  * All of these use `authType: "admin"`; the backend's admin router rejects the base key.
  *
  * **Four writes and no delete.** A season that is over is `past`: deleting one would orphan every
- * spiel, spieltag and junction row carrying its id, none of which cascades (ADR-0026). There is no
+ * spiel, spieltag and junction row carrying its id, none of which cascades. There is no
  * `patchSaisonStatus` either, and there cannot be — `activateSaison` is the only path to `active`.
  *
- * **The id goes in the PATH and never in the body** (ADR-0027), except on the create, where the id IS
+ * **The id goes in the PATH and never in the body**, except on the create, where the id IS
  * the document key and the backend's own payload carries it.
  */
 
@@ -46,7 +46,7 @@ export async function postSaison(payload: FLPostSaisonPayload): Promise<FLPostSa
 }
 
 // Editing `rules.win_points` or `draw_points` changes every league table for this season on the next
-// read: the standings are derived from the matches rather than stored (ADR-0019), so there is no
+// read: the standings are derived from the matches rather than stored, so there is no
 // migration to run.
 export async function patchSaison({ id, ...fields }: FLPatchSaisonPayload): Promise<FLPatchSaisonResponse> {
   return apiClient<FLPatchSaisonResponse>(`/saisons/${id}`, FLPatchSaisonResponseSchema, {
@@ -74,7 +74,7 @@ export async function activateSaison({ id }: FLActivateSaisonPayload): Promise<F
 /**
  * The group swap: two clubs of this season exchange groups, in one transaction on the backend.
  *
- * **One request and not two junction PATCHes** (ADR-0062). Two calls have a window in which one group is
+ * **One request and not two junction PATCHes**. Two calls have a window in which one group is
  * a club short and the other a club over, and a failure after the first leaves the season in that state
  * permanently. The same transaction also rewrites the two clubs' drawn Gruppenphase sides, which is
  * further out of reach of a client still.

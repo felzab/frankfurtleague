@@ -367,9 +367,13 @@ for f in "${RUNNABLE[@]}"; do par_add "$f" "$f"; done
 par_run unit_flags
 
 step "9. The guards keep one copy of each shared block"
-# Two blocks are duplicated rather than sourced (ADR-0067): the write shapes the bash guards share,
+# Two blocks are duplicated rather than sourced: the write shapes the bash guards share,
 # and the exemption tail the branch guards share. Nothing else compares the copies, so drift stays
 # silent until a guard misses a write.
+
+# Sourcing one fragment instead fails OPEN: with the fragment missing the guard exits 0 and prints
+# nothing (1 under `set -e`, still silent), and a PreToolUse hook that prints no verdict has denied
+# nothing. Duplication fails loud, here.
 
 # Bounded by the sentinels the hooks carry, not by a line count that rots on the first edit nor by
 # prose, which moves whenever either guard's own consumer line does.
@@ -385,7 +389,7 @@ sentinel_block() { # $1 sentinel name · $2 hook path
 }
 
 # The closing sentinel is asserted on both copies before they are compared, because two empty
-# extractions compare equal — so a reworded marker would report as agreement (ADR-0067).
+# extractions compare equal — so a reworded marker would report as agreement.
 compare_sentinel_block() { # $1 sentinel name · $2 hook path · $3 hook path
   local name="$1" one two
   # Asked before the extraction: awk on a file that is not there returns the same nothing as a
@@ -471,7 +475,7 @@ step "12. The gate's comment-only classifier"
 
 # These fixtures pin both directions for every language the classifier parses, including the two
 # cases a line-level rule gets wrong — a `//` inside a string literal, and a Dockerfile, which is
-# never classified at all (ADR-0030).
+# never classified at all.
 
 # The fixtures sit under the repo root and are passed as relative paths: MSYS rewrites an absolute
 # POSIX path such as mktemp's into a Windows one the interpreter cannot open (`scripts/README.md`).
@@ -678,7 +682,8 @@ else
     # The root AS THE HOOK SEES IT: it asks git from its working directory, so the probes must build
     # their payloads from the same answer rather than from a path this script composed.
     hook_root="$(cd "$HOOK_REPO" && git rev-parse --show-toplevel)"
-    # The MSYS drive spelling of the same root, which is one of ADR-0060's spelling classes.
+    # The MSYS drive spelling of the same root, which is one of the spelling classes the guard
+    # must place.
     hook_msys="/$(printf '%s' "$hook_root" | sed -E 's#^([A-Za-z]):#\L\1#')"
 
     # Short names so the case table below stays scannable.
@@ -731,8 +736,8 @@ else
     # Exempt: one simple command, a program writing only where its arguments say, every path-like
     # token outside the tree or gitignored and untracked. `git checkout -b` matches no write shape.
     probe "$hb" allowed cmd 'git log --oneline -5'                             'bash guard: a read'
-    # ADR-0060's posture on this route: a payload nobody could read is a question nobody answered,
-    # and the other two guards answer the same input the same way.
+    # The posture on this route: a payload nobody could read is a question nobody answered, and the
+    # other two guards answer the same input the same way.
     probe "$hb" denied  raw 'not json'                                         'bash guard: unparseable payload'
     probe "$hb" denied  cmd 'sed -i s/a/b/ scripts/verify.sh'                  'bash guard: sed -i on a tracked file'
     probe "$hb" denied  cmd 'printf x > scripts/verify.sh'                     'bash guard: redirect into a tracked file'
@@ -830,7 +835,7 @@ else
     probe "$hb" denied cmd 'python -c zipfile.ZipFile("fl_frontend/src/a.zip","w")' 'bash guard: an archive opened to write'
 
     # The cost of reading `open(` without its mode, pinned so it stays a decision: a python READ of
-    # a tracked file refuses here too, which is ADR-0060's direction and one `git checkout -b` from
+    # a tracked file refuses here too, which is the guard's direction and one `git checkout -b` from
     # resolved.
     probe "$hb" denied cmd 'python -c print(open("notes.md").read())'            'bash guard: a read spelled like a write'
 

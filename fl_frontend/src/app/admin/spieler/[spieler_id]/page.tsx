@@ -16,7 +16,7 @@ import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spie
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The squad editor (ADR-0040). One player per URL; WHICH season's squad row the editor addresses
+ * The squad editor. One player per URL; WHICH season's squad row the editor addresses
  * is the sidemenu selector's `?saison_id=` — switching the selector switches what the Kader panel
  * shows and writes, exactly as it does on the club editor.
  *
@@ -47,7 +47,7 @@ async function AdminSpielerEditContent({
   const requestedSaisonId = await resolveSaisonId(searchParams);
 
   // One read carries the player's record and every squad row; the season list answers which season
-  // is selected (the current one when the URL names none, ADR-0002) and what state it is in; the
+  // is selected (the current one when the URL names none) and what state it is in; the
   // team list resolves a `team_id` into the name the picker shows.
   const [membershipsRes, saisonsRes, teamsRes] = await Promise.all([getSpielerMemberships(), getSaisons(), getTeamMemberships()]);
   const saisons = saisonsRes.saisons;

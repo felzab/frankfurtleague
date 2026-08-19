@@ -41,7 +41,7 @@ class FLSpielort(BaseModel):
     # Free text (venue name + address) searched on Google Maps, NOT a URL -- so no scheme check.
     maps_link: str = Field(min_length=1)
     default_mietpreis: int = Field(ge=0)
-    # The day this venue was retired, or null while it is live (ADR-0025).
+    # The day this venue was retired, or null while it is live.
     inactive_since: CustomOptionalDateString
 
 
@@ -49,8 +49,8 @@ FLSpielorteListAdapter = TypeAdapter(list[FLSpielort])
 
 
 class FLSpielorteFilterParams(BaseModel):
-    # A switch, not a value to match on: "inactive" is a date (ADR-0025), and a caller wanting the retired
-    # venues wants them ALONGSIDE the live ones -- an admin list showing what may be reactivated.
+    # A switch, not a value to match on: "inactive" is a date, and a caller wanting the retired venues
+    # wants them ALONGSIDE the live ones -- an admin list showing what may be reactivated.
     include_inactive: bool = False
 
     limit: int = Field(default=1024, ge=1, le=1024)

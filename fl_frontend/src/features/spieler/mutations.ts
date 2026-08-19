@@ -6,13 +6,13 @@
  *
  * All of these use `authType: "admin"`; the backend's admin router rejects the base key.
  *
- * **The ids go in the PATH and never in the body** (ADR-0027). The payload schemas still carry them,
+ * **The ids go in the PATH and never in the body**. The payload schemas still carry them,
  * because they back the admin forms and a form has to know which player and which season it is
  * editing — so each mutation below splits them off. A backend payload model that saw one would drop
  * it silently.
  *
  * **Both surfaces have a full soft-delete pair**, unlike the team junction: a squad row really can be
- * retired, because a player leaves a team mid-season (ADR-0025).
+ * retired, because a player leaves a team mid-season.
  */
 
 import { apiClient } from "@/core/api";
@@ -50,7 +50,7 @@ export async function patchSpieler({ id, ...fields }: FLPatchSpielerPayload): Pr
   });
 }
 
-// Soft: the backend stamps `inactive_since` and removes nothing (ADR-0025). Their squad rows are
+// Soft: the backend stamps `inactive_since` and removes nothing. Their squad rows are
 // left alone — the seasons they played still happened.
 export async function deleteSpieler({ id }: FLDeleteSpielerPayload): Promise<FLSpielerSingleResponse> {
   return apiClient<FLSpielerSingleResponse>(`/spieler/${id}`, FLSpielerSingleResponseSchema, {
@@ -93,7 +93,7 @@ export async function deleteSaisonSpieler({ spieler_id, saison_id }: FLSaisonSpi
 
 // The one way back into a squad the player already has a row for. A second create is a 409 against
 // the index the retired row still holds, and reviving inside create would overwrite that row's
-// number, position and stufe (ADR-0025).
+// number, position and stufe.
 export async function reactivateSaisonSpieler({ spieler_id, saison_id }: FLSaisonSpielerKeyPayload): Promise<FLSaisonSpielerResponse> {
   return apiClient<FLSaisonSpielerResponse>(`/spieler/${spieler_id}/saisons/${saison_id}/reactivate`, FLSaisonSpielerResponseSchema, {
     method: "POST",

@@ -15,7 +15,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/cor
 import type { FormState } from "@/shared/types/types";
 
 /**
- * The three occupant refusals the match write path answers, and what each means in German (ADR-0042).
+ * The three occupant refusals the match write path answers, and what each means in German.
  *
  * These are the exception to this module's "deliberately generic" rule, and the reason is that they
  * are the only failures here an admin can fix from the form they are already looking at: pick a
@@ -34,7 +34,7 @@ const OCCUPANT_REFUSALS: Record<string, string> = {
 export function toActionErrorResult(error: unknown): NonNullable<FormState> {
   if (error instanceof APIBadStatusError) {
     if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-001") {
-      // The write path refused bracket wiring the season cannot hold (ADR-0038). The form does not
+      // The write path refused bracket wiring the season cannot hold. The form does not
       // offer these shapes, so the request was built against a season that has moved. Reloading is
       // the fix.
       return {
@@ -43,13 +43,13 @@ export function toActionErrorResult(error: unknown): NonNullable<FormState> {
       };
     }
     if (error.statusCode === 409 && error.serverErrorCode !== undefined && error.serverErrorCode in OCCUPANT_REFUSALS) {
-      // A team the season cannot hold in the fixture the payload puts it in (ADR-0042). Unlike the
+      // A team the season cannot hold in the fixture the payload puts it in. Unlike the
       // wiring refusal above, reloading fixes none of these. The code rides back out so the form can
       // put the message on the side that caused it.
       return { success: false, error: OCCUPANT_REFUSALS[error.serverErrorCode], errorCode: error.serverErrorCode };
     }
     if (error.statusCode === 409) {
-      // The ordinary outcome of a create hitting a unique index (DB-COMMON-002, ADR-0025): the
+      // The ordinary outcome of a create hitting a unique index (DB-COMMON-002): the
       // record conflicts with one that exists -- possibly a retired row keeping its slot.
       return { success: false, error: "Der Eintrag steht im Konflikt mit einem, den es schon gibt." };
     }

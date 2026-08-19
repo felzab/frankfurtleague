@@ -1,6 +1,6 @@
 # Logging
 
-**Verified against:** `62719683`, 2026-08-13
+**Verified against:** `cda2912d`, 2026-08-19
 
 **Folder purpose:** how a request is followed across nginx, the frontend and the backend — what a
 log line is on each surface, what an error code means, and how to get from a symptom to the right
@@ -33,5 +33,3 @@ lines.
 ## Read next
 
 - [`spec.md`](spec.md) — start here if the question is what a line contains or who mints the id.
-- [ADR-0032](../_decisions/0032-one-correlation-id-per-request-one-document-per-line.md) — why one
-  id per request and one document per line.

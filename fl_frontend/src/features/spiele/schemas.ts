@@ -3,17 +3,16 @@
  *
  * The Zod read model, the admin patch payload composed from it, and the draft types the edit
  * form uses mid-edit. Hand-mirrored by `fl_backend/app/api/spiele/schemas.py`; the contract test
- * compares presence, requiredness, nullability, types and enums (ADR-0033) — the German messages
+ * compares presence, requiredness, nullability, types and enums — the German messages
  * and the regexes below are this file's alone.
  *
  * Invariants:
- * - The patch composes from the field schemas, and from the STORED side, never the joined one
- *   (ADR-0021).
+ * - The patch composes from the field schemas, and from the STORED side, never the joined one.
  * - A side is `null` until its occupant is known; `teamN_quelle` is an independent sibling, so
- *   consumers read team, then `formatQuelle(quelle)`, then "Noch offen" (ADR-0034).
+ *   consumers read team, then `formatQuelle(quelle)`, then "Noch offen".
  * - Zod's `strip` mode discards undeclared fields silently — how `saison_id` once went missing.
  * - Draft types keep an emptied currency field `null` rather than silently `0`.
- * - A shoot-out is its own scoreline (ADR-0036) — `computeErgebnisFor` answers "D" for penalties.
+ * - A shoot-out is its own scoreline — `computeErgebnisFor` answers "D" for penalties.
  *
  * See:
  * - docs/backend/spec.md — section 1.3, the write path; and I16 — constraints live here only
@@ -34,8 +33,8 @@ export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;
  * One side of a fixture as the match document STORES it, and as the admin patch writes it back.
  *
  * Mirrors `FLSpielTeamField`. Nothing joined belongs here: the backend writes this payload back
- * wholesale, so a field added to it would be persisted into the match on the next edit — the
- * denormalisation ADR-0021 rule 4 refuses. `FLSpielTeamFieldJoinedSchema` below is the read shape.
+ * wholesale, so a field added to it would be persisted into the match on the next edit — a
+ * denormalisation the match document never carries. `FLSpielTeamFieldJoinedSchema` is the read shape.
  */
 export const FLSpielTeamFieldSchema = z.object({
   team_id: CustomObjectIdStringSchema,
@@ -49,7 +48,7 @@ export type FLSpielTeamField = z.infer<typeof FLSpielTeamFieldSchema>;
  * One side as a READ serves it: the stored copy above, plus this season's state joined onto it.
  *
  * Mirrors `FLSpielTeamFieldJoined`, which the backend builds with a `$lookup` into `saison_teams`
- * keyed on the fixture's own season (ADR-0021 rule 4, ADR-0047) — so a disqualification entered on
+ * keyed on the fixture's own season — so a disqualification entered on
  * the junction reaches every match card at once and no copy can go stale.
  *
  * The whole record rather than a boolean, matching `FLTeamSchema.disqualifikation` exactly: a team is
@@ -100,7 +99,7 @@ export type FLSpielElfmeterschiessenDraft = { team1: number | null; team2: numbe
  *
  * A tagged union, discriminated on `type`, because there are exactly two ways a slot is fed: the first
  * knockout round is seeded from the group standings, and every round after it by matches in the round
- * before (ADR-0034). `z.discriminatedUnion` rather than `z.union`, so a malformed source reports the
+ * before. `z.discriminatedUnion` rather than `z.union`, so a malformed source reports the
  * variant's own field errors instead of a union-wide "no match".
  *
  * The discriminator is English because it names the shape of the object rather than anything in the
@@ -131,7 +130,7 @@ export type FLSpielQuelle = z.infer<typeof FLSpielQuelleSchema>;
  * `FLSpielElfmeterschiessen`.
  *
  * A scoreline of its own, kept out of `ergebnis` because both ends parse that string to derive
- * win/draw/loss and a third number would read as a malformed value on every card (ADR-0036). The two
+ * win/draw/loss and a third number would read as a malformed value on every card. The two
  * counts are not goals: the bracket reads a winner off them and the league table counts the fixture as
  * the draw it was.
  *
@@ -165,7 +164,7 @@ export const FLSpielSchema = z.object({
 
   // Where each side comes from. Survives the team arriving, so it is a sibling of the field above
   // rather than a key inside it. `null` also means the slot is the admin's: clearing it is the one
-  // way out of automatic maintenance (ADR-0034).
+  // way out of automatic maintenance.
   team1_quelle: FLSpielQuelleSchema.nullable(),
   team2_quelle: FLSpielQuelleSchema.nullable(),
 
@@ -183,7 +182,7 @@ export const FLSpielSchema = z.object({
     .nullable(),
 
   // How a knockout that finished level was settled, and `null` on every match that did not — which is
-  // almost all of them (ADR-0036).
+  // almost all of them.
   elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
 
   spiel_nr: z.int().positive(),
@@ -237,7 +236,7 @@ export const FLSpieleListResponseSchema = BaseAPIResponseSchema.extend({
 export type FLSpieleListResponse = z.infer<typeof FLSpieleListResponseSchema>;
 
 /**
- * One match by its id, for the page whose subject IS that match (ADR-0027, ADR-0040).
+ * One match by its id, for the page whose subject IS that match.
  *
  * The edit page is addressed by match id alone and a match carries its own `saison_id`, so this read is
  * what tells that page which season's lookup lists to load. A list read cannot: it needs the season to
@@ -251,7 +250,7 @@ export type FLSpieleSingleResponse = z.infer<typeof FLSpieleSingleResponseSchema
 /**
  * The admin edit payload, composed from the field schemas above rather than redeclaring them, so
  * the write shape cannot drift from the read shape. That composition is intra-slice and must stay
- * so: the Spiel write path belongs to this slice, not to `admin` (ADR-0004).
+ * so: the Spiel write path belongs to this slice, not to `admin`.
  */
 export const FLPatchSpielDataPayloadSchema = z.object({
   datum: CustomDateStringSchema.nullable(),
@@ -261,7 +260,7 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   schiedsrichter: FLSpielSchiedsrichterFieldSchema.nullable(),
 
   // The stored side, never the joined one: `disqualifikation` is looked up per request and belongs on
-  // no match document (ADR-0021, rule 4), and this payload is written back wholesale, so sending it
+  // no match document, and this payload is written back wholesale, so sending it
   // would persist it.
   team1: FLSpielTeamFieldSchema.nullable(),
   team2: FLSpielTeamFieldSchema.nullable(),
@@ -272,7 +271,7 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   team2_quelle: FLSpielQuelleSchema.nullable(),
 
   // On the payload for the same `$set` reason as the two above: omitted means overwritten, so leaving
-  // it off would retract a recorded shoot-out on the first edit of a kick-off time (ADR-0036).
+  // it off would retract a recorded shoot-out on the first edit of a kick-off time.
   elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
 
   // Required on the payload for the `$set` reason above; an emptied textarea submits "" and the
@@ -303,7 +302,7 @@ export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayload, "ort" |
 };
 
 /**
- * One bracket slot whose group reference names a placing the standings will never hand it (ADR-0035).
+ * One bracket slot whose group reference names a placing the standings will never hand it.
  *
  * `gruppe_too_small` is a typo — the group holds fewer teams that can advance than the `platz` asks
  * for — and the slot keeps whatever it holds. `tie_unresolved` is a real outcome: the group is played
@@ -369,7 +368,7 @@ export const FLBracketFaultOccupantSchema = z.object({
 export type FLBracketFaultOccupant = z.infer<typeof FLBracketFaultOccupantSchema>;
 
 /**
- * The six derived faults, tagged on `reason` (ADR-0039).
+ * The six derived faults, tagged on `reason`.
  *
  * `discriminatedUnion` rather than a flat object with optional fields, mirroring `FLSpielQuelleSchema`
  * and the Pydantic union it is hand-mirrored from: each variant carries exactly the fields its own fault
@@ -388,9 +387,9 @@ export type FLBracketFault = z.infer<typeof FLBracketFaultSchema>;
  *
  * The two are separate facts and the second is the one an admin needs: a slot filling from empty costs
  * nothing, while a slot whose occupant changed while the fixture already held a scoreline loses that
- * scoreline in the same transaction (ADR-0034, ADR-0036). Both voided fields are `null` on the harmless
+ * scoreline in the same transaction. Both voided fields are `null` on the harmless
  * case, so "was anything destroyed here" is a null check rather than a comparison against a state the
- * client no longer holds (ADR-0041).
+ * client no longer holds.
  */
 export const FLSpielAdvancementSchema = z.object({
   spiel_nr: z.int().positive(),
@@ -403,7 +402,7 @@ export const FLSpielAdvancementSchema = z.object({
 export type FLSpielAdvancement = z.infer<typeof FLSpielAdvancementSchema>;
 
 /**
- * One side another fixture gave up so a team could be fielded on the same Spieltag (ADR-0042).
+ * One side another fixture gave up so a team could be fielded on the same Spieltag.
  *
  * A team plays at most one match per matchday, so fielding it here takes it out of there — and the
  * fixture it leaves loses its own result for the same reason an advancement does. Only a side the admin
@@ -426,10 +425,10 @@ export type FLSpielReleasedSide = z.infer<typeof FLSpielReleasedSideSchema>;
  * What the admin patch returns: the envelope, plus every fixture the write moved and what that cost.
  *
  * `advanced_to` holds one entry per fixture the result entry resolved — the semi-final that gained its
- * winner, and, after a correction, the later fixture that lost an occupant it should never have had
- * (ADR-0034). It reports what happened, so a fixture that was emptied is named as readily as one that
+ * winner, and, after a correction, the later fixture that lost an occupant it should never have had.
+ * It reports what happened, so a fixture that was emptied is named as readily as one that
  * was filled, and each entry carries the result the rewrite destroyed rather than leaving the reader to
- * infer it (ADR-0041). `released_sides` is the other write this endpoint can make (ADR-0042).
+ * infer it. `released_sides` is the other write this endpoint can make.
  *
  * **`dry_run=true` answers with this same shape and writes nothing**, which is what lets the edit
  * surface name the fixtures a save would take a result from before the admin commits to it. One schema,

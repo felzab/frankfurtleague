@@ -1,7 +1,7 @@
 /* ADMIN · the component styles only /admin renders
 
    Imported by `app/admin/layout.tsx`, which is what keeps this block out of every public route's
-   stylesheet — a material share of it, for a date picker no public page shows (ADR-0016).
+   stylesheet — a material share of it, for a date picker no public page shows.
 
    **A component belongs here only if NO public route can reach it.** Establish that by walking the
    import graph from every route entry and following the dynamic imports, never by reading folder
@@ -20,7 +20,7 @@
 /* Forms */
 @import "@heroui/styles/components/number-field.css" layer(components);
 /* The description editors (create dialog and edit modal) — admin-only, so it stays out of
-   globals.css (ADR-0016). Position matches @heroui/styles/dist/components/index.css: after
+   globals.css. Position matches @heroui/styles/dist/components/index.css: after
    number-field, before the calendar block. */
 @import "@heroui/styles/components/textarea.css" layer(components);
 
@@ -33,7 +33,7 @@
 @import "@heroui/styles/components/date-picker.css" layer(components);
 
 /* Pickers. A HeroUI component's stylesheet is imported here in the change that first renders that
-   component on an admin route, at the position it holds in HeroUI's own index (ADR-0013). The
+   component on an admin route, at the position it holds in HeroUI's own index. The
    checklist is `docs/frontend/spec.md` §1.11. */
 @import "@heroui/styles/components/autocomplete.css" layer(components);
 

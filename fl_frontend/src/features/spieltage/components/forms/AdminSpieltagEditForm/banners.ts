@@ -4,9 +4,8 @@
  * One entry per situation, read by the rail and by the panel that also shows it inline — see the
  * club editor's `banners.ts` for why the two halves cannot be authored separately.
  *
- * **This is the list ADR-0072 rests on.** A matchday holds three fields and six backend refusals, and
- * these entries are the ones a page can state before the admin reaches the control rather than after
- * the endpoint has already refused.
+ * **A matchday holds three fields and six backend refusals**, and these entries are the ones a page
+ * can state before the admin reaches the control rather than after the endpoint has already refused.
  */
 
 import { PHASE_LABELS } from "@/features/saisons/constants";
@@ -66,9 +65,9 @@ export function buildSpieltagBanners({
   livePhaseCount,
   impliedPhaseCount,
 }: {
-  /** The matchday's derived name, for a banner that explains where it came from (ADR-0051). */
+  /** The matchday's derived name, for a banner that explains where it came from. */
   label: string;
-  /** The day this matchday was retired, or `null` while it is played (ADR-0025). */
+  /** The day this matchday was retired, or `null` while it is played. */
   inactiveSince: string | null;
   storedPhase: FLSaisonPhase;
   /** `null` while a picker is untouched — no phase change to report, not a change to nothing. */
@@ -77,7 +76,7 @@ export function buildSpieltagBanners({
   isEndeVorBeginn: boolean;
   /** Fixtures actually carrying this matchday's id. */
   spieleAngelegt: number;
-  /** How many its phase implies, derived from the season's rules (ADR-0052). */
+  /** How many its phase implies, derived from the season's rules. */
   anzahlSpiele: number;
   /** How many of its fixtures carry a result — what `REQ-RETIRE-002` refuses over. */
   spieleGespielt: number;
@@ -139,7 +138,7 @@ export function buildSpieltagBanners({
     });
   }
 
-  // Reported and never refused (ADR-0052): a season being set up passes through every intermediate
+  // Reported and never refused: a season being set up passes through every intermediate
   // count, so this states the gap rather than calling it a mistake.
   if (spieleAngelegt !== anzahlSpiele) {
     banners.push({

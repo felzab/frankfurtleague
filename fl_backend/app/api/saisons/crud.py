@@ -6,8 +6,8 @@ Where "which season is current" is decided, once — stated in full at
 
 Invariants:
 - A missing active season raises — degrading to an unfiltered query would mean "every season".
-- `rules` is live: `/teams` scores its derived table with it (ADR-0019), so an edit is behaviour.
-- Misses fetch the full document, never a projection — the cache stores one shape (ADR-0056).
+- `rules` is live: `/teams` scores its derived table with it, so an edit is behaviour.
+- Misses fetch the full document, never a projection — the cache stores one shape.
 """
 
 from typing import Any, Mapping
@@ -23,11 +23,11 @@ CURRENT_SAISON_FILTER = {"status": "active"}
 
 async def pull_current_saison(saisons_collection: AsyncIOMotorCollection) -> Mapping[str, Any]:
     """
-    The season marked `active`, from the cache when it holds one (ADR-0056).
+    The season marked `active`, from the cache when it holds one.
 
     The single definition of "which season is current". `/saisons/current`, and every endpoint that
-    defaults an omitted `saison_id` (ADR-0002), goes through this function, so none of them can answer
-    the question differently.
+    defaults an omitted `saison_id`, goes through this function, so none of them can answer the
+    question differently.
 
     Raises `DocumentNotFoundException` (404) when no season is active rather than degrading to an
     unfiltered query: with the default in place, "no current season" would otherwise mean "every
@@ -68,8 +68,8 @@ async def pull_saison_id_and_rules(
     """
     A season's id and its scoring rules, in one read — and usually in none, from the cache.
 
-    `saison_id=None` means the current season (ADR-0002), so this resolves the default too — `/teams`
-    needs both halves and would otherwise read the collection twice for one answer.
+    `saison_id=None` means the current season, so this resolves the default too — `/teams` needs both
+    halves and would otherwise read the collection twice for one answer.
 
     An explicit id naming no season raises `DocumentNotFoundException` (404) rather than answering with
     an empty list -- an unknown season is a wrong request, not a season with nothing in it.

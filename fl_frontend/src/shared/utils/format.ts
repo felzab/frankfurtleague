@@ -26,7 +26,7 @@ export const PLACEHOLDER = {
   entity: "/",
   /**
    * A fixture side with no occupant and no provenance label either — an opponent nobody has entered
-   * yet. A bracket slot that knows where its team comes from shows that instead (ADR-0034).
+   * yet. A bracket slot that knows where its team comes from shows that instead.
    */
   slot: "Noch offen",
 } as const;

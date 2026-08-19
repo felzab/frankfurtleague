@@ -33,7 +33,7 @@ const OPEN_SLOT_KEY = "noch-offen";
  * — the `spiel` variant appears twice because `ausgang` is the distinction an admin actually makes,
  * and asking for "Sieger oder Verlierer?" in a second control would be a question about a question.
  * The fourth is `null`, which is not a variant at all: a slot with no source is the admin's own, and
- * clearing the source is the only way to take one out of automatic maintenance (ADR-0034).
+ * clearing the source is the only way to take one out of automatic maintenance.
  *
  * The automatic answers lead and "Manuell" closes the list: filling a knockout slot from the bracket
  * is the rule and hand-picking is the exception, so the list reads in the order the decision is
@@ -52,7 +52,7 @@ type QuelleChoice = (typeof QUELLE_CHOICES)[number]["key"];
  * The answer this round ordinarily takes, marked in the list so the system says what it knows.
  *
  * It is read off the wiring rather than off a phase name: the first knockout round is seeded from the
- * group standings and every round after it is fed by the round before (ADR-0034), so "are there legal
+ * group standings and every round after it is fed by the round before, so "are there legal
  * feeder matches at all" is exactly the question that distinguishes the two — and it stays right if the
  * competition ever gains a round.
  *
@@ -104,7 +104,7 @@ const describeFeeder = (spiel: FLSpiel): string => {
 /**
  * One side of a fixture: how the slot is filled, and the controls that answer follows from.
  *
- * **The source decides what is editable, which is the competition-management standard** (ADR-0038).
+ * **The source decides what is editable, which is the competition-management standard.**
  * A Gruppenphase fixture has no source controls at all — its sides are drawn by the schedule, so the
  * team picker is the whole editor. A knockout side is source-first: fed by an earlier match, seeded
  * from a group placing, or taken over manually. Only the manual answer shows a team picker; a side
@@ -192,8 +192,8 @@ export function FormTeamPicker({
   const choice = choiceFor(quelle);
 
   // Stored and NARROWED: switching back submits the occupant the resolution last wrote, which the
-  // write path requires (ADR-0038); the join a read's side carries would otherwise ride into the
-  // draft (ADR-0021 rule 4).
+  // write path requires; the join a read's side carries would otherwise ride into the
+  // draft.
   const storedTeam = toStoredSide(fieldName === "team1" ? spielData.team1 : spielData.team2);
 
   // What this side may not pick: every source another slot already holds, plus whatever the other
@@ -204,7 +204,7 @@ export function FormTeamPicker({
 
   // Feeder matches exist only for a round with a knockout round before it, which is why a
   // quarter-final legitimately offers no match-fed answers: the first knockout round is always
-  // seeded from the group phase (ADR-0034).
+  // seeded from the group phase.
   const feederSpiele = listFeederSpiele(saisonSpiele, spielData);
 
   // The choices this fixture can actually hold. A spiel-variant choice needs feeders; the stored
@@ -268,7 +268,7 @@ export function FormTeamPicker({
    * empty — `NaN` where a number is still unpicked, which the pickers render as no selection.
    *
    * Entering ANY automatic choice puts the stored occupant back into the payload: the side is the
-   * resolution's again, and a team picked during a manual detour must not ride along (ADR-0038).
+   * resolution's again, and a team picked during a manual detour must not ride along.
    */
   const handleChoiceSelection = (key: Key | null) => {
     const selected = (key ?? "manuell") as QuelleChoice;
@@ -309,7 +309,7 @@ export function FormTeamPicker({
 
   // Whether the selected side is disqualified, for the badge on the closed trigger. From `teams`
   // rather than the payload: the payload carries the embedded display copy, and the
-  // disqualification is joined onto the list on every read (ADR-0021 rule 4).
+  // disqualification is joined onto the list on every read.
   const isSelectedDisqualified =
     teamPayload !== null && teams.find((candidate) => candidate.id === teamPayload.team_id)?.disqualifikation != null;
 
@@ -421,7 +421,7 @@ export function FormTeamPicker({
 
   // A Gruppenphase fixture: the schedule names its teams and no wiring exists in that phase, so the
   // team picker is the whole editor — offering source controls here would offer a mechanism the
-  // write path refuses (ADR-0038).
+  // write path refuses.
   if (!isKnockout) {
     return <div className="flex w-full flex-col gap-y-4">{teamPicker}</div>;
   }
@@ -474,7 +474,7 @@ export function FormTeamPicker({
           </ListBox>
         </Autocomplete.Popover>
         {/* No `Description`: what each of the four answers does is the Begegnung panel InfoHint's one
-            explanation, instead of a sentence under every control (ADR-0040). */}
+            explanation, instead of a sentence under every control. */}
         <FieldError className={FIELD_ERROR} />
       </Autocomplete>
 
@@ -519,8 +519,8 @@ export function FormTeamPicker({
           </Autocomplete>
 
           {/* Picked, not typed: the group bounds the placings it can produce, and a placing another
-              slot already seeds stays out of the list — the two shapes the write path refuses
-              (ADR-0038). The current selection stays listed so a stored value renders truthfully. */}
+              slot already seeds stays out of the list — the two shapes the write path refuses. The
+              current selection stays listed so a stored value renders truthfully. */}
           <Autocomplete
             name={`${fieldName}_quelle.platz`}
             className="w-full"
@@ -570,7 +570,7 @@ export function FormTeamPicker({
 
       {quelle?.type === "spiel" && (
         /* Picked from the season's legal feeders rather than typed: only knockout matches of an
-           earlier round whose outcome no other slot takes. The backend still checks (ADR-0038),
+           earlier round whose outcome no other slot takes. The backend still checks,
            for the stale form and the second tab. */
         <Autocomplete
           name={`${fieldName}_quelle.spiel_nr`}
@@ -601,7 +601,7 @@ export function FormTeamPicker({
             <ListBox className="p-1">
               {/* The round directly before this fixture's own carries the "empfohlen" chip: the list
                   legitimately spans every earlier round — for a final, quarter- AND semi-finals —
-                  and the chip says which of them the bracket ordinarily feeds from (ADR-0034). */}
+                  and the chip says which of them the bracket ordinarily feeds from. */}
               {feederSpiele
                 .filter((spiel) => spiel.spiel_nr === quelle.spiel_nr || !blockedKeys.has(`spiel:${spiel.spiel_nr}:${quelle.ausgang}`))
                 .map((spiel) => (
@@ -619,7 +619,7 @@ export function FormTeamPicker({
             </ListBox>
           </Autocomplete.Popover>
           {/* The reason a match is missing from this list lives in the panel InfoHint with the rest of
-              the source vocabulary, not in a standing sentence under the control (ADR-0040). */}
+              the source vocabulary, not in a standing sentence under the control. */}
           <FieldError className={FIELD_ERROR} />
         </Autocomplete>
       )}
@@ -627,7 +627,7 @@ export function FormTeamPicker({
       {/* Danger on the state rather than on who caused it, so a slot taken over in any edit carries
           it. `isAnnounced` keys on the act instead: only a takeover performed in THIS edit is an
           event a screen reader should hear. Neither claims other fixtures are affected — clearing a
-          source changes this slot's own maintenance and nothing else (ADR-0034). */}
+          source changes this slot's own maintenance and nothing else. */}
       <InlineBanners
         banners={banners}
         spot={`${fieldName}-manuell`}
@@ -636,8 +636,8 @@ export function FormTeamPicker({
 
       {/* The qualification warning, beside the Manuell one it accompanies: the hand-picked team
           stands in no other bracket fixture, which is the client's honest signal that it may not
-          have advanced at all (`collectKnockoutTeamIds` — ADR-0035 keeps re-deriving standings out
-          of the client). A warning, never a refusal. */}
+          have advanced at all (`collectKnockoutTeamIds` — re-deriving the standings is kept out of
+          the client). A warning, never a refusal. */}
       <InlineBanners
         banners={banners}
         spot={`${fieldName}-qualifikation`}

@@ -44,8 +44,8 @@ function normalize(path) {
     throw new Error(`${path}: this typescript no longer exposes parseDiagnostics, so a damaged parse tree cannot be detected`);
   }
   // A damaged parse tree can lose content in the printed form, so two different files compare
-  // equal — a comment-only verdict on a real change, the one direction ADR-0030 exists to make
-  // impossible. Refuse rather than answer from it.
+  // equal — a comment-only verdict on a real change, the one direction that must be impossible.
+  // Refuse rather than answer from it.
   if (source.parseDiagnostics.length) {
     throw new Error(`${path} does not parse cleanly`);
   }

@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `78d32af9`, 2026-08-19\
+**Verified against:** `cda2912d`, 2026-08-19\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 | Section                                                | Answers                                                              |
@@ -58,15 +58,15 @@ this before starting.
 
 Longest-prefix match. Order in the file is irrelevant; specificity decides.
 
-| Location              | Upstream        | Notes                                                                                                                      |
-| --------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth`           | `frontend:3000` | Auth.js — more specific than `/api`, so it wins                                                                            |
-| `= /api/client-error` | `frontend:3000` | Next route handler, `limit_req zone=clienterr` ([`docs/logging/spec.md`](../logging/spec.md))                              |
-| `/api/admin/`         | `frontend:3000` | The page-owned editors' undo handlers ([ADR-0049](../_decisions/0049-every-page-owned-editors-undo-is-a-route-handler.md)) |
-| `/api`                | `backend:8000`  | Everything else API                                                                                                        |
-| `= /signin`           | `frontend:3000` | `limit_req zone=signin burst=3 nodelay`                                                                                    |
-| `/_next/static/`      | `frontend:3000` | `expires max`, `Cache-Control: public, max-age=31536000, immutable`                                                        |
-| `/`                   | `frontend:3000` | Catch-all                                                                                                                  |
+| Location              | Upstream        | Notes                                                                                         |
+| --------------------- | --------------- | --------------------------------------------------------------------------------------------- |
+| `/api/auth`           | `frontend:3000` | Auth.js — more specific than `/api`, so it wins                                               |
+| `= /api/client-error` | `frontend:3000` | Next route handler, `limit_req zone=clienterr` ([`docs/logging/spec.md`](../logging/spec.md)) |
+| `/api/admin/`         | `frontend:3000` | The page-owned editors' undo handlers                                                         |
+| `/api`                | `backend:8000`  | Everything else API                                                                           |
+| `= /signin`           | `frontend:3000` | `limit_req zone=signin burst=3 nodelay`                                                       |
+| `/_next/static/`      | `frontend:3000` | `expires max`, `Cache-Control: public, max-age=31536000, immutable`                           |
+| `/`                   | `frontend:3000` | Catch-all                                                                                     |
 
 Server blocks: port 80 redirects to HTTPS and strips `www.`; a `default_server` block on 443 rejects
 unknown hosts with `ssl_reject_handshake`; a second HTTPS block serves `www.frankfurtleague.de` and
@@ -84,7 +84,7 @@ neither nginx nor the block responsible.
 Proxy headers set globally: `Host`, `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`,
 `X-Forwarded-Host`, `X-Forwarded-Port`, HTTP/1.1 — plus `X-Correlation-ID`, minted from
 `$request_id` unconditionally so a client-supplied id never reaches a log
-([`docs/logging/spec.md`](../logging/spec.md), ADR-0032). Every SERVING block writes the `fl_json` access
+([`docs/logging/spec.md`](../logging/spec.md)). Every SERVING block writes the `fl_json` access
 format, which carries the id, `$request_time` and `$upstream_response_time`.
 
 Buffers are enlarged (`proxy_buffer_size 128k`, `proxy_buffers 4 256k`) specifically to stop 502s from
@@ -103,8 +103,14 @@ Set at server level with `always`:
 | `Content-Security-Policy`   | `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self';` |
 
 `'unsafe-inline'` remains on `script-src` because a per-request nonce cannot cover build-time
-prerendered HTML. The compensating control is the `react/no-danger` ESLint rule, which closes the only realistic injection
-entry point in the codebase.
+prerendered HTML, and this application prerenders one for its routes (`cacheComponents` in
+`fl_frontend/next.config.ts`). The compensating control is the `react/no-danger` ESLint rule
+(`fl_frontend/eslint.config.mjs`, set to `error`), which forbids `dangerouslySetInnerHTML` — the only
+realistic path for injected markup to enter this codebase.
+
+**The rest of the policy is load-bearing and does not depend on `script-src`:** `frame-ancestors
+'none'` blocks framing, `object-src 'none'` blocks plugin content, `base-uri 'self'` blocks base-tag
+hijacking, and `form-action 'self'` blocks exfiltration through a form post.
 
 ### 1.5 The scripts
 
@@ -164,7 +170,7 @@ hides among them: CRLF endings, and an executable bit that `chmod +x` in Git Bas
 either of which works locally and fails on the server (I10). It also drives `check_scope.py`'s
 comment-only classifier over fixtures in both directions,
 because that is the one gate decision whose wrong answer is silent, and byte-compares the blocks the
-guards duplicate rather than source ([ADR-0067](../_decisions/0067-a-command-is-exempted-only-when-every-token-clears.md)) —
+guards duplicate rather than source —
 the write shapes the bash guards share, and the exemption tail the bash and PowerShell branch
 guards share — between the sentinel markers bounding each, so a fix made to one copy and not the rest
 fails the gate rather than leaving a hole.
@@ -243,8 +249,7 @@ files appear in. **The `--frontend` implication above is the parent's, never a w
 runs the one scope it is given. `scripts/gate_pool.py` owns the spawning and nothing else; the
 sections, the closing table and the closing statements stay in `scripts/_lib.sh`.
 
-**No formatter the gate runs writes a tracked file**
-([ADR-0065](../_decisions/0065-formatting-happens-at-commit-time.md)). prettier runs in check mode
+**No formatter the gate runs writes a tracked file.** prettier runs in check mode
 everywhere — locally, in CI and on `main` — so a run cannot hand back a tree different from the one
 its later steps measured, and nothing a run did has to be read back and committed. Formatting happens
 at commit time instead: `.githooks/pre-commit` formats what is staged and re-stages it, and refuses a
@@ -293,7 +298,7 @@ is what keeps it a check at all — that setting is on by default and answers fr
 a manifest restored with its mtime preserved passes while disagreeing with the lockfile.
 
 **Before any of them runs, `check_scope.py` compares the scopes named against what the branch actually
-changed** ([ADR-0030](../_decisions/0030-the-gate-refuses-an-undersized-scope.md)). It refuses a run
+changed**. It refuses a run
 whose diff reaches the image build with a change that is more than comments, and merely reports every
 other surface the run leaves unproven. What counts as "more than comments" is decided by a
 parser and never by a `#` rule: TypeScript through its own parser, Python through `ast` with docstrings
@@ -342,13 +347,11 @@ subset is a refusal rather than a verdict (§1.7).
 **One path selects two scopes on purpose.** `fl_backend/openapi.json` maps to **backend and frontend**
 both, because the frontend scope holds the test comparing the Zod mirror against that document — and
 everything else under `fl_backend/` selects the backend scope alone, so without this arm a Pydantic
-model change would never run the check that exists to catch it
-([ADR-0033](../_decisions/0033-the-zod-mirror-is-checked-against-the-published-document.md), and the arm
-itself in `scripts/ci_scopes.sh`).
+model change would never run the check that exists to catch it (the arm itself is in
+`scripts/ci_scopes.sh`).
 
 **In CI the images scope caches layers through the Actions cache service**, which
-`VERIFY_IMAGES_CACHE=gha` selects
-([ADR-0031](../_decisions/0031-the-image-cache-is-the-actions-cache-service.md)). buildx authenticates
+`VERIFY_IMAGES_CACHE=gha` selects. buildx authenticates
 to that service with a credential the runner gives to JavaScript actions and never to a `run:` step, so
 `.github/actions/actions-runtime-env` re-exports it first. **The scope stops before building when that
 variable is set and the credential is missing** — buildx would fail too, but only after every layer has
@@ -366,8 +369,7 @@ checks no types. All of it needs the backend virtualenv (`cd fl_backend && uv sy
 
 **Both test tiers run.** The `db`-marked tests need a real `mongod`, so they are their own scope behind
 `require_docker` — which is what lets `--quick` skip them and need no daemon — and in CI they are the
-concurrent `backend-db` job, so the coverage costs no extra waiting
-([ADR-0023](../_decisions/0023-a-real-mongod-behind-a-deselected-marker.md)).
+concurrent `backend-db` job, so the coverage costs no extra waiting.
 
 **The image scope** exists because code that compiles can still fail to build inside the image, or be
 omitted from the standalone output entirely.
@@ -408,10 +410,9 @@ own:
 | `excerpt`     | The first few lines of something long, then a count of what `--verbose` would show       |
 | `finish`      | Ends a run that reached its end, printing the closing table and statement                |
 
-**A run has exactly one ending, and its exit code names which**
-([ADR-0066](../_decisions/0066-a-refusal-is-not-a-failure.md)). Nothing else may be inferred from the
-number: a caller that cannot tell "the change needs work" from "the check never ran" acts on the wrong
-one.
+**A run has exactly one ending, and its exit code names which.** Nothing else may be inferred from
+the number: a caller that cannot tell "the change needs work" from "the check never ran" acts on the
+wrong one.
 
 | Ending        | Exit      | What it says                                                                           |
 | ------------- | --------- | -------------------------------------------------------------------------------------- |
@@ -469,33 +470,33 @@ its human-readable line on stderr, where it cannot reach the outputs.
 
 ## 3. Violation → remedy
 
-| Symptom                                                            | Cause                                                                                                      | Remedy                                                                                                             |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `not a directory` from nginx                                       | A mounted config file was missing, so Docker created a directory                                           | `git pull`, remove the stray directory                                                                             |
-| `Invalid environment variables: <NAMES>` then no traffic           | Startup environment gate                                                                                   | Fix those names in the relevant `.env`                                                                             |
-| Deploy reports healthy but the site is unreachable                 | nginx                                                                                                      | prod: `docker compose logs nginx`                                                                                  |
-| `failed to connect to the docker API at npipe:...`                 | Docker Desktop is not running                                                                              | Start it and wait for it to settle                                                                                 |
-| Deploy stops in preflight naming the Docker Engine version         | The host's engine is below what the compose files' `start_interval` needs                                  | Nothing was stopped or pulled. Upgrade the engine, or drop `start_interval` from both compose files (§1.5)         |
-| `./scripts/deploy.sh --status` exits 1 naming two different builds | A publish moved one package's `:latest` and failed on the other, so this host pulled a pair no build names | Deploy the build both packages have: `./scripts/deploy.sh <tag>`, the tag the report names                         |
-| `./scripts/publish.sh` refuses, naming a remote it could not ask   | The remote did not answer `git ls-remote --heads`, so nothing establishes that this commit is fetchable    | Nothing was built or pushed. Restore the network or the credentials and re-run (I12)                               |
-| `EBUSY`, or `.next` locked during a build                          | A `pnpm dev` is still running, or the folder is open in an editor                                          | Stop the dev server; nothing else may hold port 3000 while the local stack runs                                    |
-| Container unhealthy, health log empty, `FailingStreak: 0`          | The app died before the first probe                                                                        | Usually a malformed `.env` value restored by hand. Read `docker compose logs <service>` on the server              |
-| A directory appeared named `something;C`                           | MSYS rewrote a POSIX-looking path in a hand-typed `docker run -v`                                          | Delete it, and prefix the command with `MSYS_NO_PATHCONV=1`                                                        |
-| `UnicodeEncodeError: 'charmap' codec` from `fastapi dev`           | Windows only, when the output is piped or redirected                                                       | The CLI banner needs UTF-8. Prefix the command with `PYTHONUTF8=1`                                                 |
-| Static assets served without security headers                      | A `location` block set a header and dropped the inherited set                                              | I2 — repeat every header in that block                                                                             |
-| Backend healthcheck fails after an API version bump                | The check hardcodes `/api/v0/`                                                                             | Update the healthcheck path in `docker-compose.yml`                                                                |
-| Sign-in returns 429                                                | Working as intended — the sign-in POST is rate-limited at the edge                                         | Nothing. The limit is `nginx/prod.conf`'s `signin` zone, and it applies to POST alone (I4)                         |
-| Uptime monitor shows green during a backend outage                 | The error page streams after headers, so the edge status is 200                                            | Monitor `GET /api/v0/system/is_live` through the edge instead ([`docs/logging/spec.md`](../logging/spec.md))       |
-| Container logs are empty right after a deploy                      | Working as intended — `json-file` logs live in the container, and `--force-recreate` replaces it           | Nothing. Copy them off before deploying ([`docs/logging/spec.md`](../logging/spec.md))                             |
-| Reference data stale for up to a day                               | Working as intended — an out-of-band MongoDB edit invalidates nothing                                      | Nothing. The bound is the cache lifetime (ADR-0028): wait for the daily expiry, or recreate the frontend container |
-| League table or fixtures stale after a season edit                 | Same cause — a season decides the default season and the points                                            | Same remedy; recreation drops every cached page at once                                                            |
+| Symptom                                                            | Cause                                                                                                      | Remedy                                                                                                       |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `not a directory` from nginx                                       | A mounted config file was missing, so Docker created a directory                                           | `git pull`, remove the stray directory                                                                       |
+| `Invalid environment variables: <NAMES>` then no traffic           | Startup environment gate                                                                                   | Fix those names in the relevant `.env`                                                                       |
+| Deploy reports healthy but the site is unreachable                 | nginx                                                                                                      | prod: `docker compose logs nginx`                                                                            |
+| `failed to connect to the docker API at npipe:...`                 | Docker Desktop is not running                                                                              | Start it and wait for it to settle                                                                           |
+| Deploy stops in preflight naming the Docker Engine version         | The host's engine is below what the compose files' `start_interval` needs                                  | Nothing was stopped or pulled. Upgrade the engine, or drop `start_interval` from both compose files (§1.5)   |
+| `./scripts/deploy.sh --status` exits 1 naming two different builds | A publish moved one package's `:latest` and failed on the other, so this host pulled a pair no build names | Deploy the build both packages have: `./scripts/deploy.sh <tag>`, the tag the report names                   |
+| `./scripts/publish.sh` refuses, naming a remote it could not ask   | The remote did not answer `git ls-remote --heads`, so nothing establishes that this commit is fetchable    | Nothing was built or pushed. Restore the network or the credentials and re-run (I12)                         |
+| `EBUSY`, or `.next` locked during a build                          | A `pnpm dev` is still running, or the folder is open in an editor                                          | Stop the dev server; nothing else may hold port 3000 while the local stack runs                              |
+| Container unhealthy, health log empty, `FailingStreak: 0`          | The app died before the first probe                                                                        | Usually a malformed `.env` value restored by hand. Read `docker compose logs <service>` on the server        |
+| A directory appeared named `something;C`                           | MSYS rewrote a POSIX-looking path in a hand-typed `docker run -v`                                          | Delete it, and prefix the command with `MSYS_NO_PATHCONV=1`                                                  |
+| `UnicodeEncodeError: 'charmap' codec` from `fastapi dev`           | Windows only, when the output is piped or redirected                                                       | The CLI banner needs UTF-8. Prefix the command with `PYTHONUTF8=1`                                           |
+| Static assets served without security headers                      | A `location` block set a header and dropped the inherited set                                              | I2 — repeat every header in that block                                                                       |
+| Backend healthcheck fails after an API version bump                | The check hardcodes `/api/v0/`                                                                             | Update the healthcheck path in `docker-compose.yml`                                                          |
+| Sign-in returns 429                                                | Working as intended — the sign-in POST is rate-limited at the edge                                         | Nothing. The limit is `nginx/prod.conf`'s `signin` zone, and it applies to POST alone (I4)                   |
+| Uptime monitor shows green during a backend outage                 | The error page streams after headers, so the edge status is 200                                            | Monitor `GET /api/v0/system/is_live` through the edge instead ([`docs/logging/spec.md`](../logging/spec.md)) |
+| Container logs are empty right after a deploy                      | Working as intended — `json-file` logs live in the container, and `--force-recreate` replaces it           | Nothing. Copy them off before deploying ([`docs/logging/spec.md`](../logging/spec.md))                       |
+| Reference data stale for up to a day                               | Working as intended — an out-of-band MongoDB edit invalidates nothing                                      | Nothing. The bound is the cache lifetime: wait for the daily expiry, or recreate the frontend container      |
+| League table or fixtures stale after a season edit                 | Same cause — a season decides the default season and the points                                            | Same remedy; recreation drops every cached page at once                                                      |
 
 ## 4. Known-open
 
-| #   | Item                                           | State                                                                                                                                       |
-| --- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| —   | Backend healthcheck hardcodes `/api/v0/`       | Open — it works today and breaks silently on an API version bump (§3 carries the symptom)                                                   |
-| —   | Registry tag pruning is manual                 | Accepted — a botched delete destroys rollback history. The retention procedure is in §1.5                                                   |
-| —   | Revoking admin access needs a restart          | Accepted — the allowlist is validated at boot; after it, `role` is re-derived per request and the session dies                              |
-| —   | `nginx` drops no capabilities                  | Open — the two application services carry `cap_drop: ALL` and `no-new-privileges:true` and `nginx` carries neither, with no ADR deciding it |
-| —   | Certificate renewal is outside this repository | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                         |
+| #   | Item                                           | State                                                                                                                                              |
+| --- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| —   | Backend healthcheck hardcodes `/api/v0/`       | Open — it works today and breaks silently on an API version bump (§3 carries the symptom)                                                          |
+| —   | Registry tag pruning is manual                 | Accepted — a botched delete destroys rollback history. The retention procedure is in §1.5                                                          |
+| —   | Revoking admin access needs a restart          | Accepted — the allowlist is validated at boot; after it, `role` is re-derived per request and the session dies                                     |
+| —   | `nginx` drops no capabilities                  | Open — the two application services carry `cap_drop: ALL` and `no-new-privileges:true` and `nginx` carries neither, and the asymmetry is undecided |
+| —   | Certificate renewal is outside this repository | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                                |

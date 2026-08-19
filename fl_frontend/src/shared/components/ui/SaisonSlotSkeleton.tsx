@@ -41,8 +41,8 @@ export function SaisonSlotSkeleton() {
       className="border-border/60 bg-surface/50 relative flex min-h-14 w-full flex-row items-center rounded-xl border px-4 py-2.5 shadow-xs">
       {/* `gap-0.5`, `fluid-lg` and `fluid-xxs` are the trigger's own, so the two line boxes are
           computed by the same rules as the real ones at every breakpoint. The timespan really does
-          render at `fluid-xxs` — ADR-0018 is what keeps HeroUI's `Description` from dropping the
-          size class — so this must not be pinned to a fixed size to compensate. */}
+          render at `fluid-xxs` — the scale sits outside tailwind-merge's reach, so HeroUI's
+          `Description` keeps the size class — so this must not be pinned to a fixed size to compensate. */}
       <div className="flex flex-col gap-0.5">
         <span className={`${skeletonBlock()} fluid-lg block w-[6.024em] rounded-md`}>&nbsp;</span>
         <span className={`${skeletonBlock()} fluid-xxs block w-[13.198em] rounded`}>&nbsp;</span>

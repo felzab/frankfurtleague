@@ -13,9 +13,9 @@ concrete exploit sentence.
 CONTEXT — derive, do not assume: auth is next-auth via `src/core/auth.ts` with a proxy matcher on
 `/admin/:path*` **plus** an in-layout `getAdminSession()` guard (defence in depth — verify both still
 exist rather than assuming either); the frontend holds tiered internal API keys used by
-`src/core/api.ts`. Ratified postures to check conformance against, not to re-litigate: the single
-enforced CSP with `react/no-danger` as compensating control (ADR-0011), the kept system tier
-(ADR-0010), and the absence of a reference-data invalidation endpoint (ADR-0028).
+`src/core/api.ts`. Ratified postures to check conformance against, not to re-litigate — each is a
+`.claude/CLAUDE.md` §7 row: the single enforced CSP with `react/no-danger` as compensating control,
+the kept system tier, and the absence of a reference-data invalidation endpoint.
 
 THE CHECKS, in priority order:
 
@@ -65,14 +65,14 @@ S7. **Error and log leakage.** Error boundaries, the logger, instrumentation, ev
 `src`: what each emits in a production build and who can see it — stack traces, backend URLs, zod
 trees, trace ids, submitted user data.
 
-S8. **Injection surface.** `dangerouslySetInnerHTML` (the compensating lint rule must still be at
-`error` — ADR-0011 depends on it), URL-bearing attributes fed from backend or user data (every
+S8. **Injection surface.** `dangerouslySetInnerHTML` (`react/no-danger` must still be at `error` —
+the CSP's `'unsafe-inline'` rests on it), URL-bearing attributes fed from backend or user data (every
 such sink on the shared external-URL schema, never bare `z.url()`), searchParams flowing into
 fetch paths unencoded, unbounded params forwarded to the backend.
 
 S9. **Transport and headers.** Served headers versus the nginx configs (check the configs before
-calling a header missing — header ownership is split between Next and nginx), and conformance to
-ADR-0011 rather than a re-argument of it.
+calling a header missing — header ownership is split between Next and nginx), and conformance to the
+single enforced CSP rather than a re-argument of it.
 
 S10. **Dependency and build surface.** `pnpm audit --prod` (it is gate-enforced — verify), any
 resolution overrides against the ranges their dependents declare (the `sharp` override

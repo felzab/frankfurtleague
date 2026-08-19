@@ -8,11 +8,11 @@
  *
  * Invariants:
  * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the form.
- * - The club patch invalidates `spiele` too: the rename fans into every match (ADR-0021).
+ * - The club patch invalidates `spiele` too: the rename fans into every match.
  * - A junction write invalidates the `spiele` AND `teams` pairs, base and granular — every match
- *   side carries the junction's `disqualifikation` (ADR-0001).
+ *   side carries the junction's `disqualifikation`.
  * - A create 409 names the reactivate path on the field — `shorthand` stays unique over retired
- *   clubs (ADR-0025).
+ *   clubs.
  * - Create-and-enter is one action over two requests, club first — a club with no junction row
  *   is invisible to every season-scoped read.
  *
@@ -40,12 +40,12 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLDeleteTeamPayload, FLPatchTeamPayload, FLReactivateTeamPayload, FLSaisonTeamResponse, FLTeamRecord } from "./schemas";
 import type { SaisonTeamEnterDraft, SaisonTeamMembershipDraft, TeamCreateDraft } from "./types";
 
-// The shorthand's unique index spans retired clubs (ADR-0025), and reviving is deliberately not the
+// The shorthand's unique index spans retired clubs, and reviving is deliberately not the
 // create's job -- so the message names the one path that is.
 const SHORTHAND_TAKEN =
   "Dieses Kürzel ist bereits vergeben, möglicherweise von einem stillgelegten Team. Reaktiviere dieses Team, statt es neu anzulegen.";
 
-/** Both cache layers for one resource and one season (ADR-0001): the base tag serves the default reads. */
+/** Both cache layers for one resource and one season: the base tag serves the default reads. */
 function invalidateSeasonScoped(resource: "teams" | "spiele", saisonId: string): void {
   updateTag(resource);
   updateTag(`${resource}:saison_id:${saisonId}`);
@@ -76,7 +76,7 @@ function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     return { fieldErrors: { gruppe: "Diese Gruppe ist bereits voll." } };
   }
   if (error.serverErrorCode === "REQ-ENTER-004") {
-    // Names the route that is still open instead of stopping at the refusal (ADR-0071): the swap
+    // Names the route that is still open instead of stopping at the refusal: the swap
     // control sits under the locked Gruppe row on the page this message lands on, so the second
     // sentence is reachable without leaving the screen.
     return {
@@ -345,7 +345,7 @@ export async function patchSaisonTeamAction(
       throw error;
     }
 
-    // BOTH resource pairs (ADR-0001). Every match side carries this row's
+    // BOTH resource pairs. Every match side carries this row's
     // `disqualifikation` joined at read time (backend spec I32), so `teams` alone leaves
     // a card showing a DQ badge the league table has stopped showing.
     invalidateSeasonScoped("teams", validated.data.saison_id);

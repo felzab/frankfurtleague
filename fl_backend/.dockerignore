@@ -30,7 +30,7 @@
 # `uv sync --no-dev` installs no pytest, so the suite could only ever be inert bytes in the image.
 tests/
 
-# The published document the frontend's contract test compares against (ADR-0033). The running app
+# The published document the frontend's contract test compares against. The running app
 # serves its OpenAPI from the live routes, so this copy is a repository artifact, not runtime input.
 openapi.json
 

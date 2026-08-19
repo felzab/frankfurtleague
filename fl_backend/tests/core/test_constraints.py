@@ -1,9 +1,9 @@
 """
-CORE · the declared constraints, checked as data (ADR-0020)
+CORE · the declared constraints, checked as data
 
 Three jobs: the validators are well-formed; they have not drifted from the Pydantic models —
 hand-mirroring is this codebase's main drift risk, and the mirror test fails by name when a
-field is added to one copy only; and the scope ADR-0020 drew is still the scope, because
+field is added to one copy only; and the scope is still types, presence and enums, because
 widening it is a one-word edit that would otherwise pass review.
 
 Invariants:
@@ -38,7 +38,7 @@ from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES, diagnose
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.kontakt import FLKontakt
 
-# Every collection the application reads or writes, from the one declaration of them (ADR-0054).
+# Every collection the application reads or writes, from the one declaration of them.
 # Written out rather than derived from `db.py`'s providers, which cover seven of the nine -- the
 # junctions are reached by `$lookup` and have no provider.
 EXPECTED_COLLECTIONS = {collection.value for collection in Collection}
@@ -48,7 +48,7 @@ EXPECTED_COLLECTIONS = {collection.value for collection in Collection}
 # does not take a collection off the list.
 MODELLESS_COLLECTIONS = {Collection.SAISON_TEAMS, Collection.SAISON_SPIELER}
 
-# JSON Schema keywords ADR-0020 puts out of scope. Ranges, formats and lengths stay Pydantic's, and a
+# JSON Schema keywords out of scope. Ranges, formats and lengths stay Pydantic's, and a
 # validator reaching for one of these is the scope being widened rather than a constraint being added.
 OUT_OF_SCOPE_KEYWORDS = {
     "minimum",
@@ -73,32 +73,32 @@ OUT_OF_SCOPE_KEYWORDS = {
 # collection, so they carry fields no single document holds -- naming them keeps this an equality
 # check rather than a subset check.
 MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple[type[BaseModel], ...], frozenset[str]]] = [
-    # `schedule` is derived from this season's own `rules` and is stored nowhere (ADR-0052) -- the same
+    # `schedule` is derived from this season's own `rules` and is stored nowhere -- the same
     # shape `anzahl_spiele` has on a matchday, which reports one entry of it per matchday.
     (Collection.SAISONS, (), FLSaison, frozenset({"schedule"})),
     (Collection.SAISONS, ("rules",), FLSaisonRules, frozenset()),
     (Collection.SPIELE, (), FLSpiel, frozenset()),
     (Collection.SPIELE, ("team1",), FLSpielTeamField, frozenset()),
     (Collection.SPIELE, ("team2",), FLSpielTeamField, frozenset()),
-    # A discriminated union, so both variants are named and the validator must declare their union
-    # (ADR-0034). `required` on the validator side is `type` alone -- $jsonSchema cannot make a key
-    # required only when a sibling holds a value.
+    # A discriminated union, so both variants are named and the validator must declare their union.
+    # `required` on the validator side is `type` alone -- $jsonSchema cannot make a key required
+    # only when a sibling holds a value.
     (Collection.SPIELE, ("team1_quelle",), (FLSpielQuelleGruppe, FLSpielQuelleSpiel), frozenset()),
     (Collection.SPIELE, ("team2_quelle",), (FLSpielQuelleGruppe, FLSpielQuelleSpiel), frozenset()),
     # No variants, so unlike the two `quelle` fields above this one is covered in full: the validator
-    # requires both counts and types both (ADR-0036).
+    # requires both counts and types both.
     (Collection.SPIELE, ("elfmeterschiessen",), FLSpielElfmeterschiessen, frozenset()),
     (Collection.SPIELE, ("ort",), FLSpielOrtField, frozenset()),
     (Collection.SPIELE, ("schiedsrichter",), FLSpielSchiedsrichterField, frozenset()),
     # `anzahl_spiele` is derived from the season's rules and this matchday's phase, and is stored
-    # nowhere (ADR-0052) -- the same shape `statistik` has on a team two entries down.
+    # nowhere -- the same shape `statistik` has on a team two entries down.
     (Collection.SPIELTAGE, (), FLSpieltag, frozenset({"anzahl_spiele"})),
     (Collection.SPIELORTE, (), FLSpielort, frozenset()),
     (Collection.SPIELORTE, ("address",), FLAddress, frozenset()),
     (Collection.SCHIEDSRICHTER, (), FLSchiedsrichter, frozenset()),
     (Collection.SCHIEDSRICHTER, ("kontakt",), FLKontakt, frozenset()),
     # `gruppe` and `disqualifikation` are joined from saison_teams; `statistik` is derived from spiele
-    # and stored nowhere at all (ADR-0019). None of the three is on a teams document.
+    # and stored nowhere at all. None of the three is on a teams document.
     (Collection.TEAMS, (), FLTeam, frozenset({"gruppe", "disqualifikation", "statistik"})),
     # The same collection twice, on purpose. `FLTeam` is the read shape and may carry three fields no
     # document has; `FLTeamRecord` is what a write echoes, so its field set must match the validator
@@ -107,8 +107,8 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.TEAMS, ("address",), FLAddress, frozenset()),
     # Everything but the two names comes from the saison_spieler junction.
     (Collection.SPIELER, (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen", "is_captain"})),
-    # The one sub-document of a modelless row that does have a model, so the drift check reaches it
-    # (ADR-0047). `FLTeam` embeds it, which is how the record travels from the junction to the reader.
+    # The one sub-document of a modelless row that does have a model, so the drift check reaches it.
+    # `FLTeam` embeds it, which is how the record travels from the junction to the reader.
     (Collection.SAISON_TEAMS, ("disqualifikation",), FLDisqualifikation, frozenset()),
 ]
 
@@ -118,7 +118,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
 # enum added to `constraints.py` without a row here fails rather than going unchecked.
 
 # The two `quelle` entries read their members off a model field rather than a named alias, because
-# neither has one: `type` and `ausgang` are declared inline on their variants (ADR-0034). An alias
+# neither has one: `type` and `ausgang` are declared inline on their variants. An alias
 # would exist for a test's benefit alone.
 MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...], bool]] = [
     (Collection.SAISONS, (), "status", get_args(FLSaisonStatus), False),
@@ -146,7 +146,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     ),
     (Collection.SPIELE, ("team2_quelle",), "gruppe", get_args(FLGruppenNames), False),
     (Collection.SPIELE, ("team2_quelle",), "ausgang", get_args(FLSpielQuelleSpiel.model_fields["ausgang"].annotation), False),
-    # Nullable, because a squad entry is filled in over time (ADR-0048). `None` is a member of the
+    # Nullable, because a squad entry is filled in over time. `None` is a member of the
     # validator's list, which is what lets `enum` stand beside a nullable `bsonType`.
     (Collection.SAISON_SPIELER, (), "position", get_args(FLSpielerPosition), True),
     (Collection.SAISON_SPIELER, (), "stufe", get_args(FLSpielerStufe), True),
@@ -324,15 +324,15 @@ def test_every_required_field_declares_a_type(collection: Collection):
 @pytest.mark.parametrize("collection", sorted(COLLECTION_VALIDATORS))
 def test_no_validator_constrains_a_range_or_a_format(collection: Collection):
     """
-    ADR-0020's scope, made enforceable.
+    The validators' scope, made enforceable.
 
     Widening it is a one-word edit and reads as an improvement, which is exactly why it needs a test
-    rather than a paragraph. The argument for the line is in the ADR: types, presence and enums are the
-    constraints whose violation is silent, and a bad range or length fails Pydantic on the next read.
+    rather than a paragraph. Types, presence and enums are the constraints whose violation is silent,
+    and a bad range or length fails Pydantic on the next read.
     """
     for schema in walk_schemas(COLLECTION_VALIDATORS[collection]["$jsonSchema"]):
         out_of_scope = set(schema) & OUT_OF_SCOPE_KEYWORDS
-        assert not out_of_scope, f"{collection} uses {sorted(out_of_scope)}, which ADR-0020 leaves to Pydantic"
+        assert not out_of_scope, f"{collection} uses {sorted(out_of_scope)}, which is left to Pydantic"
 
 
 @pytest.mark.parametrize(

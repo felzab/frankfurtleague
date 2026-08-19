@@ -17,13 +17,13 @@
 #   Move-Item, Rename-Item, Remove-Item, Clear-Content, Export-Csv, Tee-Object, a redirect,
 #   [IO.File]::WriteAllText and a method on any object all write, and every verb such a list misses
 #   is a silent hole. So this one enumerates READS and refuses whatever it does not recognise. A
-#   false refusal is one `git checkout -b` from resolved; a hole is not observable at all (ADR-0060).
+#   false refusal is one `git checkout -b` from resolved; a hole is not observable at all.
 #
 # WHAT IT MUST NOT REFUSE is a write into the gitignored class — docs/audit/ and .vscode/ — which
-# CLAUDE.md §1 exempts and which stays available from a shell on `main`. That is ADR-0067's
-# exemption, asked here in ADR-0067's own terms: one simple command, a program whose writes its
-# arguments fully describe, every path-like token held to git's answer with at least one required to
-# clear it, no deletion, and credential shapes refused ahead of all of it.
+# CLAUDE.md §1 exempts and which stays available from a shell on `main`. That exemption is asked
+# here in its own terms: one simple command, a program whose writes its arguments fully describe,
+# every path-like token held to git's answer with at least one required to clear it, no deletion,
+# and credential shapes refused ahead of all of it.
 #
 # CONTRACT: prints nothing and exits 0 on any branch but `main`, for a payload another tool owns,
 # and on `main` for a command that is provably read-only or provably aimed at the exempt class.

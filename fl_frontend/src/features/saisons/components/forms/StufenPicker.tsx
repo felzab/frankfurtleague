@@ -51,7 +51,7 @@ const STUFE_CHIP =
  * not. `ThemeSwitch` is the same control in single-selection mode, which is where this pattern comes
  * from in this app.
  *
- * A picked control, so the caller judges it on CHANGE rather than on blur (ADR-0040): a selection is
+ * A picked control, so the caller judges it on CHANGE rather than on blur: a selection is
  * complete the moment it is made.
  *
  * **The group is wrapped in a `TextField` whose input never appears, and that proxy is what makes the

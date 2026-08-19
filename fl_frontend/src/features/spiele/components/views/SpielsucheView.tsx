@@ -37,7 +37,7 @@ const SEARCH_KEYS = [
  * `isAdmin` is how the public and the admin route share this whole view: the two differ by an edit link
  * per card and by nothing else, so a boolean carries the difference. It replaced an injected list
  * component, which was the right shape while the admin cards owned an edit modal's state and stopped
- * being one when the editor became a page of its own (ADR-0040).
+ * being one when the editor became a page of its own.
  *
  * The list is filtered CLIENT-side over the season already fetched, not by re-querying the backend.
  * That is why the search feels instant and why it cannot find matches outside the selected season.

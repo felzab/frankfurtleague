@@ -10,7 +10,7 @@ import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The referee editor (ADR-0040). One referee per URL, and no season in it: a referee belongs to the
+ * The referee editor. One referee per URL, and no season in it: a referee belongs to the
  * league rather than to a season, so the sidemenu's selector changes nothing on this page.
  *
  * No `generateMetadata` and no `generateStaticParams`, for the reasons the match editor records.
