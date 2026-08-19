@@ -7,18 +7,11 @@ import { formButton } from "@/shared/components/ui/formButtons";
 
 import { useSaisonDraftStatus } from "./SaisonDraftStatusContext";
 
-/** One editor per page, so the id can be a constant rather than threaded through a hook. */
 const SAVE_HINT_ID = "saison-speichern-hinweis";
 
 /**
- * Save, cancel and the running state of the season draft — the match editor's action bar over the
- * season editor's own status context. The reasoning lives on `FormActionBar`, unchanged here: the bar
- * is the scroll container's STATIC sibling, save is disabled only on "nothing changed" and never on a
- * client verdict, and the unsaved count sits where the eye already goes.
- *
- * **The rollover is not in this bar and must not be.** It writes through its own endpoint the moment it
- * is pressed, so putting it beside a Speichern that commits a draft would make one row hold two
- * different promises about when something happens.
+ * `FormActionBar` carries the reasoning. **The rollover is not in this bar and must not be**: it
+ * writes the moment it is pressed, so one row would hold two promises about when something happens.
  */
 export function SaisonActionBar({ isPending, onCancel }: { isPending: boolean; onCancel: () => void }) {
   const status = useSaisonDraftStatus();
@@ -26,8 +19,6 @@ export function SaisonActionBar({ isPending, onCancel }: { isPending: boolean; o
   return (
     <div className="border-border bg-background w-full border-t px-4 py-3 sm:px-8">
       <div className="max-w-page mx-auto flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-        {/* At the bar's leading edge, where a reader's eye enters the row. The disabled Speichern
-            reaches it through `aria-describedby` rather than through proximity. */}
         <p
           id={SAVE_HINT_ID}
           role="status"

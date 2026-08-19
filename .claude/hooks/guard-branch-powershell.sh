@@ -1,41 +1,7 @@
 #!/usr/bin/env bash
-#
-# PreToolUse hook on PowerShell — refuses a command that is not provably harmless while HEAD is
-# `main`.
-#
-# WHY THIS EXISTS SEPARATELY FROM guard-branch-bash.sh:
-#   This harness exposes a PowerShell tool beside Bash, with its own shell and its own command
-#   string, and every PreToolUse guard was registered on the Bash matcher alone. Each one resolved,
-#   exited 0 by never running, and the write landed — the same failure guard-branch-bash.sh was
-#   written to fix, one tool later. The matcher now names both tools, which carries the compose
-#   refusal over this route unchanged; the branch refusal needs this file as well, for the reason
-#   below.
-#
-# WHY IT ENUMERATES READS WHERE THE BASH GUARD ENUMERATES WRITES:
-#   That guard lists write shapes and lets the rest past, which holds because POSIX writing is a
-#   short vocabulary. PowerShell's is not: Set-Content, Add-Content, Out-File, New-Item, Copy-Item,
-#   Move-Item, Rename-Item, Remove-Item, Clear-Content, Export-Csv, Tee-Object, a redirect,
-#   [IO.File]::WriteAllText and a method on any object all write, and every verb such a list misses
-#   is a silent hole. So this one enumerates READS and refuses whatever it does not recognise. A
-#   false refusal is one `git checkout -b` from resolved; a hole is not observable at all.
-#
-# WHAT IT MUST NOT REFUSE is a write into the gitignored class — docs/audit/ and .vscode/ — which
-# CLAUDE.md §1 exempts and which stays available from a shell on `main`. That exemption is asked
-# here in its own terms: one simple command, a program whose writes its arguments fully describe,
-# every path-like token held to git's answer with at least one required to clear it, no deletion,
-# and credential shapes refused ahead of all of it.
-#
-# CONTRACT: prints nothing and exits 0 on any branch but `main`, for a payload another tool owns,
-# and on `main` for a command that is provably read-only or provably aimed at the exempt class.
-# Otherwise it prints the deny JSON the PreToolUse event understands, which stops the tool call.
-#
-# WHAT IT DOES WHEN IT CANNOT TELL — it refuses: a payload node could not read, a quote nobody
-# closed, a git that could not name the root, a path git could not place.
-#
-# WHAT IT CANNOT SEE: a program that reads its target out of a file rather than off the command
-# line, and a cmdlet an autoloaded profile redefined. The lists below are shapes, not a proof.
-#
-# TARGET PLATFORM: any (Git Bash on Windows). node rather than jq — jq is not installed here.
+# PreToolUse hook on PowerShell — refuses a command that is not provably harmless while HEAD is `main`.
+# It enumerates READS and refuses the rest, the inverse of guard-branch-bash.sh, because PowerShell
+# writes through an open-ended vocabulary and every verb a write list misses is a silent hole.
 
 deny() {
   printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: HEAD is main, and this PowerShell command is neither provably read-only nor aimed at a gitignored path. main is protected and takes changes only through a PR. Branch FIRST — the working tree comes with you:  git checkout main && git pull --ff-only origin main && git checkout -b <short-kebab-name>. Allowed here on main: ONE simple command, either reading through a known read-only cmdlet or git subcommand, or writing through Set-Content, Add-Content, Out-File, New-Item, Copy-Item or Move-Item with every path-like token landing outside the working tree or on a gitignored untracked path inside it, such as docs/audit/. Copy-Item and Move-Item have to name a destination, since without one they write the current directory. A pipeline, a script block, a subexpression, a backtick, a call operator, a type accelerator, a deletion, a credential-shaped name, or a variable ANYWHERE including inside double quotes, where PowerShell expands it and this guard cannot, puts it back here. Single-quote a value that carries a dollar sign or a brace. Anything else belongs in Git Bash, or in the Write tool, which is allowed on those same paths."}}'
@@ -114,8 +80,9 @@ const extended = (t) => {
   return tail.length <= 8 && tail.replace(/[^A-Za-z0-9]/g, "").length === tail.length;
 };
 
-// Read-only and closed: a verb missing from here costs a refusal a branch resolves, where a verb
-// missing from a list of WRITES would cost a write on main that nothing observes.
+// Read-only and closed: a verb missing here costs a refusal a branch resolves, where one missing
+// from a list of WRITES would cost a write on main that nothing observes. A cmdlet an autoloaded
+// profile redefined is invisible to this list.
 const READS = ["compare-object", "convertfrom-json", "convertto-json", "format-list",
   "format-table", "get-childitem", "get-command", "get-content", "get-date", "get-filehash",
   "get-help", "get-item", "get-itemproperty", "get-location", "get-member", "get-module",
@@ -397,9 +364,8 @@ if [ "${#paths[@]}" -gt 0 ]; then
   tracked="$(git -C "$repo_root" ls-files -- "${paths[@]}" 2>/dev/null)" || deny
   [ -z "$tracked" ] || deny
 
-  # check-ignore echoes back what it calls ignored, and calls a TRACKED path not ignored — a hit here
-  # is CLAUDE.md 2's "writes no tracked file". quotepath off keeps a German filename byte for byte,
-  # which is what the match below compares.
+  # check-ignore calls a TRACKED path not ignored, so a hit here is CLAUDE.md 2's "writes no tracked
+  # file". quotepath off keeps a German filename byte for byte, which is what the match below needs.
   ignored="$(printf '%s\n' "${paths[@]}" |
     git -c core.quotepath=false -C "$repo_root" check-ignore --stdin 2>/dev/null)"
   status=$?

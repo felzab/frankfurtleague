@@ -12,20 +12,8 @@ import { joinCollections } from "@/shared/utils/data";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The season's bracket wiring, for review.
- *
- * **The same two reads and the same join as `/dashboard/playoffs`**, because it is the same data seen
- * for a different purpose: the public page renders the tree and this one renders the edges that
- * produced it. Both queries are the app's cached ones rather than an admin-only route — a season's
- * fixtures are public, and `AdminContextWrapper` already reads exactly these on the editor's route.
- * Nothing here is admin-authorized, so the never-cache rule for admin-scoped reads does not reach it;
- * what makes the page admin-only is `admin/layout.tsx`'s session guard, which every route under it inherits.
- *
- * `?saison_id=` is honoured for the reason `/admin/spielsuche` honours it: a past season's draw is
- * still worth reading, and omitting the parameter means the current season in FastAPI.
- *
- * **No `generateMetadata`, like the match editor** — every `/admin` route is behind `proxy.ts` and the
- * layout's session check, so nothing here is crawled or shared.
+ * The season's bracket wiring, on the app's CACHED queries: a season's fixtures are public, so
+ * nothing here is admin-authorized. The page is admin-only through `admin/layout.tsx`'s guard.
  */
 export default async function AdminFinalrundenPage(props: NextPageProps) {
   await connection();
@@ -36,9 +24,8 @@ export default async function AdminFinalrundenPage(props: NextPageProps) {
     getSpiele({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
   ]);
 
-  // Parsed, not cast — the type system cannot know the joined rows still satisfy
-  // FLSpieltagWithSpiele after an upstream schema change, and the mismatch would otherwise surface as
-  // `round.spiele.map of undefined` inside the view.
+  // Parsed, not cast: the type system cannot know the joined rows still satisfy the shape after an
+  // upstream schema change, and the mismatch would surface inside the view.
   const rounds = z.array(FLSpieltagWithSpieleSchema).parse(
     joinCollections({
       left: spieltageRes.spieltage,

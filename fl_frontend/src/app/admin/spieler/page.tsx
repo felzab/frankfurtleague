@@ -18,10 +18,8 @@ import type { FLTeamWithMemberships } from "@/features/teams/schemas";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The teams entered in one season, as the pickers offer them: by name, with their Kürzel.
- *
- * `takenByTeam` carries which shirts are already worn in each of them, so the create form can say that
- * the entry would put a second wearer on one — a state the API permits and never refuses.
+ * The teams entered in one season. `takenByTeam` carries the shirts already worn in each, so the
+ * create form can warn about a second wearer — a state the API permits and never refuses.
  */
 function teamsInSaison(teams: FLTeamWithMemberships[], saisonId: string, takenByTeam: Record<string, string[]>): SpielerTeamOption[] {
   return teams
@@ -29,9 +27,8 @@ function teamsInSaison(teams: FLTeamWithMemberships[], saisonId: string, takenBy
     .map((team) => ({ teamId: team.id, name: team.name, shorthand: team.shorthand, takenNummern: takenByTeam[team.id] ?? [] }));
 }
 
-// Not async, so the chrome never waits on the player list
-// (`fl_frontend/src/app/admin/layout.tsx :: AdminLayout`). The create modal needs the season and team
-// lists — one form creates the player and puts them in a squad — so it gets its own boundary.
+// Not async, so the chrome never waits on the list. The create modal needs the season and team
+// lists, so it gets its own boundary.
 export default function AdminSpielerPage(props: NextPageProps) {
   return (
     <AdminCrudShell
@@ -42,8 +39,7 @@ export default function AdminSpielerPage(props: NextPageProps) {
         />
       }
       createModal={
-        // The fallback holds the trigger's own height (`formButton` trigger: h-12, lg:h-15), so the
-        // header row does not jump when the season-loaded modal streams in.
+        // The fallback holds the trigger's own height, so the header row does not jump.
         <Suspense fallback={<div className="h-12 lg:h-15" />}>
           <CreateSpielerModalLoader searchParams={props.searchParams} />
         </Suspense>
@@ -58,14 +54,12 @@ export default function AdminSpielerPage(props: NextPageProps) {
 async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
   const requestedSaisonId = await resolveSaisonId(searchParams);
-  // The list below makes the same read, and this call is still its own round trip: no admin read is
-  // cached, and `apiClient`'s timeout signal opts every call out of Next's fetch memoization.
-  // Cheap enough on an admin page loaded a handful of times a day.
+  // Its own round trip although the list repeats the read: no admin read is cached, and
+  // `apiClient`'s timeout signal opts every call out of Next's fetch memoization.
   const [saisonsRes, teamsRes, spielerRes] = await Promise.all([getSaisons(), getTeamMemberships(), getSpielerMemberships()]);
 
-  // Running and planned seasons both (decided 2026-08-07), unlike the club create's planned-only
-  // rule: a squad is filled in during its season. `isNachgetragen` is that season's own answer to
-  // whether a player arrived late.
+  // Running and planned both, unlike the club create's planned-only rule: a squad is filled in
+  // during its season.
   const saisonOptions: SpielerCreateSaisonOption[] = saisonsRes.saisons
     .filter((saison) => saison.status === "active" || saison.status === "future")
     .map((saison) => ({
@@ -77,8 +71,7 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
         saison.id,
         collectTakenSquadNummern({ spieler: spielerRes.spieler, saisonId: saison.id, exceptSpielerId: "" }),
       ),
-      // The season's own list, ordered by the league's (`orderStufen`), so two seasons never present
-      // the same levels in a different sequence.
+      // Ordered by the league's (`orderStufen`), so two seasons never present a different sequence.
       erlaubteStufen: orderStufen(saison.rules.erlaubte_stufen),
     }));
 
@@ -94,11 +87,8 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
 }
 
 /**
- * EVERY player across every season, each row carrying the SELECTED season's squad row. One read:
- * `GET /spieler/memberships` answers the player-centric question the season-scoped reads cannot,
- * `getSaisons` supplies the statuses the status column needs, and `getTeamMemberships` resolves a
- * squad row's `team_id` into the name and Kürzel the list shows. A player in no squad at all is
- * listed too, with nothing season-scoped to show.
+ * EVERY player across every season, each row carrying the SELECTED season's squad row — the
+ * player-centric question the season-scoped reads cannot answer. A player in no squad is listed too.
  */
 async function SpielerTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
@@ -127,16 +117,15 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
           ? null
           : {
               team_id: selected.team_id,
-              // Normalised to `""` at this boundary, so the editor's controlled input and the list's
-              // truthiness check read one shape rather than two.
+              // Normalised to `""` here, so the controlled input and the list's truthiness check read one shape.
               nummer: selected.nummer ?? "",
               position: selected.position,
               stufe: selected.stufe,
               is_nachgetragen: selected.is_nachgetragen,
               is_captain: selected.is_captain,
               inactive_since: selected.inactive_since,
-              // A team the read cannot resolve is a squad row pointing at a deleted club — null
-              // rather than a crash, and the row still lists so the state is visible.
+              // An unresolvable team is a squad row pointing at a deleted club: null, not a crash, so the row
+              // still lists and the state is visible.
               teamName: team?.name ?? null,
               teamShorthand: team?.shorthand ?? null,
             },
@@ -146,9 +135,8 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
   return (
     <AdminSpielerView
       spieler={rows}
-      // The same list the create modal offers, for the team facet's options — a filter naming a club
-      // from another season would narrow to nothing. No squad numbers: the facet filters by club and
-      // never judges a shirt.
+      // The create modal's list, for the facet's options: a filter naming another season's club would
+      // narrow to nothing.
       teams={teamsInSaison(teamsRes.teams, selectedSaisonId, {})}
       selectedSaisonId={selectedSaisonId}
       selectedSaisonStatus={selectedSaisonStatus}

@@ -1,10 +1,3 @@
-"""
-SHARED · the custom string types
-
-The date test is the one that matters: `DATE_REGEX` alone accepts 2026-02-31, because a regex
-cannot know how many days a month has, so a real calendar check sits behind it.
-"""
-
 import json
 
 import pytest
@@ -32,36 +25,31 @@ class _ObjectId(BaseModel):
 
 @pytest.mark.parametrize("value", ["2026-01-01", "2026-12-31", "2024-02-29", "2026-02-28"])
 def test_accepts_real_calendar_dates(value):
-    """Ordinary dates plus a real leap day, 2024-02-29 — the positive side of the calendar check."""
+    """`2024-02-29` is load-bearing: a real leap day the calendar check must accept."""
     assert _Date.model_validate({"value": value}).value == value
 
 
 @pytest.mark.parametrize("value", ["2026-02-31", "2026-04-31", "2026-02-30", "2025-02-29"])
 def test_rejects_dates_that_pass_the_regex_but_do_not_exist(value):
-    """The point of the whole module: shapes DATE_REGEX allows but the calendar does not, including 2025-02-29."""
+    """`2025-02-29` is load-bearing: `DATE_REGEX` cannot tell a leap year from an ordinary one."""
     with pytest.raises(ValidationError):
         _Date.model_validate({"value": value})
 
 
 @pytest.mark.parametrize("value", ["2026-1-1", "26-01-01", "2026/01/01", "2026-13-01", "", "today"])
 def test_rejects_malformed_dates(value):
-    """Wrong padding, wrong separator, wrong order, out-of-range month, and empty."""
     with pytest.raises(ValidationError):
         _Date.model_validate({"value": value})
 
 
 @pytest.mark.parametrize("value", ["00:00:00", "09:05:00", "23:59:59"])
 def test_accepts_times_with_seconds(value):
-    """Midnight, a single-digit hour zero-padded, and the last second of the day."""
     assert _Time.model_validate({"value": value}).value == value
 
 
-# The backend accepts none of these, and the frontend schema must not either: a form submitting a
-# time this rejects produces a 422 the user cannot act on. This pins the backend half of that
-# contract.
+# The frontend mirror must reject these identically, or a form produces a 422 the user cannot act on.
 @pytest.mark.parametrize("value", ["14:30", "14:30:00.5", "24:00:00", "14:60:00", "2:30:00"])
 def test_rejects_times_without_seconds_or_out_of_range(value):
-    """Missing seconds and fractional seconds — the shapes the frontend mirror must reject identically."""
     with pytest.raises(ValidationError):
         _Time.model_validate({"value": value})
 
@@ -74,19 +62,17 @@ def test_rejects_times_without_seconds_or_out_of_range(value):
         "https://sub.example.co.uk",
         "https://example.com:8443/x",
         "https://user@example.com",
-        # Accepted because zod reads the scheme off a parsed URL, which lowercases it. The previous
-        # regex was case-sensitive and rejected this -- a disagreement between the two ends.
+        # zod reads the scheme off a parsed URL, which lowercases it, so a case-sensitive check here
+        # would disagree with the frontend.
         "HTTPS://EXAMPLE.COM",
     ],
 )
 def test_accepts_http_and_https_urls(value):
-    """Both schemes, plus port, userinfo and an uppercase scheme, which zod lowercases off a parsed URL."""
     assert _Url.model_validate({"value": value}).value == value
 
 
-# A security control, not tidiness: website_url is rendered into an href and React renders
-# javascript: without complaint. The cases EMBEDDING a valid URL matter most -- a check anchored only
-# at the start passes them.
+# A security control: `website_url` is rendered into an href. The cases embedding a valid URL matter
+# most — a start-anchored check passes them.
 @pytest.mark.parametrize(
     "value",
     [
@@ -102,19 +88,17 @@ def test_accepts_http_and_https_urls(value):
         "https://1.2.3.4",
         "http://192.168.1.10/status",
         "https://example.com.",
-        # `new URL` throws on an invalid port, so the frontend rejects this; without touching
-        # urlsplit's lazy `.port` the backend would have accepted it.
+        # `new URL` throws on an invalid port; `urlsplit`'s `.port` is lazy, so it has to be touched
+        # for the two ends to agree.
         "https://example.com:notaport/",
-        # Valid-looking but undecodable punycode. Passes DOMAIN_REGEX (ASCII letters, digits and
-        # hyphens only) yet `new URL` rejects it, so the round-trip check is what keeps the two ends
-        # in agreement.
+        # Undecodable punycode: passes `DOMAIN_REGEX` yet `new URL` rejects it, so the round-trip
+        # check is what keeps the two ends in agreement.
         "https://xn--kthe-kollwitz-schule-5nb.de",
         "https://",
         "//example.com",
     ],
 )
 def test_rejects_non_http_schemes_and_bare_hosts(value):
-    """The security case: javascript:, data: and vbscript:, plus hosts a start-anchored regex wrongly accepted."""
     with pytest.raises(ValidationError):
         _Url.model_validate({"value": value})
 
@@ -129,31 +113,18 @@ def test_rejects_non_http_schemes_and_bare_hosts(value):
     ],
 )
 def test_returns_the_text_it_validated_rather_than_the_raw_value(stored, expected):
-    """
-    The value stored is now the value validated.
-
-    `urlsplit` discards tabs and newlines before parsing, so the host that passed `DOMAIN_REGEX` was
-    never the string being stored — `https://exa\\nmple.com` validated as `example.com` and kept its
-    newline. What is returned is now the text the checks ran against.
-    """
+    """`urlsplit` discards tabs and newlines before parsing, so the host that passes `DOMAIN_REGEX` is not the raw string."""
     assert _Url.model_validate({"value": stored}).value == expected
 
 
 def test_normalises_nothing_beyond_those_three_characters():
-    """
-    The counterpart to the test above, and the reason it is not written with `geturl()`.
-
-    Reassembling from the parsed parts would lowercase the scheme, rewriting a stored value on a READ
-    model — which is what `AnyHttpUrl` was rejected for. Everything except a tab or a newline survives
-    byte for byte.
-    """
+    """Not `geturl()`: reassembling lowercases the scheme, rewriting a stored value on a read model — why `AnyHttpUrl` is refused too."""
     for value in ("HTTPS://EXAMPLE.COM", "https://user@example.com", "https://example.com:8443/x?a=b#c"):
         assert _Url.model_validate({"value": value}).value == value
 
 
-# The frontend accepts these because `new URL` punycodes the host before zod tests it. urlsplit does
-# not, so without encoding first an ordinary German umlaut domain is rejected here -- on the READ
-# path, taking down every route that lists teams.
+# `new URL` punycodes the host and `urlsplit` does not, so the host is encoded first. A read path:
+# rejecting one takes down every route that lists teams.
 @pytest.mark.parametrize(
     "value",
     [
@@ -163,17 +134,15 @@ def test_normalises_nothing_beyond_those_three_characters():
     ],
 )
 def test_accepts_internationalised_domains(value):
-    """Umlaut domains in both unicode and punycode form — rejecting these would break every team listing."""
     assert _Url.model_validate({"value": value}).value == value
 
 
 def test_object_id_round_trips_as_a_24_hex_string():
-    """Serialises back to the 24-hex string the frontend's CustomObjectIdStringSchema expects, parsed either way."""
     parsed = _ObjectId.model_validate({"value": "6890a1b2c3d4e5f607182930"})
     assert str(parsed.value) == "6890a1b2c3d4e5f607182930"
 
-    # The isinstance is the assertion: a json branch that only declared the value a string would
-    # leave `value` a `str` here, and every comparison against a stored `_id` would silently miss.
+    # The `isinstance` is the assertion: a json branch declaring only a string leaves `value` a `str`,
+    # and every comparison against a stored `_id` silently misses.
     from_json = _ObjectId.model_validate_json('{"value": "6890a1b2c3d4e5f607182930"}')
     assert isinstance(from_json.value, ObjectId)
     assert from_json.value == parsed.value
@@ -181,11 +150,10 @@ def test_object_id_round_trips_as_a_24_hex_string():
 
 @pytest.mark.parametrize("value", ["not-an-objectid", "6890a1b2c3d4e5f60718293", "zzzzzzzzzzzzzzzzzzzzzzzz", ""])
 def test_rejects_malformed_object_ids(value):
-    """Nonsense, one character short, 24 non-hex characters, and empty — refused from a dict and from JSON alike."""
     with pytest.raises(ValidationError):
         _ObjectId.model_validate({"value": value})
 
-    # FastAPI hands validation an already-parsed dict, so nothing routed reaches this call. The
-    # guarantee is the type's, not the framework's, and the json mode is where it went unproven.
+    # Nothing routed reaches the json mode — FastAPI hands validation a parsed dict — so the
+    # guarantee is the type's rather than the framework's.
     with pytest.raises(ValidationError):
         _ObjectId.model_validate_json(json.dumps({"value": value}))

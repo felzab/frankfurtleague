@@ -22,17 +22,16 @@ export default async function SaisontabellePage(props: NextPageProps) {
   await connection();
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
-  // `statistik_scope` is spelled out although "gruppenphase" is also the backend's default: this page
-  // is the reason that default exists, and a table pinned by its own page cannot quietly
-  // change meaning.
+  // Spelled out although it is also the backend's default: a table pinned by its own page cannot
+  // quietly change meaning.
   const teamsRes = await getTeams({ in_gruppen: true, saison_id: specifiedSaisonId, statistik_scope: "gruppenphase" });
 
   if (teamsRes.format !== "grouped") {
     throw new Error("Expected grouped teams response, got a flat list.");
   }
 
-  // The qualifier count rides on the grouped response rather than being fetched from the season here,
-  // so the cutoff and the table it marks are always the same season's.
+  // The qualifier count rides on the grouped response, so the cutoff and the table it marks are
+  // always the same season's.
   return (
     <SaisontabelleView
       gruppenData={teamsRes.gruppen}

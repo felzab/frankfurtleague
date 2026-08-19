@@ -11,11 +11,6 @@ import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
 const SEARCH_KEYS = ["name", "schule", "kontakt.email", "kontakt.telefon"] as const;
 
-/**
- * `renderEditModal` is deliberately not passed: the referee form edits on a page at
- * `/admin/schiedsrichter/[schiedsrichter_id]`, so the table's pencil is a `<Link>` and the
- * shared view renders no edit overlay — the arrangement Teams and Spieler already have.
- */
 export function AdminSchiedsrichterView({ schiedsrichter }: { schiedsrichter: FLSchiedsrichter[] }) {
   return (
     <AdminCrudView<FLSchiedsrichter>

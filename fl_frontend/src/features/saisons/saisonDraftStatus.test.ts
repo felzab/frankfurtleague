@@ -30,8 +30,7 @@ describe("deriveSaisonDraftStatus", () => {
 
     assert.equal(status.isDirty, false);
     assert.equal(status.changed.length, 0);
-    // Two dates plus the six fields of `rules`. `status` is deliberately not one: the rollover is a
-    // control writing through its own endpoint, never a draft the save bar counts.
+    // `status` is deliberately not a field: the rollover is a control, never a draft the bar counts.
     assert.equal(status.fields.length, 8);
   });
 
@@ -88,8 +87,7 @@ describe("deriveSaisonDraftStatus", () => {
 
     const row = status.byPath.get("rules.erlaubte_stufen");
     assert.ok(row?.isChanged);
-    // `draftText: null` is what makes the change list render this as a removal; the schema refuses it
-    // on save, so the row and the field error say the same thing about the same draft.
+    // `draftText: null` renders the row as a removal; the schema refuses it on save.
     assert.equal(row.draftText, null);
     assert.equal(row.storedText, "E1, E2, Q1, Q2");
   });

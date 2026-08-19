@@ -17,17 +17,8 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import type { FLKontakt } from "@/shared/schemas";
 
 /**
- * The whole body of `/admin/schiedsrichter/[schiedsrichter_id]` — who the referee is, then the form
- * that edits them, in the match editor's shell: the header scrolls with the form's content, the
- * action bar stays pinned below it, and every exit routes through the form's own discard guard.
- *
- * **Retiring is not on this page**, and reactivating is. The referee list's own dialog is the one home
- * for the retirement (`REQ-RETIRE-004` is answered there), while the way back has no refusal to report
- * and belongs wherever a retired referee is standing — the club editor's arrangement.
- *
- * The one header-level control is reactivation, because a retired referee's state is a fact about the
- * row rather than a value the save bar commits, and it writes immediately through its own
- * endpoint.
+ * Retiring is the referee list's own dialog; reactivating is here, a fact about the row rather than
+ * a value the save bar commits, and it writes immediately through its own endpoint.
  */
 export function AdminSchiedsrichterEditView({
   schiedsrichter,

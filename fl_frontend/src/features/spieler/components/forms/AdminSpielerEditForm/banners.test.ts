@@ -1,11 +1,3 @@
-/**
- * SPIELER · squad editor banner tests
- *
- * What nothing else can catch: a gate that never fires leaves no trace on the page and no failure
- * anywhere else. So each situation this editor raises — and each one it must stay quiet about — is
- * asserted against the list `buildSpielerBanners` returns.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -60,8 +52,7 @@ describe("buildSpielerBanners", () => {
     assert.equal(banner?.severity, "warning");
   });
 
-  // A `warning` is what routes it through the confirmation; `info` would let the save pass
-  // it in silence, and the API refuses the state nowhere.
+  // `warning` is what routes it through the confirmation; `info` would let the save pass in silence.
   it("grades a newly shared shirt as a warning naming the number", () => {
     const [banner] = build({ newlySharedNummer: "1" });
 

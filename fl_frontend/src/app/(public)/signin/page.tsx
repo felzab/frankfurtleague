@@ -4,12 +4,8 @@ import { openGraphFor } from "@/shared/utils/metadata";
 import type { Metadata } from "next";
 
 /**
- * `noindex` rather than a canonical: this is the entrance to `/admin`, which robots.ts disallows, so
- * there is nothing here to rank. It stays out of `sitemap.ts` for the same reason — a sitemap entry
- * for a noindex URL only asks a crawler to fetch a page in order to be told to forget it.
- *
- * A route that declares no metadata inherits the root layout's, canonical included, so leaving this
- * block off would point `/signin` at the homepage.
+ * `noindex`, not a canonical: this is the entrance to `/admin` and there is nothing here to rank. A
+ * route declaring no metadata inherits the root layout's, which would point `/signin` at the homepage.
  */
 export const metadata: Metadata = {
   title: "Anmelden",

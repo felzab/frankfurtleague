@@ -13,14 +13,8 @@ import { skeletonBlock } from "@/shared/components/ui/skeleton";
 import { QA_QUESTIONS } from "../../constants";
 
 /**
- * Chip-shaped placeholders for the participating-schools list.
- *
- * The widths are school names of plausible lengths, varied so the row does not read as a barcode.
- * Eight of them, because a season fields roughly that many teams — under-reserving here only costs a
- * short reflow inside a card that is already the last thing on the page.
- *
- * `tone="field"` and not the default grey: this list sits on the green pitch card, where `bg-muted`
- * would read as a hole punched in it. Same reasoning as the real chips' `bg-field-fg/10`.
+ * School names of plausible lengths, varied so the row does not read as a barcode. `tone="field"`
+ * and not the default grey: on the green pitch card `bg-muted` reads as a hole punched in it.
  */
 const TEAM_CHIP_SKELETON_WIDTHS = ["w-32", "w-24", "w-40", "w-28", "w-36", "w-24", "w-32", "w-28"];
 
@@ -60,8 +54,7 @@ export function AboutView() {
               className="soccer-field-card-bg soccer-field-card-border overflow-hidden rounded-2xl border shadow-xl">
               <Accordion.Heading>
                 {/* No focus classes: `.accordion__trigger` already carries HeroUI's ring in
-                    var(--focus). The old `outline-none` with nothing behind it was the whole defect
- — it suppressed the outline and left the ring unstyled. */}
+                    `var(--focus)`, and an `outline-none` over it suppresses the outline for nothing. */}
                 <Accordion.Trigger className="fluid-base text-field-fg data-hovered:bg-hover-field flex w-full items-center justify-between gap-x-4 p-6 font-bold transition-colors">
                   <span>{item.q}</span>
 
@@ -88,9 +81,8 @@ export function AboutView() {
             <Card.Title className="fluid-base text-field-fg font-extrabold tracking-widest uppercase">Aktive Schulen der Saison</Card.Title>
           </Card.Header>
           <Card.Content className="p-6">
-            {/* The fallback is the chip row in placeholder form, not the words "Teams laden...".
-                That line was a single short run of text where a wrapped row of chips was about to
-                appear, so the card grew by roughly its own height when the names landed. */}
+            {/* A placeholder chip row and not a line of text, which the card grew past when the real
+                names landed. */}
             <Suspense
               fallback={
                 <div
@@ -98,8 +90,8 @@ export function AboutView() {
                   aria-label="Teams werden geladen"
                   className="flex flex-wrap justify-center gap-2">
                   {TEAM_CHIP_SKELETON_WIDTHS.map((width, i) => (
-                    // Same type sizes, padding and border as the real chip, so each placeholder is
-                    // exactly one chip tall at every breakpoint.
+                    // The real chip's type sizes, padding and border, so a placeholder is exactly one
+                    // chip tall at every breakpoint.
                     <span
                       key={i}
                       className={`${skeletonBlock({ tone: "field" })} fluid-xxs sm:fluid-xs border-field-fg/25 inline-block rounded-xl border px-3.5 py-1.5 ${width}`}>

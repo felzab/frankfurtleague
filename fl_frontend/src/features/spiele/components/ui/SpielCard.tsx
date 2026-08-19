@@ -1,16 +1,5 @@
 "use client";
 
-/**
- * SPIELE · the full-width match card
- *
- * The densest of the match cards: phase chip, status chip, full team names, and — on the admin
- * routes — a link to the editor. The responsive card grids drive it, so it is the one card whose
- * width comes from the viewport rather than from a container that has already claimed most of it.
- *
- * Invariants:
- * - Never merged with `SpielCardCompact` or `SpielCardUltraCompact`; only their shared derivation is
- *   extracted.
- */
 import Link from "next/link";
 
 import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
@@ -37,19 +26,13 @@ export function SpielCard({
   spielData: FLSpiel;
   onOpenInfoModal: () => void;
   /**
-   * Where this fixture is edited, on the admin routes; absent on every public one.
-   *
-   * A LINK, not a button, because the editor is a page now. Three things follow that a
-   * button could not give: Next prefetches the route on approach, so the first tap pays for no chunk —
-   * which is what the modal's hand-rolled idle preload existed to fake — and middle-click and
-   * open-in-new-tab work, so an admin can line up several fixtures at once.
+   * A LINK, not a button, because the editor is a page: Next prefetches it on approach, and
+   * middle-click and open-in-new-tab let an admin line up several fixtures at once.
    */
   adminEditHref?: string;
   /**
-   * Whether this card is itself the `role="listitem"` of the grid, which it is everywhere except on
-   * the triage list: there a fixture with faults is a note plus a card, so a WRAPPER carries the role
-   * and the card is plain content inside it (decided 2026-08-08). A listitem nested inside a listitem
-   * would announce every faulted fixture twice, which is why this is a prop and not a second wrapper.
+   * False only on the triage list, where a faulted fixture is a note plus a card and the WRAPPER
+   * carries the role: nesting one listitem in another announces the fixture twice.
    */
   asListitem?: boolean;
   today: string;
@@ -78,15 +61,9 @@ export function SpielCard({
         </div>
 
         <div className="flex w-full items-center justify-end gap-x-2">
-          {/* The two controls sit in one row and must read as one pair, so the radius is spelled on
-              BOTH rather than left to HeroUI on the button and guessed on the link. `rounded-xl` is
-              the app's icon-target radius — the same one `RowActions` uses for its 40×40 targets. */}
-          {/* Both controls are icon-only, so both say in a tooltip what their glyph means. `IconTooltip`
-              rather than a `title` attribute: it opens on focus as well as hover, it is the one tooltip
-              appearance in the app, and its trigger is deliberately `role="presentation"` with
-              `tabIndex={-1}` so wrapping an already-labelled control adds no second tab stop. The
-              `aria-label`s stay — they carry the match number, which a tooltip repeated on every card
-              in a grid should not. */}
+          {/* The radius is spelled on BOTH controls rather than left to HeroUI on one, the pair
+              having to read as one. `IconTooltip` over `title`: it opens on focus too. The
+              `aria-label`s carry the match number a tooltip should not. */}
           {adminEditHref && (
             <IconTooltip label="Spiel bearbeiten">
               <Link
@@ -107,12 +84,9 @@ export function SpielCard({
               onPress={onOpenInfoModal}
               size="md"
               variant="tertiary"
-              /* `flex` over HeroUI's `inline-flex`: the tooltip trigger is `inline-block`, and a line
-                 box round an inline child leaves the trigger's height to the font's metrics rather
-                 than to this control. The link beside it is block-level already. */
-              /* `bg-hover-muted`, not `bg-hover`: this control rests on `bg-muted`, and the page-level
-                 hover fill sits between that and the card — 1.83 points off in the light theme, and
-                 the wrong way in the dark one. Measured at the token. */
+              /* `flex` over HeroUI's `inline-flex`: a line box round an inline child leaves the
+                 trigger's height to the font's metrics rather than to this control. And
+                 `bg-hover-muted`, since this rests on `bg-muted` rather than on the page. */
               className="bg-muted text-foreground data-hovered:bg-hover-muted flex h-[35px] w-[35px] rounded-xl p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
               <CircleExclamation className="m-0 size-5" />
             </Button>
@@ -120,7 +94,7 @@ export function SpielCard({
         </div>
       </div>
 
-      {/* Spielinfos — equal 1fr tracks keep the score centered regardless of name lengths. */}
+      {/* Equal 1fr tracks keep the score centred regardless of name lengths. */}
       <div className="bg-muted grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl p-2">
         <span className="flex min-w-0 justify-end">
           <SpielTeamSlot
@@ -131,12 +105,9 @@ export function SpielCard({
           />
         </span>
 
-        {/* `-strong`, not the plain accents: this text sits on `bg-muted`, and the rule the tokens exist
-            to carry is "plain accent for fills, `-strong` for text on a tint". The plain pair measures
-            2.62:1 (success) and 3.83:1 (danger) here in the light theme. All three cards say `-strong`. */}
-        {/* The shoot-out is a SECOND LINE under the score, never folded into it: the fixture finished
-            level and the Saisontabelle counts it as a draw, so `2:2` has to stay the score this card
-            shows. Inside the same grid cell, so the two 1fr team tracks are unaffected. */}
+        {/* `-strong`, not the plain accents: the tokens' rule is plain for fills, `-strong` for
+            text on a tint, and this sits on `bg-muted`. The shoot-out is a SECOND LINE in the same
+            cell, so the two 1fr team tracks are unaffected. */}
         <span
           className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
           {spielErgebnis}

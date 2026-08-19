@@ -1,23 +1,3 @@
-/**
- * CORE · every path a refusal can name, against the inputs the form behind it renders
- *
- * A server action reports a rejection as `fieldErrors` keyed by the payload's dotted path, and
- * `shared/utils/validation.ts` makes that key the input's `name`. A path with no input behind it has
- * nowhere to land — `docs/frontend/spec.md` invariant I34 carries what that costs an admin.
- *
- * Invariants:
- * - Every subject is discovered: the schemas are the ones an action parses, the forms are the
- *   components that call those actions, and the inputs are their whole import tree's `name` props.
- * - Every exempt path is DATA below, carrying why it is unreachable — so a payload gaining a field
- *   nobody decided about fails here rather than shipping.
- * - Every discovery carries a floor, so a rename that finds nothing fails instead of passing.
- * - Modules are imported dynamically, so `core` gains no static import of `features`.
- * - Which BRANCH renders a control is invisible here: both of `FormKaderSection`'s count as rendered.
- *
- * See:
- * - fl_frontend/src/shared/components/ui/formSubmit.test.ts — the same discover-then-assert shape
- */
-
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -36,18 +16,13 @@ function collectSources(dir: string): string[] {
   });
 }
 
-/** Relative POSIX path → source text, for every module in the tree. */
 const sources = new Map(
   collectSources(SRC_DIR).map((file) => [path.relative(SRC_DIR, file).split(path.sep).join("/"), readFileSync(file, "utf8")]),
 );
 const components = [...sources.keys()].filter((file) => file.endsWith(".tsx"));
 
-/* -- Discovery: which schema each action parses, and which components call that action -------- */
-
 /**
- * The captures of a two-group global pattern, as a pair the type checker trusts.
- *
- * Every pattern below declares both groups outside an alternation, so a match always fills them —
+ * Every pattern here declares both groups outside an alternation, so a match always fills them.
  * `noUncheckedIndexedAccess` cannot see that, and a cast would hide a pattern that later could not.
  */
 function* capturePairs(text: string, pattern: RegExp): Generator<[string, string]> {
@@ -57,18 +32,15 @@ function* capturePairs(text: string, pattern: RegExp): Generator<[string, string
   }
 }
 
-/** The slice a `features/<slice>/…` path belongs to. */
 const sliceOf = (file: string): string => file.split("/")[1] ?? "";
 
-/** Server action name → the slice whose `actions.ts` declares it. */
 const actionSlice = new Map<string, string>();
-/** Payload schema export → every action that parses it, and so can report on its paths. */
+/** Payload schema export → the actions that parse it, and so can report on its paths. */
 const schemaActions = new Map<string, string[]>();
 
 for (const [file, text] of sources) {
   if (!/^features\/[^/]+\/actions\.ts$/.test(file)) continue;
-  // Split on the declaration rather than parsed: an action's body runs to the next `export async
-  // function`, which is enough to attribute a `safeParse` to the action that performs it.
+  // Split, not parsed: a body runs to the next declaration, enough to attribute a `safeParse`.
   for (const body of text.split("export async function ").slice(1)) {
     const action = /^(\w+)/.exec(body)?.[1];
     if (action === undefined) continue;
@@ -81,11 +53,9 @@ for (const [file, text] of sources) {
   }
 }
 
-/** The `.tsx` modules that dispatch any of `actions` — the forms a refusal from it comes back to. */
 const callersOf = (actions: readonly string[]): string[] =>
   components.filter((file) => actions.some((action) => (sources.get(file) ?? "").includes(`${action}(`)));
 
-/** One import specifier resolved against this tree, `null` for a package or a missing file. */
 function resolveSpecifier(specifier: string, from: string): string | null {
   let base: string;
   if (specifier.startsWith("@/")) base = specifier.slice(2);
@@ -96,7 +66,6 @@ function resolveSpecifier(specifier: string, from: string): string | null {
   return null;
 }
 
-/** Everything reachable from `roots` by import — the component tree a form actually renders. */
 function importTree(roots: readonly string[]): Set<string> {
   const seen = new Set<string>();
   const pending = [...roots];
@@ -117,17 +86,12 @@ function importTree(roots: readonly string[]): Set<string> {
   return seen;
 }
 
-/* -- The inputs a tree renders -------------------------------------------------------------------*/
-
 const ATTRIBUTE_LITERAL = /\b(\w+)\s*=\s*"([^"]+)"/g;
 const ATTRIBUTE_TEMPLATE = /\b(\w+)=\{`([^`]+)`\}/g;
 
 /**
- * Which props end up as an input's `name`.
- *
- * `name` itself, plus every identifier some component forwards into one — `PickOrCreateAutocomplete`
- * spells its own `name={fieldPath}`, so a `fieldPath` literal at a call site is a rendered name too.
- * Derived rather than listed, so a third spelling is covered by adding the forwarding line alone.
+ * `name`, plus every identifier a component forwards into one. Derived rather than listed, so a
+ * further spelling is covered by the forwarding line alone.
  */
 const NAME_PROPS = new Set(["name"]);
 for (const text of sources.values()) {
@@ -135,11 +99,8 @@ for (const text of sources.values()) {
 }
 
 /**
- * The identifiers a templated `name` interpolates, with every value its callers supply.
- *
- * Data rather than inference: `name={`${fieldName}.team_id`}` renders two different paths depending on
- * which side of the fixture is being drawn, and only the call sites know which. A template holding an
- * identifier absent from here fails the assertion below rather than dropping its paths.
+ * Data rather than inference: one template renders a different path per side of the fixture, and
+ * only the call sites know which. An unbound identifier fails below rather than dropping its paths.
  */
 const NAME_TEMPLATE_BINDINGS: Record<string, readonly string[]> = {
   fieldName: ["team1", "team2"],
@@ -147,7 +108,6 @@ const NAME_TEMPLATE_BINDINGS: Record<string, readonly string[]> = {
   namePrefix: ["address"],
 };
 
-/** Every `${identifier}` a templated `name` in the tree interpolates. */
 function templateIdentifiers(): Set<string> {
   const found = new Set<string>();
   for (const [file, text] of sources) {
@@ -160,7 +120,6 @@ function templateIdentifiers(): Set<string> {
   return found;
 }
 
-/** The payload paths `files` render an input for. */
 function renderedNames(files: Iterable<string>): Set<string> {
   const names = new Set<string>();
 
@@ -168,8 +127,8 @@ function renderedNames(files: Iterable<string>): Set<string> {
     if (!file.endsWith(".tsx")) continue;
     const text = sources.get(file) ?? "";
 
-    // A JSX attribute and a destructured prop default read the same way, which is deliberate:
-    // `GruppeSelect` declares `name = "gruppe"` and its callers rely on that default.
+    // A JSX attribute and a destructured prop default read alike on purpose: a component may
+    // declare its own `name` default and its callers rely on it.
     for (const [prop, literal] of capturePairs(text, ATTRIBUTE_LITERAL)) if (NAME_PROPS.has(prop)) names.add(literal);
 
     for (const [prop, template] of capturePairs(text, ATTRIBUTE_TEMPLATE)) {
@@ -186,17 +145,12 @@ function renderedNames(files: Iterable<string>): Set<string> {
   return names;
 }
 
-/* -- The paths a schema can report on ------------------------------------------------------------*/
-
 type JsonSchema = Record<string, unknown>;
 
 /**
- * Every dotted path a Zod object can attach an issue to.
- *
- * Read off `toJSONSchema` rather than off Zod's internals, the route `apiContract.test.ts` takes:
- * these payloads inline every nested object, so `properties` alone reaches the leaves. A union
- * contributes the paths of all its branches — a `teamN_quelle` refusal names whichever variant the
- * draft is in, and both are the form's to render.
+ * Every dotted path a Zod object can attach an issue to, read off `toJSONSchema` as
+ * `apiContract.test.ts` does. A union contributes every branch's paths: a refusal names whichever
+ * variant the draft is in, and all of them are the form's to render.
  */
 function payloadPaths(node: JsonSchema, prefix = ""): string[] {
   const branches = (node.anyOf ?? node.oneOf) as JsonSchema[] | undefined;
@@ -208,30 +162,21 @@ function payloadPaths(node: JsonSchema, prefix = ""): string[] {
   return Object.entries(properties).flatMap(([key, value]) => payloadPaths(value, prefix === "" ? key : `${prefix}.${key}`));
 }
 
-/* -- The exemptions ------------------------------------------------------------------------------*/
-
-/** An id the wire carries in the path, taken from a record this page already loaded and parsed. */
 const IN_THE_PATH = "in the request URI, off an already-parsed record — no input, and no refusal names it";
 const THE_PAGE_SEASON = "the page's selected season, parsed at `.length(4)` before the control renders";
 
-/** A whole payload that IS an id in the path: a row button or a dialog, with no form under it. */
 const NO_FORM_AT_ALL = "a row button's whole argument: an id in the path, no request body, no form";
 
 /**
- * The RECORD's own path, beside the fields it holds.
- *
- * A nullable object is refused here only when the value is neither the object nor `null` — a shape
- * the typed payload builders cannot produce, and one no single control could correct if they did.
- * Its fields are the paths the panel's controls carry, and each of those is swept on its own.
+ * A nullable object is refused on its own path only for a value that is neither the object nor
+ * `null` — a shape the typed payload builders cannot produce. Its fields are swept individually.
  */
 const RECORD_ITSELF = "the record's own path: refusable only on a shape the typed payload cannot build";
 
 /**
- * Payload paths no input renders, each with the reason it cannot be refused on.
- *
- * **A path listed here is a decision, not a backlog entry.** The sweep below fails on a path that is
- * neither rendered nor listed, and on a listed path that no longer exists — so a payload cannot gain
- * a field, or lose one, without somebody passing through this table.
+ * Payload paths no input renders, each with the reason it cannot be refused on. **A path listed
+ * here is a decision, not a backlog entry** — the sweep fails on a path neither rendered nor
+ * listed, and on a listed path that no longer exists.
  */
 const EXEMPT: Record<string, Record<string, string>> = {
   FLActivateSaisonPayloadSchema: { id: NO_FORM_AT_ALL },
@@ -304,14 +249,12 @@ const EXEMPT: Record<string, Record<string, string>> = {
   },
 };
 
-/* -- The sweeps ----------------------------------------------------------------------------------*/
-
 const sweptSchemas = [...schemaActions.keys()].sort();
 
 describe("every payload path a refusal can name", () => {
   it("is swept, and the sweep found the payload schemas at all", () => {
-    // Floors rather than exact counts: what they guard is a discovery that silently finds nothing
-    // after `actions.ts` or the `safeParse` idiom is renamed, which leaves every case below vacuous.
+    // Floors, not exact counts: they guard a discovery that silently finds nothing after a rename,
+    // which would leave every case below vacuous.
     assert.ok(actionSlice.size >= 25, `expected at least 25 server actions, found ${String(actionSlice.size)}`);
     assert.ok(sweptSchemas.length >= 20, `expected at least 20 parsed payload schemas, found ${String(sweptSchemas.length)}`);
     assert.ok(components.length >= 150, `expected at least 150 components, found ${String(components.length)}`);
@@ -346,9 +289,8 @@ describe("every payload path a refusal can name", () => {
       const paths = payloadPaths(z.toJSONSchema(schemaModule[schema] as z.ZodType, { io: "input" }) as JsonSchema);
       assert.ok(paths.length > 0, `${schema} reduced to no paths at all`);
 
-      // Collected rather than asserted one at a time, so a payload that grew several fields reports
-      // all of them and the next reader decides about the set instead of rediscovering it one run
-      // per field.
+      // Collected, not asserted one at a time, so a payload that grew several fields reports them
+      // all in one run.
       const undisplayable = paths.filter((field) => !rendered.has(field) && !(field in exempt));
       assert.deepEqual(
         undisplayable,
@@ -365,11 +307,9 @@ describe("every payload path a refusal can name", () => {
 
 describe("every path a refusal mapper emits", () => {
   /**
-   * The `fieldErrors` keys written by hand in a slice's actions, which is the half `toFieldErrors`
-   * cannot cover: a 409 carries an error CODE, and the mapping from code to field is a literal.
-   *
-   * Read as text because these live in `"use server"` modules, where Next requires every export to be
-   * an async function — so `node:test` cannot import one to ask it.
+   * The half `toFieldErrors` cannot cover: a 409 carries a CODE, and code-to-field is a literal.
+   * Read as text because a `"use server"` module exports only async functions, so it cannot be
+   * imported and asked.
    */
   const emitted = new Map<string, string[]>();
   for (const [file, text] of sources) {

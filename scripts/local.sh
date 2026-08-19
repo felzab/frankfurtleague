@@ -3,10 +3,8 @@
 # SCRIPTS · run the real production image on your own machine, behind the real nginx.
 #
 # `next dev` runs the app from source, so it exercises neither the standalone build, the startup
-# environment gate, nginx nor the security headers. Two things it therefore cannot see:
-# `instrumentation.ts` at the repository root compiles and is then dropped from the image, silently
-# disabling the env gate and all production error logging; and a module-scope read of `AUTH_URL`
-# fails only in the builder stage, where there is no .env.
+# environment gate, nginx nor the security headers — and so cannot see `instrumentation.ts` being
+# dropped from the image, nor a module-scope `AUTH_URL` read failing in the builder stage.
 #
 #   ./scripts/local.sh              build changed layers, start, wait for health
 #   ./scripts/local.sh --fresh      ALSO delete the volumes, and Next's build cache with them — for
@@ -15,16 +13,12 @@
 #   ./scripts/local.sh --down       stop the stack; with --fresh, also delete the volumes
 #   ./scripts/local.sh --verbose    stream each command's own output instead of capturing it
 #   ./scripts/local.sh --help
-#
-# See:
-# - docs/ops/spec.md — the environments, and what each of them does not cover
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 COMPOSE="docker-compose.local.yml"
 
-# Arguments are parsed before any expensive or environmental check, so a typo fails instantly
-# instead of demanding Docker be running first.
+# Parsed before any environmental check, so a typo fails instantly instead of demanding Docker.
 FRESH=0; FOLLOW=0; DOWN=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
 for arg in "$@"; do
@@ -38,8 +32,7 @@ for arg in "$@"; do
   esac
 done
 
-# Stopped rather than silently ignored, which is the rule `scripts/deploy.sh` applies to its own
-# nonsense combination: a flag that does nothing reads as a flag that did something.
+# Stopped rather than ignored: a flag that does nothing reads as a flag that did something.
 if (( DOWN )) && (( FOLLOW )); then
   die "--down stops the stack, so there is no log left to follow.
 Run one or the other."
@@ -101,9 +94,8 @@ ok "images built"
 section "start"
 
 step "Starting the stack"
-# Guarded, not bare: nginx depends on both services being HEALTHY, so `up` itself exits non-zero on
-# an unhealthy start, and an unguarded call would take the error trap instead of the explanation
-# below.
+# Guarded, not bare: nginx depends on both services being HEALTHY, so `up` exits non-zero on an
+# unhealthy start and an unguarded call would take the error trap instead of the explanation below.
 UP_RC=0
 quietly docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans || UP_RC=$?
 if (( UP_RC )); then
@@ -114,8 +106,7 @@ fi
 
 step "Waiting for health"
 HEALTHY=1
-# Backend first, then frontend, which is the order `scripts/deploy.sh` waits in; and both are waited
-# on even when the first fails, so one run reports every unhealthy service rather than the first.
+# Both are waited on even when the first fails, so one run reports every unhealthy service.
 wait_healthy "$COMPOSE" backend 150  || HEALTHY=0
 wait_healthy "$COMPOSE" frontend 150 || HEALTHY=0
 if (( UP_RC )); then HEALTHY=0; fi

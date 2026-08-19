@@ -10,14 +10,6 @@ import {
 import { card } from "@/shared/components/ui/card";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 
-/**
- * The public landing page.
- *
- * Static marketing chrome, with the data-dependent regions — the hero's season badge and the
- * recent/upcoming grid — each isolated behind `Suspense`. That split is the whole point of the
- * page's structure: the shell is prerendered and the data holes stream in, so the page paints
- * without waiting on the backend.
- */
 export default function LandingPage() {
   return (
     <>
@@ -27,13 +19,11 @@ export default function LandingPage() {
             <div className="bg-brand-solid absolute top-0 left-0 z-10 h-1.5 w-full" />
 
             <div className="relative z-10 flex flex-col gap-4">
-              {/* `/10`, not `/15`: the label is 13.9px bold, i.e. normal-size text under WCAG, so it needs
-                  4.5:1 against its own tint. A 10% tint measures 4.70:1 in the dark theme and 7.69:1 in
-                  the light one; 15% drops the dark reading to 4.42:1. Re-measure if --accent-brand moves. */}
+              {/* `/10`, not `/15`: bold normal-size text needs 4.5:1 against its own tint, and 10% measures
+                  4.70:1 in the dark theme where 15% drops to 4.42:1. Re-measure if --accent-brand moves. */}
               <div className="border-brand/30 bg-brand/10 fluid-xs text-brand inline-flex w-fit items-center gap-2 rounded-full border px-4 py-1.5 font-bold shadow-xs">
                 <span className="bg-brand-solid size-2 animate-ping rounded-full" />
-                {/* The pill is static chrome; only the label suspends. The fallback holds the label's
-                    exact box invisibly, so the year landing moves nothing. */}
+                {/* The fallback holds the label's exact box invisibly, so the year landing moves nothing. */}
                 <Suspense fallback={<span className="invisible">Saison 0000</span>}>
                   <CurrentSaisonLabel />
                 </Suspense>
@@ -124,13 +114,8 @@ export default function LandingPage() {
       </section>
 
       <div className="max-w-page w-full px-4 py-8 sm:px-6 lg:px-8">
-        {/* The fallback is the real layout in skeleton form rather than a spinner, so the page holds
-            roughly its final height while the matches load. A short fallback leaves the page a few
-            hundred pixels shorter than it will be, which pulls the footer into view and then jumps
-            everything down when the data lands. `SpielCardSkeleton` is dimensionally identical to
-            `SpielCard` — see the note there — so the reserved rows are exactly as tall as the real
-            ones. It deliberately reserves fewer than the six cards the query can return;
-            `VISIBILITY` in that file explains why under-reserving is the safe direction. */}
+        {/* A skeleton, not a spinner, so the page holds roughly its final height and the footer does not
+            jump when the data lands. Under-reserving is the safe direction — see `VISIBILITY` there. */}
         <Suspense fallback={<RecentAndUpcomingSpieleGridSkeleton />}>
           <RecentAndUpcomingSpieleGrid />
         </Suspense>
@@ -140,9 +125,8 @@ export default function LandingPage() {
 }
 
 /**
- * The season named by the hero badge, from the same daily `saisons` cache the fixtures below read —
- * so a rollover through `/admin` moves the badge and the fixtures together, and neither can name a
- * season the other has left. `connection()` precedes the fetch: the Docker builder stage cannot reach FastAPI.
+ * `connection()` precedes the fetch: the Docker builder stage cannot reach FastAPI. Reads the same
+ * daily `saisons` cache as the fixtures below, so a rollover moves the badge and them together.
  */
 async function CurrentSaisonLabel() {
   await connection();

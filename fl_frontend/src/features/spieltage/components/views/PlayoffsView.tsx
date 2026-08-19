@@ -13,17 +13,14 @@ import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "../../schemas";
 
 /**
- * The playoff bracket: one column per round, scrolling horizontally.
- *
- * **One modal instance for the whole bracket, driven by which Spiel is selected** — not a modal per
- * card. A bracket renders a few dozen cards, and giving each its own modal mounts a few dozen dialogs
- * with their own focus traps and portals for the one that might open.
+ * **One modal instance for the whole bracket, driven by which Spiel is selected** — a modal per card
+ * mounts a few dozen dialogs with their own focus traps and portals for the one that might open.
  */
 export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: FLSpieltagWithSpiele[]; today: string }) {
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
 
-  // The expected state for most of a season: the playoff Spieltage do not exist until the group
-  // phase finishes, and a blank content area would read as a fault.
+  // The expected state for most of a season: the playoff Spieltage do not exist until the group phase
+  // finishes, and a blank content area would read as a fault.
   if (!playoffsSpieltage || playoffsSpieltage.length === 0) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
@@ -35,17 +32,15 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
     );
   }
 
-  // The bracket lines below pair matches by index, so the indices have to follow the wiring: the
-  // Spiele arrive in `datum` order, which puts 25 and 28 on one branch of a fixture whose sides name
-  // 25 and 27. `teamN_quelle` stores the edges; a date respects none.
+  // The bracket lines below pair matches by index, so the indices have to follow the wiring:
+  // `teamN_quelle` stores the edges, and the arrival `datum` order respects none of them.
   const rounds = orderRoundsByWiring(playoffsSpieltage);
-  // Labelled from the PLAYED order rather than from `rounds`, which `orderRoundsByWiring` re-arranges by
-  // the bracket's wiring: the ordinal counts a matchday's place in its phase, not its column.
+  // Labelled from the PLAYED order rather than from `rounds`: the ordinal counts a matchday's place
+  // in its phase, not its column.
   const labels = spieltagLabels(playoffsSpieltage);
 
   return (
-    // The sweep below is the whole arrival, so no rise here: a second fade over the same frames would
-    // compound with it, and the shell has nothing visible of its own to bring in.
+    // The sweep below is the whole arrival: a second fade over the same frames would compound with it.
     <div className="flex w-full min-w-0 flex-1 flex-col items-center pt-4 pb-12">
       {/* Viewport scroller. `@container` + `cqw` below, never `vw`: a `vw` column claims a share of
           the VIEWPORT, which the content area does not have once the sidebar appears, so the bracket

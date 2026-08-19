@@ -23,10 +23,8 @@ export function SidemenuFooter({
 }) {
   return (
     <div className={`border-border flex flex-col border-t p-3 ${isDesktopCollapsed ? "items-center gap-3" : "gap-1"}`}>
-      {/* Options first: expanded it is a full-width row whose menu opens above it at the same
-          width, which is what keeps the menu inside the sidemenu (standard sidebar-footer pattern).
-          The bar carries the same two controls inline; this is a second placement of the
-          same components, not a second implementation. */}
+      {/* Options first: expanded, its menu opens above a full-width row at that row's width, which is what keeps
+          the menu inside the sidemenu. */}
       <SidemenuOptionsMenu
         isDesktopCollapsed={isDesktopCollapsed}
         onSignOut={onSignOut}
@@ -36,9 +34,8 @@ export function SidemenuFooter({
         label="Zur öffentlichen Website"
         placement="right"
         isEnabled={isDesktopCollapsed}>
-        {/* This link leaves the shell, so it closes the drawer itself: the tree owning that state
-            departs, and the router hides it rather than unmounting it, so Back would reveal the
-            drawer still up. `onNavigate` for `SidemenuNavItem`'s reason. */}
+        {/* This link leaves the shell, so it closes the drawer itself: the router hides the departing tree rather
+            than unmounting it, and Back would otherwise reveal the drawer still up. */}
         <Link
           href="/"
           onNavigate={onMobileNavigate}
@@ -51,9 +48,8 @@ export function SidemenuFooter({
         </Link>
       </IconTooltip>
 
-      {/* Desktop Collapse Toggle. Tooltipped only while collapsed, like the two controls above it:
-          expanded, the button already carries "Menü einklappen" as visible text, so the tooltip was
-          repeating a label the user could read — the one case a tooltip is noise rather than help. */}
+      {/* Tooltipped only while collapsed, as the controls above it are: expanded, the button already carries
+          its label as visible text. */}
       <IconTooltip
         label={isDesktopCollapsed ? "Menü ausklappen" : "Menü einklappen"}
         placement="right"

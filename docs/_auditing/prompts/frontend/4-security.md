@@ -3,8 +3,8 @@
 Audit pass `frontend 4` on `./fl_frontend`. Lens: SECURITY AND AUTHORIZATION.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass — the secrets rule
-is absolute. Write the report to `docs/audit/programme/f4-security.md`. Where an earlier pass flagged
-missing input validation, treat it here only as exploitability.
+there is absolute. Write the report to `docs/audit/programme/f4-security.md`. Where an earlier pass
+flagged missing input validation, treat it here only as exploitability.
 
 DELIVERABLE: required tables — the ASVS coverage table (S0), the per-export server-action
 authorization table (S1), and the per-segment protected-route table (S3). Every finding carries a
@@ -20,11 +20,11 @@ the kept system tier, and the absence of a reference-data invalidation endpoint.
 THE CHECKS, in priority order:
 
 S0. **ASVS coverage.** Anchor this pass to **OWASP ASVS**, the Application Security Verification
-Standard (<https://github.com/OWASP/ASVS>), rather than to a hand-rolled checklist, per the shared
-protocol's rule on external standards. Target **Level 1** as the floor; Level 2 controls are
-decisions to confirm, not defects. Cover the chapters that apply to a browser-facing application
-with a session: authentication and session management, access control, validation and encoding,
-error handling and logging, and the browser security chapter covering headers, CSP and cookies.
+Standard (<https://github.com/OWASP/ASVS>), per the shared protocol's rule on external standards.
+Target **Level 1** as the floor; Level 2 controls are decisions to confirm, not defects. Cover the
+chapters that apply to a browser-facing application with a session: authentication and session
+management, access control, validation and encoding, error handling and logging, and the browser
+security chapter covering headers, CSP and cookies.
 
 S1. **Server-action authorization.** The required table, one row per exported function in every
 `"use server"` module — **derive the module list by grep, never from a written list**, because
@@ -38,7 +38,7 @@ S2. **Secret reachability into the client bundle.** Two independent methods, bot
 `"use client"` module (including via props); confirm the `server-only` imports still guard the
 secret-holding core modules; (b) empirical — build, then grep `.next/static` for variable NAMES
 and structural markers only, never widening a grep in a way that could print a value. A finding
-requires a shown chain or a named bundle file.
+needs a shown chain or a named bundle file.
 
 S3. **Protected route coverage.** The required table per route segment: intended protection |
 proxy-matcher coverage | in-layout or in-page guard | gap. Probe the matcher for holes (variants,
@@ -80,11 +80,8 @@ deliberately floats — re-check against the current framework version), Dockerf
 dockerignore secret hygiene by rule inspection only.
 
 FIX PRESCRIPTIONS: verify any fix touching auth config, CSP, cookies or container runtime against a
-built image or the running stack before prescribing it, or label it unverified. **A security fix
-reasoned about rather than measured is routinely unshippable** — a stricter CSP requiring a
-per-request nonce disables every script on prerendered routes, and a gate on
-`NODE_ENV === "production"` refuses to boot the local stack, which deliberately runs the production
-image over plain-HTTP localhost.
+built image or the running stack before prescribing it, or label it unverified — a security fix
+reasoned about rather than measured is routinely unshippable (`docs/_auditing/lessons.md` §1).
 
 BOUNDARIES — not this pass: caching and validation shape → f3 · structure → f2 · accessibility and
 UX → f5 · styling and performance → f6 · nginx, compose and TLS as such → the ops passes ·

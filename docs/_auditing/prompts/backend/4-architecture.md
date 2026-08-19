@@ -6,15 +6,14 @@ TOOLING CONFIG.
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
 to `docs/audit/programme/b4-architecture.md`.
 
-DELIVERABLE: required tables — the excess table (check 3) and the per-layer test-strategy table
-(check 5). The test-strategy table must design ONE strategy across the untested layers rather than a
-list of per-layer suggestions.
+DELIVERABLE: required tables — the excess table (check 3, in the shape the shared protocol sets) and
+the per-layer test-strategy table (check 5). The test-strategy table must design ONE strategy across
+the untested layers rather than a list of per-layer suggestions.
 
 BASELINE — run these before starting, and state the counts you observe: `ruff check` and
 `ruff format --check` over `app` and `tests`, `pyright` over both, and `pytest`. **A non-green
-baseline ends the pass** — report it and stop, because what the toolchain already fails on is cheaper
-to fix than to audit around. Green, they define this pass's floor: findings here are judgment calls,
-not lint output, so do not pad the report with what the toolchain already proves.
+baseline ends the pass** — report it and stop. Green, they define this pass's floor: findings here
+are judgment calls, not lint output.
 
 THE CHECKS, in priority order:
 
@@ -30,9 +29,7 @@ THE CHECKS, in priority order:
    it as legitimate and say why, following the aggregator pattern ratified on the frontend, rather
    than flagging it raw.
 
-3. **EXCESS — code that should not exist.** The required table, one row per candidate: what | every
-   site as `<file> :: <symbol>` | class from the table below | which copy or construct dies, and what
-   replaces it | size removed, in lines and exported names | verdict.
+3. **EXCESS — code that should not exist.** The candidates for this surface:
 
    | Class         | The candidate                                                                                |
    | ------------- | -------------------------------------------------------------------------------------------- |
@@ -44,17 +41,9 @@ THE CHECKS, in priority order:
    | `dead-config` | A settings key, ruff ignore, pytest marker or dependency nothing reads                       |
    - **A duplicated model is worse than a dead one**, because editing the wrong copy is silently
      ineffective. Sweep specifically for same-named and near-identical classes.
-   - **Every `duplicated` row names which copy dies** and confirms the survivor is importable from
-     where the dying copy's importers stand. A row proposing "extract a shared helper" without naming
-     what it deletes adds a module and removes nothing.
-   - **Every `one-caller` row states what inlining it would cost.** A single caller is a candidate,
-     not a verdict.
-   - **Every `hand-rolled` row cites the API that replaces it**, verified at the installed version.
-   - **Measure before proposing.** State the lines and exported names each row removes; a row with no
-     number is filed INFO.
-   - Check `.claude/CLAUDE.md` §7 before flagging a suspect. The `$jsonSchema` validators duplicate
-     the Pydantic models by hand on purpose, and `app/core/domain.py` is a declaration nothing may
-     import from `app/`.
+   - `.claude/CLAUDE.md` §7 bears directly on this check: the `$jsonSchema` validators duplicate the
+     Pydantic models by hand on purpose, and `app/core/domain.py` is a declaration nothing may import
+     from `app/`.
 
 4. **TYPING AND MODERNISATION.** A known open item in `docs/_roadmap/open-items.md`: several modules
    import `Mapping` / `Sequence` / `Optional` / `Callable` from `typing` instead of
@@ -64,22 +53,19 @@ THE CHECKS, in priority order:
    `pyright` strictness gaps, `Any` leaks, missing return types on public functions.
 
 5. **TEST STRATEGY BY LAYER.** Establish what the suite actually covers before judging it. **A real
-   `mongod` fixture already exists**: database-touching tests sit behind a `db` marker the default
-   tier deselects, so this pass inherits a working container fixture and decides the layer
-   shapes on top of it rather than choosing a mechanism. Produce the required table: layer (schemas /
-   filter builders / services and pipelines / routers and auth / crud) | what exists | what a defect
-   there would look like | recommended suite shape and cost. Design ONE strategy across the untested
-   layers rather than growing the schema suite sideways. Respect the recorded quality bars: every
-   test needs a positive baseline, use the `assert_rejects`-style field-naming fixture where more
-   than one field could fail, no `parametrize` over possibly-empty discovery without a count floor,
-   diagnostics on (`-ra --showlocals`, never `-q`).
+   `mongod` fixture already exists**, behind a `db` marker the default tier deselects, so this pass
+   decides the layer shapes on top of it rather than choosing a mechanism. Produce the required
+   table: layer (schemas / filter builders / services and pipelines / routers and auth / crud) | what
+   exists | what a defect there would look like | recommended suite shape and cost. Design ONE
+   strategy across the untested layers rather than growing the schema suite sideways. Respect the
+   recorded quality bars: every test needs a positive baseline, use the `assert_rejects`-style
+   field-naming fixture where more than one field could fail, no `parametrize` over possibly-empty
+   discovery without a count floor, diagnostics on (`-ra --showlocals`, never `-q`).
 
-6. **TEST QUALITY OF WHAT EXISTS.** Sample the current suites against those bars, and specifically
-   against the wrong-bar problem: **"rejects a bad value" is not "the rule is right".** A full set of
-   rejection tests can pass with a load-bearing part of the rule deleted. For every constraint
-   carrying a regex, an anchor or a mode flag, is there a test that _fails_ when that part is
-   removed? Note that a Pydantic `pattern=` uses `re.search`, so a missing `^` unanchors the whole
-   control silently.
+6. **TEST QUALITY OF WHAT EXISTS.** Sample the current suites against those bars, and against the
+   wrong-bar problem: **"rejects a bad value" is not "the rule is right"**
+   (`docs/_auditing/lessons.md` §3). For every constraint carrying a regex, an anchor or a mode flag,
+   is there a test that _fails_ when that part is removed?
 
 7. **TOOLING CONFIG VS REALITY.** `pyproject.toml`: ruff rule selection and ignores (each ignore
    still justified?), dependency floors versus installed versions, dev and runtime dependency

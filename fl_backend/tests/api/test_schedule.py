@@ -1,12 +1,3 @@
-"""
-SAISONS · the schedule a season's rules imply — pure arithmetic, default tier
-
-These are the numbers `spieltage.anzahl_spiele` reports. The season the league is
-actually playing is the fixture this file keeps returning to, because it is the one case where
-the answer is known independently of the arithmetic: 4 groups of 4 play 3 group matchdays of 8
-matches, then 4, 2 and 1.
-"""
-
 from typing import get_args
 
 import pytest
@@ -51,18 +42,13 @@ class TestThePhaseSet:
         assert set(PHASE_ORDER) == set(get_args(FLSaisonPhase))
 
     def test_the_knockout_rounds_are_every_phase_but_the_group_phase(self):
-        """The group phase is not a round: it has many matchdays and feeds the bracket rather than halving it."""
+        """The group phase feeds the bracket rather than halving it."""
 
         assert KNOCKOUT_PHASES == PHASE_ORDER[1:]
         assert "gruppenphase" not in KNOCKOUT_PHASES
 
     def test_the_capacity_follows_from_the_phase_set(self):
-        """
-        The ceiling is what the phases can hold, never a number chosen by hand.
-
-        This is the test that makes a further round one edit: adding `sechzehntelfinale` to the Literal and
-        the order raises this to 32 and nothing else has to be found and changed.
-        """
+        """The ceiling is what the phases can hold: adding a wider round raises it and nothing else changes."""
 
         assert MAX_QUALIFIERS == 2 ** len(KNOCKOUT_PHASES)
         assert MAX_QUALIFIERS == 16
@@ -77,14 +63,7 @@ class TestTheGroupPhase:
 
     @pytest.mark.parametrize(("teams", "expected"), [(3, 3), (5, 5), (7, 7)])
     def test_an_odd_group_takes_as_many_rounds_as_it_has_teams(self, teams, expected):
-        """
-        The bye, and the reason this is not a division.
-
-        With an odd n no round can pair everybody: one team sits out, so a round delivers `(n-1)/2` matches
-        instead of `n/2` and the schedule needs one extra round to cover all `n-1` opponents each. Refusing
-        an odd group was the alternative, rejected 2026-08-07: a group goes odd when a
-        club withdraws after the draw, and blocking that blocks the season rather than the withdrawal.
-        """
+        """The bye: with an odd n one team sits out each round, so the schedule needs an extra one."""
 
         assert group_matchdays(teams) == expected
 
@@ -106,21 +85,13 @@ class TestTheGroupPhase:
         assert group_matches_per_matchday(3, 5) == 6
 
     def test_the_total_agrees_with_the_schedule_at_every_group_size(self):
-        """
-        The combination and the schedule are two routes to one number, and they meet at every size.
-
-        Five teams are 5 matchdays x 2 matches and C(5,2) = 10; six are 5 x 3 and C(6,2) = 15. An odd
-        group's extra round offsets its smaller rounds exactly, so the bye's empty slot never reaches the
-        product. The total is stated from the combination because that says the number outright — never
-        because multiplying out would be wrong.
-        """
+        """An odd group's extra round offsets its smaller rounds exactly, so the bye never reaches the product."""
 
         assert total_group_matches(4, 4) == 24
         assert total_group_matches(1, 5) == 10
         assert total_group_matches(1, 6) == 15
 
-        # Both routes, over every group size the rules can express: the equality is what lets the schedule
-        # report a per-matchday figure at all.
+        # The equality is what lets the schedule report a per-matchday figure at all.
         for teams in range(1, 13):
             assert total_group_matches(3, teams) == 3 * group_matchdays(teams) * group_matches_per_matchday(1, teams)
 
@@ -136,12 +107,7 @@ class TestTheBracket:
         ],
     )
     def test_the_rounds_are_read_from_the_END_of_the_phase_set(self, qualifiers, expected):
-        """
-        Eight qualifiers play quarter-final, semi-final, final — never the round of sixteen.
-
-        Reading from the end is what lets a wider round be added without renaming a round anybody plays: a
-        season of eight keeps exactly these three whatever is added above them.
-        """
+        """Reading from the end lets a wider round be added without renaming a round anybody plays."""
 
         assert knockout_phases_for(qualifiers) == expected
 
@@ -168,13 +134,7 @@ class TestTheBracket:
 
 class TestTheWholeSeason:
     def test_it_reproduces_the_season_the_league_is_playing(self):
-        """
-        The one case with an independent answer: 4 groups of 4, two qualifying from each.
-
-        Read off `/admin/spieltage` on 2026-08-07 — three group matchdays of 8, then 4, 2 and 1. Every
-        number below was entered by hand into `anzahl_spiele` and every one of them agrees with the rules,
-        which is the evidence that the field is derivable rather than stored.
-        """
+        """The one case with an independent answer: every number below is one the league's own matchdays carry by hand."""
 
         schedule = schedule_for(rules())
 
@@ -186,8 +146,6 @@ class TestTheWholeSeason:
         ]
 
     def test_a_knockout_round_holds_half_the_field_that_entered_it(self):
-        """Sixteen qualifiers: 8, 4, 2, 1."""
-
         schedule = schedule_for(rules(groups=4, per_group=6, qualifiers=4))
 
         assert [(entry.phase, entry.matches_per_matchday) for entry in schedule] == [
@@ -199,12 +157,7 @@ class TestTheWholeSeason:
         ]
 
     def test_a_season_with_no_bracket_still_describes_its_group_phase(self):
-        """
-        Total rather than raising, because a season saved before the refusal existed is still readable.
-
-        The write path refuses these rules now; this module is also read by the surfaces that describe a
-        season somebody already has.
-        """
+        """Total rather than raising: the write path refuses these rules, but a season saved before it is still readable."""
 
         schedule = schedule_for(rules(groups=4, qualifiers=3))
 
@@ -220,25 +173,13 @@ class TestTheWholeSeason:
         assert expected_matches(rounds, "finale") == 1
 
     def test_a_phase_this_season_does_not_reach_expects_nothing(self):
-        """
-        Zero, and it is the honest answer rather than a gap.
-
-        A season sending eight into the bracket plays no round of sixteen, so a matchday claiming to be one
-        is a matchday in a phase the season does not run — and the admin list showing `0 / 0` is exactly the
-        report that says so.
-        """
+        """Zero is the honest answer, not an error."""
 
         assert expected_matches(rules(), "achtelfinale") == 0
 
 
 class TestTheSeasonCarriesItsSchedule:
-    """
-    What puts the arithmetic above on the wire.
-
-    Every season response goes through `with_schedule`, because the matchday editor refuses
-    `REQ-SPIELTAG-002` in the browser by reading the counts off the season it already holds — so a path
-    that skipped the injection would answer 500 rather than degrade.
-    """
+    """The matchday editor reads `REQ-SPIELTAG-002`'s counts off the season it holds, so a path skipping the injection answers 500."""
 
     def test_the_injected_schedule_is_the_derivation(self, saison):
         """The wire shape and `schedule_for` are the same numbers; nothing recomputes them differently."""
@@ -255,25 +196,14 @@ class TestTheSeasonCarriesItsSchedule:
         assert FLSaison.model_validate(with_schedule(saison())).schedule[0].matches_per_matchday == 8
 
     def test_an_odd_group_keeps_the_bye_round(self, saison):
-        """
-        Five teams per group give five matchdays, not four.
-
-        The case a hand-written TypeScript copy of this arithmetic would most plausibly get wrong: with an
-        odd group no round pairs everybody, so the schedule needs an extra round to give each team its
-        `n - 1` opponents. Serving the number is what keeps one answer to it.
-        """
+        """The case a hand-written TypeScript copy would most plausibly get wrong; serving the number keeps one answer."""
 
         odd = saison(rules={**saison()["rules"], "teams_per_group": 5})
 
         assert with_schedule(odd)["schedule"][0] == {"phase": "gruppenphase", "matchdays": 5, "matches_per_matchday": 8}
 
     def test_a_season_with_no_bracket_still_carries_its_group_phase(self, saison):
-        """
-        A rules set the editor refuses is still readable, because documents predate the refusal.
-
-        `schedule_for` contributes no knockout phases rather than raising, so the season reads back with
-        one entry and the matchday editor offers no knockout phase any fixture could fit.
-        """
+        """No knockout phase rather than raising, so a season the editor refuses still reads back."""
 
         no_bracket = saison(rules={**saison()["rules"], "qualifiers_per_group": 3})
 

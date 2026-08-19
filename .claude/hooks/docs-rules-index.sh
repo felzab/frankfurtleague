@@ -1,29 +1,7 @@
 #!/usr/bin/env bash
-#
-# PostToolUse hook on Edit|Write — serves docs/_standard/rules-index.md into the session's context
-# after its first documentation edit.
-#
-# WHY THIS IS A HOOK:
-#   The standard binds every documentation edit, but nothing guarantees a session has read it before
-#   writing: CLAUDE.md can instruct, not enforce, and loading the whole standard into every session
-#   would spend tokens on the majority of sessions that never touch documentation. This hook pays
-#   only on demand — the first documentation-shaped edit puts the rules index into context, once,
-#   and a session that edits no documentation pays nothing.
-#
-# WHAT COUNTS AS A DOCUMENTATION EDIT:
-#   A markdown file inside this repository, or a source file inside it whose newly written content
-#   carries a comment marker for its language — a comment is documentation (INC-6), so writing one
-#   is the moment the rules start to apply. The index text is read from disk at emit time: the file
-#   is the source and this hook is transport, so there is no copy to drift.
-#
-# CONTRACT: prints the PostToolUse additionalContext JSON on the session's first qualifying edit,
-# and nothing otherwise. Once per session, tracked by a sentinel file in the system temp directory
-# named for the session id. UNLIKE THE GUARDS, EVERY FAILURE HERE IS SILENCE: this hook informs
-# rather than protects, so a broken payload, a missing index or an absent node must never block
-# the tool call it rides on — the guards deny on doubt because a hole in a guard is a loss, and
-# this hook stays quiet on doubt because a spurious page of rules in every session is one.
-#
-# TARGET PLATFORM: any (Git Bash on Windows). node rather than jq — jq is not installed here.
+# PostToolUse hook on Edit|Write — emits docs/_standard/rules-index.md once per session, on the
+# first documentation-shaped edit, tracked by a sentinel named for the session id.
+# Unlike the guards it informs rather than protects, so every failure here is silence, never a block.
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$repo_root" ] || exit 0
@@ -31,6 +9,7 @@ repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
 index="$repo_root/docs/_standard/rules-index.md"
 [ -f "$index" ] || exit 0
 
+# node rather than jq: jq is not installed on the dev machine.
 REPO_ROOT="$repo_root" INDEX_PATH="$index" node -e '
 const fs = require("fs");
 const os = require("os");
@@ -48,18 +27,15 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
   const raw = input.file_path || (j.tool_response || {}).filePath;
   if (typeof raw !== "string" || raw === "") return;
 
-  // Containment on canonical paths, for the same reason guard-branch.sh decides it there: a dot
-  // segment, a doubled separator or a Windows device prefix all name a file inside the repository
-  // while sharing no useful prefix with what git printed. Outside the repository nothing is this
-  // repository documentation, whatever its extension.
+  // Canonicalise before comparing: a dot segment, a doubled separator or a Windows device prefix
+  // each name a file inside the repository while sharing no prefix with what git printed.
   const strip = (p) => p.replace(/^[\\/]{2}[?.][\\/]/, "");
   const fold = (p) => (process.platform === "win32" ? p.toLowerCase() : p);
   const root = fold(path.resolve(strip(process.env.REPO_ROOT)));
   const rel = path.relative(root, fold(path.resolve(strip(raw))));
   if (rel === "" || path.isAbsolute(rel) || rel === ".." || rel.startsWith(".." + path.sep)) return;
 
-  // The new content is what decides whether a source edit is documentation: Edit carries it as
-  // new_string, Write as content. An edit that writes no comment marker wrote no documentation.
+  // An edit that writes no comment marker wrote no documentation.
   const fresh =
     typeof input.new_string === "string" ? input.new_string
     : typeof input.content === "string" ? input.content
@@ -91,8 +67,7 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
   try {
     fs.writeFileSync(sentinel, "");
   } catch {
-    // With no sentinel the index would repeat on every edit, and a page of rules restated per
-    // edit costs more attention than never showing it — so an unwritable temp directory is silence.
+    // Without the sentinel the index repeats on every edit, which costs more than never showing it.
     return;
   }
 

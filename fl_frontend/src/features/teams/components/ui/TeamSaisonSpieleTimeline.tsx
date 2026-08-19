@@ -1,15 +1,5 @@
 "use client";
 
-/**
- * TEAMS · the season's fixtures, on a rail
- *
- * The boundary is drawn at this section on purpose: it holds the details modal's state and hands
- * each card the callback that opens it, which a Server Component may not pass across
- * (`docs/frontend/spec.md :: I13`).
- *
- * Invariants:
- * - The compact card is this rail's alone and is never merged with its two siblings.
- */
 import { useState } from "react";
 
 import { SpielDetailsModal } from "@/features/spiele/components/modals/SpielDetailsModal";
@@ -22,10 +12,9 @@ import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 
 /**
- * The W/D/L dots are 10px bold glyphs on an opaque fill, so they need the `-solid` fills rather
- * than the tint-grade accents. On the plain accents a white "D" measured 1.92:1
- * in the light theme and 1.32:1 in dark — the draw marker was effectively invisible. The ring
- * stays on the tint accent: it is decoration around the dot, not a foreground.
+ * The `-solid` fills rather than the tint accents: these are small bold glyphs on an opaque fill,
+ * and a white "D" on the plain accent measured 1.92:1 in light and 1.32:1 in dark. The ring keeps
+ * the tint accent, being decoration.
  */
 const badgeColor = (ergebnisFor: FLSpielErgebnisFor): string => {
   switch (ergebnisFor) {
@@ -40,6 +29,10 @@ const badgeColor = (ergebnisFor: FLSpielErgebnisFor): string => {
   }
 };
 
+/**
+ * `"use client"` is required: this section holds the details modal's state and hands each card the
+ * callback that opens it, which a Server Component may not pass (`docs/frontend/spec.md :: I13`).
+ */
 export function TeamSaisonSpieleTimeline({ teamSpiele, teamId, today }: { teamSpiele: FLSpiel[]; teamId: string; today: string }) {
   // One modal for the whole timeline, PlayoffsView-style.
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
@@ -48,16 +41,14 @@ export function TeamSaisonSpieleTimeline({ teamSpiele, teamId, today }: { teamSp
     <section className="flex size-full flex-col gap-y-6">
       <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonspiele</h2>
 
-      {/* Without this the empty case renders the dashed rail with no items -- a bare vertical line
-          under the heading. */}
+      {/* Without this the empty case renders the dashed rail with no items — a bare vertical line. */}
       {teamSpiele.length === 0 ? (
         <EmptyState
           title="Für diese Saison sind noch keine Spiele angesetzt."
           hint="Sobald der Spielplan steht, erscheinen die Begegnungen dieses Teams hier."
         />
       ) : (
-        // Same list semantics as the app's card grids: this is a repeated collection too, so a
-        // screen-reader user gets a count and a position here as well.
+        // Same list semantics as the card grids, so a screen-reader user gets a count and a position.
         <div
           role="list"
           className="border-border relative ml-2 border-l-2 border-dashed">

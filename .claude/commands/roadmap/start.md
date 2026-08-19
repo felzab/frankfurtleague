@@ -28,8 +28,8 @@ that matches decides.**
 | Carries `Status: Blocked`, or a `Depends on` naming a present entry | **Ask before starting.** If the blocker was decided out of band, ask for that decision — it is input to this item                 |
 | Has a `Path` line naming an audit pass that owns it                 | **Ask** whether this session does the work, or the pass does                                                                      |
 
-**Before the first write:** the working tree is clean, `main` is up to date with `origin/main`, and
-you are on a branch named for the change (CLAUDE.md §2).
+**Before the first write:** a clean tree, `main` current with `origin/main`, and a branch named for
+the change (CLAUDE.md §2).
 
 ## Steps
 
@@ -58,59 +58,36 @@ you are on a branch named for the change (CLAUDE.md §2).
    resource to be provided, a convention to check before anything changes, options to choose
    between, a standing question to raise.
 
-4. **Do the work**, following `docs/_git/spec.md` end to end: commit with a real body per
-   `docs/_git/templates.md`, `./scripts/verify.sh` at the scope the change earns, then
-   `gh pr create --draft` and hand over its link. Never `gh pr ready`, never `gh pr merge`. Report
-   the gate's actual exit code.
-
-   Read `docs/_auditing/lessons.md` before verifying anything at runtime, and before closing out
-   against the gate.
+4. **Do the work**, closing per CLAUDE.md §2 and `docs/_git/spec.md`: the gate at the scope the
+   change earns, its actual exit code reported, and the draft pull request's link handed over. Read
+   `docs/_auditing/lessons.md` before verifying anything at runtime and before closing out against
+   the gate.
 
    **If the work proves larger than the entry describes, stop and say so** rather than shipping a
    reduced version of it under the entry's name.
 
 5. **Conclude the item in two commits, never one** —
-   [Closing an entry](../../../docs/_roadmap/protocol.md#2-closing-an-entry-two-commits-not-one).
-   Both go in **one pull request**.
+   [Closing an entry](../../../docs/_roadmap/protocol.md#2-closing-an-entry-two-commits-not-one)
+   fixes what each commit holds and what the closed row carries. Both go in **one pull request**.
+   What that page leaves to this one:
 
-   **Commit 1 — the closing commit.** The work itself, plus:
-
-   - **Every decision taken recorded where it will be read**, the destination picked by how it
-     fails: a silent failure to a comment at the line it constrains (INC-9 caps it at 250
-     characters) or to a gate check, a loud one to a CLAUDE.md §7 row, a domain rule to the spec
-     sheet's `## 2. Invariants`. **The argument goes in this commit's body**, which `git blame`
-     reaches from the constraint — `scripts/check_commits.py` refuses a commit with none.
-   - **Every reference to the ID updated**, which CLAUDE.md's same-commit rule requires.
-     `git grep -n "<ID>"` enumerates them. They live in the `## 4. Known-open` table of a surface
-     spec sheet (its `#` column) and in an audit pass prompt under `docs/_auditing/prompts/`. INC-6
-     bans the roadmap id from a source comment, which carries the constraint itself.
-   - On the entry's ranked page: set the entry's `Status` to **Closed** in the index table and in
-     the entry itself, and add a short block naming what concluded it — where each decision was
-     recorded, and where each finding that was _not_ a decision was rehomed. **The entry stays.**
-
-   **Commit 2 — the removal commit.** The entry's ranked page and `docs/_roadmap/closed-items.md`,
-   nothing else:
-
-   - **Delete the entry and its heading**, and delete its row from the index table.
-   - **Renumber the index table and every `### <rank> ·` heading together**, leaving the page one
-     run from 1 with no gap (`docs/_roadmap/protocol.md` §1).
-   - **Add one row to `docs/_roadmap/closed-items.md`**: the id, one past-tense line describing what
-     the item was, surfaces, effort, what it depended on, and commit 1's short SHA linked to GitHub
-     in `Closed in`. Never copy the entry's reasoning across — the row is a pointer and the commit
-     body is the record. Those rows carry no numbering; the ID is the identity.
-   - **Insert any new entries the work produced**, each with its own `Status`.
-   - **Fix every `Path` line that named the ID**, replacing the reference with the decision the item
-     reached, stated as a fact.
-   - **Re-derive the `Status` of EVERY row**, by `docs/_roadmap/protocol.md` §3 — first match wins.
-     Read each row's `Status` and `Depends on` together: a row where they disagree is what this
-     catches, and removing an entry silently changes rows nobody edited.
-   - **Correct the `Depends on` column and the sentence under the table** that states what that
-     column currently holds.
-   - **The commit body names commit 1's SHA**, because a commit cannot cite its own hash.
-
-   An item that ends **partly** done is not closed: rewrite the entry to describe what is left and
-   what was decided, leave its `Status` at `Open` or `Decided`, make one commit, and say plainly in
-   the handover that the entry stayed.
+   - **A decision's destination is picked by how it fails**: a silent failure to a comment at the
+     line it constrains (INC-9 caps it at 250 characters) or to a gate check, a loud one to a
+     CLAUDE.md §7 row, a domain rule to the spec sheet's `## 2. Invariants`. **The argument goes in
+     commit 1's body**, which `git blame` reaches from the constraint, and
+     `scripts/check_commits.py` refuses a commit with none.
+   - **`git grep -n "<ID>"` enumerates every reference commit 1 must update**, which CLAUDE.md's
+     same-commit rule requires. They live in the `## 4. Known-open` table of a surface spec sheet
+     (its `#` column) and in an audit pass prompt under `docs/_auditing/prompts/`. INC-6 keeps the
+     id out of a source comment, which carries the constraint itself.
+   - **Commit 2 renumbers the index table and every `### <rank> ·` heading together**, leaving the
+     page one run from 1 with no gap, and re-derives the `Status` of every row — reading each row's
+     `Status` and `Depends on` together is what catches the rows nobody edited.
+   - **Never copy the entry's reasoning into the closed row.** The row is a pointer; commit 1's body
+     is the record.
+   - **An item that ends partly done is not closed:** rewrite the entry to describe what is left and
+     what was decided, leave its `Status` at `Open` or `Decided`, make one commit, and say plainly
+     in the handover that the entry stayed.
 
 6. **Verify the close before handing over.** Every one of these holds:
 
@@ -145,15 +122,13 @@ you are on a branch named for the change (CLAUDE.md §2).
    - <the step>, checked by <how>
    ```
 
-   Every block after the decisions is one a session that did good work still leaves out:
-
-   - **What this item does NOT achieve, and which entry closes that gap.** A block listing only what
-     the next item needs reads as though the next item were the last one.
-   - **Every precondition no session performs** — a production data change, a value set by hand, a
-     setting in a dashboard. No session's definition of done contains them and the gate cannot see
-     them, so they can be skipped indefinitely. Name each and how to check whether it has happened.
-   - **Which of your own sentences are descriptions rather than decisions.** Step 1 asks the next
-     session to sort them; you know which is which and it does not.
+   Every block after the decisions is one a session that did good work still leaves out. A block
+   listing only what the next item needs reads as though the next item were the last one. A
+   precondition no session performs — a production data change, a value set by hand, a setting in a
+   dashboard — sits outside every definition of done and outside the gate, so it can be skipped
+   indefinitely: name each, and how to check whether it has happened. And say which of your own
+   sentences are descriptions rather than decisions, because step 1 asks the next session to sort
+   them and you are the one who knows.
 
    If nothing is unblocked, say which entries now sit at the top of that page instead.
 

@@ -17,18 +17,10 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 
 /**
- * The whole body of `/admin/spieler/[spieler_id]` — who the player is, then the form that edits
- * them, in the match editor's shell: the header scrolls with the form's content, the action bar
- * stays pinned below it, and every exit routes through the form's own discard guard.
+ * Every exit routes through the form's discard guard.
  *
- * **The header owns the PERSON's retirement and nothing else** (decided 2026-08-07). The squad row's
- * own is a different fact and now sits at the foot of the form in the danger tone, beside
- * the season it belongs to — see `FormAustragenSection`. Keeping them apart is the point: retiring
- * the person takes them out of the league entirely, while taking them out of one squad says nothing
- * about whether they still play, and two controls that read alike invite the wrong one.
- *
- * Both are controls rather than fields: each writes immediately through its own endpoint and neither
- * joins the save bar, because neither is a draft the admin builds up and then commits.
+ * **The header owns the PERSON's retirement, the form's foot the squad row's.** Two controls that
+ * read alike invite the wrong one.
  */
 export function AdminSpielerEditView({
   spieler,
@@ -100,8 +92,8 @@ export function AdminSpielerEditView({
                   </Button>
                 )}
 
-                {/* A retired squad row is still WORTH SAYING here — it changes what the page below
-                    means — but the controls for it are at the foot of the form, not in the header. */}
+                {/* Worth saying here — it changes what the page below means — though the control for
+                    it is at the form's foot. */}
                 {rowInactiveSince !== null && (
                   <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>
                     Nicht im Kader {saison.saisonId} seit {formatSpielDatum(rowInactiveSince)}

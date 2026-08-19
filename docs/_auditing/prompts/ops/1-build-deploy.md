@@ -12,18 +12,14 @@ SCOPE — the ops surface as `docs/README.md` defines it: `docker-compose*.yml`,
 (`next.config.ts` `output`, `pyproject` build metadata). `docs/ops/overview.md` and `docs/ops/spec.md`
 are the documented claims this pass checks reality against.
 
-DELIVERABLE: required tables — the gate coverage map (check 5) and the excess table (check 8).
-Every image claim comes from a built image, never from reading the Dockerfile.
+DELIVERABLE: required tables — the gate coverage map (check 5) and the excess table (check 8, in the
+shape the shared protocol sets). Every image claim comes from a built image, never from reading the
+Dockerfile.
 
 THE LENS, stated once: **local-green is not image-green.** Every check asks what only the built
-artifact or the real pipeline can show. Defect classes that each pass a green local gate silently,
-and are the reason for that rule:
-
-- a file that compiles at the repository root but is not traced into `output: "standalone"`, which
-  can disable a startup gate and all production error logging without any error anywhere;
-- an ignore pattern that matches nothing and looks identical to one that matches, so host build
-  artifacts ship into Linux images;
-- a CI action pin that resolves to nothing, which fails only when CI runs.
+artifact or the real pipeline can show. `docs/_auditing/lessons.md` §5 holds the classes that pass a
+green local gate and break the image, and a third belongs to this pass alone: a CI action pin that
+resolves to nothing, which fails only when CI runs.
 
 THE CHECKS, in priority order:
 
@@ -63,9 +59,9 @@ THE CHECKS, in priority order:
    request, everything on main), that the tree-diff step still guards the write-mode formatter, and
    that every action reference in `.github/workflows/` and `.github/actions/` is pinned to a full
    commit SHA resolving to a real commit — the rule is `docs/_git/spec.md` §1.6 and the resolution
-   procedure §1.5, whose annotated-tag step is what separates a pin that reads as valid from one no
-   runner can resolve. Run that procedure per pin rather than trusting the trailing version comment,
-   which is prose beside the pin and can disagree with it.
+   procedure §1.5, whose annotated-tag step separates a pin that reads as valid from one no runner
+   can resolve. Run that procedure per pin rather than trusting the trailing version comment, which
+   is prose beside the pin and can disagree with it.
 
 6. **PUBLISH AND ROLLBACK.** `publish.sh` builds both images before pushing either (verify — this is
    the property that lets coupled frontend and backend changes ship in one pull request); tags carry
@@ -76,9 +72,7 @@ THE CHECKS, in priority order:
    what does a _failed_ deploy leave running? Is the previous version still serveable? Does the
    documented rollback path actually reference images that exist after a normal publish cycle?
 
-8. **EXCESS IN THE PIPELINE.** The required table, one row per candidate: what | every site as
-   `<file> :: <block or key>` | class from the table below | which copy or construct dies, and what
-   replaces it | size removed, in lines | verdict.
+8. **EXCESS IN THE PIPELINE.** The candidates for this surface:
 
    | Class         | The candidate                                                                                     |
    | ------------- | ------------------------------------------------------------------------------------------------- |
@@ -88,16 +82,14 @@ THE CHECKS, in priority order:
    | `simpler`     | A plainly simpler construction reaching the same result                                           |
    | `dead-config` | An ignore pattern, compose key, workflow input, script flag or env declaration nothing reads      |
 
-   **Every `duplicated` row names which copy dies.** Where the duplication is deliberate — the two
-   compose files diverge on purpose, and their header blocks say so — cite the header and mark it
-   already-correct rather than filing it. `dead-config` overlaps check 2 for ignore patterns: report
-   those there and cite, do not file twice.
+   Where the duplication is deliberate — the two compose files diverge on purpose, and their header
+   blocks say so — cite the header and mark it already-correct. `dead-config` overlaps check 2 for
+   ignore patterns: report those there, do not file twice.
 
 CROSS-SURFACE QUESTIONS: which manual steps are accepted ritual, and which are traps that depend on
-the operator remembering something undocumented, is knowledge only I have — collect and batch these
-per the shared protocol. The frontend-container recreation after an out-of-band reference edit is a
-known example of an accepted manual step; check `docs/ops/spec.md` for the others before filing any
-of them as findings.
+the operator remembering something undocumented, is knowledge only I have. The frontend-container
+recreation after an out-of-band reference edit is a known example of an accepted manual step; check
+`docs/ops/spec.md` for the others before filing any of them as findings.
 
 BOUNDARIES — not this pass: nginx security posture, headers, TLS, rate limits, secret reachability →
 `ops 2` · application-code findings discovered while probing images → file as questions or rows for

@@ -1,11 +1,3 @@
-/**
- * SCHIEDSRICHTER · referee editor banner tests
- *
- * The rename is the one banner on this editor that stops a save, and the gate behind it is
- * a single boolean the form derives from the draft status — so the grade is asserted here rather than
- * clicked, where a warning quietly demoted to `info` would look identical.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -34,8 +26,7 @@ describe("buildSchiedsrichterBanners", () => {
 
     assert.equal(banner?.id, "schiedsrichter.retired");
     assert.equal(banner?.severity, "info");
-    // Rail-only: the retirement belongs to no panel's field, and the header carries the date and the
-    // control that reverses it.
+    // Rail-only: the retirement belongs to no panel's field.
     assert.equal(banner?.inline, null);
   });
 

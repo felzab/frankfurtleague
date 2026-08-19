@@ -1,15 +1,3 @@
-"""
-SCHIEDSRICHTER · read endpoint
-
-Read-only; create, update and delete are admin-authorized and live in the admin router.
-
-Invariants:
-- Deletion is soft (`inactive_since` holds the retirement date): matches embed a copy of the referee.
-- A rename fans out the name alone
-  (`fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter`).
-- The filter parameters are effectively unexercised (`fl_backend/app/api/schiedsrichter/services.py`).
-"""
-
 from fastapi import APIRouter, Depends
 
 from app.api.schiedsrichter.schemas import (
@@ -41,12 +29,7 @@ async def get_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     filters: FLSchiedsrichterFilterParams = Depends(),
 ) -> FLSchiedsrichterListResponse:
-    """
-    List referees.
-
-    Deactivated referees are soft-deleted rather than removed, so they remain retrievable for the
-    historical matches that embed them.
-    """
+    """List referees; deactivated ones are soft-deleted rather than removed, so historical matches stay resolvable."""
 
     db_filter = build_schiedsrichter_filter(filters=filters)
     db_sort = build_schiedsrichter_sort(sort_by=filters.sort_by, order=filters.order)
@@ -67,12 +50,7 @@ async def get_schiedsrichter_by_id(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
 ) -> FLSchiedsrichterSingleResponse:
-    """
-    Return one referee by their id, deactivated ones included.
-
-    A historical match embeds a referee and references them by id, which is exactly the case worth
-    answering.
-    """
+    """Return one referee by their id, deactivated ones included -- a historical match references them by id."""
 
     schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter={"_id": schiedsrichter_id})
 

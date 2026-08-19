@@ -9,13 +9,8 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { ReactNode } from "react";
 
 /**
- * The shared address editor.
- *
- * `namePrefix` is what lets it report validation at all. It had no error channel of any
- * kind: five fields, no `name`, no error slot, so a server-side "PLZ muss genau 5 Ziffern haben"
- * could only ever surface as a toast that named no field. Naming each input after its dotted path
- * in the enclosing payload is enough — react-aria's `Form` distributes `validationErrors` by field
- * name, so no error prop has to be threaded down.
+ * The shared address editor. Naming each input after its dotted path in the enclosing payload is the whole error
+ * channel: react-aria's `Form` distributes `validationErrors` by field name, so no error prop is threaded down.
  */
 export function AddressFields({
   value,
@@ -30,22 +25,13 @@ export function AddressFields({
   /** The address object's own path in the payload, so field names match the server's error keys. */
   namePrefix?: string;
   /**
-   * Server messages keyed by the same dotted path, for the one caller that has no `<Form>` above it:
-   * the inline-create panel renders inside the match form's `<form>` and cannot be one itself, so
-   * `Form`'s `validationErrors` context never reaches it. Everywhere else this stays undefined and
-   * the context does the work — both routes end at the same `<FieldError>` under the same input.
+   * For a caller with no `<Form>` above it — the inline-create panel renders inside another form and cannot be one, so
+   * the `validationErrors` context never reaches it. Everywhere else this stays undefined.
    */
   errors?: FieldErrors;
-  /**
-   * Called with a field's dotted payload path when the user leaves it, for a caller on a page that
-   * judges a typed field on blur. The dialog callers pass nothing and judge on submit.
-   */
+  /** For a caller that judges a typed field on blur; the dialog callers pass nothing and judge on submit. */
   onFieldLeft?: (paths: readonly string[]) => void;
-  /**
-   * Replaces each field's plain `<Label>`, for the page editor whose labels carry draft markers and
-   * anchors (`TeamFieldLabel`). Called with the field's dotted path and its German label text; the
-   * dialog callers leave it unset and get the plain label.
-   */
+  /** Replaces each plain `<Label>`, for a page editor whose labels carry draft markers and anchors. */
   renderLabel?: (path: string, text: string) => ReactNode;
 }) {
   const updateField = (field: keyof FLAddress, newValue: string) => {

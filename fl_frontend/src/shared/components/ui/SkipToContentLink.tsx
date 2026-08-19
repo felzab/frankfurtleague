@@ -1,12 +1,6 @@
 /**
- * SHARED · skip-to-content link
- *
- * The bypass link every layout renders first. Without it a keyboard user Tabs eleven stops of
- * chrome before the content, on every navigation.
- *
- * Invariants:
- * - `sr-only` until focused, then absolute over the chrome rather than displacing it.
- * - The fill is the `brand-solid` pair — `brand` would carry white text at ~2:1 in dark mode.
+ * The bypass link every layout renders first, without which a keyboard user Tabs the whole chrome on every navigation.
+ * The fill is the `brand-solid` pair — `brand` flips per theme and would carry its foreground at about 2:1 in dark.
  */
 export function SkipToContentLink() {
   return (

@@ -1,10 +1,3 @@
-/**
- * SPIELER · every Hinweis the squad editor can raise, in one list
- *
- * One entry per situation, read by the rail and by the panel that also shows it inline — see the
- * club editor's `banners.ts` for why the two halves cannot be authored separately.
- */
-
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { SpielerSaisonMembership } from "@/features/spieler/types";
@@ -19,11 +12,11 @@ export type SpielerBannerId =
   | "spieler.team-changed"
   | "spieler.nummer-geteilt";
 
-/** The panel spots that render one of these inline. */
 export type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "austragen";
 
 export type SpielerBanner = RailBanner<SpielerBannerId> & { inline: SpielerBannerSpot | null };
 
+/** One list, not two: the rail and the inline spots must never disagree about what is raised. */
 export function buildSpielerBanners({
   isRetired,
   saisonId,
@@ -66,8 +59,7 @@ export function buildSpielerBanners({
       inline: "kader-eintritt",
     });
 
-    // What the entry control will record on the admin's behalf, and why: `is_nachgetragen` is
-    // derived from the season's status rather than asked, in `FormKaderSection`'s entry branch.
+    // `is_nachgetragen` is derived from the season's status rather than asked — see `FormKaderSection`.
     if (saisonStatus !== "future") {
       banners.push({
         id: "spieler.entry-nachgetragen",
@@ -110,8 +102,7 @@ export function buildSpielerBanners({
   }
 
   // A `warning` and never a refusal: the state is permitted on every write path
-  // (`fl_backend/app/core/domain.py :: UNENFORCED`), and the grade is what routes
-  // the save through the confirmation.
+  // (`fl_backend/app/core/domain.py :: UNENFORCED`), and the grade routes the save through confirmation.
   if (newlySharedNummer !== null) {
     banners.push({
       id: "spieler.nummer-geteilt",

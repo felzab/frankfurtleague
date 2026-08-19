@@ -1,17 +1,7 @@
 #!/usr/bin/env bash
-#
-# PreToolUse hook on Bash — refuses a bare `docker compose` for local work.
-#
-# WHY THIS IS A HOOK:
-#   `docker compose` with no `-f` reads `docker-compose.yml`, which is the PRODUCTION definition.
-#   Local work belongs to `docker-compose.local.yml`, driven through `./scripts/local.sh`. The two
-#   share a project name, so a bare command appears to work while operating a different stack —
-#   there is no error to notice.
-#
-# CONTRACT: prints nothing and exits 0 unless the command invokes compose without naming the local
-# file. `./scripts/local.sh` runs compose internally, in its own process, and is unaffected.
-#
-# TARGET PLATFORM: any (Git Bash on Windows). node rather than jq — jq is not installed here.
+# PreToolUse hook on Bash — refuses a compose invocation that does not name `docker-compose.local.yml`.
+# With no `-f` compose reads `docker-compose.yml`, the PRODUCTION definition, and the two share a
+# project name — so the bare command appears to work while operating a different stack.
 
 cmd="$(node -e '
 let s = "";

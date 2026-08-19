@@ -1,21 +1,3 @@
-"""
-SPIELER · write endpoints
-
-People, and their membership of a team's squad for a season — two surfaces, because a player
-moving clubs is not a new person. Guarded at router level by `verify_access_admin`.
-
-Invariants:
-- Deletion is soft on both collections, and they retire independently.
-- Creating a squad row 409s on a repeat — `reactivate` is what brings a player back.
-- `nummer` is a string: squad numbers are worn, not counted.
-- `position` and `stufe` are closed sets, here and in the `saison_spieler` validator.
-- `/spieler/{spieler_id}/saisons/{saison_id}` addresses a junction row, never the season.
-- `GET /memberships` returns people carrying junction rows — deliberately, like the teams twin.
-
-See:
-- docs/glossary.md — "the season junctions"
-"""
-
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -65,31 +47,22 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
         position=document.get("position"),
         stufe=document.get("stufe"),
         is_nachgetragen=document["is_nachgetragen"],
-        # `.get` with a default rather than a subscript: this echoes rows the reactivate and delete
-        # endpoints read back, and a row missing the key would KeyError on a request that changed
-        # nothing. `python -m app.core.constraints --check` finds one.
+        # `.get` with a default, not a subscript: a row missing the key would KeyError on a request
+        # that changed nothing. `python -m app.core.constraints --check` finds one.
         is_captain=document.get("is_captain", False),
         inactive_since=document.get("inactive_since"),
     )
 
 
+# A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
+# capture this one whatever the declaration order.
 @router.get("/memberships", response_model=FLSpielerMembershipsResponse, summary="Every Spieler with their squad rows")
 async def get_spieler_memberships(spieler_collection: SpielerCollection) -> FLSpielerMembershipsResponse:
     """
-    Every player, retired ones included, each with every squad row they hold. Sorted by name.
+    Every player, retired ones included, each with every squad row they hold.
 
-    The admin list's one read. `GET /spieler` cannot answer it at any filter setting, and the reasons
-    are three separate ones: with a `saison_id` its junction join is strict, so a player with no row
-    for that season is invisible to the only list that could give them one; without a `saison_id` it
-    unwinds the junction and a player with no row at all comes back missing the `team_id` `FLSpieler`
-    requires; and `FLSpieler` carries no `saison_id`, so a player who has played two seasons comes
-    back as two rows nothing can tell apart. This is the player-centric question as one aggregation.
-
-    In the admin router rather than the read router because only the admin surface asks it — the same
-    split that puts `GET /teams/memberships` beside the team writes.
-
-    A static path beside `by_id` routes: the id convertor takes 24 hex characters, so
-    `/spieler/memberships` can never be captured by an id route regardless of declaration order.
+    `GET /spieler` cannot answer it at any setting: with a `saison_id` the junction join is strict,
+    without one a player with no row comes back missing `team_id`.
     """
 
     spieler_raw = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_spieler_memberships_pipeline())
@@ -103,14 +76,9 @@ async def post_spieler(
     spieler_collection: SpielerCollection,
 ) -> FLSpielerWriteResponse:
     """
-    Create a player — the person, and nothing else.
+    Create a player -- the person, and nothing else.
 
-    A player created here belongs to no team and appears in no squad list until they have a junction
-    row, which is `POST /spieler/{spieler_id}/saisons`. That split is what makes a player who changes
-    club next season the same person rather than a second record of them.
-
-    There is deliberately **no uniqueness rule on a name**. Two people genuinely can share one, and a
-    league that refused the second would be wrong about the world rather than careful.
+    They belong to no team until they have a junction row, and no uniqueness rule applies to a name.
     """
 
     post_operation = await post_one_to_db(
@@ -130,12 +98,7 @@ async def patch_spieler(
     spieler_data: Annotated[FLPatchSpielerPayload, Body()],
     spieler_collection: SpielerCollection,
 ) -> FLSpielerSingleResponse:
-    """
-    Update a player's name.
-
-    No fan-out: unlike a team or a venue, a player's name is embedded in no other document. Squad lists
-    read it through a `$lookup` at request time, so a correction here is visible everywhere at once.
-    """
+    """Update a player's name. No fan-out: unlike a team or a venue, it is embedded in no other document."""
 
     updated_raw = await patch_one_in_db(
         collection=spieler_collection,
@@ -155,15 +118,7 @@ async def delete_spieler(
     spieler_collection: SpielerCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielerSingleResponse:
-    """
-    Retire a player from the league. SOFT: it stamps `inactive_since` and the document stays.
-
-    Their squad rows are **left alone**. The seasons they played still happened, and a squad list for a
-    past season should still name them — retiring the person says nothing about their history.
-
-    The date is what a future scheduled purge selects on; without it "retired" could only ever mean
-    "eventually" (open item BE-12).
-    """
+    """Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE."""
 
     updated_raw = await patch_one_in_db(
         collection=spieler_collection,
@@ -204,19 +159,13 @@ async def post_saison_spieler(
     saison_teams_collection: SaisonTeamsCollection,
 ) -> FLSaisonSpielerResponse:
     """
-    Put a player in a team's squad for a season, with their number, position and stufe.
+    Put a player in a team's squad for a season.
 
-    One row per player per season, enforced by a unique index — a player cannot be in two squads at
-    once, and moving them is a PATCH of `team_id` rather than a second row.
-
-    A repeat is a **409, including against a retired row**, because the index keeps holding the key.
-    Bringing a player back into a season they already have a row for is
-    `POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate` — reviving inside create would quietly
-    overwrite the number and position the old row still carries.
+    One row per player per season, enforced by a unique index, so moving a player is a PATCH of
+    `team_id` rather than a second row. A repeat is a 409, retired rows included.
     """
 
-    # The club has to be in the season (`REQ-SQUAD-001`). Read here rather than in a service, because the
-    # fact lives in another collection.
+    # The club has to be in the season, and that fact lives in another collection.
     team_in_saison = (
         await saison_teams_collection.count_documents(
             {"saison_id": saison_spieler_data.saison_id, "team_id": saison_spieler_data.team_id}, limit=1
@@ -246,19 +195,13 @@ async def patch_saison_spieler(
     saison_teams_collection: SaisonTeamsCollection,
 ) -> FLSaisonSpielerResponse:
     """
-    Update a player's squad entry — their team, number, position or stufe for that season.
+    Update a player's squad entry for that season.
 
-    Changing `team_id` here is how a transfer is recorded, and it is the whole reason the junction
-    exists separately from the person.
-
-    `position` and `stufe` are closed sets, so a value outside either is a 422 rather than a second
-    spelling of a position the league already has. `nummer` stays free TEXT — a squad number is worn
-    rather than counted — and **a duplicate is permitted rather than refused** (decided
-    2026-08-13, declared in `fl_backend/app/core/domain.py :: UNENFORCED`). The league fields four
-    goalkeepers wearing 1, and this endpoint answers the same way as the create and the reactivate.
+    Changing `team_id` is how a transfer is recorded. `nummer` stays free TEXT and a DUPLICATE IS
+    PERMITTED (`fl_backend/app/core/domain.py :: UNENFORCED`): the league fields four keepers on 1.
     """
 
-    # The one fact `find_squad_refusal` decides on, read here because it lives in another collection.
+    # The one fact `find_squad_refusal` decides on, and it lives in another collection.
     team_in_saison = (
         await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": saison_spieler_data.team_id}, limit=1)
     ) > 0
@@ -291,11 +234,10 @@ async def delete_saison_spieler(
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonSpielerResponse:
     """
-    Take a player out of a season's squad. SOFT: it stamps `inactive_since` and the row stays.
+    Take a player out of a season's squad. SOFT: the row stays.
 
-    The row is preserved rather than removed because it is the record that this player was in this
-    squad, wearing this number — which stays true after they leave. Every read hides it by default;
-    `include_inactive=true` is how an admin list gets it back.
+    The row records that this player wore this number in this squad, which stays true after they
+    leave. `include_inactive=true` is how an admin list gets it back.
     """
 
     updated_raw = await patch_one_in_db(
@@ -321,12 +263,9 @@ async def reactivate_saison_spieler(
     saison_spieler_collection: SaisonSpielerCollection,
 ) -> FLSaisonSpielerResponse:
     """
-    Clear a squad row's `inactive_since`, restoring the entry with the number and position it had.
+    Clear a squad row's `inactive_since`, with the number and position it had.
 
-    This is the endpoint a repeat create is redirected to. `uniq_spieler_id_saison_id` means the
-    retired row still holds the key, so a second create cannot succeed — and reviving inside create
-    would silently overwrite the number, position and stufe the old row still carries, which is
-    precisely the information worth keeping.
+    Where a repeat create is redirected: the retired row still holds the unique key.
     """
 
     updated_raw = await patch_one_in_db(

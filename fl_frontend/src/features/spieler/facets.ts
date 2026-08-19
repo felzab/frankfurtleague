@@ -1,28 +1,9 @@
-/**
- * SPIELER · what the admin player list can be narrowed by
- *
- * Module scope is load-bearing — see `TEAM_FACETS` for why, and for the reason a facet is a function
- * rather than a string.
- *
- * **The team facet is built per call**, because its options are the SELECTED SEASON's clubs rather than a
- * closed set: a filter offering a club that plays in another season would narrow to nothing and read as a
- * defect. `AdminSpielerView` memoises the result on the team list's identity, which is what keeps the
- * array stable across renders.
- */
-
 import { POSITION_OPTIONS, STUFE_OPTIONS } from "./constants";
 
 import type { Facet } from "@/shared/utils/facets";
 import type { AdminSpielerRow, SpielerTeamOption } from "./types";
 
-/**
- * The facets that need nothing from the page. Declared once, at module scope.
- *
- * Exported under the `*_FACETS` name every slice uses so `facets.test.ts` discovers it: that suite walks
- * `src/features/*​/facets.ts` and checks every facet set in the app for a reserved parameter, a duplicate
- * parameter and an unlabelled option. The team facet below is checked by the same file through a separate
- * call to the builder.
- */
+/** The facets that need nothing from the page. */
 export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
   {
     param: "kader",
@@ -32,8 +13,8 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
       { value: "ohne_kader", label: "Ohne Kadereintrag" },
       { value: "ausgetragen", label: "Ausgetragen" },
     ],
-    // Three states rather than two: a player with no row at all is a different fact from one whose row was
-    // retired, and the second keeps its number, position and stufe.
+    // Three states, not two: no row at all is a different fact from a retired row, which keeps its
+    // number, position and stufe.
     read: (spieler) => {
       if (spieler.selected === null) return ["ohne_kader"];
       return spieler.selected.inactive_since === null ? ["im_kader"] : ["ausgetragen"];
@@ -48,9 +29,8 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
   {
     param: "stufe",
     label: "Stufe",
-    // The league's six rather than the season's `erlaubte_stufen`: a squad row's level is held to the
-    // league's closed set, so a season narrowed after the fact still has rows carrying a level it no
-    // longer offers.
+    // The league's set rather than the season's `erlaubte_stufen`: a season narrowed after the fact
+    // still has rows carrying a level it no longer offers.
     options: STUFE_OPTIONS.map((stufe) => ({ value: stufe, label: stufe })),
     read: (spieler) => (spieler.selected?.stufe == null ? [] : [spieler.selected.stufe]),
   },
@@ -61,7 +41,6 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
       { value: "kapitaen", label: "Kapitän" },
       { value: "nachgetragen", label: "Nachgetragen" },
     ],
-    // Both are properties of the squad row and neither excludes the other, so an item can match both.
     read: (spieler) => {
       const held: string[] = [];
       if (spieler.selected?.is_captain) held.push("kapitaen");
@@ -76,17 +55,17 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
       { value: "aktiv", label: "Aktiv" },
       { value: "stillgelegt", label: "Stillgelegt" },
     ],
-    // The PERSON's own retirement, which is independent of the squad row's above. Labelled
-    // „Person“ rather than „Status“ so the two facets cannot be read as the same question.
+    // The PERSON's own retirement, independent of the row's above — hence the „Person“ label, so the
+    // two facets cannot be read as the same question.
     read: (spieler) => [spieler.inactive_since === null ? "aktiv" : "stillgelegt"],
   },
 ];
 
 /**
- * Every facet, with the team list folded in.
+ * Built per call: the team facet's options are the SELECTED SEASON's clubs.
  *
- * Called from a `useMemo` keyed on `teams`, so the returned array is stable for as long as the season's
- * clubs are — which is what `AdminCrudView`'s collection-identity constraint requires.
+ * Looked up BY NAME in `fl_frontend/src/shared/utils/facets.test.ts`; a rename drops the team facet
+ * from the checks silently.
  */
 export function buildSpielerFacets(teams: readonly SpielerTeamOption[]): readonly Facet<AdminSpielerRow>[] {
   if (teams.length === 0) return SPIELER_FACETS;
@@ -98,7 +77,6 @@ export function buildSpielerFacets(teams: readonly SpielerTeamOption[]): readonl
     read: (spieler) => (spieler.selected === null ? [] : [spieler.selected.team_id]),
   };
 
-  // Kader, Team, Position lead: six facets wrap three and three in the panel, so the leading trio is the
-  // row that is always on screen. Stufe, Rolle and Person narrow a list one already has.
+  // Kader, Team, Position lead: the panel wraps three to a row, so the leading trio is always on screen.
   return [...SPIELER_FACETS.slice(0, 1), teamFacet, ...SPIELER_FACETS.slice(1)];
 }

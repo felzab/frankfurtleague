@@ -1,21 +1,8 @@
-"""
-SCRIPTS · the gate's scopes, run as concurrent processes for verify.sh to replay
+"""SCRIPTS · the gate's scopes, run as concurrent processes for verify.sh to replay.
 
-One scope per process, so a worker is an ordinary `verify.sh` run: its error trap fires where it
-always did, and its interrupt trap is still installed. A subshell loses the first unless `set -E` is
-on, and a job backgrounded with `&` loses the second outright, because bash gives a backgrounded
-child `SIG_IGN` for `SIGINT` and then refuses to re-trap it. Spawning is all this file owns -- the
-sections, the closing table and the closing statements stay in `scripts/_lib.sh`, the one place in
-this repository they are written down.
-
-Invariants:
-- Nothing is printed on a run that worked; verify.sh replays the captures in the serial order.
-- A worker's captures are the worker's own bytes, decoded and re-encoded by nothing in between.
-- A unit's status travels in the manifest and never in an exit code.
-- No worker is signalled from here; each worker's own interrupt trap reclaims what it made.
-
-See:
-- docs/ops/spec.md -- the scopes, the order they are replayed in, and the exit contract
+One scope per PROCESS, so a worker is an ordinary `verify.sh` run: a subshell loses the error trap
+unless `set -E` is on, and a job backgrounded with `&` loses the interrupt trap outright, bash
+giving a backgrounded child `SIG_IGN` for `SIGINT` and then refusing to re-trap it.
 """
 
 from __future__ import annotations
@@ -43,9 +30,8 @@ MANIFEST: Final = "manifest.tsv"
 class Unit:
     """One scope, and the scopes that must finish before it may start.
 
-    `after` is not a schedule. It is the scopes this one shares mutable state with, which is the
-    only thing that may constrain the order -- verify.sh holds that list beside the scope bodies,
-    because what is shared is a fact about them rather than about the pool.
+    `after` is not a schedule but the scopes this one shares mutable state with, which verify.sh
+    holds beside the scope bodies: what is shared is a fact about them, not about the pool.
     """
 
     scope: str
@@ -56,9 +42,8 @@ class Unit:
 class Result:
     """What one unit did, as the manifest carries it.
 
-    `status` is a string on purpose: an exit code where there is one, and `NOT_STARTED` where the
-    unit never ran. Both spellings reach verify.sh, which has to tell them apart, and no integer is
-    free to mean the second.
+    `status` is a string on purpose: no integer is free to mean `NOT_STARTED`, and verify.sh has to
+    tell that apart from an exit code a scope really returned.
     """
 
     status: str = NOT_STARTED
@@ -93,10 +78,8 @@ def parse_unit(text: str) -> Unit:
 def ordered(units: list[Unit]) -> list[Unit]:
     """The units in an order where every dependency is submitted before whatever waits on it.
 
-    A unit's thread waits on its dependencies' futures, so a future that does not exist yet would
-    raise inside a worker thread -- reported as a scope that produced nothing, which is a long way
-    from the constraint table having a typo in it. Sorting here is what makes that wait
-    unconditional, and it is where a cycle is caught rather than deadlocked on.
+    An absent future raises inside a worker thread, reported as a scope that produced nothing
+    rather than as the typo it is.
     """
     known = {unit.scope for unit in units}
     for unit in units:
@@ -117,14 +100,10 @@ def ordered(units: list[Unit]) -> list[Unit]:
 
 
 def spawn(pool: Pool, scope: str) -> int:
-    """Run one scope as its own verify.sh, its streams captured to files, and answer its status.
+    """Run one scope as its own `scripts/verify.sh`, streams captured to files.
 
-    The captures are opened in binary and handed to the child as file descriptors, so the bytes the
-    scope printed are the bytes the replay prints. Reading them through this process would put a
-    decode and a re-encode in the path, and on Windows that turns every newline into two.
-
-    stdin is closed rather than inherited: a worker reading it would be competing with the terminal
-    for the parent's input, and nothing in a scope has any business asking.
+    Binary descriptors handed to the child: reading them through this process adds a decode and a
+    re-encode, which on Windows doubles every newline.
     """
     environment = dict(os.environ)
     environment["FL_GATE_WORKER"] = "1"
@@ -144,11 +123,10 @@ def spawn(pool: Pool, scope: str) -> int:
 
 
 def run_unit(pool: Pool, unit: Unit) -> None:
-    """Wait for what this scope shares state with, take a slot, run it, and record what it did.
+    """Wait for what this scope shares state with, take a slot, run it, record it.
 
-    The slot is taken after the wait and never before it, so a thread holding one is never waiting
-    on another unit. That is what keeps a width limit from deadlocking against the order the shared
-    state imposes.
+    The slot is taken after the wait, so a thread holding one never waits on another unit: a width
+    limit would otherwise deadlock against the shared-state order.
     """
     for name in unit.after:
         pool.futures[name].result()
@@ -164,8 +142,8 @@ def run_unit(pool: Pool, unit: Unit) -> None:
 def write_manifest(pool: Pool, units: list[Unit]) -> None:
     """One row per unit, in the order it was given, written as bytes with LF endings.
 
-    Bytes rather than text: bash reads this file back, and a Windows text handle would end every row
-    with a carriage return that survives into the variable the shell reads it into.
+    Bytes rather than text: bash reads this file back, and a Windows text handle ends every row
+    with a carriage return.
     """
     rows: list[str] = []
     for unit in units:
@@ -193,8 +171,8 @@ def main() -> int:
         started=time.monotonic(),
     )
 
-    # One thread per unit rather than one per slot: a thread waiting on the scopes it shares state
-    # with holds nothing, and an executor sized to the slots would run out of threads for waiters.
+    # One thread per unit, not per slot: an executor sized to the slots would run out of threads
+    # for the waiters, which hold nothing.
     try:
         with ThreadPoolExecutor(max_workers=len(units)) as threads:
             for unit in units:
@@ -202,20 +180,17 @@ def main() -> int:
             for unit in units:
                 pool.futures[unit.scope].result()
     except KeyboardInterrupt:
-        # Ctrl-C already reached every worker through the terminal's process group, and each is
-        # winding down through its own interrupt trap -- returning before they have is what
-        # strands a half-built image or a stand-in .env.
+        # Ctrl-C already reached every worker through the process group, and each is winding down
+        # through its own trap: returning first strands a half-built image or a stand-in .env.
         return EXIT_INTERRUPTED
     finally:
-        # Written even when a unit's thread raised: the manifest is how the parent learns which
-        # scopes have a capture worth replaying, and without one a crash here reads as a gate
-        # that proved nothing rather than one that proved what it got through.
+        # Written even when a unit's thread raised: without the manifest a crash here reads as a
+        # gate that proved nothing, rather than one that proved what it got through.
         write_manifest(pool, units)
     return EXIT_OK
 
 
 if __name__ == "__main__":
-    # `run` maps an unhandled exception to a crash and Ctrl-C to 130, so this file answers on the
-    # same scale as every checker beside it -- and never on the scale the workers answer on, which
-    # travels in the manifest instead.
+    # This file answers on the checkers' scale, never on the workers', which travels in the
+    # manifest instead.
     raise SystemExit(run(main))

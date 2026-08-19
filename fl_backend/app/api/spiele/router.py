@@ -1,19 +1,3 @@
-"""
-SPIELE · read endpoint
-
-Serves `GET /spiele`, the most-hit endpoint in the application; every mutation lives in the admin
-router. Authorization is the router-level `verify_access_base` dependency.
-
-Invariants:
-- Omitting `saison_id` means the current season, resolved in the handler.
-- `saison_phase="playoffs"` is a query-only alias for `!= "gruppenphase"`, never a stored value.
-- Both reads run `build_spiele_pipeline` — a plain `find` misses the joined `disqualifikation`
-  and returns a shape `FLSpielJoined` refuses loudly.
-
-See:
-- docs/backend/spec.md — section 1.2, the full parameter contract
-"""
-
 from fastapi import APIRouter, Depends
 
 from app.api.saisons.crud import pull_current_saison_id
@@ -49,23 +33,19 @@ async def get_spiele(
     """
     List Spiele matching the given filters.
 
-    Omitting `saison_id` returns the **current** season, not every season.
-
-    `saison_phase` accepts `playoffs` as an alias for "any phase except gruppenphase".
-    `spiel_status` is resolved against the current German date: `ausstehend` includes today.
+    Omitting `saison_id` returns the CURRENT season. `saison_phase` accepts `playoffs` as an alias
+    for "any phase except gruppenphase", and `ausstehend` includes today.
     """
 
-    # Omitting `saison_id` means "the current season", not "every season". Resolved here
-    # rather than as a field default because a default cannot reach the database.
+    # Resolved here, never as a field default, which cannot reach the database.
     if filters.saison_id is None:
         filters.saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
 
     db_filter = build_spiele_filter(filters=filters, today=today)
     db_sort = build_spiele_sort(sort_by=filters.sort_by, order=filters.order)
 
-    # An aggregation rather than a find: the one `$lookup` joins each side's disqualification from
-    # `saison_teams`, so a badge renders without a second request. Embedding it instead would go stale
-    # mid-season on a public page.
+    # An aggregation, not a find: a plain `find` misses the joined `disqualifikation` and returns a
+    # shape `FLSpielJoined` refuses.
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(db_filter=db_filter, sort_by=db_sort, limit=filters.limit),
@@ -81,13 +61,11 @@ async def get_spiel(spiel_id: CustomRouteObjectId, spiele_collection: SpieleColl
     """
     Return one match by its id.
 
-    No season is resolved and no status is derived: the match carries its own `saison_id`, and
+    No season is resolved and no status derived: the match carries its own `saison_id`, and
     `spiel_status` is a property of a query rather than of a match.
     """
 
-    # The same pipeline the list runs, over a filter selecting one document, so the two cannot disagree
-    # about what a match looks like. The 404 is raised here because an aggregation returning nothing is
-    # an empty list, not a `None`.
+    # The 404 is raised here because an aggregation returning nothing is an empty list, not `None`.
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(db_filter={"_id": spiel_id}),

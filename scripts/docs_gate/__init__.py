@@ -1,13 +1,8 @@
 """SCRIPTS · the documentation gate, one module per seam the checks divide along.
 
-Invariants:
-- The kernel is imported here, so its floor guard runs before a sibling is compiled. A
-  SyntaxError raised while compiling a sibling exits 1, which is a finding's code.
-- This file's own syntax is the one thing that can stop that guard: the import below runs only
-  after it compiles, so it has to parse at `checker_kernel.py :: PARSE_FLOOR`.
-
-See:
-- scripts/checker_kernel.py — the floor guard, and the exit codes this package answers with
+The kernel is imported here so its floor guard runs before a sibling is compiled, a SyntaxError
+raised while compiling one exiting 1 -- a finding's code. This file's own syntax is the one thing
+that can stop that guard, so it has to parse at `checker_kernel.py :: PARSE_FLOOR`.
 """
 
 from __future__ import annotations

@@ -13,18 +13,10 @@ import { useTeamDraftStatus } from "./TeamDraftStatusContext";
 
 import type { TeamBanner } from "./banners";
 
-/**
- * The club editor's summary rail — the match editor's rail, minus the two cards a club has no
- * material for: there is no preview (a club record has no card that differs from its form) and no
- * open-items list (nothing waits on a club field). What remains is the half every
- * page-owned form is asked to carry: every inline warning mirrored into one place, and the unsaved changes
- * listed by section.
- */
 export function TeamRail({ banners }: { banners: readonly TeamBanner[] }) {
   const status = useTeamDraftStatus();
 
-  // The badge counts what is rendered rather than what was built, which is only the same number
-  // while nothing supersedes anything.
+  // Counts what is RENDERED, not what was built — the two differ once something supersedes something.
   const visibleBanners = resolveRailBanners(banners);
 
   const bannerBySeverity = {
@@ -34,8 +26,7 @@ export function TeamRail({ banners }: { banners: readonly TeamBanner[] }) {
   };
   const bannerCount = visibleBanners.length;
 
-  // Controlled exactly as the match editor's card is: shut when the last banner clears, open when
-  // one arrives; in between the state is the admin's own toggle.
+  // Shut when the last banner clears, open when one arrives; in between it is the admin's own toggle.
   const [hinweiseOpen, setHinweiseOpen] = useState(
     () => bannerCount > 0 || (typeof window !== "undefined" && window.matchMedia("(min-width: 80rem)").matches),
   );
@@ -81,7 +72,6 @@ export function TeamRail({ banners }: { banners: readonly TeamBanner[] }) {
         )}
       </RailSection>
 
-      {/* Closed on a phone: empty until something is edited, and a review surface when it is not. */}
       <RailSection
         title="Deine Änderungen"
         defaultOpenOnMobile={false}

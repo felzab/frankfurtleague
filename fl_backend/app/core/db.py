@@ -1,18 +1,3 @@
-"""
-CORE · database lifecycle and collection providers
-
-One Motor client, created in the FastAPI lifespan and attached to `app.state`. Collections are
-reached through the typed dependencies in `dependencies.py`, never constructed ad hoc.
-
-Invariants:
-- The app refuses to start if MongoDB is unreachable or the constraints cannot apply.
-- `get_teams_collection` is the season-independent club document — the junction is separate.
-
-See:
-- docs/backend/spec.md — invariant I9
-- docs/glossary.md — "Team", for the junction model
-"""
-
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
@@ -44,8 +29,7 @@ async def lifespan(app: FastAPI):
     try:
         await app.state.db_client.admin.command("ping")
 
-        # The database's own constraints, declared in this repository and reapplied on every boot so
-        # the cluster can never quietly hold a different set.
+        # Reapplied on every boot, and a failure refuses the start (`docs/backend/spec.md :: I15`).
         try:
             constraints = await apply_constraints(app.state.db_client[config.db_base_name])
         except Exception:
@@ -74,9 +58,8 @@ async def get_database(
     request: Request,
     config: BackendConfig = Depends(get_config),
 ) -> AsyncIOMotorDatabase:
-    # Through `Depends`, not `get_config()` directly: an app built with injected settings must reach
-    # that database name. Reading the global would resolve every collection dependency against the
-    # real one.
+    # Through `Depends`, not `get_config()`: reading the global would resolve every collection
+    # dependency against the real database rather than an injected one.
     if not hasattr(request.app.state, "db_client"):
         raise DatabaseUnavailableException(error_code=NO_DATABASE_CLIENT)
     return request.app.state.db_client[config.db_base_name]
@@ -124,9 +107,8 @@ async def get_schiedsrichter_collection(
     return db[Collection.SCHIEDSRICHTER]
 
 
-# The two junctions. A READ never opens either directly -- they are reached by name inside the `$lookup`
-# stages of the teams and spieler pipelines. A write does, because there is nothing to join: adding a
-# team to a season IS a row here.
+# The two junctions. A READ reaches them by name inside a `$lookup`; a write opens them directly,
+# there being nothing to join.
 async def get_saison_teams_collection(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> AsyncIOMotorCollection:

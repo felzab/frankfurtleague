@@ -19,14 +19,8 @@ import type { FLTeamRecord } from "@/features/teams/schemas";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 
 /**
- * The whole body of `/admin/teams/[team_id]` — who the club is, then the form that edits it, in the
- * match editor's shell: the header scrolls with the form's content, the action bar stays pinned
- * below it, and every exit routes through the form's own discard guard.
- *
- * **The header states identity and nothing live** — the shorthand chip wears the TeamCard's brand
- * tint, so the same two letters look the same on the admin surface and the public one. The one
- * header-level control is reactivation, because a retired club's state is club-level rather than a
- * field of the form.
+ * Every exit routes through the form's discard guard. The header states identity and nothing live;
+ * its one control is reactivation, because a retired club's state is club-level, not a form field.
  */
 export function AdminTeamEditView({
   team,
@@ -50,7 +44,7 @@ export function AdminTeamEditView({
 
   const isRetired = team.inactive_since !== null;
 
-  // The form's own guarded exit, registered from below — see `AdminSpielEditView`.
+  // The form's own guarded exit, registered from below.
   const requestLeaveRef = useRef<() => void>(() => router.back());
 
   const handleReactivate = () => {
@@ -85,7 +79,7 @@ export function AdminTeamEditView({
             <header className="mb-6 flex w-full flex-col gap-y-2">
               <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
                 <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">{team.name}</h2>
-                {/* The TeamCard's chip, so the Kürzel wears one colour everywhere (decided 2026-08-07). */}
+                {/* The TeamCard's chip, so the Kürzel wears one colour everywhere. */}
                 <span className="bg-brand-solid text-brand-solid-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold shadow-sm">
                   {team.shorthand}
                 </span>

@@ -7,7 +7,6 @@ import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 
 export function AdminDeleteSpielortModal({ ortData, isOpen, onClose }: { ortData: FLSpielort | null; isOpen: boolean; onClose: () => void }) {
-  // Retained, not early-returned: unmounting on close skips the exit transition.
   const ort = useRetainedValue(ortData);
 
   if (!ort) return null;

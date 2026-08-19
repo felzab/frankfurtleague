@@ -3,14 +3,8 @@ import { tv } from "tailwind-variants";
 import type { ReactNode } from "react";
 
 /**
- * The status-panel family — the full-page error and 404 screens and the dashboard's inline error
- * card. The three were near-identical markup pasted three times, and they drifted: one screen's
- * buttons had hover feedback while its sibling's had none, heights disagreed, panel opacity and
- * shadow disagreed (audit, 2026-07-31). The soccer-themed copy stays at each call site; the
- * chrome lives here once.
- *
- * `page` is the theatrical full-viewport treatment (watermark behind a blurred panel); `inline`
- * is the softer in-shell card for errors that only take down one dashboard region.
+ * The status-panel family: `page` is the full-viewport treatment, a watermark behind a blurred panel, and `inline` the
+ * softer card for an error taking down one dashboard region. The copy stays at each call site; the chrome lives here.
  */
 const statusPanel = tv({
   slots: {

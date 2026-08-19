@@ -1,19 +1,3 @@
-"""SCRIPTS · the crash status, asserted where two shells spell it as a literal
-
-`checker_kernel.py :: EXIT_CRASH` is what a checker's import-time floor guard raises, and two shell
-arms read that status back as a number of their own to tell an interpreter below the floor from a
-checker that failed. A comment is not a guard, so the pairing is asserted here.
-
-Invariants:
-- Stdlib only, for the reason `test_check_docs.py` gives.
-- `EXIT_CRASH` is read out of the source rather than imported: the module raises on an interpreter
-  below its own floor, which is the case this pairing exists for.
-- The named arms must exist. A site added elsewhere is outside what this can see.
-
-See:
-- scripts/checker_kernel.py — the status, and the guard that raises it
-"""
-
 from __future__ import annotations
 
 import ast
@@ -23,13 +7,17 @@ from typing import Final
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 
-# One arm per shell that degrades on the status rather than on the failure: the compose mirror's
-# skip, and the classifier fixtures'.
+# One arm per shell that degrades on the status rather than on the failure. A site added elsewhere
+# is outside what this can see.
 ARMS: Final[tuple[tuple[str, str], ...]] = (("verify.sh", "OPS_FLOOR"), ("selfcheck.sh", "CLASSIFIER_FLOOR"))
 
 
 def _crash_status() -> int:
-    """EXIT_CRASH as the kernel's source declares it."""
+    """EXIT_CRASH as the kernel's source declares it.
+
+    Read out of the source, never imported: the module raises on an interpreter below its own floor,
+    which is the case this pairing exists for.
+    """
     source = (SCRIPTS / "checker_kernel.py").read_text(encoding="utf-8")
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == "EXIT_CRASH":

@@ -1,23 +1,3 @@
-"""
-TEAMS · models
-
-The read shapes `GET /teams` discriminates by `format`, the single-team shape, the write payloads
-and their echoes, plus the statistics model and the four-group container.
-
-Invariants:
-- `FLTeam` is flattened from three sources — `teams`, the junction row, and a derived `statistik`.
-- Disqualified means `disqualifikation` is not null; there is no boolean beside it.
-- There is one team shape — never a reduced projection beside it.
-- `FLGruppen` always emits all four group keys, and only `build_gruppen` constructs it.
-- Statistics fields default to 0 — a team with no counting match is served zeros, not absence.
-- `anzahl_abgesagte_spiele` counts every cancellation, forfeits included, never `punkte`.
-- `statistik_scope` decides which matches count and defaults to `"gruppenphase"`.
-- `FLTeam` is a read shape, `FLTeamRecord` the stored one — a write echoes the record.
-
-See:
-- app/api/teams/services.py — the join that flattens the three sources, and the standing
-"""
-
 from typing import Annotated, Literal, Mapping, Union
 
 from pydantic import BaseModel, Field, RootModel, TypeAdapter
@@ -28,37 +8,26 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 FLGruppenNames = Literal["A", "B", "C", "D"]
 
-# Which matches the derived table counts. Two values rather than a free `saison_phase`
-# filter: a table of the Halbfinale alone is not a standing, and offering it invites one.
-# `"gruppenphase"` is the stored `FLSpiel.saison_phase` value.
+# Two values rather than a free `saison_phase` filter: a table of the Halbfinale alone is not a
+# standing, and offering it invites one.
 FLTeamStatistikScope = Literal["gruppenphase", "gesamt"]
 
 
 class FLDisqualifikation(BaseModel):
-    """
-    Why a team is out of one season, and from when.
+    """Why a team is out of one season, and from when.
 
-    Embedded on the `saison_teams` junction row and served from there. Its ABSENCE — the field holding
-    `null` — is what "not disqualified" means, so nothing beside it records the same fact and the two
-    cannot disagree. That is the soft delete's shape applied to a second question, for the same reason:
-    a boolean and a record together is the one arrangement with a state the database cannot refuse.
-
-    `grund` is FREE TEXT and it is PUBLIC. It is written knowing it appears on the team's own page,
-    which is the same trust this system already places in `teams.description`. A closed set was rejected
-    because this league publishes no disciplinary code an enum could cite.
+    `grund` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no
+    disciplinary code an enum could cite.
     """
 
     grund: str = Field(min_length=1)
-    # The day the disqualification took effect, not the day somebody typed it in. A German YYYY-MM-DD
-    # string like every other date here (`datum`, `beginn`, `inactive_since`), so the frontend keeps one
-    # parsing rule.
+    # The day the disqualification took effect, not the day somebody typed it in.
     datum: CustomDateString
 
 
 class FLTeamStatistik(BaseModel):
-    # `default=` by keyword, never `Field(0, ge=0)`: Pydantic treats the two identically, Pyright does
-    # not. It reads the default by argument name, so a positional one leaves the field looking required
-    # while tests and ruff stay silent.
+    # `default=` by keyword, never `Field(0, ge=0)`: a positional one leaves the field looking
+    # required to Pyright while ruff and the tests stay silent.
     anzahl_gespielte_spiele: int = Field(default=0, ge=0)
     siege: int = Field(default=0, ge=0)
     niederlagen: int = Field(default=0, ge=0)
@@ -66,9 +35,8 @@ class FLTeamStatistik(BaseModel):
     tore_geschossen: int = Field(default=0, ge=0)
     tore_kassiert: int = Field(default=0, ge=0)
     punkte: int = Field(default=0, ge=0)
-    # Beside the scoring, never inside it: every cancellation counts here, so a forfeit is in this
-    # figure and in `anzahl_gespielte_spiele` both. A fixture not played yet is stored nowhere and
-    # follows from the season's rules.
+    # Beside the scoring, never inside it: a forfeit is in this figure and in
+    # `anzahl_gespielte_spiele` both (`docs/backend/spec.md :: I1d`).
     anzahl_abgesagte_spiele: int = Field(default=0, ge=0)
 
 
@@ -78,22 +46,18 @@ class FLTeam(BaseModel):
     name: str = Field(min_length=1)
     gruppe: FLGruppenNames
     statistik: FLTeamStatistik
-    # Out of this season, with the reason and the date, or null while the team competes. Joined from
-    # the junction on every read and never copied into a match document.
+    # Joined from the junction on every read, and copied into no match document.
     disqualifikation: FLDisqualifikation | None
     shorthand: str = Field(min_length=2, max_length=2)
-    # May be empty -- not every team writes one. Capped so the public page and the editor's textarea
-    # agree on what fits; the bound is Pydantic's and stays out of the validator
-    # (`docs/backend/spec.md :: I16`).
+    # Capped so the public page and the editor's textarea agree on what fits; the bound stays out of
+    # the database validator (`docs/backend/spec.md :: I16`).
     description: str = Field(max_length=4096)
     full_name: str = Field(min_length=1)
     # Rendered straight into an href on a public page, so the scheme is constrained here as well as
-    # in the frontend. See validate_external_url for why this is not AnyHttpUrl.
+    # in the frontend (`fl_backend/app/shared/schemas/custom.py :: validate_external_url`).
     website_url: CustomExternalUrl
     address: FLAddress
-    # The day this CLUB left the league, or null while it plays. Not the same thing as leaving one
-    # season: a team never leaves a season except by disqualification, which is `disqualifikation`
-    # above and lives on the junction.
+    # The day this CLUB left the league. Leaving one season is `disqualifikation` above.
     inactive_since: CustomOptionalDateString
 
 
@@ -101,14 +65,10 @@ FLTeamListAdapter = TypeAdapter(list[FLTeam])
 
 
 class FLTeamRecord(BaseModel):
-    """
-    The club document as it is STORED — `FLTeam` minus the three fields no `teams` document carries.
+    """The club document as it is STORED, and what the write endpoints echo.
 
-    What the write endpoints echo back. A write to `teams` changes the club and nothing season-scoped,
-    so `gruppe`, `disqualifikation` and `statistik` are not this endpoint's to report — and reading them
-    would mean re-running the team pipeline, whose junction join is strict. A club with no
-    `saison_teams` row for the current season drops out of that pipeline entirely, which is the normal
-    state for a club being created, retired or reactivated.
+    The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
+    -- and a club being created holds no row yet.
     """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -123,18 +83,10 @@ class FLTeamRecord(BaseModel):
 
 
 class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLTeam]]]):
-    """
-    The four groups, always all four, each already in standing order.
+    """The four groups, always all four, in standing order.
 
-    Keyed by FLGruppenNames rather than a free-form str, and seeded with every group, so the response
-    shape does not depend on which groups happen to have teams. Never build it from the teams present
-    alone, for the reason `fl_backend/app/api/teams/services.py :: build_gruppen` states.
-
-    **Built by `fl_backend/app/api/teams/services.py :: build_gruppen` and by nothing else.** The
-    order inside each list is the competition's tiebreak chain, whose last criterion is the head-to-head
-    table -- and that reads the season's matches, which a model holding only teams cannot see. Constructing
-    this from a list of teams here would produce a table ordered on two of the four criteria, which is
-    the ordering the bracket must not disagree with.
+    Built by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak
+    chain, whose last criterion reads the season's matches.
     """
 
 
@@ -147,13 +99,10 @@ class FLTeamMembership(BaseModel):
 
 
 class FLTeamWithMemberships(FLTeamRecord):
-    """
-    The stored club document plus every season membership it holds — the admin list's one read.
+    """The stored club document plus every season membership it holds.
 
-    A DIFFERENT question from `FLTeam`, not a projection of it: `FLTeam` answers "this
-    club in one season" with a strict junction join and a derived `statistik`, which is why a club
-    outside the season is absent from it by design. The admin surface asks "every club, and which
-    seasons hold it", which no composition of season-scoped reads answers in one request.
+    A DIFFERENT question from `FLTeam`, not a projection: that one joins strictly against one season,
+    so a club outside it is absent by design.
     """
 
     memberships: list[FLTeamMembership]
@@ -192,29 +141,22 @@ class FLPostSaisonTeamPayload(BaseModel):
 
 class FLPatchSaisonTeamPayload(BaseModel):
     gruppe: FLGruppenNames
-    # The whole disqualification, or `null` to lift one. There is no second copy to keep in step,
-    # because `FLSpiel` joins this from the junction rather than storing it.
-
-    # No `default=None`: the field is required on the payload, so an omitted key cannot silently
-    # reinstate a team. `PATCH` replaces the junction row's two writable fields wholesale, as `gruppe`
-    # above does.
+    # No `default=None`: `PATCH` replaces both writable fields wholesale, so an omitted key would
+    # silently reinstate a team.
     disqualifikation: FLDisqualifikation | None
 
 
 class FLTeamsFilterParams(BaseModel):
-    # No `team_id`. One team by its id is an identity and is addressed by `GET /teams/{team_id}`;
-    # what stays here narrows a list.
+    # No `team_id`: one team by its id is addressed by `GET /teams/{team_id}`; this narrows a list.
     saison_id: str | None = None
     gruppe: FLGruppenNames | None = None
-    # A question about the junction, not a field on it -- nothing stores a boolean. `true`
-    # selects the teams holding a `disqualifikation` record, `false` those holding none, which
-    # `build_team_pipeline` turns into a null test.
+    # A question about the junction, not a field on it -- nothing stores a boolean.
     is_disqualified: bool | None = None
     in_gruppen: bool | None = None
     include_inactive: bool = False
 
     # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the
-    # playoff-polluted one. The all-games figures are an explicit ask.
+    # playoff-polluted one.
     statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
 
     limit: int = Field(default=1024, ge=1, le=1024)
@@ -223,14 +165,7 @@ class FLTeamsFilterParams(BaseModel):
 
 
 class FLTeamSingleFilterParams(BaseModel):
-    """
-    What `GET /teams/{team_id}` accepts, which is deliberately far less than the list endpoint.
-
-    A separate model rather than reusing `FLTeamsFilterParams`, whose remaining fields are meaningless
-    here: `in_gruppen` groups a set of one, and `limit`/`sort_by`/`order` order a list that cannot have
-    more than one member. Only the two choosing WHICH SEASON'S figures to derive belong, and those are
-    genuine -- a team's `gruppe` and `statistik` do not exist outside a season.
-    """
+    """What `GET /teams/{team_id}` accepts: only what chooses WHICH SEASON'S figures to derive."""
 
     saison_id: str | None = None
     statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
@@ -242,17 +177,10 @@ class FLTeamsListResponse(BaseAPIResponse):
 
 
 class FLTeamsGroupedResponse(BaseAPIResponse):
-    """
-    The four groups in standing order, and how many of each advance.
+    """The four groups in standing order, and how many of each advance.
 
-    `qualifiers_per_group` is the season's own `rules.qualifiers_per_group`, carried here because it is
-    what turns an ordered list into a statement about qualification: the teams in a playoff place are a
-    prefix of each list above, and a caller cannot mark them without knowing where it ends. It rides on
-    this response rather than being fetched separately so that a page rendering the table cannot show a
-    cutoff drawn from a different season than the table itself.
-
-    On the GROUPED shape only. A flat list is sorted by name and is not a standing, so a cutoff into it
-    would mean nothing.
+    `qualifiers_per_group` rides along rather than being fetched separately, so a page cannot mark a
+    cutoff drawn from a different season than the table it marks.
     """
 
     format: Literal["grouped"] = "grouped"
@@ -261,11 +189,9 @@ class FLTeamsGroupedResponse(BaseAPIResponse):
 
 
 class FLTeamsSingleResponse(BaseAPIResponse):
-    """
-    One team, from `GET /teams/{team_id}`.
+    """One team, from `GET /teams/{team_id}`.
 
-    Deliberately not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can
-    return, and this is a different endpoint returning exactly one shape.
+    Not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can return.
     """
 
     format: Literal["single"] = "single"
@@ -278,8 +204,7 @@ class FLPostTeamResponse(BaseAPIResponse):
 
 class FLPatchTeamResponse(BaseAPIResponse):
     updated_document: FLTeamRecord
-    # How many embedded copies the rename reached. Reported rather than assumed: the fan-out is the
-    # half of this endpoint that fails silently, so the count is the thing worth seeing.
+    # Reported rather than assumed: the fan-out is the half of this endpoint that fails silently.
     fanned_out_to_spiele: int
 
 

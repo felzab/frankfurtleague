@@ -17,17 +17,9 @@ import type { Key } from "@heroui/react";
 import type { SpieltagBanner } from "./banners";
 
 /**
- * Which round of the season this matchday belongs to — and, because the order and the name both
- * follow from it, where it sits and what it is called.
- *
- * **A phase accounting for fewer matches than this matchday already holds is offered and disabled**,
- * never hidden: the treatment `GruppeSelect` gives a full group, so an admin sees why a phase cannot
- * be picked rather than wondering where it went. The endpoint refuses the same shape
- * (`REQ-SPIELTAG-002`), and the counts come from `FLSaison.schedule` rather than from arithmetic
- * repeated here.
- *
- * A picker, so it is judged on change rather than on blur — a selection is complete the moment it is
- * made and there is no half-entered value to be wrong about.
+ * **A phase accounting for fewer matches than this matchday holds is offered and disabled, never
+ * hidden**: `GruppeSelect`'s treatment for a full group, so an admin sees why rather than wondering
+ * where it went.
  */
 export function FormPhaseSection({
   phase,
@@ -39,7 +31,6 @@ export function FormPhaseSection({
   onChange: (next: FLSaisonPhase) => void;
   /** Every phase with this season's expected match count, and whether the attached fixtures still fit. */
   phaseOffer: readonly SpieltagPhaseOffer[];
-  /** The editor's whole Hinweis list; the spot below takes its own entry out of it. */
   banners: readonly SpieltagBanner[];
 }) {
   const panel = formPanel();

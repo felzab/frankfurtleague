@@ -1,15 +1,3 @@
-/**
- * SYSTEM · health and diagnostics
- *
- * Wrappers over the backend's three system endpoints. Cached for minutes rather than days —
- * health is the one thing where a stale answer is worse than no answer.
- *
- * Invariants:
- * - Each call's `authType` matches the backend guard: `is_live` is the unauthenticated healthcheck.
- * - `checkIsReady` and `getSystemInfo` are kept uncalled; if ever removed, remove the
- *   system-key environment declaration WITH them.
- */
-
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
@@ -27,6 +15,10 @@ export const checkIsLive = async (): Promise<CheckIsLiveReturn> => {
   return apiClient<CheckIsLiveReturn>("/system/is_live", CheckIsLiveReturnSchema, { authType: "none" });
 };
 
+/**
+ * Kept uncalled deliberately. Removing this or `getSystemInfo` means removing the system-key
+ * environment declaration with it.
+ */
 export const checkIsReady = async (): Promise<CheckIsReadyReturn> => {
   "use cache";
 
@@ -40,6 +32,6 @@ export const getSystemInfo = async (): Promise<GetSystemInfoReturn> => {
 
   cacheLife("minutes");
   cacheTag("system");
-  // "/system/info", not "/system/meta" -- the latter has never existed on the backend.
+  // "/system/info", never "/system/meta": the backend serves no such route.
   return apiClient<GetSystemInfoReturn>("/system/info", GetSystemInfoReturnSchema, { authType: "system" });
 };

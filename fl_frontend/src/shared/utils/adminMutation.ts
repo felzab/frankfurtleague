@@ -1,23 +1,3 @@
-/**
- * SHARED · admin mutation runner
- *
- * Wraps every admin mutation body, doing the two things each of them would otherwise have to repeat:
- *
- *   1. **Seed the request scope.** A mutation runs in a dynamic context, which is where the
- *      edge-minted correlation id is readable (`headers()` is allowed here, unlike inside
- *      `"use cache"`), so the wrapper is what puts the id where `apiClient` and the logger pick it
- *      up (`core/requestScope.ts`).
- *   2. **Convert a thrown API error into the result the caller renders.** `apiClient` throws on any
- *      non-2xx; without this boundary the throw crosses the server-action boundary, Next redacts it
- *      to a digest, and the admin's toast is replaced by the whole error page — for a 409 that is an
- *      ordinary, expected outcome. The failure is logged HERE, with its codes and id,
- *      because a handled error never reaches `onRequestError`.
- *
- * **Named for the mutation rather than the transport**, because it wraps both: the admin server
- * actions and the page-owned editors' undo route handlers — everything in this wrapper applies to
- * them unchanged, which is part of why that shape was chosen.
- */
-
 import { unstable_rethrow } from "next/navigation";
 
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
@@ -28,30 +8,22 @@ import { runWithIncomingCorrelationId } from "./correlationScope";
 
 import type { FormState } from "@/shared/types/types";
 
-// Generic over the success shape: the create action resolves with `created_id`, the edit actions
-// with `updated_document`, and the failure branch narrows to the plain `FormState` both extend.
 /**
- * The generic form banner for a payload the schema refused, declared ONCE (decided 2026-08-08).
- *
- * Every slice's actions rendered its own copy of this sentence, which is how one of them came to end in
- * an exclamation mark while the rest of the corpus ends in a period. The message format is the one every
- * refusal follows: Du-form imperative, no "Bitte", one period — and the reader is the capitalised Du,
- * per the copy rules in `docs/frontend/spec.md` §1.12. The field messages beside it carry the specifics;
- * this is only the banner saying the form as a whole did not go through.
+ * The generic banner for a payload the schema refused, declared once, in the refusal format §1.12 of
+ * `docs/frontend/spec.md` sets. The field messages beside it carry the specifics.
  */
 export const VALIDATION_FAILED = "Überprüfe Deine Eingaben.";
 
 /**
- * What every admin write answers when the session carries no admin role, declared once beside the
- * banner above and for the same reason: thirty-seven guards across seven action modules and the seven
- * undo handlers say this one sentence, in an interface that is German everywhere else.
- *
- * It is reachable rather than theoretical — it becomes `FormState.error`, which every editor renders
- * into a toast description. Signing in again is the admin's only remedy, so the sentence names that
- * rather than the role that is absent.
+ * What every admin write answers when the session carries no admin role. It becomes `FormState.error` and reaches a
+ * toast, so it names the admin's only remedy rather than the role that is absent.
  */
 export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an.";
 
+/**
+ * Seeds the request scope with the edge-minted correlation id, and converts a thrown API error into the caller's result
+ * — without which Next redacts the throw to a digest and an ordinary 409 replaces the admin's toast with the error page.
+ */
 export async function runAdminMutation<T extends { success: boolean }>(
   mutationName: string,
   fn: () => Promise<T>,
@@ -60,7 +32,7 @@ export async function runAdminMutation<T extends { success: boolean }>(
     try {
       return await fn();
     } catch (error) {
-      // A framework control-flow throw (redirect(), notFound()) is a navigation, not a failure.
+      // A framework control-flow throw (redirect(), notFound()) is a navigation rather than a failure.
       unstable_rethrow(error);
 
       const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;

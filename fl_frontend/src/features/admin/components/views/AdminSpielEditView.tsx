@@ -18,44 +18,25 @@ import type { FLSpiel, FLSpielWithDraftFields } from "@/features/spiele/schemas"
 import type { ActionRequiredCategory } from "@/features/spiele/types";
 
 /**
- * The whole body of `/admin/spiele/[spiel_id]` — what the fixture is, then the form that edits it.
- *
- * **In `admin` rather than in `spiele`, and it reads `useAdmin()` so the form never has to.** The four
- * lookup lists are the aggregator's to gather; `AdminEditSpielDataForm` takes them as props
- * because a `spiele` component reading the admin context would make the write path depend on `admin`.
- * This view is the bridge, and it is the only consumer of that context.
- *
- * **It also computes which action-required categories this fixture falls into**, by calling the same
- * `categorizeActionRequired` the triage list uses over a single-element array. That keeps one copy of the
- * rule and is the reason the form can mark a field as expected without `spiele` importing `admin`.
- *
- * **The header states identity and nothing live.** Everything that changes as the admin types is in the
- * form's own preview rail — one live readout on the page, rather than a second one up here disagreeing
- * with it.
+ * The bridge for the match editor: it reads `useAdmin()` so `AdminEditSpielDataForm` never has to and
+ * takes the lookup lists as props (frontend spec I12). It runs `categorizeActionRequired` over the one
+ * fixture, so that rule has a single copy.
  */
 export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; today: string }) {
   const router = useRouter();
   const { teams, spielorte, schiedsrichter, saisonSpiele } = useAdmin();
 
   /**
-   * The form's own guarded exit, registered from below so the header pill and Abbrechen are one
-   * route. Before this, the pill called `router.back()` directly — the control that exists BECAUSE it
-   * can be guarded (see the settled note on keeping it) was the one exit that skipped the guard, and
-   * unsaved work left without a word. The initial value covers the render before the form registers,
-   * during which the draft cannot be dirty yet.
+   * The form's guarded exit, registered from below so the header pill and Abbrechen are one route: a
+   * direct `router.back()` on the pill skips the discard guard. The initial value covers the render
+   * before the form registers.
    */
   const requestLeaveRef = useRef<() => void>(() => router.back());
 
   /**
-   * The season-wide rule, applied to one fixture and handed to the form as a function.
-   *
-   * A function rather than a set, because the answer has to move with the draft: toggling Absage makes
-   * `categorizeActionRequired` report the fixture as cancelled and stop reporting it under any of the
-   * four "fehlt" categories, so "Offene Angaben" empties in real time instead of at the next load.
-   *
-   * `bracketFaults` is deliberately not passed: a fault is a backend derivation over a whole season and
-   * this route reads one match, so re-deriving it here would be a second copy of a rule that exists to
-   * have only one.
+   * A function and not a set, because the answer moves with the draft: toggling Absage empties "Offene
+   * Angaben" at once. `bracketFaults` is not passed — a fault is a backend derivation over a whole
+   * season and this route reads one match.
    */
   const categorize = (spiel: FLSpielWithDraftFields): ReadonlySet<ActionRequiredCategory> =>
     new Set(
@@ -65,9 +46,8 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
     );
 
   return (
-    // Fills `main` exactly and owns no padding: the form inside is the page's shell — an inner
-    // container scrolls the header and panels, and the action bar stays pinned below it, outside the
-    // scroll content.
+    // No padding of its own: the form inside is the page's shell, scrolling its own header and panels
+    // while the action bar stays pinned outside the scroll content.
     <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminEditSpielDataForm
         spielData={spielData}
@@ -82,9 +62,7 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
         }}
         pageHeader={
           <>
-            {/* Copied from `TeamSpielerView` and `TeamDetailsBackButton` rather than re-invented:
-                both sit on detail pages reached from several places, so history is the first thing
-                they try. This one goes through the discard guard, which is why it is not shared. */}
+            {/* Not shared with the other back buttons: this one goes through the discard guard. */}
             <Button
               onPress={() => requestLeaveRef.current()}
               className="bg-surface border-border text-foreground data-hovered:bg-hover fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
@@ -94,14 +72,11 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
 
             <header className="mb-6 flex w-full flex-col gap-y-2">
               <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
-                {/* `fluid-2xl`, one step above the `fluid-xl` the other pages use, and deliberately
-                    so: on those pages the title tops a single card or grid, while here it has to
-                    outrank four `fluid-base` panel titles and a rail of them — at `fluid-xl` it
-                    differed from a panel title in nothing but a few pixels of size. */}
+                {/* One step above the other pages' `fluid-xl`: here the title has to outrank the
+                    panel titles below it and a rail of them. */}
                 <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">Spiel {spielData.spiel_nr}</h2>
                 <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
               </div>
-              {/* One sentence. The second ("the preview shows…") explained a card that explains itself. */}
               <p className="fluid-sm text-foreground-muted font-medium">Änderungen gelten erst, wenn Du speicherst.</p>
             </header>
           </>

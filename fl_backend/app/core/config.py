@@ -1,19 +1,3 @@
-"""
-CORE · backend configuration
-
-Every environment variable the service reads, declared once as a pydantic-settings model, plus
-the one thing that deliberately is not one — `API_VERSION` is a constant, not a setting.
-Anything absent from both is a hardcoded constant somewhere, which is usually a defect.
-
-Invariants:
-- Secrets are `SecretStr`; reach a value only through `.get_secret_value()`, where it is used.
-- Fields without a default are required at boot, and the three API keys never gain one.
-- Nothing constructs the settings at import time — `get_config()` builds them.
-
-See:
-- docs/backend/spec.md — the environment section
-"""
-
 from functools import lru_cache
 from typing import Literal
 
@@ -22,9 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
-# A property of THIS CODE, not a deployment's: an environment able to set it could serve `/api/v2/`
-# from code implementing v0, so bumping it is a code change (docs/ops/spec.md). The frontend's own
-# env var is legitimate -- a client chooses a version.
+# A property of THIS CODE, never a deployment's: an environment able to set it could serve
+# `/api/v2/` from code implementing v0.
 API_VERSION = 0
 
 
@@ -58,9 +41,8 @@ class BackendConfig(BaseSettings):
         default="WARNING",
         description="The minimal level a database related log has to reach to be processed",
     )
-    # Defaults to the production format on purpose: a production `.env` omitting the variable must not
-    # log ANSI-colourised output into the container's json-file stream. Development opts in explicitly
-    # (docs/logging/spec.md).
+    # Defaults to the production format: a `.env` omitting the variable must not log ANSI-colourised
+    # output into the container's json-file stream.
     log_format: Literal["console", "json"] = Field(default="json", description="The log format; json unless explicitly set to console")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -68,8 +50,7 @@ class BackendConfig(BaseSettings):
     @field_validator("log_level_app", "log_level_db", "log_format", mode="before")
     def normalize_logging_case(cls, value: object) -> object:
         # `LOG_FORMAT=JSON` or `LOG_LEVEL_APP=info` must select the intended branch rather than fail
-        # the boot over casing -- a hand-restored `.env` is where that typo happens. Anything else
-        # still fails loudly via the Literal.
+        # the boot over casing.
         if isinstance(value, str):
             return value.lower() if value.lower() in ("console", "json") else value.upper()
         return value
@@ -84,15 +65,9 @@ class BackendConfig(BaseSettings):
 
 @lru_cache
 def get_config() -> BackendConfig:
-    """
-    The settings, built once and reused — FastAPI's documented pattern for configuration.
+    """The settings, built once and reused.
 
-    A FUNCTION rather than a module-level instance, and that is the whole point: a module-level one
-    would make importing any module that touches configuration read the environment as a side effect
-    (`app/asgi.py`, which holds the one deliberate instance of that).
-
-    `lru_cache` makes it a singleton without making it a global. Endpoints take it as
-    `Depends(get_config)`, so a test can replace it through `app.dependency_overrides` rather than by
-    mutating `os.environ` and hoping about import order.
+    A FUNCTION rather than a module-level instance, which would make importing any module touching
+    configuration read the environment as a side effect.
     """
     return BackendConfig()  # type: ignore[call-arg]

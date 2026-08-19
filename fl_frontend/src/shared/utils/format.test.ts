@@ -1,12 +1,3 @@
-/**
- * SHARED · format tests
- *
- * Covers the display formatters and the shared placeholders. The cases that matter are the ones a
- * reader would not think to write: `formatSpielDatum` is pinned against both German DST offsets and
- * against a viewer in another timezone, because the failure it guards is a date rendering one day off
- * for some users and not others.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -83,9 +74,8 @@ describe("formatSpielDatum", () => {
     const anchored = new Date("2026-07-28T12:00:00Z");
     const naive = new Date("2026-07-28");
 
-    // UTC-11 through UTC+11. 12:00Z + 12h is already 00:00 the next day, so the anchor does
-    // not cover UTC+12 and beyond -- but formatSpielDatum pins timeZone itself, so the anchor
-    // is only a guard for a future caller who reuses the instant without one.
+    // UTC-11 through UTC+11: midday plus twelve hours is already the next day, so this does not
+    // reach UTC+12. `formatSpielDatum` pins the zone itself, so this guards a future reuse.
     for (const timeZone of ["Pacific/Midway", "America/New_York", "Europe/Berlin", "Etc/GMT-11"]) {
       const day = new Intl.DateTimeFormat("de-DE", { timeZone, day: "2-digit" }).format(anchored);
       assert.equal(day, "28", `anchored instant shifted in ${timeZone}`);

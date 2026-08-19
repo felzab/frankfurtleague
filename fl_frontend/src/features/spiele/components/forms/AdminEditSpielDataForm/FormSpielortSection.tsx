@@ -13,12 +13,8 @@ import type { FLSpielOrtFieldDraft } from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 
 /**
- * Which venue, and what it costs.
- *
- * The price is subordinate to the choice rather than its peer — it is a property *of* the venue — so the
- * two sit in a 2fr/1fr grid instead of a 50/50 one. It is prefilled from the venue's own
- * `default_mietpreis` and then editable, because what a fixture actually cost is a property of the
- * fixture.
+ * The price is subordinate to the choice rather than its peer, hence 2fr/1fr. Prefilled from the
+ * venue's `default_mietpreis` and then editable, what a fixture cost being the fixture's property.
  */
 export function FormSpielortSection({
   spielorte,
@@ -31,13 +27,8 @@ export function FormSpielortSection({
   onOrtChange: (payload: FLSpielOrtFieldDraft | null) => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
-  // The picker hands over the resolved record. Looking it up here against `spielorte` would miss a
-  // Spielort just created in the modal, which lives only in the picker's own list until the next
-  // server render — a silent failure behind a success toast.
-  //
-  // Which is also why `name` and `maps_link` need no inputs: both arrive off a record `FLSpielortSchema`
-  // parsed `.nonempty()`, or off a create whose payload schema refused an empty name — so neither is a
-  // path this form can be refused on.
+  // The picker hands over the resolved record: looking it up against `spielorte` would miss one
+  // just created in the modal, a silent failure behind a success toast.
   const handleOrtChange = (resolvedOrt: FLSpielort | null) => {
     onOrtChange(
       resolvedOrt
@@ -51,17 +42,15 @@ export function FormSpielortSection({
     );
   };
 
-  // NaN is an emptied field, not a zero price — see the note on `FormSchiedsrichterSection`.
-  // `Math.round`, because a decimal is typable (the field carries no `step`) and the payload wants an
-  // integer: rounding at entry beats a schema rejection.
+  // NaN is an emptied field, not a zero price. `Math.round` because a decimal is typable, the
+  // field carrying no `step`, and rounding at entry beats a schema rejection.
   const handleMietpreisChange = (newPrice: number) => {
     if (ortPayload) {
       onOrtChange({ ...ortPayload, mietpreis: isNaN(newPrice) ? null : Math.round(newPrice) });
     }
   };
 
-  // The ±5 buttons' own arithmetic: an empty field steps from 0, and the floor is the field's own
-  // minimum. `?? null` twice, because `mietpreis` is already `number | null`.
+  // An empty field steps from 0, and the floor is the field's own minimum.
   const stepMietpreis = (delta: number) => {
     if (ortPayload) {
       onOrtChange({ ...ortPayload, mietpreis: Math.max(0, (ortPayload.mietpreis ?? 0) + delta) });
@@ -97,9 +86,8 @@ export function FormSpielortSection({
         name="ort.mietpreis"
         value={ortPayload?.mietpreis ?? NaN}
         onChange={handleMietpreisChange}
-        // On blur, not on change: a cleared box is `NaN` for as long as it takes to type the first
-        // digit of the replacement, and complaining in that window is the eager-validation failure
-        // (`useDraftFieldErrors`).
+        // On blur: a cleared box is `NaN` until the first digit of its replacement is typed, and
+        // complaining in that window is the eager-validation failure.
         onBlur={() => onValidateFields(["ort.mietpreis"])}
         onKeyDown={suppressEnterSubmit}
         formatOptions={{

@@ -6,9 +6,8 @@ import { PILL_RADIUS } from "@/shared/components/ui/badges";
 
 import type { FLSpielStatus } from "../../schemas";
 
-// Module scope, and `Record<FLSpielStatus,...>` so they stay exhaustive: in the
-// component these rebuild per render, and a backend enum change becomes a compile
-// error rather than a raw API value in the UI. Contrast is `globals.css`'s.
+// Module scope so they do not rebuild per render, and `Record<FLSpielStatus,...>` so a backend
+// enum change is a compile error rather than a raw API value in the UI.
 const STATUS_CLASSES: Record<FLSpielStatus, string> = {
   vergangen: "bg-success/15 text-success-strong",
   heute: "bg-info/15 text-info-strong",
@@ -25,9 +24,7 @@ const STATUS_ICONS: Record<FLSpielStatus, React.ReactElement> = {
   abgesagt: <XmarkShapeFill className="size-3.5" />,
 };
 
-// The label is deliberately not the schema value: rendering `spielStatus` directly coupled the
-// user-visible German to the API contract. "Datum offen" also says what `unbekannt` means -- the
-// date is not set yet, rather than something being wrong.
+// Deliberately not the schema value, which would couple the visible German to the API contract.
 const STATUS_LABELS: Record<FLSpielStatus, string> = {
   vergangen: "Beendet",
   heute: "Heute",

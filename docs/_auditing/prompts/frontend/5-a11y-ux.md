@@ -21,11 +21,9 @@ it.
 
 SECTION A — ACCESSIBILITY
 
-A0. **WCAG 2.2 Level AA conformance table.** Anchor this pass to the published criteria rather than
-to a hand-rolled checklist. **WCAG 2.2 is the current W3C Recommendation**
-(<https://www.w3.org/TR/WCAG22/>, also published as ISO/IEC 40500:2025); WCAG 3.0 remains a draft
-and is not the target. Per the shared protocol's rule on external standards, fetch the current
-criteria list and state the version in the header.
+A0. **WCAG 2.2 Level AA conformance table**, anchored per the shared protocol's rule on external
+standards. **WCAG 2.2 is the current W3C Recommendation** (<https://www.w3.org/TR/WCAG22/>, also
+published as ISO/IEC 40500:2025); WCAG 3.0 remains a draft and is not the target.
 
 One row per Level A and Level AA success criterion — every one, no omissions: criterion | how
 this app satisfies it, with the component or file | evidence, including how it was checked |
@@ -39,21 +37,17 @@ comment that records it — never silently `met`, and never re-flagged as a new 
 
 A1. **Overlay correctness.** Enumerate the modals, popovers and drawers (derive the list), and per
 overlay: focus trap, restore on close, Escape, labelled dialog, scroll lock — noting which
-behaviour comes from library primitives and which is hand-rolled. Recurring traps, each to be checked
-every time: a library `*.Trigger` component already renders a focusable button, so nesting a
-`<button>` inside one is invalid HTML and a double tab stop; overlays survive client-side
+behaviour comes from library primitives and which is hand-rolled. Recurring traps, each to be
+checked every time: a library `*.Trigger` component already renders a focusable button, so nesting
+a `<button>` inside one is invalid HTML and a double tab stop; overlays survive client-side
 navigation unless wired to the shared navigation-close hook, because a client-side navigation is
-not a light-dismiss interaction; and a top-placed overlay's `bottom` is computed against the
-viewport but resolved by CSS against its containing block, so check that `<html>` and `<body>` carry
-nothing that forms a containing block — no `position` other than `static`, no `transform`,
-`translate`, `rotate`, `scale` or `perspective`, no `filter` or `backdrop-filter`, no `contain` of
-`layout`, `paint`, `strict` or `content`, no `will-change` naming any of those, and no
-`container-type`. Any one of them opens every such overlay a whole scroll height low on a route whose
-document scrolls (`docs/frontend/spec.md :: I29`).
+not a light-dismiss interaction; and anything making `<html>` or `<body>` a containing block opens
+every top-placed overlay a whole scroll height low on a route whose document scrolls, so verify
+`docs/frontend/spec.md :: I29`, which enumerates the properties that do it.
 
 A2. **Keyboard reachability.** Click handlers on non-interactive elements, custom dropdowns, table
 row interactions, anything reachable by pointer only. Drive the running app, honouring the
-environment traps in `docs/_auditing/lessons.md` — a hidden browser pane never matches `:focus`
+environment traps in `docs/_auditing/lessons.md` §6 — a hidden browser pane never matches `:focus`
 and manufactures convincing fake bugs. **List what you actually drove and what you did not**, and
 tag the remainder needs-human.
 
@@ -89,8 +83,7 @@ field owns; feedback not queued into an unmounting tree (fire before navigation)
 C8. **Locale formatting.** Dates, times and numbers through the shared Berlin-pinned formatters and
 the one-placeholder-per-category constants, never ad-hoc `toLocale*` calls.
 
-Priority order: A0, A1, A3, A2, A4, C6, C7, A5, C8. Needs-human findings go in the verdict's
-needs-human list, where the ledger turns them into wave exit-gate clauses.
+Priority order: A0, A1, A3, A2, A4, C6, C7, A5, C8.
 
 BOUNDARIES — not this pass: styling tokens, dark mode, class repetition, performance → f6 · form
 input _validation shape_ → f3 · anything the a11y lint rule already errors on.

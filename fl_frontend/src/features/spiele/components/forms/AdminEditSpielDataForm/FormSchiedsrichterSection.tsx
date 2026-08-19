@@ -24,9 +24,7 @@ export function FormSchiedsrichterSection({
   onSchiedsrichterChange: (payload: FLSpielSchiedsrichterFieldDraft | null) => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
-  // The picker hands over the resolved record — see `FormSpielortSection`, whose second half holds
-  // here too: `name` arrives off a `FLSchiedsrichterSchema` parse or a `PersonNameSchema` create, so
-  // it needs no input of its own.
+  // The resolved record, as in `FormSpielortSection`: `name` arrives already parsed.
   const handleSchiedsrichterChange = (resolved: FLSchiedsrichter | null) => {
     onSchiedsrichterChange(
       resolved
@@ -39,9 +37,8 @@ export function FormSchiedsrichterSection({
     );
   };
 
-  // An emptied currency field arrives as NaN and must stay empty: coerced to 0, a
-  // cleared Honorar submits as 0 € and reads as a referee working for free. The
-  // `?? NaN` below is the other half -- RAC types `value?: number`.
+  // An emptied field arrives as NaN and must stay empty: coerced to 0, a cleared Honorar submits
+  // as a referee working for free. The `?? NaN` below is the other half.
   const handlePaymentChange = (newPayment: number) => {
     if (schiedsrichterPayload) {
       onSchiedsrichterChange({
@@ -51,7 +48,7 @@ export function FormSchiedsrichterSection({
     }
   };
 
-  // The ±5 buttons' own arithmetic — see the Mietpreis twin.
+  // As the Mietpreis twin.
   const stepPayment = (delta: number) => {
     if (schiedsrichterPayload) {
       onSchiedsrichterChange({ ...schiedsrichterPayload, payment: Math.max(0, (schiedsrichterPayload.payment ?? 0) + delta) });
@@ -87,7 +84,7 @@ export function FormSchiedsrichterSection({
         name="schiedsrichter.payment"
         value={schiedsrichterPayload?.payment ?? NaN}
         onChange={handlePaymentChange}
-        // On blur — see the note on the Mietpreis field, which is the same box with the same NaN window.
+        // On blur, for the Mietpreis field's reason: the same box with the same NaN window.
         onBlur={() => onValidateFields(["schiedsrichter.payment"])}
         onKeyDown={suppressEnterSubmit}
         formatOptions={{

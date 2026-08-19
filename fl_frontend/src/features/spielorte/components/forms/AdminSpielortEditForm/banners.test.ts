@@ -1,11 +1,3 @@
-/**
- * SPIELORTE · venue editor banner tests
- *
- * The fan-out entry is the one an admin acts on, and both identity fields raise it. Asserting the two
- * fields against each other is what keeps a rename and a moved address from drifting into two
- * different warnings about one write.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -37,8 +29,7 @@ describe("buildSpielortBanners", () => {
 
     assert.equal(banner?.id, "spielort.retired");
     assert.equal(banner?.severity, "info");
-    // Rail-only: the retirement belongs to no panel's field, and the header carries the date and the
-    // control that reverses it.
+    // Rail-only: the retirement belongs to no panel's field.
     assert.equal(banner?.inline, null);
   });
 
@@ -52,8 +43,7 @@ describe("buildSpielortBanners", () => {
   });
 
   it("states the fan-out exactly once, however many identity fields were touched", () => {
-    // An admin who changed both the name and the address is looking at one write, so two entries
-    // would be the same consequence read twice.
+    // One write, so two entries would be the same consequence read twice.
     for (const touched of [{ isNameChanged: true }, { isAddressChanged: true }, { isNameChanged: true, isAddressChanged: true }]) {
       assert.deepEqual(ids(build(touched)), ["spielort.maps-link-derived"]);
     }

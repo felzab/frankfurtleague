@@ -11,40 +11,18 @@ import { useDraftStatus } from "./DraftStatusContext";
 const SAVE_HINT_ID = "spiel-speichern-hinweis";
 
 /**
- * Save, cancel, and the running state of the draft — the fixed bottom row of the editor's shell.
- *
- * **Not sticky any more, and that is the fix.** Three rounds of sticky geometry each left a way for
- * the bar to move — page-end padding beneath it, overscroll bounce, the mobile URL bar resizing the
- * viewport — because a sticky element lives INSIDE the scroll content. The form is now a shell: an
- * inner container scrolls the page, and this bar is its static sibling below (eighth review:
- * "the bar stays stuck to the bottom at all times, just the content scrolls"). Outside the scroll
- * content there is nothing left that can move it.
- *
- * **This bar is what makes the unsaved-changes handling non-nagging.** Nothing appears until
- * something is actually unsaved, and nothing interrupts until the admin tries to leave — the count
- * sits in the one place their eye already goes when they reach for Speichern.
- *
- * Two rows on a phone, one from `sm` up — never `flex-wrap`: wrapping dropped whichever button no
- * longer fit alone onto a second row. The narrow layout is the platform convention — status on its
- * own line, then both actions side by side at equal width, Speichern in the thumb-side position.
- *
- * **Save is never disabled on a client VERDICT.** A verdict can be stale — the schema runs in the
- * browser and the server is the authority — so an invalid count is reported and the button still
- * works; `useServerFieldErrors` moves focus to the first real rejection when the server answers.
- *
- * **It IS disabled while nothing has changed** (decided 2026-08-06), and that is a different thing:
- * emptiness is not a judgement about whether a value is good, it is the arithmetic this bar already
- * performs to print "Keine Änderungen". A save with no changes writes the fixture back over itself,
- * re-resolves the season's bracket and raises an undo offer for an edit nobody made — so the button
- * that does nothing should not look like the button that does something.
+ * **Never disabled on a client verdict** (it can be stale), but disabled while nothing has changed:
+ * an empty save rewrites the fixture and re-resolves the bracket.
  */
 export function FormActionBar({ isPending, onCancel }: { isPending: boolean; onCancel: () => void }) {
   const status = useDraftStatus();
 
   return (
+    // Static, never sticky: a sticky bar sits inside the scroll content, where page-end padding,
+    // overscroll bounce and the mobile URL bar each moved it.
     <div className="border-border bg-background w-full border-t px-4 py-3 sm:px-8">
       <div className="max-w-page mx-auto flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-        {/* At the bar's leading edge, where a reader's eye enters the row. The disabled Speichern
+        {/* At the leading edge, where the eye enters the row. The disabled Speichern
             reaches it through `aria-describedby` rather than through proximity. */}
         <p
           id={SAVE_HINT_ID}

@@ -1,28 +1,10 @@
-/* HeroUI is imported component-by-component rather than as `@import "@heroui/styles"`. That entry
-   pulls in every component the package ships, and **Tailwind does not tree-shake CSS imported from a
-   dependency**, so anything listed lands on the critical path of every page whether or not this app
-   renders it.
+/* HeroUI, component by component: its own entry pulls in everything and Tailwind
+   does not tree-shake a dependency's CSS. Order is HeroUI's `components/index.css`;
+   which stylesheet a component belongs in is `docs/frontend/spec.md` §1.11. */
 
-   **THERE ARE TWO OF THESE LISTS.** This one loads on every route; `app/admin/admin.css` loads only
-   under `/admin` and holds the components no public route can reach. Adding a component
-   means deciding which file it belongs in, and **checking both** — a component listed in neither
-   renders unstyled, and one listed in both is shipped to visitors who never see it.
-
-   Four rules for editing either list:
-   1. **Order is load-bearing.** HeroUI's own file says so: shared primitives first, then components
-      that compose them. Both blocks keep HeroUI's order exactly -- add a component at the position it
-      occupies in `node_modules/@heroui/styles/dist/components/index.css`, never at the end.
-   2. **Import a component's CSS in the same change that first renders it.** A missing import does not
-      fail the build or the types; the component simply renders unstyled, and only on the page that
-      uses it.
-   3. **Public unless proven otherwise.** A component belongs in `admin.css` only if NO public route
-      can reach it, established from the import graph rather than from folder names — `Select` and
-      `ListBox` look admin-shaped and are public, and `CloseButton` is imported only by an admin form
-      yet may be composed by the public `SpielDetailsModal`. When in doubt it goes here.
-   4. Some entries exist for something other than a direct import: `disclosure`/`disclosure-group`
-      back `Accordion`, `spinner` is `Button`'s loading state, `empty-state` is `ListBox`'s
-      `renderEmptyState`, and `typography` is kept because §2 mandates `Typography` as the replacement
-      for `Text` -- dropping it would make the first use of a mandated component silently unstyled. */
+/* Four entries back no direct import: `disclosure`/`disclosure-group` back `Accordion`, `spinner` is
+   `Button`'s loading state, `empty-state` is `ListBox`'s `renderEmptyState`, and `typography` is held
+   for `Typography`. */
 @layer theme, base, components, utilities;
 
 @import "tailwindcss";
@@ -31,7 +13,7 @@
 @import "@heroui/styles/base/base.css" layer(base);
 @import "@heroui/styles/base/scrollbar.css" layer(base);
 
-/* Shared primitives — must come first. */
+/* Shared primitives */
 @import "@heroui/styles/components/close-button.css" layer(components);
 @import "@heroui/styles/components/description.css" layer(components);
 @import "@heroui/styles/components/error-message.css" layer(components);
@@ -47,9 +29,7 @@
 
 /* Buttons */
 @import "@heroui/styles/components/button.css" layer(components);
-/* Both, and in this order: `ToggleButtonGroup` composes `ToggleButton`, and HeroUI's own index.css
-   puts the two here — after `button`, before the collections. The theme control is the consumer, and
-   it is reachable from `TopNav` on every public route, so this is `globals.css` and not `admin.css`. */
+/* `ToggleButtonGroup` composes `ToggleButton`; the theme control in `TopNav` makes both public. */
 @import "@heroui/styles/components/toggle-button.css" layer(components);
 @import "@heroui/styles/components/toggle-button-group.css" layer(components);
 
@@ -118,86 +98,35 @@
     --bg-muted: #e5e5e5;
     --fg-base: #0a0a0a;
     --fg-muted: #525252;
-    /* Paired foreground for --accent-brand-solid, the way HeroUI pairs --color-surface with
-       --color-surface-foreground. --fg-base cannot be used on that fill: it is near-black in
-       this theme, which is 1.97:1 on the maroon. Re-check this pair if the fill ever changes. */
+    /* Paired foreground for --accent-brand-solid. --fg-base cannot serve: it is near-black here,
+       which measures 1.97:1 on the maroon. Re-check the pair if the fill ever moves. */
     --fg-on-brand: #ffffff;
     --border-base: #d4d4d4;
 
-    /* THE HOVER FILLS -- one declared colour per fill family, and this block is the whole system.
-       A hover moves a control's fill ONE fixed perceptual step away from the page's own lightness:
-       darker in the light theme, lighter in the dark one, 6.7 OKLab L points in both. That number is
-       the mean of the app's own two existing steps (bg-surface -> bg-muted measures 4.82 in the light
-       theme and 8.64 in the dark), so one magnitude replaces two and a hover reads the same in either
-       theme instead of being 1.8x louder in the dark one.
-
-       Declared colours rather than an alpha on an existing token, and that is the point of the block.
-       An alpha composites against whatever sits behind it, so the SAME class lands differently per
-       surface (measured 2026-08-13): `bg-muted/40` gives -1.80 in the light theme, below the
-       ~2-point floor at which a flat-area step reads as a state change at all; `bg-muted/80` gives
-       +0.91 light and -1.67 dark; and `bg-brand-solid/90` moves the fill in OPPOSITE directions per
-       theme, +4.67 light against -2.25 dark, because it blends toward the page and not toward a
-       chosen colour.
-
-       The two -solid- hovers carry ONE value for both themes, because --accent-brand-solid and
-       --accent-danger-solid deliberately do not flip either: a hover on a fill that does not flip
-       must not flip. Measured against white, which is what both carry: 7.56 on the brand hover
-       (10.03 at rest) and 4.86 on the danger one (6.47 at rest). The danger figure is the tightest
-       value in this block and clears WCAG AA for normal text with 0.36 to spare -- re-measure it if
-       either half of the pair ever moves.
-
-       --bg-hover carries --fg-base at 14.86, --fg-muted at 5.86 and --accent-brand at 7.52 here;
-       --bg-hover-danger carries --accent-danger-strong at 4.80, which is why the destructive ghost
-       controls take the -strong companion and not the plain accent (the rule at
-       --accent-danger-strong below). */
+    /* THE HOVER FILLS. One declared colour per family, 6.7 OKLab L points off the
+       page's own lightness. Never an alpha — it composites against what is behind,
+       so the same class lands differently on every surface. */
     --bg-hover: #dfdfdf;
-    /* The same magnitude for a control whose REST fill is --bg-muted rather than the page's own
-       surface. --bg-hover cannot serve one: it sits BETWEEN the two, so from --bg-muted it measures
-       -1.83 here -- under the ~2-point floor -- and -2.09 in the dark theme, where every other hover
-       in the app moves the other way. --bg-muted's own L minus 6.7, taken to the nearest 8-bit grey:
-       92.19 -> 85.45, a -6.74 step. Carries --fg-base at 12.71, --fg-muted at 5.02 and
-       --accent-brand at 6.43. */
+    /* For a control resting on --bg-muted, not the page. --bg-hover sits BETWEEN the
+       two, so from --bg-muted it moves 1.83 points — under the floor, and the wrong
+       way in the dark theme. */
     --bg-hover-muted: #cfcfcf;
     --bg-hover-danger: #f2d8d8;
-    /* The green `(meta)` pages take the same step in their own palette: --field-card's L plus 6.7,
-       hue and chroma untouched, white at 5.72 on it. Named --bg-hover-* and NOT --field-hover:
-       every `--field-*` name is HeroUI's own (`themes/default/variables.css`), `--field-hover` is
-       what its eleven field stylesheets read for `bg-field-hover`, and this file's `@layer base`
-       outranks HeroUI's `theme.base` — so declaring that name here turns the hover background of
-       every input, select, autocomplete and textarea in the app green. */
+    /* Named --bg-hover-*, never --field-hover: that name is what HeroUI's own field
+       stylesheets read, and this `@layer base` outranks its theme — so declaring it
+       here would turn every input's hover green. */
     --bg-hover-field: oklch(49.9% 0.095 166.913);
+    /* One value for both themes, because the fills they answer to do not flip either. */
     --accent-brand-solid-hover: #982f2d;
+    /* 4.86:1 against the white it carries, the tightest pair here — re-measure if either half moves. */
     --accent-danger-solid-hover: #d13832;
 
     /* Accents & Feedback */
     --accent-brand: #82181a;
 
-    /* THE focus colour, and the condition under which a control departs from it (decided 2026-07-31).
-       HeroUI reads --focus for its focus rings, and the base-layer rule further down gives plain
-       <a>/<button> an identical outline. A control whose focus ring sits INSET on its own fill -- no
-       offset, so it cannot be judged against the surface behind -- recolours that ring where the fill
-       fails WCAG 1.4.11 against --focus, and every such departure is recorded here: `StufenPicker.tsx
-       :: STUFE_CHIP` does it on the SELECTED chip, where --fg-base is near-black and measures 1.97:1
-       on the maroon, and 3:1 is the floor.
-       INSET is the whole of the condition rather than a detail of it. Every other ring this app draws
-       stands 2px clear of the fill -- the base rule's outline-offset below, and HeroUI's `focus-ring`
-       resolving --tw-ring-offset-width to the theme's own 2px -- so the SURFACE behind it, not the
-       fill, is the adjacent colour it answers to; `toggle-button-group.css` is the one file in the
-       package that overrides that to 0px plus `ring-inset`. Recolouring a `bg-brand-solid` or
-       `bg-danger-solid` control that keeps the ordinary offset would therefore CAUSE the failure this
-       rule exists to prevent: --fg-on-brand measures 1.09:1 on the light theme's --bg-surface.
-       One app indicator departs from that OFFSET while keeping this colour, and is recorded here for
-       the same reason: the clear controls inside the two segmented fields, inset because their group
-       clips an outward outline (the exceptions block further down). They carry no fill of their own,
-       so the surface behind them is still what --focus answers to, and the recolouring condition
-       above does not reach them.
-       The condition is written out because it EXTENDS --fg-on-brand's pairing rule, which governs
-       text, to a non-text indicator -- it is not that pairing applied.
-       --fg-base, not --accent-brand: it is white in the dark theme -- the chosen look --
-       and near-black in the light theme, where white would be invisible on --bg-base. Both read as
-       "the standard focus outline", which is the point.
-       A control that opts out of the indicator altogether is declared unlayered further down this
-       file, so nothing in a layer can put it back. */
+    /* THE focus colour. A ring departs from it only where it sits INSET on the
+       control's own fill and that fill fails WCAG 1.4.11 — `StufenPicker.tsx ::
+       STUFE_CHIP` selected is the one bearer. */
     --focus: var(--fg-base);
     /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 10:1 in both themes --
        while --accent-brand does, for foreground use on dark surfaces. */
@@ -207,29 +136,17 @@
     --accent-success: #16a34a;
     --accent-info: #2563eb;
 
-    /* Text-grade companions to the four feedback accents, in the same relationship as
-       --accent-brand-solid is to --accent-brand: the accents above are tuned for FILLS and icons,
-       and are too light to carry small bold text on a light surface. Measured on a /15 tint over
-       --bg-surface: `text-success` is 2.58:1 and `text-warning` 1.61:1, versus 6.11 and 5.96 for
-       these. Use `-strong` for any text on a tinted background; use the plain accent for fills.
-
-       Success and warning are the 800 step of their scale, not the 700 the other two use. **Measure
-       against --bg-muted**, the darkest of the three light surfaces and the one that decides these
-       values: the 700s clear 4.5:1 on --bg-base and --bg-surface but reach only 4.35 and 3.99 here,
-       while the 800s measure 6.10 and 5.63. Amber-800 reading browner than amber-700 is an accepted
-       cost, not an oversight (decided 2026-08-01). */
+    /* Text grade for the four feedback accents, which are tuned for fills:
+       `text-warning` measures 1.61:1 on a tint against 5.96 here. The 800 step,
+       because on --bg-muted the 700s reach only 3.99. */
     --accent-success-strong: #065f46;
     --accent-info-strong: #1d4ed8;
     --accent-warn-strong: #92400e;
     --accent-danger-strong: #b91c1c;
 
-    /* Fill-grade companions, in exactly the relationship --accent-brand-solid has to --accent-brand:
-       one deep value that does NOT flip, so a white foreground is legible on it in both themes
-. The plain accents above are tuned as tints, and white on them measured
-       3.30:1 light / 2.28:1 dark for success, 1.92 / 1.32 for warning -- the draw badge was very
-       nearly invisible in dark mode. These measure 5.45 / 4.55 / 5.96, identical in both themes.
-       Use `-solid` for an opaque badge behind text, the plain accent for a tint, `-strong` for text
-       on a tint. Re-measure the pair if either half ever changes. */
+    /* Fill grade: one deep value that does NOT flip, so white stays legible in both
+       themes — on the plain warning accent it measured 1.32:1 in the dark.
+       `-strong` is for text on a tint. */
     --accent-success-solid: #047857;
     --accent-warn-solid: #b45309;
     --accent-danger-solid: #b91c1c;
@@ -237,29 +154,23 @@
     --fg-on-warn: #ffffff;
     --fg-on-danger: #ffffff;
 
-    /* Tournament rounds. The five phases are an ordered sequence, not a semantic state, so none of
-       the feedback accents above fits -- these exist so SaisonPhaseChip stops reaching into the raw
-       palette. Values are Tailwind's sky/blue/indigo/purple/rose 700 verbatim, and each is used both
-       as the label colour and as a /10 tint behind it. Blue sits between sky and indigo on the hue
-       wheel, which is where `achtelfinale` sits in the sequence. */
+    /* Tournament rounds — an ordered sequence, not a semantic state, so no feedback
+       accent fits. Tailwind's sky/blue/indigo/purple/rose 700, in hue-wheel order
+       so the colours run in step with the phases. */
     --accent-phase-gruppenphase: oklch(50% 0.134 242.749);
     --accent-phase-achtelfinale: oklch(48.8% 0.243 264.376);
     --accent-phase-viertelfinale: oklch(45.7% 0.24 277.023);
     --accent-phase-halbfinale: oklch(49.6% 0.265 301.924);
     --accent-phase-finale: oklch(51.4% 0.222 16.935);
 
-    /* The soccer-field motif on the `(meta)` pages, which stay green in both themes -- that is the
-       design, not an oversight. Declared as tokens so the decision is these lines rather than a
-       scatter of `text-white` / `bg-emerald-*` literals the token layer cannot reach.
-       --field-base/--field-card are Tailwind's emerald 700/800 verbatim. */
+    /* The soccer-field motif on the `(meta)` pages stays green in both themes — the design, not an
+       oversight. Tokens rather than `bg-emerald-*` literals the token layer cannot reach. */
     --field-base: oklch(50.8% 0.118 165.612);
     --field-card: oklch(43.2% 0.095 166.913);
     --field-fg: #ffffff;
-    /* Alpha lives in the token because this is the one field value that differs per theme. */
     --field-border: color-mix(in srgb, #ffffff 40%, transparent);
-    /* The band that travels across a loading placeholder. A skeleton is `--bg-muted`, and the sweep
-       has to be lighter than that by enough to register at a glance — hence one value per theme
-       rather than a shared alpha: 55% white reads on the light grey, 9% on the dark one. */
+    /* The band crossing a loading placeholder. One value per theme rather than a shared alpha: the
+       sweep has to out-lighten the `--bg-muted` block under it in both. */
     --skeleton-sweep: color-mix(in srgb, #ffffff 55%, transparent);
   }
 
@@ -274,14 +185,10 @@
     --fg-on-brand: #ffffff;
     --border-base: #333333;
 
-    /* The same 6.7-point step in the other direction, so a hover reads identically in both themes:
-       +6.56 from --bg-surface here against -6.65 there. Carries --fg-base at 16.10, --fg-muted at
-       6.38, --accent-brand at 4.47, and --accent-danger-strong at 5.89 on the danger fill. The two
-       -solid- hovers do not flip, for the reason their rest fills do not. */
+    /* The same 6.7-point step in the other direction, so a hover reads identically in both themes. */
     --bg-hover: #212121;
-    /* --bg-muted's own L plus 6.7: 26.86 -> 33.68, a +6.82 step against the light theme's -6.74. It
-       is LIGHTER than --bg-hover above, and has to be -- the rest fill it answers to is lighter than
-       the page too. Carries --fg-base at 11.90 and --fg-muted at 4.72. */
+    /* LIGHTER than --bg-hover above, and has to be: the rest fill it answers to is lighter than the
+       page here too. */
     --bg-hover-muted: #373737;
     --bg-hover-danger: #321919;
     --bg-hover-field: #29573e;
@@ -303,8 +210,8 @@
     --accent-warn-strong: #fbbf24;
     --accent-danger-strong: #f87171;
 
-    /* Same values as the light theme, for the same reason --accent-brand-solid does not flip: these
-       are fills carrying white text, so flipping them would break the pair they exist to hold. */
+    /* Unflipped, like --accent-brand-solid: these are fills carrying white text, and flipping one
+       would break the pair it exists to hold. */
     --accent-success-solid: #047857;
     --accent-warn-solid: #b45309;
     --accent-danger-solid: #b91c1c;
@@ -328,27 +235,9 @@
     --skeleton-sweep: color-mix(in srgb, #ffffff 9%, transparent);
   }
 
-  /* The focus indicator for everything HeroUI does not already style.
-     HeroUI rings its own components through `focus-ring`, which resolves --tw-ring-offset-width to
-     the theme's 2px and the colour to var(--focus). This gives a plain <a>, <button> or [tabindex]
-     an outline with the same width, offset and colour, so the app has ONE focus appearance rather
-     than three (decided 2026-07-31). The rings that do NOT take that offset or that colour are
-     recorded at the --focus declaration above, with the condition that bounds them.
-
-     Why it beats the browser's own focus ring: any author style does.
-
-     **It CAN double up on HeroUI's components, and the unlayered rule below is what stops it.**
-     HeroUI opts its own controls out with `.button:focus-visible:not(:focus), .button[data-focus-visible="true"]`
-     in @layer components, which does outrank this rule — but only where it matches, and its first arm
-     never can: an element that is focused always matches `:focus`, so `:not(:focus)` excludes exactly
-     the state it was written for. The opt-out therefore rests entirely on the second arm, which
-     react-aria sets from its own modality tracking. Wherever that tracking and the browser's
-     `:focus-visible` heuristic disagree — see the switch's note below, the modality is global and
-     survives an earlier key press — this rule painted a 2px white outline over a control HeroUI was
-     already indicating.
-
-     Form fields are absent from the selector by element type, and the field-shaped HeroUI triggers
-     (autocomplete, select, search field) are handled by the unlayered exception block below. */
+  /* The focus indicator for everything HeroUI does not style itself, matching the
+     width, offset and colour its own `focus-ring` resolves to. It CAN double up on
+     a HeroUI control; the unlayered `.button` rule below stops that. */
   a:focus-visible,
   button:focus-visible,
   summary:focus-visible,
@@ -370,9 +259,7 @@
   --color-foreground: var(--fg-base);
   --color-foreground-muted: var(--fg-muted);
   --color-border: var(--border-base);
-  /* The hover fills, as utilities: `hover:bg-hover`, `data-hovered:bg-hover-danger` and the two
-     `-solid-hover` fills. Their values, and the one magnitude behind all of them, are declared once
-     in @layer base above. A control's hover is a token here, never an alpha at a call site. */
+  /* A control's hover is one of these tokens, never an alpha at a call site. */
   --color-hover: var(--bg-hover);
   --color-hover-muted: var(--bg-hover-muted);
   --color-hover-danger: var(--bg-hover-danger);
@@ -383,8 +270,7 @@
   --color-brand-solid: var(--accent-brand-solid);
   --color-brand-solid-hover: var(--accent-brand-solid-hover);
   --color-brand-solid-foreground: var(--fg-on-brand);
-  /* Spelled `warning`, not `warn`: the utility sites all say `warning`, and this shadows
-     HeroUI's own --color-warning rather than competing with it. */
+  /* Spelled `warning`, not `warn`: this shadows HeroUI's own --color-warning rather than competing. */
   --color-warning: var(--accent-warn);
   --color-danger: var(--accent-danger);
   --color-success: var(--accent-success);
@@ -411,23 +297,9 @@
   --color-field-fg: var(--field-fg);
   --color-field-border: var(--field-border);
 
-  /** Fluid text sizes.
-   *
-   * **Declared OUTSIDE Tailwind's `--text-*` namespace, and that is load-bearing.** A `--text-<name>`
-   * token makes Tailwind emit a `text-<name>` utility, and a `text-*` class is one tailwind-merge
-   * believes it understands: it reads the value to decide the group, so `text-xs` is a font size and
-   * `text-brand` is a colour. A size it does not recognise falls into the COLOUR group, where it
-   * competes with the real colour class beside it and one of the two is dropped. Every HeroUI
-   * component that accepts a `className` runs it through its own tailwind-variants instance, so this
-   * happens inside the library, where no configuration of ours reaches.
-   *
-   * These tokens therefore generate no utility at all; the `fluid-*` utilities further down read
-   * them. `fluid-xxs` matches no tailwind-merge group in any instance — a class a library cannot
-   * classify is a class it cannot drop.
-   *
-   * **Never give this scale a `--text-*` token, and never spell a size `text-fluid-*`.** No such
-   * utility exists, so it applies no size and silently inherits one.
-   */
+  /* Fluid sizes, declared OUTSIDE Tailwind's `--text-*` namespace so they emit no
+     utility: a `text-*` class tailwind-merge cannot classify falls into the COLOUR
+     group and drops the real colour beside it, inside HeroUI. */
   /* 10px to 12px */
   --fl-type-xxs: clamp(0.625rem, 0.58rem + 0.2vw, 0.75rem);
   --fl-type-xxs--leading: 1.6;
@@ -464,10 +336,9 @@
   --fl-type-4xl: clamp(2.25rem, 1.73rem + 2.6vw, 3.5rem);
   --fl-type-4xl--leading: 1.1;
 
-  /* Page-width archetypes. Pick one per page archetype rather than spelling a cap inline: a page and
-     the toolbar above it must resolve to the SAME number, and on /dashboard/spielplan a difference
-     of 200px between the tab strip and the grid it controls is visible.
-     NOT named `prose`: Tailwind ships --max-width-prose, and both namespaces feed max-w-*. */
+  /* Page-width archetypes. Pick one rather than spelling a cap inline: a page and
+     the toolbar above it have to resolve to the SAME number. NOT `prose` —
+     Tailwind ships --max-width-prose, and both namespaces feed max-w-*. */
   --container-page: 1400px; /* dashboard + admin content */
   --container-toolbar: 1200px; /* sticky tab and search bars */
   --container-meta: 1100px; /* meta pages */
@@ -480,57 +351,30 @@
   --width-sidemenu: 310px;
   --width-sidemenu-collapsed: 72px;
 
-  /* THE MOTION SCALE. Three durations and two curves, and everything the app animates picks from
-     them. Spell a themed value with PARENTHESES -- `duration-(--motion-base)`. The bracket form
-     `duration-[--motion-base]` emits `transition-duration: --motion-base` with no var(), which is
-     invalid at computed-value time and falls back to the initial 0s, so the transition becomes
-     instant with a green build and no warning (verified by compiling both).
-
-     The two state steps are counted off the app: 150ms is Tailwind's own transition default and what
-     80 of the 113 transition sites already run at, and 200ms is what 29 of the 37 explicit
-     `duration-*` classes say. There is deliberately no 100ms step: HeroUI's overlay exits use it and
-     this app never spells it, so a token would emit nothing and invite a value with no home.
-
-     --motion-slow is NOT a census answer, and the difference matters to anyone tempted to shorten
-     it. It is the value at which an entrance matches the card cascade's settling profile, which is
-     the one piece of motion here nobody has faulted; a census of what the code already does is
-     evidence about the code and none at all about what reads smoothly. 200ms was the counted answer
-     and was rejected on the screen (decided 2026-08-13, by the owner watching all three side by
-     side). Change this only against the cascade, never against the census.
-
-     --motion-ease-enter is the card cascade's own curve, shared rather than a second one beside it.
-     It is an emphasized-decelerate shape -- 90% of the travel is covered in the first 37% of the
-     duration and the rest is a sub-pixel settle -- which is what lets one value answer both halves
-     of "must not feel slow, must not feel rough": the eye reads the arrival early while the fade
-     still runs long enough to be smooth. Tailwind's own `--ease-out` was the alternative and is
-     rejected: it is bit-for-bit Material's LEGACY decelerate, the curve M3 superseded, and it
-     spends the last 40% of its duration still visibly moving.
-
-     --motion-ease-state is bit-for-bit Tailwind's --default-transition-timing-function, so naming it
-     changes nothing on screen and makes the default a stated decision. A two-way state change --
-     hover, colour, width, a fold -- takes it; anything arriving or leaving takes the enter curve. */
+  /* THE MOTION SCALE. Everything the app animates picks from these. Spell a themed
+     value with PARENTHESES: `duration-[--motion-base]` compiles to an invalid value
+     that falls back to 0s — an instant transition with a green build. */
   --motion-fast: 150ms;
   --motion-base: 200ms;
+  /* Tuned against the card cascade's settling profile, not counted off the code. The counted answer
+     was 200ms and the owner rejected it on the screen. Change it against the cascade. */
   --motion-slow: 300ms;
+  /* The cascade's own curve, shared rather than duplicated. Emphasized-decelerate:
+     90% of the travel in the first 37%, so the eye reads the arrival early while
+     the fade still runs long enough to be smooth. */
   --motion-ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Bit-for-bit Tailwind's own default, named so the default is a decision. A
+     two-way state change takes it; anything arriving or leaving takes the enter curve. */
   --motion-ease-state: var(--ease-in-out);
 
-  /* The content loader's dots. Tailwind's `animate-bounce` is 1s at translateY(-25%) -- on a 10px
-     dot that is 2.5px of travel, invisible for the moment the loader is on screen. */
+  /* Tailwind's own bounce travels 2.5px on a 10px dot — invisible for the moment the loader is up. */
   --animate-loader-dot: loader-dot 0.6s infinite ease-in-out;
 
-  /* THE ADMIN PLACEHOLDER'S MINIMUM. Once a placeholder is on screen it stays until 500ms, so a load
-     landing just past the moment it appeared cannot show it for ten milliseconds and take it away.
-     There is deliberately NO delay in front of it: a delay only helps where the previous view stays
-     on screen through it, and this router unmounts the old page at once, so one would paint a blank
-     field for its whole length.
-
-     Run by AdminCrudShell, which mounts when the navigation starts -- the region below the boundary
-     cannot time its own wait, because it mounts when that wait ENDS. Zero duration and a backwards
-     fill: the value is 1 through the delay and there is no active phase to interpolate across, so a
-     reader gets whole or absent and never a partial. `initial-value: 0` closes it, so a hold that
-     never runs holds nothing. The 500ms is a floor on a wait already being reported rather than a
-     motion duration, which is why it is not on that scale. */
+  /* THE ADMIN PLACEHOLDER'S MINIMUM: once on screen it stays until 500ms, so a load
+     landing just after it appeared cannot flash it away. No delay in front — this
+     router unmounts the old page at once, so one would paint a blank field. */
+  /* Zero duration and a backwards fill, so the value is 1 through the delay with no active phase to
+     interpolate across: a reader gets whole or absent, never a partial. */
   --animate-admin-placeholder-hold: admin-placeholder-hold 0s linear 500ms backwards;
 
   @keyframes loader-dot {
@@ -546,38 +390,20 @@
   }
 }
 
-/* PROJECT RULE (applied at the call sites; the one rule below is the exception): every scroll
-   container reserves its gutter with Tailwind's `scrollbar-gutter-stable`, so a scrollbar appearing
-   (an accordion expanding, an overlay locking the page) can never resize the content box and shift
-   the layout. `scrollbar-gutter` only applies to scroll containers -- for the viewport that is
-   <html>, not <body>, so the declaration belongs on <html>. Consumers: <html> in layout.tsx, both
-   dashboard/admin <main>s, the sidemenu nav scroller, ModalShell's body. */
+/* PROJECT RULE, applied at the call sites: every scroll container reserves its gutter with
+   `scrollbar-gutter-stable`, so a scrollbar appearing can never resize the content box. For the
+   viewport that container is <html>, never <body>. */
 
-/* THE EXCEPTION: a route rendering `AppShell` gives the gutter back.
-   That shell is `h-dvh` with its own scroll container inside (`main`), so the viewport itself can
-   never scroll there -- and `scrollbar-gutter: stable` on a container that cannot scroll still
-   reserves the strip, which is ~15px of dead rail down the right of every dashboard and admin page.
-   It is visible as the top bar stopping short of the window edge, which is the one element that has
-   to reach it.
-   Keyed on the shell's own marker with `:has()`, so the public routes -- which DO scroll the
-   viewport and DO need the reservation -- are untouched, and nothing has to reach up and mutate
-   <html> imperatively. Unlayered, so it outranks the utility on the element. */
+/* THE ONE EXCEPTION. `AppShell` is `h-dvh` with its own scroll container inside,
+   so the viewport cannot scroll there and the reservation is ~15px of dead rail.
+   Keyed on the shell's marker, so the public routes keep theirs. */
 html:has([data-app-shell]) {
   scrollbar-gutter: auto;
 }
 
-/* THE app's type scale, and the only way to spell it: `fluid-sm`, never `text-fluid-sm`.
- *
- * Each carries its font size AND its line height, so a size is one class rather than two, exactly as
- * a Tailwind `text-*` utility does. Why they are deliberately not `text-*` is in the token block
- * above, and is worth reading before touching either.
- *
- * Written out nine times rather than as one functional `@utility fluid-*`. The functional form
- * resolves its value through `--value()` at build time and emits nothing for a step that does not
- * exist, so a typo would style silently; nine explicit blocks make an unknown step a class that
- * matches no rule at all.
- *
- * Adding a step means a `--fl-type-*` token pair above and a block here. Nothing else. */
+/* THE app's type scale, and the only way to spell it: `fluid-sm`, never
+   `text-fluid-sm`. Written out per step rather than as one functional
+   `@utility fluid-*`, which would emit nothing for a typo and style it silently. */
 @utility fluid-xxs {
   font-size: var(--fl-type-xxs);
   line-height: var(--fl-type-xxs--leading);
@@ -623,24 +449,15 @@ html:has([data-app-shell]) {
   line-height: var(--fl-type-4xl--leading);
 }
 
-/* Hides the scrollbar, and nothing else — it deliberately does NOT reserve the scrollbar's space.
-   That is the opposite concern and is spelled at the call site with Tailwind's own
-   `scrollbar-gutter-stable`, so a consumer of this utility never inherits a gutter it did not ask
-   for. No `!important` needed: @utility output lands in the utilities layer, which already beats
-   HeroUI's base/scrollbar.css. */
-/* Reserves the scrollbar's strip on BOTH edges, so the content box stays centred inside the container.
-   The one-edge `scrollbar-gutter-stable` is right almost everywhere — a page's content is left-aligned,
-   so a reservation on the inline-end side costs nothing visible. It is wrong for a container whose
-   content is CENTRED and narrow: the collapsed sidemenu rail is 72px wide with `px-3`, leaving 48px, and
-   a ~15px reservation on one side alone put its 18px icons ~7px left of the rail's true centre while
-   every icon was correctly centred in the box it had. `both-edges` costs the same 15px twice, which at
-   this width is affordable and is the only value that keeps a centre a centre.
-
-   Only for a narrow, centred scroll container. Everywhere else the one-edge value is the right trade. */
+/* Only for a NARROW, CENTRED scroll container. On the 72px collapsed sidemenu
+   rail, a ~15px reservation on one edge alone put the icons ~7px left of the
+   rail's true centre. */
 @utility scrollbar-gutter-stable-both {
   scrollbar-gutter: stable both-edges;
 }
 
+/* Hides the scrollbar and nothing else; reserving its space is the opposite concern, spelled at the
+   call site with `scrollbar-gutter-stable`. */
 @utility scrollbar-hide {
   &::-webkit-scrollbar {
     display: none;
@@ -649,13 +466,9 @@ html:has([data-app-shell]) {
   scrollbar-width: none;
 }
 
-/* An ultra-thin LINE scrollbar: a 3px thumb, no track, no buttons (decided 2026-08-08). The standard
-   `scrollbar-width: thin` still draws a track and, on Windows, arrow buttons — a line is only
-   reachable through the WebKit pseudo-elements, and Chromium DISABLES those the moment the standard
-   properties compute to anything but `auto`. So this forces both back to `auto` (undoing HeroUI's
-   `data-scrollbar` inheritance), styles the pseudos, and gives Firefox — which has no pseudos and no
-   buttons to hide — the standard thin form inside `@supports not`. `--scrollbar-thumb` is HeroUI's
-   own theme token, so the line follows the light/dark theme like every other scrollbar in the app. */
+/* A 3px thumb, no track, no buttons. `scrollbar-width: thin` draws both, so a
+   line needs the WebKit pseudo-elements — and Chromium disables those unless the
+   standard properties compute to `auto`, hence forcing them back first. */
 @utility scrollbar-line {
   scrollbar-width: auto;
   scrollbar-color: auto;
@@ -682,98 +495,35 @@ html:has([data-app-shell]) {
   }
 }
 
-/* Makes a dotted background. currentColor rather than a white literal: the dots then invert with
-   whatever text colour the consumer sets, instead of being invisible on any light surface. The
-   No `!important` needed: @utility output lands in the utilities layer, which already outranks
-   components and base. */
+/* currentColor rather than a white literal, so the dots invert with whatever text colour the consumer
+   sets instead of vanishing on a light surface. */
 @utility dotted-bg {
   background-image: radial-gradient(color-mix(in srgb, currentColor 16%, transparent) 1px, transparent 1px);
   background-size: 32px 32px;
 }
 
-/* Three CATEGORIES of control that take no focus indicator of their own, and what each says
-   instead (decided 2026-07-31; the third arrived 2026-08-06 and took its carve-out 2026-08-12).
-
-   The app's one focus indicator is declared in @layer base: HeroUI's ring and the matching outline.
-   A control leaves it behind only where the indicator fires on focus that was not a keyboard user's
-   own navigation -- a plain pointer press, or a focus the library moved -- AND the control can say
-   "focused" another way, which is why each category below is stated with its substitute. A `Switch`
-   makes the same trade in its own rule further down, where the rest of its styling lives.
-
-   That ring's colour is var(--focus) unless the ring sits INSET on the control's own fill and that
-   fill fails WCAG 1.4.11 against it, in which case it recolours the ring it keeps --
-   `StufenPicker.tsx :: STUFE_CHIP` on a selected chip. The --focus declaration above is where every
-   such departure is recorded, together with the offset condition that bounds the set to one.
-
-   1. FIELD-SHAPED CONTROLS -- anything you type a value into. A text input matches :focus-visible on
-      a plain mouse click (the CSS selectors spec makes that exception for elements that take text
-      entry), so a ring here fires for ordinary pointer users, which is not what a focus ring is for.
-      They say "focused" by turning their border brand instead. Neutralising --tw-ring-shadow rather
-      than the whole box-shadow is deliberate: HeroUI composes box-shadow from the tw variables, so
-      overriding just the ring leaves --tw-shadow (the fields' own shadow-sm) intact.
-
-   2. COLLECTION OPTIONS -- listbox and menu items. react-aria focuses the first option as soon as
-      you type in a combobox, so a ring appeared around a result the user had not chosen. The focused
-      option is conveyed by a background highlight, which is what every native picker does; the
-      composite widget's own border already shows where focus is.
-
-   3. BUTTONS INSIDE A FIELD GROUP -- an indicator, a stepper, a picker's trigger, a clear control.
-      The group's border has already turned brand by the time any of them takes focus, so an outline
-      around a control inside it says the same thing a second time. Scoped by POSITION rather than by
-      slot, because the members this repository writes carry none. That border is the substitute,
-      and it identifies a member only while the member is its group's ONLY tab stop, or draws a ring
-      of its own, or is out of the tab order -- true of every member but the two clear controls,
-      whose carve-out is declared with the rule below.
-
-   Deliberately unlayered: unlayered rules outrank every @layer, including HeroUI's `components` and
-   Tailwind's `utilities`, so neither a library default nor a stray per-site class can reintroduce a
-   ring. That also means this is the ONE place any of them can be changed -- which is the point. */
-/* A PLACEHOLDER too long for its field ends in an ellipsis rather than mid-word. Declared once,
-   never as a class per input: the population is every field in the app, and a control that gains a
-   placeholder later joins it by existing. `clip` is `text-overflow`'s initial value and nothing in
-   this app or in HeroUI sets it, so what this replaces is the CSS default and not a decision.
-
-   BOTH selectors are load-bearing, and each covers engines the other misses. `text-overflow` does
-   not inherit, so the placeholder box takes it from the input only where a UA stylesheet forwards
-   it — Blink's `html.css` and Gecko's `forms.css` both say `text-overflow: inherit` there, while
-   WebKit's `input::placeholder` block sets `white-space`, `word-wrap`, `overflow` and `line-height`
-   and nothing else. So on Safari the first arm compiles and does nothing, and the second reaches
-   the box directly: WebKit applies no property allowlist to this pseudo-element
-   (`Style::propertyAllowlistForPseudoElement`), and an engine that does restrict it drops that arm
-   silently while keeping the one it already answers to.
-
-   `input` and not `textarea`: a textarea's placeholder wraps, and `text-overflow` acts only on
-   inline overflow, so a rule covering them would be one nothing could make true. */
+/* An over-long PLACEHOLDER ends in an ellipsis, declared once because the
+   population is every field in the app. BOTH arms are needed: `text-overflow`
+   does not inherit, and only Blink and Gecko forward it to the pseudo-element. */
+/* `input` and not `textarea`: a textarea's placeholder wraps, and `text-overflow` acts only on
+   inline overflow. */
 input[placeholder],
 input[placeholder]::placeholder {
   text-overflow: ellipsis;
 }
 
-/* AN EMPTY SEARCH FIELD GIVES ITS WHOLE WIDTH TO THE PLACEHOLDER — the clear control takes none.
-   HeroUI's `search-field.css` hides that control on the empty state with `pointer-events-none
-   opacity-0`, which leaves it in flow holding `size-7` from `dismissControl`, the `me-2` its own
-   rule gives it and the flex gap in front of it. On `SearchBar` that is 48px of a 122px chrome
-   budget, reserved on every screen width for a control with nothing to clear — at exactly the
-   moment the placeholder is the thing being cut off. `display` is what reclaims it: `visibility`
-   or a zero width would leave the gap standing.
-
-   Nothing is stranded. `useSearchField` gives the control `excludeFromTabOrder` and
-   `preventFocusOnPress` and focuses the input from `onPressStart`, so focus has already left before
-   the value empties (react-aria 3.51). What goes is HeroUI's fade, and that is the intended trade:
-   a phone-width field cannot spend 48px on a 150ms transition.
-
-   Unlayered, because HeroUI's empty-state rule is in `@layer components` and matches at equal
-   specificity. It reaches every search field in the app — the shared `SearchBar`, the filter
-   panel's facet search and the two picker popovers — which is the point of declaring it here. */
+/* AN EMPTY SEARCH FIELD GIVES ITS WHOLE WIDTH TO THE PLACEHOLDER. HeroUI only
+   fades its clear control out, leaving 48px of a 122px chrome budget in flow.
+   `display` is what reclaims it; `visibility` would leave the gap standing. */
+/* Nothing is stranded: `useSearchField` excludes the control from the tab order and moves focus to
+   the input on press, so focus has already left before the value empties. */
 [data-slot="search-field"][data-empty="true"] [data-slot="search-field-clear-button"] {
   display: none;
 }
 
-/* iOS Safari zooms the whole page into any focused control whose computed font-size is under
-   16px, and several field styles resolve below that on a phone (`fluid-sm` bottoms out around
-   14px). The cure is the control's font-size, never `maximum-scale` in the viewport tag — that
-   would disable pinch zoom for everyone, which is an accessibility failure. Scoped to touch-first
-   devices so desktop keeps the designed sizes; `max()` keeps any control that is already larger. */
+/* iOS Safari zooms the page into any focused control under 16px. The cure is the
+   control's font-size, never `maximum-scale` in the viewport tag, which would
+   disable pinch zoom for everyone. */
 @media (hover: none) and (pointer: coarse) {
   input,
   select,
@@ -782,6 +532,17 @@ input[placeholder]::placeholder {
   }
 }
 
+/* THREE CATEGORIES take no focus indicator, each because the indicator fires on
+   focus no keyboard user asked for AND the control says "focused" another way.
+   Unlayered, so nothing in a layer can put a ring back. */
+/* 1. FIELD-SHAPED CONTROLS match :focus-visible on a plain mouse click, by the
+      selectors spec's exception for text entry. Substitute: the border turns
+      brand. Only --tw-ring-shadow goes, leaving the field's own shadow-sm. */
+/* 2. COLLECTION OPTIONS. react-aria focuses the first option as you type in a combobox, ringing a
+      result nobody chose. Substitute: a background highlight, as every native picker does. */
+/* 3. BUTTONS INSIDE A FIELD GROUP. The group's border is already brand by then.
+      Scoped by POSITION, because the members this repo writes carry no slot; the
+      two clear controls are carved out below. */
 [data-slot="input"],
 [data-slot="input-group"],
 [data-slot="number-field-group"],
@@ -789,33 +550,16 @@ input[placeholder]::placeholder {
 [data-slot="date-input-group"],
 [data-slot="autocomplete-trigger"],
 [data-slot="select-trigger"],
-/* The one member matched by CLASS: HeroUI's TextArea root (v3.2.3, `textarea.js`) carries no
-   data-slot, only the `textarea` class, and react-aria supplies the same data-* focus states the
-   slots above key on. Re-check the class name on a HeroUI upgrade. */
-.textarea {
-  /* `:not([data-invalid="true"])` matters: HeroUI marks a rejected field with a danger outline and
-     upgrades it to a danger ring while focused. Without the guard this rule stripped both and
-     painted the border brand — and it did so at the exact moment `useServerFieldErrors` moves focus
-     into the rejected field, so a field the server had just refused looked normally focused. */
-  /* `[aria-expanded="true"]` and its `:has()` twin are in the list because a picker's focus goes
-     somewhere the other arms cannot see: react-aria moves it into the popover's own search input, so
-     a trigger keyed on focus alone drops its brand border at the exact moment the control is most
-     obviously active. An open picker is an active field whatever holds the caret. The `:has()` arm
-     is not decoration — on the Autocomplete and the DatePicker the expandable element is a BUTTON
-     INSIDE the slot (the trigger itself is `role="group"` and never carries `aria-expanded`), so the
-     attribute arm alone matches the Select and misses both of them. Verified against computed styles
-     with the popover open: the inner button holds `aria-expanded="true"`, the slot does not.
-     The `:has()` arm is its OWN selector, not a member of the `:is()` list: `:has()` is invalid
-     inside `:is()`, and because the list is forgiving the browser drops that one arm silently — the
-     rule then compiles, ships and does nothing, which is exactly how this fix failed its first
-     verification. */
-  /* `[data-border-on-open="true"]` opts a trigger out of the FOCUS arms while keeping the
-     open-state arm: react-aria restores focus to a trigger when its popover dismisses — after the
-     exit animation, so no blur scheduled at close time can beat it — and the restored focus kept
-     the brand border on a control the user had just clicked away from. The season selector is the
-     one bearer (decided 2026-08-07: brand only while open, the resting border always otherwise).
-     A keyboard user still gets an indicator: with these arms skipped, the ring suppression below
-     is skipped too, so HeroUI's own focus-visible ring shows — the app's standard one. */
+[data-slot="textarea"] {
+  /* `:not([data-invalid="true"])` matters: without it this stripped HeroUI's danger
+     ring at the moment `useServerFieldErrors` focuses the rejected field, so a
+     field the server had just refused looked normally focused. */
+  /* The `aria-expanded` arms cover a picker, whose focus moves into the popover's
+     search input. The `:has()` twin catches the ones whose expandable element is a
+     BUTTON inside the slot; a forgiving `:is()` would drop it silently. */
+  /* `[data-border-on-open="true"]` opts a trigger out of the FOCUS arms only:
+     react-aria restores focus after the popover's exit animation, and the brand
+     border stuck on a control the user had clicked away from. */
   &:is(:focus, :focus-visible, :focus-within, [data-focused="true"], [data-focus-visible="true"], [data-focus-within="true"]):not(
       [data-invalid="true"]
     ):not([data-border-on-open="true"]),
@@ -834,84 +578,42 @@ input[placeholder]::placeholder {
     outline: none;
   }
 
-  /* Any BUTTON inside a field group is the field's own focus target, so it drew the base-layer
-     outline as a floating box in the middle of the field while the field border was already brand —
-     two indicators for one control. The field owns the affordance; its inner controls must not add a
-     second.
-
-     Scoped to every inner button rather than to the indicator slots alone, because the two clear
-     controls on Spieldatum and Anpfiff are plain `<button>`s carrying no HeroUI slot at all: the
-     slot-suffix selector matched the chevron beside them and missed them, so completing a time lit a
-     white box around the control that had just appeared. Position still decides it after the
-     carve-out below takes those two back: `Autocomplete.Indicator` wraps its chevron in a react-aria
-     `Button` carrying neither slot nor class, and that button is the autocomplete's real trigger, so
-     a slot-scoped selector would box the chevron of a field whose border is already brand. What the
-     border says is that focus is in there, which is all a container's indicator can say. */
+  /* The field owns the affordance; a button inside must not add a second. Scoped to
+     every inner button rather than the indicator slots, because the clear controls
+     are plain `<button>`s and the chevron's `Button` carries no slot either. */
   & button:focus-visible {
     outline: none;
   }
 
-  /* Two members need more than that, and `FormDateTimeSection.tsx :: ClearFieldButton` is both of
-     them — Spieldatum and Anpfiff. Each sits in a group holding SEVERAL tab stops, since every date
-     and time segment is one, so the border was already brand when focus arrived from the segment
-     beside it and tabbing onto the clear control changed nothing on screen. The segments carry their
-     own focus fill and `.date-picker__trigger` its own ring, which left these two the only stops in
-     either group with nothing to be told apart by (WCAG 2.4.7).
-
-     INSET rather than the 2px clear the app gives everything else, and the reason is the group, not
-     the button: `.date-input-group` is `overflow-hidden`, and the Anpfiff control sits flush against
-     its padding edge with the Spieldatum one hard against the calendar trigger, so an outward
-     outline is clipped on one and collides on the other. The width and the colour are unchanged, and
-     the button carries no fill, so var(--focus) still answers to the surface behind it — 18.2:1 on
-     the light theme's --bg-surface and 18.7:1 on the dark one. Recorded at the --focus declaration
-     above, which is where an indicator departing from the standard offset or colour is listed.
-
-     THREE pixels rather than two, because the Anpfiff button's trailing edge IS the group's inner
-     border edge: the inset is the whole of the separation between this outline and the brand border
-     around it, and at 2px the two read as touching. The cost is the corner — an outline's radius is
-     the element's less the inset, so `rounded-md` leaves 3px here. */
+  /* The carve-out: `FormDateTimeSection.tsx :: ClearFieldButton` sits in a group of
+     SEVERAL tab stops, so the brand border was already lit when focus reached it —
+     the only stop in it with nothing to be told apart by (WCAG 2.4.7). */
+  /* INSET because the group is `overflow-hidden` and both buttons sit flush against
+     an edge. THREE pixels, not two: at 2px this outline and the brand border round
+     it read as touching. */
   & button[data-field-clear="true"]:focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: -3px;
   }
 }
 
-/* HeroUI's own controls keep HeroUI's ring and take no outline on top of it.
-
-   The @layer base rule above cannot be trusted to lose this race on its own: HeroUI's opt-out is
-   `.button:focus-visible:not(:focus)`, whose `:not(:focus)` arm can never match a focused element, so
-   the opt-out survives only through `[data-focus-visible]` — an attribute react-aria sets from a
-   modality that is global and diverges from the browser's `:focus-visible` heuristic. Unlayered, so
-   it outranks both the base rule and anything HeroUI ships.
-
-   The ring is NOT removed with it: `.button` still draws `--tw-ring-shadow` in var(--focus) from
-   `[data-focus-visible]`, so a keyboard user keeps an indicator with the same colour and offset.
-   What goes is the second one.
-
-   The one case this leaves without any indicator is a focus the BROWSER calls focus-visible and
-   react-aria does not flag. That direction is the unlikely one — react-aria's modality is global and
-   sticky, so it errs towards flagging more focus as keyboard, not less — and it is the trade for
-   removing an indicator that appears on a plain mouse press. Revisit here if a keyboard-only pass
-   ever finds a HeroUI control with no visible focus state. */
+/* HeroUI's own controls keep HeroUI's ring and take no outline on top. The base
+   rule cannot be trusted to lose the race: HeroUI's opt-out is
+   `.button:focus-visible:not(:focus)`, whose first arm can never match. */
+/* The ring itself stays, so a keyboard user keeps an indicator. What is left
+   uncovered is a focus the BROWSER calls focus-visible and react-aria does not —
+   the unlikely direction, since its modality errs towards keyboard. */
 :is(button, a).button:focus-visible,
 :is(button, a).link:focus-visible {
   outline: none;
 }
 
-/* A PICKER's trigger keeps the brand border only while its popover is open — never from focus alone.
-   The default for every Select and Autocomplete, because the cause is react-aria's and not any one
-   control's: it restores focus to the trigger when the popover dismisses, and it does so AFTER the
-   exit animation, so no blur scheduled at close time beats it. Keyed on focus, the trigger a user
-   has just clicked away from holds a brand border until something else takes it.
-
-   The focus arms in the block above are skipped for these two slots rather than the whole rule: the
-   `aria-expanded` arms still apply, so an open picker still reads as active, and skipping the focus
-   arms also skips the ring suppression that rides with them — so a keyboard user gets HeroUI's own
-   focus-visible ring, which is the app's standard indicator. This is the identical trade
-   `data-border-on-open` documents, applied where it always belonged.
-
-   A TEXT field is untouched and must stay so: it has no open state, so focus is the only thing it
-   could speak with, and its border is genuinely the caret's indicator. */
+/* A PICKER's trigger keeps the brand border only while its popover is open, never
+   from focus alone: react-aria restores focus AFTER the exit animation, so no
+   blur scheduled at close time beats it. */
+/* Only the focus arms above are skipped, so an open picker still reads as active
+   and the ring suppression goes with them. A TEXT field is untouched and must
+   stay so: it has no open state, so its border IS the caret's indicator. */
 :is([data-slot="autocomplete-trigger"], [data-slot="select-trigger"]):is(
     :focus,
     :focus-visible,
@@ -923,115 +625,49 @@ input[placeholder]::placeholder {
   border-color: var(--border-base);
 }
 
-/* A DATE PICKER's group is the same trade, and it CANNOT join the rule above.
-   `[data-slot="date-input-group"]` is a SHARED slot: `TimeField.Group` is the identical
-   `DateInputGroupRoot` component the date field uses (verified in @heroui/react 3.2.4,
-   `time-field/index.js`), and a time field has no open state — resetting it on focus would take away
-   the only indicator it has, which is exactly what the rule above forbids for a text field. Adding
-   the bare slot there would also drop the border while the caret is in a date segment, since every
-   segment is its own tab stop and puts the group in :focus-within with the popover closed: the same
-   DOM state the restored-focus case produces, and indistinguishable to that selector.
-
-   So this one is scoped by the CONTROL rather than by the slot — `:has()` on the picker's own
-   trigger, which only a DatePicker mounts. The one focus it cancels is the one react-aria hands back
-   to that trigger when the popover dismisses — without it, a control the user has clicked away from
-   holds a brand border until something else takes focus. Segments and the time field never match it.
-
-   A keyboard user is unaffected: `.date-picker__trigger` draws `status-focused` from
-   `[data-focus-visible]` (@heroui/styles 3.2.4 `date-picker.css`), and --tw-ring-shadow is
-   registered `inherits: false`, so the group zeroing its own ring does not reach the button inside.
-
-   Specificity is (0,5,0) against (0,4,0) for the focus arm it overrides — `:has()` takes its most
-   specific argument — and both are unlayered, so source order would settle it even if they tied.
-   It sets `border-color` alone, exactly as the rule above does. */
+/* A DATE PICKER's group CANNOT join the rule above. `date-input-group` is a SHARED
+   slot — `TimeField.Group` is the same component — and a time field has no open
+   state, so resetting it on focus would take away its only indicator. */
+/* So it is scoped by the CONTROL: `:has()` on the picker's own trigger, which only
+   a DatePicker mounts. --tw-ring-shadow is registered `inherits: false`, so the
+   group zeroing its own does not reach the button inside. */
 [data-slot="date-input-group"]:has([data-slot="date-picker-trigger"]:focus):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
   border-color: var(--border-base);
 }
 
-/* The SAME group one state further on: it holds focus ITSELF, and nothing inside it does.
-   `FormDateTimeSection.tsx :: ClearFieldButton` puts it there deliberately — it moves focus to the
-   group before clearing, because a browser fires no blur for the button it is about to unmount and a
-   stranded focus would leave `document.activeElement` on `<body>`. The group carries `tabIndex={-1}`,
-   so what ends up focused is a container with no caret and nothing to type into. The rule above does
-   not reach it: what holds focus is the group, not `[data-slot="date-picker-trigger"]`.
-
-   The `:has()` is the whole discriminator, and it is exact rather than approximate — `:has()` never
-   matches its own subject, so the group is invisible to it while every element inside is not. A caret
-   in a date segment and a time field being typed into therefore keep their brand border.
-
-   **A clear control is excluded from it because it is not a caret either.** What this border says is
-   that the field is being edited; a dismiss affordance holding focus is the same nothing-to-type
-   position the group itself is, one element further in. Counting it kept the group brand for as long
-   as that button held focus, so releasing it — Enter, and the focus moves to the group — ran the
-   `transition-colors` on `FIELD_GROUP` and drew a 150ms brand fade out of a state that never meant
-   anything. Nothing is lost by dropping it: `button[data-field-clear="true"]:focus-visible` above
-   gives that control its own inset outline precisely because a shared border could never identify it.
-
-   Both arms are load-bearing and they cover different halves. `:focus` is synchronous, and
-   `FIELD_GROUP` transitions border-color, so keying on the attribute alone would animate one brand
-   flash per clear; `[data-focus-within="true"]` is react-aria's, and covers the shape where the
-   attribute is left set over a focus the group never saw leave.
-
-   Specificity is (0,6,0) against (0,4,0) for the focus arm it overrides — `:is()` and `:has()` each
-   take their most specific argument, and `:focus:not([data-field-clear="true"])` is two — both
-   unlayered. It sets `border-color` alone, exactly as the two rules above do. */
+/* The SAME group one state further on: it holds focus ITSELF, because
+   `ClearFieldButton` moves focus there rather than strand it on <body>. `:has()`
+   never matches its own subject, so a caret in a segment is still seen. */
+/* A clear control is excluded because it is not a caret either; counting it drew a
+   150ms brand fade out of a state that meant nothing. Both arms are needed —
+   `:focus` is synchronous, the attribute covers a focus never seen to leave. */
 [data-slot="date-input-group"]:is(:focus, [data-focus-within="true"]):not(:has(:focus:not([data-field-clear="true"]))):not(
     :has([aria-expanded="true"])
   ):not([data-invalid="true"]) {
   border-color: var(--border-base);
 }
 
-/* Focus is still SOMEWHERE, and a keyboard user has to see where. With the border reset above and the
-   focus arm's `outline: none` still in force, tabbing onto a clear control and pressing Enter would
-   leave focus on an element carrying no indicator at all (WCAG 2.4.7). This is the app's standard
-   outline, drawn on the element that actually holds it — the group is not a fill of its own, so
-   var(--focus) still answers to the surface behind, and the offset is the standard 2px.
-
-   react-aria's attribute rather than the browser's `:focus-visible`, because the two disagree on
-   exactly this control: `mousedown` is cancelled on it, so a pointer press leaves focus where it was
-   and the browser reads the scripted focus that follows as a continuation of THAT element's
-   focus-visible state — an outline for somebody using a mouse. react-aria keys on a global modality
-   the `pointerdown` has already flipped.
-
-   `:not(:has(:focus))` is what makes the attribute mean the group: it is
-   `useFocusRing({within: true})`'s, so a segment reached by Tab sets it too, and that segment already
-   draws its own fill.
-
-   **It counts a clear control's focus where the border rule above does not, and the asymmetry is the
-   point.** That rule asks whether a caret is in the field, and a dismiss affordance is not one; this
-   one asks whether anything inside already shows focus, and that control does — its own inset
-   outline. Excluding it here would ring the whole group around a button that is already ringed.
-
-   Specificity is (0,5,0) against the (0,4,0) arm that zeroes the outline. An invalid group is left
-   out, exactly as it is above: its danger border is the field's own statement, and `[data-invalid]`
-   already owns the outline slot on every field in the app. */
+/* Focus is still SOMEWHERE, and with the border reset above nothing else would
+   show it (WCAG 2.4.7). react-aria's attribute rather than `:focus-visible`:
+   `mousedown` is cancelled here, so the browser reads the focus as a mouse user's. */
+/* `:not(:has(:focus))` is what makes the attribute mean the group rather than a
+   segment inside it. A clear control's own focus IS counted here, where the
+   border rule above excludes it: that rule asks whether a caret is in the field. */
 [data-slot="date-input-group"][data-focus-visible="true"]:not(:has(:focus)):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
-/* Required asterisks belong to a form that CREATES something (decided 2026-08-07).
-   On an edit every value is already present, so a column of red stars marks nothing the reader can
-   act on; on a create each one is a genuine question.
-
-   Written as an OPT-IN — suppressed on every form that does not say `data-required-marks="on"` —
-   rather than as an opt-out keyed on `"off"`. The three page-owned editors are plain `<Form>`s that
-   carry no attribute at all, so an opt-out would have missed exactly the surfaces with the most
-   required fields, and would go on missing each new one.
-
-   Unlayered, because HeroUI declares the asterisk in `@layer components` and layer order beats
-   specificity. `isRequired` itself is untouched on every field either way — it is what makes the
-   BROWSER refuse an emptied one, with its own message in the user's own language. */
+/* Required asterisks belong to a form that CREATES something: on an edit every
+   value is present, so a column of stars marks nothing. An OPT-IN, because the
+   page-owned editors are plain `<Form>`s an opt-out would keep missing. */
 form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   content: none;
 }
 
-/* Every HeroUI `Switch`. It rings `.switch__control` off the Switch root's focus state, and that ring
-   fired on a plain mouse press — react-aria's focus-visible modality is global, so a press that
-   follows any earlier key press counts as keyboard focus. Rather than chase the modality, the switch
-   opts out of rings entirely and speaks the same language every field-shaped control in this app
-   speaks: a neutral border that turns brand. The row it sits in is a container, not a control, so
-   the affordance belongs here on the switch and nowhere else. */
+/* Every HeroUI `Switch` opts out of rings: it rings off react-aria's global
+   focus-visible modality, so a press following any earlier key press counted as
+   keyboard focus. It turns its border brand instead, like every field here. */
 [data-slot="switch-control"] {
   --tw-ring-shadow: 0 0 #0000;
   border: 1px solid transparent;
@@ -1046,38 +682,11 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   border-color: var(--accent-brand);
 }
 
-/* Collection options: NO focus highlight at all (decided 2026-07-31, superseding a neutral
-   fill and, before that, a brand one).
-
-   A highlight is right in principle — react-aria moves the focused key onto the first match as you
-   type in a combobox so Enter can pick it, and that needs a visible state — but it is not achievable
-   here. react-aria's `isFocusVisible` is a GLOBAL interaction-modality flag, not per-element state:
-   whether a freshly opened dropdown paints its selected row depends on whether the last interaction
-   anywhere on the page was a key press, so the highlight appears and vanishes at random. The
-   browser's own `:focus-visible` uses a very similar heuristic, so it is not a fix, and inside a
-   combobox popover focus never leaves the search input, so the browser cannot see the option.
-
-   What is left: each call site's own `hover:` background, and the checkmark indicator that marks the
-   selection. Both are stable and neither depends on modality.
-
-   Known gap, recorded rather than hidden: a keyboard user arrowing through an open list has no
-   indicator inside the popover (WCAG 2.4.7). The focus ring on the trigger still shows which control
-   is open. Revisit if a reliable per-element signal appears — do NOT reintroduce a rule keyed off
-   `data-focus-visible`, which is what this block exists to prevent.
-
-   The repository's own highlight is only half of it. HeroUI's `list-box-item.css`
-   applies `status-focused` on `[data-focus-visible]`, which resolves to
-   `ring-2 ring-focus ring-offset-0 ring-offset-background` with `--ring-offset-width: 2px` — and this
-   app maps `--focus` to `--fg-base`, so the composite is a 2px `--bg-base` halo inside a 2px
-   near-black (light) or pure-white (dark) ring. It fires on the same global modality flag described
-   above, so it appears and vanishes at random on exactly the element that must not draw the eye.
-
-   Suppressed UNCONDITIONALLY, with no state selector at all. That is the distinction the prohibition
-   above is drawing: this rule keys off nothing, so it cannot flicker — it removes a highlight rather
-   than reintroducing one. Both ring custom properties have to be zeroed, not just the first: Tailwind
-   composes `box-shadow` from `--tw-ring-shadow` AND `--tw-ring-offset-shadow`, so killing one leaves
-   the 2px offset band behind, which is the white line itself. What remains to convey the option under
-   the pointer is each call site's own hover fill, which is all that is wanted there. */
+/* COLLECTION OPTIONS take no ring. HeroUI's fires on react-aria's GLOBAL modality
+   flag, so a halo appeared and vanished at random on the one element that must
+   not draw the eye. Suppressed with no state selector, so this cannot flicker. */
+/* BOTH ring properties have to be zeroed: Tailwind composes `box-shadow` from `--tw-ring-shadow` and
+   `--tw-ring-offset-shadow`, and killing one leaves the offset band, which is the white line. */
 [data-slot="list-box-item"],
 [data-slot="menu-item"] {
   --tw-ring-shadow: 0 0 #0000;
@@ -1085,29 +694,12 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   outline: none;
 }
 
-/* The reliable per-element signal the block above says to wait for. It exists after all, and it is a
-   DIFFERENT attribute from the one that flickered: react-aria emits `data-focus-visible` from the
-   global interaction modality — whether the user's last action anywhere on the page was a key press —
-   and `data-focused` from the collection's own focused key, which is set when a combobox moves focus
-   onto the first match as you type and depends on no modality at all (verified in
-   react-aria-components 1.19, `private/ListBox.mjs`, which writes both).
-
-   The fill is `--bg-hover`, the same background hovering gives — deliberately no more than that, and
-   no ring, which the rule above still suppresses. **It has to be whatever token the app's hover fill
-   is**, so if that one moves this moves with it; the two being the same colour is the whole claim.
-   This closes the WCAG 2.4.7 gap that block recorded:
-   a keyboard user arrowing through an open list has an indicator inside the popover. Which attribute
-   carries it differs by collection, and the rule below says why. */
-/* A MENU item keys on `data-focused`, because a menu moves focus with the pointer — react-aria's
-   `useMenuItem` calls `setFocusedKey` from its hover-start handler — so this is the hover indicator
-   and the keyboard indicator at once.
-
-   A LIST-BOX item keys on `data-focus-visible`, and the difference is not cosmetic. A `Select` focuses
-   its SELECTED option the moment the popover opens, whatever opened it, so `data-focused` paints a
-   fill on one row before anybody presses a key — read as "these items have a background" rather than
-   as "you are here". `data-focus-visible` is react-aria's keyboard-modality flag, so the fill appears
-   when a key actually moves the selection, which is the WCAG 2.4.7 case this rule exists for. What a pointer user gets instead is the call site's own `hover:` pair — see
-   `SaisonSelector`, which tints the row and turns its text brand. */
+/* What replaces it, closing the WCAG 2.4.7 gap for a keyboard user arrowing an
+   open list. The fill MUST stay whatever the app's hover token is — the two being
+   the same colour is the whole claim. */
+/* A MENU item keys on `data-focused`, which `useMenuItem` also sets from hover —
+   one indicator for both. A LIST-BOX item cannot: a `Select` focuses its selected
+   option on open, so that would paint a row before anybody pressed a key. */
 [data-slot="list-box-item"][data-focus-visible="true"],
 [data-slot="menu-item"][data-focused="true"] {
   background-color: var(--bg-hover);
@@ -1130,29 +722,15 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   --tw-exit-scale: 1;
 }
 
-/* Reduced motion, SOFTENED (decided 2026-07-31).
-   The policy is "remove movement, keep fades", NOT "remove motion". Zeroing every animation- and
-   transition-duration is the obvious implementation and the wrong one: it makes the site
-   motionless rather than calm, and the result reads as flickering, because state changes land with
-   no transition at all. So each category is handled on its own terms:
-
-   - Entry and exit animations (`animate-in` / `animate-out`) lose their translate/scale/rotate but
-     keep the opacity fade: tw-animate-css reads its movement from the --tw-enter-* and --tw-exit-*
-     custom properties, so zeroing them turns every slide/zoom into a pure fade at its normal
-     duration. Only the exit SCALE is listed below, because no vendored or app-side exit translates.
-   - The looping decorations (ping / pulse / bounce) stop entirely -- autonomous repeating motion
-     is the classic vestibular trigger. A loading indicator never joins them, whatever shape it
-     takes: it is feedback rather than decoration, and a frozen one reports nothing about the wait
-     it exists to report -- which is why the vendored spinner is restarted below rather
-     than left as HeroUI ships it. A class joins the list only once somebody has checked what it
-     RESTS as: `animation: none` holds an element at its unanimated style, which is the keyframe's
-     start and not its end, so anything that fades or scales AWAY rests fully visible. One that
-     rests wrong is removed at its own element instead -- see `PageLoader`.
-   - The press gesture keeps its escape below. Hover moves no element, so there is nothing on the
-     hover side left to stop -- a hover changes a colour, and colour transitions stay smooth for
-     everyone here.
-
-   Deliberately unlayered: unlayered rules outrank every @layer. */
+/* Reduced motion, SOFTENED: the policy is "remove movement, keep fades", never
+   "remove motion". Zeroing every duration makes the site motionless rather than
+   calm, and reads as flickering. Deliberately unlayered. */
+/* Entrances keep the fade and lose the travel: tw-animate-css reads movement from the
+   --tw-enter and --tw-exit properties. Autonomous loops stop, but never a loading
+   indicator — a frozen one says nothing about the wait it exists to report. */
+/* A class joins the list only once somebody has checked what it RESTS as:
+   `animation: none` holds an element at the keyframe's START, so anything that
+   fades AWAY rests fully visible. One that rests wrong goes at its own element. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1171,34 +749,28 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   }
 
   .animate-ping,
-  .animate-pulse,
-  .animate-bounce {
+  .animate-pulse {
     animation: none !important;
   }
 
-  /* HeroUI stops its OWN spinner here (`spinner.css` ships `motion-reduce:animate-none`), and this
-     app does not: `appToast.pending` raises a toast with `timeout: 0`, so its spinner is the only
-     thing saying the request is still running, and a frozen one reports nothing. The
-     value is the vendor's token, so an upgrade that retimes the spin carries this with it. */
+  /* HeroUI stops its OWN spinner here and this app does not: `appToast.pending`
+     raises a toast with `timeout: 0`, so its spinner is the only thing saying the
+     request is still running. The value is the vendor's token. */
   .spinner,
   .spinner::before,
   .spinner::after {
     animation: var(--animate-spin-fast) !important;
   }
 
-  /* The skeleton shimmer, which is the same category as those above: an autonomous sweep that
-     repeats for as long as the placeholder is on screen. Targeted at the pseudo-elements because
-     that is where HeroUI puts it — `.skeleton--shimmer` itself carries no animation, so listing the
-     class alongside the others would do nothing. Stopping it leaves a flat grey block rather than a
-     frozen gradient: the sweep rests at `-translate-x-full`, i.e. entirely outside its
-     `overflow-hidden` parent. */
+  /* The skeleton shimmer, another autonomous sweep. Targeted at the pseudo-elements
+     because that is where HeroUI puts it. It rests outside its `overflow-hidden`
+     parent, so what is left is a flat grey block. */
   .skeleton--shimmer::after,
   .skeleton--shimmer::before {
     animation: none !important;
   }
 
-  /* The cascade keeps its fade — opacity is deliberately left alone throughout this block — but
-     loses the travel and the stagger, so it resolves as one quiet cross-fade. */
+  /* The cascade keeps its fade and loses the travel and the stagger, resolving as one cross-fade. */
   :root {
     --card-enter-shift: 0;
   }
@@ -1208,19 +780,16 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   }
 
   /* The bracket sweep already moves nothing, so only the stagger is left to drop — dropped for the
-     cascade's reason and not a second one, since two collections resolving differently here would be
-     a difference nothing states. */
+     cascade's reason, since two collections resolving differently here would state nothing. */
   .bracket-sweep > * {
     animation-delay: 0ms !important;
   }
 }
 
 @layer components {
-  /* The sheen that crosses a loading placeholder.
-     HeroUI's own sweep is a gradient whose midpoint is `--surface-tertiary`, and these blocks are
-     painted `--bg-muted` — 2.4% apart in lightness in the dark theme and 3.5% in the light one, so
-     the animation runs and cannot be seen. `--skeleton-sweep` gives it an amplitude worth painting.
-     Same layer as HeroUI's rule and declared after it, so source order settles it without `!`. */
+  /* HeroUI's own sweep runs 2-3 lightness points from the `--bg-muted` these blocks
+     are painted, so it animates and cannot be seen. Same layer as HeroUI's rule and
+     declared after it, so source order settles it without `!`. */
   .skeleton--shimmer::after {
     background-image: linear-gradient(90deg, transparent 0%, var(--skeleton-sweep) 50%, transparent 100%);
   }
@@ -1238,50 +807,30 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     @apply border-b-0!;
   }
 
-  /* HeroUI's `secondary` variant fills a row's CELLS on hover with `bg-default/50`, and `--default`
-     is not this app's `--bg-surface`, so unlike the base variant's `bg-surface/40` it paints visibly
-     over the card underneath. No secondary table gives a row an action for it to advertise:
-     `AdminBracketWiringView`'s edit link and `SaisontabelleView`'s team popover each sit inside a
-     cell, and `TeamSpielerView`'s rows carry no control at all — so the library default goes and each
-     table's own hover class, which is a per-table call, is left alone. Vendored selector,
-     `@heroui/styles` 3.2.3 `table.css`: it is the same block that gives a secondary row its
-     separator, so re-read it on a HeroUI upgrade. */
+  /* HeroUI's `secondary` variant fills a row's cells on hover with `bg-default/50`,
+     which is not this app's surface and paints over the card underneath. No table
+     here gives a row an action for that to advertise. Vendored: `@heroui/styles` `table.css`. */
   .table-root--secondary .table__row:hover .table__cell,
   .table-root--secondary .table__row[data-hovered="true"] .table__cell {
     background-color: transparent;
   }
 
-  /* THE TOAST — and this block is deliberately small, because most of a toast is not styled here.
-   *
-   * `AppToaster` supplies `Toast.Provider`'s `children` render function, so the tile, the text
-   * hierarchy, the action button and the close button are ordinary TSX carrying ordinary utility
-   * classes. What is left below is the part that has no element in that file to hang a
-   * class on: HeroUI writes the shell's own `class`, and the close button's visibility has to stay
-   * keyed on an attribute only the library sets.
-   *
-   * **Written against HeroUI 3.2.3.** Every selector below is vendored implementation detail —
-   * `.toast`, its `--<variant>` modifiers, `.toast__close-button` and `[data-frontmost]` come from
-   * `@heroui/styles/dist/components/toast.css`, not from any public API. A release that renames one
-   * takes this styling with it and reports nothing, so **re-read that file on every HeroUI upgrade**;
-   * the render function in `AppToaster` is type-checked and will fail loudly instead, which is why as
-   * little as possible lives here.
-   *
-   * Utilities beat components in this app's layer order, so anything `AppToaster` sets on an element
-   * already outranks both HeroUI's rules and these. */
-  /* Opaque, and deliberately NOT `backdrop-blur`. A blurred backdrop has to be re-rasterised on every
-     frame anything above it changes, and the timer bar below changes on every frame for its whole
-     life — which made a 3px bar cost a full-surface blur pass and drain in visible steps rather than
-     smoothly. An opaque surface costs nothing per frame, and at 95% opacity the blur was buying
-     almost no visible depth anyway. */
+  /* THE TOAST, deliberately small: `AppToaster` supplies the children render
+     function, so everything with an element to hang a class on is ordinary TSX.
+     **Verified against `@heroui/styles` 3.2.4** — `.toast`, its `--<variant>` modifiers,
+     `.toast-region`, `.toast__close-button` and `[data-frontmost]` are all vendored, so
+     re-read `toast.css` on upgrade. */
+  /* Opaque, and deliberately NOT `backdrop-blur`: the timer bar changes every frame
+     for its whole life, so a blurred backdrop cost a full-surface re-rasterisation
+     per frame and made a 3px bar drain in visible steps. */
   .toast {
     @apply bg-surface border-border rounded-xl border p-3.5 shadow-lg;
     /* `overflow-hidden` is what clips the timer bar to the rounded bottom corners. */
     @apply items-start gap-2.5 overflow-hidden whitespace-normal;
   }
 
-  /* Severity is the border and the timer bar, so the border is the one mark a settled toast
-     carries. `/60` rather than a lighter tint: it does that work alone and has to read
-     at a glance. */
+  /* Severity is the border and the timer bar, so on a settled toast the border carries it alone —
+     hence `/60` rather than a lighter tint. The bar's colour is `AppToaster`'s `toastCard`. */
   .toast--accent {
     @apply border-info/60;
   }
@@ -1298,34 +847,22 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     @apply border-danger/60;
   }
 
-  /* THE DISMISS CONTROL, and this rule is the WCAG 2.2.1 fix rather than a preference.
-   *
-   * HeroUI 3.2.3 gives `.toast__close-button` `opacity-0` **and** `pointer-events-none`, restoring
-   * both only under `.toast[data-frontmost="true"]:hover`. On a touch screen there is no hover, so
-   * the control is not merely invisible — it is unhittable, and a timed message carrying information
-   * can only be waited out. The undo offer is the worst case of it: fifteen seconds whose entire
-   * point is a decision the reader cannot dismiss.
-   *
-   * Scoped to the frontmost toast on purpose. The stacked ones behind it are inert by design
-   * (`.toast:not([data-frontmost="true"])` also drops their pointer events), and that rule is more
-   * specific than this one, so a queued toast keeps its hidden close button and only the toast the
-   * reader is actually looking at gains a permanent one. */
+  /* THE DISMISS CONTROL — a WCAG 2.2.1 fix. HeroUI restores its opacity and
+     pointer events only under `:hover`, and a touch screen has none, so a timed
+     message carrying an undo offer could only be waited out. */
+  /* Frontmost only. The stacked toasts behind are inert by design, and HeroUI's rule saying so is
+     more specific than this one, so they keep their hidden close button. */
   .toast[data-frontmost="true"] .toast__close-button {
     @apply pointer-events-auto opacity-100;
   }
 
-  /* The remaining time, drawn rather than guessed at.
-   *
-   * `animation-duration` is set inline from the toast's own `timeout`, so the bar drains in step with
-   * the timer that will actually close it. `react-aria`'s `useToastRegion` pauses every visible
-   * toast's timer while the region is hovered or focused, so the bar has to pause with it — without
-   * these three selectors it would keep draining against a clock that had stopped, which is a worse
-   * failure than showing nothing. */
+  /* The remaining time, drawn rather than guessed at: `animation-duration` is set
+     inline from the toast's own `timeout`. `useToastRegion` pauses that timer on
+     hover, so the selectors below have to pause the bar with it. */
   .toast__timer {
     animation: toast-timer linear forwards;
-    /* Promotes the bar to its own compositor layer, so the fifteen seconds it animates cost no
-       repaint of the toast behind it. Named on `transform` rather than left as `auto` because this
-       element animates for its whole life — the case the hint exists for. */
+    /* Named on `transform` rather than left as `auto` because this element animates for its whole
+       life — the case the hint exists for. */
     will-change: transform;
   }
 
@@ -1339,11 +876,9 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     @apply hidden!;
   }
 
-  /* Soccer Field Graphics - Balanced Professional Middle Ground.
-     Built on --color-field-* so the motif is one decision rather than 40 literals. */
-  /* text-field-fg is load-bearing, not decoration: `dotted-bg` derives its dots from currentColor,
-     and without a foreground declared here they would inherit --fg-base from <body> and render
-     near-black on the green in light mode. */
+  /* The soccer-field motif, built on --color-field-* so it is one decision rather
+     than 40 literals. `text-field-fg` is load-bearing: `dotted-bg` derives its dots
+     from currentColor, which would otherwise render near-black on the green. */
   .soccer-field-base {
     @apply border-field-fg/85 bg-field-base text-field-fg max-w-field relative h-full min-h-[120dvh] w-full flex-1 overflow-hidden border-[3px] shadow-2xl;
   }
@@ -1392,46 +927,14 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     @apply border-field-border;
   }
 
-  /**
-   * TIER 2 OF THREE. The entrance for a collection: its items arrive in sequence instead of all at
-   * once. The other two are Tailwind class strings rather than CSS and therefore live in
-   * `shared/components/ui/motion.ts` — **read that file before changing this one**, since the three
-   * are one set and the constants there are what the call sites import.
-   *
-   * It shares `--motion-slow` and `--motion-ease-enter` with the page rise, and after that the two
-   * are the same motion at different scopes rather than two motions tuned to resemble each other.
-   *
-   * **The stagger is the whole mechanism; the timing is not.** On a tab switch every card lands at
-   * the exact screen position the previous Spieltag's card occupied, so a simultaneous swap reads as
-   * the content *mutating in place* however gently it is faded — tuning the duration or the starting
-   * opacity does not help, because duration is not the variable. Separating the cards in time is
-   * what fixes it: the eye follows a sequence instead of catching a single flash.
-   *
-   * It is the entrance for **every card collection** — the spielplan's panels and spielsuche and the
-   * landing page's grids as much as a page whose cards each hold a whole table. Collections of cards
-   * one nav click apart must arrive the same way, which is why this is keyed off `role="listitem"`
-   * rather than off a card type, and why the membership test below is the sentence to read rather
-   * than a roster of views to keep current. Spielsuche leans on it hardest — it re-renders on every
-   * debounced keystroke, the same land-where-the-last-one-was situation as a tab switch.
-   *
-   * **The item is the card, and never anything inside one** — `motion.ts` states why on
-   * `CARDS_CASCADE`, and that sentence is what decides where the class goes.
-   *
-   * Two collections are deliberate exceptions, both because their cards are positioned against
-   * chrome that does not animate with them: the playoff bracket (CSS bracket lines) and
-   * `TeamSaisonSpieleTimeline` (a dashed rule with an absolutely-placed badge per row). The bracket
-   * arrives by `.bracket-sweep` below, which sequences whole columns and moves nothing.
-   *
-   * `[role="listitem"]`, not a child combinator: `SpielCardsList` wraps its cards in a
-   * `display: contents` div, which removes the box but NOT the DOM node, so `>` would match the
-   * wrapper rather than the cards. `:nth-child` still counts correctly through it, because
-   * `display: contents` does not change parentage.
-   *
-   * Eight steps, then a shared delay for the rest: the largest Spieltag holds eight matches, and an
-   * unbounded list (spielsuche) must not stagger a hundredth card by two and a half seconds. The last
-   * step starts at 175ms, so a grid of any length has settled at 475ms — four cards, well inside the
-   * cap, at 375ms.
-   */
+  /* TIER 2 OF THREE, the other two being class strings in
+     `shared/components/ui/motion.ts` — read it first, since the three are one set. */
+  /* The stagger is the mechanism, not the timing: on a tab switch each card lands
+     where the last one sat, so a simultaneous swap reads as content mutating in
+     place however gently it fades. */
+  /* `role="listitem"` rather than a card type, so every collection arrives alike.
+     Not `>`: `SpielCardsList` wraps its cards in a `display: contents` div, which
+     `:nth-child` still counts through. Eight steps, then one shared 175ms delay. */
   .cards-cascade [role="listitem"] {
     animation: card-enter var(--motion-slow) var(--motion-ease-enter) both;
   }
@@ -1457,30 +960,11 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     animation-delay: 175ms;
   }
 
-  /**
-   * TIER 2 AT COLUMN SCOPE. The playoff bracket's entrance: one whole round per step, left to right.
-   * Its class string lives in `shared/components/ui/motion.ts` as `BRACKET_SWEEP` — **read that file
-   * before changing this one**, since the arrival tokens are one set and the call sites import from
-   * there.
-   *
-   * **It fades and it does not move, and that is forced rather than chosen.** Each gutter's connector
-   * is drawn as two halves owned by two different columns: the feeding round emits the elbow into the
-   * left 16px of the 32px gutter (`-right-4 w-4`) and the fed round emits the stub into the right
-   * 16px (`-left-4 w-4`), meeting at the midpoint. A line whose two ends belong to different columns
-   * cannot stay whole while those columns move relative to each other, so travel — and equally a
-   * scale, which moves a column's edges — would break every joint in the tree for the length of the
-   * stagger. That is the same defect the cascade is excluded from the bracket for, one level up.
-   * Opacity is the one channel that sequences the columns without moving an endpoint.
-   *
-   * **50ms a step, twice the cascade's 25ms, because a column is a far bigger unit than a card** and
-   * the per-card interval does not read as a sequence when it separates whole rounds. Four steps then
-   * a shared delay: `SAISON_PHASE_OPTIONS` holds five phases and the page asks for the four that are
-   * not `gruppenphase`, so four columns is the normal maximum, and a phase split over two dates is
-   * two matchdays and therefore a fifth column, which joins the last step rather than extending the
-   * run. The last step starts at 150ms, so the tree has settled at 450ms — inside
-   * the cascade's own 475ms, which is the bound that matters, since a bracket taking visibly longer
-   * to arrive than a card grid is wrong however correct each step is.
-   */
+  /* TIER 2 AT COLUMN SCOPE — the playoff bracket, one round per step. Its class
+     string is `BRACKET_SWEEP` in `shared/components/ui/motion.ts`. */
+  /* It fades and does not move, and that is forced: each gutter's connector is two
+     halves owned by adjacent columns, so any travel would break every joint for the
+     length of the stagger. 50ms a step; the tree settles inside the cascade. */
   .bracket-sweep > * {
     animation: bracket-phase-enter var(--motion-slow) var(--motion-ease-enter) both;
   }
@@ -1522,10 +1006,9 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   }
 }
 
-/* The toast timer bar draining. `transform` rather than `width` so it runs on the compositor and
-   cannot reflow the toast's contents mid-message. Deliberately NOT stopped under reduced motion: it
-   is a timer readout rather than decoration, and the policy there is "remove movement, keep meaning"
-   — a 3px bar shortening in place is neither a slide nor a loop. */
+/* The toast timer bar draining. `transform` rather than `width`, so it runs on the
+   compositor and cannot reflow the toast mid-message. NOT stopped under reduced
+   motion: it is a timer readout, and a 3px bar shortening is no slide or loop. */
 @keyframes toast-timer {
   from {
     transform: scaleX(1);

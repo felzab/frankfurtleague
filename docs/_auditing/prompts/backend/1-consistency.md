@@ -7,16 +7,15 @@ Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pa
 to `docs/audit/programme/b1-consistency.md`.
 
 Run this pass first in the backend surface: a write that silently does not reach its readers corrupts
-data invisibly, and does so for as long as nobody looks.
+data invisibly, for as long as nobody looks.
 
 **The method this pass exists to apply: build the write→read map from the aggregation pipelines and
 projections, never from field names.** A write and a read can name the same field on different
-documents. That gap is invisible to any name-based comparison and can survive indefinitely, because
-every individual piece of code reads correctly on its own.
+documents — invisible to any name-based comparison, and survivable indefinitely, because every
+individual piece of code reads correctly on its own.
 
-DELIVERABLE: the write→read map (check 1) is required and is reported in full, not only its gap rows.
-The denormalisation inventory (check 2) and the out-of-band constraint inventory (check 8) are
-required lists.
+DELIVERABLE: the write→read map (check 1), reported in full rather than only its gap rows, plus the
+denormalisation inventory (check 2) and the out-of-band constraint inventory (check 8).
 
 CONTEXT — derive, do not assume: enumerate the collections from `app/core/db.py`; the write sites by
 grepping for the CRUD helpers in `app/core/crud.py` and for raw Motor calls (`update_*`, `insert_*`,
@@ -31,8 +30,7 @@ THE CHECKS, in priority order:
 1. **WRITE → READ MAP.** The required table, one row per write site: write site file:line | the
    collection and fields it writes | the filter it writes under (note especially whether it is
    season-scoped) | every read site serving those fields | does the read project from the same
-   document the write touched? | GAP yes/no. Derive the read side from the pipelines and
-   projections, not from field names. Report the full table, not only the gap rows.
+   document the write touched? | GAP yes/no.
 
 2. **DENORMALISATION INVENTORY.** Every embedded copy of another collection's data — the `ort`,
    `schiedsrichter` and team fields embedded in `spiele` documents, plus anything else you find.
@@ -85,38 +83,34 @@ THE CHECKS, in priority order:
    `saison_teams` and `saison_spieler` have no Pydantic model to mirror, so verify those against
    live data with `python -m app.core.constraints --check`.
 
-ALREADY DECIDED — report against these, do not re-litigate them:
+ALREADY DECIDED — report against these, never re-litigate them. Most are `.claude/CLAUDE.md` §7 rows;
+what §7 does not spell out is here because an auditor reliably reads it as a defect:
 
-- **Statistics are derived from `spiele`**, never stored, and this is **built**, not planned. A match
-  counts when it has an `ergebnis`; a cancelled match with a result is a forfeit and counts; points
-  come from the season's `rules`. A table recomputed per request reads as an obvious thing to cache —
-  proposing that reverses a ratified decision rather than reporting a finding.
+- **Statistics are derived from `spiele`**, never stored, and this is built rather than planned. A
+  match counts when it has an `ergebnis`; a cancelled match with a result is a forfeit and counts;
+  points come from the season's `rules`. Proposing a cache for the per-request recomputation reverses
+  a ratified decision.
 - **Store what was true then, derive what is true now** — the rule check 2 measures against. Embedded
-  names are display copies owed a fan-out; `mietpreis` and `payment` are point-in-time records and
-  are **not** stale copies of `default_mietpreis` / `default_payment`. Report a missing fan-out;
-  never propose normalising these away.
-- **The database enforces its own invariants** — every collection carries a `$jsonSchema` validator,
-  and the uniqueness rules are unique indexes, declared in `app/core/constraints.py` and reapplied on
-  every boot. **The absence of any other index is deliberate** and not a finding: at this data size a
-  query index would be theatre. Two further non-findings: the validators assert types, presence and
-  enums only, so a missing `minLength` is the recorded scope rather than a gap; and they duplicate
-  the Pydantic models **by hand**, deliberately rather than by generation. A default-tier test
-  compares the two copies, so drift between them is a test failure, not an audit finding.
-- **Soft deletion is a date, not a flag, and one season is active by one path** — creating never
-  revives a retired row, and a natural-key collision on create is a **409**, which is correct rather
-  than a bug. `saison_teams` has no DELETE and `saisons` has no DELETE; neither is an incomplete CRUD
-  surface to complete.
+  names are display copies owed a fan-out; `mietpreis` and `payment` are point-in-time records rather
+  than stale copies of the defaults. Report a missing fan-out; never propose normalising these away.
+- **The database enforces its own invariants**, and `app/core/constraints.py` reapplies them on every
+  boot. Three non-findings follow: **the absence of any index beyond the uniqueness ones is
+  deliberate** at this data size; the validators assert types, presence and enums only, so a missing
+  `minLength` is the recorded scope rather than a gap; and they duplicate the Pydantic models by
+  hand, with a default-tier test comparing the two copies, so drift between them is a test failure
+  rather than an audit finding.
+- **A natural-key collision on create is a 409**, which is correct rather than a bug, and neither
+  `saison_teams` nor `saisons` having a DELETE is an incomplete CRUD surface to complete.
 - **The two definitions of `ausstehend`** — the server's filter includes today, the client's label
   excludes it — are ratified. Verify the code still matches; the divergence itself is not a finding.
 
-KNOWN OPEN ITEMS to place rather than re-derive: `docs/_roadmap/open-items.md` tracks the backend items
-that are open by decision. Verify each at the current code and cite the roadmap entry instead of
-re-analysing it.
+KNOWN OPEN ITEMS: `docs/_roadmap/open-items.md` tracks the backend items that are open by decision.
+Verify each at the current code and cite the roadmap entry instead of re-analysing it.
 
 CROSS-SURFACE QUESTIONS: whether a given consistency gap is a defect or an accepted manual workflow
-(direct database edits, seasonal setup rituals) is knowledge only I have. Collect such questions per
-the shared protocol instead of resolving them by assumption. **This lens produces inverted findings
-more readily than any other** — a write that looks lost is frequently a workflow that is deliberate.
+(direct database edits, seasonal setup rituals) is knowledge only I have. **This lens produces
+inverted findings more readily than any other** — a write that looks lost is frequently a deliberate
+workflow.
 
 BOUNDARIES — not this pass: field-level constraint and mirror divergence with the frontend → b2 ·
 authorization, injection, key tiers → b3 · module layout, excess, dead code, test strategy, tooling →

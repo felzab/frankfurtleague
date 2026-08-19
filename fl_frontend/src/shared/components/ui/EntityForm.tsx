@@ -17,14 +17,8 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 type SubmitResult = { success: boolean; message?: string; error?: string; fieldErrors?: FieldErrors };
 
 /**
- * The create/edit form skeleton, once. `AdminCreate*Form` and `AdminEdit*Form` came in four files
- * that were 76–78% identical: the same `useTransition`, the same submit wiring, the same
- * draft state, the same toast handling and the same button pair. Only the initial draft, the server
- * action, its success guard and the success string ever differed.
- *
- * The guard stays at the call site on purpose — create checks `created_id` and edit checks
- * `updated_document`, and folding that in here would mean this component knowing about both
- * response shapes.
+ * The create and edit form skeleton, once. The success guard stays at the call site on purpose: create checks
+ * `created_id` and edit checks `updated_document`, and folding that in would mean knowing both response shapes.
  */
 export function EntityForm<TDraft>({
   initialDraft,
@@ -40,20 +34,15 @@ export function EntityForm<TDraft>({
   successMessage: string;
   onClose: () => void;
   /**
-   * Render the required asterisks. **Only a form that CREATES something sets it** (decided
-   * 2026-08-07): on a create every required field is genuinely a question, while on an edit every
-   * value is already there and a column of red stars marks nothing the reader can act on.
-   *
-   * It governs the marks alone. `isRequired` still sits on the fields either way, because it is what
-   * makes the browser refuse an emptied one — with its own message, in the browser's language.
+   * The required asterisks, and only a form that creates something sets it. It governs the marks alone: `isRequired`
+   * still sits on the fields either way, and is what refuses an emptied one.
    */
   marksRequired?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [draft, setDraft] = useState<TDraft>(initialDraft);
-  // Fires when the server rejected a path no field renders — without it the submit fails in silence,
-  // because the toast below is suppressed whenever `fieldErrors` is non-empty. The description names
-  // the situation: there is no field to look at.
+  // Without this the submit fails in silence, because the toast below is suppressed whenever `fieldErrors`
+  // is non-empty and no field renders the rejected path.
   const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() =>
     appToast.danger("Speichern fehlgeschlagen", {
       description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
@@ -67,8 +56,7 @@ export function EntityForm<TDraft>({
       if (!res.success) {
         setFieldErrors(res.fieldErrors ?? {});
 
-        // A field-level rejection already says which field and why, at the field. The toast is for
-        // the failures that belong to no field — a network error, a 500, a denied session.
+        // A field-level rejection already speaks at the field; the toast is for a failure belonging to none.
         if (!hasFieldErrors(res.fieldErrors)) {
           appToast.danger("Speichern fehlgeschlagen", {
             description: res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.",
@@ -88,23 +76,18 @@ export function EntityForm<TDraft>({
     <Form
       ref={formRef}
       validationErrors={fieldErrors}
-      // Read by the unlayered rule in `globals.css` that suppresses HeroUI's required asterisks. On
-      // the form rather than per field, because the rule is about the kind of form; emitted only when
-      // on, so an absent attribute already means no marks.
+      // Read by the unlayered rule in `globals.css` that suppresses HeroUI's required asterisks. Emitted only
+      // when on, so an absent attribute already means no marks.
       data-required-marks={marksRequired ? "on" : undefined}
       className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
       onSubmit={runOnSubmit(handleSubmit)}>
-      {/* No entrance animation: this mounts inside a modal that is already animating in, so its own
-          fade+slide ran on top of the modal's and read as a double entrance. Motion here is reserved
-          for state changes the user triggers (see the inline-create panel swap). */}
+      {/* No entrance: this mounts inside a modal already animating in, so its own would read as a double entrance. */}
       <div className="flex w-full flex-col gap-4 px-2">{renderFields(draft, setDraft)}</div>
 
-      {/* The separator reaches the DIALOG's edges, not the form's — see `MODAL_FOOTER`, which owns
-          the arithmetic against `ModalShell`'s padding. */}
+      {/* The separator reaches the dialog's edges rather than the form's; `MODAL_FOOTER` owns the arithmetic. */}
       <div className={MODAL_FOOTER_ROW}>
-        {/* Disabled while the mutation is in flight: pressing it unmounted the modal out
-            from under a running transition, whose `toast.success` and draft reset then fired against
-            a dead tree — so the record was created and the user was never told. */}
+        {/* Disabled in flight: pressing it unmounts the modal from under a running transition, whose toast then
+            fires against a dead tree — the record is created and nobody is told. */}
         <Button
           type="button"
           variant="secondary"
@@ -113,8 +96,7 @@ export function EntityForm<TDraft>({
           onPress={onClose}>
           Abbrechen
         </Button>
-        {/* No icon (decided 2026-08-07). A checkmark on a button that has not yet done anything
-            reads as "done" rather than "do it", and the label already says which action this is. */}
+        {/* No icon: a checkmark on a button that has not yet done anything reads as "done" rather than "do it". */}
         <Button
           type="submit"
           variant="primary"

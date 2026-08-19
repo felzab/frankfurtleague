@@ -7,23 +7,15 @@ import { formButton } from "@/shared/components/ui/formButtons";
 
 import { useTeamDraftStatus } from "./TeamDraftStatusContext";
 
-/** One editor per page, so the id can be a constant rather than threaded through a hook. */
 const SAVE_HINT_ID = "team-speichern-hinweis";
 
-/**
- * Save, cancel and the running state of the club draft — the match editor's action bar over the
- * team editor's own status context. The reasoning lives on `FormActionBar`, unchanged here: the bar
- * is the scroll container's STATIC sibling, save is disabled only on "nothing changed" and never on
- * a client verdict, and the unsaved count sits where the eye already goes.
- */
+/** The match editor's action bar over the club editor's status context; `FormActionBar` carries the reasoning. */
 export function TeamActionBar({ isPending, onCancel }: { isPending: boolean; onCancel: () => void }) {
   const status = useTeamDraftStatus();
 
   return (
     <div className="border-border bg-background w-full border-t px-4 py-3 sm:px-8">
       <div className="max-w-page mx-auto flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-        {/* At the bar's leading edge, where a reader's eye enters the row. The disabled Speichern
-            reaches it through `aria-describedby` rather than through proximity. */}
         <p
           id={SAVE_HINT_ID}
           role="status"

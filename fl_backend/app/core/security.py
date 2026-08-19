@@ -1,21 +1,3 @@
-"""
-CORE · request authorization
-
-Three shared bearer keys, not user identities: `base` for reads, `admin` for every mutation,
-`system` for diagnostics. The only client is the Next.js container, which authenticates its own
-users before ever calling this service.
-
-Invariants:
-- Keys are compared with `secrets.compare_digest`, never `==`.
-- A resource router guards at router level, so its endpoints inherit it; the system
-  router guards per endpoint, and an endpoint added there is public unless it declares otherwise.
-- The expected key is read per request through `Depends(get_config)`, never captured at import.
-- `/system/is_live` is deliberately unguarded — it is the container healthcheck.
-
-See:
-- docs/backend/spec.md — invariants I7, I8, and the error-code table
-"""
-
 import secrets
 from typing import Annotated, Callable
 
@@ -40,17 +22,16 @@ def get_token(
     return credentials.credentials
 
 
-# Which key a guard checks, as a lookup on the settings rather than the value itself. Taking the
-# SecretStr out of the config only inside `dependency` is what keeps it off this module's import path.
+# A lookup on the settings, not the value: taking the `SecretStr` out only inside `dependency`
+# keeps it off this module's import path.
 KeySelector = Callable[[BackendConfig], SecretStr]
 
 
 def verify_api_key(select_key: KeySelector, error_code: str) -> Callable:
-    """
-    Build a guard that compares the bearer token against one configured key.
+    """Build a guard that compares the bearer token against one configured key.
 
-    The key is selected from the settings PER REQUEST. Capturing its value here instead would read
-    the environment at import time, which is the side effect `app/asgi.py` exists to confine.
+    The key is selected PER REQUEST: capturing its value here would read the environment at import
+    time, the side effect `app/asgi.py` exists to confine.
     """
 
     def dependency(
@@ -64,8 +45,8 @@ def verify_api_key(select_key: KeySelector, error_code: str) -> Callable:
     return dependency
 
 
-# Dependencies used in Routers. Module-level objects, so a router declares the same callable every
-# time and a test can compare guards by identity (`tests/api/test_admin_guard.py`).
+# Module-level objects, so a router declares the same callable every time and a test can compare
+# guards by identity (`fl_backend/tests/api/test_admin_guard.py`).
 verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code="REQ-AUTH-002")
 verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, error_code="REQ-AUTH-003")
 verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code="REQ-AUTH-004")

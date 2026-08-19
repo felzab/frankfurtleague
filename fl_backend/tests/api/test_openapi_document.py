@@ -1,16 +1,3 @@
-"""
-API · the committed OpenAPI document is the one this service publishes
-
-`fl_backend/openapi.json` is what the frontend's contract test compares its Zod mirror against,
-so this suite is what keeps it fresh: change a Pydantic model without regenerating,
-and the gate fails here naming the component that moved. It runs in the default tier —
-`create_app(build_test_config())` needs no server, no database and no `.env`.
-
-Invariants:
-- The documents are compared as parsed JSON, never bytes — prettier owns the file's formatting.
-- The document is compared whole: `components` alone misses a route added, removed or re-pathed.
-"""
-
 import pytest
 
 from tests.openapi_document import DOCUMENT_PATH, build_document, read_document
@@ -33,18 +20,12 @@ def summarize_drift(committed: dict, built: dict) -> str:
         if removed := sorted(committed_keys - built_keys):
             lines.append(f"  Only in the committed document: {removed}")
 
-    # Both key sets can match while a field inside one of them changed -- which is the common case, and
-    # the one a set difference says nothing about.
+    # Both key sets can match while a field inside one changed, which a set difference cannot say.
     return "\n".join(lines) or "  The same paths and components, so a field inside one of them changed."
 
 
 def test_the_committed_document_is_the_one_the_service_publishes():
-    """
-    `openapi.json` is regenerated in the same commit as the models it describes.
-
-    A stale document makes the frontend's contract test compare against a shape the backend no longer
-    serves — which is worse than no check at all, because it stays green while the two sides diverge.
-    """
+    """A stale document is worse than no check: the frontend's contract test stays green while the two sides diverge."""
     assert DOCUMENT_PATH.exists(), f"{DOCUMENT_PATH.name} is missing. Create it with:  {REGENERATE}"
 
     committed = read_document()

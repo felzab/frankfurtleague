@@ -35,8 +35,7 @@ describe("deriveSpielerDraftStatus", () => {
 
     assert.equal(status.isDirty, false);
     assert.equal(status.changed.length, 0);
-    // Two person fields plus the five squad rows. `is_nachgetragen` is deliberately not one:
-    // the editor renders it as a note, so it can never differ from stored.
+    // Two person fields plus the five squad rows; `is_nachgetragen` is a note, never a field.
     assert.equal(status.fields.length, 7);
   });
 
@@ -79,8 +78,7 @@ describe("deriveSpielerDraftStatus", () => {
   });
 
   it("falls back to the id for a team the selected season does not offer", () => {
-    // A real state rather than a defect: the player is in a team that is not in this season, which
-    // is worth seeing as an odd value rather than as an empty row.
+    // A real state, not a defect: the player is in a team this season does not offer.
     const status = deriveSpielerDraftStatus({
       stored: draftFrom(squad({ team_id: "6890a1b2c3d4e5f607190009" })),
       draft: draftFrom(squad({ team_id: "6890a1b2c3d4e5f607190009" })),
@@ -111,8 +109,8 @@ describe("deriveSpielerDraftStatus", () => {
   });
 
   it("ignores is_nachgetragen entirely, because nothing on the page edits it", () => {
-    // It still travels on the payload — the patch replaces the row wholesale — but it is a note
-    // rather than a control, so a draft that differs on it is not a change the save bar counts.
+    // It still travels on the payload — the patch replaces the row wholesale — but a draft that
+    // differs on it is not a change the save bar counts.
     const status = deriveSpielerDraftStatus({
       stored,
       draft: draftFrom(squad({ is_nachgetragen: true })),
@@ -129,7 +127,6 @@ describe("deriveSpielerDraftStatus", () => {
     assert.equal(gained.byPath.get("is_captain")?.storedText, null);
     assert.equal(gained.byPath.get("is_captain")?.draftText, "Ja");
 
-    // The other direction renders as a removal in the change list, which is what losing it is.
     const lost = deriveSpielerDraftStatus({
       stored: draftFrom(squad({ is_captain: true })),
       draft: draftFrom(squad({ is_captain: false })),

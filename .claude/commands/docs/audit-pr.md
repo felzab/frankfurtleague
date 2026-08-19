@@ -3,8 +3,8 @@ description: Audit and fix the branch's documentation slice before its pull requ
 ---
 
 Audit the documentation this branch touches — and only that — against `docs/_standard/`, and fix what
-fails **on the branch itself**. Arguments: `$ARGUMENTS` — this command takes none; the branch in the
-working tree is the scope.
+fails **on the branch itself**. It takes no arguments (`$ARGUMENTS`): the branch in the working tree
+is the scope.
 
 This is the pre-merge slice, and it inverts `/docs:audit`'s split: the sweep reports and this command
 repairs in place. On `main`, or with nothing changed since the fork point, say there is no slice and
@@ -29,7 +29,7 @@ stop.
      Dockerfiles and workflows included;
    - every stamped page whose citations name a changed file. `python scripts/check_docs.py` names
      each such page for as long as its restamp is missing, so take the set from the check. A
-     branch-scoped check is the right source here **because the scope is the branch**; it is never a
+     branch-scoped check is the right source **because the scope is the branch**; it is never a
      worklist for anything older.
 
 4. **Load the standard**: `docs/_standard/rules-index.md`, then the chapter for each shape in the
@@ -37,11 +37,11 @@ stop.
    `docs/_standard/chapters/3-corpus.md` for `/docs` pages, and
    `docs/_standard/chapters/5-currency.md` wherever anything is stamped.
 
-5. **Audit the subset with the check classes** from [`audit.md`](audit.md#the-check-classes), applied from there rather
-   than from a copy. The slice adds the one question a whole-corpus sweep cannot ask: does any
-   document in the subset still describe what the code did **before** this branch changed it
-   (CUR-2)? A changed behaviour whose page reads as if the branch never happened is the finding this
-   command exists to catch.
+5. **Audit the subset with the check classes** from [`audit.md`](audit.md#the-check-classes), applied
+   from there rather than from a copy. The slice adds the one question a whole-corpus sweep cannot
+   ask: does any document in the subset still describe what the code did **before** this branch
+   changed it (CUR-2)? A changed behaviour whose page reads as if the branch never happened is the
+   finding this command exists to catch.
 
 6. **Fix in place, on this branch**, under [`audit.md`](audit.md#fix-mode) and the ground rules it
    carries for resolving a duplicate. Each fix is no longer than what it replaces. The slice adds:
@@ -58,12 +58,10 @@ stop.
    ./scripts/verify.sh --docs --format
    ```
 
-   **One run, at the end.** `--docs --format` is the floor for the slice, the formatter being what
-   holds the prose and the comments this command rewrites; where the branch touched more than
-   documentation the gate refuses that scope and names the one it needs, and the run is repeated at
-   that scope.
+   **One run, at the end.** `--docs --format` is the slice's floor, the formatter being what holds
+   the prose and the comments this command rewrites; where the branch touched more than
+   documentation the gate refuses that scope, names the one it needs, and the run is repeated there.
 
-   Report **net lines, separating relocated from removed** — a reshaping that moves content between
-   files is not a reduction, and a diffstat that excludes new untracked files overstates one. The
+   Report **net lines, separating relocated from removed** ([`audit.md`](audit.md#fix-mode)). The
    fixes then ride the branch's normal close per `docs/_git/spec.md`; this command opens no pull
    request of its own.

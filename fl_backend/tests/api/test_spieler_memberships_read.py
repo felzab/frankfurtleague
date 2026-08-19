@@ -1,16 +1,3 @@
-"""
-SPIELER · the admin list's player-centric read
-
-`GET /spieler/memberships` answers "every player, and which squads hold them" in one
-aggregation. `GET /spieler` cannot answer it at any filter setting, and these cases pin all
-three reasons — the strict join, the unwind, and the missing `saison_id` — because each is a
-separate way the composed alternative fails, and two of them fail silently.
-
-The structural half asserts what the pipeline says and the `db`-marked half what MongoDB
-computes from it — a structural test fails when a rule is deleted, an executing one
-when a rule is present and wrong.
-"""
-
 from typing import Any
 
 import pytest
@@ -32,9 +19,9 @@ PRIOR_SAISON = "2025"
 SPIELER_OIDS = {
     "Abel": ObjectId("6890a1b2c3d4e5f607290001"),
     "Baum": ObjectId("6890a1b2c3d4e5f607290002"),
-    # Two seasons, which is the case `FLSpieler` cannot report and this endpoint must.
+    # Two seasons — the case `FLSpieler` cannot report and this endpoint must.
     "Cordes": ObjectId("6890a1b2c3d4e5f607290003"),
-    # No squad row at all -- a player created by the admin form before they are given one.
+    # No squad row at all: a player created by the admin form before being given one.
     "Ohne": ObjectId("6890a1b2c3d4e5f607290004"),
 }
 
@@ -43,8 +30,8 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607190001")
 
 class TestTheMembershipsPipeline:
     def test_it_filters_nothing_out(self):
-        # No $match anywhere, the lookup included: a retired person, a retired squad row and a player
-        # in no squad are all rows the admin list exists to show and act on.
+        # No `$match` anywhere, the lookup included: a retired person, a retired row and a player in no
+        # squad all belong in the admin list.
         stages = [next(iter(stage)) for stage in build_spieler_memberships_pipeline()]
         assert "$match" not in stages
 
@@ -52,12 +39,7 @@ class TestTheMembershipsPipeline:
         assert all("$match" not in inner for inner in lookup["pipeline"])
 
     def test_it_does_not_unwind(self):
-        """
-        The difference from `build_spieler_pipeline` that decides the whole endpoint.
-
-        Unwinding is what turns one player with two squad rows into two rows nothing can tell apart,
-        because `FLSpieler` carries no `saison_id` to separate them by.
-        """
+        """Unwinding turns one player with two squad rows into two rows nothing can tell apart, because `FLSpieler` carries no `saison_id`."""
         stages = [next(iter(stage)) for stage in build_spieler_memberships_pipeline()]
         assert "$unwind" not in stages
 
@@ -73,8 +55,7 @@ class TestTheMembershipsPipeline:
             "stufe": 1,
             "is_nachgetragen": 1,
             "is_captain": 1,
-            # Unlike the team junction, a squad row really can be retired, and the admin
-            # list badges it in place. Dropping this field would make a retired row look live.
+            # A squad row really can be retired, unlike a team junction row, and dropping this makes it look live.
             "inactive_since": 1,
         }
 
@@ -83,12 +64,7 @@ class TestTheMembershipsPipeline:
 
 
 class TestWhyTheSeasonScopedReadCannotAnswerIt:
-    """
-    The three reasons, as assertions rather than as a paragraph in a docstring.
-
-    Each is a way `GET /spieler` fails the admin list, and the two below the first fail SILENTLY —
-    which is why they are pinned here rather than left to the endpoint's prose.
-    """
+    """Three ways `GET /spieler` fails the admin list, as assertions — and the last two fail silently."""
 
     def test_a_named_season_makes_the_junction_join_strict(self):
         """A player with no row for that season is dropped, so the list cannot offer to give them one."""
@@ -103,13 +79,7 @@ class TestWhyTheSeasonScopedReadCannotAnswerIt:
         assert unwind["preserveNullAndEmptyArrays"] is True
 
     def test_a_player_with_no_squad_row_does_not_validate_as_flspieler(self):
-        """
-        The failure the admin create would have caused on its first use.
-
-        `FLSpieler` is the flattened shape, so `team_id` is required — it comes from the junction. A
-        player created as a person and not yet given a squad row therefore comes back from the
-        unscoped read missing it, and the whole response 500s rather than that one player being odd.
-        """
+        """`FLSpieler` is the flattened shape, so `team_id` is required: one player with no squad row 500s the whole response."""
         with pytest.raises(ValidationError) as failure:
             FLSpieler.model_validate(
                 {
@@ -197,9 +167,6 @@ class TestTheResponseModel:
         assert player.memberships[0].stufe is None
 
 
-# Executed by a real MongoDB
-
-
 def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
     return {
         "_id": SPIELER_OIDS[name],
@@ -225,20 +192,14 @@ def _squad_row(name: str, saison_id: str, *, nummer: str | None, inactive_since:
 
 @pytest.fixture(scope="session")
 def squads(mongo_database: Database) -> Database:
-    """
-    Four players covering the four states the admin list has to render.
-
-    Its own corpus rather than an extension of `conftest.py`'s league: that seed is documented as the
-    league table's and the pipeline-execution suites assert against its figures, so adding squads to
-    it would make those tests depend on rows they never mention.
-    """
+    """Its own corpus rather than `conftest.py`'s league: squads there would make the pipeline suites depend on rows they never mention."""
     for collection in ("spieler", "saison_spieler"):
         mongo_database.drop_collection(collection)
 
     mongo_database.spieler.insert_many(
         [
             _spieler("Abel"),
-            # The PERSON is retired; their squad row is not. The two are independent.
+            # The person is retired and their squad row is not: the two are independent.
             _spieler("Baum", inactive_since="2026-05-01"),
             _spieler("Cordes"),
             _spieler("Ohne"),
@@ -249,9 +210,9 @@ def squads(mongo_database: Database) -> Database:
         [
             _squad_row("Abel", SAISON, nummer="7"),
             _squad_row("Baum", SAISON, nummer="3"),
-            # Two seasons for one person -- the case the flattened read reports as two players.
+            # Two seasons for one person — the case the flattened read reports as two players.
             _squad_row("Cordes", SAISON, nummer="11"),
-            # The ROW is retired while the person plays on. Also independent, in the other direction.
+            # The row is retired while the person plays on — independent in the other direction.
             _squad_row("Cordes", PRIOR_SAISON, nummer="9", inactive_since="2025-11-30"),
         ]
     )
@@ -283,12 +244,7 @@ class TestTheMembershipsPipelineExecuted:
         assert [row.saison_id for row in players["Baum"].memberships] == [SAISON]
 
     def test_a_retired_squad_row_is_returned_and_says_so(self, squads: Database):
-        """
-        The row the list badges and offers the reactivate on.
-
-        Hiding it would leave the admin no way to bring the player back, because a second create is a
-        409 against the index the retired row still holds.
-        """
+        """Hiding it would leave no way back: a second create is a 409 against the index the retired row still holds."""
         rows = {row.saison_id: row for row in self._by_surname(squads)["Cordes"].memberships}
 
         assert rows[PRIOR_SAISON].inactive_since == "2025-11-30"
@@ -297,7 +253,6 @@ class TestTheMembershipsPipelineExecuted:
         assert rows[PRIOR_SAISON].nummer == "9"
 
     def test_the_order_is_by_forename(self, squads: Database):
-        """The order the admin list renders. Which KEY produces it is pinned structurally in `test_it_sorts_by_forename_then_surname`."""
         raw = list(squads.spieler.aggregate(build_spieler_memberships_pipeline()))
 
         assert [row["vorname"] for row in raw] == ["A", "B", "C", "O"]

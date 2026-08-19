@@ -1,15 +1,3 @@
-"""
-SPIELTAGE · read endpoints
-
-Matchdays: named blocks of fixtures inside a season, with a date range. Written through
-`admin_router.py` in this slice and read here.
-
-Invariants:
-- Ordering is derived and no field holds it — `order_spieltage` is its only expression.
-- Omitting `saison_id` means the current season, resolved in the handler.
-- `anzahl_spiele` is derived per read, so both reads resolve the season document.
-"""
-
 from fastapi import APIRouter, Depends
 
 from app.api.saisons.crud import pull_saison_id_and_rules
@@ -43,17 +31,12 @@ async def get_spieltage(
     """
     List matchdays for a season, in the order they are played.
 
-    That order is derived rather than stored: the phase in bracket order, then `beginn`, then `_id`. It
-    is what `sort_by=natural` means and it is the default; the other two sort options are dates, and
-    neither is what a bracket reads.
-
-    Omitting `saison_id` returns the **current** season. `saison_phase` accepts `playoffs` as an alias
-    for "any phase except gruppenphase".
+    That order is derived, not stored -- the phase in bracket order, then `beginn`, then `_id` -- and
+    is what `sort_by=natural` means. Omitting `saison_id` returns the CURRENT season.
     """
 
-    # Omitting `saison_id` means the current season, not every season: a field default
-    # cannot reach the database. The season's `rules` come back in the same query, because the derived
-    # match count needs them.
+    # Resolved here, never as a field default, which cannot reach the database. The `rules` come
+    # back in the same query, the derived match count needing them.
     filters.saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
     db_filter = build_spieltage_filter(filters=filters)
@@ -67,9 +50,7 @@ async def get_spieltage(
     )
     spieltage = FLSpieltagListAdapter.validate_python([with_expected_matches(raw, rules) for raw in spieltage_raw])
 
-    # The exact order, applied after the read: the phases sort lexically in Mongo and that is not the
-    # order they are played in. Only the natural order is refined here — a caller who asked
-    # for a date or a size ordering asked for exactly that.
+    # After the read: the phases sort lexically in Mongo, not in the order they are played.
     if filters.sort_by == "natural":
         spieltage = order_spieltage(spieltage)
         if filters.order == "desc":
@@ -87,9 +68,8 @@ async def get_spieltag(
     """
     Return one matchday by its id.
 
-    Addressed directly, so no season is chosen by this endpoint and a retired matchday is returned rather
-    than hidden — a caller holding an id was given it by something. The matchday's OWN `saison_id` is
-    still resolved, because the derived match count needs that season's rules.
+    Addressed directly, so a retired matchday is returned rather than hidden. Its OWN `saison_id` is
+    still resolved, the derived match count needing that season's rules.
     """
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})

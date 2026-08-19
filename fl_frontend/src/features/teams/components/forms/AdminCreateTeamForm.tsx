@@ -23,16 +23,9 @@ const EMPTY_DRAFT_BASE = {
 } as const;
 
 /**
- * Creates the club AND enters it into a season, in one submit.
- *
- * One form on purpose: every team read is season-scoped with a strict junction join (backend spec
- * I11), so a club created without a junction row is invisible to the very list this form sits on.
- *
- * **Only planned seasons are offered** (decided 2026-08-07): a season's field is settled before it
- * starts, so the picker holds `saisonOptions` — the `future` seasons, each with its groups' fill
- * state — and the modal shows a notice instead of this form when none exist. The group picker
- * disables a full group; `POST /teams/{team_id}/saisons` refuses the same shapes
- * (REQ-ENTER-001..003) and stays authoritative.
+ * Creates the club AND enters it into a season in one submit. One form on purpose: every team read
+ * joins the junction strictly (backend spec I11), so a club created without a row is invisible to
+ * the very list this form sits on.
  */
 export function AdminCreateTeamForm({
   saisonOptions,
@@ -69,7 +62,7 @@ export function AdminCreateTeamForm({
                     ...current,
                     saison_id: nextSaisonId,
                     // A group the new season does not offer, or has no room in, must not ride along
-                    // silently — the picker returns to "wählen" instead.
+                    // silently — the picker returns to "wählen".
                     gruppe:
                       current.gruppe !== null && nextOffer.some((entry) => entry.gruppe === current.gruppe && entry.occupied < entry.capacity)
                         ? current.gruppe
@@ -108,10 +101,7 @@ export function AdminCreateTeamForm({
         );
       }}
       onSubmit={async (draft) => {
-        // Submitted with `gruppe` possibly still null: the action's schema refuses that with a field
-        // message, so an untouched picker is a field error rather than a silently chosen group.
         const res = await postTeamAction(draft);
-        // A create only counts if the backend echoed the new id back.
         return { ...res, success: res.success && !!res.created_id };
       }}
       marksRequired

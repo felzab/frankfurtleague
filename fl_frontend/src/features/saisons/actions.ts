@@ -1,23 +1,5 @@
 "use server";
 
-/**
- * SAISONS · server actions
- *
- * Creating a season, editing its dates and rules, and the rollover. The `"use server"` directive
- * stays the first line, above this block.
- *
- * Invariants:
- * - Every action runs inside `runAdminMutation` — a 409 must reach the form, not the error page.
- * - Every action begins with `getAdminSession()` and CHECKS the result.
- * - Base tags only: a season IS the season, so no granular tag names anything.
- * - `status` reaches no payload — `activateSaisonAction` calls the one endpoint that may.
- * - The rollover invalidates four resources: an omitted `saison_id` means the current season, so
- *   promoting changes `/spiele`, `/spieltage` and `/teams` too.
- * - A rules edit invalidates `teams` as well — the table is scored from `rules` on read.
- *
- * See:
- * - docs/frontend/spec.md — section 1.3, the action inventory
- */
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
@@ -39,30 +21,9 @@ import type {
   FLSwapGruppenResponse,
 } from "./schemas";
 
-// `saisons._id` is the document key, so a reused id is refused by the index rather than silently
-// overwriting a season -- and the honest answer names the one thing the admin can do about it.
 const SAISON_ID_TAKEN = "Diese Saison-ID ist bereits vergeben. Wähle eine andere oder bearbeite die vorhandene Saison.";
 
-/**
- * ONE SHAPE FOR EVERY GERMAN REFUSAL MESSAGE, and which one depends on where the message lands.
- *
- * - **A FIELD message** (`fieldErrors`) renders under the input it names, so the input is the remedy:
- *   ONE sentence, present tense, saying what is wrong with the value. No advice, because the advice
- *   would be "change this field", which is where the message already is.
- * - **A FORM message** (`error`) is about data this form does not show, so the remedy is elsewhere: TWO
- *   sentences, the first stating what is true and the second naming the action, imperative.
- *
- * No em dashes, no parentheses, no error codes. The code travels in the log line (docs/logging/error-codes.md); this
- * is the half a person reads.
- */
-
-/**
- * The rules edit's refusals (`REQ-RULES-001..007` and `REQ-DATE-004`), or `null` when the 409 is
- * none of them.
- *
- * Most land on a field; the freeze, the matchday overflow and the span shrink do not, because the
- * freeze is about the whole season and the other two are about documents this form does not show.
- */
+/** A rules 409 as the message it should render, or `null` when the code is none of these. */
 function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
@@ -99,26 +60,15 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   }
 }
 
-/**
- * What a season's own reads depend on, plus the league table.
- *
- * `teams` rather than `saisons` alone: `GET /teams` reads the season document on every call to score
- * the derived table from `rules.win_points` and `draw_points`, so an edit to those two
- * changes every standing on the next read. The dates travel on the same payload, so this is
- * unconditional rather than a comparison against what moved -- a wrong "nothing changed" here serves a
- * stale table for a day.
- */
+/** `teams` too: the league table is scored from `rules` on read, so an edit moves every standing. */
 function invalidateSaisonAndTable(): void {
   updateTag("saisons");
   updateTag("teams");
 }
 
 /**
- * Everything a change of active season is visible in.
- *
- * Every read that defaults an omitted `saison_id` to the current season answers differently
- * the moment this succeeds, and none of those cache entries carries the promoted season's id -- they
- * are the entries for a request that named no season, which is most public traffic.
+ * Every read that omits `saison_id` answers differently after this, and its cache entry carries no
+ * season id to invalidate more narrowly by.
  */
 function invalidateRollover(): void {
   updateTag("saisons");
@@ -141,9 +91,8 @@ export async function postSaisonAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // Two different 409s reach this call and the code separates them: `REQ-RULES-001` refuses a
-    // bracket the phase set cannot hold and is checked first, because a duplicate id
-    // arrives from the unique index with no code to inspect.
+    // `REQ-RULES-001` is checked first: a duplicate `_id` arrives from the index with no error code
+    // to discriminate on, so it can only be the fallback.
     let postOperation;
     try {
       postOperation = await postSaison(validated.data);
@@ -160,8 +109,7 @@ export async function postSaisonAction(
       return { success: false, error: "Beim Anlegen der neuen Saison ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // A created season is always `future` and never `active`, so nothing that resolves the
-    // current season is affected -- the season list is.
+    // A create lands `future`, so nothing resolving the current season moves. Only the list does.
     updateTag("saisons");
 
     return {
@@ -190,8 +138,8 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // All five rules refusals are reachable here, and each has to reach the editor rather
-    // than the error page -- the panel the admin is looking at is where the wrong value still sits.
+    // Every rules refusal has to reach the editor rather than the error page: the panel the admin is
+    // looking at is where the wrong value still sits.
     let patchOperation;
     try {
       patchOperation = await patchSaison(validated.data);
@@ -216,12 +164,8 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
 }
 
 /**
- * The rollover. One call, one transaction on the backend, and the only path to `status: "active"`.
- *
- * **The outgoing season has to be finished** (`REQ-ACTIVATE-001`, decided 2026-08-08). Demoting it to
- * `past` freezes its competitive rules and makes its derived table the record of what happened, so a
- * rollover across unplayed fixtures closes a competition that is not over. The panel disables the control
- * and lists what is open; the endpoint refuses it, and remains the authority.
+ * The only path to `status: "active"`. `REQ-ACTIVATE-001` refuses it while the outgoing season has
+ * unplayed fixtures: demoting that season to `past` freezes its rules and its table into the record.
  */
 export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload): Promise<{
   success: boolean;
@@ -241,9 +185,8 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The rollover is refused while the outgoing season still has unplayed fixtures
-    // (`REQ-ACTIVATE-001`). The panel already disables the button and lists them, so this is the
-    // stale-page path: the answer has to name what to do rather than be a bare failure.
+    // The panel already disables the control and lists the open fixtures, so reaching here means a
+    // stale page: the message names the remedy rather than failing bare.
     let activateOperation;
     try {
       activateOperation = await activateSaison(validated.data);
@@ -263,9 +206,8 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
 
     invalidateRollover();
 
-    // `deactivated` is normally 1. Zero means this season already held `active`, a no-op worth
-    // naming; more than one means the database had drifted into a state nothing can express and this
-    // call repaired it.
+    // Any count but 1 is worth naming: 0 is a no-op, and more than one means the database had drifted
+    // into a state nothing can express and this call repaired it.
     const demoted = activateOperation.deactivated;
     const message =
       demoted === 0
@@ -279,11 +221,9 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
 }
 
 /**
- * The group swap. Two clubs exchange groups; the backend writes both junction rows in one transaction.
- *
- * **`spiele` is invalidated as well as `teams`**, because the same transaction rewrites every drawn
- * Gruppenphase fixture fielding either club — each club inherits the other's opponents, dates and
- * venues. A schedule served from the cache afterwards would name the club that used to play there.
+ * Two clubs exchange groups. **`spiele` is invalidated as well as `teams`**: the same transaction
+ * rewrites every drawn Gruppenphase fixture fielding either club, so a cached schedule would name the
+ * club that used to play there.
  */
 export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promise<{
   success: boolean;
@@ -303,9 +243,8 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The first five mean the picture moved underneath a stale page -- `findSwapPartnerRefusal` and
-    // the panel already grade them. `REQ-SWAP-006` has no client counterpart and arrives on a current
-    // page, so its message names a repair instead of a reload.
+    // The first five mean the picture moved under a stale page, so each says to reload.
+    // `REQ-SWAP-006` has no client counterpart and arrives on a current page, so it names a repair.
     let swapOperation;
     try {
       swapOperation = await swapGruppen(validated.data);
@@ -343,8 +282,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
           };
         }
         if (error.serverErrorCode === "REQ-SWAP-006") {
-          // This refusal stands only because lifting the record is an open path, so the sentence
-          // names all three steps: an admin told only "no" has nothing left to try.
+          // Lifting the record is an open path, so the sentence names all three steps.
           return {
             success: false,
             error:
@@ -359,14 +297,11 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
       return { success: false, error: "Beim Tausch der Gruppen ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // Both layers for this season: the base tag serves the reads that named no season, the
-    // granular one those that named this one. A group decides which table counts a club's results.
+    // Both layers: the base tag serves reads that named no season, the granular one those that named
+    // this season.
     updateTag("teams");
     updateTag(`teams:saison_id:${validated.data.saison_id}`);
 
-    // And the fixtures, on the same two layers, because the swap rewrote the sides of every drawn
-    // Gruppenphase match either club was in. Without this the schedule pages keep serving the club that
-    // used to play there.
     updateTag("spiele");
     updateTag(`spiele:saison_id:${validated.data.saison_id}`);
 

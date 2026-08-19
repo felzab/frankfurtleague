@@ -1,19 +1,3 @@
-/**
- * CORE · typed API errors
- *
- * Three failure kinds, kept distinct because they point at different systems: the network did not
- * answer, the API answered with a bad status, or the API answered with something unparseable.
- *
- * Collapsing them loses the diagnosis. Reporting a malformed body as a network failure sends the
- * reader to check connectivity when the problem is a schema mismatch.
- *
- * Every error carries a stable `code` (the `FE-*` half of the table in `docs/logging/error-codes.md`) and the
- * `correlationId` sent as `X-Correlation-ID`, so a frontend error can be matched to the backend log
- * line for the same request. A bad status additionally carries `serverErrorCode` — the backend's
- * own code, read off the response body — which is what lets a caller distinguish "shorthand already
- * taken" (DB-COMMON-002) from a crash without parsing prose.
- */
-
 export class APIBadStatusError extends Error {
   readonly code = "FE-API-001";
   correlationId: string;

@@ -34,27 +34,18 @@ import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
 
-/**
- * How long the undo offer stands after a save. It stands
- * on every save, confirmed or not: a confirmation is the carve-out for a draft carrying a warning
- * or a danger, and undo is what still helps the admin who was not paying attention. The
- * rollover is not a save at all and carries its own confirmation — see `FormRolloverSection` for why.
- */
 const UNDO_TIMEOUT_MS = 15000;
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (an undo belongs to
- * a page-owned editor, and nothing else becomes a route handler): by the time the offer is pressed
- * this component is unmounted and the browser is on another route, and a server action dispatched
- * from there trips Next's E592 invariant and is truncated mid-response.
- * **Revert this to a server action once E592 is fixed upstream.**
+ * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted, and
+ * an action dispatched from another route trips Next's E592 invariant and truncates mid-response.
+ * **Revert once E592 is fixed upstream.**
  */
 async function postSaisonUndo(payload: FLPatchSaisonPayload): Promise<{ success: boolean; message?: string; error?: string }> {
   const response = await fetch("/api/admin/saisons/undo", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    // The route answers 200 with the outcome in the body for every reportable case, so a non-2xx is a
-    // genuine transport failure and belongs in the rejection branch.
+    // The route answers 200 with the outcome in the body, so a non-2xx is a transport failure.
     body: JSON.stringify(payload),
   });
 
@@ -66,18 +57,9 @@ async function postSaisonUndo(payload: FLPatchSaisonPayload): Promise<{ success:
 }
 
 /**
- * The season editor's form: two panels, the rollover control, a sticky summary rail, and one derivation
- * behind all of it — the match editor's shape over a season. Every field is controlled,
- * judged when it is left with the same schema the action parses, and marked in place when its draft
- * differs from stored.
- *
- * **One save bar over ONE endpoint**, unlike the club and squad editors: `PATCH /saisons/{saison_id}`
- * replaces the dates and the whole `rules` object in a single write, so there is no partial-failure
- * state to report. What this page has instead of a second endpoint is a second KIND of write — the
- * rollover, which is a control rather than a field and never touches the draft.
- *
- * **`status` reaches nothing here by construction.** It is on no payload, has no descriptor row, and no
- * state atom below holds it.
+ * **One save bar over ONE endpoint**: `PATCH /saisons/{saison_id}` replaces the dates and all of
+ * `rules` in one write, so there is no partial-failure state to report. The rollover is a control
+ * rather than a field, and never drafts.
  */
 export function AdminSaisonEditForm({
   saison,
@@ -99,9 +81,8 @@ export function AdminSaisonEditForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // The two dates are `CalendarDate` in state and strings on the wire — `parseDate` accepts exactly
-  // the `YYYY-MM-DD` the API sends. Both are required on the payload, so a picker cleared to null is
-  // held as null and the schema is what reports it.
+  // `CalendarDate` in state, strings on the wire — `parseDate` takes exactly the `YYYY-MM-DD` the API
+  // sends. A picker cleared to null is held as null, and the schema is what reports it.
   const [startDate, setStartDate] = useState<CalendarDate | null>(() => parseDate(saison.start_date));
   const [endDate, setEndDate] = useState<CalendarDate | null>(() => parseDate(saison.end_date));
   const [rules, setRules] = useState<FLSaisonRules>(saison.rules);
@@ -120,9 +101,7 @@ export function AdminSaisonEditForm({
   });
 
   // `""` for a cleared picker rather than a cast: the schema refuses an empty string with the date
-  // message, which is the same complaint a null would deserve and one the form can render on the field.
-  // `id` is the loaded record's own, already parsed, and the wire carries it in the path — so no
-  // refusal can name it and no input renders it.
+  // message, which is one the form can render on the field.
   const buildPayload = (): FLPatchSaisonPayload => ({
     id: saison.id,
     start_date: startDate?.toString() ?? "",
@@ -140,14 +119,13 @@ export function AdminSaisonEditForm({
   const status = deriveSaisonDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
-  // See the match editor: the latch's job ends the moment the revalidated season arrives and the two
-  // agree — left latched, every later edit on a restored tree read as not-dirty.
+  // The latch's job ends the moment the revalidated season arrives and the two agree; left latched,
+  // every later edit on a restored tree read as not-dirty.
   if (hasSaved && !status.isDirty) setHasSaved(false);
 
   useUnsavedChangesWarning(isDirty);
 
-  // Ctrl+S / Cmd+S submits, gated on the same conditions as the Speichern button — the match editor's
-  // reasoning, unchanged.
+  // Ctrl+S / Cmd+S submits, gated on the same conditions as the Speichern button.
   const canSubmitRef = useRef(true);
   useEffect(() => {
     canSubmitRef.current = !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty;
@@ -165,15 +143,13 @@ export function AdminSaisonEditForm({
   }, [formRef]);
 
   const validateFields = (paths: readonly string[]) => validatePaths("saison", buildPayload(), paths);
-  // The picked-control variant — judged with the value that arrived rather than with state, which has
-  // not committed yet (see the match editor's `validateSelection`).
+  // Judged with the value that arrived rather than with state, which has not committed yet.
   const validateStufen = (next: FLSpielerStufe[]) =>
     validatePaths("saison", { ...buildPayload(), rules: { ...rules, erlaubte_stufen: next } }, ["rules.erlaubte_stufen"]);
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
   const isEndBeforeStart = startDate !== null && endDate !== null && endDate.compare(startDate) < 0;
 
-  /** Every Hinweis this draft raises — the rail's list and the panels' inline callouts alike. */
   const banners = buildSaisonBanners({
     saisonStatus: saison.status,
     isEndBeforeStart,
@@ -186,7 +162,7 @@ export function AdminSaisonEditForm({
   });
 
   const leavePage = () => {
-    // Blur first — see the match editor: react-aria's focus attribute survives a kept-alive tree.
+    // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
     if (window.history.length > 1) router.back();
@@ -206,7 +182,6 @@ export function AdminSaisonEditForm({
     registerRequestLeave?.(requestLeave);
   });
 
-  /** Every atom back to what is stored — both exits run it; see the match editor's reasoning. */
   const resetDraftToStored = () => {
     setStartDate(parseDate(saison.start_date));
     setEndDate(parseDate(saison.end_date));
@@ -223,11 +198,8 @@ export function AdminSaisonEditForm({
   };
 
   /**
-   * The rollover refuses while a draft is unsaved.
-   *
-   * It revalidates the route, so the props under this form are replaced and the typed-but-unsaved
-   * values go with them. Rather than discard silently or open a second discard dialog beside the
-   * rollover's own confirmation, it says what is in the way and leaves the two decisions separate.
+   * The rollover revalidates the route, so an unsaved draft would go with the replaced props. It says
+   * what is in the way rather than discarding silently or stacking a second dialog.
    */
   const guardRolloverAgainstDraft = (): boolean => {
     if (!isDirty) return true;
@@ -238,14 +210,9 @@ export function AdminSaisonEditForm({
     return false;
   };
 
-  /**
-   * What both submit routes reach first: a draft carrying a warning or a danger is confirmed, and a
-   * clean one saves straight through. The write itself is unchanged either way, undo
-   * included.
-   */
   const requestSave = () => {
-    // Snapshotted here rather than read live: the reader agrees to the list the gate stopped on,
-    // and a background revalidation re-deriving the banners under an open dialog would move it.
+    // Snapshotted rather than read live: a background revalidation re-deriving the banners under an
+    // open dialog would move the list the reader agreed to.
     const blocking = resolveBlockingBanners(banners);
     if (blocking !== null) {
       setConfirmingBanners(blocking);
@@ -270,8 +237,7 @@ export function AdminSaisonEditForm({
 
       if (!res.success) {
         setSubmitFieldErrors(res.fieldErrors ?? {}, { saison: payload });
-        // ALWAYS toasted, field errors or not: the page stays here, and a failure that belongs to no
-        // field would otherwise be silent.
+        // ALWAYS toasted, field errors or not: a failure belonging to no field would be silent.
         appToast.danger("Speichern fehlgeschlagen", {
           description: res.error ?? "Die Saison konnte nicht gespeichert werden.",
         });
@@ -283,25 +249,17 @@ export function AdminSaisonEditForm({
 
       offerUndo(undoPayload);
 
-      // AFTER the undo payload is built — see the match editor: leaving with typed values still in
-      // state is what let a save-then-undo reopen on values the season no longer holds.
+      // AFTER the undo payload is built: typed values left in state let a save-then-undo reopen on
+      // values the season no longer holds.
       resetDraftToStored();
       leavePage();
     });
   };
 
   /**
-   * The undo toast: fifteen seconds to take the save back. The pitfalls the match editor documents
-   * all apply and are all mirrored here: the toast outlives this component, so the press runs in a
-   * detached closure — `router.refresh()` is what re-renders a screen the action's own revalidation
-   * can no longer reach (the router instance is a stable singleton, legal after unmount); the replay
-   * uses the TWO-ARGUMENT `then`, so a failure downstream of a committed restore is never blamed on
-   * the transport; and the pending spinner is `appToast.pending`, closed by its own key, because a
-   * toast without an explicit timeout inherits a four-second default that would retire it mid-flight.
-   *
-   * **A warning rather than a success where the points moved**, which the club editor's undo also does:
-   * every standing for this season was rescored by the save, and a table that silently reads
-   * differently is the one consequence nobody watching this page would notice.
+   * The toast outlives this component, so the press runs detached — `AdminEditSpielDataForm` has the
+   * pitfalls. **A warning and not a success where the points moved**: every standing was rescored,
+   * and a table reading differently is what nobody notices.
    */
   const offerUndo = (payload: FLPatchSaisonPayload) => {
     const pointsMoved = payload.rules.win_points !== rules.win_points || payload.rules.draw_points !== rules.draw_points;
@@ -311,8 +269,7 @@ export function AdminSaisonEditForm({
       description: pointsMoved
         ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
         : "Die Saisondaten wurden aktualisiert.",
-      // A decision window, not a reading time — the one case where the text's length does not govern
-      // the toast's duration.
+      // A decision window, not a reading time — the one case where text length does not set duration.
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",
@@ -331,8 +288,7 @@ export function AdminSaisonEditForm({
               // Reported BEFORE the refresh: the restore is committed and nothing below changes that.
               appToast.success("Änderung zurückgenommen", { description: result.message });
 
-              // Best-effort, never allowed to fail the undo — a refresh that cannot run costs a stale
-              // screen until the next navigation, not the restore.
+              // Best-effort: a refresh that cannot run costs a stale screen, never the restore.
               try {
                 router.refresh();
               } catch (refreshError) {
@@ -354,8 +310,6 @@ export function AdminSaisonEditForm({
 
   return (
     <SaisonDraftStatusProvider status={status}>
-      {/* The match editor's shell: the inner container scrolls the page and the action bar is its
-          STATIC sibling below, where nothing can move it. */}
       <Form
         ref={formRef}
         validationErrors={fieldErrors}

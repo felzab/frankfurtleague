@@ -1,16 +1,3 @@
-"""
-SAISONS · what a season's rules edit refuses
-
-`find_rules_refusal`, pure and therefore default tier. Seven rules in three kinds: four are
-narrowings that would strand data entered legally under the wider value; two are properties of
-the proposed rules alone; and one is the freeze on a finished season, where nothing is stranded
-and the result would be rewritten instead.
-
-The order the checks run in is asserted too, because it is the order an admin can act on:
-telling somebody their group count strands a team is noise when the edit is refused for being on
-a past season.
-"""
-
 import pytest
 
 from app.api.saisons.schemas import FLSaisonRules
@@ -67,12 +54,7 @@ class TestTheBracketMustHaveAShape:
 
     @pytest.mark.parametrize(("groups", "qualifiers"), [(4, 3), (3, 1), (2, 3), (4, 5)])
     def test_refuses_a_field_that_cannot_be_paired_down(self, groups, qualifiers):
-        """
-        Each round halves, so twelve qualifiers cannot be paired down to one final.
-
-        `per_group=8` so every case reaches this rule: `REQ-RULES-007` runs first and would answer the
-        `(4, 5)` case instead, because five qualifiers out of a group of four is the narrower fault.
-        """
+        """`per_group=8` so every case reaches this rule: `REQ-RULES-007` runs first and would answer `(4, 5)`."""
 
         refusal = judge(proposed=rules(groups=groups, qualifiers=qualifiers, per_group=8))
 
@@ -80,12 +62,7 @@ class TestTheBracketMustHaveAShape:
         assert refusal.error_code == RULES_BRACKET_IMPOSSIBLE
 
     def test_refuses_a_field_larger_than_the_phase_set_can_hold(self):
-        """
-        32 is a power of two and still has nowhere to play until a fifth knockout phase exists.
-
-        The message names `MAX_QUALIFIERS` rather than a hardcoded 16, so adding a phase changes the bound
-        and the wording together.
-        """
+        """The message names `MAX_QUALIFIERS` rather than a constant, so adding a phase moves the bound and the wording together."""
 
         refusal = judge(proposed=rules(groups=4, per_group=8, qualifiers=8))
 
@@ -107,8 +84,6 @@ class TestTheBracketMustHaveAShape:
         assert refusal.error_code == RULES_BRACKET_IMPOSSIBLE
 
     def test_a_create_is_refused_by_nothing_else(self):
-        """Nothing exists yet to strand, and nothing is frozen, so a legal bracket is the whole test."""
-
         assert (
             find_rules_refusal(
                 saison_status="future",
@@ -123,12 +98,7 @@ class TestTheBracketMustHaveAShape:
 
 class TestNarrowingTheGroupCount:
     def test_refuses_dropping_a_group_that_still_holds_teams(self):
-        """
-        The state this rule exists for: four teams sitting in a group the season no longer runs.
-
-        `REQ-ENTER-002` refuses ENTERING a group the season does not offer, so without this rule the same
-        incoherence is unreachable from one direction and wide open from the other.
-        """
+        """`REQ-ENTER-002` refuses entering a group the season does not offer; this closes the other direction."""
 
         refusal = judge(
             stored=rules(groups=4, qualifiers=2),
@@ -151,15 +121,9 @@ class TestNarrowingTheGroupCount:
         assert judge(stored=rules(groups=2, qualifiers=4), proposed=rules(groups=4, qualifiers=2), occupancy={"A": 4, "B": 4}) is None
 
     def test_a_disqualified_team_still_holds_its_place(self):
-        """
-        The caller counts every junction row including disqualified ones, and this pins that reading.
+        """A team never leaves a season, so its place stays taken — the reading `REQ-ENTER-003` also applies."""
 
-        A team never leaves a season, so its place stays taken — the same rule `REQ-ENTER-003`
-        applies when refusing an entry into a full group.
-        """
-
-        # 4x2 and 2x4 are both 8 qualifiers, so the bracket rule passes and the narrowing is what is
-        # under test. A combination like 3x2 would be refused for having no bracket at all first.
+        # 4x2 and 2x4 are both 8 qualifiers, so the bracket rule passes and the narrowing is what is under test.
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), occupancy={"D": 1})
 
         assert refusal is not None
@@ -185,12 +149,7 @@ class TestNarrowingTheCapacity:
 
 class TestNarrowingTheQualifiers:
     def test_refuses_a_count_below_a_placing_already_wired(self):
-        """
-        A slot naming `2. der Gruppe A` in a season that now qualifies one per group.
-
-        The resolution CONTAINS that state and reports it as a bracket fault rather than
-        emptying the slot — but it reports it to whoever opens the triage list, not to whoever caused it.
-        """
+        """The resolution contains that state and reports it to whoever opens the triage list, not to whoever caused it."""
 
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=1), platz=2)
 
@@ -212,12 +171,7 @@ class TestAFinishedSeasonFreezes:
         [("win_points", {"win": 2}), ("draw_points", {"draw": 0}), ("qualifiers_per_group", {"qualifiers": 1})],
     )
     def test_refuses_a_change_to_any_of_the_three_frozen_fields(self, field, changed):
-        """
-        The reason is that the league table is DERIVED.
-
-        Editing the points of a finished season rewrites who won it, on the next read, with nothing
-        anywhere recording what it said before.
-        """
+        """The league table is derived, so editing a finished season's points rewrites who won it on the next read."""
 
         refusal = judge(status="past", stored=rules(), proposed=rules(**changed))
 
@@ -227,40 +181,22 @@ class TestAFinishedSeasonFreezes:
 
     @pytest.mark.parametrize("status", ["active", "future"])
     def test_permits_the_same_change_on_a_season_that_is_not_over(self, status):
-        """A running season's points are still a decision somebody is entitled to change."""
-
         assert judge(status=status, stored=rules(), proposed=rules(win=2)) is None
 
     def test_permits_an_unchanged_rules_object_on_a_past_season(self):
-        """
-        Which is what lets the DATES of a finished season be corrected.
-
-        The payload carries the whole `rules` object, so a date-only edit resubmits identical rules — and
-        the freeze compares values rather than refusing the endpoint outright, precisely so that repair
-        stays possible (decided 2026-08-07).
-        """
+        """The payload carries the whole `rules` object, so a date-only edit resubmits identical rules and the freeze compares values."""
 
         assert judge(status="past", stored=rules(), proposed=rules()) is None
 
     def test_permits_narrowing_erlaubte_stufen_on_a_past_season(self):
-        """
-        Not frozen, because it bounds what a FORM offers and never what a stored squad row holds.
-
-        A row's level is held to the league's own closed set, so narrowing a finished season
-        cannot retroactively invalidate the squads it was played with.
-        """
+        """It bounds what a form offers, never what a stored squad row holds."""
 
         narrowed = FLSaisonRules.model_validate({**rules().model_dump(), "erlaubte_stufen": ["Q1"]})
 
         assert judge(status="past", stored=rules(), proposed=narrowed) is None
 
     def test_the_freeze_is_reported_before_a_narrowing(self):
-        """
-        Both apply; the frozen answer is the one the admin can act on.
-
-        Order matters because the alternative reads as a puzzle: being told a group count strands a team,
-        fixing that, and then being told the season is closed anyway.
-        """
+        """Otherwise: told a group count strands a team, fixing it, then told the season is closed anyway."""
 
         refusal = judge(
             status="past",
@@ -274,32 +210,15 @@ class TestAFinishedSeasonFreezes:
 
 
 class TestNarrowingBelowAMatchdaysFixtures:
-    """
-    The sixth rule, and the one that reaches furthest (decided 2026-08-08).
-
-    A matchday's expected match count is derived from these rules, so lowering
-    `number_of_groups` or `teams_per_group` lowers it for every group-phase matchday of the season at
-    once, and lowering `qualifiers_per_group` shortens the knockout ladder. Either can leave a matchday
-    holding more fixtures than its own phase accounts for — which is the direction no season setup passes
-    through, unlike holding fewer.
-
-    The input is the LARGEST count any single matchday of each phase holds, because the expected number is
-    per matchday rather than per season.
-    """
+    """A matchday's expected count derives from these rules; the input is the largest count one matchday holds."""
 
     def test_the_rules_the_season_already_plays_are_accepted(self):
-        """4 groups of 4 gives 8 group matches per matchday, which is what the live season holds."""
+        """4 groups of 4 gives 8 group matches a matchday."""
 
         assert judge(stored=rules(), proposed=rules(), attached={"gruppenphase": 8}) is None
 
     def test_narrowing_the_group_count_below_an_existing_matchday_is_refused(self):
-        """
-        2 groups of 4 accounts for 4 matches a matchday, and this season's matchdays hold 8.
-
-        Nothing else refuses this: the groups are empty, so `REQ-RULES-002` passes, and 2 x 4 is a legal
-        bracket, so `REQ-RULES-001` passes too. Without this rule the season saves and every matchday is
-        then over its own count.
-        """
+        """Nothing else refuses it: the groups are empty for `REQ-RULES-002`, and 2 x 4 is a legal bracket for `REQ-RULES-001`."""
 
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8})
 
@@ -307,13 +226,7 @@ class TestNarrowingBelowAMatchdaysFixtures:
         assert refusal.error_code == RULES_MATCHDAY_OVER_ITS_PHASE
 
     def test_shortening_the_ladder_strands_a_knockout_matchday(self):
-        """
-        4 groups x 1 qualifier is 4 teams: a semi-final and a final, and no Viertelfinale at all.
-
-        So a Viertelfinale matchday still holding fixtures is left in a phase this season does not reach,
-        where the expected count is 0 — the case that shows the rule has to check every phase rather than
-        only the group phase.
-        """
+        """4 groups by 1 qualifier leaves a Viertelfinale matchday in a phase expecting 0, which is why every phase is checked."""
 
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=1), attached={"viertelfinale": 4})
 
@@ -331,8 +244,6 @@ class TestNarrowingBelowAMatchdaysFixtures:
         assert judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={}) is None
 
     def test_the_refusal_names_the_phase_and_both_counts(self):
-        """All three are what an admin needs: which matchday to look at, and by how much it is over."""
-
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8})
 
         assert refusal is not None
@@ -341,13 +252,7 @@ class TestNarrowingBelowAMatchdaysFixtures:
         assert "4" in refusal.message
 
     def test_a_stranding_narrowing_is_reported_before_this_one(self):
-        """
-        Both apply; the group that still holds teams is the more concrete answer.
-
-        `REQ-RULES-002` names a group and its teams, which is a thing an admin can look at. This rule
-        names an arithmetic consequence of the same edit, so reporting it first would describe the
-        symptom while the cause sat one screen away.
-        """
+        """`REQ-RULES-002` names a group and its teams; this rule names an arithmetic consequence of the same edit."""
 
         refusal = judge(
             stored=rules(groups=4, qualifiers=2),
@@ -361,13 +266,7 @@ class TestNarrowingBelowAMatchdaysFixtures:
 
 
 class TestAGroupCannotQualifyMoreThanItHolds:
-    """
-    `REQ-RULES-007` (decided 2026-08-08): a browser warning alone lets the save through.
-
-    `qualifiers_per_group` above `teams_per_group` asks each group for more placings than it has teams,
-    so the seeding walk requests a placing no standing will ever hold — the same incoherence
-    `REQ-RULES-004` refuses from the wiring side, reachable here through the rules themselves.
-    """
+    """More qualifiers than teams asks each group for a placing no standing will ever hold; a browser warning alone lets the save through."""
 
     def test_equal_is_legal(self):
         """A group where every team advances. Unusual, not incoherent."""
@@ -384,8 +283,6 @@ class TestAGroupCannotQualifyMoreThanItHolds:
         assert refusal.error_code == RULES_QUALIFIERS_ABOVE_GROUP
 
     def test_it_applies_on_a_create(self):
-        """A property of the proposed rules alone, so it needs nothing stored — like the bracket rule."""
-
         refusal = find_rules_refusal(
             saison_status="future",
             stored=None,
@@ -398,12 +295,7 @@ class TestAGroupCannotQualifyMoreThanItHolds:
         assert refusal.error_code == RULES_QUALIFIERS_ABOVE_GROUP
 
     def test_it_is_reported_before_the_bracket_rule(self):
-        """
-        Both apply to 4 groups of 4 qualifying 5, and this one names two fields to compare.
-
-        The bracket rule's answer is a property of their product, which is a step further from anything
-        the admin typed — so the narrower statement goes first.
-        """
+        """This one names two fields the admin typed; the bracket rule's answer is a property of their product."""
 
         refusal = judge(proposed=rules(groups=4, qualifiers=5, per_group=4))
 

@@ -1,16 +1,3 @@
-"""
-SCHIEDSRICHTER · write endpoints
-
-Referees. Every mutation sits beside the reads for its resource, in a second router guarded at router
-level by `verify_access_admin` — never move the guard onto an endpoint.
-
-Invariants:
-- A rename fans out only the name (`patch_schiedsrichter`, which states why).
-- `default_payment` carries no default — the patch writes the payload back wholesale.
-- Deletion is soft: matches embed a copy of the referee and reference them by id.
-- `kontakt` is personal data: the shape must be present, never filled in.
-"""
-
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -71,8 +58,7 @@ async def patch_schiedsrichter(
     """
     Update a referee, then update the embedded name on every Spiel that uses them.
 
-    Only the name is fanned out. `payment` is deliberately not propagated: the fee recorded on a match
-    is what was agreed for that match, and rewriting it would rewrite history.
+    Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
     """
 
     updated_document_raw = await patch_one_in_db(
@@ -103,8 +89,7 @@ async def delete_schiedsrichter(
 ) -> FLSchiedsrichterWriteResponse:
     """Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy."""
 
-    # Unplayed means no result and not cancelled, matching `unplayed_spiel_nrs` so the two rules cannot
-    # disagree about which fixtures are still to come.
+    # `unplayed_spiel_nrs`'s definition, so the two rules agree about what is still to come.
     assigned = await pull_many_from_db(
         collection=spiele_collection,
         db_filter={"schiedsrichter.schiedsrichter_id": schiedsrichter_id, "ergebnis": None, "is_canceled": False},

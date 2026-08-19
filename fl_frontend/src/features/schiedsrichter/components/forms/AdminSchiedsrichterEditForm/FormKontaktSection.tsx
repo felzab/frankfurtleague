@@ -13,12 +13,9 @@ import type { FLKontakt } from "@/shared/schemas";
 import type { SchiedsrichterBanner } from "./banners";
 
 /**
- * How to reach the referee. Both fields are optional and neither is public — the admin surface is the
- * only place either one is read.
- *
- * Each submits `null` when emptied. `FLKontaktSchema` accepts a blank string too, so the boundary is a
- * choice rather than a requirement: `null` is the one absent value, and two spellings of "nothing
- * recorded" would make the change list report an edit where nobody made one.
+ * Each field submits `null` when emptied. `FLKontaktSchema` accepts a blank string too, so this is
+ * a choice: two spellings of "nothing recorded" would make the change list report an edit nobody
+ * made.
  */
 export function FormKontaktSection({
   kontakt,
@@ -29,7 +26,6 @@ export function FormKontaktSection({
   kontakt: FLKontakt;
   onChange: (next: FLKontakt) => void;
   onFieldLeft: (paths: readonly string[]) => void;
-  /** The editor's whole Hinweis list; the spot below takes its own entry out of it. */
   banners: readonly SchiedsrichterBanner[];
 }) {
   const panel = formPanel();

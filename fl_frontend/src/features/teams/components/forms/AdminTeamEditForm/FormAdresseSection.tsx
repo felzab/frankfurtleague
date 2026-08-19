@@ -13,16 +13,8 @@ import { TeamFieldLabel } from "./TeamFieldLabel";
 import type { FLAddress } from "@/shared/schemas";
 
 /**
- * The club's address, as its own panel — one topic per panel is what makes the page scannable, and
- * the address is the one group whose fields mean nothing individually.
- *
- * The fields are the SHARED address editor, not a copy: `AddressFields` serves the venue forms and
- * the create dialog too, and this panel only swaps its plain labels for the editor's marker-carrying
- * ones. Stadtteil is optional there. An address without one is complete.
- *
- * **The header's globe opens the DRAFT address on Google Maps** (decided 2026-08-07), so what was just
- * typed can be checked against the map before it is saved. Offered only once street and city are
- * filled in — searching for half an address helps nobody.
+ * The SHARED `AddressFields`, its plain labels swapped for the editor's marker-carrying ones. The
+ * header's link opens the DRAFT address on Google Maps, once street and city are filled in.
  */
 export function FormAdresseSection({
   address,
@@ -38,8 +30,7 @@ export function FormAdresseSection({
 
   return (
     <section className={panel.root()}>
-      {/* `relative` + an absolutely placed control, so the h2 keeps the exact flow every other
-          panel heading has — see the Saison panel's badge. */}
+      {/* `relative` + an absolutely placed control, so the h2 keeps every other panel heading's flow. */}
       <div className={`${panel.header()} relative`}>
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           <IconTooltip label={isSearchable ? "Adresse auf Google Maps öffnen" : "Erst Straße und Stadt eingeben"}>
@@ -53,8 +44,7 @@ export function FormAdresseSection({
                   ? "text-foreground-muted hover:bg-hover hover:text-brand cursor-pointer"
                   : "text-foreground-muted/40 cursor-not-allowed"
               }`}>
-              {/* The same glyph the website field's follow-link uses, so "opens elsewhere" has
-                  one icon on this page (decided 2026-08-07). */}
+              {/* The website field's glyph, so "opens elsewhere" has one icon on this page. */}
               <ArrowUpRightFromSquare
                 aria-hidden="true"
                 width={18}

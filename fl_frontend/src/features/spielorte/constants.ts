@@ -1,9 +1,5 @@
-/**
- * SPIELORTE · admin page copy
- *
- * Its own module for the same reason as `schiedsrichter/constants.ts` — the page and the client
- * view both read it.
- */
+// Its own module and not an export of the `"use client"` view: every export of a client module
+// becomes a client reference on the server side.
 export const SPIELORTE_CRUD_COPY = {
   searchLabel: "Spielorte suchen",
   searchPlaceholder: "Suchen nach Name, Straße, PLZ, Stadtteil...",

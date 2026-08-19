@@ -2,34 +2,26 @@
 #
 # SCRIPTS · put a published version live, or report what is live.
 #
-# It only pulls what `scripts/publish.sh` already built and checked: a server that builds is a server
-# that can fail a build, at the worst moment, with the site down and no known-good image to fall back
-# to. What is live is read by image ID during preflight, before anything mutates, so a failed deploy
-# has a rollback target the pull cannot have moved underneath it.
+# It only pulls what `scripts/publish.sh` already built: a server that builds is a server that can
+# fail a build with the site down and nothing to fall back to. What is live is read by image ID
+# during preflight, so a failed deploy has a rollback target the pull cannot have moved.
 #
 #   ./scripts/deploy.sh                    deploy the current :latest tag of both packages
 #   ./scripts/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
 #   ./scripts/deploy.sh --status           report what is running right now, change nothing
 #   ./scripts/deploy.sh --verbose          stream each command's own output instead of capturing it
 #   ./scripts/deploy.sh --help
-#
-# See:
-# - docs/ops/spec.md — the deploy contract this serves, and the tag retention a rollback needs
-# - docs/ops/overview.md — why rolling back is pulling a pinned tag rather than rebuilding
-# - docs/ops/runbooks.md — what the repository does and does not know about the host it runs on
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 COMPOSE="docker-compose.yml"
 
-# The floor `start_interval:` needs in both compose files. An older engine REFUSES the create rather
-# than ignoring the field, and `--force-recreate` has stopped what was running by then — so this is
-# checked in preflight rather than left to the deploy.
+# An older engine REFUSES the create rather than ignoring `start_interval:`, and `--force-recreate`
+# has stopped what was running by then — so preflight asks, rather than the deploy.
 ENGINE_MIN=25
 
-# One shape for a published tag: it validates what the operator types, and decides whether a label
-# read off a running image is safe to print as a command. The fingerprint is optional so an older
-# image's label still names a rollback target.
+# One shape, for what the operator types and for a label read off a running image. The fingerprint
+# is optional so an older image's label still names a rollback target.
 PIN_RE='^sha-[0-9a-f]{7,40}(-dirty(-[0-9a-f]{7})?)?$'
 
 PIN=""; STATUS_ONLY=0
@@ -53,9 +45,8 @@ if (( STATUS_ONLY )) && [[ -n "$PIN" ]]; then
 To deploy ${PIN}, drop --status."
 fi
 
-# Validated here, with the other argument handling: a typo fails instantly rather than after a
-# platform and Docker check, and without it the registry answers "manifest unknown" instead of a
-# sentence naming the problem.
+# Validated with the other argument handling: without it the registry answers "manifest unknown"
+# after a platform and Docker check, instead of a sentence naming the problem.
 if [[ -n "$PIN" && ! "$PIN" =~ $PIN_RE ]]; then
   die "'${PIN}' does not look like a published tag.
 Expected sha-<commit>, for example sha-1a2b3c4.
@@ -66,9 +57,8 @@ require_platform linux
 require_docker
 require_file "$COMPOSE"
 
-# The tag `scripts/publish.sh` pushed, from the image's own labels. `revision` is the commit alone, so
-# a rollback built from it names a tag that was never pushed when the previous deploy was dirty;
-# `version` carries the whole qualifier.
+# `revision` is the commit alone, so a rollback built from it names a tag that was never pushed when
+# the previous deploy was dirty; `version` carries the whole qualifier.
 published_tag() {
   local value=""
   # Returns 1 where the inspect itself failed, so a caller can tell "this image carries no such
@@ -79,15 +69,14 @@ published_tag() {
   printf '%s' "$value"
 }
 
-# The image a container is actually running, which is an ID and cannot move. `.Config.Image` is the
-# REFERENCE it was created with, and every tag in this script's vocabulary is a moving one.
+# An ID cannot move. `.Config.Image` is the REFERENCE it was created with, and every tag in this
+# script's vocabulary moves.
 running_image() {
   docker inspect --format '{{.Image}}' "$1"
 }
 
-# The container id compose reports for a service. The status is the caller's to read: a failure and an
-# answer of "nothing" are both empty output, and reading the first as the second prints "not running"
-# about a stack this never managed to ask.
+# The status is the caller's to read: a failure and an answer of "nothing" are both empty output,
+# and reading the first as the second prints "not running" about a stack this never asked.
 service_cid() {
   docker compose -f "$COMPOSE" ps -q "$1" 2>/dev/null
 }
@@ -98,8 +87,8 @@ if (( STATUS_ONLY )); then
   section "status"
   step "Currently running"
   running=0
-  # Set wherever the host declined to answer. What is live is what this report exists to state, and
-  # a question nobody answered leaves it stating nothing — the refusal below is that ending.
+  # Set wherever the host declined to answer: a question nobody answered leaves this report stating
+  # nothing, and the refusal below is that ending.
   UNANSWERED=0
   RUNNING_FE=""; RUNNING_BE=""
   for svc in frontend backend; do
@@ -115,8 +104,8 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
       warn "${svc}: not running"
       continue
     fi
-    # Guarded: the container can be removed between `ps` and `inspect`, and an unguarded read there
-    # takes the error trap, turning a report that changes nothing into a crash.
+    # The container can be removed between `ps` and `inspect`, and an unguarded read takes the error
+    # trap, turning a report that changes nothing into a crash.
     img_id="$(running_image "$cid")" || img_id=""
     if [[ -z "$img_id" ]]; then
       warn "${svc}: the container compose named is already gone, so nothing about it could be read"
@@ -144,8 +133,8 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   done
   if (( running )); then ok "${running} service(s), read from the image each container is running"; fi
 
-  # The two packages move independently in the registry, so a host can serve a pair no single build
-  # names. Each service is healthy against its own half, which makes these rows the only place it shows.
+  # The two packages move independently, so a host can serve a pair no single build names — and
+  # each service is healthy against its own half, so these rows are the only place it shows.
   if [[ -n "$RUNNING_FE" && -n "$RUNNING_BE" && "$RUNNING_FE" != "$RUNNING_BE" ]]; then
     fail "the two services are running different builds: frontend ${RUNNING_FE}, backend ${RUNNING_BE}.
 Deploy the build both packages have:  ./scripts/deploy.sh ${RUNNING_BE}"
@@ -153,12 +142,11 @@ Deploy the build both packages have:  ./scripts/deploy.sh ${RUNNING_BE}"
 
   step "Published builds available to roll back to"
   # Two calls: `docker image ls` accepts at most one repository argument. Matched on the tag, not a
-  # `-sha-` substring — the tag is `sha-1a2b3c4` with no service prefix, so a substring
-  # match reports "none pinned" forever.
+  # `-sha-` substring — the tag carries no service prefix, so that would report "none" forever.
   local_tags="$( { docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; \
                    docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; } | sort)"
-  # Never `grep -q` in a pipeline: it closes the pipe on its first match, and under `pipefail` the
-  # writer's SIGPIPE fails the whole pipeline exactly when there WAS a match.
+  # Never `grep -q` in a pipeline: it closes the pipe on its first match, so under `pipefail` the
+  # writer's SIGPIPE fails the pipeline exactly when there WAS a match.
   pinned="$(printf '%s\n' "$local_tags" | grep -E ':sha-' || true)"
   if [[ -n "$pinned" ]]; then
     printf '%s\n' "$pinned" | detail
@@ -206,9 +194,8 @@ step "The build now live"
 PREV_PIN=""
 PS_RC=0
 RECORDED=1
-# The status is read rather than swallowed: an empty answer from a compose that FAILED would
-# otherwise print "nothing is running" about a stack this never asked, and discard the rollback
-# target on the one run that needs it.
+# An empty answer from a compose that FAILED would otherwise print "nothing is running" and discard
+# the rollback target on the one run that needs it.
 prev_cid="$(service_cid frontend)" || PS_RC=$?
 if (( PS_RC )); then
   RECORDED=0
@@ -262,8 +249,8 @@ The frontend tag has already moved, so this host's pair is mismatched: re-run th
 else
   step "Pulling the current published images"
   # What :latest names before the pull moves it, so a failed second pull leaves no new frontend
-  # beside an old backend. `image ls`, not `inspect`: inspect reads an absent image and a dead
-  # daemon alike, and only the second may skip the restore.
+  # beside an old backend. `image ls`, not `inspect`, which reads an absent image and a dead daemon
+  # alike where only the second may skip the restore.
   BEFORE_RC=0
   before_fe="$(docker image ls --quiet --no-trunc "$IMAGE_FRONTEND" 2>/dev/null)" || BEFORE_RC=$?
   docker pull "$IMAGE_FRONTEND" || die "pull failed for ${IMAGE_FRONTEND}
@@ -290,9 +277,8 @@ fi
 info "frontend commit: $(image_revision_display "$IMAGE_FRONTEND")"
 info "backend  commit: $(image_revision_display "$IMAGE_BACKEND")"
 
-# The two packages move independently, so a publish that moved one tag and failed on the other
-# leaves a pair no tag names. Three answers rather than two, because a label nobody could read
-# is not an absent one.
+# A publish that moved one tag and failed on the other leaves a pair no tag names. Three answers
+# rather than two, because a label nobody could read is not an absent one.
 FE_RC=0; BE_RC=0
 FE_BUILD="$(published_tag "$IMAGE_FRONTEND")" || FE_RC=1
 BE_BUILD="$(published_tag "$IMAGE_BACKEND")"  || BE_RC=1
@@ -317,9 +303,8 @@ section "deploy"
 # No `docker compose down` first: compose replaces only the services whose image changed, and starts
 # the replacement before removing the old container where it can. `down` guarantees a full outage.
 step "Recreating containers"
-# Guarded, not bare: nginx depends on both services being HEALTHY, so `up` itself exits non-zero on an
-# unhealthy deploy — and an unguarded call takes the error trap, skipping the diagnostics and the
-# rollback advice on the one run they exist for.
+# Guarded, not bare: nginx depends on both services being HEALTHY, so `up` exits non-zero on an
+# unhealthy deploy and an unguarded call would skip the diagnostics and the rollback advice.
 UP_RC=0
 quietly docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans || UP_RC=$?
 if (( UP_RC )); then
@@ -336,9 +321,8 @@ wait_healthy "$COMPOSE" backend 150  || HEALTHY=0
 wait_healthy "$COMPOSE" frontend 180 || HEALTHY=0
 if (( UP_RC )); then HEALTHY=0; fi
 
-# `wait_healthy` answers 1 for "reports UNHEALTHY" and for "could not ask compose" alike, and only
-# the first is a verdict on this build. Asking compose again separates them, before the ending
-# below says something definite about production.
+# `wait_healthy` answers 1 for "reports UNHEALTHY" and "could not ask compose" alike, and only the
+# first is a verdict on this build. Asking compose again separates them.
 if (( ! HEALTHY && ! UP_RC )); then
   # Not where `up` itself exited non-zero: the recreate was attempted and did not complete, so this
   # deploy has a verdict whether or not the daemon answered afterwards.
@@ -386,8 +370,8 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   end_section
   detail "What is live:  ./scripts/deploy.sh --status" \
          "Follow logs:   docker compose -f ${COMPOSE} logs -f frontend"
-  # Passed only when both reachability checks answered: the sentence is a claim about the live site,
-  # and neither `curl` nor the nginx query above is allowed to leave it unqualified.
+  # The sentence is a claim about the live site, so neither `curl` nor the nginx query above may
+  # leave it unqualified.
   if (( SITE_VERIFIED )); then finish "The pulled build is live."; else finish; fi
 else
   fail "THE NEW VERSION IS NOT HEALTHY."

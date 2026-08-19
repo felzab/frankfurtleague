@@ -1,21 +1,5 @@
 "use client";
 
-/**
- * SHARED · the filter bar's URL state
- *
- * The parameter-per-facet counterpart to `?q=`, for the component that renders the controls: the
- * selection `useFacetSelection` reads, plus everything needed to change it.
- *
- * Invariants:
- * - The URL is the only state — a selection survives reload, back button and a shared link.
- * - Writes use `replaceState`, not `router.replace` — the rows are already loaded, and a router
- *   navigation would re-run the route's server reads.
- * - `replaceState`, never `pushState` — back should leave the list, not walk the facets.
- * - A write names its parameters and reads the live URL for the rest — never a stale snapshot.
- * - The selection is `useFacetSelection`'s, so the list and the bar narrowing it can never read the
- *   same URL differently.
- * - The URL carries the ORDER filters were added in, and `paramOrder` is how a caller reads it.
- */
 import { useCallback } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
@@ -25,6 +9,10 @@ import { useFacetSelection } from "./useFacetSelection";
 
 import type { Facet } from "@/shared/utils/facets";
 
+/**
+ * The parameter-per-facet counterpart to `?q=`. The URL is the only state, so a selection survives reload and a shared
+ * link, and the selection is `useFacetSelection`'s so a list and its bar cannot read one URL differently.
+ */
 export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -32,26 +20,21 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
   const selection = useFacetSelection(facets);
 
   /**
-   * The parameters in the order the URL holds them, which is the order they were added in.
-   *
-   * `URLSearchParams.set` replaces an existing key in place and appends a new one, `delete` removes it
-   * outright, and `toString` sorts nothing — so insertion order is already recorded here and needs no
-   * second home. A dimension cleared and picked again is a new key, and lands at the end.
+   * The order the filters were added in. `URLSearchParams.set` replaces an existing key in place and appends a new one,
+   * and `toString` sorts nothing, so insertion order is already recorded in the URL and needs no second home.
    */
   const paramOrder = [...searchParams.keys()];
 
   /**
-   * Writes the named facets and leaves every other parameter — facet or not — exactly as the URL has it.
-   *
-   * The base is `window.location.search` rather than this render's `searchParams`; see the invariant.
+   * Reads the live URL rather than this render's snapshot. `replaceState` rather than `router.replace`, whose
+   * navigation re-runs the route's server reads; and never `pushState`, since back should leave the list.
    */
   const write = useCallback(
     (changes: Readonly<Record<string, readonly string[]>>) => {
       const params = new URLSearchParams(window.location.search);
 
       for (const [param, picked] of Object.entries(changes)) {
-        // Deleted rather than set to an empty string, so an untouched facet leaves no trace in the URL
-        // and a shared link carries only what somebody actually chose.
+        // Deleted rather than emptied, so a shared link carries only what somebody actually chose.
         if (picked.length === 0) params.delete(param);
         else params.set(param, picked.join(","));
       }
@@ -62,10 +45,7 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
     [pathname],
   );
 
-  /**
-   * Replaces one facet's selection wholesale — what a multi-select ListBox reports, and the only
-   * shape the panel needs: a checkbox flipped inside it changes the whole set it reports back.
-   */
+  /** Replaces one facet's selection wholesale, which is what a multi-select ListBox reports. */
   const setFacet = useCallback(
     (param: string, values: readonly string[]) => {
       write({ [param]: values });

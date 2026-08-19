@@ -1,25 +1,11 @@
-// scripts/pyrightconfig.json — brings the gate's own Python under the type checker that already covers
-// app/ and tests/.
+// scripts/pyrightconfig.json — the type checker for the gate's own python, which the
+// `[tool.pyright]` block in `fl_backend/pyproject.toml` does not reach: a type error in a checker
+// here is a gate reporting the wrong scope. Why it sits beside that python rather than at the
+// repository root, and why `pythonVersion` is pinned rather than inferred: `docs/ops/spec.md` §1.6.
 //
-// The [tool.pyright] block in fl_backend/pyproject.toml declares include = ["app", "tests"], so it governs
-// fl_backend/ and nothing else. Without this file the python here would be linted by ruff and type-checked
-// by nobody, which is exactly the gap that block closes for app/ and tests/. These are the files the gate
-// is BUILT from: a type error in check_scope.py is a gate that reports the wrong scope.
-//
-// No venvPath or venv, unlike the backend block, and that is not an omission: every import here is standard
-// library or a sibling module in this folder. Pointing at fl_backend/.venv would make the gate's own tooling
-// depend on the backend environment being installed, which is a dependency it does not otherwise have.
-//
-// typeCheckingMode matches the backend's "basic" for the reason stated there — "strict" demands an
-// annotation on every local, which is a different project from "the editor and the gate agree".
-//
-// It lives HERE rather than at the repository root for the same reason scripts/ruff.toml does: a root config
-// would become the nearest one for fl_backend/ as well, and override the include the backend has chosen.
-// pythonVersion is PINNED because nothing here lets pyright infer it: with no venv declared it falls
-// back to the interpreter it happens to find, which is 3.14 on the dev machine and older on the CI
-// runner -- and the two then disagree about what parses. The caller cannot guarantee it either:
-// scripts/_lib.sh :: any_python falls back to a bare python3 off PATH, so the pin is what states the
-// version these scripts are written for.
+// No venvPath or venv, deliberately: every import here is standard library or a sibling module, and
+// naming fl_backend/.venv would make the gate's own tooling depend on the backend environment being
+// installed. `typeCheckingMode` follows that block's, for the reason recorded there.
 {
   "include": ["."],
   "typeCheckingMode": "basic",

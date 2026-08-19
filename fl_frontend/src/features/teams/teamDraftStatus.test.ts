@@ -23,7 +23,7 @@ describe("deriveTeamDraftStatus", () => {
 
     assert.equal(status.isDirty, false);
     assert.equal(status.changed.length, 0);
-    // Ten club fields plus the two membership rows.
+    // Every club field plus the two membership rows.
     assert.equal(status.fields.length, 12);
   });
 

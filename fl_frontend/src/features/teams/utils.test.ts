@@ -1,13 +1,3 @@
-/**
- * TEAMS · the qualifying marker, the printed position and the season's progress, tested
- *
- * `computeQualifyingTeamIds` and `computePlatzByTeamId` have to agree with a rule that lives in
- * another language: the backend passes over the same two kinds of team when it seeds a bracket
- * slot (`_may_hold_a_platz`), and nothing in either toolchain notices the sides
- * drifting apart. A marked row the bracket does not advance is a confidently wrong public page, and
- * so is a milestone naming a round the team did not reach.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -21,9 +11,7 @@ import type { FLTeam } from "./schemas.ts";
 const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart(2, "0")}`;
 
 /**
- * One row of a standing, reduced to the three fields this derivation reads.
- *
- * The record's contents do not reach the subject here: a team is walked past because
+ * One row of a standing, reduced to the fields this derivation reads. A team is walked past because
  * `disqualifikation` is non-null, never because of what it says.
  */
 const row = (seed: number, { gespielt = 3, disqualified = false } = {}) =>
@@ -45,8 +33,8 @@ describe("computeQualifyingTeamIds", () => {
   });
 
   it("passes over a team that has played nothing", () => {
-    // Zeroes rank above a negative goal difference, so this row can sit high in the table while the
-    // position column shows N/A. A row with no position cannot be shown holding one.
+    // Zeroes rank above a negative goal difference, so this row can sit high while its position
+    // column shows N/A — and a row with no position cannot be shown holding one.
     assert.deepEqual(marked([row(1, { gespielt: 0 }), row(2), row(3)]), [TEAM_ID(2), TEAM_ID(3)]);
   });
 
@@ -65,8 +53,8 @@ describe("computeQualifyingTeamIds", () => {
 });
 
 describe("computePlatzByTeamId", () => {
-  // A raw row index prints "2" on the disqualified row and "3" on the team the bracket's derived
-  // label calls "2. der Gruppe A", so the count has to walk past a disqualification.
+  // A raw row index prints "3" for the team the bracket calls "2. der Gruppe A", so the count has to
+  // walk past a disqualification.
   it("numbers past a disqualified row, matching the backend's platz", () => {
     const platz = computePlatzByTeamId([row(1), row(2, { disqualified: true }), row(3)]);
 
@@ -82,8 +70,7 @@ describe("computePlatzByTeamId", () => {
     assert.equal(platz.size, 1);
   });
 
-  // The shared-predicate property, which is the whole reason both derivations live in this file:
-  // whoever the marker may consider, the numbering numbers — and nobody else.
+  // The shared-predicate property: whoever the marker may consider, the numbering numbers.
   it("numbers exactly the rows the marker considers", () => {
     const teams = [row(1), row(2, { disqualified: true }), row(3, { gespielt: 0 }), row(4)];
 
@@ -119,8 +106,7 @@ const fixture = ({
 const verlaufOf = (spiele: FLSpiel[], teamId = SUBJECT) => computeSaisonVerlauf({ spiele, teamId });
 
 describe("computeSaisonVerlauf", () => {
-  // Elimination and an undrawn bracket look identical from here, so `out` would tell a team it is
-  // eliminated while its bracket is being drawn — a state waiting fixes.
+  // Elimination and an undrawn bracket look identical from here — a state waiting fixes.
   it("claims no outcome for a group phase the team has not visibly come through", () => {
     const verlauf = verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "3:1" }), fixture({ phase: "gruppenphase", ergebnis: "0:4" })]);
 
@@ -140,8 +126,8 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
-  // The group's half of the same bound: an organiser may seed a team into a knockout slot before its
-  // group has played anything, and "überstanden" there claims a round that has not happened.
+  // An organiser may seed a team into a knockout slot before its group has played anything, and
+  // "überstanden" there claims a round that has not happened.
   it("claims no outcome for a group phase with no result, however deep the team is standing", () => {
     const verlauf = verlaufOf([fixture({ phase: "gruppenphase" }), fixture({ phase: "viertelfinale" })]);
 
@@ -151,8 +137,8 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
-  // Whatever a group fixture's own result says, it never becomes the round's outcome: come-through
-  // turns on a knockout fixture, and with no round beyond the group there is only one answer.
+  // A group fixture's own result never becomes the round's outcome: come-through turns on a
+  // knockout fixture.
   it("claims nothing for a group phase with no round beyond it, whatever its fixtures did", () => {
     const groupOutcomes = new Set(
       [null, "0:4", "2:2"].map((ergebnis) => verlaufOf([fixture({ phase: "gruppenphase", ergebnis })])[0]?.outcome),
@@ -162,8 +148,8 @@ describe("computeSaisonVerlauf", () => {
   });
 
   it("orders the rounds as a season plays them, not as the fixtures arrive", () => {
-    // The page sorts its fixtures by date, and a rescheduled semi-final played before a
-    // quarter-final would otherwise put the two rounds in the wrong order on screen.
+    // The page sorts fixtures by date, so a rescheduled semi-final played before a quarter-final
+    // would otherwise show the two rounds out of order.
     const verlauf = verlaufOf([fixture({ phase: "halbfinale", ergebnis: "0:2" }), fixture({ phase: "viertelfinale", ergebnis: "3:1" })]);
 
     assert.deepEqual(verlauf, [
@@ -178,15 +164,14 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
-  // A knockout finishing level is a draw to every reader but the bracket, so with nothing
-  // downstream the page has no winner to name — and taking one from the shoot-out is what that
-  // decision refuses.
+  // A knockout finishing level is a draw to every reader but the bracket, so with nothing downstream
+  // the page has no winner to name.
   it("claims no winner for a round that finished level and led nowhere yet", () => {
     assert.deepEqual(verlaufOf([fixture({ phase: "halbfinale", ergebnis: "2:2" })]), [{ phase: "halbfinale", outcome: "level" }]);
   });
 
-  // The one case the shoot-out would otherwise have to be read for: the tie broke somehow, and the
-  // evidence that it broke this team's way is where the team is standing now, not how it broke.
+  // The one case the shoot-out would otherwise be read for: the evidence the tie broke this team's
+  // way is where the team stands now.
   it("reports a level round as come through when a later round fields the team", () => {
     const verlauf = verlaufOf([fixture({ phase: "halbfinale", ergebnis: "2:2" }), fixture({ phase: "finale" })]);
 
@@ -196,8 +181,8 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
-  // A manual pick that did not qualify is warned and never refused, so a beaten team in
-  // the next round is a real state, and no page may call that team out of the round before it.
+  // A manual pick that did not qualify is warned and never refused, so a beaten team in the next
+  // round is a real state.
   it("reports a lost round as come through when a later round fields the team anyway", () => {
     const verlauf = verlaufOf([fixture({ phase: "viertelfinale", ergebnis: "0:2" }), fixture({ phase: "halbfinale" })]);
 
@@ -207,8 +192,8 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
-  // The bound on the rule above: an organiser may seed a team out of an unplayed round (a manual pick is
-  // warned, never refused), so "überstanden" would sit beside a card with no score.
+  // The bound on the rule above: a team can be seeded out of an UNPLAYED round, and "überstanden"
+  // would then sit beside a card with no score.
   it("claims no outcome for an unplayed round, however deep the team is standing", () => {
     const verlauf = verlaufOf([fixture({ phase: "viertelfinale" }), fixture({ phase: "halbfinale" })]);
 
@@ -218,8 +203,8 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
-  // Trap in the other direction: a round the season does not play must produce no chip rather than
-  // one saying the team failed to reach it.
+  // A round the season does not play must produce no chip, never one saying the team failed to
+  // reach it.
   it("produces no entry for a round the team has no fixture in", () => {
     const verlauf = verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "1:0" }), fixture({ phase: "halbfinale", ergebnis: "1:0" })]);
 
@@ -229,8 +214,8 @@ describe("computeSaisonVerlauf", () => {
     ]);
   });
 
-  // The fetch filters on both sides, so this shape cannot arrive today — the guard is what keeps a
-  // later caller passing the whole season's fixtures from being told the team reached the final.
+  // The guard is what keeps a caller passing the whole season's fixtures from being told the team
+  // reached the final.
   it("ignores a knockout fixture the team does not occupy", () => {
     const verlauf = verlaufOf([
       fixture({ phase: "viertelfinale", ergebnis: "1:0" }),

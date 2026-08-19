@@ -14,20 +14,9 @@ import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SaisonBanner } from "./banners";
 
 /**
- * The season's competition rules — the six fields of `rules`, and the only surface in the app that writes
- * any of them.
- *
- * **Three of them are read on paths that do not look like a form.** `win_points` and `draw_points` score
- * the league table on every read rather than being stored, so a change here moves every
- * standing for this season the moment it saves and there is nothing to migrate.
- * `qualifiers_per_group` decides how many of each group reach the first knockout round, which is what the
- * seeding walk reads. `number_of_groups` and `teams_per_group` bound what a club may be
- * entered into, and the junction write refuses an entry outside them.
- *
- * **`erlaubte_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No validator
- * holds `saison_spieler.stufe` against a season's list, deliberately: a row's level is held to the
- * league's closed set, so narrowing a season cannot retroactively invalidate the squads of a
- * season already played.
+ * **`erlaubte_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No
+ * validator holds `saison_spieler.stufe` against a season's list, deliberately: narrowing a season
+ * must not retroactively invalidate a season already played.
  */
 export function FormRegelnSection({
   rules,
@@ -47,7 +36,6 @@ export function FormRegelnSection({
    * (`REQ-RULES-005`). The endpoint refuses a change to any of them; this stops the page offering one.
    */
   isFinishedSaison: boolean;
-  /** The editor's whole Hinweis list; the two spots below take their own entries out of it. */
   banners: readonly SaisonBanner[];
 }) {
   const panel = formPanel();
@@ -109,8 +97,7 @@ export function FormRegelnSection({
               name="rules.number_of_groups"
               label={<SaisonFieldLabel path="rules.number_of_groups">Gruppen</SaisonFieldLabel>}
               minValue={1}
-              // The closed set is A to D and this picks a prefix of it, so 4 is the ceiling rather than a
-              // policy — a fifth group has no letter to be.
+              // The closed set is A to D and this picks a prefix, so 4 is a ceiling rather than a policy.
               maxValue={4}
               value={rules.number_of_groups}
               onChange={(number_of_groups) => onRulesChange({ ...rules, number_of_groups })}
@@ -135,9 +122,9 @@ export function FormRegelnSection({
             />
           </div>
 
-          {/* Refused by `REQ-RULES-007` (decided 2026-08-08), and said here as well because the two fields
-              that cause it are the two directly above: the seeding walk asks each group for this many
-              placings, and a group that cannot produce them leaves the bracket short. */}
+          {/* Refused by `REQ-RULES-007`, and said here because the two fields that cause it are
+              directly above: the seeding walk asks each group for this many placings, and a group
+              that cannot produce them leaves the bracket short. */}
           <InlineBanners
             banners={banners}
             spot="regeln-qualifikanten"
@@ -161,10 +148,9 @@ export function FormRegelnSection({
           spot="regeln-status"
         />
 
-        {/* Panel-local, and deliberately not a banner: which of THESE fields are frozen is a fact
-            about the three inputs directly above, and on the rail it would describe controls the
-            reader cannot see. Without it they are three inputs that will not take a value and no
-            reason why. `REQ-RULES-005` is what refuses the change. */}
+        {/* Panel-local, not a banner: which of THESE fields are frozen is a fact about the inputs
+            directly above, and on the rail it would describe controls the reader cannot see.
+            `REQ-RULES-005` refuses the change. */}
         {isFinishedSaison && (
           <p className="fluid-xxs text-foreground-muted font-medium">
             Punkte und Qualifikanten sind festgeschrieben. Gruppen, Teams pro Gruppe, Stufen und der Zeitraum bleiben änderbar.

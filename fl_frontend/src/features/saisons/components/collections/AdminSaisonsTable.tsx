@@ -14,18 +14,9 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import type { AdminSaisonRow } from "../../types";
 
 /**
- * Memoised, and load-bearing — see the collection-identity note in `AdminCrudView` and the longer
- * account on `AdminSpielorteTable`: the `items` + render-function form of `Table.Body` is what keeps the
- * rows alive across hidden re-renders, and `memo` is the cheap second layer.
- *
- * **No delete control and no retire control, on any row.** A season is never deleted — that would orphan
- * every spiel, spieltag and junction row carrying its id, none of which cascades — and it is not
- * retirable either: one that is over is `past`, which is what "gone" means here. So the row's
- * actions are all reads and one edit link, and the seasons page is the one admin table with three
- * columns of facts and nothing destructive in it.
- *
- * **The rollover is not a row action** (decided 2026-08-07). It lives on the season's own editor page,
- * where the incomplete-matches precondition has the room to be a list rather than a number.
+ * Memoised, and load-bearing: `AdminSpielorteTable` carries the collection-identity account. **No
+ * delete or retire control on any row**: deleting a season would orphan every row carrying its id,
+ * and one that is over is `past`.
  */
 export const AdminSaisonsTable = memo(function AdminSaisonsTable({
   saisonsQuery,
@@ -34,12 +25,10 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
   saisonsQuery: string;
   filteredSaisons: AdminSaisonRow[];
 }) {
-  // One source for both layouts: the `md+` table's cells and the phone cards render these, so the two
-  // presentations cannot disagree about a season's state.
+  // One source for both layouts, so the table and the phone cards cannot disagree.
 
-  // `h-7` on the status badge and on the id chip beside it (decided 2026-08-08): LABEL_BADGE sizes
-  // itself by padding and the id chip by its own, so one fixed height at both call sites is what
-  // keeps them level.
+  // `h-7` on the status badge and the id chip beside it: each sizes itself by its own padding, so one
+  // fixed height at both call sites is what keeps them level.
   const renderStatusBadge = (saison: AdminSaisonRow) => {
     if (saison.status === "active") return <span className={`${LABEL_BADGE} bg-success/15 text-success-strong h-7 px-2`}>Laufend</span>;
     if (saison.status === "future") return <span className={`${LABEL_BADGE} bg-info/15 text-info-strong h-7 px-2`}>Geplant</span>;
@@ -47,10 +36,8 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
   };
 
   /**
-   * The season's span as two dates around a bis-Strich, shared by both layouts (decided 2026-08-08).
-   * The dates carry the weight and the dash recedes: spelled as "bis", the span reads as one grey
-   * ribbon in which the word outweighs the dates it joins. `tabular-nums` keeps the digits in columns,
-   * so two rows' spans line up under each other.
+   * The span as two dates around a bis-Strich. `tabular-nums` keeps the digits in columns, so two
+   * rows' spans line up under each other.
    */
   const renderZeitraum = (saison: AdminSaisonRow) => (
     <span className="flex flex-row items-baseline gap-x-1.5 tabular-nums">

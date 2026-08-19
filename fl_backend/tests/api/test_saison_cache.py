@@ -1,11 +1,3 @@
-"""
-SAISONS · the in-process season cache: what it serves, copies, and drops
-
-Default tier — the "collection" is a counting stub, because what is under test is the cache's
-contract, not Mongo: a hit issues no query, a returned document is a copy and not the stored
-one, a 404 is never cached, and the TTL turns a stale entry back into a miss.
-"""
-
 import asyncio
 from typing import Any, cast
 
@@ -36,8 +28,6 @@ SAISON_DOC: dict[str, Any] = {"_id": "2026", "status": "active", "rules": dict(R
 
 
 class CountingCollection:
-    """Answers `find_one` with a fixed document — or `None` — and counts how often it is asked."""
-
     def __init__(self, document: dict[str, Any] | None) -> None:
         self.document = document
         self.find_one_calls = 0
@@ -53,7 +43,7 @@ def as_collection(stub: CountingCollection) -> AsyncIOMotorCollection:
 
 @pytest.fixture(autouse=True)
 def empty_cache():
-    """Every test starts and ends with a clean cache — module state must not leak between tests."""
+    """Module state must not leak between tests."""
     invalidate_saison_cache()
     yield
     invalidate_saison_cache()

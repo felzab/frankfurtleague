@@ -13,42 +13,15 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The match editor. One fixture per URL, so an admin can be sent to the exact thing that
- * needs fixing and can come back to it after a reload.
- *
- * **No `generateMetadata`.** Every `/admin` route is behind `proxy.ts` and the layout's session check,
- * so nothing here is ever crawled or shared, and a title fetched per request would buy a second
- * round-trip for a tab label. The admin layout's own metadata covers it (`docs/frontend/spec.md :: I28`
- * is why there is no `generateStaticParams` either — this segment resolves per request by design).
- *
- * **Two reads, and the order between them is load-bearing.** The URL carries a match id and nothing
- * else, so which season's teams and fixtures the pickers must offer is only known once the match has
- * been read — `AdminContextWrapper` is then given that season rather than defaulting to the current one,
- * which is what makes editing a past season's fixture correct rather than silently offering this
- * season's clubs.
- */
-/**
- * The page itself resolves NOTHING, and that is what keeps this route renderable.
- *
- * `cacheComponents` prerenders an App Shell per route, and a segment with no `generateStaticParams`
- * gets one built with FALLBACK params. Awaiting `params` — or any runtime API — at the page's top
- * level ties that shell to a single URL, and the two states then contradict each other: Next crashed
- * this exact route with `Invariant: postponed state should not be provided when fallback params are
- * provided` whenever a server action's `updateTag` revalidated it from a different route. The action's
- * response was truncated to a few bytes, the client reported "An unexpected response was received
- * from the server", and the route kept serving its stale payload — which is why a saved fixture still
- * opened with its old values.
- *
- * The fix is the documented shape: the `params` promise is passed DOWN into a component inside a
- * `<Suspense>` boundary, and every await happens there. Next can then build the shell without knowing
- * the URL. Nothing about the reads below changed, only where they are awaited.
- *
- * See: https://nextjs.org/docs/app/guides/incremental-static-regeneration-cache-components
+ * The match editor. One fixture per URL. **The page resolves NOTHING itself** — every await sits
+ * inside the boundary below, which keeps a fallback-params route renderable. The sibling editors
+ * follow the same shape and point here.
  */
 export default function AdminSpielEditPage(props: NextPageProps<{ spiel_id: string }>) {
   return (
-    // The same loader `admin/loading.tsx` uses, for the same reason: the shell around it — sidemenu
-    // and topbar — is already painted, and only this region is still resolving.
+    // A top-level await ties the FALLBACK-params App Shell to one URL, and Next then raises
+    // `postponed state ... fallback params` on any `updateTag`.
+    // https://nextjs.org/docs/app/guides/incremental-static-regeneration-cache-components
     <Suspense fallback={<ContentLoader />}>
       <AdminSpielEditContent params={props.params} />
     </Suspense>
@@ -59,9 +32,8 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
   await connection();
   const spielId = await resolveSpielId(params);
 
-  // Resolves null for "no such fixture" — the conversion lives inside the query, because a production
-  // build redacts an error thrown out of a "use cache" scope. Everything else still throws, so an
-  // outage never reads as a missing match.
+  // Null for "no such fixture", converted inside the query because a production build redacts an
+  // error thrown out of a "use cache" scope. Everything else still throws.
   const spielRes = await getSpiel(spielId);
 
   if (!spielRes) {
@@ -69,21 +41,12 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
   }
 
   return (
-    // The fixture's OWN season, not the current one: the pickers offer the teams and the legal feeder
-    // matches of the season being edited, and `/admin/spielsuche?saison_id=` can reach a past
-    // season's fixtures.
+    // The fixture's OWN season, not the current one: the pickers must offer the teams and feeder
+    // matches of the season being edited, which may be a past one.
     <AdminContextWrapper saison_id={spielRes.spiel.saison_id}>
-      {/* Keyed by the fixture's STORED STATE, and it is not decoration. `/admin/spiele/A →
-          /admin/spiele/B` is the same route pattern, so React reconciles the same component types at
-          the same tree positions and no `useState` initialiser re-runs — every draft atom carried A's
-          values into B's editor, which is unpredictable in the worst way: the fields look like B's
-          stored data. A changed `key` unmounts and remounts the whole client subtree.
-
-          The id alone covered that case and not the one the undo creates: reopening the SAME fixture
-          after its values changed underneath keeps the seeded fields, so a restored fixture reads as
-          un-restored until a reload. `spielStateKey` is the id plus the payload the draft mirrors, so
-          the subtree also resets when the fixture itself moved. Keyed at the VIEW rather than at the
-          form so it covers the view's own state too, and so a future field costs nothing here. */}
+      {/* The same route pattern reconciles in place, so without a key the draft atoms carry the
+          previous fixture's values in. Keyed on STORED STATE, not the id, so an undo that moved
+          the fixture underneath resets the subtree. */}
       <AdminSpielEditView
         key={spielStateKey(spielRes.spiel)}
         spielData={spielRes.spiel}

@@ -9,15 +9,8 @@ import { IconTooltip } from "../../ui/IconTooltip";
 import type { FormState } from "@/shared/types/types";
 
 /**
- * Ends the admin's session, inline at the end of the bar.
- *
- * The behaviour is `useSignOut`'s and is shared with the sidemenu's options menu, which offers the
- * same control in a very different box. What is this component's own is the compact shape
- * a 54px bar can hold: one glyph at rest, and a short prompt beside it once armed.
- *
- * **Escaping is deliberately easy** — moving focus away or pressing Escape disarms it. That is what
- * makes arming in place safe: the only path to signing out is a second, deliberate press on a control
- * that has visibly changed in three ways at once (label, tint, glyph), so it never rests on colour.
+ * **Escaping is deliberately easy** — moving focus away or pressing Escape disarms it — which is what makes arming in
+ * place safe. The behaviour is `useSignOut`'s; only the compact shape is this component's own.
  */
 export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormState> }) {
   const { isConfirming, isSigningOut, press, disarm } = useSignOut(onSignOut);
@@ -29,21 +22,17 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
       aria-label={isConfirming ? "Abmelden?" : "Abmelden"}
       data-signout-control="true"
       onClick={press}
-      // `onBlur` is the reliable disarm: arming leaves focus on this button, so anything else the
-      // user does moves focus away from here.
+      // Arming leaves focus on this button, so anything else the user does moves focus away from here.
       onBlur={disarm}
       onKeyDown={(event) => {
         if (event.key === "Escape") disarm();
       }}
-      /* One red at rest, one when armed, and no hover step (my call): a control that only looks
-         destructive on approach says nothing to a reader scanning the bar. Armed also changes the
-         label and the glyph, so the fill never carries that alone. */
+      /* One red at rest and one when armed, with no hover step: a control that only looks destructive on
+         approach says nothing to a reader scanning the bar. */
       className={`text-danger flex h-9 shrink-0 items-center justify-center rounded-md font-semibold transition-colors disabled:opacity-60 ${
         isConfirming ? "bg-danger/20 px-3" : "bg-danger/10 px-2"
       }`}>
-      {/* Armed, the control is its QUESTION and nothing else (decided 2026-08-07): the glyph goes,
-          the label takes the resting glyph's size and sits centred — one thing to read, no icon to
-          mis-align against it. At rest it is the one glyph, so the bar stays quiet. */}
+      {/* Armed, the control is its question and nothing else; at rest it is the one glyph, so the bar stays quiet. */}
       {isConfirming ? (
         <span className="fluid-sm whitespace-nowrap">{isSigningOut ? "Wird abgemeldet..." : "Abmelden?"}</span>
       ) : (
@@ -55,8 +44,7 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
     </button>
   );
 
-  // The tooltip names the resting control, whose glyph is its only label. Armed, the button says what
-  // it is asking in visible text, so a tooltip would repeat it — and react-aria would announce it as
-  // a description on top of the label that already changed.
+  // The tooltip names the resting control, whose glyph is its only label. Armed, the button already says it
+  // in visible text, so a tooltip would repeat it.
   return isConfirming ? button : <IconTooltip label="Abmelden">{button}</IconTooltip>;
 }

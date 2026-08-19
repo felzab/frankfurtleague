@@ -14,16 +14,9 @@ const inter = Inter({
 });
 
 /**
- * Metadata
- *
- * `metadataBase` is what lets every route below spell its canonical as a PATH. A route that declares
- * none inherits this file's, so an unset canonical points at the homepage rather than at nothing.
- *
- * `openGraph` comes from `openGraphFor(path)`, and every route calls it with its own path. Next
- * inherits the whole object when a child defines none and replaces it whole when a child does — there
- * is no field-by-field merge — so a route cannot add `url` without restating the rest, which is what
- * the helper exists to prevent. `title` and `description` stay out of it deliberately: left unset they
- * resolve from each page's own, which is what a social card should say.
+ * `metadataBase` lets every route spell its canonical as a PATH, and one declaring none inherits
+ * this file's. Next replaces `openGraph` WHOLE rather than merging, which is why every route
+ * builds one through `openGraphFor(path)`.
  */
 export const metadata: Metadata = {
   metadataBase: new URL("https://frankfurtleague.de"),
@@ -37,8 +30,7 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: openGraphFor("/"),
-  // Without this X falls back to a small square thumbnail. Title, description and image are inherited
-  // from `openGraph`, so the card only has to declare its shape.
+  // Without this X falls back to a small square thumbnail; the rest is inherited.
   twitter: {
     card: "summary_large_image",
   },
@@ -50,9 +42,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="de"
       suppressHydrationWarning
       className={`${inter.variable} scrollbar-gutter-stable`}>
-      {/* No containing-block trigger on either root — `docs/frontend/spec.md :: I29` lists them. Any
-          one makes the page the containing block for every portalled overlay, whose geometry
-          react-aria has already written against the viewport. */}
+      {/* No containing-block trigger on either root (`docs/frontend/spec.md :: I29`): one would make
+          the page the containing block for every portalled overlay. */}
       <body className="bg-background text-foreground font-primary fluid-base flex min-h-dvh w-full flex-col antialiased">
         <RootProviders>{children}</RootProviders>
       </body>

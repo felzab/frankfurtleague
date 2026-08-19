@@ -11,15 +11,9 @@ import type { FLAddress } from "@/shared/schemas";
 import type { SpielortBanner } from "./banners";
 
 /**
- * Where the venue is — the shared address editor, wearing this page's markers.
- *
- * **`renderLabel` is what makes the shared control a page editor's control.** Without it each of the
- * five fields would carry a plain `<Label>`, and the Geändert marker, the previous value and the
- * `feld-` anchor would stop at the panel's edge — the club editor's own reason for that prop.
- *
- * **There is no Karten-Link field and there is not meant to be one.** The backend composes it from
- * the name and this address on every write, so a control here would be a second, editable answer to a
- * question the write path already settles.
+ * `renderLabel` is what makes the shared control a page editor's: without it the Geändert marker,
+ * the previous value and the `feld-` anchor stop at the panel's edge. There is no Karten-Link
+ * field — the backend composes it on every write.
  */
 export function FormAdresseSection({
   address,
@@ -30,7 +24,6 @@ export function FormAdresseSection({
   address: FLAddress;
   onChange: (next: FLAddress) => void;
   onFieldLeft: (paths: readonly string[]) => void;
-  /** The editor's whole Hinweis list; the spot below takes its own entries out of it. */
   banners: readonly SpielortBanner[];
 }) {
   const panel = formPanel();

@@ -32,26 +32,18 @@ import type { AdminSpieltagRow, SpieltagEditDraft } from "@/features/spieltage/t
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { ReactNode } from "react";
 
-/**
- * How long the undo offer stands after a save. It stands on every save, confirmed or not: a
- * confirmation is the carve-out for a draft carrying a warning or a danger, and undo is what still
- * helps the admin who was not paying attention.
- */
 const UNDO_TIMEOUT_MS = 15000;
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason: by the time the
- * offer is pressed this component is unmounted and the browser is on another route, and a server
- * action dispatched from there trips Next's E592 invariant and is truncated mid-response. An undo
- * belongs to a page-owned editor, and nothing else becomes a route handler.
- * **Revert this to a server action once E592 is fixed upstream.**
+ * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted, and
+ * an action dispatched from another route trips Next's E592 invariant and truncates mid-response.
+ * **Revert once E592 is fixed upstream.**
  */
 async function postSpieltagUndo(payload: FLPatchSpieltagPayload): Promise<{ success: boolean; message?: string; error?: string }> {
   const response = await fetch("/api/admin/spieltage/undo", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    // The route answers 200 with the outcome in the body for every reportable case, so a non-2xx is
-    // a genuine transport failure and belongs in the rejection branch.
+    // The route answers 200 with the outcome in the body, so a non-2xx is a transport failure.
     body: JSON.stringify(payload),
   });
 
@@ -63,13 +55,9 @@ async function postSpieltagUndo(payload: FLPatchSpieltagPayload): Promise<{ succ
 }
 
 /**
- * The matchday editor's form: three panels over three fields, a sticky summary rail, and one
- * derivation behind both — the match editor's shape over a matchday.
- *
- * **Three fields on a page is deliberate.** What earns the page is what
- * the form has to SAY rather than how much it holds: the name, the position and the expected match
- * count are all derived and none of them is a field, and six backend refusals
- * stand behind the three controls that are. The rail is where all of that goes.
+ * The matchday editor's form. **Three fields on a page is deliberate**: what earns the page is what
+ * the form has to SAY, and six backend refusals stand behind the three controls it holds. The rail
+ * is where all of that goes.
  */
 export function AdminSpieltagEditForm({
   spieltag,
@@ -109,8 +97,7 @@ export function AdminSpieltagEditForm({
       }),
   });
 
-  // `id` is the loaded record's own, already parsed, and the wire carries it in the path — so no
-  // refusal can name it and no input renders it.
+  // `id` is the loaded record's own and the wire carries it in the path, so no refusal can name it.
   const buildPayload = (): SpieltagEditDraft => ({ id: spieltag.id, beginn, ende, saison_phase: phase });
 
   const draftFields: FLSpieltagDraftFields = { beginn, ende, saison_phase: phase };
@@ -123,14 +110,13 @@ export function AdminSpieltagEditForm({
   const status = deriveSpieltagDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
-  // See the match editor: the latch's job ends the moment the revalidated matchday arrives and the
-  // two agree — left latched, every later edit on a restored tree read as not-dirty.
+  // The latch's job ends the moment the revalidated matchday arrives and the two agree; left
+  // latched, every later edit on a restored tree read as not-dirty.
   if (hasSaved && !status.isDirty) setHasSaved(false);
 
   useUnsavedChangesWarning(isDirty);
 
-  // Ctrl+S / Cmd+S submits, gated on the same conditions as the Speichern button — the match
-  // editor's reasoning, unchanged.
+  // Ctrl+S / Cmd+S submits, gated on the same conditions as the Speichern button.
   const canSubmitRef = useRef(true);
   useEffect(() => {
     canSubmitRef.current = !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty;
@@ -147,20 +133,18 @@ export function AdminSpieltagEditForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
-  // Both dates are pickers rather than typed fields, so every control on this form is judged on
-  // change — and the cross-field span rule reports on `ende`, so both paths refresh
-  // together or its message never clears.
+  // Both dates are pickers, so every control is judged on change — and the cross-field span rule
+  // reports on `ende`, so both paths refresh together or its message never clears.
   const validatePicked = (paths: readonly string[], picked: Partial<FLSpieltagDraftFields>) =>
     validatePaths("spieltag", { ...buildPayload(), ...picked }, paths);
 
   const isZeitraumChanged = status.changed.some((field) => field.group === "Zeitraum");
 
-  // The browser's half of `REQ-SPIELTAG-002`: a phase accounting for fewer matches than this matchday
-  // already holds would leave the rest with nowhere to be played, so the picker does not offer it.
+  // The browser's half of `REQ-SPIELTAG-002`: a phase accounting for fewer matches than this
+  // matchday holds would leave the rest with nowhere to be played.
   const phaseOffer = buildSpieltagPhaseOffer(saisonSchedule ?? [], spieltag.spieleAngelegt);
   const impliedPhaseCount = (saisonSchedule ?? []).find((entry) => entry.phase === spieltag.saison_phase)?.matchdays ?? 0;
 
-  /** Every Hinweis this draft raises — the rail's list and the panels' inline callouts alike. */
   const banners = buildSpieltagBanners({
     label: spieltag.label,
     inactiveSince: spieltag.inactive_since,
@@ -175,12 +159,12 @@ export function AdminSpieltagEditForm({
     impliedPhaseCount,
   });
 
-  // The two facts `REQ-RETIRE-002` and `REQ-RETIRE-005` turn on, answered from what the page already
-  // holds. The endpoint stays the authority: a fixture scored in another tab reaches it.
+  // The two facts `REQ-RETIRE-002` and `REQ-RETIRE-005` turn on, answered from what the page holds.
+  // The endpoint stays the authority: a fixture scored in another tab reaches it.
   const isRetireable = spieltag.spieleGespielt === 0 && !standsAtThePhaseFloor(livePhaseCount, impliedPhaseCount);
 
   const leavePage = () => {
-    // Blur first — see the match editor: react-aria's focus attribute survives a kept-alive tree.
+    // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
     if (window.history.length > 1) router.back();
@@ -200,7 +184,6 @@ export function AdminSpieltagEditForm({
     registerRequestLeave?.(requestLeave);
   });
 
-  /** Every atom back to what is stored — both exits run it; see the match editor's reasoning. */
   const resetDraftToStored = () => {
     setPhase(spieltag.saison_phase);
     setBeginn(spieltag.beginn);
@@ -216,14 +199,9 @@ export function AdminSpieltagEditForm({
     leavePage();
   };
 
-  /**
-   * What both submit routes reach first: a draft carrying a warning or a danger is confirmed, and a
-   * clean one saves straight through. The write itself is unchanged either way, undo
-   * included.
-   */
   const requestSave = () => {
-    // Snapshotted here rather than read live: the reader agrees to the list the gate stopped on,
-    // and a background revalidation re-deriving the banners under an open dialog would move it.
+    // Snapshotted rather than read live: a background revalidation re-deriving the banners under an
+    // open dialog would move the list the reader agreed to.
     const blocking = resolveBlockingBanners(banners);
     if (blocking !== null) {
       setConfirmingBanners(blocking);
@@ -234,16 +212,16 @@ export function AdminSpieltagEditForm({
 
   const handleFormSubmit = () => {
     startTransition(async () => {
-      // Read before the write, because the props still hold the pre-save values here and the toast
-      // that replays them outlives this component.
+      // Read before the write: the props still hold the pre-save values, and the toast that replays
+      // them outlives this component.
       const undoPayload: FLPatchSpieltagPayload = {
         id: spieltag.id,
         beginn: spieltag.beginn,
         ende: spieltag.ende,
         saison_phase: spieltag.saison_phase,
       };
-      // Only what the admin cannot see from the form itself earns a sentence: where the matchday now
-      // sits in the season, which is decided by the two fields above and shown on another page.
+      // Only what the admin cannot see from the form earns a sentence: where the matchday now sits in
+      // the season, which is decided by the two fields above and shown on another page.
       const positionTouched = isZeitraumChanged || phase !== spieltag.saison_phase;
 
       const payload = buildPayload();
@@ -259,34 +237,22 @@ export function AdminSpieltagEditForm({
 
       offerUndo(undoPayload, positionTouched ? "Name und Position des Spieltags ergeben sich neu aus Phase und Beginn." : undefined);
 
-      // AFTER the undo payload is built, which reads the props rather than these atoms — see the
-      // match editor: leaving with typed values still in state is what let a save-then-undo reopen
-      // on values the matchday no longer holds.
+      // AFTER the undo payload is built, which reads the props rather than these atoms: typed values
+      // left in state let a save-then-undo reopen on values the matchday no longer holds.
       resetDraftToStored();
       leavePage();
     });
   };
 
   /**
-   * The undo toast: fifteen seconds to take the save back, over the same `fetch` transport. The
-   * pitfalls the match editor documents all apply and are all mirrored here: the
-   * toast outlives this component, so the press runs in a detached closure — `router.refresh()` is
-   * what re-renders a screen the action's own revalidation can no longer reach (the router instance
-   * is a stable singleton, legal after unmount); the replay uses the TWO-ARGUMENT `then`, so a
-   * failure downstream of a committed restore is never blamed on the transport; and the pending
-   * spinner is `appToast.pending`, closed by its own key, because a toast without an explicit
-   * timeout inherits a four-second default that would retire it mid-flight.
-   *
-   * **The replay can be refused, and the message says which one refused it.** The undo is an ordinary
-   * `PATCH` and meets the same rules the save did, so a matchday moved back into a span another tab
-   * has since narrowed comes back as `REQ-DATE-003` rather than as a restore — which is correct, and
-   * the toast reports it as the change still standing.
+   * The toast outlives this component, so the press runs detached — `AdminEditSpielDataForm` has the
+   * pitfalls. **The replay can be refused**: it is an ordinary `PATCH`, so a span narrowed meanwhile
+   * comes back as `REQ-DATE-003` rather than a restore.
    */
   const offerUndo = (payload: FLPatchSpieltagPayload, message?: string) => {
     appToast.success("Änderung gespeichert", {
       description: message ?? "Der Spieltag wurde aktualisiert.",
-      // A decision window, not a reading time — the one case where the text's length does not
-      // govern the toast's duration.
+      // A decision window, not a reading time — the one case where text length does not set duration.
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",
@@ -305,8 +271,7 @@ export function AdminSpieltagEditForm({
               // Reported BEFORE the refresh: the restore is committed and nothing below changes that.
               appToast.success("Änderung zurückgenommen", { description: result.message });
 
-              // Best-effort, never allowed to fail the undo — a refresh that cannot run costs a
-              // stale screen until the next navigation, not the restore.
+              // Best-effort: a refresh that cannot run costs a stale screen, never the restore.
               try {
                 router.refresh();
               } catch (refreshError) {
@@ -328,8 +293,6 @@ export function AdminSpieltagEditForm({
 
   return (
     <SpieltagDraftStatusProvider status={status}>
-      {/* The match editor's shell: the inner container scrolls the page and the action bar is its
-          STATIC sibling below, where nothing can move it. */}
       <Form
         ref={formRef}
         validationErrors={fieldErrors}

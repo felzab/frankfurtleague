@@ -1,23 +1,3 @@
-/**
- * SPIELE · models
- *
- * The Zod read model, the admin patch payload composed from it, and the draft types the edit
- * form uses mid-edit. Hand-mirrored by `fl_backend/app/api/spiele/schemas.py`; the contract test
- * compares presence, requiredness, nullability, types and enums — the German messages
- * and the regexes below are this file's alone.
- *
- * Invariants:
- * - The patch composes from the field schemas, and from the STORED side, never the joined one.
- * - A side is `null` until its occupant is known; `teamN_quelle` is an independent sibling, so
- *   consumers read team, then `formatQuelle(quelle)`, then "Noch offen".
- * - Zod's `strip` mode discards undeclared fields silently — how `saison_id` once went missing.
- * - Draft types keep an emptied currency field `null` rather than silently `0`.
- * - A shoot-out is its own scoreline — `computeErgebnisFor` answers "D" for penalties.
- *
- * See:
- * - docs/backend/spec.md — section 1.3, the write path; and I16 — constraints live here only
- */
-
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
@@ -30,11 +10,8 @@ export const FLSpielStatusSchema = z.enum(["ausstehend", "vergangen", "heute", "
 export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;
 
 /**
- * One side of a fixture as the match document STORES it, and as the admin patch writes it back.
- *
- * Mirrors `FLSpielTeamField`. Nothing joined belongs here: the backend writes this payload back
- * wholesale, so a field added to it would be persisted into the match on the next edit — a
- * denormalisation the match document never carries. `FLSpielTeamFieldJoinedSchema` is the read shape.
+ * Nothing joined belongs here: the backend writes this payload back wholesale, so a field added to
+ * it is persisted into the match on the next edit. `FLSpielTeamFieldJoinedSchema` is the read shape.
  */
 export const FLSpielTeamFieldSchema = z.object({
   team_id: CustomObjectIdStringSchema,
@@ -45,15 +22,8 @@ export const FLSpielTeamFieldSchema = z.object({
 export type FLSpielTeamField = z.infer<typeof FLSpielTeamFieldSchema>;
 
 /**
- * One side as a READ serves it: the stored copy above, plus this season's state joined onto it.
- *
- * Mirrors `FLSpielTeamFieldJoined`, which the backend builds with a `$lookup` into `saison_teams`
- * keyed on the fixture's own season — so a disqualification entered on
- * the junction reaches every match card at once and no copy can go stale.
- *
- * The whole record rather than a boolean, matching `FLTeamSchema.disqualifikation` exactly: a team is
- * disqualified when this is not null, which is the same question every other surface asks.
- * `null` also covers a team holding no junction row for the season at all — not a disqualification.
+ * Joined per request from `saison_teams`, so no copy of a disqualification can go stale. The whole
+ * record rather than a boolean: `null` also covers a team with no junction row for the season.
  */
 export const FLSpielTeamFieldJoinedSchema = FLSpielTeamFieldSchema.extend({
   disqualifikation: FLDisqualifikationSchema.nullable(),
@@ -64,9 +34,8 @@ export const FLSpielOrtFieldSchema = z.object({
   spielort_id: CustomObjectIdStringSchema,
   name: z.string().nonempty(),
   maps_link: z.string().nonempty(),
-  // The message goes on the TYPE check, not on `nonnegative()`: the reachable failure is a cleared
-  // field arriving as `null`, and every one of these inputs has `minValue={0}`, so a negative number
-  // never gets here.
+  // The message goes on the TYPE check: the reachable failure is a cleared field arriving as
+  // `null`, since every one of these inputs carries `minValue={0}`.
   mietpreis: z.int({ error: "Bitte gib einen Mietpreis ein." }).nonnegative({ error: "Der Mietpreis darf nicht negativ sein." }),
 });
 export type FLSpielOrtField = z.infer<typeof FLSpielOrtFieldSchema>;
@@ -79,38 +48,25 @@ export const FLSpielSchiedsrichterFieldSchema = z.object({
 export type FLSpielSchiedsrichterField = z.infer<typeof FLSpielSchiedsrichterFieldSchema>;
 
 /**
- * The edit form's in-progress shapes. An emptied currency field is `null` while the admin is typing
- * — it must not silently become 0, which is what shipped a 0 € Mietpreis whenever someone cleared
- * the box. The strict schemas above still reject `null`, so a cleared
- * field fails validation with the German message on it rather than saving a wrong number.
+ * An emptied currency field is `null` while the admin types and must not become 0. The strict
+ * schemas above still reject `null`, so it fails with a message rather than saving a wrong number.
  */
 export type FLSpielOrtFieldDraft = Omit<FLSpielOrtField, "mietpreis"> & { mietpreis: number | null };
 export type FLSpielSchiedsrichterFieldDraft = Omit<FLSpielSchiedsrichterField, "payment"> & { payment: number | null };
 
-/**
- * The shoot-out while an admin is typing it. Both counts are `null` until entered, for the same reason
- * a currency field is: `0` is a real value here — a side can miss every kick — so an empty box must
- * not read as one.
- */
+/** `null` until entered: `0` is a real value here, since a side can miss every kick. */
 export type FLSpielElfmeterschiessenDraft = { team1: number | null; team2: number | null };
 
 /**
- * Where one side of a bracket fixture comes from. Mirrors `FLSpielQuelle`.
- *
- * A tagged union, discriminated on `type`, because there are exactly two ways a slot is fed: the first
- * knockout round is seeded from the group standings, and every round after it by matches in the round
- * before. `z.discriminatedUnion` rather than `z.union`, so a malformed source reports the
- * variant's own field errors instead of a union-wide "no match".
- *
- * The discriminator is English because it names the shape of the object rather than anything in the
- * competition; its two values, and every other key here, are domain vocabulary and stay German.
+ * `z.discriminatedUnion` rather than `z.union`, so a malformed source reports the variant's own
+ * field errors instead of a union-wide "no match". The discriminator names a shape and is English;
+ * its values are competition vocabulary, German.
  */
 export const FLSpielQuelleGruppeSchema = z.object({
   type: z.literal("gruppe"),
   gruppe: FLGruppenNamesSchema,
-  // The message goes on the TYPE check for the same reason `mietpreis`'s does: the reachable failure
-  // is an unpicked placing, which the form drafts as `NaN`, and `NaN` fails `z.int()` before
-  // `.positive()` ever runs.
+  // On the TYPE check as `mietpreis`'s is: an unpicked placing drafts as `NaN`, which fails
+  // `z.int()` before `.positive()` runs.
   platz: z.int({ error: "Bitte wähle einen Platz aus." }).positive({ error: "Der Platz muss mindestens 1 sein." }),
 });
 export type FLSpielQuelleGruppe = z.infer<typeof FLSpielQuelleGruppeSchema>;
@@ -126,26 +82,18 @@ export const FLSpielQuelleSchema = z.discriminatedUnion("type", [FLSpielQuelleGr
 export type FLSpielQuelle = z.infer<typeof FLSpielQuelleSchema>;
 
 /**
- * The penalty shoot-out that settled a knockout whose goals finished level. Mirrors
- * `FLSpielElfmeterschiessen`.
- *
- * A scoreline of its own, kept out of `ergebnis` because both ends parse that string to derive
- * win/draw/loss and a third number would read as a malformed value on every card. The two
- * counts are not goals: the bracket reads a winner off them and the league table counts the fixture as
- * the draw it was.
- *
- * The winner is derived, so there is no `sieger` field to contradict the counts — the same reasoning
- * that kept an override flag off `quelle`.
+ * Kept out of `ergebnis`: both ends parse that string for win/draw/loss and a third number reads as
+ * malformed. The counts are not goals — the bracket takes a winner from them, the table the draw.
+ * The winner is derived, never stored.
  */
 export const FLSpielElfmeterschiessenSchema = z
   .object({
-    // The message goes on the TYPE check, as `platz`'s and `mietpreis`'s do: an emptied NumberField
-    // arrives as `NaN`, which fails `z.int()` before `.nonnegative()` ever runs.
+    // On the TYPE check: an emptied NumberField arrives as `NaN`, failing `z.int()` first.
     team1: z.int({ error: "Bitte gib die Treffer von Team 1 ein." }).nonnegative({ error: "Die Treffer dürfen nicht negativ sein." }),
     team2: z.int({ error: "Bitte gib die Treffer von Team 2 ein." }).nonnegative({ error: "Die Treffer dürfen nicht negativ sein." }),
   })
-  // Mirrors the model validator. A level shoot-out names nobody, which puts the fixture back exactly
-  // where a drawn knockout sits — no winner, and now a filled-in record implying otherwise.
+  // Mirrors the model validator: a level shoot-out names nobody, leaving a filled-in record that
+  // implies a winner the fixture does not have.
   .refine((schiessen) => schiessen.team1 !== schiessen.team2, {
     error: "Ein Elfmeterschießen kann nicht unentschieden enden.",
     path: ["team2"],
@@ -156,15 +104,13 @@ export const FLSpielSchema = z.object({
   id: CustomObjectIdStringSchema,
   spieltag_id: CustomObjectIdStringSchema,
 
-  // `null` while the occupant is unknown — a playoff slot the group phase has not filled yet. The
-  // JOINED side, because every response carrying matches serves it: both reads and the
-  // action-required list, which renders through the same card.
+  // The JOINED side, because every response carrying matches serves it. `null` while the occupant
+  // is unknown.
   team1: FLSpielTeamFieldJoinedSchema.nullable(),
   team2: FLSpielTeamFieldJoinedSchema.nullable(),
 
-  // Where each side comes from. Survives the team arriving, so it is a sibling of the field above
-  // rather than a key inside it. `null` also means the slot is the admin's: clearing it is the one
-  // way out of automatic maintenance.
+  // A sibling rather than a key inside the field above, because it survives the team arriving.
+  // `null` means the slot is the admin's — clearing it is the one way out of automatic upkeep.
   team1_quelle: FLSpielQuelleSchema.nullable(),
   team2_quelle: FLSpielQuelleSchema.nullable(),
 
@@ -174,42 +120,32 @@ export const FLSpielSchema = z.object({
   ort: FLSpielOrtFieldSchema.nullable(),
   schiedsrichter: FLSpielSchiedsrichterFieldSchema.nullable(),
 
-  // "Tore:Tore". Not free text -- `computeErgebnisFor` matches this pattern to derive W/D/L, and a
-  // malformed "3" silently rendered as a loss for both teams. null means "not played yet".
+  // Not free text: `computeErgebnisFor` matches this pattern for W/D/L, and a malformed "3"
+  // silently rendered as a loss for both teams.
   ergebnis: z
     .string()
     .regex(/^[0-9]+:[0-9]+$/, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'")
     .nullable(),
 
-  // How a knockout that finished level was settled, and `null` on every match that did not — which is
-  // almost all of them.
   elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
 
   spiel_nr: z.int().positive(),
   is_canceled: z.boolean(),
   saison_phase: FLSaisonPhaseSchema,
-  // The backend sends this (FLSpiel.saison_id, min_length=4, max_length=4). Until it was declared
-  // here, zod's default strip mode discarded it silently -- which is why the admin patch action has
-  // no season id to invalidate a granular cache tag with.
+  // Declared because zod's default strip mode discards an undeclared field silently, which is how
+  // the patch action once lost the season id its granular cache tag needs.
   saison_id: z.string().length(4),
 
-  // An optional free-text note on the fixture — null on almost every match. Nullable but never
-  // absent: a stored document may lack the key, but the backend fills its default at validation and
-  // serializes it on every response, so the wire always carries it.
+  // Nullable but never absent: a stored document may lack the key, but the backend fills its
+  // default and serializes it on every response.
   notiz: z.string().nullable(),
 });
 export type FLSpiel = z.infer<typeof FLSpielSchema>;
 
 /**
- * A fixture read for what the DOCUMENT holds — its two sides narrowed to the stored shape.
- *
- * No schema, because nothing parses this: it is what an `FLSpiel` looks like to code that reads only
- * stored fields. An `FLSpiel` satisfies it, so a rule declared against it serves both a loaded
- * fixture and a drafted one without a second copy.
- *
- * Use it wherever a joined `disqualifikation` is neither read nor available. Asking for the joined
- * side there would force a caller to invent one, and an invented disqualification is a wrong answer
- * rather than a missing one.
+ * No schema, because nothing parses this. Use it wherever a joined `disqualifikation` is neither
+ * read nor available: asking for it there makes a caller invent one, and an invented one is a wrong
+ * answer rather than a missing one.
  */
 export type FLSpielWithStoredSides = Omit<FLSpiel, "team1" | "team2"> & {
   team1: FLSpielTeamField | null;
@@ -217,13 +153,9 @@ export type FLSpielWithStoredSides = Omit<FLSpiel, "team1" | "team2"> & {
 };
 
 /**
- * The fixture an editor's draft produces before a save — stored sides, and the two money fields still
- * allowed to stand empty.
- *
- * The read type's counterpart to `FLPatchSpielDataPayloadDraft`, and it exists for the same reason: a
- * Mietpreis or an Entschädigung the admin has cleared is `null` while they type, and declaring
- * otherwise takes a cast that type-checks while the value travels (`docs/frontend/spec.md` I33).
- * `FLSpielWithStoredSides` satisfies it, so a rule declared against this serves a loaded fixture too.
+ * The read counterpart to `FLPatchSpielDataPayloadDraft`: a cleared money field is `null` while the
+ * admin types, and declaring otherwise takes a cast that type-checks while the value travels
+ * (`docs/frontend/spec.md` I33).
  */
 export type FLSpielWithDraftFields = Omit<FLSpielWithStoredSides, "ort" | "schiedsrichter"> & {
   ort: FLSpielOrtFieldDraft | null;
@@ -236,11 +168,8 @@ export const FLSpieleListResponseSchema = BaseAPIResponseSchema.extend({
 export type FLSpieleListResponse = z.infer<typeof FLSpieleListResponseSchema>;
 
 /**
- * One match by its id, for the page whose subject IS that match.
- *
- * The edit page is addressed by match id alone and a match carries its own `saison_id`, so this read is
- * what tells that page which season's lookup lists to load. A list read cannot: it needs the season to
- * filter by, which is the answer this response supplies.
+ * The edit page is addressed by match id alone, so this read is what tells it which season's lookup
+ * lists to load — a list read cannot, needing that same season to filter by.
  */
 export const FLSpieleSingleResponseSchema = BaseAPIResponseSchema.extend({
   spiel: FLSpielSchema,
@@ -248,9 +177,8 @@ export const FLSpieleSingleResponseSchema = BaseAPIResponseSchema.extend({
 export type FLSpieleSingleResponse = z.infer<typeof FLSpieleSingleResponseSchema>;
 
 /**
- * The admin edit payload, composed from the field schemas above rather than redeclaring them, so
- * the write shape cannot drift from the read shape. That composition is intra-slice and must stay
- * so: the Spiel write path belongs to this slice, not to `admin`.
+ * Composed from the field schemas above rather than redeclared, so the write shape cannot drift
+ * from the read shape. The composition is intra-slice: this write path is not `admin`'s.
  */
 export const FLPatchSpielDataPayloadSchema = z.object({
   datum: CustomDateStringSchema.nullable(),
@@ -259,23 +187,20 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   ort: FLSpielOrtFieldSchema.nullable(),
   schiedsrichter: FLSpielSchiedsrichterFieldSchema.nullable(),
 
-  // The stored side, never the joined one: `disqualifikation` is looked up per request and belongs on
-  // no match document, and this payload is written back wholesale, so sending it
-  // would persist it.
+  // The stored side, never the joined one: this payload is written back wholesale, so sending a
+  // per-request `disqualifikation` would persist it onto the match document.
   team1: FLSpielTeamFieldSchema.nullable(),
   team2: FLSpielTeamFieldSchema.nullable(),
 
-  // On the payload because the handler writes it back wholesale with `$set`: a field the request
-  // omits is overwritten, so leaving these off would erase a bracket's wiring on the first edit.
+  // Present because `$set` overwrites what the request omits: leaving these off would erase a
+  // bracket's wiring on the first edit.
   team1_quelle: FLSpielQuelleSchema.nullable(),
   team2_quelle: FLSpielQuelleSchema.nullable(),
 
-  // On the payload for the same `$set` reason as the two above: omitted means overwritten, so leaving
-  // it off would retract a recorded shoot-out on the first edit of a kick-off time.
+  // The same `$set` reason: omitting it would retract a shoot-out on the first kick-off edit.
   elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
 
-  // Required on the payload for the `$set` reason above; an emptied textarea submits "" and the
-  // backend coerces it to null, which is how a note is removed.
+  // The same `$set` reason. An emptied textarea submits "", which the backend coerces to null.
   notiz: z.string().nullable(),
 
   spiel_id: CustomObjectIdStringSchema,
@@ -285,15 +210,9 @@ export const FLPatchSpielDataPayloadSchema = z.object({
 export type FLPatchSpielDataPayload = z.infer<typeof FLPatchSpielDataPayloadSchema>;
 
 /**
- * The patch payload as the editor DRAFTS it: every key the wire shape requires, with the fields an
- * admin can leave empty mid-edit still allowed to be `null`.
- *
- * The type the match editor's `buildPayload` returns, and the reason it needs no cast. A cast there
- * laundered `mietpreis`, `payment` and the two shoot-out counts into a shape that forbids `null`,
- * which type-checked while the value travelled to the wire — so the class was invisible and a field
- * with no rendered input blocked the save with a message nothing could display. Narrowing this onto
- * `FLPatchSpielDataPayload` is what the schema is parsed for, and a field still empty comes back as a
- * German message on its own path.
+ * What `buildPayload` returns, and why it needs no cast: a cast would launder the money and
+ * shoot-out fields into a shape forbidding `null`, so an empty field blocks the save with a message
+ * nothing rendered (`docs/frontend/spec.md` I33).
  */
 export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayload, "ort" | "schiedsrichter" | "elfmeterschiessen"> & {
   ort: FLSpielOrtFieldDraft | null;
@@ -302,15 +221,9 @@ export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayload, "ort" |
 };
 
 /**
- * One bracket slot whose group reference names a placing the standings will never hand it.
- *
- * `gruppe_too_small` is a typo — the group holds fewer teams that can advance than the `platz` asks
- * for — and the slot keeps whatever it holds. `tie_unresolved` is a real outcome: the group is played
- * out and the tiebreak chain still cannot separate two teams there, so the slot IS emptied and a person
- * has to clear the source and enter a side.
- *
- * A group still being played is in neither: that placing is simply not decided yet, and "not yet" is
- * not something to put in front of an admin.
+ * `gruppe_too_small` is a typo and the slot keeps what it holds; `tie_unresolved` the tiebreak chain
+ * cannot settle, so the slot IS emptied and needs a person. A group still being played is in
+ * neither: an undecided placing is not one to show an admin.
  */
 export const FLBracketFaultGruppeSchema = z.object({
   reason: z.enum(["gruppe_too_small", "tie_unresolved"]),
@@ -322,10 +235,8 @@ export const FLBracketFaultGruppeSchema = z.object({
 export type FLBracketFaultGruppe = z.infer<typeof FLBracketFaultGruppeSchema>;
 
 /**
- * One bracket slot whose match reference cannot state an outcome — a missing number, or a cycle.
- *
- * `quelle_spiel_nr` is the number the slot names, which is the value to correct. A cycle is reported on
- * every fixture the loop reaches, because none of them is derivable.
+ * `quelle_spiel_nr` is the number to correct. A cycle is reported on every fixture the loop reaches,
+ * none of them being derivable.
  */
 export const FLBracketFaultQuelleSchema = z.object({
   reason: z.enum(["spiel_missing", "reference_cycle"]),
@@ -344,16 +255,9 @@ export const FLBracketFaultSpielSchema = z.object({
 export type FLBracketFaultSpiel = z.infer<typeof FLBracketFaultSpielSchema>;
 
 /**
- * One fixture fielding a team the season disqualified before the day it is played (decided 2026-08-08).
- *
- * **The only one of the six that is not about the bracket**, and the only one that covers a group-phase
- * fixture: it compares the fixture's own date against a disqualification recorded on the junction row.
- * A fixture played BEFORE the effective day is not a fault — the team was eligible then, so the match
- * and its result stand. `spiel_datum` is null on an undated fixture, which is reported, because nothing
- * shows it was played in time.
- *
- * Both dates travel so a card can state the ordering without a second read, and nothing is emptied:
- * cancel, award or replace is a competition decision.
+ * **The one fault not about the bracket**, and the only one reaching a group-phase fixture. A match
+ * played BEFORE the effective day stands; an undated one is reported, nothing showing it in time.
+ * Nothing is emptied — the remedy is a competition call.
  */
 export const FLBracketFaultOccupantSchema = z.object({
   reason: z.literal("disqualified_occupant"),
@@ -368,11 +272,8 @@ export const FLBracketFaultOccupantSchema = z.object({
 export type FLBracketFaultOccupant = z.infer<typeof FLBracketFaultOccupantSchema>;
 
 /**
- * The six derived faults, tagged on `reason`.
- *
- * `discriminatedUnion` rather than a flat object with optional fields, mirroring `FLSpielQuelleSchema`
- * and the Pydantic union it is hand-mirrored from: each variant carries exactly the fields its own fault
- * needs, so a reader never has to know which combinations mean anything.
+ * `discriminatedUnion` rather than a flat object of optional fields: each variant carries exactly
+ * its own fault's fields, so nobody has to know which combinations mean anything.
  */
 export const FLBracketFaultSchema = z.discriminatedUnion("reason", [
   FLBracketFaultGruppeSchema,
@@ -383,13 +284,9 @@ export const FLBracketFaultSchema = z.discriminatedUnion("reason", [
 export type FLBracketFault = z.infer<typeof FLBracketFaultSchema>;
 
 /**
- * One fixture the bracket resolution rewrote, and the result that rewrite destroyed.
- *
- * The two are separate facts and the second is the one an admin needs: a slot filling from empty costs
- * nothing, while a slot whose occupant changed while the fixture already held a scoreline loses that
- * scoreline in the same transaction. Both voided fields are `null` on the harmless
- * case, so "was anything destroyed here" is a null check rather than a comparison against a state the
- * client no longer holds.
+ * A slot filling from empty costs nothing; one whose occupant changed under a recorded scoreline
+ * loses it in the same transaction. Both voided fields are `null` on the harmless case, so "was
+ * anything destroyed" is a null check.
  */
 export const FLSpielAdvancementSchema = z.object({
   spiel_nr: z.int().positive(),
@@ -402,12 +299,9 @@ export const FLSpielAdvancementSchema = z.object({
 export type FLSpielAdvancement = z.infer<typeof FLSpielAdvancementSchema>;
 
 /**
- * One side another fixture gave up so a team could be fielded on the same Spieltag.
- *
- * A team plays at most one match per matchday, so fielding it here takes it out of there — and the
- * fixture it leaves loses its own result for the same reason an advancement does. Only a side the admin
- * owns is moved this way; a side carrying a `quelle` is refused instead, because emptying it would be
- * undone by the next resolution.
+ * A team plays at most one match per matchday, so fielding it here takes it out of there and that
+ * fixture loses its result. Only a side the admin owns moves this way; one carrying a `quelle` is
+ * refused, emptying it being undone by the next resolution.
  */
 export const FLSpielReleasedSideSchema = z.object({
   spiel_nr: z.int().positive(),
@@ -422,26 +316,13 @@ export const FLSpielReleasedSideSchema = z.object({
 export type FLSpielReleasedSide = z.infer<typeof FLSpielReleasedSideSchema>;
 
 /**
- * What the admin patch returns: the envelope, plus every fixture the write moved and what that cost.
- *
- * `advanced_to` holds one entry per fixture the result entry resolved — the semi-final that gained its
- * winner, and, after a correction, the later fixture that lost an occupant it should never have had.
- * It reports what happened, so a fixture that was emptied is named as readily as one that
- * was filled, and each entry carries the result the rewrite destroyed rather than leaving the reader to
- * infer it. `released_sides` is the other write this endpoint can make.
- *
- * **`dry_run=true` answers with this same shape and writes nothing**, which is what lets the edit
- * surface name the fixtures a save would take a result from before the admin commits to it. One schema,
- * because a preview parsed differently from the save it previews is a preview that can lie.
- *
- * **Declared here rather than parsed as a bare `BaseAPIResponseSchema`.** Zod's default `strip` mode
- * discards an undeclared key silently, so a response field with no entry in a schema never reaches the
- * caller and nothing reports that it did not — the same way `saison_id` went missing.
- *
- * Not `.optional()`: the backend's `default_factory` puts the field outside the published `required`
- * list, but every declared property of a response model is on the wire, so it always arrives.
+ * **`dry_run=true` answers with this same shape**, one schema being what stops a preview parsing
+ * differently to the save it previews. **Declared rather than left to `BaseAPIResponseSchema`**,
+ * since `strip` drops an undeclared key silently.
  */
 export const FLPatchSpielDataResponseSchema = BaseAPIResponseSchema.extend({
+  // Not `.optional()`: `default_factory` puts these outside the published `required` list, but
+  // every declared property is on the wire.
   advanced_to: z.array(FLSpielAdvancementSchema),
   released_sides: z.array(FLSpielReleasedSideSchema),
   bracket_faults: z.array(FLBracketFaultSchema),
@@ -450,11 +331,9 @@ export const FLPatchSpielDataResponseSchema = BaseAPIResponseSchema.extend({
 export type FLPatchSpielDataResponse = z.infer<typeof FLPatchSpielDataResponseSchema>;
 
 /**
- * What `GET /spiele/action_required` returns: the matches needing attention, and why the bracket ones do.
- *
- * `spiele` carries every match the route's filter selected plus every match a fault below names, so the
- * client always holds the document behind a fault. A fault joins to its match by `spiel_id`, never by
- * `spiel_nr`, which repeats across the seasons this route spans.
+ * `spiele` carries the filter's matches plus every match a fault names, so the client always holds
+ * the document behind one. A fault joins by `spiel_id`, never `spiel_nr`, which repeats across the
+ * seasons this route spans.
  */
 export const FLSpieleActionRequiredResponseSchema = BaseAPIResponseSchema.extend({
   spiele: z.array(FLSpielSchema),

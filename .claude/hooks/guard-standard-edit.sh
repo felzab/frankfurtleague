@@ -1,20 +1,7 @@
 #!/usr/bin/env bash
-#
 # PreToolUse hook on Edit|Write|NotebookEdit — a write into docs/_standard/ asks the owner first.
-#
-# WHY THIS IS A HOOK AND NOT A CLAUDE.md RULE:
-#   docs/_standard/ defines how every other document is written and checked, so a quiet edit to it
-#   changes the rules everything else is held to. The owner's instruction (2026-08-08) is that the
-#   standard never changes without them knowing. A CLAUDE.md sentence states that; only a hook can
-#   put the question on the screen at the moment of the edit.
-#
-# CONTRACT: prints nothing and exits 0 for a target outside docs/_standard/. For a target inside it
-# — or for a payload whose target cannot be determined at all — it prints the "ask" JSON the
-# PreToolUse event understands, which surfaces the owner's permission prompt instead of writing.
-# Asking on the unreadable payload mirrors guard-branch.sh's fail-closed reasoning: a hole in the
-# guard costs more than one extra question, and the cases are rare.
-#
-# TARGET PLATFORM: any (Git Bash on Windows). node rather than jq — jq is not installed here.
+# The standard defines how every other document is written and checked, so a quiet edit changes the
+# rules everything else is held to. A payload whose target cannot be read asks too.
 
 ask() {
   printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"This edits docs/_standard — the documentation standard changes only with your explicit sign-off (owner rule, 2026-08-08). Approve to let this one write through, or deny and discuss the change first."}}'

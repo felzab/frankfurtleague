@@ -1,50 +1,21 @@
-/**
- * ADMIN · action-required derivation
- *
- * Sorts matches into the categories the action-required view renders, ranks them by how much
- * each blocks the competition, and says the one thing about an entry its category cannot. Pure,
- * no I/O — a separate module so non-caching code stays out of a `"use cache"` file.
- *
- * Invariants:
- * - `ACTION_REQUIRED_LABELS` order is render order, which is urgency, and
- *   `buildActionRequiredSections` walks the label table, so the two cannot split.
- * - The category union stays a literal union — a mistyped category is a compile error.
- * - `categorizeActionRequired` serves two surfaces, so its rules live here once.
- * - What fills a bracket slot is `deriveSlotHerkunft`'s answer, in `spiele`, beside the fields.
- */
-
 import { deriveSlotHerkunft } from "@/features/spiele/utils";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import type { FLBracketFault, FLSpiel, FLSpielWithDraftFields } from "../spiele/schemas";
 import type { ActionRequiredCategory } from "../spiele/types";
 
-// Re-exported so this module stays the obvious place to look for it. It is
-// DECLARED in `spiele`, because it classifies a Spiel and the edit page reads
-// it too -- see the note on the declaration.
+// Re-exported and not moved: it is declared in `spiele`, because it classifies a Spiel.
 export type { ActionRequiredCategory };
 
 /**
- * How far a category is from stopping the competition, which is the order the triage list works in. The
- * three working grades also carry the colour, so a section's rank and its tint can never disagree.
- *
- * - `blocking` — a later fixture cannot resolve at all until somebody acts.
- * - `results` — every standing and every group-seeded slot below this fixture is waiting on it.
- * - `details` — administrative tidying. Nothing downstream is held up.
- * - `none` — not a problem. `is_canceled` is the only member: it is a filter over the season, offered
- *   here so an admin can look it up, and never a queue an admin is expected to empty.
+ * How far a category is from stopping the competition, which is the order the triage list works in.
+ * `none` is not a queue: it is offered for lookup and is never something an admin empties.
  */
 export type FLActionUrgency = "blocking" | "results" | "details" | "none";
 
 /**
- * Declaration order is render order, and it is urgency rather than the data model's grouping —
- * established platforms order an organiser's queue by what blocks play, and that is the order below.
- *
- * **`short` is what the page shows and `name` is what it is called.** Eight tabs are rendered at all
- * times, and eight full names do not fit one row at any width — the one-word form does, at
- * desktop width, which is what lets the strip be a strip rather than a scroller. `name` stays because
- * a category needs a full spelling somewhere a reader can find it, and `desc` is the line under the
- * strip that says what the one word covers.
+ * Declaration order is render order, which is urgency. `short` is what the strip shows — the full
+ * names do not fit one row at any width; `name` is the full spelling and `desc` explains it.
  */
 export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: string; short: string; desc: string; urgency: FLActionUrgency }> = {
   bracket_fault: {
@@ -98,25 +69,16 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
 };
 
 /**
- * Sorts matches into the categories that need admin attention.
- *
- * Three rules that are load-bearing and easy to "tidy" away:
- * - `is_canceled` is **exclusive** — a cancelled match is reported only as cancelled, never also as
- *   missing a date or a referee, because chasing details on a cancelled fixture is noise.
- * - the four `*_missing` categories are **not** exclusive — one match can appear in several.
- * - `bracket_fault` membership is **read, not derived**. The backend computes it over whole seasons and
- *   this list holds a filtered handful of matches, so nothing here could recompute it.
- *
- * `datum` and `today` are both `YYYY-MM-DD`, so the `<` comparison is lexicographic and correct.
- * It is strict: a match dated today with no result is not yet overdue.
+ * `is_canceled` is exclusive; the `*_missing` categories are not. `bracket_fault` is read, never
+ * derived — the backend computes it over whole seasons. Both dates are `YYYY-MM-DD`, so `<` is
+ * lexicographic and strict.
  */
 export function categorizeActionRequired<T extends FLSpielWithDraftFields>(
   spiele: readonly T[],
   today: string,
   bracketFaults: readonly FLBracketFault[] = [],
 ): Record<ActionRequiredCategory, T[]> {
-  // Keyed in the label table's order, so `Object.keys` on the result and on the table agree — the
-  // property one test asserts, and what lets a caller walk either one.
+  // Keyed in the label table's order so `Object.keys` agrees with it, which a test asserts.
   const categorized: Record<ActionRequiredCategory, T[]> = {
     bracket_fault: [],
     besetzung_missing: [],
@@ -131,9 +93,8 @@ export function categorizeActionRequired<T extends FLSpielWithDraftFields>(
   const faultedSpielIds = new Set(bracketFaults.map((fault) => fault.spiel_id));
 
   for (const spiel of spiele) {
-    // Before the cancellation branch and not exclusive with it: a cancelled
-    // fixture with broken wiring still feeds whatever sits below it, so the
-    // fault outlives the cancellation.
+    // Before the cancellation branch and not exclusive with it: broken wiring still feeds whatever
+    // sits below the fixture.
     if (faultedSpielIds.has(spiel.id)) categorized.bracket_fault.push(spiel);
 
     if (spiel.is_canceled) {
@@ -150,9 +111,8 @@ export function categorizeActionRequired<T extends FLSpielWithDraftFields>(
       categorized.ergebnis_pending.push(spiel);
     }
 
-    // A knockout side with no team AND no source is filled by nothing, since the
-    // resolution skips a slot without a `quelle`; Gruppenphase is exempt.
-    // `deriveSlotHerkunft` so this and the wiring review cannot spell `offen` twice.
+    // Gruppenphase is exempt: the resolution only fills a slot holding a `quelle`, and that phase has
+    // none. Via `deriveSlotHerkunft`, so this and the wiring review cannot spell `offen` twice.
     if (
       spiel.saison_phase !== "gruppenphase" &&
       (deriveSlotHerkunft(spiel.team1, spiel.team1_quelle) === "offen" || deriveSlotHerkunft(spiel.team2, spiel.team2_quelle) === "offen")
@@ -170,13 +130,8 @@ export type FLActionRequiredSection = {
 };
 
 /**
- * Within a section, the fixture whose clock has run longest comes first.
- *
- * One rule serves every category because the same comparison means the right thing in each: for an
- * outstanding result the earliest date is the most overdue, for a fixture still to be played it is the
- * one arriving soonest, and where no fixture has a date at all — the whole `datum_missing` section —
- * the tie-break carries it and the order is the bracket's own. Nulls sort last for the reason
- * `sortByDate` gives: an unscheduled match belongs at the end of a fixture list, not at the top.
+ * One comparison serves every category: the earliest date is both the most overdue result and the
+ * soonest fixture. Nulls last, for `sortByDate`'s reason — an unscheduled match belongs at the end.
  */
 const compareByUrgencyWithin = (a: FLSpiel, b: FLSpiel): number => {
   if (a.datum !== b.datum) {
@@ -189,13 +144,8 @@ const compareByUrgencyWithin = (a: FLSpiel, b: FLSpiel): number => {
 };
 
 /**
- * Every category as a section, in urgency order, with the matches inside each one ranked.
- *
- * **It walks `ACTION_REQUIRED_LABELS`, never the categorised record**, so the render order has exactly
- * one declaration. The two are keyed identically today and this does not depend on that staying true.
- *
- * Every category is returned, including the empty ones: the strip shows all eight at all times, so a
- * section with nothing in it is a tab with a zero rather than something to omit.
+ * Walks `ACTION_REQUIRED_LABELS` and never the categorised record, so render order has exactly one
+ * declaration. Empty categories are returned too — a section with nothing in it is a tab with a zero.
  */
 export function buildActionRequiredSections({
   spiele,

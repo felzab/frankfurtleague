@@ -1,15 +1,8 @@
-/**
- * SAISONS · query parameter types and the admin surfaces' assembled shapes
- *
- * Outbound query shapes, not validation — inbound data is validated by `schemas.ts`.
- *
- * Note `sort_by: "_id"` sorts by the season id, which is the four-character year string, so it sorts
- * chronologically. That is a property of the id format, not a coincidence.
- */
-
 import type { FLGruppenNames } from "../teams/schemas";
 import type { FLSaisonRules, FLSaisonStatus } from "./schemas";
 
+// `"_id"` sorts chronologically: the season id is the four-character year string. A property of the
+// id format rather than a coincidence.
 export type FLSaisonsSortOptions = "_id" | "start_date" | "end_date";
 
 export type FLSaisonsFilterParams = {
@@ -21,12 +14,6 @@ export type FLSaisonsFilterParams = {
   order?: "asc" | "desc";
 };
 
-/**
- * The season's editable fields as the editor holds them — dates plus every field of `rules`.
- *
- * `status` is absent, and it is absent from the payload schemas for the same reason: the
- * rollover endpoint is the only code path that writes it. Nothing on this page can put it in a draft.
- */
 export type SaisonDraftFields = {
   start_date: string;
   end_date: string;
@@ -34,12 +21,8 @@ export type SaisonDraftFields = {
 };
 
 /**
- * One row of the admin season list.
- *
- * `spieltageCount` and `teamsCount` are what make the list readable as a setup surface: together they
- * say whether a season has a schedule and a field yet, which is the question the list is scanned for.
- * Neither is the rollover precondition — that is the endpoint's (`REQ-ACTIVATE-001`), and the season
- * editor's rollover panel is where it is shown.
+ * One row of the admin season list. Neither count is the rollover precondition — that is
+ * `REQ-ACTIVATE-001`, shown in the season editor's rollover panel.
  */
 export type AdminSaisonRow = {
   id: string;
@@ -53,11 +36,8 @@ export type AdminSaisonRow = {
 };
 
 /**
- * One match of the outgoing season that has no result, as the rollover panel lists it.
- *
- * Deliberately not the whole `FLSpiel`: the panel needs enough to recognise a fixture and a link to
- * open it, and shipping the joined shape would send every referee, venue and provenance record of an
- * unfinished season to the client to render a list of names.
+ * One unfinished match, as the rollover panel lists it. Deliberately not the whole `FLSpiel`: the
+ * joined shape would ship every referee, venue and provenance record to render a list of names.
  */
 export type SaisonOffeneSpiel = {
   id: string;
@@ -67,12 +47,7 @@ export type SaisonOffeneSpiel = {
   paarung: string;
 };
 
-/**
- * What the rollover control knows about the season it would replace.
- *
- * `null` when no season currently holds `active`, which is a legitimate state on a fresh database and
- * makes the rollover the plain promotion it would otherwise be dressed up as.
- */
+/** `outgoingSaisonId` is `null` when no season holds `active` — legitimate on a fresh database. */
 export type SaisonRolloverContext = {
   outgoingSaisonId: string | null;
   /** Every unfinished match of the OUTGOING season. Empty when there is nothing to warn about. */
@@ -80,44 +55,31 @@ export type SaisonRolloverContext = {
 };
 
 /**
- * One club the swap control can pick, as it stands in THIS season.
- *
- * Deliberately not the whole `FLTeam`: the control needs a name to show and a group to pair on, and the
- * derived `statistik` behind every team read is a table it never draws.
+ * One club as it stands in THIS season. Deliberately not the whole `FLTeam`: the derived `statistik`
+ * behind every team read is a table this control never draws.
  */
 export type SaisonSwapTeam = {
   id: string;
   name: string;
   gruppe: FLGruppenNames;
   /**
-   * How many of this club's own Gruppenphase fixtures have taken place, per the season editor page's
-   * `hasTakenPlace`, which is where that reading is stated in full.
-   *
-   * `REQ-SWAP-004` counted for one club. Non-zero is what makes it unpickable: the group phase is a
-   * round robin, so a club that has played inside its group cannot leave it.
+   * `REQ-SWAP-004` counted for one club, per the season editor page's `hasTakenPlace`. Non-zero makes
+   * the club unpickable: the group phase is a round robin, so it cannot leave its group.
    */
   gespielteGruppenSpiele: number;
-  /**
-   * Spieltag id → how many of this club's Gruppenphase fixtures sit on it. A swap MOVES every one of
-   * these to the other club.
-   */
+  /** Spieltag id → this club's Gruppenphase fixtures on it. A swap MOVES every one to the other club. */
   gruppenSpieleProSpieltag: Record<string, number>;
   /**
-   * Spieltag id → how many of this club's fixtures OUTSIDE the group phase sit on it. A swap leaves
-   * every one of these where it is, which is what lets an exchange put a club on one Spieltag twice.
-   *
-   * The two maps together are `REQ-SWAP-005` said in the form: `wouldFieldAClubTwice` mirrors the
-   * arithmetic `_spieltag_clashes` performs on the server.
+   * Spieltag id → this club's fixtures OUTSIDE the group phase, which a swap LEAVES where they are —
+   * which is what lets an exchange put a club on one Spieltag twice. `wouldFieldAClubTwice` is
+   * `REQ-SWAP-005` over the two maps.
    */
   koSpieleProSpieltag: Record<string, number>;
 };
 
 /**
- * What the group swap control knows about the season it is standing on.
- *
- * `playedKnockoutSpiele` is the endpoint's own window rule, counted for the page: any fixture outside
- * the Gruppenphase that has taken place closes the swap for good, because the bracket was seeded from
- * these groups. Non-zero is what turns the control into an explanation. Same reading as the field above.
+ * `playedKnockoutSpiele` closes the swap for good once non-zero: the bracket was seeded from these
+ * groups, so any played fixture outside the Gruppenphase has already used them.
  */
 export type SaisonGruppenSwapContext = {
   /** Every club entered in this season, retired ones included, ordered by name. */

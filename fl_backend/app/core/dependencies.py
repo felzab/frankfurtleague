@@ -1,15 +1,3 @@
-"""
-CORE · injectable dependencies
-
-Typed aliases for the collections, plus the German-time providers. Endpoints declare what they
-need rather than reaching for it, which is what makes them testable without a database.
-
-Invariants:
-- Time is Europe/Berlin wall-clock injected as a `YYYY-MM-DD` string, and the format is not
-  negotiable (`app/shared/schemas/custom.py`).
-- Injecting the date keeps "today" substitutable in tests.
-"""
-
 from datetime import datetime
 from typing import Annotated
 from zoneinfo import ZoneInfo
@@ -58,6 +46,7 @@ SaisonTeamsCollection = Annotated[AsyncIOMotorCollection, Depends(get_saison_tea
 SaisonSpielerCollection = Annotated[AsyncIOMotorCollection, Depends(get_saison_spieler_collection)]
 
 
+# Injected rather than read at the call site, which is what keeps "today" substitutable in tests.
 def get_germany_now() -> datetime:
     return datetime.now(ZoneInfo("Europe/Berlin"))
 

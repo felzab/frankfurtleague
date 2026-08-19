@@ -348,7 +348,8 @@ by surface; the order inside a group carries nothing.
 ## 8. Documentation
 
 **Read [`rules-index.md`](../docs/_standard/rules-index.md) before writing a document or a comment** —
-one line per rule — then read the chapter governing what you are about to write.
+one line per rule, and for most rules the whole of it. A rule a line cannot carry also has a chapter
+section; read that one before writing what it governs.
 
 These bind every session, and are named here because the index arrives only after the first edit:
 
@@ -365,8 +366,10 @@ argument goes in the closing commit body, which `scripts/check_commits.py` enfor
 
 In code — `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`, `scripts/` and `.claude/hooks/`,
 which is chapter 2's scope — a comment carries why, never what the line does and never a type
-(INC-1); a module header follows INC-2; every FastAPI endpoint gets a docstring (INC-4). The hooks
-are exempt from INC-2 alone; every other rule in the chapter binds them.
+(INC-1); every FastAPI endpoint gets a docstring (INC-4), bounded like any other comment. **A module
+header survives in a shell script, and in a Python `app/` or `scripts/` module whose fact attaches to
+no symbol — nowhere else** (INC-2). The hooks are exempt from INC-2's shape alone; every other rule in the
+chapter binds them.
 
 **`--docs` runs `scripts/check_docs.py` over `/docs`, over source comments, and over the
 configuration files scanned beside them (INC-6).** CUR-5's table is the one place its checks are

@@ -7,23 +7,11 @@ import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 
 /**
- * Retires a matchday. The write is SOFT — it stamps `inactive_since` and the document stays.
- *
- * **The consequence line says what actually happens to the fixtures, which is not "nothing".** They are
- * untouched in the database and `GET /spiele` still returns them, but the public Spielplan builds itself
- * from the matchdays it received and a retired one is not among them — so the fixtures leave that page
- * with their container. That is why `REQ-RETIRE-002` refuses this while any of them carries a result, and
- * why the list disables the control rather than letting the dialog open on a refusal.
- *
- * The count is in the sentence rather than a generic reassurance, because the number is what an admin can
- * check against the row they just pressed.
+ * Retires a matchday; the write is SOFT. **The consequence line says what happens to the fixtures,
+ * which is not "nothing"**: they stay in the database, but the public Spielplan builds itself from
+ * the matchdays it received, so they leave with it.
  */
-/**
- * The consequence sentence for a given fixture count.
- *
- * One and many are separate sentences rather than one with the number substituted: a single fixture makes
- * "Die 1 Spiele" out of any sentence carrying a fixed plural.
- */
+/** One and many are separate sentences: a fixed plural makes "Die 1 Spiele" of a single fixture. */
 function describeConsequence(spieleAngelegt: number): string {
   if (spieleAngelegt === 0) return "Der Spieltag verschwindet aus den Listen und aus dem Spielplan.";
   if (spieleAngelegt === 1) {
@@ -41,7 +29,6 @@ export function AdminDeleteSpieltagModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  // Retained, not early-returned: unmounting on close skips the exit transition.
   const spieltag = useRetainedValue(spieltagData);
 
   if (!spieltag) return null;

@@ -6,7 +6,8 @@ the prompt a remediation wave loads.
 ## Folder overview
 
 Listed in the order a programme runs them — risk, then the surface passes, then crosscut.
-[`../programme.md`](../programme.md) carries that ordering and the reasoning behind it.
+[`../programme.md`](../programme.md) carries that ordering and its reasoning; §1.6 there is how a
+prompt is written, added or split.
 
 | Read                                                                     | For                                                                     |
 | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
@@ -26,27 +27,3 @@ Listed in the order a programme runs them — risk, then the surface passes, the
 | [`ops/1-build-deploy.md`](ops/1-build-deploy.md)                         | Build and deploy correctness                                            |
 | [`ops/2-security-topology.md`](ops/2-security-topology.md)               | Security and topology                                                   |
 | [`crosscut/1-contracts-and-seams.md`](crosscut/1-contracts-and-seams.md) | Contracts and seams between surfaces                                    |
-
-## Writing, adding or splitting a prompt
-
-**A prompt states how to derive an inventory, never the inventory itself.** A grep or a config read,
-not a list of files; a rule, not a count. Anything hardcoded drifts from the code and is then wrong
-in a way no gate detects. **Every prompt names its boundaries** — which findings belong to which
-other pass. Without that, one defect becomes four differently-worded findings and the ledger's
-overlap map turns into archaeology. Begin it by binding
-[`_shared-protocol.md`](_shared-protocol.md), and put nothing in it that the shared protocol already
-covers.
-
-A new lens is numbered inside its surface folder as `<n>-<kebab-lens>.md` and takes a row above;
-`/audit:pass` resolves `<surface>/<n>-*.md` by glob, so nothing else needs updating. Name the report
-path it writes to — `docs/audit/programme/<prefix><n>-<lens>.md`, where the prefix is `r` risk ·
-`f` frontend · `b` backend · `o` ops · `x` crosscut — because the prefixes are single characters and
-distinct, so a report is identifiable from its filename alone. **Split a lens rather than letting
-one report grow too large to load**, at the size [`../lessons.md`](../lessons.md) records: a pass
-whose report cannot be opened in a wave session is a pass whose findings cannot be worked.
-
-## Read next
-
-- [`../programme.md`](../programme.md) — the lifecycle, the pass order, the session rules, the
-  close-out
-- [`_shared-protocol.md`](_shared-protocol.md) — read this before running any pass

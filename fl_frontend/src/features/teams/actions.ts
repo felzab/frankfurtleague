@@ -1,24 +1,5 @@
 "use server";
 
-/**
- * TEAMS · server actions
- *
- * Full CRUD over clubs, plus the season junction. The `"use server"` directive stays the first
- * line, above this block.
- *
- * Invariants:
- * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the form.
- * - The club patch invalidates `spiele` too: the rename fans into every match.
- * - A junction write invalidates the `spiele` AND `teams` pairs, base and granular — every match
- *   side carries the junction's `disqualifikation`.
- * - A create 409 names the reactivate path on the field — `shorthand` stays unique over retired
- *   clubs.
- * - Create-and-enter is one action over two requests, club first — a club with no junction row
- *   is invisible to every season-scoped read.
- *
- * See:
- * - docs/frontend/spec.md — section 1.3, the action inventory
- */
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
@@ -40,8 +21,8 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLDeleteTeamPayload, FLPatchTeamPayload, FLReactivateTeamPayload, FLSaisonTeamResponse, FLTeamRecord } from "./schemas";
 import type { SaisonTeamEnterDraft, SaisonTeamMembershipDraft, TeamCreateDraft } from "./types";
 
-// The shorthand's unique index spans retired clubs, and reviving is deliberately not the
-// create's job -- so the message names the one path that is.
+// The shorthand's unique index spans retired clubs and creating never revives, so the message names
+// the one path that does.
 const SHORTHAND_TAKEN =
   "Dieses Kürzel ist bereits vergeben, möglicherweise von einem stillgelegten Team. Reaktiviere dieses Team, statt es neu anzulegen.";
 
@@ -52,17 +33,9 @@ function invalidateSeasonScoped(resource: "teams" | "spiele", saisonId: string):
 }
 
 /**
- * The junction write's four refusals (`REQ-ENTER-001..004`), or `null` when the 409 is none of them.
- *
- * Written to the shape stated in `fl_frontend/src/features/saisons/actions.ts`: the two group gates land
- * on the picker and are one sentence about the chosen group, while the season gate and the group-move
- * window are about the season's own state, so each is two sentences with the action second.
- *
- * **Both junction writes route through it, and the two ends are exclusive.** `POST` answers
- * `REQ-ENTER-001..003`; `PATCH` checks the move window first and feeds `find_entry_refusal` the literal
- * status `future`, so it answers `REQ-ENTER-004` and the same two group gates, never `REQ-ENTER-001`.
- * The two group gates mean the same thing on both ends -- the season does not run that group, or the
- * group is at `teams_per_group` -- which is what lets one mapping serve both.
+ * The junction write's refusals (`REQ-ENTER-001..004`), or `null` when the 409 is something else.
+ * `POST` answers 001..003; `PATCH` feeds `find_entry_refusal` the status `future`, so it answers
+ * 004 and both group gates, never 001.
  */
 function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -76,9 +49,8 @@ function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     return { fieldErrors: { gruppe: "Diese Gruppe ist bereits voll." } };
   }
   if (error.serverErrorCode === "REQ-ENTER-004") {
-    // Names the route that is still open instead of stopping at the refusal: the swap
-    // control sits under the locked Gruppe row on the page this message lands on, so the second
-    // sentence is reachable without leaving the screen.
+    // Names the route still open rather than stopping at the refusal: the swap control sits under
+    // the locked Gruppe row on the page this message lands on.
     return {
       error:
         "Für dieses Team sind in dieser Saison schon Spiele angelegt, deshalb kann es die Gruppe nicht allein wechseln. Tausche die Gruppe stattdessen mit einer zweiten Mannschaft, unter der gesperrten Gruppe auf dieser Seite.",
@@ -88,8 +60,8 @@ function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
 }
 
 export async function postTeamAction(
-  // The DRAFT shape, not the parsed payload: the form may submit `gruppe: null` from an untouched
-  // picker, and the schema below is what turns that into a field error rather than a type error.
+  // The DRAFT shape: an untouched picker submits `gruppe: null`, and the schema below is what turns
+  // that into a field error rather than a type error.
   rawPayload: TeamCreateDraft,
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postTeamAction", async () => {
@@ -105,9 +77,8 @@ export async function postTeamAction(
 
     const { saison_id, gruppe, ...clubFields } = validated.data;
 
-    // Caught here rather than left to `runAdminMutation`'s generic conflict mapping: the only unique
-    // key a club has is its shorthand, so a 409 from this request IS the shorthand, and the message
-    // belongs on that field.
+    // Caught here rather than left to the generic conflict mapping: a club's only unique key is its
+    // shorthand, so a 409 from this request IS the shorthand.
     let postOperation;
     try {
       postOperation = await postTeam(clubFields);
@@ -121,15 +92,13 @@ export async function postTeamAction(
       return { success: false, error: "Beim Anlegen des neuen Teams ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // The junction row, in the same action: without one the club is invisible to
-    // every season-scoped read (backend spec I11). A failure here leaves the club
-    // EXISTING, which the message has to say -- retrying the form 409s.
+    // The junction row, in the same action: without one the club is invisible to every
+    // season-scoped read (backend spec I11). A failure here leaves the club EXISTING.
     try {
       await postSaisonTeam({ team_id: postOperation.created_id, saison_id, gruppe });
     } catch (error) {
       updateTag("teams");
-      // The form pre-filters seasons and groups, so a refusal here means the picture changed under
-      // it. Either way the club EXISTS without a season, which the message has to say.
+      // The form pre-filters seasons and groups, so a refusal here means the picture changed under it.
       const refusal = mapEntryRefusal(error);
       const reason = refusal?.error ?? refusal?.fieldErrors?.gruppe;
       return {
@@ -169,8 +138,8 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The same specific 409 as the create: the patch replaces the shorthand wholesale, so it can
-    // collide with another club's -- retired ones included -- exactly as a create can.
+    // The same 409 as the create: the patch replaces the shorthand wholesale, so it can collide with
+    // another club's, retired ones included.
     let patchOperation;
     try {
       patchOperation = await patchTeam(validated.data);
@@ -184,9 +153,8 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
       return { success: false, error: "Beim Bearbeiten der Teamdaten ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // Base tags only, on purpose: the club document is season-independent, so the rename and its
-    // fan-out into the embedded match copies touch EVERY season's cache entries, and no single
-    // granular tag names them all.
+    // Base tags only: the rename and its fan-out into the embedded match copies touch EVERY season's
+    // entries, and no granular tag names them all.
     updateTag("teams");
     updateTag("spiele");
 
@@ -213,8 +181,8 @@ export async function deleteTeamAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The backend refuses retiring a club that is entered in a running or planned season
-    // (REQ-RETIRE-001); the German answer names the rule instead of a generic conflict.
+    // The backend refuses retiring a club entered in a running or planned season
+    // (`REQ-RETIRE-001`); the German answer names the rule rather than a generic conflict.
     let deleteOperation;
     try {
       deleteOperation = await deleteTeam(validated.data);
@@ -231,8 +199,8 @@ export async function deleteTeamAction(
       return { success: false, error: "Beim Stilllegen des Teams ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // Base tag only: retirement hides the club from every season's default list at once, so no
-    // single granular tag covers it. `spiele` is untouched -- a match keeps its embedded copies.
+    // Base tag only: retirement hides the club from every season's default list at once. `spiele` is
+    // untouched — a match keeps its embedded copies.
     updateTag("teams");
 
     return {
@@ -273,8 +241,7 @@ export async function reactivateTeamAction(
 }
 
 export async function postSaisonTeamAction(
-  // Draft-shaped for the same reason as the create: an untouched group picker submits null, and the
-  // schema turns that into the field error.
+  // Draft-shaped for the same reason as the create: an untouched group picker submits null.
   rawPayload: SaisonTeamEnterDraft,
 ): Promise<{ success: boolean; saison_team?: FLSaisonTeamResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSaisonTeamAction", async () => {
@@ -288,8 +255,8 @@ export async function postSaisonTeamAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // A 409 here is one of the refusals `mapEntryRefusal` maps, or the unique index saying "already
-    // entered" -- each deserves its own words rather than the generic conflict message.
+    // A 409 here is one of `mapEntryRefusal`'s, or the unique index saying "already entered" — each
+    // deserves its own words rather than the generic conflict message.
     let saisonTeam;
     try {
       saisonTeam = await postSaisonTeam(validated.data);
@@ -304,9 +271,8 @@ export async function postSaisonTeamAction(
       throw error;
     }
 
-    // The `teams` pair only. The new row changes which clubs the season's team reads return; it
-    // cannot change a match, because the row is seeded with `disqualifikation: null` and the join
-    // reads nothing else from it (backend spec I32).
+    // The `teams` pair only: the row is seeded with `disqualifikation: null` and the match join reads
+    // nothing else from it (backend spec I32), so no match changes.
     invalidateSeasonScoped("teams", validated.data.saison_id);
 
     return {
@@ -331,9 +297,8 @@ export async function patchSaisonTeamAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The row is addressed by its natural key, so a 409 here is an entry refusal and never a unique
-    // index. The generic mapping answers "conflicts with an entry that already exists" -- false, and
-    // it hides the swap control on this very page.
+    // Addressed by its natural key, so a 409 here is an entry refusal and never a unique index. The
+    // generic mapping would answer "already exists" — false, and it hides this page's swap control.
     let saisonTeam;
     try {
       saisonTeam = await patchSaisonTeam(validated.data);
@@ -345,9 +310,8 @@ export async function patchSaisonTeamAction(
       throw error;
     }
 
-    // BOTH resource pairs. Every match side carries this row's
-    // `disqualifikation` joined at read time (backend spec I32), so `teams` alone leaves
-    // a card showing a DQ badge the league table has stopped showing.
+    // BOTH pairs: every match side joins this row's `disqualifikation` at read time (backend spec
+    // I32), so `teams` alone leaves a card showing a badge the league table has stopped showing.
     invalidateSeasonScoped("teams", validated.data.saison_id);
     invalidateSeasonScoped("spiele", validated.data.saison_id);
 

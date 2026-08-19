@@ -5,16 +5,12 @@ import { createContext, useContext } from "react";
 import type { FLSpielerDraftStatus, FLSpielerFieldStatus } from "@/features/spieler/spielerDraftStatus";
 import type { ReactNode } from "react";
 
-/**
- * Carries `deriveSpielerDraftStatus`'s answer to every field of the squad editor — the same shape the
- * club editor's `TeamDraftStatusContext` carries for its own draft, and folder-scoped for the same
- * reason: nothing outside this editor has a player draft to describe.
- */
+/** Folder-scoped: nothing outside this editor has a player draft to describe. */
 const SpielerDraftStatusContext = createContext<FLSpielerDraftStatus | undefined>(undefined);
 
 export function SpielerDraftStatusProvider({ status, children }: { status: FLSpielerDraftStatus; children: ReactNode }) {
-  // No `useMemo`: the status object is rebuilt on every render by design — the draft it describes is
-  // too — so memoising the provider value would allocate a comparison and never skip a render.
+  // No `useMemo`: the status object is rebuilt every render by design, so memoising the value would
+  // allocate a comparison and never skip a render.
   return <SpielerDraftStatusContext.Provider value={status}>{children}</SpielerDraftStatusContext.Provider>;
 }
 

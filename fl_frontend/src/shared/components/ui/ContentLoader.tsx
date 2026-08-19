@@ -1,10 +1,6 @@
 /**
- * SHARED · content-area loader
- *
- * Deliberately a different shape from `PageLoader`'s ringed spinner, so the two are tellable at
- * a glance: `PageLoader` means a whole page is loading; this means the shell is painted and only
- * the content region is streaming. Three staggered bouncing dots in the landing page's
- * `bg-brand-solid` dot language; no text — the a11y name comes from the label.
+ * Deliberately a different shape from `PageLoader`'s ringed spinner, so the two are tellable at a glance: that one means
+ * a whole page is loading, this that the shell is painted and only the content region is streaming.
  */
 export function ContentLoader() {
   return (

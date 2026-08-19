@@ -18,12 +18,9 @@ import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
 import type { FLSchiedsrichter } from "../../schemas";
 
 /**
- * Memoised deliberately, and load-bearing — see the long note on `AdminSpielorteTable`. In short:
- * the parent's `useSearchParams()` re-renders this table while it sits hidden in a React Activity
- * tree during navigation elsewhere, and a react-aria collection that re-renders while hidden loses
- * its rows for good. No inline lambdas here. The `query` prop is not stable across a navigation
- * that changes `q`, and `useSearchParams` below subscribes this table to the router directly —
- * `memo` cannot bail out of either — so the `items` form of `Table.Body` carries the fix; keep it.
+ * A react-aria collection re-rendered while hidden in an Activity tree loses its rows, and the
+ * parent's `useSearchParams()` re-renders this one on any navigation. `Table.Body`'s `items` form
+ * carries the fix; `memo` is the second layer.
  */
 export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   schiedsrichterQuery,
@@ -36,9 +33,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 }) {
   const [, startReactivating] = useTransition();
 
-  // The sidemenu's season rides along, so the fixture list opens on the season the admin is working
-  // in rather than on the current one. Reading it here is safe: the parent view already subscribes
-  // this tree to the router.
+  // The sidemenu's season rides along, so the fixture list opens on the season being worked in
+  // rather than on the current one.
   const searchParams = useSearchParams();
   const selectedSaisonId = searchParams.get("saison_id");
   const saisonParam = selectedSaisonId ? `&saison_id=${encodeURIComponent(selectedSaisonId)}` : "";
@@ -52,8 +48,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     else appToast.danger(CLIPBOARD_ERROR_TITLE, { description: CLIPBOARD_ERROR_DETAIL });
   };
 
-  // One press, then a toast either way. No confirmation step: the reactivation is undone by the
-  // retire control that takes its place — the teams table's arrangement, on the same endpoint shape.
+  // No confirmation step: the reactivation is undone by the retire control that takes its place.
   const handleReactivate = (schiedsrichter: FLSchiedsrichter) => {
     startReactivating(async () => {
       const res = await reactivateSchiedsrichterAction({ id: schiedsrichter.id });
@@ -62,8 +57,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     });
   };
 
-  // One source for both layouts, the teams table's pattern: the `md+` table's cells and the phone
-  // cards render these, so the two presentations cannot disagree about a row or its controls.
+  // One source for both layouts, so the table's cells and the phone cards cannot disagree about a
+  // row or its controls.
   const renderKontakt = (schiedsrichter: FLSchiedsrichter) => (
     <div className="flex flex-col gap-0.5">
       <span className="fluid-sm text-foreground">
@@ -75,8 +70,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     </div>
   );
 
-  // Stated beside the identity rather than in a column of its own: retirement is the only state a
-  // referee has, so a column would be empty on every live row.
+  // Beside the identity rather than in a column: retirement is the only state a referee has, so a
+  // column would be empty on every live row.
   const renderRetiredBadge = (schiedsrichter: FLSchiedsrichter) =>
     schiedsrichter.inactive_since === null ? null : (
       <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>
@@ -93,7 +88,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   const renderActions = (schiedsrichter: FLSchiedsrichter) => (
     <RowActions>
       {/* `schiedsrichter` as `buildSpielFacets` declares it, and admin-only there: the public
-          Spielsuche declares no such facet, so the same link would drop the parameter and filter nothing. */}
+          Spielsuche declares no such facet, so the same link would filter nothing. */}
       <RowActionLink
         href={`/admin/spielsuche?schiedsrichter=${schiedsrichter.id}${saisonParam}`}
         label="Einsätze anzeigen"
@@ -109,8 +104,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         ariaLabel={`Kontaktdaten von ${schiedsrichter.name} kopieren`}
         onPress={() => handleCopyKontakt(schiedsrichter)}
       />
-      {/* A link rather than a press: the referee form edits on a page, so the pencil is a
-          navigation and the shared view renders no edit overlay. */}
+      {/* A link and not a press: the referee form edits on a page of its own. */}
       <RowActionLink
         href={`/admin/schiedsrichter/${schiedsrichter.id}`}
         label="Bearbeiten"
@@ -147,9 +141,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
   return (
     <>
-      {/* The phone layout: one card per referee, no horizontal scrolling anywhere (decided 2026-08-07
-          — the teams table's card pattern, applied here). The school column stays
-          table-only: on a card it read as an unlabeled stray line, and the edit page carries it. */}
+      {/* One card per referee, so nothing scrolls horizontally. The school column stays table-only:
+          on a card it read as an unlabeled stray line, and the edit page carries it. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
         {filteredSchiedsrichter.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
         {filteredSchiedsrichter.map((schiedsrichter) => (
@@ -196,8 +189,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                 </Table.Column>
               </Table.Header>
 
-              {/* `items` + a render function, not mapped children: the static form stops committing its
-                  row collection after a few client navigations away and back. */}
+              {/* `items` plus a render function, never mapped children: the static form stops
+                  committing its row collection after a few navigations away and back. */}
               <Table.Body
                 items={filteredSchiedsrichter}
                 renderEmptyState={() => emptyState}>

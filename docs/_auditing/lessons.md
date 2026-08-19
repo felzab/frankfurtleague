@@ -1,7 +1,7 @@
 # Lessons — the traps an audit programme runs into
 
-Read this before running any phase. Every lesson has one shape: the **trap** that produced it, the
-**rule** it produced, what ignoring it **costs**, and the **instances** observed.
+Read this before running any phase. Every lesson is a **rule**, with what ignoring it costs, and the
+**instances** that produced it.
 
 | Section                                                                                 | Read it when                                        |
 | --------------------------------------------------------------------------------------- | --------------------------------------------------- |
@@ -15,44 +15,35 @@ Read this before running any phase. Every lesson has one shape: the **trap** tha
 | [9 · Report hygiene](#9-write-a-report-a-stranger-can-act-on)                           | Writing a wave report                               |
 | [10 · Stack-specific traps](#10-confirm-a-stack-fact-at-the-installed-version)          | Working in this stack                               |
 
-**Editing this file.** A pass's handoff and a wave's close-out both harvest into it. Verify a new
-lesson first — reproduce it, or confirm it at the library source or the running system — then merge
-it into the matching section, in the same commit as the work that found it. Never append a per-run
-dump at the end. Only one session edits this file at a time.
+**Editing this file.** Verify a new lesson — reproduce it, or confirm it at the library source or the
+running system — then merge it into the matching section, in the same commit as the work that found
+it. Never append a per-run dump at the end. Only one session edits this file at a time.
 
-**Cite what can move; restate nothing.** Which checks a script runs, which files trigger which gate,
-a library's behaviour and a version number all change underneath a lesson, so a lesson points at its
-source: `scripts/verify.sh` and `docs/ops/spec.md` §1.6 for the gate, `.claude/CLAUDE.md` §7 for
-ratified decisions, the installed package for library behaviour. **Where a lesson names a file,
-function, flag or version, confirm it at that source before relying on it** — a named example
-illustrates the rule and is not a current-state claim.
+**Cite what can move; restate nothing.** A lesson points at its source — `scripts/verify.sh` and
+`docs/ops/spec.md` §1.6 for the gate, `.claude/CLAUDE.md` §7 for ratified decisions, the installed
+package for library behaviour. A named example illustrates the rule and is not a current-state claim;
+confirm any file, function, flag or version there before relying on it.
 
 ---
 
 ## 1. Re-verify every finding before writing any fix
 
-**Trap:** a pass report is one lens reading one tree at one moment, so a share of any report's
-findings are stale, inverted, undercounted, or carry a fix that was never executed.\
-**Rule:** re-verify each finding against the current code before planning anything, grep the pattern
-yourself instead of trusting the report's list of sites, and treat every replacement snippet as
-untested code. Closing a finding `[-]` with evidence is a first-class result and is worth more than
-an overstated `[x]`.\
-**Cost:** a wave that fixes code which is already gone, applies a change to some call sites and not
-others — which can be worse than not applying it at all — or ships a snippet's own defect verbatim.
+**Rule:** a pass report is one lens reading one tree at one moment. Re-verify each finding against
+the current code before planning anything, grep the pattern yourself instead of trusting the report's
+list of sites, and treat every replacement snippet as untested code. Closing a finding `[-]` with
+evidence is worth more than an overstated `[x]`. Skipping this ships a fix for code that is already
+gone, a change applied to some call sites and not others — which can be worse than not applying it at
+all — or a snippet's own defect, verbatim.
 
 **Instances**
 
 - **A finding inverts on an answer.** Written from one surface, it can be the exact opposite of
-  correct once the other surface, or I, am consulted. Applying it as written adds dead code and
-  preserves a false claim. This is what Wave 0 exists for.
-- **A finding is already fixed**, because an earlier wave removed the code it describes.
-  Re-verification closes it in minutes.
-- **A finding has no reachable site.** A defensive fix for a state nothing can produce is not a fix:
-  trace the input path, then close the row won't-do with the trace as evidence.
-- **A finding is a no-op because a library already handles it.** A cost claim — "N components mounted
-  up front" — is a measurement and has to be measured.
-- **A recommendation is contradicted by the official documentation.** A report that flags "I could
-  not verify this" is doing its job, and that honesty is what makes the row cheap to close.
+  correct once the other surface, or I, am consulted. This is what Wave 0 exists for.
+- **A finding has nothing to fix** — the code was removed by an earlier wave, no input path reaches
+  the state it defends against, or a library already handles it. A cost claim ("N components mounted
+  up front") is a measurement and has to be measured.
+- **A recommendation is contradicted by the official documentation.** A report flagging "I could not
+  verify this" is doing its job, and makes the row cheap to close.
 - **A snippet contains the bug it claims to fix.** Splitting a delimiter-only string yields two empty
   strings and `Number("")` is `0`, so a "validation fix" reports a valid `0:0` score for garbage
   input. Write the test before trusting the snippet.
@@ -66,7 +57,7 @@ others — which can be worse than not applying it at all — or ships a snippet
 - **A runtime check cannot resolve its imports** in a bundled or standalone image, where the modules
   it needs are compiled in rather than present as files.
 - **A prescribed name does not compile** — a design token in the wrong namespace, or one an earlier
-  wave renamed. Verify a token name compiles before prescribing it.
+  wave renamed.
 - **Prescribed markup is invalid** — an interactive element nested inside a library trigger that
   already renders one, or a container shrunk until a sibling overflows.
 - **A premise is simply false** — "focus moves for free", which holds for native validation and not
@@ -82,14 +73,12 @@ others — which can be worse than not applying it at all — or ships a snippet
 
 ## 3. Cover what a static lens cannot see
 
-**Trap:** a static pass finds what its lens names, so whole defect classes fall between lenses.\
-**Rule:** carry cross-cutting convergence checks in passes as **required tables** rather than prose,
-run the wave-level independent review as its own phase, and test that a control is right rather than
-that it rejects a bad value.\
-**Cost:** the defects surface during convergence sweeps, final reviews and unrelated work instead — a
-client calling a route that does not exist, a crash on an empty collection, a schema silently
-stripping a field, a filter builder matching nothing, a hook above a Suspense boundary collapsing a
-route group's shells, duplicated model definitions across surfaces.
+**Rule:** a static pass finds what its lens names, so whole defect classes fall between lenses. Carry
+cross-cutting convergence checks as **required tables** rather than prose, run the wave-level
+independent review as its own phase, and test that a control is right rather than that it rejects a
+bad value. Otherwise those defects surface during unrelated work instead — a client calling a route
+that does not exist, a crash on an empty collection, a schema silently stripping a field, a filter
+builder matching nothing, a hook above a Suspense boundary collapsing a route group's shells.
 
 **Instances**
 
@@ -98,11 +87,10 @@ route group's shells, duplicated model definitions across surfaces.
   required table: a table forces every row to be filled, and narrative lets a gap go unmentioned.
 - **The wave-level independent review is not optional.** Reviewing the wave's own diff as unreviewed
   code from a stranger — rather than re-checking the list that produced it — finds shipped defects,
-  including regressions introduced by the wave's own earlier review round. The lens is what makes it
-  work.
-- **"Every constraint rejects a bad value" is the wrong bar.** A set of rejection tests can all pass
-  with a load-bearing part of the rule deleted. Use positive and negative baselines, and for a
-  pattern-based control delete the anchor and confirm a test fails.
+  including regressions introduced by the wave's own earlier review round.
+- **A set of rejection tests can all pass with a load-bearing part of the rule deleted.** Use
+  positive and negative baselines, and for a pattern-based control delete the anchor and confirm a
+  test fails.
 - **A behavioural side channel evades a response-body check.** Equalising an action's return value
   across a valid and an invalid principal leaves the oracle intact if the underlying call navigates
   differently per branch. Compare the full observable behaviour: navigation target, timing, status
@@ -112,38 +100,29 @@ route group's shells, duplicated model definitions across surfaces.
 
 ## 4. Verify a library or platform claim at its source
 
-**Trap:** a plausible-sounding belief about an installed library or a hosting platform reads exactly
-like a checked fact.\
-**Rule:** read the installed package in `node_modules` or the installed Python distribution, or
-measure the running system, before building on any assumption about it. For a platform — repository
-settings, permission scopes, registry linking, security tooling — open the settings page, run the
-command, or fetch the raw file. Where you did not check, say so plainly.\
-**Cost:** the costliest wrong turns in a programme are these rather than obvious mistakes, and a
-guess written into documentation has to be corrected afterwards.
-
-**Instances**
-
-- **The library and stack beliefs this repository has produced are §10.**
+**Rule:** a plausible-sounding belief about an installed library or a hosting platform reads exactly
+like a checked fact, and these are the costliest wrong turns a programme takes. Read the installed
+package in `node_modules` or the installed Python distribution, or measure the running system, before
+building on any assumption about it. For a platform — repository settings, permission scopes,
+registry linking, security tooling — open the settings page, run the command, or fetch the raw file.
+Where you did not check, say so plainly. The beliefs this repository has already paid for are §10.
 
 ---
 
 ## 5. Treat a green gate as evidence and never as proof
 
-**Trap:** the gate proves what it runs, and its coverage is narrower than "it passed" sounds.\
-**Rule:** run the full form unless the wave changed documentation only, keep a mechanical
-mega-commit in a commit of its own, and make every suite fail loudly rather than skip quietly.\
-**Cost:** a defect class that a partial gate cannot see ships in an image that the gate reported
-green.
+**Rule:** the gate proves what it runs, and its coverage is narrower than "it passed" sounds. Run the
+full form unless the wave changed documentation only, keep a mechanical mega-commit — a formatter
+config change, a token repointing — in a commit with nothing else in it, and make every suite fail
+loudly rather than skip quietly. Otherwise a defect class the gate cannot see ships in an image it
+reported green.
 
 **Instances**
 
 - **A green local gate is not a green image.** A module-scope environment read fails only in the
   builder stage, and a file that compiles at the repository root may not be traced into
   `output: "standalone"` — which silently disables an environment gate and all production error
-  logging. This is why the gate builds the images and sanity-checks their contents, and why a wave
-  runs the full form unless it changed documentation only.
-- **A mechanical mega-commit buries review** — a formatter config change, a token repointing — so it
-  goes in a commit with nothing else in it.
+  logging. This is why the gate builds the images and sanity-checks their contents.
 - **A silent skip makes a suite lie.** `pytest -q` hides what failed, so use `-ra --showlocals`;
   `parametrize` over an empty list skips rather than fails, so give a discovery-driven test a count
   floor; a bare `pytest.raises(ValidationError)` passes whatever went wrong, so assert the failing
@@ -153,21 +132,19 @@ green.
   its first failing scope understates the branch.** Citations resolve against tracked files, so a new
   file's breaches appear only once it is committed; and the scopes after the failing one never run,
   so a single reported finding can hide a second failing scope entirely.
-- **No gate sees these**: React Server Component serialization rules — a Server Component passing a
-  render prop to a Client Component throws only at request time on a dynamic route, so **grep for
-  render props before deleting a `"use client"`** — emitted-but-wrong class strings, manifest URLs,
-  cache-tag wiring, and everything behind an auth wall.
+- **No gate sees these**: React Server Component serialization rules (`.claude/CLAUDE.md` §6's
+  render-prop trap, which throws only at request time on a dynamic route), emitted-but-wrong class
+  strings, manifest URLs, cache-tag wiring, and everything behind an auth wall.
 
 ---
 
 ## 6. Establish the environment before trusting a runtime reading
 
-**Trap:** the verification environment manufactures convincing fake bugs and hides real ones.\
-**Rule:** confirm the pane is compositing, the theme was seeded before scripts ran, and the route is
-reachable, before reading anything out of it. Where a check could not run, state what is unverified
-rather than reasoning around it.\
-**Cost:** hours spent chasing a defect the environment invented, or an implied claim of coverage over
-a route nothing exercised.
+**Rule:** the verification environment manufactures convincing fake bugs and hides real ones, so
+confirm the pane is compositing, the theme was seeded before scripts ran, and the route is reachable,
+before reading anything out of it. Where a check could not run, state what is unverified rather than
+reasoning around it — the alternative is hours chasing a defect the environment invented, or an
+implied claim of coverage over a route nothing exercised.
 
 **Instances**
 
@@ -191,20 +168,17 @@ a route nothing exercised.
   secret file.
 - **A transcript is not a liveness signal; a deliverable is.** A completion notification arrives only
   for an agent that finishes, so an agent that stopped is indistinguishable from a slow one until its
-  own output is checked. Read the deliverable file and the agent's scratch prefix, and check the
-  artefact before assuming the work needs redoing — the transcript and the tree fail independently.
+  own output is checked. Read the deliverable file and the agent's scratch prefix before assuming the
+  work needs redoing — the transcript and the tree fail independently.
 
 ---
 
 ## 7. Keep the ledger true as the work moves
 
-**Trap:** the ledger is the only artifact that survives a context reset, and it drifts from the work
-faster than anything else in the programme.\
-**Rule:** revise in place, derive every list from the rows, edit line-scoped only, and run the
-consistency sweep at every close. Recording as you go is necessary and not sufficient, because a
-large share of a wave's substance arrives from review **after** the rows are written.\
-**Cost:** a plan that contradicts itself, a row ticked over work that covered one call site of four,
-and a future session shipping an approach this wave measured and rejected.
+**Rule:** the ledger is the only artifact that survives a context reset, and it drifts from the work
+faster than anything else in the programme, so run the consistency sweep at every close. Recording as
+you go is necessary and not sufficient, because a large share of a wave's substance arrives from
+review **after** the rows are written.
 
 **Instances**
 
@@ -223,13 +197,13 @@ and a future session shipping an approach this wave measured and rejected.
 
 ## 8. Order waves by dependency and never by severity
 
-**Trap:** severity order reads like priority order, and produces waves that undo each other.\
-**Rule:** guardrails first, because their rules catch in-flight mistakes in every later wave;
-boundaries and design tokens before extraction; accessibility after extraction; performance late;
-cleanup last. When a fix does not work, measure instead of trying plausible causes — **if changing
-the parameter changes nothing, that parameter is not the variable.**\
-**Cost:** extraction bakes existing cycles into shared code, an accessibility sweep runs once per
-copy, and a guardrail landing in the last wave catches nothing.
+**Rule:** severity order reads like priority order and produces waves that undo each other. Guardrails
+first, because their rules catch in-flight mistakes in every later wave; boundaries and design tokens
+before extraction; accessibility after extraction; performance late; cleanup last. Ordered by
+severity instead, extraction bakes existing cycles into shared code, an accessibility sweep runs once
+per copy, and a guardrail landing in the last wave catches nothing. When a fix does not work, measure
+instead of trying plausible causes — **if changing the parameter changes nothing, that parameter is
+not the variable.**
 
 **Instances**
 
@@ -245,30 +219,25 @@ copy, and a guardrail landing in the last wave catches nothing.
 
 ## 9. Write a report a stranger can act on
 
-**Trap:** a report written from inside the session reads as complete to its author and as a list of
-successes to everyone else.\
-**Rule:** a wave report carries, in order: purpose in lay terms · changes by theme · decisions with
-their reasoning · where the audit was wrong · verification with real output · discovered along the
-way · left undone · revisions after first publication. State what could not be verified and why,
-rather than implying coverage.\
-**Cost:** a report listing only successes tells the next reader nothing the diff does not, and an
-implied coverage claim routes no later human check to the place that needs one.
+**Rule:** a report written from inside the session reads as complete to its author and as a list of
+successes to everyone else. A wave report carries, in order: purpose in lay terms · changes by
+theme · decisions with their reasoning · where the audit was wrong · verification with real output ·
+discovered along the way · left undone · revisions after first publication. State what could not be
+verified and why, rather than implying coverage, because an implied coverage claim routes no later
+human check to the place that needs one.
 
 **Instances**
 
-- **Split a lens rather than letting one report grow past what a wave session can open a section
-  of.** A pass whose report cannot be loaded is a pass whose findings cannot be worked, and the
-  answer is to split the pass rather than compress the findings.
+- **A pass whose report cannot be loaded is a pass whose findings cannot be worked.** Where a report
+  outgrows what a wave session can open a section of, split the lens rather than compress the
+  findings.
 
 ---
 
 ## 10. Confirm a stack fact at the installed version
 
-**Trap:** each fact below has cost a wrong turn, and each reads like general knowledge.\
-**Rule:** confirm it at the installed version before relying on it.\
-**Cost:** a wrong turn that reading the installed package would have prevented.
-
-**Instances**
+**Rule:** each fact below has cost a wrong turn, and each reads like general knowledge. Confirm it at
+the installed version before relying on it.
 
 **Frontend**
 
@@ -284,16 +253,15 @@ implied coverage claim routes no later human check to the place that needs one.
   every time. `isFocusVisible` is a **global** modality flag, so styling keyed off it fires at
   seemingly random moments. Overlays light-dismiss on interaction, and a client-side navigation is
   not one. A portalled overlay's `bottom` is computed against the viewport and resolved by CSS
-  against its containing block, so anything making `<html>` or `<body>` one — a `position`, a
-  transform, a `filter`, a `contain`, a `will-change` naming those, a `container-type` — opens every
-  top-placed overlay a whole scroll height low (`docs/frontend/spec.md :: I29`).
+  against its containing block, so anything making `<html>` or `<body>` one opens every top-placed
+  overlay a whole scroll height low (`docs/frontend/spec.md :: I29`).
 - **`dynamic({ ssr: false })` with no `loading`** renders `null`, so a click on the trigger looks dead
   until the chunk arrives.
 - **Next writes suggested `tsconfig` defaults for any absent key** — a presence check, not a value
   check. `allowJs` cannot be deleted, only declared `false`.
 - **Next keeps the previous page mounted in a hidden Activity tree.** Hidden trees still re-render on
-  new props, and a react-aria collection that re-renders while hidden drops its rows. React destroys a
-  hidden subtree's Effects and re-creates them on the way back, so an effect watching the pathname
+  new props, and a react-aria collection that re-renders while hidden drops its rows. React destroys
+  a hidden subtree's Effects and re-creates them on the way back, so an effect watching the pathname
   never sees the navigation that hid it — a page's own overlay closes as its link navigates or not at
   all. In a test harness, `element.click()` on a `<Link>` performs a **hard** navigation, so a loop
   driven that way never exercises Activity trees at all — drive `router.push` instead.

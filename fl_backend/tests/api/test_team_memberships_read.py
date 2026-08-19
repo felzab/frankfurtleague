@@ -1,20 +1,10 @@
-"""
-TEAMS · the admin list's club-centric read
-
-`GET /teams/memberships` answers "every team, and which seasons hold it" in one aggregation,
-which the season-scoped `GET /teams` cannot. These default-tier cases pin the pipeline's three
-deliberate differences from `build_team_pipeline` and the response model's shape; the db tier's
-pipeline execution suite covers Mongo semantics for lookups generally.
-"""
-
 from app.api.teams.schemas import FLTeamsMembershipsResponse
 from app.api.teams.services import build_team_memberships_pipeline
 
 
 class TestTheMembershipsPipeline:
     def test_it_filters_nothing_out(self):
-        # No $match at all: retired teams and teams in no season are exactly what the admin list
-        # must still show.
+        # No `$match` at all: retired teams and teams in no season are what the admin list must show.
         stages = [next(iter(stage)) for stage in build_team_memberships_pipeline()]
         assert "$match" not in stages
 

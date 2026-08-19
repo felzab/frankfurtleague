@@ -6,21 +6,18 @@ surfaces have to agree, and nothing in either surface can tell that they do not.
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
 to `docs/audit/programme/x1-contracts-seams.md`.
 
-**A seam defect is correct on both sides and wrong in between**, so no single-surface pass can see it
-and no gate can either — types pass, lint passes, both test suites pass, and the two halves still
-disagree at runtime. This pass owns that class, and it owns it as **join tables**: every check below
-produces a row per pair, and a pair with no counterpart is the finding.
+**A seam defect is correct on both sides and wrong in between**, so no single-surface pass and no
+gate can see it — types pass, lint passes, both test suites pass, and the two halves still disagree
+at runtime. This pass owns that class as **join tables**: every check below produces a row per pair,
+and a pair with no counterpart is the finding.
 
-**Derive both sides from the code.** Only one surface is audited at a time, so at most one surface's
-working reports exist. Build every inventory below yourself: **never treat a report as the source for
-one half of a join** — a table read rather than derived is a table one programme out of date, which
-is exactly the defect class this pass exists to catch.
-
-Reports are consulted only so this pass cites rather than re-reports. **Consult at most one per
-surface, the most recent that exists:** the current programme's working reports in
-`docs/audit/programme/` if they are there, otherwise the newest
-`docs/_auditing/reports/<yyyy-mm>-<surface>.md` by its date prefix. Read only its summary table and
-verdict. State in the report header which report you used per surface, or that none existed.
+**Derive both sides from the code, and never treat a report as the source for one half of a join** —
+a table read rather than derived is a table one programme out of date, which is exactly the defect
+class this pass exists to catch. Reports are consulted only so this pass cites rather than
+re-reports: **at most one per surface, the most recent that exists** — the current programme's working
+reports in `docs/audit/programme/` if they are there, otherwise the newest
+`docs/audit/<yyyy-mm>-<surface>.md` by its date prefix — and only its summary table and
+verdict. State in the header which you used per surface, or that none existed.
 
 DELIVERABLE: required join tables — route reachability both directions (1), write→invalidation→read
 across the seam (3), end-to-end authorization (4), duplicated definitions (5), the error-class trace
@@ -72,9 +69,9 @@ THE CHECKS, in priority order:
    today, null, empty, zero, the first and last legal value? | which side is the source, and what the
    other becomes | verdict. Sweep for enums and literal unions, status and phase vocabularies, date
    and time formats, score formatting, and validation rules. **A divergence here is a wrong answer,
-   not a crash**, so nothing surfaces it except comparison. Constraints on the fix column: the
-   hand-maintained zod mirror is ratified and is never proposed for generation, and every
-   other row names which definition dies rather than proposing a third home for both.
+   not a crash**, so nothing surfaces it except comparison. Two constraints on the fix column:
+   `.claude/CLAUDE.md` §7 forbids generating the zod mirror, and every other row names which
+   definition dies rather than proposing a third home for both.
 
 6. **ERROR CONTRACT, END TO END.** Trace one representative failure of each class — validation error,
    not-found, unauthorised, backend unavailable, timeout — from the backend handler through the API
@@ -87,20 +84,19 @@ THE CHECKS, in priority order:
    one surface and supplied by neither compose file, a name that differs by surface, a value whose
    format one side assumes and the other does not validate. Then the topology half: every control
    that exists only because of where things sit in the network, cross-checked against the nginx
-   configs — the retired revalidation route is the pattern. **State what breaks each
-   control**, because that list is what a future nginx or compose edit gets checked against.
+   configs. **State what breaks each control**, because that list is what a future nginx or compose
+   edit gets checked against.
 
 8. **CONTRACT ENFORCEMENT.** For each seam above, name what would catch a regression today: a test, a
    lint rule, a schema check, or nothing. The required table: seam | current enforcement | what a
-   regression would look like in production | cheapest control that would catch it. **This table is
-   the pass's most durable output** — the seams have no owner, so every one left unenforced will
-   drift again. On a re-run, start from the enforcement decisions in `.claude/CLAUDE.md` §7 and the
-   controls actually present in the gate: a seam already enforced needs its control verified, not its
-   contract re-derived.
+   regression would look like in production | cheapest control that would catch it. The seams have no
+   owner, so every one left unenforced will drift again. On a re-run, start from the enforcement
+   decisions in `.claude/CLAUDE.md` §7 and the controls actually present in the gate: a seam already
+   enforced needs its control verified, not its contract re-derived.
 
 CROSS-SURFACE QUESTIONS: at a seam, "which side is right" is frequently a product decision rather
-than a technical one, and picking silently produces a fix in the wrong half. Collect and batch every
-such question per the shared protocol, each naming both readings and what each would cost.
+than a technical one, and picking silently produces a fix in the wrong half. Every such question
+names both readings and what each would cost.
 
 BOUNDARIES — not this pass: anything visible from inside one surface. Per-surface structure, excess,
 dead code, styling, accessibility, performance, and single-surface security all belong to their own

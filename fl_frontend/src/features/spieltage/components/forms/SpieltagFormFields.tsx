@@ -15,27 +15,9 @@ import type { SpieltagPhaseOffer } from "@/features/spieltage/utils";
 import type { Key } from "@heroui/react";
 
 /**
- * The three fields a matchday carries, shared by the create and edit dialogs.
- *
- * **A dialog rather than a page, and that is the decision this file rests on.** The threshold for a
- * page is a form that OUTGREW a dialog: three scalar controls, no nested object, no junction row and
- * no lookup list do not reach it, and the Spielort form beside it is the same size in the same container.
- *
- * **The position, the match count and the NAME are all derived, and adding a control for any of them
- * would be a regression.** Where a matchday sits in its season comes from
- * `saison_phase` and `beginn`, both on this form; how many matches it expects comes from the season's
- * rules and that same phase; and what it is called comes from the phase and the position. So the fields
- * that decide all three are ones an admin was going to fill in anyway, and no derived value can be wrong
- * without one of them being wrong.
- *
- * **The date control is the season slice's**, imported rather than rewritten. A matchday's
- * `beginn`/`ende` pair and a season's `start_date`/`end_date` pair are the same control doing the same
- * job, and writing a second picker is how two date fields in one admin acquire two different popovers.
- * The cross-feature import is legal: that lint is scoped to `core` and `shared`.
- *
- * `saison_id` is NOT here. The create form supplies it from the page's selected season, and the patch
- * payload does not carry it at all: moving a matchday between seasons would strand its matches, which
- * hold their own `saison_id` and are not rewritten.
+ * The three fields a matchday carries, shared by the create and edit dialogs. **The date control is
+ * the season slice's**, imported rather than rewritten — the cross-feature import is legal because
+ * that lint is scoped to `core` and `shared`.
  */
 
 /** What both dialogs hold while editing, before either adds its own id or season. */
@@ -58,27 +40,24 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
   draft: T;
   onChange: (updatedDraft: T) => void;
   /**
-   * Every phase with this season's expected match count, and whether the fixtures already attached would
-   * still fit (`REQ-SPIELTAG-002`). From `buildSpieltagPhaseOffer`, so the counts are the SERVED schedule
-   * rather than arithmetic repeated here.
+   * Every phase with this season's expected match count, and whether the attached fixtures still fit
+   * (`REQ-SPIELTAG-002`). The counts are the SERVED schedule, not arithmetic repeated here.
    */
   phaseOffer: readonly SpieltagPhaseOffer[];
   /**
-   * The season's own `start_date`/`end_date`, which bound both pickers below (`REQ-DATE-002`). A matchday
-   * is a block of that season's fixtures, so a span outside it is refused at the endpoint — and greying the
-   * days out here means the admin never picks one.
+   * The season's own span, which bounds both pickers below (`REQ-DATE-002`): greying the days out
+   * means the admin never picks one the endpoint would refuse.
    */
   saisonSpan?: { start: string; end: string };
   /**
    * Server messages keyed by payload path, for a caller outside a `<Form>` context. Left undefined by
-   * the `EntityForm` callers, where the context supplies the same messages to the same `<FieldError>`s —
-   * the same split `SpielortFormFields` makes.
+   * the `EntityForm` callers, where the context supplies the same messages.
    */
   errors?: Record<string, string | undefined>;
 }) {
   const isEndBeforeStart = draft.beginn !== "" && draft.ende !== "" && draft.ende < draft.beginn;
 
-  // Parsed once for both pickers. `undefined` where the caller passed no span, which leaves the calendar
+  // Parsed once for both pickers. `undefined` where no span was passed, which leaves the calendar
   // unbounded rather than bounded to nothing.
   const spanStart = saisonSpan ? parseDate(saisonSpan.start) : undefined;
   const spanEnd = saisonSpan ? parseDate(saisonSpan.end) : undefined;
@@ -114,8 +93,7 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
                 id={phase}
                 textValue={PHASE_LABELS[phase]}
                 /* Visible and disabled rather than hidden, the treatment `GruppeSelect` gives a full
-                   group: an admin should see why a phase cannot be picked rather than wonder where it
-                   went. The endpoint refuses the same shape (`REQ-SPIELTAG-002`). */
+                   group: an admin should see why a phase cannot be picked (`REQ-SPIELTAG-002`). */
                 isDisabled={!fits}
                 className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200 data-disabled:cursor-not-allowed data-disabled:opacity-40">
                 {PHASE_LABELS[phase]}
@@ -152,9 +130,9 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
             onChange={(next) => onChange({ ...draft, ende: next?.toString() ?? "" })}
           />
         </div>
-        {/* Refused by the payload schema in the browser and by the model validator at the endpoint
-            (decided 2026-08-08). Said here too, because a matchday's `beginn` also decides where it sits
-            in the season's list — a reversed span is a matchday disagreeing with itself about that. */}
+        {/* Refused by the payload schema and by the model validator, and said here too because a
+            matchday's `beginn` also decides where it sits in the season's list — a reversed span is
+            a matchday disagreeing with itself. */}
         {isEndBeforeStart && (
           <Callout
             severity="danger"

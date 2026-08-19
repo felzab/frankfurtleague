@@ -12,14 +12,8 @@ import type { SpielerPersonFields } from "@/features/spieler/types";
 
 /**
  * The person, and only the person: the two names that stay the same whatever squad they are in.
- *
- * **Nothing here is season-scoped and nothing here fans out.** A player's name is embedded in no
- * other document — squad lists read it through a join at request time — so a correction reaches every
- * surface at once, which is the opposite of a club rename and worth saying because the two forms
- * otherwise look alike.
- *
- * `nachname` submits `null` when emptied rather than `""`. The column is nullable because a team
- * sheet often arrives with forenames first, and an empty string would be a surname nobody has.
+ * Nothing here is season-scoped and nothing fans out — a correction reaches every surface at once,
+ * which is the opposite of a club rename.
  */
 export function FormPersonSection({
   draft,

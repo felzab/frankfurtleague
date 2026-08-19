@@ -36,35 +36,28 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
 
-/**
- * How long the undo offer stands after a save. It stands
- * on every save, confirmed or not: a confirmation is the carve-out for a draft carrying a warning
- * or a danger, and undo is what still helps the admin who was not paying attention.
- */
 const UNDO_TIMEOUT_MS = 15000;
 
-/** What the undo replays: the halves the save actually wrote, holding their PRE-SAVE values. */
+/** What the undo replays: the halves the save wrote, holding their PRE-SAVE values. */
 type TeamUndoPayloads = {
   club?: FLPatchTeamPayload;
   saison?: FLPatchSaisonTeamPayload;
 };
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (an undo belongs to
- * a page-owned editor, and nothing else becomes a route handler): by the time the offer is pressed
- * this component is unmounted and the browser is on another route, and a server action dispatched
- * from there trips Next's E592 invariant and is truncated mid-response.
- * **Revert this to a server action once E592 is fixed upstream.**
+ * A `fetch`, not a server action: by the time the offer is pressed this component is unmounted and
+ * the browser elsewhere, and an action dispatched from there trips Next's E592 invariant.
+ * **Revert once E592 is fixed upstream.**
  */
 async function postTeamUndo(payloads: TeamUndoPayloads): Promise<{ success: boolean; message?: string; error?: string }> {
   const response = await fetch("/api/admin/teams/undo", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    // The route answers 200 with the outcome in the body for every reportable case, so a non-2xx is
-    // a genuine transport failure and belongs in the rejection branch.
     body: JSON.stringify(payloads),
   });
 
+  // The route answers 200 with the outcome in the body for every reportable case, so a non-2xx is a
+  // genuine transport failure.
   if (!response.ok) {
     throw new Error(`HTTP ${String(response.status)}`);
   }
@@ -80,16 +73,9 @@ function describeFanOut(count: number): string {
 }
 
 /**
- * The club editor's form: four panels, a sticky summary rail, and one derivation behind both — the
- * match editor's shape over a club (decided 2026-08-07: "a more minimal version of the
- * Spieldaten editor"). Every field is controlled, judged when it is left with the same schemas the
- * actions parse, and marked in place when its draft differs from what is stored.
- *
- * **One save bar over TWO endpoints.** The club fields are `PATCH /teams/{team_id}` and the season
- * fields are `PATCH /teams/{team_id}/saisons/{saison_id}`; the submit runs whichever halves are
- * dirty, in that order. A half that fails keeps the page here with its message on the field — and
- * because a half that SUCCEEDED revalidates the route, a partial failure is also named in a toast,
- * which outlives the remount the revalidation causes.
+ * **One save bar over TWO endpoints**, run in order for whichever halves are dirty. A partial
+ * failure is toasted as well as shown inline, because the half that SUCCEEDED revalidates and
+ * remounts this form over the inline message.
  */
 export function AdminTeamEditForm({
   team,
@@ -102,14 +88,14 @@ export function AdminTeamEditForm({
   pageHeader,
 }: {
   team: FLTeamRecord;
-  /** The selected season's context and membership — the sidemenu selector's season, resolved by the page. */
+  /** The sidemenu selector's season and its junction row, resolved by the page. */
   saison: TeamSaisonMembership;
   today: string;
-  /** The page's answer to "may the group move": season not `future` and fixtures exist (decided 2026-08-07). */
+  /** The page's answer to "may the group move": season not `future` and fixtures exist. */
   gruppeLocked: boolean;
   /** The selected season's groups with their fill state, from `buildGruppeOffer`. */
   gruppeOffer: readonly GruppeOffer[];
-  /** The selected season's swap state — the club editor's entry point into the swap. */
+  /** The selected season's swap state, from `buildGruppenSwapContext`. */
   swap: SaisonGruppenSwapContext;
   registerRequestLeave?: (requestLeave: () => void) => void;
   pageHeader?: ReactNode;
@@ -153,8 +139,7 @@ export function AdminTeamEditForm({
   // its own German message, so a half-entered record is a field error rather than a silent skip.
   const draftDisqualifikation = isDisqualified ? { grund, datum: datum?.toString() ?? "" } : null;
 
-  // The ids on both payloads are the loaded record's own, already parsed, and the wire carries each
-  // in the path — so no refusal can name one and no input renders it.
+  // The ids ride in the request path, so neither is a field an input renders or a refusal can name.
   const buildClubPayload = () => ({ id: team.id, ...clubDraft });
   const buildSaisonPayload = () => ({
     team_id: team.id,
@@ -180,14 +165,13 @@ export function AdminTeamEditForm({
   const status = deriveTeamDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
-  // See the match editor: the latch's job ends the moment the revalidated club arrives and the two
-  // agree — left latched, every later edit on a restored tree read as not-dirty.
+  // The latch's job ends when the revalidated club arrives and the two agree — left latched, every
+  // later edit on a restored tree reads as not-dirty.
   if (hasSaved && !status.isDirty) setHasSaved(false);
 
   useUnsavedChangesWarning(isDirty);
 
-  // Ctrl+S / Cmd+S submits, gated on the same conditions as the Speichern button — the match
-  // editor's reasoning, unchanged.
+  // Ctrl+S / Cmd+S submits, gated on the same conditions as the Speichern button.
   const canSubmitRef = useRef(true);
   useEffect(() => {
     canSubmitRef.current = !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty;
@@ -206,8 +190,7 @@ export function AdminTeamEditForm({
 
   const validateClubFields = (paths: readonly string[]) => validatePaths("team", buildClubPayload(), paths);
   const validateSaisonFields = (paths: readonly string[]) => validatePaths("saisonTeam", buildSaisonPayload(), paths);
-  // The picked-control variant — judged with the value that arrived in the event, because state has
-  // not committed yet (see the match editor's `validateSelection`).
+  // Judged with the value that arrived in the event, because state has not committed yet.
   const validateGruppeSelection = (paths: readonly string[], selected: { gruppe: FLGruppenNames }) =>
     validatePaths("saisonTeam", { ...buildSaisonPayload(), ...selected }, paths);
 
@@ -215,7 +198,6 @@ export function AdminTeamEditForm({
   const clubDirty = status.changed.some((field) => field.group !== "Saison");
   const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Saison");
 
-  /** Every Hinweis this draft raises — the rail's list and the panels' inline callouts alike. */
   const banners = buildTeamBanners({
     isRetired: team.inactive_since !== null,
     saisonId: saison.saisonId,
@@ -228,7 +210,7 @@ export function AdminTeamEditForm({
   });
 
   const leavePage = () => {
-    // Blur first — see the match editor: react-aria's focus attribute survives a kept-alive tree.
+    // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
     if (window.history.length > 1) router.back();
@@ -248,7 +230,6 @@ export function AdminTeamEditForm({
     registerRequestLeave?.(requestLeave);
   });
 
-  /** Every atom back to what is stored — both exits run it; see the match editor's reasoning. */
   const resetDraftToStored = () => {
     setClubDraft({
       name: team.name,
@@ -273,14 +254,9 @@ export function AdminTeamEditForm({
     leavePage();
   };
 
-  /**
-   * What both submit routes reach first: a draft carrying a warning or a danger is confirmed, and a
-   * clean one saves straight through. The write itself is unchanged either way, undo
-   * included.
-   */
   const requestSave = () => {
-    // Snapshotted here rather than read live: the reader agrees to the list the gate stopped on,
-    // and a background revalidation re-deriving the banners under an open dialog would move it.
+    // Snapshotted, not read live: the reader agrees to the list the gate stopped on, and a background
+    // revalidation re-deriving the banners under an open dialog would move it.
     const blocking = resolveBlockingBanners(banners);
     if (blocking !== null) {
       setConfirmingBanners(blocking);
@@ -292,21 +268,18 @@ export function AdminTeamEditForm({
   const handleFormSubmit = () => {
     startTransition(async () => {
       const collectedErrors: FieldErrors = {};
-      // Both halves, built once: what goes to each action is also what a later blur is graded
-      // against, so the two cannot be different renders of the draft.
+      // Built once, so what goes to each action is also what a later blur is graded against.
       const clubPayload = buildClubPayload();
       const saisonPayload = buildSaisonPayload();
-      // Only what the admin cannot see from the form itself earns a sentence (decided 2026-08-07):
-      // the fan-out only when the name or Kürzel moved, the disqualification only when the record
-      // changed.
+      // Only what the admin cannot see from the form earns a sentence: the fan-out when the name or
+      // Kürzel moved, the disqualification when the record changed.
       const renameTouched = isChanged("name") || isChanged("shorthand");
       const disqualifikationTouched = isChanged("disqualifikation");
       const consequenceNotes: string[] = [];
       const savedParts: string[] = [];
       const failedNotes: string[] = [];
 
-      // Club half first: it cannot depend on the season half, and its fan-out note belongs first in
-      // the toast.
+      // Club half first: it cannot depend on the season half, and its fan-out note leads the toast.
       if (clubDirty) {
         const res = await patchTeamAction(clubPayload);
         if (res.success) {
@@ -337,9 +310,7 @@ export function AdminTeamEditForm({
 
       if (failedNotes.length > 0) {
         setSubmitFieldErrors(collectedErrors, { team: clubPayload, saisonTeam: saisonPayload });
-        // ALWAYS toasted, field errors or not (decided 2026-08-07, for the shorthand conflict): the
-        // toast is what survives when a half that SUCCEEDED revalidates the route and remounts this
-        // form. An inline message alone would be gone before it was read.
+        // ALWAYS toasted, field errors or not — an inline message would be gone before it was read.
         appToast.danger(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Speichern fehlgeschlagen", {
           description: [...savedParts, ...failedNotes].join(" "),
         });
@@ -349,9 +320,8 @@ export function AdminTeamEditForm({
       setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
-      // The halves the save wrote, holding their pre-save values — `team` and `storedMembership`
-      // are this render's props, so they still carry what was stored before the write. Built BEFORE
-      // leaving, because the toast outlives the page.
+      // `team` and `storedMembership` are this render's props, so they still carry the pre-save
+      // values. Built BEFORE leaving, because the toast outlives the page.
       const undoPayloads: TeamUndoPayloads = {
         ...(clubDirty
           ? {
@@ -377,47 +347,36 @@ export function AdminTeamEditForm({
             }
           : {}),
       };
-      // A lifted disqualification is the one thing this save can destroy that nothing else holds a
-      // copy of, so that grade is a warning; an ordinary save is a success that happens
-      // to be reversible.
+      // A lifted disqualification is the one thing this save can destroy that nothing else copies,
+      // so that grade is a warning; an ordinary save is a reversible success.
       const destroyedSomething = disqualifikationTouched && draftDisqualifikation === null && storedMembership?.disqualifikation != null;
       offerUndo(undoPayloads, consequenceNotes.join(" ") || undefined, destroyedSomething);
 
-      // AFTER the undo payloads are built, which read the props rather than these atoms — see the
-      // match editor: leaving with typed values still in state is what let a save-then-undo reopen
-      // on values the club no longer holds.
+      // AFTER the undo payloads are built: leaving with typed values still in state is what let a
+      // save-then-undo reopen on values the club no longer holds.
       resetDraftToStored();
       leavePage();
     });
   };
 
-  /**
-   * The undo toast: fifteen seconds to take the save back. The pitfalls the match editor documents
-   * all apply and are all mirrored here: the toast outlives this component, so the press runs in a
-   * detached closure — `router.refresh()` is what re-renders a screen the action's own revalidation
-   * can no longer reach (the router instance is a stable singleton, legal after unmount); the replay
-   * uses the TWO-ARGUMENT `then`, so a failure downstream of a committed restore is never blamed on
-   * the transport; and the pending spinner is `appToast.pending`, closed by its own key, because a
-   * toast without an explicit timeout inherits a four-second default that would retire it mid-flight.
-   *
-   * One deliberate difference from the match editor: a dispatch failure here reports generic German
-   * plus a console line, not the raw error text — the raw detail is kept for exactly one call site,
-   * and this is not it.
-   */
+  /** A warning where the save destroyed something nothing else copies, a success otherwise. */
   const offerUndo = (payloads: TeamUndoPayloads, message?: string, destroyedSomething = false) => {
     const raise = destroyedSomething ? appToast.warning : appToast.success;
 
     raise("Änderung gespeichert", {
       description: message ?? "Die Teamdaten wurden aktualisiert.",
-      // A decision window, not a reading time — the one case where the text's length does not
-      // govern the toast's duration.
+      // A decision window, not a reading time — the one case the text's length does not govern.
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",
         onPress: () => {
           appToast.clear();
+          // Closed by its own key below: a toast with no explicit timeout inherits a four-second
+          // default that would retire it mid-flight.
           const pendingKey = appToast.pending("Änderung wird zurückgenommen...");
 
+          // A detached closure — the toast outlives this component. TWO-ARGUMENT `then`, so a failure
+          // downstream of a committed restore is never blamed on the transport.
           void postTeamUndo(payloads).then(
             (result) => {
               appToast.close(pendingKey);
@@ -429,8 +388,7 @@ export function AdminTeamEditForm({
               // Reported BEFORE the refresh: the restore is committed and nothing below changes that.
               appToast.success("Änderung zurückgenommen", { description: result.message });
 
-              // Best-effort, never allowed to fail the undo — a refresh that cannot run costs a
-              // stale screen until the next navigation, not the restore.
+              // Best-effort: a refresh that cannot run costs a stale screen, not the restore.
               try {
                 router.refresh();
               } catch (refreshError) {
@@ -452,8 +410,6 @@ export function AdminTeamEditForm({
 
   return (
     <TeamDraftStatusProvider status={status}>
-      {/* The match editor's shell: the inner container scrolls the page and the action bar is its
-          STATIC sibling below, where nothing can move it. */}
       <Form
         ref={formRef}
         validationErrors={fieldErrors}
@@ -499,8 +455,8 @@ export function AdminTeamEditForm({
                     isDisqualified={isDisqualified}
                     onIsDisqualifiedChange={(next) => {
                       setIsDisqualified(next);
-                      // Seeded with today — the common case for "took effect"; the lift stays a
-                      // draft state until the save sends the explicit null.
+                      // Seeded with today, the common case for "took effect"; the lift stays a draft
+                      // until the save sends the explicit null.
                       if (next && datum === null) setDatum(parseDate(today));
                     }}
                     banners={banners}
@@ -531,8 +487,8 @@ export function AdminTeamEditForm({
         />
       )}
 
-      {/* Closed rather than unmounted on confirm, unlike the discard dialog: the write is awaited
-          before anything navigates, so the exit animation has run long before the tree is left. */}
+      {/* Closed rather than unmounted, unlike the discard dialog: the write is awaited before
+          anything navigates, so the exit animation has run before the tree is left. */}
       <ConfirmSaveModal
         banners={confirmingBanners}
         onClose={() => setConfirmingBanners(null)}

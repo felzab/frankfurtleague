@@ -5,20 +5,8 @@ import { SearchField } from "@heroui/react";
 import { dismissControl } from "@/core/dismissControl";
 
 /**
- * The app's search input. Three views hand-rolled this from a `<div>` + icon + bare `Input` while
- * the same codebase used HeroUI's `SearchField` correctly three times. The hand-built
- * version had no accessible name (its only name came from the placeholder, which disappears as soon
- * as you type), no clear button and no `type="search"` semantics.
- *
- * Focus is shown as a border colour change on the group rather than a ring — the decision
- * recorded at `globals.css`'s `--focus` note and applied identically by `FIELD_INPUT`. That is why
- * the input carries `outline-none`: the group owns the focus affordance, so a second indicator on
- * the inner input would double it.
- *
- * `className` is the caller's outer width only — the chrome is deliberately not configurable.
- * `attachEnd` is the one chrome exception, and it is a shape rather than a restyle: below `sm` the
- * bar's right edge flattens and loses its border so an attached control (the CRUD header's create
- * trigger) reads as its continuation (decided 2026-08-07).
+ * The group owns the focus affordance, a border colour change rather than a ring, which is why the inner input carries
+ * `outline-none`. `className` is the caller's outer width only; `attachEnd` is the one chrome exception.
  */
 export function SearchBar({
   label,
@@ -51,8 +39,7 @@ export function SearchBar({
           placeholder={placeholder}
           className="fluid-sm w-full bg-transparent outline-none"
         />
-        {/* The generic wording: `label` is a whole phrase ("Spiele suchen"), so a name derived from it
-            would read as broken German rather than as the field it clears. */}
+        {/* Generic wording: `label` is a whole phrase, so a name derived from it would read as broken German. */}
         <SearchField.ClearButton {...dismissControl({ label: "Suche zurücksetzen" })} />
       </SearchField.Group>
     </SearchField>

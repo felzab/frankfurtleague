@@ -12,8 +12,8 @@ import { spieltagLabels } from "../../utils";
 import type { FLSpielplan } from "../../schemas";
 
 export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
-  // Every matchday's label in one pass. The list arrives in the backend's derived order, which
-  // is what the ordinal counts over -- so nothing here may re-sort it.
+  // The list arrives in the backend's derived order, which is what the ordinal counts over — so
+  // nothing here may re-sort it.
   const labels = spieltagLabels(spielplanData?.spieltage ?? []);
   // Without this the empty case renders a bordered, empty 44px tab bar and no panels.
   if (!spielplanData?.spieltage?.length) {
@@ -28,35 +28,27 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
   }
 
   return (
-    // Height from the content, so the page does not jump between Spieltage of
-    // different sizes. The arrival animation is here rather than per panel: this
-    // mounts once per visit. `sticky` below resolves against its scrollport, not this.
+    // Height from the content, so the page does not jump between Spieltage of different sizes. The
+    // arrival animation is here rather than per panel: this mounts once per visit.
     <Tabs className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center`}>
-      {/* The sticky bar is an ordinary element and `Tabs.ListContainer` sits inside it holding only the
-          track, which is what its chevron buttons position against — see the fuller note in
-          `AdminSpieleActionRequiredView`, the other strip in the app. The width boundaries for mobile
-          vs desktop move onto the row for the same reason. */}
+      {/* `Tabs.ListContainer` sits inside the sticky bar holding only the track, which is what its
+          chevron buttons position against. The fuller note is in `AdminSpieleActionRequiredView`. */}
       <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8">
         <div className="lg:max-w-toolbar flex w-full max-w-full flex-row items-center justify-center lg:w-[90%]">
-          {/* **No `overflow-x-auto` and no `scrollbar-hide` on the list.** `Tabs.ListContainer` ships
-              the scroll affordance already: a `ScrollShadow` plus chevrons a `:has()` rule reveals only
-              while the shadow reports the strip can scroll. It detects that by letting the list grow
-              (`.tabs__list` is `w-max min-w-full`), so a list that scrolls itself hides the overflow
-              from the detector and the chevrons never appear — which is what a season of twelve
-              Spieltage looked like on a phone. `bg-transparent` undoes the container's `bg-default`,
-              and `min-w-fit` undoes its `min-w-full` — that floor stretched the track across the whole
-              rail, leaving empty track after the last Spieltag. `w-max` stays: it is what lets the list
-              outgrow the rail, which is what the overflow detection reads. */}
+          {/* **No `overflow-x-auto` or `scrollbar-hide` here.** The chevrons show only while the
+              `ScrollShadow` reports the strip can scroll, detected by letting the list grow — a
+              self-scrolling list hides that and no chevron appears. */}
           <Tabs.ListContainer className="max-w-full min-w-0 bg-transparent [&>div]:max-w-full [&>div]:min-w-0 [&>div]:[--scroll-shadow-size:24px]!">
+            {/* `min-w-fit` undoes the container's `min-w-full`, whose floor stretched the track
+                across the whole rail; `w-max` lets the list outgrow it. */}
             <Tabs.List className={`${TAB_TRACK} flex w-max min-w-fit flex-row items-center gap-1 p-1.5 shadow-sm`}>
               {spielplanData?.spieltage.map((spieltagData) => {
                 return (
                   <Tabs.Tab
                     key={spieltagData.id}
                     id={spieltagData.id}
-                    /* `whitespace-nowrap` keeps a Spieltag label on one line, and `w-fit` undoes
-                       HeroUI's `w-full` on `.tabs__tab` — left at full width inside a `min-w-full`
-                       list, six Spieltage share the rail as six equal slabs instead of six labels. */
+                    /* `w-fit` undoes HeroUI's `w-full` on `.tabs__tab` — left at full width inside
+                       a `min-w-full` list, six Spieltage share the rail as six equal slabs. */
                     className={`${TAB_ITEM} flex h-11 w-fit items-center px-5 whitespace-nowrap md:px-6`}>
                     {labels.get(spieltagData.id)?.label}
                     <Tabs.Indicator className={TAB_INDICATOR} />
@@ -73,20 +65,11 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
           key={spieltagData.id}
           id={spieltagData.id}
           className="max-w-page w-full px-4 pt-0 pb-4 outline-none sm:px-8">
-          {/* The switch animation belongs on the CARDS, never on `Tabs.Panel` or on this container.
-
-              Two independent reasons, and both matter. RAC keeps a deselected panel mounted until
-              `panel.getAnimations()` all settle (`useExitAnimation`), and `getAnimations()` does not
-              look at descendants — so an `animate-in` on the panel itself makes a fast tab switch
-              hold the previous panel on screen for the rest of its enter animation, which reads as
-              leftover cards. And animating this container fades the whole grid as one block, which
-              still reads as the content mutating in place, because every card lands at exactly the
-              screen position the previous Spieltag's card occupied. Only staggering the cards puts
-              them in sequence, and the eye follows a sequence rather than catching one flash.
-
-              So `cards-cascade` (defined in `globals.css`) goes on the grid below, and the one-off
-              rise sits on the `Tabs` root, which mounts once per visit and so never replays on a
-              press. */}
+          {/* The switch animation belongs on the CARDS. RAC holds a deselected panel mounted until
+              `panel.getAnimations()` settle and ignores descendants, so `animate-in` here leaves
+              the previous panel on screen. */}
+          {/* Staggered rather than faded as one block: every card lands where the previous
+              Spieltag's card sat, so a single fade reads as the content mutating in place. */}
           <div
             role="list"
             className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>

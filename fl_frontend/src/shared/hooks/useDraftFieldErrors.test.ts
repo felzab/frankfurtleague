@@ -1,12 +1,3 @@
-/**
- * SHARED · the merge rule, and the editors that must go through it
- *
- * The merge decides what a form shows when the browser and a submit disagree about a field, and
- * nothing in this repository can render a hook — so the rule is two pure functions and these are the
- * whole net. The sweep below is the other half: an eighth editor wiring the two stores together by
- * hand would put the ordering back where it can be wrong invisibly.
- */
-
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -163,11 +154,8 @@ const sources = new Map(
 );
 
 /**
- * The page-owned editors, found by the routine both their exits run.
- *
- * `resetDraftToStored` rather than a filename pattern: it is what makes a form a page-owned editor
- * (`docs/frontend/spec.md` §1.10), and the match editor's file is named on none of the patterns the
- * other six share.
+ * The page-owned editors, discovered by `resetDraftToStored` rather than a filename pattern: that routine is what makes
+ * a form a page-owned editor (§1.10 in `docs/frontend/spec.md`), where the filenames share no pattern.
  */
 const pageOwnedEditors = [...sources].filter(([, text]) => text.includes("const resetDraftToStored =")).map(([file]) => file);
 

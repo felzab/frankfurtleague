@@ -1,18 +1,3 @@
-/**
- * SPIELE · derivation tests
- *
- * Covers the three values every match card derives, the bracket's German labels, the admin toast's
- * wording, and the wiring derivations the edit form's pickers are built from. `formatSpielDisplay` is
- * tested for placeholder agreement specifically: the drift it replaced had one card rendering "- : -"
- * while two others rendered "-:-" on the same screen, which no type can catch. `formatQuelle` is
- * tested because it is the ONLY place either codebase turns a stored bracket reference into German —
- * nothing else would notice the wording changing. The wiring derivations are tested
- * because what they exclude is what the form cannot offer — a wrong filter here silently
- * reopens an illegal pick. `listDependentSpiele` is tested for the opposite reason: what it INCLUDES is
- * what enables the edit page's dry-run preview before a result is destroyed, and a missed
- * case is a warning that never appears.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -80,8 +65,7 @@ describe("computeSpielStatus", () => {
     assert.equal(computeSpielStatus({ datum: "2026-07-28", isCanceled: false, today: TODAY }), "vergangen");
   });
 
-  // The comparison is lexicographic on YYYY-MM-DD, so it is only correct while both operands
-  // are zero-padded and same-length. These two cross a month and a year boundary.
+  // Lexicographic on YYYY-MM-DD, so correct only while both operands are zero-padded.
   it("compares correctly across month and year boundaries", () => {
     assert.equal(computeSpielStatus({ datum: "2026-08-01", isCanceled: false, today: "2026-07-31" }), "ausstehend");
     assert.equal(computeSpielStatus({ datum: "2025-12-31", isCanceled: false, today: "2026-01-01" }), "vergangen");
@@ -112,9 +96,8 @@ describe("computeErgebnisFor", () => {
     assert.equal(computeErgebnisFor({ spiel: makeSpiel(null), teamId: TEAM_1 }), "?");
   });
 
-  // The defect: a split with no length check gives `Number(undefined) === NaN` for "3", every
-  // comparison is false, and the else branch reports a loss -- for both teams, since neither side's
-  // comparison can be true.
+  // A split with no length check makes every comparison false, so the else branch reports a loss
+  // — for both teams at once.
   it("returns '?' for a malformed ergebnis instead of silently reporting a loss", () => {
     for (const malformed of ["3", "", ":", "3:", ":1", "1:2:3", "abc", "x:y"]) {
       assert.equal(computeErgebnisFor({ spiel: makeSpiel(malformed), teamId: TEAM_1 }), "?", `expected "?" for ${JSON.stringify(malformed)}`);
@@ -122,9 +105,7 @@ describe("computeErgebnisFor", () => {
     }
   });
 
-  // A team id belonging to neither side must be "unknown", not a result: a two-way
-  // `teamId === team1.team_id` branch scores it from team2's point of view, so a stale embedded id
-  // renders a confident red "L" for a team that never played.
+  // A two-way branch would score an absent team from team2's side, rendering a confident loss.
   it("returns '?' for a teamId that is neither side, rather than scoring it as a loss", () => {
     const unknown = "6890a1b2c3d4e5f607189999";
 
@@ -138,9 +119,7 @@ describe("computeErgebnisFor", () => {
     assert.equal(computeErgebnisFor({ spiel: makeSpiel("٢:١"), teamId: TEAM_1 }), "?");
   });
 
-  // A fixture whose occupant the group phase has not produced yet. The optional chaining
-  // reaching `team1?.team_id` compiles either way, so only this pins the answer: an unresolved side
-  // must get "unknown", never a scored result.
+  // The optional chaining compiles either way, so only this pins an unresolved side to "?".
   it("returns '?' when the side being asked about has no occupant", () => {
     const halfDrawn = { ...makeSpiel("3:1"), team1: null } as unknown as FLSpiel;
 
@@ -163,8 +142,7 @@ describe("formatSpielDisplay", () => {
     assert.deepEqual(formatSpielDisplay(spiel), { datum: "28.07.2026", uhrzeit: "14:00", ergebnis: "3:1", elfmeterschiessen: null });
   });
 
-  // `SpielCard` and the two compact cards appear on the same screen in some flows, so a second
-  // spelling of the placeholder is visible drift no type can catch.
+  // The three cards share a screen in some flows, so a second spelling is drift no type catches.
   it("uses one result placeholder for an unplayed match", () => {
     assert.equal(formatSpielDisplay({ ...spiel, ergebnis: null }).ergebnis, "-:-");
   });
@@ -178,8 +156,7 @@ describe("formatSpielDisplay", () => {
     });
   });
 
-  // The score stays the draw the Saisontabelle counts, and the shoot-out arrives as a separate value
-  // the cards render on a line of their own.
+  // The score stays the draw the Saisontabelle counts; the shoot-out arrives separately.
   it("keeps a shoot-out beside the score rather than inside it", () => {
     const settled = formatSpielDisplay({ ...spiel, ergebnis: "2:2", elfmeterschiessen: { team1: 4, team2: 3 } });
 
@@ -216,16 +193,15 @@ describe("formatQuelle", () => {
     assert.equal(formatQuelle({ type: "spiel", spiel_nr: 29, ausgang: "verlierer" }), "Verlierer 29.");
   });
 
-  // One form for the whole set, first place included, so two slots compare at a glance on the
-  // Finalrunden review and the picker's list reads exactly as the cards do.
+  // One form for the whole set, so two slots compare at a glance and the picker reads as the
+  // cards do.
   it("reads every placing as an ordinal, first included", () => {
     assert.equal(formatQuelle({ type: "gruppe", gruppe: "A", platz: 1 }), "1. der Gruppe A");
     assert.equal(formatQuelle({ type: "gruppe", gruppe: "C", platz: 2 }), "2. der Gruppe C");
     assert.equal(formatQuelle({ type: "gruppe", gruppe: "B", platz: 4 }), "4. der Gruppe B");
   });
 
-  // The defect this fixed: a source mid-edit drafts `NaN` where its number is unpicked, and every
-  // consumer — the Ergebnis labels, the preview, the change list — printed "Sieger NaN.".
+  // A source mid-edit drafts `NaN`, which every consumer printed as "Sieger NaN.".
   it("returns null while a match-fed slot's number is still unpicked", () => {
     assert.equal(formatQuelle({ type: "spiel", spiel_nr: NaN, ausgang: "sieger" }), null);
   });
@@ -253,16 +229,15 @@ describe("deriveSlotHerkunft", () => {
     assert.equal(deriveSlotHerkunft(null, null), "offen");
   });
 
-  // The source wins over the team, which is the rule the write path enforces: while a source stands,
-  // a hand-set team is reverted or refused. Flipping this precedence would report a
-  // resolution-owned slot as manual on both surfaces at once.
+  // The precedence the write path enforces: flipped, a resolution-owned slot would read as manual
+  // on both surfaces at once.
   it("takes the source over the occupant, because the source is what maintains the slot", () => {
     assert.equal(deriveSlotHerkunft(team, { type: "gruppe", gruppe: "A", platz: 1 }), "quelle");
   });
 });
 
 describe("formatSpielUpdateMessage", () => {
-  /** A fixture that moved and lost nothing — the ordinary case, and the majority of them. */
+  /** A fixture that moved and lost nothing — the ordinary case. */
   const moved = (spielNr: number): FLSpielAdvancement => ({ spiel_nr: spielNr, voided_ergebnis: null, voided_elfmeterschiessen: null });
 
   /** A fixture whose stored scoreline the same save deleted. */
@@ -335,7 +310,7 @@ describe("formatSpielUpdateMessage", () => {
   });
 });
 
-/** A group-reference fault on match 25. The id is read only as a key, so any valid one will do. */
+/** The id is read only as a key, so any valid one will do. */
 function gruppeFault(reason: "gruppe_too_small" | "tie_unresolved", gruppe: "A" | "B", platz: number): FLBracketFault {
   return { reason, spiel_id: "6890a1b2c3d4e5f607180025", spiel_nr: 25, gruppe, platz };
 }

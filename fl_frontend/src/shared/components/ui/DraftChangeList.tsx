@@ -5,11 +5,7 @@ import { Pencil, Plus, Xmark } from "@gravity-ui/icons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
-/**
- * The structural slice of a field status this list needs — `FLSpielFieldStatus` and
- * `FLTeamFieldStatus` are both assignable, which is what lets one list serve both editors without
- * `shared` importing a feature.
- */
+/** The structural slice a field status must satisfy, which is what lets one list serve both editors without importing a feature. */
 export type DraftChangeRow = {
   path: string;
   label: string;
@@ -18,10 +14,7 @@ export type DraftChangeRow = {
   draftText: string | null;
 };
 
-/**
- * What kind of edit a changed field carries. Read off the two formatted values, so every surface
- * that classifies an edit — the row icons, the two count badges — answers from one function.
- */
+/** Read off the two formatted values, so every surface classifying an edit answers from one function. */
 export type DraftOperation = "added" | "removed" | "altered";
 
 export const operationOf = (field: DraftChangeRow): DraftOperation =>
@@ -34,20 +27,8 @@ const OPERATION_PRESENTATION: Record<DraftOperation, { icon: typeof Plus; cls: s
 };
 
 /**
- * Every unsaved edit, one line each, sectioned by the panel the field renders in.
- *
- * **A row is the field's label, the value as it will be saved, and an operation icon at the row's
- * end**. The earlier rows spelled the transition out — label,
- * struck old value, new value — and read as chaos once several accumulated; the icon now carries the
- * WHAT (added, removed, altered) and the row carries only the result. The icon is a hover hint
- * through the same mechanism as every info icon on the page — `cursor-help` and a hover fill say it
- * opens something — naming the operation with the previous value beneath, for a removal as well as
- * an alteration. A removal shows the old value struck through, because it has no result to print.
- *
- * **The sections come from the descriptor table, not from a mapping kept here.** Each field's
- * `group` is a column of its row in `draftStatus.ts`, so a future field lands in the right section
- * by filling its row. A row whose label IS its group name drops the label, so "Absage" is not said
- * twice one line apart.
+ * Every unsaved edit as the label, the value as it will be saved, and an icon whose hint carries the previous value.
+ * **The sections come from the descriptor table rather than a mapping kept here**, so a new field lands in the right one.
  */
 export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[] }) {
   if (changed.length === 0) {
@@ -84,10 +65,6 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
                   ) : (
                     <span className="text-foreground min-w-0 truncate font-bold">{field.draftText}</span>
                   )}
-                  {/* At the row's END, and a two-line hint: the operation as
-                      its heading, the previous value under it — for a removal as well as for an
-                      alteration, since "what did I just delete" is the question the row's
-                      strikethrough answers only while it fits. */}
                   <span className="ml-auto flex shrink-0 items-center">
                     <InfoHint
                       label={`${word}: ${field.label}`}

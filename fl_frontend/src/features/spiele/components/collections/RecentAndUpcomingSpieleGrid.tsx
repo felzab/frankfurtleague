@@ -10,11 +10,7 @@ import { SpielCardsList } from "./SpielCardsList";
 
 import type { FLSpieleListResponse } from "../../schemas";
 
-/**
- * The heading block above each section. Shared by the grid and its skeleton on purpose: the skeleton
- * only guarantees zero layout shift while the two render identical chrome, and one definition is the
- * only way to keep that true.
- */
+/** Shared with the skeleton: zero layout shift holds only while the two render identical chrome. */
 function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div className="mb-6 flex flex-col gap-1">
@@ -27,21 +23,14 @@ function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
 const SECTION_GRID = `${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3`;
 
 /**
- * The floor for a section with no cards in it — one `SpielCard` row, near enough (a card measures
- * ~176px at every breakpoint).
- *
- * Without it, a failed or empty section shrinks to a single centred line, the page ends up several
- * hundred pixels shorter than the viewport expects, and the footer rides up into view. Reserving a
- * card row keeps the page roughly the height it would have had -- the same property
- * `SpielCardSkeleton` gives the loading state.
+ * Roughly one card row. Without it an empty or failed section collapses to a single line, the page
+ * ends far shorter than expected, and the footer rides up into view.
  */
 const SECTION_MIN_HEIGHT = "min-h-44";
 
 /**
- * The loading state for this grid — the same two sections, filled with `SpielCardSkeleton`s.
- *
- * Rendered as the landing page's `Suspense` fallback. `limit: 6` below is why the count is six: the
- * skeleton reserves exactly what the query can return, so the swap moves nothing.
+ * The landing page's `Suspense` fallback. Its count matches the `limit` below, so the skeleton
+ * reserves exactly what the query can return and the swap moves nothing.
  */
 export function RecentAndUpcomingSpieleGridSkeleton() {
   return (
@@ -65,17 +54,9 @@ export function RecentAndUpcomingSpieleGridSkeleton() {
 }
 
 /**
- * One section's contents: the cards, or a panel explaining why there are none.
- *
- * **The two sections resolve independently**, which is the point of extracting this. A single
- * `if (!upcoming || !recent)` guard would replace the *entire* region — both headings included — the
- * moment either request failed, discarding a healthy set of past results because the upcoming query
- * timed out, and taking with it the labels that say what is missing. Each section answers for
- * itself, so the headings always survive.
- *
- * `res === null` is a failed fetch (the caller catches into `null`); an empty `spiele` is a
- * successful fetch with nothing in it. Different messages, because they are different situations —
- * one is worth retrying and the other is not.
+ * **The two sections resolve independently**: one guard over both would discard a healthy set of
+ * past results because the upcoming query timed out. `res === null` is a failed fetch and an empty
+ * `spiele` a successful one — only one is worth retrying.
  */
 function SectionBody({ res, today, emptyTitle }: { res: FLSpieleListResponse | null; today: string; emptyTitle: string }) {
   if (!res) {
@@ -116,7 +97,7 @@ export async function RecentAndUpcomingSpieleGrid() {
     getSpiele({ spiel_status: "vergangen", sort_by: "datum", order: "desc", limit: 6 }).catch(() => null),
   ]);
 
-  // Safe to read the clock here: connection() above already made this component dynamic.
+  // Safe to read the clock: `connection()` above already made this dynamic.
   const today = getGermanTodayStr();
 
   return (

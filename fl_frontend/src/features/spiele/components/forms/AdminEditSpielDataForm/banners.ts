@@ -1,12 +1,3 @@
-/**
- * SPIELE · every Hinweis the match editor can raise, in one list
- *
- * One entry per situation, read by the rail and by the panel that also shows it inline — see the
- * club editor's `banners.ts` for why the two halves cannot be authored separately. The match editor
- * is the one that had the rail build a banner of its own, so its list was the only one that could
- * not be read off a single file at all.
- */
-
 import type { FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
@@ -22,7 +13,6 @@ export type SpielBannerId =
   | "spiel.void-preview"
   | "spiel.release-preview";
 
-/** The panel spots that render one of these inline. */
 export type SpielBannerSpot =
   | "team1-manuell"
   | "team2-manuell"

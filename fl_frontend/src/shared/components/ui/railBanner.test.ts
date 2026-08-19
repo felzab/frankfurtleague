@@ -1,11 +1,3 @@
-/**
- * SHARED · rail banner resolution tests
- *
- * Every clause of `resolveRailBanners`'s docblock is asserted here, because each of them is a claim
- * about an ordering nobody can see on the page: a banner that is wrongly dropped leaves no trace,
- * and a banner that wrongly survives looks exactly like the duplication the helper exists to remove.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 

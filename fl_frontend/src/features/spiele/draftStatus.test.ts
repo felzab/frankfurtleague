@@ -1,14 +1,3 @@
-/**
- * SPIELE · draft-status tests
- *
- * `deriveSpielDraftStatus` is the one thing the edit page believes about a field — the markers, the
- * change list, the open-items list, the unsaved count and the navigation guard all read it, and none of
- * them can be clicked in this repository (there is no component harness). So the cases below are the
- * whole net, and they are chosen for the three ways this derivation can be wrong in a way a reader
- * would not notice: a change that is not reported, a field nagged about that nobody is waiting on, and
- * a value whose "empty" is not the absence of its own value.
- */
-
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -26,13 +15,7 @@ const TEAM_2 = "6890a1b2c3d4e5f607182933";
 const ORT = "6890a1b2c3d4e5f607182940";
 const SCHIRI = "6890a1b2c3d4e5f607182950";
 
-/**
- * One resolved side, as a READ serves it.
- *
- * `disqualifikation` is on every one of them because the fixtures here are what an endpoint returns,
- * and an endpoint joins it. Nothing in this suite asserts on it — the helper exists
- * so a side stays one call rather than five keys repeated per case.
- */
+/** `disqualifikation` rides along because an endpoint joins it; nothing here asserts on it. */
 const side = (team_id: string, name: string, shorthand: string, tore: number | null): FLSpielTeamFieldJoined => ({
   team_id,
   name,
@@ -41,7 +24,7 @@ const side = (team_id: string, name: string, shorthand: string, tore: number | n
   disqualifikation: null,
 });
 
-/** A fully populated group-phase fixture, so every descriptor has something to compare against. */
+/** Fully populated, so every descriptor has something to compare against. */
 function makeStored(overrides: Partial<FLSpiel> = {}): FLSpiel {
   return {
     id: "6890a1b2c3d4e5f607182900",
@@ -182,8 +165,8 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
     );
   });
 
-  // The category set is frozen from the stored fixture; emptiness is live. This is what makes the
-  // markers disappear as the admin fills them in rather than staying until a save.
+  // The category set is frozen from the stored fixture while emptiness is live, which is what
+  // makes a marker disappear as the admin fills the field rather than at the save.
   it("stops marking a field once the draft fills it, without the category changing", () => {
     const stored = makeStored({ datum: null });
     const status = derive(stored, draftOf(stored, { datum: "2026-08-19" }), ["datum_missing"]);
@@ -206,8 +189,7 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
     );
   });
 
-  // The resolution fills a side that has a source, so a side WITH a source and no team yet
-  // is correct and must not be nagged about. Only "no team AND no source" is an open slot.
+  // A side WITH a source and no team yet is correct; only "no team AND no source" is open.
   it("marks an unwired knockout side and leaves a wired one alone", () => {
     const unwired = makeStored({ saison_phase: "halbfinale", team1: null, team1_quelle: null, ergebnis: null });
     const wired = makeStored({
@@ -224,8 +206,8 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
     assert.deepEqual(derive(wired, draftOf(wired), ["besetzung_missing"]).expected, []);
   });
 
-  // A side an admin has hand-picked has a team and no source. It is not an open slot, and marking the
-  // source would tell the admin to wire something they have deliberately taken over.
+  // A hand-picked side has a team and no source: marking it would demand wiring for a slot the
+  // admin deliberately took over.
   it("leaves a manually filled side alone", () => {
     const manual = makeStored({ saison_phase: "halbfinale", team1_quelle: null, ergebnis: null });
 
@@ -245,8 +227,8 @@ describe("deriveSpielDraftStatus · rejected fields", () => {
     );
   });
 
-  // A source reports its failures under the variant's own key, never under `teamN_quelle` itself, so
-  // the descriptor has to look at all four or the rail would count zero rejected fields.
+  // A source reports failures under the variant's key, never `teamN_quelle`, so a descriptor
+  // looking at only the latter counts zero rejected fields.
   it("finds a source's message under the variant key the schema uses", () => {
     const stored = makeStored({ saison_phase: "halbfinale", team1_quelle: { type: "gruppe", gruppe: "A", platz: 1 } });
     const status = derive(stored, draftOf(stored), [], { "team1_quelle.platz": "Bitte wähle einen Platz aus." });
@@ -262,8 +244,8 @@ describe("deriveSpielDraftStatus · rejected fields", () => {
 });
 
 describe("deriveSpielDraftStatus · the table itself", () => {
-  // The guarantee the page rests on: every field it can change has a row, so nothing is invisible to
-  // the markers, the change list and the guard. A new editable field failing this is the whole point.
+  // Every editable field needs a row, or it is invisible to the markers, the change list and the
+  // guard alike. A newly added one failing here is the point of the case.
   it("covers every field of the draft shape", () => {
     const stored = makeStored();
     const paths = new Set(derive(stored, draftOf(stored)).fields.map((field) => field.path));
@@ -305,8 +287,7 @@ describe("isLevelKnockout · the shape a shoot-out describes", () => {
     assert.equal(isLevelKnockout("achtelfinale", level(2), other(2)), true);
   });
 
-  // Each of these is a route out of the shape, and each is a route the editor's own handlers do NOT
-  // cover: a goal edit that unlevels the score, a side cleared, and a count still being typed.
+  // Each is a route out of the shape the editor's own handlers do NOT cover.
   it("does not hold once a goal edit unlevels the fixture", () => {
     assert.equal(isLevelKnockout("achtelfinale", level(3), other(2)), false);
   });
@@ -357,12 +338,9 @@ describe("applyDraftToSpiel · an orphaned shoot-out", () => {
 });
 
 /**
- * The editor retracts by DERIVING, so no handler can forget it.
- *
- * Read from the source because a hook cannot be rendered here. What it guards is the shape of the fix
- * rather than its wording: a retraction moved back into the toggle handlers would leave the atom
- * feeding the draft unconditionally, which is how a shoot-out reached the payload after its inputs
- * had unmounted.
+ * Read from the source, a hook not being renderable here. It guards the shape of the retraction:
+ * moved back into the toggle handlers, the atom would feed the draft unconditionally and a
+ * shoot-out would reach the payload after its inputs had unmounted.
  */
 describe("the match editor's draft", () => {
   const editor = readFileSync(path.resolve(import.meta.dirname, "components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx"), "utf8");

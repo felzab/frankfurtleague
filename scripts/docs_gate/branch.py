@@ -1,20 +1,3 @@
-"""
-SCRIPTS · the checks that read the branch rather than the tree
-
-Stamp freshness, branch impact, the added-line checks and the comment bounds, with the stamp and
-SHA resolution that needs git objects. Every one is measured from a single commit, resolved once
-by the caller and handed here as `Branch`.
-
-Invariants:
-- A check git cannot answer reports that it did not run. Reported rather than failed: a fork or a
-  tarball has no base ref, and failing one would be wrong.
-- A restamp is not a material change. Otherwise the remedy branch impact prescribes
-  re-arms the check on every page citing the restamped one.
-
-See:
-- docs/_standard/chapters/5-currency.md — CUR-4, the rule this module is the mechanical half of
-"""
-
 from __future__ import annotations
 
 import re
@@ -65,9 +48,7 @@ HISTORY_RE: Final = re.compile(rf"\b(?:{'|'.join(re.escape(phrase) for phrase in
 HUNK_HEADER_RE: Final = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
-# A short commit SHA named in prose, at git's abbreviation length and carrying a digit and a
-# letter. A longer hex run is an asset digest, and reading one as a commit gets a check switched
-# off.
+# A longer hex run is an asset digest, and reading one as a commit gets a check switched off.
 PROSE_SHA_RE: Final = re.compile(r"`([0-9a-f]{7,8})`")
 
 
@@ -79,8 +60,7 @@ REVIEW_REF_RE: Final = re.compile(
 
 
 # COR-4's enumerations. Reported, never failed: "the four admin tables" and "four bytes" are the
-# same word. Fitted to what gets written: `one` and `first` name no count, and a count past twenty
-# is written in digits, which no word list reaches.
+# same word. `one` and `first` name no count, and a count past twenty is written in digits.
 COUNT_WORDS: Final[tuple[str, ...]] = (
     "two",
     "three",
@@ -122,10 +102,8 @@ LOOSE_ID_RE: Final = re.compile(r"\b[A-Z]{1,4}-\d{1,3}\b")
 def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
     """A roadmap id or a review round in a comment this branch added. Always a report.
 
-    Neither is a dead reference: a roadmap id resolves to a tracked file, and a parenthesis naming
-    a review round may be a sentence rather than a citation. Both still read as a pointer a
-    stranger cannot follow, so the branch that writes one gets to see it. The standing backlog is
-    `/docs:audit`'s (CUR-6).
+    Neither is a dead reference, so neither fails; both still read as a pointer a stranger cannot
+    follow. The standing backlog is `/docs:audit`'s (CUR-6).
     """
     found: list[Finding] = []
     for rel in sorted(additions):
@@ -181,11 +159,10 @@ def check_stamps(paths: Iterable[Path]) -> list[Finding]:
 
 @dataclass(frozen=True, slots=True)
 class Branch:
-    """The base ref this run was given, and the commit it resolved to -- None where none did.
+    """The base ref this run was given, and the commit it resolved to.
 
-    Resolved once, by `checker_kernel.py :: resolve_base`, and handed to every branch-scoped check.
-    Three call sites resolving it three ways answered differently on the checkouts where the answer
-    is not obvious: a base ref only the remote has, and histories with no common commit.
+    Resolved once by `checker_kernel.py :: resolve_base`: resolving it per call site answered
+    differently where a base ref is only on the remote.
     """
 
     base: str
@@ -200,11 +177,8 @@ class Branch:
 def _branch_scope_skipped(checks: str, missing: str) -> Finding:
     """The advisory a check emits where git cannot answer the input it reads.
 
-    Reported rather than failed: a clone with no base ref -- a fork, a tarball, a checkout trimmed
-    to a depth short of the fork -- is a shape rather than a page's defect, and failing one would be
-    wrong. Never silent, though, which is what the same file already says about a tree-scoped input:
-    a check that says nothing is indistinguishable from a clean one, and this one stays quiet
-    forever once the input goes missing.
+    Reported rather than failed: a clone with no base ref is a shape, not a page's defect. Never
+    silent: a check saying nothing looks clean.
     """
     return Finding("report", "branch-scope", "(branch diff)", f"{checks} did not run: git could not {missing}")
 
@@ -212,15 +186,13 @@ def _branch_scope_skipped(checks: str, missing: str) -> Finding:
 def check_stamp_freshness(branch: Branch) -> list[Finding]:
     """A stamped page changed on this branch must also change its stamp (CUR-4).
 
-    The stamp claims someone checked the page against a commit. Editing the page without moving it
-    leaves that claim attached to work the author did not verify, and no other check can tell the
-    difference -- an old SHA is a valid ancestor forever. If the page was genuinely still correct,
-    restamping says so; that is the whole point of the line.
+    Editing the page without moving the stamp leaves its claim attached to work nobody verified, and
+    no other check can tell: an old SHA is a valid ancestor forever.
     """
     if (fork := branch.fork) is None:
         return [_branch_scope_skipped("stamp freshness (CUR-4)", branch.unresolved)]
-    # Against the fork and the WORKING TREE, not HEAD. The gate runs before a commit exists, so
-    # comparing committed state would let the edit through on the run that could still have caught it.
+    # Against the fork and the WORKING TREE, not HEAD: the gate runs before a commit exists, so
+    # comparing committed state would let the edit through on the run that could catch it.
     changed = git("diff", "--name-only", fork, "--", "*.md")
     if changed is None:
         return [_branch_scope_skipped("stamp freshness (CUR-4)", "read this branch's diff")]
@@ -268,20 +240,10 @@ def _blob_at(fork: str, rel: str) -> str | None:
 
 
 def _absent_at_fork(fork: str, rel: str) -> bool:
-    """Whether the fork commit genuinely does not hold `rel`, rather than git having declined to say.
+    """Whether the fork commit genuinely lacks `rel`, rather than git declining to say.
 
-    `_blob_at` answers None for both, and the two call for opposite things: a page added on this
-    branch has no earlier state to compare and is passed over, while a blob git would not read is a
-    stamped page silently exempted from the check.
-
-    A listing is what separates them: it exits clean and empty for a path the commit does not hold,
-    carries the entry for one it does, and fails only where git would not run. `cat-file -e` cannot,
-    and reading it as a yes-or-no answers every added page wrong: a `<rev>:<path>` the commit does
-    not hold is a fatal there, exiting 128 exactly as an unreadable ref does.
-
-    `--full-tree` roots the listing at the repository rather than at the caller's directory, which
-    is what keeps it answering the question `_blob_at` asks. Without it the pathspec is read
-    relative to the cwd, and the false "absent" that follows would exempt a stamped page in silence.
+    `--full-tree` roots the pathspec at the repository: read relative to the cwd, a false "absent"
+    exempts a stamped page in silence.
     """
     return git("ls-tree", "--full-tree", "--name-only", fork, "--", rel) == ""
 
@@ -289,12 +251,8 @@ def _absent_at_fork(fork: str, rel: str) -> bool:
 def _stamp_only_delta(fork: str, rel: str) -> bool:
     """A markdown delta consisting only of moved stamp lines is a restamp, not a change.
 
-    Restamping is the remedy branch-impact itself prescribes, and a remedy that re-arms the check
-    on every page citing the restamped one turns one edit into a repository-wide cascade. Nothing
-    a citer cites lives on the stamp line, so real stamp lines are normalised out of both versions
-    before they are compared. Only a line carrying an actual SHA is normalised: a placeholder
-    stamp, like the shape example in the currency chapter, is content.
-    Anything unreadable stays material, which is the conservative direction.
+    Restamping is `branch-impact`'s own remedy, so a restamp re-arming it on every citer would turn
+    one edit into a repository-wide cascade.
     """
     if not rel.endswith(".md"):
         return False
@@ -306,28 +264,23 @@ def _stamp_only_delta(fork: str, rel: str) -> bool:
     def keep_placeholders(match: re.Match[str]) -> str:
         return "" if STAMP_RE.search(match.group(0)) else match.group(0)
 
-    # Stripped on both sides because git() strips what `git show` returns, while read_text keeps
-    # the file's trailing newline -- without this the two sides never compare equal.
+    # git() strips what `git show` returns while read_text keeps the trailing newline, so without
+    # this the two sides never compare equal.
     normalised_before = STAMP_LINE_RE.sub(keep_placeholders, before).strip()
     normalised_after = STAMP_LINE_RE.sub(keep_placeholders, after).strip()
     return normalised_before == normalised_after
 
 
 # Named rather than spelled inline: the formatter would fold the tuple into PEP 758's
-# `except A, B:`, newer than `checker_kernel.py :: PARSE_FLOOR` --
-# `scripts/tests/test_parse_floor.py` parses every module under `scripts/` at that floor.
+# `except A, B:`, newer than `checker_kernel.py :: PARSE_FLOOR`.
 UNREADABLE: Final = (OSError, UnicodeDecodeError)
 
 
 def _material(fork: str, path: str) -> bool:
-    """Whether one changed file is a change a stamped page citing it must be re-verified against.
+    """Whether a changed file is one a stamped page citing it must be re-verified against.
 
-    A file the classifier cannot read counts as material, which is the same conservative direction
-    the classifier itself takes. It decodes as UTF-8 and raises on a file that is not, and an
-    uncaught raise here takes the whole run down before a single finding is printed.
-
-    A suffix outside `check_scope.py :: PARSEABLE` is code by that module's own contract, so the
-    classifier is not asked: it would fetch the earlier version and answer from the set anyway.
+    A file the classifier cannot read counts as material: an uncaught raise here would take the run
+    down before a finding is printed.
     """
     try:
         if Path(path).suffix in check_scope.PARSEABLE and check_scope.is_comment_only(fork, path):
@@ -338,13 +291,7 @@ def _material(fork: str, path: str) -> bool:
 
 
 def check_branch_impact(branch: Branch) -> list[Finding]:
-    """A stamped page whose cited files materially changed on this branch must restamp (CUR-4).
-
-    Material means more than comments, decided by check_scope's parser classifier -- anything it
-    cannot prove comment-only counts, so shell, YAML and Dockerfiles always do, and markdown does
-    unless its whole delta is stamp lines, which is a restamp rather than a change. A
-    page added on the branch passes: its stamp is already this branch's work.
-    """
+    """A stamped page whose cited files materially changed on this branch must restamp (CUR-4)."""
     if (fork := branch.fork) is None:
         return [_branch_scope_skipped("branch impact (CUR-4)", branch.unresolved)]
     listed = check_scope.changed_files(fork)
@@ -354,9 +301,8 @@ def check_branch_impact(branch: Branch) -> list[Finding]:
     if not changed:
         return []
 
-    # Each stamped page against the changed files it cites, collected before anything is classified:
-    # materiality costs a git call and a parser run per file, and a file no stamped page cites can
-    # never reach a finding.
+    # Collected before anything is classified: materiality costs a git call and a parser run per
+    # file, and a file no stamped page cites can never reach a finding.
     pages: list[tuple[str, str, set[str]]] = []
     for path in tracked_files():
         if path.suffix != ".md":
@@ -402,15 +348,10 @@ def check_branch_impact(branch: Branch) -> list[Finding]:
 
 
 def _unresolved_commits(shas: Iterable[str]) -> set[str] | None:
-    """The named short SHAs this clone cannot resolve to a commit object, or None where git refused.
+    """The short SHAs this clone cannot resolve, or None where git refused.
 
-    One batch call rather than one per token: a page of release notes names dozens, and a process
-    launch per token is the cost that gets a check dropped. A name git cannot resolve comes back as
-    `<name> missing` or `<name> ambiguous`, and anything resolving to a tree or a blob is not a
-    commit either.
-
-    None is not an empty set: nothing unresolved is a page whose references all hold, while a refused
-    batch is every SHA on every page passing unread.
+    One batch call rather than one per token, a launch per token being what gets a check dropped.
+    None is not an empty set: a refused batch is every SHA unread.
     """
     wanted = sorted(set(shas))
     if not wanted:
@@ -438,14 +379,11 @@ def check_prose_shas(paths: Iterable[Path]) -> list[Finding]:
     """A commit SHA named in prose or in a comment resolves in this clone. Always a report.
 
     Reported for the reason `stamp` reports an unknown SHA: a shallow clone genuinely lacks the
-    object, and that is the checkout's shape rather than the page's defect. The defect it does
-    find is the one a rewritten history leaves everywhere at once -- a SHA that still looks like a
-    reference and resolves to nothing.
+    object.
     """
     per_file: dict[str, set[str]] = {}
     for path in paths:
-        # Stamp lines come out first: `stamp` already resolves those, and one dead SHA reported by
-        # a pair of checks reads as a gate that repeats itself.
+        # Stamp lines come out first: `stamp` already resolves those.
         for sha in PROSE_SHA_RE.findall(STAMP_LINE_RE.sub("", _scan_body(path))):
             if any(c.isdigit() for c in sha) and any(c.isalpha() for c in sha):
                 per_file.setdefault(path.relative_to(REPO_ROOT).as_posix(), set()).add(sha)
@@ -462,15 +400,10 @@ def check_prose_shas(paths: Iterable[Path]) -> list[Finding]:
 
 @cache
 def _added_by_file(fork: str) -> dict[str, list[tuple[int, str]]] | None:
-    """Per file, every line this branch adds, as its number in the working tree and its text.
+    """Per file, every line this branch adds, by number and text.
 
-    One diff, walked once: asking git per file both spends a process each time and answers a
-    renamed file differently, since a lone pathspec leaves git nothing to detect the rename against.
-
-    Against the working tree rather than HEAD, because the gate runs before the commit exists.
-
-    None where git refused the diff, which is the opposite answer to an empty one: no added line
-    anywhere is a clean branch, while a refused diff is every added-line check passing unread.
+    One diff, walked once: a lone pathspec leaves git nothing to detect a rename against. Against
+    the working tree, the gate running before the commit exists.
     """
     diff = git("diff", "-U0", fork)
     if diff is None:
@@ -489,18 +422,10 @@ def _added_by_file(fork: str) -> dict[str, list[tuple[int, str]]] | None:
 
 
 def branch_additions(branch: Branch) -> dict[str, list[str]]:
-    """Per file, the lines this branch adds that a reader reads: markdown, and any scanned comment.
+    """Per file, the lines this branch adds that a reader reads.
 
-    Ops files are in range because the checks reading this are COR-3's and COR-4's, and chapter 1
-    binds every written artifact; the reader that filters this down to the comment-bearing source
-    suffixes is `check_added_citations`, which enforces an INC rule.
-
-    Read through the file's own scanned body, indexed by line number, rather than decided from each
-    line's first characters. The diff is taken against the working tree, so an added line's number
-    IS its number in the file on disk, and the surrounding file a marker rule has to do without is
-    right there. Deciding from the prefix answered two questions wrongly at once: a Python
-    docstring opens with a quote, so INC-4's documentation -- a module header included -- reached
-    neither COR-3 nor COR-4; and a code line opening with a marker inside a literal reached both.
+    Read through the scanned body by line number, never each line's first characters: a docstring
+    opens with a quote, and a code line can hold a marker inside a literal.
     """
     additions: dict[str, list[str]] = {}
     for rel, lines in ((_added_by_file(branch.fork) if branch.fork is not None else None) or {}).items():
@@ -525,8 +450,8 @@ def check_history_phrases(additions: dict[str, list[str]]) -> list[Finding]:
 def check_counts(additions: dict[str, list[str]]) -> list[Finding]:
     """COR-4's enumerations, over the branch's added prose and comments. Always a report.
 
-    Reported per file rather than as one number, because the remedy is per sentence: "the four
-    admin tables" has to become "every admin table", and "four bytes" has to be left alone.
+    Per file rather than one number: the remedy is per sentence, "four admin tables" becoming
+    "every admin table" while "four bytes" is left alone.
     """
     found: list[Finding] = []
     for rel in sorted(additions):
@@ -542,8 +467,8 @@ DIFF_READERS: Final = "history, counts, added comment citations and comment leng
 def check_branch_diff(branch: Branch) -> list[Finding]:
     """The advisory covering every check that reads the branch's added lines.
 
-    One advisory for the four of them, because they read one diff through `_added_by_file` and
-    therefore degrade together: reported separately it would be the same sentence four times.
+    They read one diff through `_added_by_file` and degrade together, so reporting separately would
+    be the same sentence several times.
     """
     if branch.fork is None:
         return [_branch_scope_skipped(DIFF_READERS, branch.unresolved)]
@@ -554,12 +479,12 @@ def check_branch_diff(branch: Branch) -> list[Finding]:
 
 def check_comment_bounds(branch: Branch) -> list[Finding]:
     """INC-9's bounds, over the comment blocks this branch wrote."""
-    # Silent rather than advisory on either refusal below: `check_branch_diff` already names this
-    # check among the four reading one diff, and a second advisory would be the same sentence twice.
+    # Silent rather than advisory: `check_branch_diff` already names this check among those reading
+    # one diff.
     if (fork := branch.fork) is None:
         return []
-    # The one diff, rather than a second `--name-only` call: a file changed by deletions alone has no
-    # added line for a block to sit inside, so nothing this listing drops could reach a finding.
+    # The one diff, rather than a second `--name-only` call: a file changed by deletions alone has
+    # no added line for a block to sit inside.
     added = _added_by_file(fork)
     if added is None:
         return []

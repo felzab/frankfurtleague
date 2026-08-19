@@ -1,18 +1,3 @@
-"""
-SCRIPTS · the gate's run order and its exit code
-
-Every check once, in one place: the per-file driver over the tracked corpus, then the checks a
-page's kind decides, then the ones reading the branch. Findings print under their severity, and a
-failing one is the exit code.
-
-Invariants:
-- The base is resolved here and nowhere else, so no check can resolve it a second way.
-- Advisories are truncated at ten unless every one is asked for; failures always print in full.
-
-See:
-- docs/ops/spec.md — the gate's scopes, and which of them runs this
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -67,14 +52,12 @@ def main() -> int:
 
     files = tracked_files()
     if not files:
-        # Refused, not green: an empty corpus is a tree this gate could not read, and a green exit
-        # under a line saying nothing was checked is the shape a refusal exists to prevent.
+        # Refused, not green: an empty corpus is a tree this gate could not read.
         print("      no tracked file matched -- nothing was read, so this run proves nothing", file=sys.stderr)
         return checker_kernel.EXIT_REFUSED
 
-    # Resolved once, and handed to every branch-scoped check below. The kernel's resolver prefers the
-    # remote-tracking ref: a CI checkout has no local branch, and a stale local one reads another
-    # branch's commits as this one's.
+    # Resolved once, and handed to every branch-scoped check below. The kernel's resolver prefers
+    # the remote-tracking ref: a stale local one reads another branch's commits as this one's.
     branch = Branch(checker_kernel.DEFAULT_BASE, checker_kernel.resolve_base())
 
     existing_rules = rule_ids()

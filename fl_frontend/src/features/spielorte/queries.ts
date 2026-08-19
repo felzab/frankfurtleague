@@ -1,14 +1,3 @@
-/**
- * SPIELORTE · cached read
- *
- * Invariants:
- * - Base tag only, and sufficient: this slice's actions invalidate `spielorte` on every write.
- * - A venue rename also invalidates `spiele` — the backend fans the new name into every match.
- *
- * See:
- * - docs/frontend/spec.md — section 1.3, the action inventory
- */
-
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";

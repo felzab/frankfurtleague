@@ -1,23 +1,19 @@
-<!--
-TEMPLATE — copy to docs/<surface>/spec.md; delete this block.
-Rules: ../chapters/3-corpus.md — the spine is OUT-4.
-  - Every claim carries an anchored citation: `<path> :: <symbol>` or a rule id, never a
-    line number (COR-6).
-  - Invariant numbers are permanent. A retired invariant keeps its `I<n>`, and source comments
-    cite these anchors — renumbering silently breaks them.
--->
+# Spec sheet
+
+**Shape:** OUT-4 in [`../chapters/3-corpus.md`](../chapters/3-corpus.md). Copy the page below to
+`docs/<surface>/spec.md` and delete this heading and this line.
 
 # \<Surface\> — spec
 
 **Verified against:** `<sha>`, \<yyyy-mm-dd\>\
 **Scope:** \<the directories and files this covers\>
 
-| Section               | Answers                                                  |
-| --------------------- | -------------------------------------------------------- |
-| 1. Contract           | What this surface exposes, and on what terms             |
-| 2. Invariants         | What must stay true, what enforces it, and how it breaks |
-| 3. Violation → remedy | The symptom is here; what caused it and what fixes it    |
-| 4. Known-open         | What is accepted as missing, and what owns it            |
+| Section               | Answers                                               |
+| --------------------- | ----------------------------------------------------- |
+| 1. Contract           | What this surface exposes, and on what terms          |
+| 2. Invariants         | What must stay true, and what enforces it             |
+| 3. Violation → remedy | The symptom is here; what caused it and what fixes it |
+| 4. Known-open         | What is accepted as missing, and what owns it         |
 
 ## 1. Contract
 
@@ -33,12 +29,12 @@ fixed sections keep their numbers so a citation of section 3 means the same thin
 
 ## 2. Invariants
 
-\<All four columns, every row — an invariant with no stated failure mode is a preference, and the
-last column is what tells a reader whether breaking it fails loudly or quietly.\>
+\<This table and nothing else. A symptom a reader would observe is a row in section 3; the argument
+for an invariant is in the commit that made it.\>
 
-| #   | Invariant     | Enforced by                                            | Breaks how                      |
-| --- | ------------- | ------------------------------------------------------ | ------------------------------- |
-| I1  | \<statement\> | \<`<path> :: <symbol>`, or the review rule behind it\> | \<what goes wrong, concretely\> |
+| #   | Invariant     | Enforced by                                            |
+| --- | ------------- | ------------------------------------------------------ |
+| I1  | \<statement\> | \<`<path> :: <symbol>`, or the review rule behind it\> |
 
 ## 3. Violation → remedy
 

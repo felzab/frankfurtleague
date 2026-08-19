@@ -1,11 +1,6 @@
 /**
- * SHARED · list grouping
- *
- * Groups `right` under `left` by a shared id, attaching each group at `targetKey`.
- * `TKey extends string` is what makes the return type name the attached property instead of
- * widening — the plain version forced the codebase's only `as unknown as`. The return is
- * `Omit<L, TKey> & …`, not `L & …`: at runtime the spread REPLACES a same-named key, and an
- * intersection would claim both types, so `.toUpperCase()` compiles and throws.
+ * The return is `Omit<L, TKey> & …`, never `L & …`: the spread replaces a same-named key at runtime, so an intersection
+ * claims both types and `.toUpperCase()` compiles and throws.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- L and R are arbitrary row shapes */
 export function joinCollections<
@@ -45,9 +40,8 @@ export function joinCollections<
     (item) =>
       ({
         ...item,
-        // .slice() so each left row owns its group. Without it, two rows sharing an id receive the
-        // same array instance, and an in-place sort or push on one silently mutates the other --
-        // inconsistent with the unmatched path, which builds a fresh [] every time.
+        // .slice() so each left row owns its group: two rows sharing an id would otherwise receive one
+        // array instance, and a sort or push through either silently reaches the other.
         [targetKey]: map.get(item[leftIdKey] as IdType)?.slice() ?? [],
       }) as Omit<L, TKey> & { [P in TKey]: R[] },
   );

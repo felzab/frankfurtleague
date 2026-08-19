@@ -1,12 +1,3 @@
-/**
- * SPIELE · match editor banner tests
- *
- * The cancellation cluster is the one place in the app where three banners fire on one switch flip,
- * so the two edges that thin it out are asserted against the resolved list rather than the authored
- * one. The per-side entries are asserted for distinct ids, which is what the React key rests on now
- * that the titles interpolate a club name.
- */
-
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -65,7 +56,7 @@ describe("buildSpielBanners", () => {
   });
 
   it("thins the cancellation cluster down: the standing note goes while either specific banner stands", () => {
-    // Red without `resolveRailBanners` — and the whole reason O1 showed six callouts for one flip.
+    // Red without `resolveRailBanners`, which is what thins six callouts down to one flip's worth.
     const beingCalledOff = build({ isBeingCalledOff: true, isCanceled: true });
     assert.ok(ids(beingCalledOff).includes("spiel.is-canceled"));
     assert.ok(!ids(resolveRailBanners(beingCalledOff)).includes("spiel.is-canceled"));

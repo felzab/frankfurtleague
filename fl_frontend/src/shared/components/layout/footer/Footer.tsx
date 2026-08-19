@@ -7,15 +7,8 @@ import { skeletonBlock } from "@/shared/components/ui/skeleton";
 import { FooterCopyrightString } from "./FooterCopyrightString";
 
 /**
- * A placeholder bar for one of the status bar's two streamed values.
- *
- * Local rather than shared: both consumers are three lines below, and the thing that makes it
- * correct — `fluid-xxs`, matching the type size of both real strings — is specific to this row.
- * `width` is sized to the string it stands in for, so nothing in the row reflows on arrival.
- *
- * Declared here rather than importing a skeleton from `features/system`: this is a shared layout
- * primitive and must stay free of feature imports, which is the same reason `serverStatusSlot` is
- * injected rather than imported.
+ * `width` is sized to the string it stands in for, so nothing in the row reflows on arrival. Declared here rather than
+ * imported from a feature: this is a shared layout primitive and must stay free of feature imports.
  */
 function FooterSlotSkeleton({ width, label }: { width: string; label: string }) {
   return (
@@ -28,11 +21,8 @@ function FooterSlotSkeleton({ width, label }: { width: string; label: string }) 
   );
 }
 
-// serverStatusSlot is injected by the composition root rather than imported, so this generic layout
-// primitive keeps zero feature dependencies. Same technique as Sidemenu's saisonMetadataDisplay.
-
-// Not async: it awaits nothing, so `async` would only produce a promise for React to unwrap. It is
-// not the PPR resume failure's cause — the aborts are unchanged either way.
+// `serverStatusSlot` is injected by the composition root rather than imported, so this layout primitive
+// keeps zero feature dependencies — the same technique as `Sidemenu`'s `saisonMetadataDisplay`.
 export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNode }) {
   return (
     <footer className="max-w-page mx-auto flex h-full w-full flex-col justify-between px-4 pt-2 pb-6 sm:px-6">
@@ -78,18 +68,8 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
               rel="noopener noreferrer"
               aria-label="Threads-Profil"
               className="transition-opacity hover:opacity-80">
-              {/* The recipe all four socials use. One masked element instead of a light/dark
-                  <Image> pair: both assets were in the DOM and both were fetched, and the mask takes
-                  its colour from bg-foreground, which flips with the theme on its own. The span is
-                  decorative — the link above it already carries the accessible name.
-                  inline-block is load-bearing: width/height do not apply to a non-replaced inline
-                  box, so a bare <span class="size-6"> renders 0x0. The <Image> it replaced was a
-                  replaced element, where they do apply.
-                  Each *_logo_black.svg is a glyph-only silhouette, used purely as an alpha mask —
-                  Instagram and WhatsApp were derived from their brand-coloured originals for this,
-                  so the whole row is one colour rather than two mono icons beside two coloured
-                  ones. Mask sources must have a transparent background: WhatsApp's original is a
-                  filled rounded square and would have masked as a solid block. */}
+              {/* `inline-block` is load-bearing: width and height do not apply to a non-replaced inline box, so a
+                  bare span renders 0×0. Each mask source must be a silhouette on a transparent background. */}
               <span
                 aria-hidden="true"
                 className="bg-foreground inline-block size-6 mask-[url('/icons/footer/threads/threads_logo_black.svg')] mask-contain mask-center mask-no-repeat"
@@ -138,13 +118,8 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
         </div>
       </div>
 
-      {/* Bottom Status & Copyright Bar. Both children are request-time holes in the static shell:
-          the copyright year reads the clock and the status pings the backend. Each gets its own
-          boundary so the shell shows a placeholder and the real values stream in.
-          Placeholders rather than stand-in text (decided 2026-08-02): text in a fallback makes the row
-          change its wording mid-paint, and a partial sentence asserts something not yet known. A bar
-          says "still loading" without claiming anything, and reads as one state with the rest of the
-          page's skeletons. */}
+      {/* Both children are request-time holes in the static shell, each with its own boundary. Bars rather than
+          stand-in text: a fallback sentence changes its wording mid-paint and asserts something not yet known. */}
       <div className="flex flex-col items-center justify-between gap-4 pt-6 text-center sm:flex-row sm:text-left">
         <Suspense
           fallback={

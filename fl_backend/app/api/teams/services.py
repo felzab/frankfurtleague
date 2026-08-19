@@ -1,24 +1,3 @@
-"""
-TEAMS · aggregation pipeline, and the group standing
-
-`build_team_pipeline` builds the read pipeline for `GET /teams`; `build_gruppen` and
-`build_decided_standings` order each group by the tiebreak chain and say which placings no
-remaining result can change — pure throughout. A team document is season-independent: `gruppe` and
-`disqualifikation` are joined from `saison_teams`, and `statistik` is derived from that season's
-`spiele` on every read, never cached and never stored.
-
-Invariants:
-- A match counts exactly when it carries an `ergebnis`; a forfeit also counts as called off, and no scored figure reads `is_canceled`.
-- `elfmeterschiessen` is not consulted either: penalties are a draw for every figure here.
-- `statistik_scope` picks the matches and defaults to the Gruppenphase.
-- The pipeline takes an `FLSaisonRules` — points come from the season's own rules.
-- One ordering serves the displayed table and the bracket seeding — the same chain, same `_tiers`.
-- A tie is broken below points only among teams whose figures are final.
-
-See:
-- docs/glossary.md — "Statistik", the same counting rules in domain terms
-"""
-
 from dataclasses import dataclass
 from itertools import product
 from typing import AbstractSet, Any, Iterable, Mapping, Sequence, get_args
@@ -36,54 +15,39 @@ STATISTIK_AS_NAME = "statistik_data"
 ABSAGE_AS_NAME = "absage_data"
 ABSAGE_COUNT_NAME = "anzahl"
 
-# What a team whose season holds no counting match gets. Derived from the model rather than written
-# out, so a field added to FLTeamStatistik cannot be forgotten here and fail response validation.
+# Derived from the model, so a field added to `FLTeamStatistik` cannot be forgotten here.
 ZERO_STATISTIK: Mapping[str, int] = {field_name: 0 for field_name in FLTeamStatistik.model_fields}
 
-# This team on either side of a fixture, for a `$lookup` whose `let` binds `team_oid`.
+# For a `$lookup` whose `let` binds `team_oid`.
 _IS_THIS_TEAM_IN_SLOT_ONE: Mapping[str, Any] = {"$eq": ["$team1.team_id", "$$team_oid"]}
 
 
 def _fixtures_of_this_team(saison_id: str, scope: FLTeamStatistikScope) -> dict[str, Any]:
-    """
-    The season's fixtures this team appears on either side of, narrowed to the requested scope.
-
-    Shared by the `$lookup` stages below so the scope rule has one implementation: every
-    figure derived per team has to answer for the same set of matches, and a hand-written `$match` per
-    stage is another place for a phase filter to be forgotten. What each lookup adds is its own rule.
-    """
+    """Shared by the `$lookup` stages below: a `$match` per stage is another place to forget the phase filter."""
 
     return {
         "saison_id": saison_id,
-        # The Gruppenphase scope rule. Absent under "gesamt" rather than negated: no `saison_phase`
-        # value means "any", and an `$in` over every phase would need widening by hand the day one
-        # is added.
+        # Absent under "gesamt" rather than negated: an `$in` over every phase needs widening by
+        # hand the day one is added.
         **({"saison_phase": "gruppenphase"} if scope == "gruppenphase" else {}),
         "$expr": {"$or": [_IS_THIS_TEAM_IN_SLOT_ONE, {"$eq": ["$team2.team_id", "$$team_oid"]}]},
     }
 
 
+def _counting_fixtures_match() -> dict[str, Any]:
+    """Whether a fixture counts. A forfeit does, and a shoot-out is a draw (`docs/backend/spec.md :: I25a`)."""
+
+    return {
+        "ergebnis": {"$ne": None},
+        # Redundant with `ergebnis` except on a hand-edited document, where a null count would group
+        # as a 0:0 draw instead of dropping out.
+        "team1.tore": {"$ne": None},
+        "team2.tore": {"$ne": None},
+    }
+
+
 def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
-    """
-    The `$lookup` deriving one team's seven statistics from the season's matches.
-
-    A match counts exactly when it carries an `ergebnis`. `is_canceled` is deliberately not consulted:
-    a cancelled match with a result is a forfeit, and a forfeit counts. Within the aggregation the flag
-    decides `build_absage_lookup_stage`'s count and nothing else; the certainty walk further down this
-    module reads it in Python, for the different question of which fixtures are still to come.
-
-    **`elfmeterschiessen` is not consulted either, and that is the same kind of deliberate omission.** A
-    knockout settled on penalties is a DRAW here -- one point each, one entry in `unentschieden`, and
-    the shoot-out's own counts nowhere in `tore_geschossen`. The bracket reads that fixture
-    the other way and advances a winner from it
-    (`fl_backend/app/api/spiele/services.py :: _outcome_of`), so the table and
-    the bracket say different things about the same match ON PURPOSE. That is what every competition
-    scoring a shoot-out does, and it is why the two counts are a scoreline of their own rather than
-    goals: adding them to `tore` would move a league table on kicks that were never part of the match.
-
-    `scope` decides which matches are in scope at all: `"gruppenphase"` is the league table
-    and narrows to that phase, `"gesamt"` is every phase and is what a team's own page shows.
-    """
+    """One team's statistics, derived from the season's matches; `scope` is the whole difference between the table and a team page."""
 
     return {
         "$lookup": {
@@ -93,20 +57,11 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                 {
                     "$match": {
                         **_fixtures_of_this_team(saison_id, scope),
-                        # The counting rule, in one place. Note what is absent: `is_canceled` and
-                        # `elfmeterschiessen`. A shoot-out decides the bracket and never the table
-                        # -- see the docstring above.
-                        "ergebnis": {"$ne": None},
-                        # Deliberately redundant with the line above: a hand-edited document is
-                        # where `ergebnis` and the goal counts can disagree, and a null count would
-                        # then group as a 0:0 draw instead of dropping out.
-                        "team1.tore": {"$ne": None},
-                        "team2.tore": {"$ne": None},
+                        **_counting_fixtures_match(),
                     }
                 },
                 {
-                    # Both teams are embedded in the one match document, so each match is first turned
-                    # around to face THIS team before anything is counted.
+                    # Both teams sit in one document, so each match is turned to face THIS one first.
                     "$project": {
                         "_id": 0,
                         "tore_self": {"$cond": [_IS_THIS_TEAM_IN_SLOT_ONE, "$team1.tore", "$team2.tore"]},
@@ -125,9 +80,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                     }
                 },
                 {
-                    # Points come last, from the season's own rules. A defeat adds nothing because
-                    # FLSaisonRules carries no loss_points -- that is the model's statement, not a
-                    # third constant chosen here.
+                    # A defeat adds nothing: `FLSaisonRules` carries no `loss_points`.
                     "$project": {
                         "_id": 0,
                         "anzahl_gespielte_spiele": 1,
@@ -151,24 +104,10 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
 
 
 def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
-    """
-    The `$lookup` counting the fixtures of this team that were called off.
+    """This team's called-off fixtures, counted in a stage of their own.
 
-    **A stage of its own rather than a second accumulator inside the counting `$lookup`**: one lookup
-    would admit a result-less document to reach the cancellations, widening the scoring `$match`. And
-    aggregation `$eq: [null, null]` is TRUE, so a goalless cancellation would then score as a draw --
-    one point -- with every figure beside it correct and every existing test green.
-
-    `is_canceled` is the whole rule, so a cancellation that was played out as a forfeit reaches this
-    count AND `anzahl_gespielte_spiele`. The two are not a partition and neither is the other's
-    remainder: what this figure says is how many of the team's fixtures were called off, never how
-    many are missing from the tally beside it.
-
-    Only a fixture that EXISTS and was called off is counted here. A fixture nobody has played yet is
-    a different fact, no document records it, and how many a season should hold follows from the
-    season's own rules instead — so this count can never speak for one.
-
-    `scope` narrows the matches exactly as it does for the figures beside them.
+    Never a second accumulator inside the counting `$lookup`: aggregation `$eq: [null, null]` is
+    TRUE, so a goalless cancellation would score as a draw.
     """
 
     return {
@@ -179,9 +118,8 @@ def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Ma
                 {
                     "$match": {
                         **_fixtures_of_this_team(saison_id, scope),
-                        # The only stage reading `is_canceled`, and the flag is the whole rule --
-                        # adding `ergebnis: None` drops the forfeits, which are nearly every
-                        # cancellation here. This reaches nothing the table scores on.
+                        # The flag is the whole rule: `ergebnis: None` beside it would drop the
+                        # forfeits, which are nearly every cancellation here.
                         "is_canceled": True,
                     }
                 },
@@ -193,9 +131,8 @@ def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Ma
 
 
 def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team_id: Any | None = None) -> list[Mapping[str, Any]]:
-    # Not a filter that may be omitted: the statistics below are per season, so without one this would
-    # match no match at all and hand back a table of zeros that looks like a real answer. The router
-    # resolves it before calling.
+    # Without a season the statistics below match nothing and hand back a table of zeros that reads
+    # as a real answer.
     if filters.saison_id is None:
         raise ValueError("build_team_pipeline requires a resolved saison_id -- statistics are derived per season.")
 
@@ -203,18 +140,13 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
 
     base_match: dict[str, Any] = {}
 
-    # Clubs that have left the league. Not the same as a team disqualified FOR a season --
-    # that is `disqualifikation` on the junction, filtered inside the lookup below, and a disqualified
-    # team stays in the table.
+    # Clubs that left the league -- never a team disqualified FOR a season, which keeps its row.
     if not filters.include_inactive:
         base_match["inactive_since"] = None
 
-    # An argument rather than a filter field: `GET /teams/{team_id}` addresses one document, and the
-    # difference between "this team" and "teams matching" is the difference between a path and a query.
     if team_id is not None:
         base_match["_id"] = team_id
 
-    # Apply the base match BEFORE the lookup to save memory
     if base_match:
         pipeline.append({"$match": base_match})
 
@@ -224,9 +156,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
         context={"keep_oid": True},
     )
 
-    # Translated rather than dumped: `is_disqualified` asks whether the row holds a record, and the
-    # row stores no boolean to match against. `$ne: null` also excludes a row missing the key, which
-    # the validator forbids.
+    # Translated, not dumped: the row stores a record, never a boolean (`docs/backend/spec.md :: I31`).
     if filters.is_disqualified is not None:
         lookup_filters["disqualifikation"] = {"$ne": None} if filters.is_disqualified else None
 
@@ -260,8 +190,8 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
     pipeline.append(build_statistik_lookup_stage(saison_id=filters.saison_id, rules=rules, scope=filters.statistik_scope))
     pipeline.append(build_absage_lookup_stage(saison_id=filters.saison_id, scope=filters.statistik_scope))
 
-    # One projection, because there is one team shape. Never branch a reduced variant off it: measured
-    # 2026-08-02, the trim is 26 KiB and no query work at all -- every lookup runs either way.
+    # One projection, one team shape: a reduced variant trims the response and saves no query work,
+    # since every lookup runs either way.
     pipeline.append(
         {
             "$project": {
@@ -273,14 +203,10 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
                 "full_name": 1,
                 "website_url": 1,
                 "inactive_since": 1,
-                # The lookup yields one grouped document, or none at all for a team with no counting
-                # match -- `$group` emits nothing for an empty input rather than a row of zeros.
+                # `$group` emits nothing for an empty input rather than a row of zeros.
                 "statistik": {
                     "$mergeObjects": [
                         {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, ZERO_STATISTIK]},
-                        # Merged over the figures rather than grouped with them, which is what keeps
-                        # `is_canceled` out of the lookup that derives them. A team with no
-                        # counting match reaches this too -- the fallback above supplies the rest.
                         {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}},
                     ]
                 },
@@ -299,23 +225,13 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
     return pipeline
 
 
-# How many outstanding fixtures the certainty check will walk before giving up: every combination of
-# outcomes is tried, so the work is 3^n. Beyond the bound nothing is reported as final, which is the
-# safe direction and the honest one.
+# The walk tries every combination of outcomes, so the work is 3^n. Past the bound nothing is
+# reported as final, which is the safe direction.
 CERTAINTY_FIXTURE_LIMIT = 10
 
 
 def _counted_goals(spiel: FLSpiel) -> tuple[CustomObjectId, int, CustomObjectId, int] | None:
-    """
-    One match as `(team1_id, tore1, team2_id, tore2)`, or `None` when it does not count.
-
-    The counting rule is `build_statistik_lookup_stage`'s, restated in Python because a standing has to
-    ask the same question of a match the pipeline has already summed: a match contributes exactly when
-    it carries an `ergebnis` and both sides' goals. `is_canceled` is deliberately not consulted -- a
-    cancelled match with a result is a forfeit, and a forfeit counts. Neither is `elfmeterschiessen`:
-    a shoot-out is a draw everywhere a standing is derived, including the head-to-head mini-table
-    this feeds.
-    """
+    """`_counting_fixtures_match` restated in Python, for a standing asking it of a match the pipeline already summed."""
 
     if spiel.ergebnis is None or spiel.team1 is None or spiel.team2 is None:
         return None
@@ -326,8 +242,6 @@ def _counted_goals(spiel: FLSpiel) -> tuple[CustomObjectId, int, CustomObjectId,
 
 
 def _goal_key(team: FLTeam) -> tuple[int, int]:
-    """Goal difference, then goals scored -- the two criteria under points that `statistik` answers."""
-
     return (team.statistik.tore_geschossen - team.statistik.tore_kassiert, team.statistik.tore_geschossen)
 
 
@@ -336,15 +250,10 @@ def _head_to_head_keys(
     spiele: Iterable[FLSpiel],
     rules: FLSaisonRules,
 ) -> Mapping[CustomObjectId, tuple[int, int, int]]:
-    """
-    The mini-table over the matches `teams` played against EACH OTHER: points, goal difference, goals.
+    """The mini-table over the matches `teams` played against EACH OTHER.
 
-    Applied to a whole tied set rather than pair by pair, which is what makes it the standard
-    formulation: with three teams level, "who beat whom" is not even transitive, so a pairwise rule
-    can order A above B above C above A.
-
-    Points come from the season's own `rules`, exactly as the full table's do, and a defeat again adds
-    nothing because `FLSaisonRules` carries no `loss_points`.
+    Over the whole tied set, never pair by pair: with three level, "who beat whom" is not
+    transitive, so a pairwise rule can order A above B above C above A.
     """
 
     ids = {team.id for team in teams}
@@ -376,13 +285,10 @@ def _head_to_head_keys(
 
 
 def _break_tie(band: Sequence[FLTeam], spiele: Iterable[FLSpiel], rules: FLSaisonRules) -> list[list[FLTeam]]:
-    """
-    Teams level on points, split by everything below it.
+    """Teams level on points, split by goal difference, goals scored, then the head-to-head table.
 
-    Goal difference, then goals scored, then the head-to-head table among whoever is still level.
-
-    Every member's figures are final -- the caller checks that before asking, because a team with a
-    match left has an unbounded goal difference and ordering on it would be ordering on a guess.
+    Every member's figures must already be final -- the caller checks: a team with a match left has
+    an unbounded goal difference.
     """
 
     by_goals: dict[tuple[int, int], list[FLTeam]] = {}
@@ -401,9 +307,8 @@ def _break_tie(band: Sequence[FLTeam], spiele: Iterable[FLSpiel], rules: FLSaiso
         for team in still_level:
             by_head_to_head.setdefault(head_to_head[team.id], []).append(team)
 
-        # One pass, not a recursion back to the top of the chain: a set that the head-to-head table
-        # cannot separate either is a genuine tie, and it is reported as one rather than resolved by
-        # a further criterion nobody has chosen.
+        # One pass, never a recursion back up the chain: a set the head-to-head table cannot
+        # separate is a genuine tie, reported as one.
         tiers.extend(by_head_to_head[key] for key in sorted(by_head_to_head, reverse=True))
 
     return tiers
@@ -416,22 +321,10 @@ def _tiers(
     spiele: Iterable[FLSpiel],
     rules: FLSaisonRules,
 ) -> list[list[FLTeam]]:
-    """
-    `teams` split into descending bands, highest first.
+    """`teams` in descending bands; a band of one is a decided position.
 
-    A band of one is a team whose position is decided; a band of several is a tie nothing in the chain
-    could break.
-
-    `punkte` is passed in rather than read off `statistik` because `build_decided_standings` ranks these
-    same teams under results that have not happened yet. The base numbers are still the pipeline's, so
-    the counting rule keeps exactly one implementation.
-
-    `settled` names the teams whose goals are final. A band containing one that is not stays whole:
-    nothing bounds a goal margin, so a team with a match left can end anywhere within its points band
-    and ordering the rest around it would assert a placing that is still moving.
-
-    Within a band the input order survives, which is the pipeline's sort by `name` -- so a tie the chain
-    cannot break renders alphabetically rather than arbitrarily.
+    `punkte` is an argument because `build_decided_standings` ranks these same teams under results
+    that have not happened yet.
     """
 
     by_punkte: dict[int, list[FLTeam]] = {}
@@ -441,6 +334,8 @@ def _tiers(
     tiers: list[list[FLTeam]] = []
     for score in sorted(by_punkte, reverse=True):
         band = by_punkte[score]
+        # A band holding a team whose goals are not final stays whole: nothing bounds a goal margin,
+        # so ordering the rest around it asserts a placing that is still moving.
         if len(band) == 1 or not all(team.id in settled for team in band):
             tiers.append(band)
             continue
@@ -451,19 +346,7 @@ def _tiers(
 
 
 def _may_hold_a_platz(team: FLTeam, still_to_play: int) -> bool:
-    """
-    Whether a team can occupy a placing a bracket slot could name.
-
-    Two exclusions, and both exist so the table and the bracket say the same thing. A
-    DISQUALIFIED team keeps its row in the standing and cannot advance out of it, so the placings walk
-    past it and the team below takes the place. A team with NO MATCH THAT COUNTS OR STILL COULD holds no
-    placing at all: the pipeline serves it a zeroed `statistik`, which ranks above every team with a
-    negative goal difference, and `SaisontabelleView` already prints `N/A` rather than a position there.
-
-    `still_to_play` is what makes this one rule rather than two. Read on the table as it stands it is
-    zero, and the second clause is "has played"; read while a group is running it also admits a team
-    whose first fixture is still to come.
-    """
+    """Whether a team can hold a placing a bracket slot could name (`docs/backend/spec.md :: I24b`)."""
 
     return team.disqualifikation is None and (team.statistik.anzahl_gespielte_spiele + still_to_play) > 0
 
@@ -472,14 +355,10 @@ def _spiele_by_gruppe(
     spiele: Iterable[FLSpiel],
     gruppe_of: Mapping[CustomObjectId, FLGruppenNames],
 ) -> tuple[dict[FLGruppenNames, list[FLSpiel]], set[FLGruppenNames]]:
-    """
-    Each group's own fixtures, and the groups holding a fixture that cannot be attributed to one.
+    """Each group's own fixtures, and the groups holding a fixture attributable to none.
 
-    A fixture belongs to a group when BOTH of its sides are teams of that group. The second half of the
-    answer is the exception that matters: a fixture still to be played with a side nobody has entered
-    yet will award points inside some group and can be given no outcome, so no placing in a group it
-    touches is final while it stands -- and one with NO entered side touches every group, because
-    nothing bounds which teams it will turn out to involve.
+    A fixture belongs to a group when BOTH sides are teams of it; one that is not can still award
+    points inside it, so no placing there is final while it stands.
     """
 
     by_gruppe: dict[FLGruppenNames, list[FLSpiel]] = {name: [] for name in get_args(FLGruppenNames)}
@@ -495,9 +374,7 @@ def _spiele_by_gruppe(
 
         if _counted_goals(spiel) is None and not spiel.is_canceled:
             if spiel.team1 is None and spiel.team2 is None:
-                # NO side to attribute at all: it will award points inside some group and nothing can
-                # say which, so no placing is final while it stands. A fixture whose sides are known
-                # but outside the standings falls through -- its points reach nobody.
+                # NO side to attribute, so nothing can say which group it lands in.
                 unattributable.update(get_args(FLGruppenNames))
             else:
                 unattributable.update(name for name in (left, right) if name is not None)
@@ -506,7 +383,7 @@ def _spiele_by_gruppe(
 
 
 def _still_to_play(spiele: Iterable[FLSpiel]) -> Mapping[CustomObjectId, int]:
-    """How many fixtures each team has left -- neither counted nor called off, so still to be awarded."""
+    """How many fixtures each team has left: neither counted nor called off, so still to be awarded."""
 
     counts: dict[CustomObjectId, int] = {}
     for spiel in spiele:
@@ -521,16 +398,10 @@ def _still_to_play(spiele: Iterable[FLSpiel]) -> Mapping[CustomObjectId, int]:
 
 @dataclass(frozen=True)
 class DecidedStanding:
-    """
-    Which placings in one group no remaining result can still change.
+    """Which placings in one group no remaining result can still change.
 
-    `by_platz` holds only the placings that come out the same however the group's outstanding fixtures
-    go. An absent placing means one of two different things, and the caller can tell them apart:
-    `is_complete` false is "not yet", which is the ordinary state of a running group, while
-    `is_complete` true is a tie the chain could not break and needs a person.
-
-    `eligible` counts the teams that can hold a placing at all, so a reference naming a `platz` beyond
-    it is naming one this group will never produce.
+    An absent `by_platz` entry means "not yet" while `is_complete` is false, and a tie the chain
+    could not break once it is true.
     """
 
     eligible: int
@@ -547,8 +418,8 @@ def _decide_one_gruppe(
 ) -> DecidedStanding:
     """One group's decided placings, by walking every way its outstanding fixtures could still go."""
 
-    # Both sides are known for every fixture `_spiele_by_gruppe` attributes to a group, so the two
-    # checks below narrow the type rather than branching on anything.
+    # `_spiele_by_gruppe` attributes only fixtures with both sides known, so the two side checks
+    # below narrow the type rather than branch.
     open_pairs: list[tuple[CustomObjectId, CustomObjectId]] = [
         (spiel.team1.team_id, spiel.team2.team_id)
         for spiel in spiele
@@ -565,9 +436,8 @@ def _decide_one_gruppe(
     base = {team.id: team.statistik.punkte for team in eligible}
     order = [team.id for team in eligible]
 
-    # Deduplicated by the points table each outcome set produces, and ranked AS the walk goes so it
-    # stops the moment no placing survives. Measured 2026-08-09: the full walk over a five-team group
-    # costs ~850 ms inside the write transaction.
+    # Deduplicated by the points table each outcome set produces, and ranked AS the walk goes, so it
+    # stops the moment no placing survives: this runs inside the write transaction.
     decided: Mapping[int, FLTeam] | None = None
     seen: set[tuple[int, ...]] = set()
     for outcomes in product((1, 0, 2), repeat=len(open_pairs)):
@@ -579,8 +449,7 @@ def _decide_one_gruppe(
                         punkte[side] += rules.draw_points
                 continue
 
-            # The loser is added to deliberately: a defeat scores nothing, because `FLSaisonRules`
-            # carries no `loss_points`.
+            # Only the winner is added to: `FLSaisonRules` carries no `loss_points`.
             winner = left if outcome == 1 else right
             if winner in punkte:
                 punkte[winner] += rules.win_points
@@ -592,8 +461,7 @@ def _decide_one_gruppe(
 
         placings = _placings(eligible, dict(zip(order, vector, strict=True)), settled, spiele, rules)
 
-        # A placing survives only while every table so far has put the SAME team there. One outcome
-        # that moves a team is enough to make its placing something a person still decides.
+        # A placing survives only while every table so far has put the SAME team there.
         if decided is None:
             decided = placings
         else:
@@ -626,20 +494,10 @@ def _placings(
 
 
 def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpiel], rules: FLSaisonRules) -> FLGruppen:
-    """
-    The four groups, always all four, each ordered by the competition's tiebreak chain.
+    """The four groups, each ordered by the competition's tiebreak chain.
 
-    Seeded with every group name rather than built from the teams present: a season with nobody in group
-    D would otherwise omit the "D" key, the frontend's `FLGruppenSchema` requires all four, and
-    /dashboard/saisontabelle fails to parse the response. Every season so far has had teams in all four
-    groups, so that failure hides until it does not.
-
-    Ordered as the table STANDS, so every figure in it is current and the whole chain applies. What
-    remaining fixtures could still do to it is `build_decided_standings`' question and not this one --
-    a table is a statement about now.
-
-    A disqualified team keeps its row here. It is excluded from holding a *placing*, which is a
-    different question and is `_may_hold_a_platz`'s.
+    Seeded with every group name, never from the teams present: a season with nobody in group D
+    would omit the key (`docs/backend/spec.md :: I10`).
     """
 
     teams = list(teams)
@@ -648,14 +506,13 @@ def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpiel], rules: FLS
 
     grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in get_args(FLGruppenNames)}
     for team in teams:
-        # The one way round `FLGruppenNames`: an `FLTeam` built with `model_construct`, which skips
-        # validation. Tested against `grouped` rather than for falsiness -- `not team.gruppe` lets "X"
-        # through to a bare KeyError instead of this error.
+        # `model_construct` is the one way round `FLGruppenNames`. Tested against `grouped`, not for
+        # falsiness -- `not team.gruppe` lets "X" through to a KeyError.
         if team.gruppe not in grouped:
             raise ValueError(f"Team {team.id} has gruppe {team.gruppe!r}, which is not one of A/B/C/D")
         grouped[team.gruppe].append(team)
 
-    # Every figure on the table is final AS A READING OF NOW, which is what lets the whole chain apply.
+    # Every figure is final AS A READING OF NOW, which is what lets the whole chain apply.
     everyone = frozenset(gruppe_of)
 
     return FLGruppen(
@@ -676,18 +533,10 @@ def build_decided_standings(
     rules: FLSaisonRules,
     gruppen: AbstractSet[FLGruppenNames] | None = None,
 ) -> Mapping[FLGruppenNames, DecidedStanding]:
-    """
-    Which placing in each group is already beyond doubt, and which is still anybody's.
+    """Which placing in each group is beyond doubt, and which is still anybody's.
 
-    Pass the season's GROUP-PHASE matches and the teams of that season, in the pipeline's `name` order.
-    A placing is reported only when it comes out the same however every outstanding fixture in its group
-    goes -- so a slot seeded from one cannot be overturned by a result nobody has entered yet.
-
-    `gruppen` names the groups worth deciding -- the ones a stored `gruppe` reference actually seeds
-    from -- and `None` means all four. The walk over a group's outcomes is the expensive half of a
-    result entry, and a group no bracket slot reads from buys nothing with it; a group absent from the
-    returned mapping reads to `_seed_from_gruppe` as "no standing supplied", which leaves a slot
-    exactly as it stands and is unreachable while every referenced group is in `gruppen`.
+    Pass the season's GROUP-PHASE matches. `gruppen` narrows to the groups worth deciding: the walk
+    is the expensive half of a save.
     """
 
     spiele = list(spiele)
@@ -716,12 +565,10 @@ def build_decided_standings(
 
 
 def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
-    """
-    Every club with every junction row it holds, for the admin list (`GET /teams/memberships`).
+    """Every club with every junction row it holds.
 
-    Deliberately UNLIKE `build_team_pipeline`: no season resolution, no strict join, no statistics.
-    The admin surface asks a club-centric question, so retired clubs stay in, a club in no season
-    comes back with an empty list, and the lookup projects exactly the junction's three data fields.
+    UNLIKE `build_team_pipeline`: no season resolution, no strict join, no statistics -- the
+    question is club-centric, so retired clubs stay in.
     """
 
     return [
@@ -738,40 +585,22 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
     ]
 
 
-# The season is not `future`. A season's field is settled before it starts (decided 2026-08-07): once
-# it is running its fixtures exist, and once it is past its table is history -- a team enters neither.
+# What every code below refuses is `docs/logging/error-codes.md`.
 ENTRY_SAISON_NOT_FUTURE = "REQ-ENTER-001"
-# The group is outside the first `number_of_groups` of the closed A-D set, so this season never runs it.
 ENTRY_GRUPPE_NOT_OFFERED = "REQ-ENTER-002"
-# The group already holds `teams_per_group` rows. A disqualified team still counts towards that: it
-# never leaves the season, so its place stays taken.
 ENTRY_GRUPPE_FULL = "REQ-ENTER-003"
-
-# A group CHANGE for a team whose fixtures are already drawn (decided 2026-08-08). The group phase is a
-# round robin inside each group, so moving a team leaves its fixtures played against the group it left.
-# A move is not an entry.
 ENTRY_GRUPPE_LOCKED = "REQ-ENTER-004"
 
 
 def offered_gruppen(number_of_groups: int) -> tuple[FLGruppenNames, ...]:
-    """The groups a season runs: the first `number_of_groups` of the closed A-D set, in order."""
-
     return get_args(FLGruppenNames)[:number_of_groups]
 
 
 def find_gruppe_move_refusal(*, saison_status: str, fixtures_drawn: int) -> WriteRefusal | None:
-    """
-    Why moving this team to another group must be refused, as a `WriteRefusal` -- or `None`.
+    """Why moving this team to another group must be refused, or `None`.
 
-    **The legal window is "the season is `future`, OR the team has no fixture in it yet"** (decided
-    2026-08-08), which the admin page applies as well. Both halves are needed: a `future` season may
-    already have its fixtures drawn, and a running season may not.
-
-    `fixtures_drawn` is how many of the season's matches field this team on either side. Zero means the
-    group phase has not been drawn for it, so the group is still just a label and moving it costs nothing.
-
-    A disqualification is not a move and never reaches here -- the caller compares the groups first, so
-    writing the same group back passes whatever the season's state.
+    The window is "`future` season, OR no fixture drawn yet". Both halves are needed: a `future`
+    season may already have its fixtures drawn, and a running season may not.
     """
 
     if saison_status != "future" and fixtures_drawn > 0:
@@ -787,14 +616,10 @@ def find_gruppe_move_refusal(*, saison_status: str, fixtures_drawn: int) -> Writ
 
 
 def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> WriteRefusal | None:
-    """
-    Why entering this team into the season must be refused, as a `WriteRefusal` -- or `None`.
+    """Why entering this team into the season must be refused, or `None`.
 
-    Three rules, checked in the order an admin can act on them (decided 2026-08-07): the season must
-    be `future`, the group must be one the season offers, and the group must have space. `occupied`
-    is the group's current row count, disqualified rows included -- a team never leaves a season, so
-    its place stays taken. The detail is the English log line; the code is what the client maps to
-    German (docs/logging/error-codes.md).
+    `occupied` is the group's row count, DISQUALIFIED rows included: a team never leaves a season,
+    so its place stays taken.
     """
 
     if saison_status != "future":
@@ -813,36 +638,14 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
     return None
 
 
-# A group SWAP: two clubs exchanging groups inside one season.
-
-# Beside the entry codes rather than among them, because a swap is neither an entry nor the move
-# `REQ-ENTER-004` locks: each group keeps its size and every drawn fixture keeps its opponents.
-
-# The two ids do not name two clubs of this season standing in different groups: one club named twice, a
-# club holding no junction row, or two clubs of one group.
-
-# One code for the three, because the remedy is the same -- the control offers only pairs that ARE a
-# swap, so a request carrying one is stale or racing another admin.
+# A swap is neither an entry nor the move `REQ-ENTER-004` locks, so it carries codes of its own.
+# One code covers the three "not a swap" shapes, because the control offers only pairs that are one.
 SWAP_NOT_A_SWAP = "REQ-SWAP-001"
-
-# The knockout rounds have started, so the standings these groups produce have already been consumed
-# by the seeding. Exchanging the groups behind that rewrites what its slots meant.
 SWAP_KNOCKOUT_STARTED = "REQ-SWAP-002"
-
-# A `past` season, frozen for the reason `REQ-RULES-005` freezes its scoring rules (decided
-# 2026-08-11): both are inputs the finished table is computed from on every read.
 SWAP_SAISON_FINISHED = "REQ-SWAP-003"
-
-# Either club has taken part in its group's round robin (decided 2026-08-11). Every club plays every
-# other club of its group, so one that has played inside a group cannot be moved out of it.
 SWAP_GRUPPENPHASE_PLAYED = "REQ-SWAP-004"
-
-# The exchange would leave a club standing in two matches of one Spieltag (decided 2026-08-11).
-# Group sides move and bracket sides do not, so a Spieltag holding both can double a club.
 SWAP_SPIELTAG_CLASH = "REQ-SWAP-005"
-
-# The exchange would move a disqualified club onto fixtures dated on or after its disqualification --
-# the write `REQ-ELIGIBILITY-001` refuses. FORWARDS ONLY: enforcement leaves the past alone.
+# `REQ-SWAP-006` is FORWARDS ONLY, exactly as `REQ-ELIGIBILITY-001` is: the past is left alone.
 SWAP_FIELDS_DISQUALIFIED = "REQ-SWAP-006"
 
 
@@ -853,20 +656,10 @@ def fixtures_newly_fielding_a_disqualified_club(
     disqualified_since: Mapping[Any, str | None],
     gruppenphase_spiele: Sequence[Mapping[str, Any]],
 ) -> int:
-    """
-    How many group fixtures the exchange would move a disqualified club onto, after its disqualification.
+    """How many group fixtures the exchange would move a disqualified club onto.
 
-    The swap rewrites every Gruppenphase side holding one club to the other, so a fixture currently
-    fielding team2 will field team1 -- and if team1 is disqualified, that is `patch_spiel_data` writing a
-    disqualified club onto a fixture it was not on, which `REQ-ELIGIBILITY-001` refuses on its own path.
-
-    `disqualified_since` maps a club's id to the DAY its disqualification took effect, or `None` while it
-    competes; a club absent from it is not disqualified. Dates are `YYYY-MM-DD` and compare
-    lexicographically, as everywhere else here.
-
-    **Only fixtures dated ON OR AFTER that day count**, which is `find_eligibility_refusal`'s own
-    boundary and the rule that enforcement leaves the past alone. **An UNDATED fixture counts too**:
-    it can still be given a date after the disqualification, and the swap is what puts the club there.
+    `find_eligibility_refusal`'s boundary: ON OR AFTER the effective day, and an UNDATED fixture
+    counts too, since it can still be dated after the disqualification.
     """
 
     arriving = {team1_id: team2_id, team2_id: team1_id}
@@ -875,8 +668,7 @@ def fixtures_newly_fielding_a_disqualified_club(
     for spiel in gruppenphase_spiele:
         for slot in ("team1", "team2"):
             standing = (spiel.get(slot) or {}).get("team_id")
-            # The club this side would hold once the exchange lands. A side holding neither club does
-            # not move, so it can field nobody new.
+            # A side holding neither club does not move, so it can field nobody new.
             incoming = arriving.get(standing)
             if incoming is None:
                 continue
@@ -903,50 +695,10 @@ def find_gruppe_swap_refusal(
     clashing_spieltage: int,
     disqualified_fixtures: int,
 ) -> WriteRefusal | None:
-    """
-    Why exchanging these two clubs' groups must be refused, as a `WriteRefusal` -- or `None`.
+    """Why exchanging these two clubs' groups must be refused, or `None`.
 
-    Each `gruppe` is what that club's `saison_teams` row holds for the season, and `None` means the club
-    holds no row in it at all.
-
-    **Both counts are taken over one predicate, `app.api.saisons.admin_router._has_taken_place`:** a
-    fixture carrying an `ergebnis`, one called off, or one holding a goal count on either side. A
-    called-off match here is a forfeit and counts as a real game, which is the repository's own reading
-    (`app.api.saisons.services.unplayed_spiel_nrs`); and a fixture can hold one side's goals with no
-    `ergebnis` at all, which is a match somebody has already started recording. So a club with either
-    behind it has taken part in its round robin, and a knockout fixture with either had its slot filled
-    from a group placing exactly as a played one did. The two counts differ only in which phase they read.
-
-    `played_gruppenphase_fixtures` is narrowed to fixtures fielding one of THESE TWO clubs, because
-    `REQ-SWAP-004` is about their own participation; `played_knockout_fixtures` counts the season's,
-    because `REQ-SWAP-002` is about the bracket having consumed a standing whoever it named.
-
-    `clashing_spieltage` is `app.api.saisons.admin_router._spieltag_clashes` over the same two snapshots:
-    the Spieltage that would hold one of the two clubs twice once the exchange lands, which the
-    competition forbids and no validator or index can express.
-
-    **Five rules, and the order is the argument.** A pair that is not a swap describes nothing this
-    season could do, so it is answered as that before anything about the season is consulted. The season
-    being over comes next, for `find_rules_refusal`'s reason, stated in its own first comment: where the
-    whole operation is refused anyway, naming a bound that merely also applies sends an admin to look at
-    the wrong thing. A `past` season is refused whatever its bracket holds, so answering `REQ-SWAP-002`
-    there would name a reason contingent on a refusal that has already happened. Then the bracket, then
-    the round robin -- narrowing from the season to the two clubs.
-
-    **`REQ-SWAP-005` is last, and it is last because it is the only one an admin can act on.** The four
-    above are terminal: nothing an operator does reopens a played bracket or an unplayed round robin. A
-    Spieltag clash is repairable -- move one of the two fixtures, or clear the manual pick feeding the
-    bracket side -- so naming it while a terminal refusal also applies would send somebody to do work
-    that changes nothing. That is the `REQ-SWAP-003`-before-`REQ-SWAP-002` argument one step further out.
-
-    `disqualified_fixtures` is `fixtures_newly_fielding_a_disqualified_club`'s count. `REQ-SWAP-006` is
-    answered after `REQ-SWAP-005` because it is the more expensive repair of the two an admin can act on:
-    a clash moves one fixture, where this one asks for the disqualification to be lifted and re-applied
-    around the swap. Naming the cheaper repair first is the same argument the order above is built on.
-
-    Deliberately silent about `ENTRY_GRUPPE_LOCKED`, which refuses a MOVE for a club whose fixtures are
-    drawn. That lock's own message names this operation as the defensible one, so a swap neither routes
-    through it nor relaxes it.
+    **The order is the argument**: it narrows from "not a swap" through the season to the two clubs,
+    and the REPAIRABLE refusals come last, so nobody does work a terminal refusal wastes.
     """
 
     if is_same_team:
@@ -970,6 +722,7 @@ def find_gruppe_swap_refusal(
             message="season is past; its groups are frozen because the league table is derived from them on every read",
         )
 
+    # The season's count, because the bracket consumed a standing whoever it named.
     if played_knockout_fixtures > 0:
         noun = "fixture has" if played_knockout_fixtures == 1 else "fixtures have"
 
@@ -980,6 +733,7 @@ def find_gruppe_swap_refusal(
             ),
         )
 
+    # Narrowed to these two clubs: this rule is about their own participation.
     if played_gruppenphase_fixtures > 0:
         noun = "fixture has" if played_gruppenphase_fixtures == 1 else "fixtures have"
 
@@ -1010,20 +764,11 @@ def find_gruppe_swap_refusal(
     return None
 
 
-# A club still entered in a season that is running or planned: retiring it pulls it out of every picker
-# while its fixtures are played or drawn -- the state the soft delete exists to prevent, reached through
-# the soft delete itself.
 RETIRE_BLOCKED = "REQ-RETIRE-001"
 
 
 def find_retire_refusal(saison_statuses: Iterable[str]) -> WriteRefusal | None:
-    """
-    Why retiring this club must be refused, as a `WriteRefusal` -- or `None` when it may be retired.
-
-    One rule (decided 2026-08-07): a club whose seasons are all `past` -- or that is in no season at
-    all -- may be retired; a club entered in an `active` or `future` season may not. The message is
-    the English log detail; the code is what the client reads (docs/logging/error-codes.md).
-    """
+    """Why retiring this club must be refused, or `None`; a club whose seasons are all `past` may be retired."""
 
     blocking = sorted({saison_status for saison_status in saison_statuses if saison_status in ("active", "future")})
     if not blocking:

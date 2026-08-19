@@ -14,23 +14,8 @@ import { appToast } from "@/shared/utils/appToast";
 import type { SpielerBanner } from "./banners";
 
 /**
- * Taking a player out of ONE season's squad — the editor's danger zone, in the same shape as the club
- * editor's Disqualifikation panel and the match editor's Absage (decided 2026-08-07: last on the page,
- * in the danger tone).
- *
- * **It writes to `saison_spieler` and nothing else.** The person is untouched: they stay in the
- * league, keep every other season's squad rows, and remain in every picker. Retiring the PERSON is a
- * different control with a different endpoint, and it lives in the page header where the rest of the
- * person's identity is.
- *
- * **A button rather than a switch, unlike the disqualification beside it.** A disqualification is a
- * RECORD the admin composes — a reason and a date — so it is a draft the save bar commits. This is a
- * single fact with nothing to fill in, so it fires its own action immediately: there is no
- * half-entered state for the save bar to hold, and putting it there would leave the page's one
- * irreversible-looking control indistinguishable from a typo in a name field.
- *
- * Reversible either way, which is why the button is not a confirmation dialog: the row is soft
- * deleted and `reactivate` restores it with the number, position and stufe it still carries.
+ * Takes a player out of ONE season's squad, writing to `saison_spieler` and nothing else. Retiring
+ * the PERSON is a different control with a different endpoint, in the page header.
  */
 export function FormAustragenSection({
   spielerId,
@@ -42,7 +27,6 @@ export function FormAustragenSection({
   saisonId: string;
   /** The day the ROW was retired, or null — which of the two controls this panel offers. */
   rowInactiveSince: string | null;
-  /** The editor's whole Hinweis list; the spot below takes its own entry out of it. */
   banners: readonly SpielerBanner[];
 }) {
   const styles = formPanel({ tone: "danger" });
@@ -102,8 +86,8 @@ export function FormAustragenSection({
               Der Spieler verschwindet aus dem Kader der Saison {saisonId}. Sein Eintrag bleibt gespeichert und kann jederzeit reaktiviert
               werden.
             </p>
-            {/* The danger button's own shape, so it does not read as the page's primary action —
-                the save bar below owns that. */}
+            {/* A button, not a draft field: one fact with nothing to fill in, and `reactivate` restores
+                it. Its own shape, so it does not read as the page's primary action. */}
             <Button
               type="button"
               variant="secondary"

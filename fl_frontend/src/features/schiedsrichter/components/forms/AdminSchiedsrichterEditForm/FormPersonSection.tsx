@@ -9,15 +9,9 @@ import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { SchiedsrichterFieldLabel } from "./SchiedsrichterFieldLabel";
 
 /**
- * Who the referee is: the name every match card shows, and the school or club they come from.
- *
- * **The name fans out and the school does not**, which is the one thing worth knowing about this
- * panel. `PATCH /schiedsrichter/{id}` rewrites the embedded `schiedsrichter.name` on every Spiel that
- * names this referee; nothing else on this page reaches another document. The Hinweis at the rail
- * says so whenever the field is dirty.
- *
- * `schule` submits `null` when emptied rather than `""` — the column is nullable, and an empty string
- * would be a school nobody attends.
+ * The name fans out and the school does not: the patch rewrites the embedded `schiedsrichter.name`
+ * on every Spiel naming this referee. `schule` submits `null` when emptied — an empty string would
+ * be a school nobody attends.
  */
 export function FormPersonSection({
   name,

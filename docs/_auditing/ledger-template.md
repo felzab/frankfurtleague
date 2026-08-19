@@ -1,16 +1,7 @@
-<!--
-TEMPLATE — copy everything below this block to docs/audit/programme/0-remediation-ledger.md once a
-programme's passes are complete, then fill it in; delete this block.
-Rules: the method is `docs/_auditing/programme.md`; the failure modes these rules answer are
-`docs/_auditing/lessons.md` §7.
-  - `<Angle-bracketed text>` is a placeholder to replace. Every other line is a standing rule and
-    copies verbatim.
-  - A relative path in the copy resolves from `docs/audit/programme/`, not from this file, which is
-    why every path below is written from the repository root.
-  - The copy is gitignored, so it has no history to recover from and carries its own editing rules
-    under "Row hygiene".
-  - Keep the part numbers and the part order: `/audit:wave` and the wave prompt cite them.
--->
+# Remediation ledger
+
+**Shape:** [`programme.md`](programme.md) §2. Copy the page below to
+`docs/audit/programme/0-remediation-ledger.md` and delete this heading and this line.
 
 # Remediation Ledger — \<programme name\>
 
@@ -32,9 +23,8 @@ recorded; `/audit:wave` refuses to run while this reads `OPEN`\>
 
 **Drift check, re-run at the start of every wave.** Compare each report's `Audited at` SHA against
 `HEAD` with `git log --oneline <sha>..HEAD -- <that surface's path>`. A report the code has moved a
-long way past is a report whose findings need heavier verification, not a report to discard —
-**record the drift on the wave's rows rather than deciding silently.** The gap only grows: the last
-wave of a long programme works from the oldest reports.
+long way past needs heavier verification rather than discarding — **record the drift on the wave's
+rows rather than deciding silently.**
 
 ## How to read this file
 
@@ -99,20 +89,20 @@ Written once, before any wave runs.
 \<Every "controls that would prevent recurrence" entry from every report, merged and deduplicated:
 `G-n` | the defect class it closes | the control, which is a lint rule, a test, a schema constraint, a
 database validator or a gate step | the findings it would have caught | its cost | **lands in wave** |
-**enforced from wave**. Schedule guardrails EARLY — a control landing in Wave 1 catches mistakes made
-in every wave after it, and the same control landing in the last wave catches nothing. Where the
-honest answer is that no automated control is possible, record that with its reason.\>
+**enforced from wave**. Where the honest answer is that no automated control is possible, record that
+with its reason.\>
 
-**A control lands before its violations are fixed, so it needs two waves rather than one.** Setting a
-rule to `error` while known violations remain fails the gate on the first run and blocks the wave:
+**A control lands before its violations are fixed, so it needs two waves**, since setting a rule to
+`error` while known violations remain fails the gate on the first run:
 
-1. **Lands in wave N** — added at warning level, with the current violation count recorded on its row
-   as an explicit baseline. From that point it already catches anything new.
-2. **Enforced from wave M** — the wave that clears the last violation flips it to `error` in the same
+1. **Lands in wave N** — at warning level, with the current violation count recorded on its row as an
+   explicit baseline. From that point it already catches anything new.
+2. **Enforced from wave M** — the wave clearing the last violation flips it to `error` in the same
    commit that removes that violation. A deferred flip is its own row with a trigger.
 
-A control left permanently at warning level is a report rather than a control, so every row names the
-wave that flips it, or records why the class cannot be fully cleared.
+Schedule guardrails as early as their dependencies allow ([`lessons.md`](lessons.md) §8). One left
+permanently at warning level is a report rather than a control, so every row names the wave that
+flips it, or records why the class cannot be fully cleared.
 
 ---
 
@@ -122,8 +112,7 @@ Written once, before any wave runs.
 
 \<One table: Single fix | Closes (all IDs) | Wave. The passes run independently against the same
 tree, so one defect surfaces in several reports under different lenses; these rows are the fix-once
-items. Working the reports in sequence instead of this map means fixing each of them more than
-once.\>
+items, and working the reports in sequence instead means fixing each more than once.\>
 
 ---
 

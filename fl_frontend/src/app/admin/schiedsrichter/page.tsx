@@ -9,9 +9,8 @@ import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
-// Not async, so the chrome never waits on the referee list
-// (`fl_frontend/src/app/admin/layout.tsx :: AdminLayout`). Passing the page title to a client element
-// built after `await getSchiedsrichter()` would put a static heading behind a round-trip.
+// Not async, so the chrome never waits on the list: a static heading must not sit behind a
+// round-trip.
 export default function AdminSchiedsrichterPage() {
   return (
     <AdminCrudShell
@@ -31,9 +30,8 @@ export default function AdminSchiedsrichterPage() {
 
 async function SchiedsrichterTable() {
   await connection();
-  // Retired referees included: this list is the only surface that can bring one back. Its own
-  // cache entry, separate from the picker's `getSchiedsrichter()` — the key is the arguments, so the
-  // picker keeps offering live referees only.
+  // Retired included: this list is the only surface that can bring one back. Its own cache entry,
+  // keyed by the arguments, so the picker keeps offering live referees only.
   const schiedsrichterRes = await getSchiedsrichter({ include_inactive: true });
 
   return <AdminSchiedsrichterView schiedsrichter={schiedsrichterRes.schiedsrichter} />;

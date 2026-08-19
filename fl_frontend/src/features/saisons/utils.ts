@@ -1,29 +1,12 @@
-/**
- * SAISONS · pure derivations
- *
- * No fetching and no framework: everything here is a function of its arguments, which is what makes it
- * testable without a request. `resolvers.ts` decides WHEN to navigate; this decides WHERE to.
- */
-
 import type { NextPageProps } from "@/shared/types/types";
 import type { FLSpiel } from "../spiele/schemas";
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "./types";
 
 /**
- * The current query string minus `saison_id`, as a relative reference.
+ * The query string minus `saison_id`, relative on purpose: a Server Component cannot read its own
+ * pathname, and Next resolves a query-only reference against the current URL.
  *
- * Relative on purpose: a Server Component cannot read its own pathname, and "this page, one parameter
- * fewer" is exactly what a query-only reference means — so this stays correct if a route ever moves,
- * where a hardcoded path per call site would not. Next resolves it against the current URL on both
- * paths a `redirect()` can take: `new URL(href, location.href)` in the client router, and the
- * document's base URL in the streamed `<meta http-equiv="refresh">` fallback.
- *
- * **`"?"` when nothing else survives, never `""`.** An empty `Location` names no resource, while `"?"`
- * resolves to the same page with an empty query — and `URL.search` is `""` for a bare `?`, so the
- * router's canonical href drops it and the address bar shows the clean path.
- *
- * Every other parameter is preserved, repeats included: a facet selection and a sort survive having
- * an unknown season taken out from under them.
+ * **`"?"` and never `""`**: an empty `Location` names no resource.
  */
 export function searchWithoutSaisonId(searchParams: Awaited<NextPageProps["searchParams"]>): string {
   const remaining = new URLSearchParams();
@@ -39,33 +22,18 @@ export function searchWithoutSaisonId(searchParams: Awaited<NextPageProps["searc
 }
 
 /**
- * Whether this fixture is one that happened, as both swap windows ask it.
- *
- * **The mirror of `fl_backend/app/api/saisons/admin_router.py :: _has_taken_place`, and it has to stay
- * one.** The endpoint refuses on its answer and every surface offering a swap decides what to offer on
- * the same answer, so a clause on one side and not the other either offers a pair the write path 409s
- * or hides a swap that would have worked.
- *
- * The goal counts are the clause a reader would not predict: `PATCH /spiele/{spiel_id}` derives
- * `ergebnis` from BOTH counts and drops the goals only when a SIDE is absent, so a fixture with two
- * clubs on it and one count entered is stored holding goals and no result. Somebody typed that number
- * about a match that was played.
- *
- * Not built from `computeSpielStatus`: a status label is not a filter and `ausstehend` is not a
- * partition.
+ * **Mirrors `fl_backend/app/api/saisons/admin_router.py :: _has_taken_place` and has to stay one**:
+ * the endpoint refuses on its answer and the swap surfaces offer on the same one.
  */
 function hasTakenPlace(spiel: FLSpiel): boolean {
-  // `?? null` collapses the two absences into one: an unresolved slot has no side at all and a resolved
-  // one can hold no goals, and only a real count should read as a fixture that happened.
+  // The goal counts are the clause a reader would not predict: a fixture with two clubs and one count
+  // entered is stored holding goals and no `ergebnis`. `?? null` keeps an absent side out of that.
   return spiel.ergebnis !== null || spiel.is_canceled || (spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null;
 }
 
 /**
- * Club id → Spieltag id → how many of these fixtures that club is fielded in on that Spieltag.
- *
- * Counted rather than collected into a set, because two fixtures of one club on one Spieltag is exactly
- * the state `REQ-SWAP-005` is about and a set would erase it. Fed the group fixtures and the playoff
- * ones separately, which is the split the rule turns on: a swap moves the first and leaves the second.
+ * Club id → Spieltag id → fixtures. Counted rather than collected into a set: two fixtures of one club
+ * on one Spieltag is exactly the state `REQ-SWAP-005` is about, and a set would erase it.
  */
 function countSpieleProSpieltag(spiele: readonly FLSpiel[]): Map<string, Record<string, number>> {
   const perTeam = new Map<string, Record<string, number>>();
@@ -83,19 +51,9 @@ function countSpieleProSpieltag(spiele: readonly FLSpiel[]): Map<string, Record<
 }
 
 /**
- * Everything a swap control stands on, assembled from one season's clubs and its two fixture sets —
- * and assembled HERE rather than at each page, because both entry points have to answer
- * `find_gruppe_swap_refusal`'s questions identically or one of them offers what the other refuses.
- *
- * `teams` is the season's junction rows, which the strict join makes `GET /teams?saison_id=`: a club
- * with no row is absent from it and is precisely the club the write path refuses. The knockout count is
- * season-wide, because `REQ-SWAP-002` asks whether the bracket consumed a standing whoever it named;
- * the per-club one is narrowed to that club's own Gruppenphase fixtures, which is the grain
- * `REQ-SWAP-004` asks about.
- *
- * **`REQ-SWAP-005` is the one that cannot be reduced to a per-club number**, because whether an exchange
- * doubles a club on a Spieltag is a fact about the PAIR. So each club carries its fixtures counted per
- * Spieltag, split by whether a swap would move them, and `wouldFieldAClubTwice` decides over the two.
+ * Assembled HERE because both entry points must answer `find_gruppe_swap_refusal` identically, or one
+ * offers what the other refuses. **`REQ-SWAP-005` is a fact about the PAIR**, so each club carries
+ * its fixtures per Spieltag rather than one number.
  */
 export function buildGruppenSwapContext({
   teams,
@@ -131,16 +89,9 @@ export function buildGruppenSwapContext({
 }
 
 /**
- * Whether exchanging these two clubs would leave one of them in two matches of one Spieltag.
- *
- * **`REQ-SWAP-005` said in the form, mirroring `_spieltag_clashes` on the server.** A swap
- * moves each club's Gruppenphase fixtures to the other and leaves the bracket ones where they are, so
- * afterwards a club stands in its OWN `koSpieleProSpieltag` plus the OTHER's `gruppenSpieleProSpieltag`.
- * A club plays at most one match per Spieltag.
- *
- * **Only a Spieltag the exchange BREAKS counts, never one already broken.** The server draws the line in
- * the same place, because enforcement leaves stored breaches alone — and a stricter client would hide
- * a swap the endpoint accepts.
+ * **`REQ-SWAP-005` in the form, mirroring `_spieltag_clashes`.** Only a Spieltag the exchange BREAKS
+ * counts, never one already broken — hence the `vorher <= 1`; a stricter client would hide a swap the
+ * endpoint accepts.
  */
 function wouldFieldAClubTwice(first: SaisonSwapTeam, second: SaisonSwapTeam): boolean {
   const breaksASpieltag = (keeps: SaisonSwapTeam, gives: SaisonSwapTeam) =>
@@ -160,18 +111,9 @@ function wouldFieldAClubTwice(first: SaisonSwapTeam, second: SaisonSwapTeam): bo
 export type SwapPartnerRefusal = "self" | "sameGruppe" | "played" | "spieltagClash";
 
 /**
- * Why exchanging `fixed` with `candidate` would be refused, or `null` when the pair is a swap.
- *
- * **`find_gruppe_swap_refusal`'s per-candidate half, in its order.** `self` and `sameGruppe` are
- * `REQ-SWAP-001`, `played` is `REQ-SWAP-004` and `spieltagClash` is `REQ-SWAP-005` — and the order is
- * the endpoint's, so the reason a control shows is the reason the endpoint would have given.
- *
- * Deliberately silent about the whole-season windows. `REQ-SWAP-002` and `REQ-SWAP-003` refuse every
- * pair alike, so they belong where a surface closes the control rather than where it grades a row;
- * naming a season-wide bound against one club would send an admin to look at that club.
- *
- * `fixed`'s own participation is not read here either — a club that has played cannot be either side,
- * which is the same whole-control answer rather than a fact about the candidate.
+ * **`find_gruppe_swap_refusal`'s per-candidate half, in its order**, so a control's reason is the
+ * endpoint's. Silent about `REQ-SWAP-002` and `REQ-SWAP-003`: those refuse every pair alike and
+ * belong where a surface closes the control.
  */
 export function findSwapPartnerRefusal(fixed: SaisonSwapTeam, candidate: SaisonSwapTeam): SwapPartnerRefusal | null {
   if (candidate.id === fixed.id) return "self";

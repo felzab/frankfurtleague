@@ -4,28 +4,15 @@ import { connection } from "next/server";
 import { getAdminSession } from "@/core/auth";
 
 /**
- * Second layer behind `proxy.ts`: renders `children` only for an authenticated admin.
- *
- * Separate from `admin/layout.tsx` on purpose: a layout that `await`s this before returning any JSX
- * makes every byte of the admin shell — sidemenu, nav, chrome — dynamic. The guard sits inside the
- * layout's existing `Suspense` instead, so the shell prerenders and only the session check is a
- * request-time hole.
- *
- * **It must wrap `children`, never sit beside them.** As a sibling, the page's own hole could start
- * streaming data before the session check resolved; wrapping makes rendering the page conditional on
- * the guard returning.
- *
- * `connection()` stays first and is never removed — the builder stage has no reachable Mongo, and a
- * session lookup resolved at build time would fail `docker compose build`.
- *
- * **Known and accepted trade.** `proxy.ts` matches `/admin/:path*` and answers an unauthenticated
- * request with a 307 before this ever runs, which is the path every real user takes. If that matcher
- * ever stops covering a segment, this still redirects — but from inside a stream, so the response is
- * a 200 whose shell (nav labels only, no data) has already been sent. It fails closed either way,
- * just later and less cleanly than the proxy does.
+ * Admin-only `children`, and it must WRAP them: as a sibling the page's own hole could stream before
+ * the check resolved. It sits in the layout's `Suspense`, not the layout, which would go fully dynamic.
  */
 export async function AdminAuthGuard({ children }: { children: React.ReactNode }) {
+  // The builder stage has no reachable Mongo, so a session lookup resolved at build time fails the
+  // image build.
   await connection();
+  // Second layer: `proxy.ts` answers an unauthenticated `/admin/*` with a 307 first. Narrow its
+  // matcher and this still redirects, but from inside the stream — a 200 whose shell already went.
   if (!(await getAdminSession())) redirect("/signin");
 
   return <>{children}</>;

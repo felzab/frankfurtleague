@@ -1,18 +1,7 @@
-"""
-SCRIPTS · docker-compose.local.yml mirrors docker-compose.yml, except where it declares otherwise.
+"""SCRIPTS · docker-compose.local.yml mirrors docker-compose.yml, except where it declares otherwise.
 
-Nothing else holds that invariant: a setting production gains and the local stack does not is a
-difference the local stack cannot catch, and both files parse either way. The declared deltas are
-the local file's own invariant list, restated here as data so the claim is testable rather than
-held by discipline.
-
-Invariants:
-- A construct outside the parsed subset is a refusal — `checker_kernel.py :: EXIT_REFUSED`, which is
-  the run saying it could not judge the files, never a clean answer about them.
-- A declared delta matching no difference is a finding: the list stays honest in both directions.
-
-See:
-- docs/ops/spec.md — the ops scope this runs in, and the output standard it prints into
+Both files parse either way, so nothing else holds the invariant. A construct outside the parsed
+subset refuses rather than answering, and a declared delta matching no difference is a finding.
 """
 
 from __future__ import annotations
@@ -44,8 +33,8 @@ class Marker:
         return self.text
 
 
-# `absent` is a value, not a missing entry: a difference is described by what each side has, and
-# "the key is not in that file" is the commonest thing either side has to say.
+# `absent` is a value, not a missing entry: "the key is not in that file" is the commonest thing
+# either side has to say.
 ABSENT: Final = Marker("absent")
 ANY: Final = Marker("whatever that file writes there")
 
@@ -60,9 +49,8 @@ class Delta:
     why: str
 
 
-# The local file's header list, in the order it states it. Pinned values wherever both files write the
-# key: the nginx entries decide what the proxy publishes and mounts, so a new port or volume on one
-# side is a finding rather than an allowed one.
+# The local file's header list, in its order. Pinned wherever both files write the key, so a new
+# nginx port or volume on one side is a finding rather than an allowed difference.
 DECLARED_DELTAS: Final[tuple[Delta, ...]] = (
     Delta("services.frontend.build", ABSENT, ANY, "the local stack builds from source"),
     Delta("services.backend.build", ABSENT, ANY, "the local stack builds from source"),
@@ -96,9 +84,8 @@ class Token:
     line: int
 
 
-# A mapping key runs to the first colon that a space or the line end follows. The class cannot cross a
-# colon, so `image: ghcr.io/x:latest` and the scalar `no-new-privileges:true` are told apart by the
-# space rather than by position.
+# A mapping key runs to the first colon a space or the line end follows, so `image: ghcr.io/x:latest`
+# and the scalar `no-new-privileges:true` are told apart by the space rather than by position.
 KEY_RE: Final = re.compile(r"^(?P<key>[^\s#][^:]*?):(?:[ \t]+(?P<value>.*\S))?$")
 
 
@@ -156,8 +143,8 @@ def tokenize(text: str, source: str) -> list[Token]:
         content = strip_comment(raw)
         if not content.strip():
             continue
-        # A backslash is an escape inside a quoted scalar, and this reader's quote tracking does not
-        # honour one -- so it refuses rather than mis-reading the line it appears on.
+        # This reader's quote tracking does not honour an escape, so it refuses rather than
+        # mis-reading the line.
         if "\\" in content:
             raise ComposeSyntax(f"{where}: a backslash escape, which this reader does not parse")
         stripped = content.strip()
@@ -216,8 +203,8 @@ def scalar(text: str) -> Any:
 def parse_block(tokens: list[Token], index: int, anchors: dict[str, Any], source: str) -> tuple[Any, int]:
     """The mapping or sequence starting at `index`, and the index of the first token after it."""
     token = tokens[index]
-    # A flow sequence written under its key rather than beside it, which is how the formatter leaves
-    # every `healthcheck.test`. It is one node, so anything at its indent after it is malformed.
+    # A flow sequence written under its key, which is how the formatter leaves every
+    # `healthcheck.test`. It is one node, so anything at its indent after it is malformed.
     if token.text.startswith("["):
         if index + 1 < len(tokens) and tokens[index + 1].indent >= token.indent:
             raise ComposeSyntax(f"{source}:{tokens[index + 1].line}: a second node beside a flow sequence")
@@ -382,8 +369,8 @@ def main() -> int:
         for difference, delta in judged
         if delta is None
     ]
-    # A delta covering nothing is the same rot pointed the other way: the local file's header claims a
-    # difference the files no longer have, and only a check that fails on it gets the claim removed.
+    # A delta covering nothing is the same rot pointed the other way, and only a check that fails
+    # on it gets the claim removed.
     findings += [
         Finding(
             "fail",

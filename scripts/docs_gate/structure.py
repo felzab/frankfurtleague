@@ -1,18 +1,7 @@
-"""
-SCRIPTS · the module header and the comment bounds
+"""SCRIPTS · INC-2's header anatomy and INC-9's block bounds.
 
-INC-2's header anatomy and INC-9's block bounds, over the subtrees chapter 2 binds. Both read a
-file's raw text rather than its scanned body: a header is defined by where it sits, and a block's
-length is measured in the lines a reader meets.
-
-Invariants:
-- Presence is never checked. INC-2 fixes the shape of a header that exists, so a file opening with
-  line comments, or with none, passes unread.
-- The bounds reach the blocks a branch wrote. Failing a branch for a block it changed one word
-  inside is what gets a check suppressed; the standing backlog is the sweep's (CUR-6).
-
-See:
-- docs/_standard/chapters/2-in-code.md — the rules this module is the mechanical half of
+Both read a file's raw text rather than its scanned body: a header is defined by where it sits, and
+a block's length is measured in the lines a reader meets.
 """
 
 from __future__ import annotations
@@ -31,8 +20,7 @@ from .kernel import (
 )
 
 # A `See:` entry opens with what it points at, so the token is its first word and no separator
-# needs enumerating: a dash list is what let an entry written with any other one drop out unread.
-# An entry opening with prose is skipped instead.
+# needs enumerating. An entry opening with prose is skipped instead.
 SEE_ENTRY_RE: Final = re.compile(r"\s+")
 
 # Only a token carrying a suffix is resolved, so a bare folder in the reason half is not read as a
@@ -40,17 +28,20 @@ SEE_ENTRY_RE: Final = re.compile(r"\s+")
 SUFFIXED_RE: Final = re.compile(r"\.[A-Za-z]{1,5}$")
 
 
-# INC-9's bounds, both holding at once: three long lines and one very long line are the same
-# comment with its line breaks moved. Measured 2026-08-09 over 1,569 blocks: mean 212 characters.
+# Both hold at once: three long lines and one very long line are the same comment with its line
+# breaks moved. This is the inline cap.
 COMMENT_LINE_CAP: Final = 3
+# A symbol doc's extra lines pay for its delimiters, a summary and the blank line after it -- never
+# for prose, which is why the character cap stays one number for every shape.
+DOC_LINE_CAP: Final = 6
 COMMENT_CHAR_CAP: Final = 250
 
 
-# INC-2's header shapes, checked only where that rule binds (its Applies-to subtrees, by suffix).
-# Presence is never checked: INC-2 fixes the shape of a header that exists, so a file opening with
-# `//` line comments, or with none, passes unchecked.
+# INC-2's header shapes, checked only where that rule binds. Presence is never checked: INC-2 fixes
+# the shape of a header that exists, so a file with none passes unchecked.
 HEADER_SCOPES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
-    ("fl_frontend/src/", (".ts", ".tsx")),
+    # TypeScript is out of scope: INC-2 permits no header there, so a block opening one of its
+    # files is a symbol doc, which `comment-length` bounds well inside `HEADER_CAP`.
     ("fl_backend/app/", (".py",)),
     ("fl_backend/tests/", (".py",)),
     ("scripts/", (".py", ".sh")),
@@ -61,9 +52,8 @@ INCODE_SCOPES: Final[tuple[str, ...]] = ("fl_frontend/src/", "fl_backend/app/", 
 # A directive stays above the header (INC-7), so the header scan steps over it.
 DIRECTIVE_RE: Final = re.compile(r"^\s*([\"'])use (client|server|strict)\1;?\s*$")
 PY_DOCSTRING_OPEN_RE: Final = re.compile(r"^[rRuU]?(\"\"\"|''')")
-# The title separator is U+00B7; INC-2 bans ruled lines and shouty label rows. A label line is one
-# or two capitalised words ending in a colon: anything longer is wrapped prose, and flagging prose
-# is the false positive that gets a check switched off.
+# A label line is one or two capitalised words ending in a colon: anything longer is wrapped prose,
+# and flagging prose is the false positive that gets a check switched off.
 HEADER_TITLE_RE: Final = re.compile(r"\S+ · \S.*")
 HEADER_RULED_RE: Final = re.compile(r"─{3,}|-{8,}")
 HEADER_SHOUTY_RE: Final = re.compile(r"[A-Z][A-Z ']{3,}")
@@ -77,15 +67,10 @@ def _header_scoped(rel: str, suffix: str) -> bool:
 
 
 def _module_header(raw: str, suffix: str) -> list[str] | None:
-    """The module header's lines, delimiters included, or None where the file carries none.
+    """The module header's lines, delimiters included, or None where there is none.
 
-    TypeScript: the leading block comment, stepping over blank lines and a directive (INC-7). A
-    leading run of `//` comments is not a header, so a file opening with one returns None and is
-    not checked. Python: the module docstring, which is only a docstring as the first statement;
-    a `#` line above it (a shebang) does not end the scan. Shell: the opening run of `#` lines,
-    the shebang excluded -- it is an interpreter directive rather than a line of the header, and
-    counting it would spend one of INC-2's twenty. An unterminated delimiter runs to the end of
-    the file, which the line cap then fails -- the conservative direction.
+    A shebang is a directive, so counting it would spend a capped line. An unterminated delimiter
+    runs to the file's end, which the line cap then fails.
     """
     lines = raw.split("\n")
     i = 0
@@ -141,10 +126,8 @@ def _header_line(line: str, suffix: str) -> str:
 def comment_runs(raw: str, suffix: str, *, symbol_docs: bool) -> list[tuple[int, list[str]]]:
     """Each run of consecutive comment lines below the module header, as (first line, text lines).
 
-    Markers and indentation come off, because they are what the bounds are NOT measuring. With
-    symbol_docs off, the shapes INC-4 governs are dropped -- a JSDoc block and a Python docstring
-    document a symbol rather than a line -- and what remains is INC-5's inline comments. The module
-    header never appears either way: INC-2 holds it to a cap of its own.
+    Markers come off, being what the bounds do not measure. The header is skipped either way:
+    INC-2 caps it separately.
     """
     lines = raw.split("\n")
     start_at = 0
@@ -196,6 +179,21 @@ def comment_runs(raw: str, suffix: str, *, symbol_docs: bool) -> list[tuple[int,
                 closing = quote
             continue
 
+        # `{/* … */}` opens with a brace, so it matches neither arm below and every JSX comment
+        # would go unbounded. Tested before the plain `/*` arm, which the brace hides it from.
+        if not hash_only and text.startswith("{/*"):
+            flush()
+            # It interrupts markup and documents no symbol, so it is inline under either pass.
+            keeping = True
+            first_line = number
+            body = text.lstrip("{/*").strip()
+            current.append(body.removesuffix("*/}").strip())
+            if "*/}" in text[3:]:
+                flush()
+            else:
+                closing = "*/}"
+            continue
+
         if not hash_only and text.startswith("/*"):
             flush()
             keeping = symbol_docs or not text.startswith("/**")
@@ -224,15 +222,10 @@ def comment_runs(raw: str, suffix: str, *, symbol_docs: bool) -> list[tuple[int,
 
 
 def _misplaced_header(raw: str, suffix: str) -> tuple[int, list[str]] | None:
-    """A header-shaped comment block that is not the file's opening one: (first line, its lines).
+    """A header-shaped comment block that is not the file's opening one.
 
-    The title line is what identifies it. Nothing else in this repository writes `<TOKEN> · <text>`
-    as a comment's first line, and a symbol's docblock opens with prose, so the shape separates a
-    displaced header from the ordinary comments around it without reading either.
-
-    A block with nothing but blank lines, a shebang and a directive above it opens the file, so it
-    is not displaced whatever `_module_header` made of its delimiters -- and reporting it as sitting
-    below the first statement would state something the file plainly contradicts.
+    The title line identifies it: nothing else opens a comment with `<TOKEN> · <text>`. A block
+    with only blanks, a shebang and directives above it opens the file.
     """
     lines = raw.split("\n")
     for first_line, block in comment_runs(raw, suffix, symbol_docs=True):
@@ -246,30 +239,33 @@ def _misplaced_header(raw: str, suffix: str) -> tuple[int, list[str]] | None:
 
 
 def check_comment_length(path: Path, raw: str, added: set[int]) -> list[Finding]:
-    """An inline comment block this branch WROTE keeps both of INC-9's bounds.
+    """A comment block this branch WROTE keeps both of INC-9's bounds.
 
-    Scoped to blocks whose every line the branch added, which is a comment written here rather than
-    one a repointed citation happened to touch. The standing backlog is `/docs:audit`'s (CUR-6),
-    and failing a branch for a block it changed one word inside is what gets a check suppressed.
-
-    The reader is derived here rather than passed in, so no caller can hand this the file's own
-    suffix instead. A Dockerfile and every dotfile carry no suffix at all, and read for `//` they
-    yield no block: the check would then run, report nothing, and look wired.
+    Failing a branch for a word changed inside an older block is what gets a check suppressed; the
+    standing backlog is `/docs:audit`'s (CUR-6).
     """
     rel = path.relative_to(REPO_ROOT).as_posix()
+    # Derived here so no caller can pass a suffix a Dockerfile does not have: read for `//` it
+    # would yield no block, and the check would run, report nothing, and look wired.
+    style = comment_style(path)
+    # A block the narrow pass also yields is inline; what only the wide pass has is a symbol doc,
+    # which INC-9 gives the longer line cap.
+    inline = {(first, len(block)) for first, block in comment_runs(raw, style, symbol_docs=False)}
+
     found: list[Finding] = []
-    for first_line, block in comment_runs(raw, comment_style(path), symbol_docs=False):
+    for first_line, block in comment_runs(raw, style, symbol_docs=True):
         if not set(range(first_line, first_line + len(block))) <= added:
             continue
         text = " ".join(line for line in block if line).strip()
-        if len(block) > COMMENT_LINE_CAP or len(text) > COMMENT_CHAR_CAP:
+        cap = COMMENT_LINE_CAP if (first_line, len(block)) in inline else DOC_LINE_CAP
+        if len(block) > cap or len(text) > COMMENT_CHAR_CAP:
             found.append(
                 Finding(
                     "fail",
                     "comment-length",
                     rel,
                     f"the comment block at line {first_line} runs {len(block)} lines and {len(text)} characters"
-                    f" -- INC-9 caps a block at {COMMENT_LINE_CAP} lines and {COMMENT_CHAR_CAP} characters",
+                    f" -- INC-9 caps this shape at {cap} lines and {COMMENT_CHAR_CAP} characters",
                 )
             )
     return found
@@ -278,12 +274,8 @@ def check_comment_length(path: Path, raw: str, added: set[int]) -> list[Finding]
 def check_module_header(rel: str, raw: str, suffix: str) -> list[Finding]:
     """A module header in INC-2's scope keeps INC-2's shape.
 
-    The retired vocabulary -- ruled lines, shouty label rows, foreign list labels, an oversized
-    block -- passes every compiler and linter, so nothing but this check stops it creeping back.
-
-    A header BELOW the imports is the one shape a placement rule cannot be trusted to catch by
-    reading the top of the file: it looks like an ordinary comment from there, and INC-7 puts it
-    above them. It is failed for its placement and then held to the same shape as any other.
+    The retired vocabulary passes every compiler and linter, so nothing but this stops it creeping
+    back.
     """
     found: list[Finding] = []
     header = _module_header(raw, suffix)
@@ -326,9 +318,8 @@ def check_module_header(rel: str, raw: str, suffix: str) -> list[Finding]:
 def check_header_see(rel: str, raw: str, suffix: str) -> list[Finding]:
     """A path on a module header's `See:` list resolves to a file that is there (INC-2).
 
-    A `See:` entry is a pointer by construction, so unlike a backticked token in prose it can never
-    be naming a kind of file. It is also written package-relative here, which is the spelling the
-    `path` check reads as prose and leaves unresolved.
+    A `See:` entry is a pointer by construction, and package-relative, which `path` reads as prose
+    and leaves.
     """
     header = _module_header(raw, suffix)
     if header is None:

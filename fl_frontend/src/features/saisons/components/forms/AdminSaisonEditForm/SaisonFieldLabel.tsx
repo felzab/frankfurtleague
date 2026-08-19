@@ -15,11 +15,8 @@ import type { ReactNode } from "react";
 const MARKER = "inline-flex size-5 shrink-0 items-center justify-center rounded-full";
 
 /**
- * A field's label plus what the page knows about that field — `SpielerFieldLabel` over a season's
- * draft, with the same single marker: a season has no action-required categories, so the only thing to
- * mark is **Geändert**, with the previous value one hover away rather than as a line that shifts the
- * layout when it appears. The wrapper carries the same `feld-` anchor id and scroll margin, so a rail
- * row can link straight to the field.
+ * A field's label plus what the page knows about it. The wrapper carries the `feld-` anchor id and
+ * scroll margin, so a rail row can link straight to the field.
  */
 export function SaisonFieldLabel({ path, children }: { path: string; children: ReactNode }) {
   const status = useSaisonFieldStatus(path);

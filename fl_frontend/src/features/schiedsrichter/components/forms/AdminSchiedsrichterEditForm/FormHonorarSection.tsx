@@ -12,15 +12,9 @@ import { SchiedsrichterFieldLabel } from "./SchiedsrichterFieldLabel";
 import type { SchiedsrichterBanner } from "./banners";
 
 /**
- * What the referee is paid by default.
- *
- * **It is a default and never a stored copy**. What a match pays is `payment` on
- * that match, agreed when it was scheduled; this number seeds the next one and rewrites none of them.
- * The backend's fan-out deliberately excludes it, so the Hinweis below is a statement about the write
- * path rather than a hope.
- *
- * 0 € is legitimate — a volunteer — so the field is required rather than nullable, and the value is
- * judged on change: a stepper is a picker, and there is no half-entered state to be wrong about.
+ * A default and never a stored copy: what a match pays is its own `payment`, and the backend's
+ * fan-out excludes this. 0 € is legitimate, so the field is required rather than nullable and is
+ * judged on change — a stepper has no half-entered state.
  */
 export function FormHonorarSection({
   defaultPayment,
@@ -31,7 +25,6 @@ export function FormHonorarSection({
   defaultPayment: number;
   onChange: (next: number) => void;
   onFieldChanged: (paths: readonly string[], picked: { default_payment: number }) => void;
-  /** The editor's whole Hinweis list; the spot below takes its own entry out of it. */
   banners: readonly SchiedsrichterBanner[];
 }) {
   const panel = formPanel();

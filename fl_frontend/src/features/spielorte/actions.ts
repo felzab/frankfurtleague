@@ -1,20 +1,5 @@
 "use server";
 
-/**
- * SPIELORTE · server actions
- *
- * Full CRUD over venues. The `"use server"` directive stays the first line, above this block.
- *
- * Invariants:
- * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the toast.
- * - The patch invalidates `spiele` too: a venue rename fans into every match embedding it.
- * - Delete is a soft delete server-side — the action is named `delete…` but nothing is removed, and
- *   `reactivateSpielortAction` is the way back out of it.
- * - Errors come back as `FormState` with German field-level messages, never exceptions.
- *
- * See:
- * - docs/frontend/spec.md — section 1.3, the action inventory
- */
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
@@ -29,10 +14,8 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielort, FLSpielortKeyPayload } from "./schemas";
 
 /**
- * The retirement refusal (`REQ-RETIRE-003`), or `null` when the 409 is something else.
- *
- * Two sentences to the shape in `fl_frontend/src/features/saisons/actions.ts`: the retire control is a
- * dialog rather than a form, so there is no field for this to land on and the action goes second.
+ * The retirement refusal, or `null` when the 409 is something else. It lands on no field: the retire
+ * control is a dialog rather than a form.
  */
 function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -99,6 +82,7 @@ export async function patchSpielortAction(
     }
 
     updateTag("spielorte");
+    // A rename fans into every match embedding this venue.
     updateTag("spiele");
 
     return {
@@ -127,8 +111,7 @@ export async function deleteSpielortAction(
       };
     }
 
-    // The retirement is refused while an unplayed fixture is still booked here (`REQ-RETIRE-003`), and
-    // that answer belongs in the dialog rather than on the error page.
+    // The refusal belongs in the dialog rather than on the error page.
     let patchOperation;
     try {
       patchOperation = await deleteSpielort(validated.data);
@@ -153,15 +136,8 @@ export async function deleteSpielortAction(
 }
 
 /**
- * The way back from a retirement, and the reason `deleteSpielortAction` is allowed to be soft.
- *
- * The endpoint clears `inactive_since` and refuses nothing: the fixture rules that guard the retirement
- * are about matches still booked here, and a venue coming back takes none with it. A missing id answers
- * 404, which `toActionErrorResult` already turns into its own sentence.
- *
- * `spielorte` alone, exactly as the retirement invalidates. `patchSpielortAction` adds `spiele` because
- * a rename fans into every match embedding it; this write moves only `inactive_since`, which no match
- * document carries.
+ * `spielorte` alone, unlike the patch: this write moves only `inactive_since`, which no match document
+ * carries. The endpoint refuses nothing — a venue coming back takes no fixtures with it.
  */
 export async function reactivateSpielortAction(
   rawPayload: FLSpielortKeyPayload,

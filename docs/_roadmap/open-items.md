@@ -146,14 +146,14 @@ The last row is about the two copied display fields alone. A fixture's `mietprei
 per-fixture values rather than stale copies of a default, and the same
 `$set` is what makes them work.
 
-**One of the five has a date on it, and the date is this year.** `post_saison_team`'s docstring
-accepts its race in terms — "the count-then-insert is not transactional; the single-admin surface
-makes the race a non-concern, and the cost of losing it is one team over a planning bound rather
-than corrupt data". That reasoning is sound and it rests entirely on there being one writer. BE-15
-records that a second person will be writing in the season plan this year, confirmed 2026-08-12.
-When that lands the justification is gone and only the code is left, and nothing joins the two: the
-concession lives in a docstring rather than in `UNENFORCED`, where a reader looking for what this
-system tolerates would find it.
+**One of the five has a date on it, and the date is this year.**
+`fl_backend/app/api/teams/admin_router.py :: post_saison_team` accepts its race in a comment at the
+count it reads: the single-admin surface makes the race a non-concern, and losing it costs one team
+over a planning bound rather than corrupt data. That reasoning is sound and it rests entirely on
+there being one writer. BE-15 records that a second person will be writing in the season plan this
+year, confirmed 2026-08-12. When that lands the justification is gone and only the code is left, and
+nothing joins the two: the concession lives at the call site rather than in `UNENFORCED`, where a
+reader looking for what this system tolerates would find it.
 
 **The same file's third list is short in a direction as well.** `FIELD_POLICIES` declares when each
 field may be written, and it is resolved one way only:

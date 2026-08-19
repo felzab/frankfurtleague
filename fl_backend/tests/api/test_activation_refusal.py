@@ -1,16 +1,3 @@
-"""
-SAISONS · what the rollover refuses
-
-`unplayed_spiel_nrs` and `find_activation_refusal`, both pure. `POST /saisons/{saison_id}/activate`
-demotes the incumbent to `past` in the same transaction it promotes with — and `past` freezes the
-rules and makes the derived table the record, so rolling over across unplayed fixtures closes a
-competition that is not finished, in the one operation editing afterwards cannot undo.
-
-Cancelling is the way through, not a loophole: a fixture nobody will ever play is settled by
-cancelling it — chosen (decided 2026-08-08) over counting the unplayed fixtures and activating
-anyway.
-"""
-
 import pytest
 
 from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, find_activation_refusal, unplayed_spiel_nrs
@@ -52,31 +39,17 @@ class TestWhatCountsAsUnplayed:
         assert unplayed_spiel_nrs(season({"spiel_nr": 7, "ergebnis": None})) == [7]
 
     def test_a_cancelled_fixture_is_settled(self):
-        """
-        Cancelling is the route past the refusal, so it has to count as settled.
-
-        Otherwise a season holding a fixture nobody will ever play could never be closed at all.
-        """
+        """Cancelling is the route past the refusal: otherwise a fixture nobody will play closes nothing."""
 
         assert unplayed_spiel_nrs(season({"spiel_nr": 4, "ergebnis": None, "is_canceled": True})) == []
 
     def test_a_cancelled_fixture_with_a_result_is_also_settled(self):
-        """
-        Both conditions say settled, and they agree.
-
-        A cancelled match carrying a result still counts for the league table (docs/glossary.md), so it
-        is as played as any other.
-        """
+        """A cancelled match carrying a result counts for the league table (`docs/glossary.md`), so it is as played as any other."""
 
         assert unplayed_spiel_nrs(season({"spiel_nr": 4, "ergebnis": "1:0", "is_canceled": True})) == []
 
     def test_an_empty_bracket_slot_is_unplayed(self):
-        """
-        A knockout fixture the group phase never filled.
-
-        A season leaving one open is exactly as unfinished as one leaving a match unscored, and this
-        fixture has no occupants to score.
-        """
+        """A season leaving one open is as unfinished as one leaving a match unscored, and it has no occupants to score."""
 
         assert unplayed_spiel_nrs(season({"spiel_nr": 29, "saison_phase": "halbfinale", "team1": None, "team2": None})) == [29]
 
@@ -89,15 +62,13 @@ class TestWhatCountsAsUnplayed:
 
 
 class TestTheOutgoingSeasonMustBeFinished:
+    """`past` freezes the rules and makes the derived table the record, so rolling over early closes an unfinished competition."""
+
     def test_a_finished_season_rolls_over(self):
         assert find_activation_refusal(outgoing_unplayed=[]) is None
 
     def test_no_incumbent_at_all_rolls_over(self):
-        """
-        The first rollover of a fresh database, where there is no outgoing season to be unfinished.
-
-        The caller passes an empty list for it, which is the same input as a season with nothing left.
-        """
+        """A fresh database has no outgoing season, and the caller passes the same empty list either way."""
 
         assert find_activation_refusal(outgoing_unplayed=[]) is None
 
@@ -109,12 +80,7 @@ class TestTheOutgoingSeasonMustBeFinished:
         assert refusal.error_code == ACTIVATE_SAISON_UNFINISHED
 
     def test_the_refusal_names_the_fixtures(self):
-        """
-        The numbers are what make it actionable.
-
-        `spiel_nr` is how an admin finds a fixture in the Spielsuche, so a refusal naming them is one
-        somebody can act on without a second lookup.
-        """
+        """`spiel_nr` is how an admin finds a fixture in the Spielsuche, so naming them saves a second lookup."""
 
         refusal = find_activation_refusal(outgoing_unplayed=[3, 7])
 
@@ -122,12 +88,7 @@ class TestTheOutgoingSeasonMustBeFinished:
         assert "3, 7" in refusal.message
 
     def test_a_long_list_is_summarised_rather_than_printed(self):
-        """
-        This detail is the log line, so its length is a real constraint.
-
-        A season's worth of numbers buries the sentence that says what to do, so it names the first five
-        and counts the rest.
-        """
+        """This detail is the log line: a season's worth of numbers buries the sentence saying what to do."""
 
         refusal = find_activation_refusal(outgoing_unplayed=list(range(1, 12)))
 

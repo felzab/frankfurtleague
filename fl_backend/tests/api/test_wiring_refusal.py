@@ -1,17 +1,3 @@
-"""
-SPIELE · which bracket edits the season cannot hold
-
-`find_wiring_refusal` is pure, so every case runs in the default tier. The rules are
-contradictions rather than preferences — wiring on a group fixture, a source the season cannot
-honour, one outcome feeding two slots, a hand-set team on a maintained side — and each case
-below is one of them, plus the legal edit beside it that must keep working.
-
-The detail is asserted by substring rather than full message, and the code is asserted separately —
-`TestEveryRefusalCarriesItsCode` is what holds `REQ-WIRING-001` to the rule that decides it. The
-season under test mirrors the real 2026 shape at its smallest: two group fixtures, two
-quarter-finals, two semi-finals (one wired, one manual), and a final fed by both.
-"""
-
 from typing import Any, Callable
 
 import pytest
@@ -41,8 +27,6 @@ def gruppenplatz(gruppe: str, platz: int) -> dict[str, Any]:
 
 @pytest.fixture
 def fixture_at(spiel: PayloadFactory) -> FixtureFactory:
-    """One match of the season, keyed by `spiel_nr`, with an id derived from it."""
-
     def make(nr: int, phase: str, **overrides: Any) -> dict[str, Any]:
         return spiel(
             _id=MATCH_ID.format(nr),
@@ -57,11 +41,7 @@ def fixture_at(spiel: PayloadFactory) -> FixtureFactory:
 
 @pytest.fixture
 def season(fixture_at: FixtureFactory) -> list[dict[str, Any]]:
-    """
-    The smallest season with every shape a rule reads.
-
-    Group fixtures, wired knockouts, a manual semi-final, and a final whose sources are already taken.
-    """
+    """Every shape a rule reads: group fixtures, wired knockouts, a manual semi-final, and a final whose sources are taken."""
 
     return [
         fixture_at(1, "gruppenphase"),
@@ -75,13 +55,7 @@ def season(fixture_at: FixtureFactory) -> list[dict[str, Any]]:
 
 
 def refusal_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> WriteRefusal | None:
-    """
-    Run the refusal for an edit of match `nr`, built as "everything as stored, plus `overrides`".
-
-    That base is exactly what the form submits: the whole document back, with only the touched fields
-    changed. It is also what makes the no-op case the default — a test overriding nothing asserts
-    that saving a fixture unchanged is always legal.
-    """
+    """Everything as stored plus `overrides`, so a case overriding nothing asserts that an unchanged save is legal."""
 
     stored = next(doc for doc in season_docs if doc["spiel_nr"] == nr)
     payload = FLPatchSpielDataPayload.model_validate(
@@ -102,13 +76,12 @@ def refusal_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) ->
         }
     )
 
-    # A real ObjectId, exactly as the route convertor hands the endpoint one — the season's own ids
-    # validate to ObjectId too, and bson's ObjectId never equals its string spelling.
+    # A real `ObjectId`, as the route convertor hands one: bson's never equals its string spelling.
     return find_wiring_refusal(ObjectId(stored["_id"]), payload, FLSpielListAdapter.validate_python(season_docs))
 
 
 def message_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> str:
-    """The refusal's detail, or the empty string when there is none, so a substring assertion is one expression."""
+    """The detail, or the empty string when there is none, so a substring assertion is one expression."""
 
     refusal = refusal_for(season_docs, nr, **overrides)
 
@@ -188,10 +161,8 @@ class TestPhaseRules:
 
 
 class TestOneOutcomeOneSlot:
-    """The duplicate that motivated the rule: one match's winner feeding two fixtures of the bracket."""
-
     def test_an_outcome_already_feeding_another_fixture_is_refused(self, season):
-        """The reported reproduction: re-pointing match 30 at match 26's winner, which 29 already holds."""
+        """Re-pointing match 30 at match 26's winner, which 29 already holds."""
         assert "already feeds" in message_for(season, 30, team1_quelle=sieger(26))
 
     def test_an_outcome_cannot_feed_both_sides_of_one_fixture(self, season):
@@ -206,7 +177,7 @@ class TestMaintainedSides:
     """A side with a source belongs to the resolution; the write path refuses what it would revert."""
 
     def test_a_hand_set_team_on_a_maintained_side_is_refused(self, season, spiel_team_field):
-        """The reported reproduction: a team picked onto a wired slot got a success toast and no effect."""
+        """A team picked onto a wired slot would otherwise get a success toast and no effect."""
         assert "maintained by its quelle" in message_for(season, 29, team1=spiel_team_field())
 
     def test_clearing_the_team_of_a_maintained_side_is_refused(self, season, spiel_team_field):
@@ -220,15 +191,7 @@ class TestMaintainedSides:
 
 
 class TestEveryRefusalCarriesItsCode:
-    """
-    The code travels with the refusal, so no endpoint has to know it.
-
-    A rule answering the detail alone leaves its caller to name the code, and a code named at a call site
-    is a second copy: nothing compares it against the rule's own, and a rename reaches one and not the
-    other. The client acts on the code and never sees the message
-    (`app/core/exception_handlers.py :: error_response`), so that copy going stale is invisible until a
-    form starts routing a refusal to the wrong field.
-    """
+    """The code travels with the refusal: a code named at a call site is a second copy nothing compares against the rule's own."""
 
     @pytest.mark.parametrize(
         "overrides",

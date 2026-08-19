@@ -17,12 +17,8 @@ import { SpielStatusChip } from "../ui/SpielStatusChip";
 import type { FLSpiel, FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
 
 /**
- * One side of the fixture, in this modal's own idiom.
- *
- * A resolved side is a `TeamPopoverMenu` placed `top`, not the cards' `right`: this trigger is a wide
- * centred line, and only a vertical placement puts that width on the axis react-aria clamps to the
- * viewport. A side whose occupant is not yet known shows its provenance label as text, because there
- * is no team page to send anyone to.
+ * Placed `top`, not the cards' `right`: this trigger is a wide centred line, and only a vertical
+ * placement puts that width on the axis react-aria clamps to the viewport.
  */
 function TeamNameLine({
   team,
@@ -52,18 +48,9 @@ function TeamNameLine({
 }
 
 /**
- * Deliberately NOT on `ModalShell` (decided 2026-07-31): this is the one modal public users
- * see, and its lighter `bg-surface p-6 shadow-sm` appearance is the wanted look.
- *
- * **The caller guards the mount; this component does not stay mounted (decided 2026-07-31).**
- * Keeping the Backdrop mounted would preserve HeroUI's exit transition, but `SpielCardsList` is
- * instantiated once per collection, so it would also mount ~11 idle overlay trees across the app on
- * first paint. Losing the exit transition is the accepted cost.
- *
- * `spielData` is nullable and the inner guard is deliberate. Every call site guards the mount, so
- * null should not arrive — but the prop is typed for a caller holding a null selection, and the guard
- * is what keeps the header and body off it. It is cheap, and it is why a call site that forgets to
- * guard degrades to an empty dialog rather than a crash.
+ * Deliberately NOT on `ModalShell`: the one modal public users see, and the lighter look is wanted.
+ * **The caller guards the mount** — staying mounted would buy HeroUI's exit transition at the cost
+ * of an idle overlay tree per collection.
  */
 export function SpielDetailsModal({
   spielData,
@@ -79,22 +66,20 @@ export function SpielDetailsModal({
   const { datum: spielDatum, uhrzeit: spielUhrzeit } = formatSpielDisplay(
     spielData ?? { datum: null, uhrzeit: null, ergebnis: null, elfmeterschiessen: null },
   );
-  // Searches the Spielort's stored maps_link, not an address -- the embedded copy carries no
-  // FLAddress, so this query is genuinely different from the other two call sites.
+  // The stored `maps_link`, not an address: the embedded copy carries no `FLAddress`.
   const mapUrl = spielData?.ort ? buildMapsSearchUrl(spielData.ort.maps_link) : "";
 
   return (
     <Modal.Backdrop
       isOpen={isOpen}
-      // HeroUI reports both directions; only the closing edge is ours to handle. Passing `onClose`
-      // straight in would forward the boolean as its first argument.
+      // HeroUI reports both directions, and passing `onClose` in would forward the boolean to it.
       onOpenChange={(open: boolean) => {
         if (!open) onClose();
       }}
       variant="opaque">
-      {/* The blur on an empty sibling rather than `variant="blur"`, for ModalShell's reason: a
-          backdrop-filter on the ancestor of animated content is what Chromium drops for good. This
-          modal is off the shell by decision (below), so it carries its own copy of the layer. */}
+      {/* The blur on an empty sibling rather than `variant="blur"`: a backdrop-filter on the
+          ancestor of animated content is what Chromium drops for good. This modal is off the shell,
+          so it carries its own copy of the layer. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 backdrop-blur-md"

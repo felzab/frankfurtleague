@@ -1,12 +1,3 @@
-/**
- * SCHIEDSRICHTER · cached read
- *
- * Invariants:
- * - Base tag only, and sufficient: this slice's actions invalidate `schiedsrichter` on every write.
- * - A referee rename also invalidates `spiele` — the backend fans the new name into every match.
- * - `include_inactive` is the one filter any caller passes; the rest are unexercised, not tested.
- */
-
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";

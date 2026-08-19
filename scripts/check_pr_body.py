@@ -1,21 +1,8 @@
-"""
-SCRIPTS · the pull request body gate
+"""SCRIPTS · the pull request body gate.
 
-Reads one body on stdin or from a file and holds it to the form in
-docs/_git/templates.md. A body is not in the repository and does not exist before
-the pull request does, so this cannot run in verify.sh — .github/workflows/pr-body.yml is the
-one place it is addressable, and it listens for `edited` so a corrected body turns green without
-a push.
-
-Invariants:
-- A section is matched by name, bold optional: the merged corpus writes a bare `Verified.`, and
-  failing it would be the check that cries wolf (CUR-5). `Reviewer's first look` is in the set
-  because it is a heading of the same form — a body line opening with it ends the summary.
-- Verified is the one section never legitimately dropped; every other heading is unchecked.
-- Three or more consecutive list items carrying commit hashes fail — a body never indexes its commits.
-- The summary has a reported target and a hard maximum, the report-then-fail shape check_commits.py
-  uses; the numbers are at `SUMMARY_TARGET` and `SUMMARY_MAX`.
-- Dependabot bodies are skipped entirely — the bot writes its own.
+A body is not in the repository and postdates the pull request, so this cannot run in verify.sh;
+`.github/workflows/pr-body.yml` listens for `edited` so a corrected body turns green without a
+push. Verified is the one section never legitimately dropped.
 """
 
 from __future__ import annotations

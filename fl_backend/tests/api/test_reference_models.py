@@ -1,11 +1,3 @@
-"""
-API · the remaining constrained models: spielorte, schiedsrichter, spieler, spieltage, saisons
-
-One module rather than five, because each carries only a handful of constraints and splitting
-them would be more navigation than signal. Split it the moment any one of them grows real
-behaviour.
-"""
-
 import pytest
 from pydantic import ValidationError
 
@@ -19,73 +11,60 @@ from app.api.spieltage.schemas import FLSpieltag
 
 class TestSpielort:
     def test_accepts_a_valid_spielort(self, spielort):
-        """Positive baseline for the venue model."""
         assert FLSpielort.model_validate(spielort()).default_mietpreis == 80
 
     @pytest.mark.parametrize("field", ["name", "maps_link"])
     def test_rejects_an_empty_required_string(self, spielort, field):
-        """A venue must be nameable and locatable — both strings are embedded onto every match that uses it."""
+        """Both strings are embedded onto every match that uses the venue."""
         with pytest.raises(ValidationError):
             FLSpielort.model_validate(spielort(**{field: ""}))
 
     def test_rejects_a_negative_default_rent(self, spielort):
-        """`ge=0` on the standard rent, matching the per-match `mietpreis`."""
         with pytest.raises(ValidationError):
             FLSpielort.model_validate(spielort(default_mietpreis=-1))
 
-    # The payload gets its own positive baseline before anything asserts a rejection: without one,
-    # a mistyped key would produce "field required" and the rejection test would pass while the
-    # constraint it names went unenforced.
     def test_payload_accepts_a_valid_body(self, address):
-        """The write payload's own baseline: without it a mistyped key would make the rejection test pass for the wrong reason."""
+        """Without it a mistyped key makes the rejection test below pass for the wrong reason."""
         parsed = FLPostSpielortPayload.model_validate({"address": address(), "name": "Sportplatz Ost", "default_mietpreis": 80})
 
         assert parsed.default_mietpreis == 80
 
     def test_payload_shares_the_same_constraints(self, address, assert_rejects):
-        """The payload does not relax what the read model enforces, and the error names the offending field."""
         assert_rejects(FLPostSpielortPayload, {"address": address(), "name": "", "default_mietpreis": 0}, "name")
         assert_rejects(FLPostSpielortPayload, {"address": address(), "name": "X", "default_mietpreis": -1}, "default_mietpreis")
 
 
 class TestSchiedsrichter:
     def test_accepts_a_valid_schiedsrichter(self, schiedsrichter):
-        """Positive baseline for the referee model."""
         assert FLSchiedsrichter.model_validate(schiedsrichter()).default_payment == 20
 
     def test_rejects_an_empty_name(self, schiedsrichter):
-        """The name is embedded onto every match the referee officiates, so it cannot be blank."""
+        """The name is embedded onto every match the referee officiates."""
         with pytest.raises(ValidationError):
             FLSchiedsrichter.model_validate(schiedsrichter(name=""))
 
     def test_rejects_a_negative_payment(self, schiedsrichter):
-        """`ge=0` on the standard fee."""
         with pytest.raises(ValidationError):
             FLSchiedsrichter.model_validate(schiedsrichter(default_payment=-1))
 
     def test_accepts_a_missing_school(self, schiedsrichter):
-        """`schule` is genuinely optional — not every referee is attached to one."""
+        """Not every referee is attached to a school."""
         assert FLSchiedsrichter.model_validate(schiedsrichter(schule=None)).schule is None
 
     def test_rejects_a_malformed_email_through_the_nested_contact(self, schiedsrichter, kontakt):
-        """Nested validation actually runs: a bad address inside `kontakt` fails the whole model."""
         with pytest.raises(ValidationError):
             FLSchiedsrichter.model_validate(schiedsrichter(kontakt=kontakt(email="nope")))
 
     def test_payload_accepts_a_valid_body(self, kontakt):
-        """The referee payload's own baseline, for the same reason as the venue one above."""
         parsed = FLPostSchiedsrichterPayload.model_validate(
             {"kontakt": kontakt(), "name": "Anna Referee", "schule": None, "default_payment": 20}
         )
 
         assert parsed.default_payment == 20
 
-    # A referee is a PERSON, so their name takes the same rule the player payloads take: letters and
-    # the three separators a real name uses. The cost is named rather than hidden -- an initial or a
-    # title is refused, because "A." and "Dr." are not letters.
+    # A referee is a person, so the name takes the player payloads' rule; the cost is a refused initial or title.
     @pytest.mark.parametrize("name", ["A. Referee", "Referee (C)", "Referee 2"])
     def test_payload_rejects_a_name_that_is_not_letters(self, kontakt, assert_rejects, name):
-        """The write path refuses it; the READ model still parses whatever is stored."""
         assert_rejects(
             FLPostSchiedsrichterPayload,
             {"kontakt": kontakt(), "name": name, "schule": None, "default_payment": 20},
@@ -93,17 +72,10 @@ class TestSchiedsrichter:
         )
 
     def test_the_read_model_still_accepts_a_stored_name_the_payload_would_refuse(self, schiedsrichter):
-        """
-        The asymmetry, pinned.
-
-        A read model that refused a stored name would answer 500 for the whole list because of one
-        row. The rule belongs on the way in, and this is the test that stops someone "tidying" it
-        onto `FLSchiedsrichter`.
-        """
+        """A read model refusing a stored name would answer 500 for the whole list because of one row."""
         assert FLSchiedsrichter.model_validate(schiedsrichter(name="A. Referee")).name == "A. Referee"
 
     def test_payload_shares_the_same_constraints(self, kontakt, assert_rejects):
-        """The referee payload does not relax the read model's rules either, and names the offending field."""
         assert_rejects(FLPostSchiedsrichterPayload, {"kontakt": kontakt(), "name": "", "schule": None, "default_payment": 0}, "name")
         assert_rejects(
             FLPostSchiedsrichterPayload, {"kontakt": kontakt(), "name": "X", "schule": None, "default_payment": -1}, "default_payment"
@@ -112,27 +84,22 @@ class TestSchiedsrichter:
 
 class TestSpieler:
     def test_accepts_a_valid_spieler(self, spieler):
-        """Positive baseline for the player model."""
         assert FLSpieler.model_validate(spieler()).vorname == "Max"
 
-    # Decided: a player must have a first name; the rest may be absent while a squad entry
-    # is still being filled in. The frontend mirrors exactly this split.
+    # A player must have a first name; the rest fills in over time, and the frontend mirrors the split.
     def test_requires_a_first_name(self, spieler):
-        """`vorname` is the one mandatory field — a squad entry with nothing at all is not a player."""
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(spieler(vorname=""))
 
     @pytest.mark.parametrize("field", ["nachname", "stufe", "nummer", "position"])
     def test_allows_every_other_name_field_to_be_absent(self, spieler, field):
-        """The other four are nullable, because squads are filled in over time. Consumers must handle every one."""
         assert getattr(FLSpieler.model_validate(spieler(**{field: None})), field) is None
 
-    # Both sets are closed. Nullable is not the same as open: a missing answer is null, and a
-    # value outside the set is a document nothing may store.
+    # Nullable is not open: a missing answer is null, a value outside the set is unstorable.
     @pytest.mark.parametrize(
         ("field", "value"),
         [
-            # Two spellings of one position -- the split the closed set removes.
+            # Two spellings of one position — the split the closed set removes.
             ("position", "Sturm"),
             ("position", "TW"),
             # A placeholder somebody typed where null already meant the same thing.
@@ -143,7 +110,6 @@ class TestSpieler:
         ],
     )
     def test_rejects_a_position_or_stufe_outside_its_closed_set(self, spieler, field, value):
-        """A second spelling of a position the league already has is the failure mode the closed set removes."""
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(spieler(**{field: value}))
 
@@ -154,51 +120,23 @@ class TestSpieler:
 
 class TestSpieltag:
     def test_accepts_a_valid_spieltag(self, spieltag):
-        """Positive baseline for the matchday model."""
         assert FLSpieltag.model_validate(spieltag()).anzahl_spiele == 4
 
     def test_carries_no_name(self):
-        """
-        A matchday has no name field, and the absence is asserted rather than left to be noticed.
-
-        The name a reader sees is composed from `saison_phase` and the matchday's position in its
-        phase: a group matchday is its ordinal, a knockout matchday is its round. Both are already
-        derivable, so a stored name would be a second statement of the same fact -- and it was one nothing
-        held consistent, since two matchdays could share a name and a name could contradict its phase.
-        """
+        """A stored name restates a composed fact with nothing holding the two consistent."""
 
         assert "name" not in FLSpieltag.model_fields
 
     def test_rejects_a_negative_match_count(self, spieltag):
-        """
-        A count below zero is not a count, and it is the only value this field refuses.
-
-        The bound is `ge=0` because the count is derived from the season's rules, and zero is
-        a real answer there — which the test below pins.
-        """
+        """`ge=0` rather than `gt=0`: the count is derived from the season's rules, and zero is a real answer."""
         with pytest.raises(ValidationError):
             FLSpieltag.model_validate(spieltag(anzahl_spiele=-1))
 
     def test_accepts_a_match_count_of_zero(self, spieltag):
-        """
-        Zero is the honest answer for a phase this season's bracket does not reach.
-
-        `anzahl_spiele` is derived from the season's rules and this matchday's phase. A season
-        sending eight teams into the bracket plays no round of sixteen, so a matchday claiming to be one
-        expects no matches — and the admin list showing `0 / 0` is exactly the report that says so.
-        """
         assert FLSpieltag.model_validate(spieltag(anzahl_spiele=0)).anzahl_spiele == 0
 
     def test_carries_no_stored_position(self, spieltag):
-        """
-        A matchday's place in its season is derived, so the model holds no field for one.
-
-        Asserted rather than left to absence: a stored position is the shape this model is most likely to
-        grow back, and it would silently become a second answer to a question `order_spieltage` already
-        answers. Pydantic ignores an unknown key, so a document still carrying the retired `order_val`
-        validates and the value is dropped -- which is what makes the cleanup optional rather than a
-        migration the deploy waits on.
-        """
+        """Asserted, not left to absence: Pydantic drops an unknown key silently, and a stored position second-guesses `order_spieltage`."""
         assert "order_val" not in FLSpieltag.model_fields
         assert not hasattr(FLSpieltag.model_validate(spieltag(order_val=3)), "order_val")
 
@@ -211,7 +149,6 @@ class TestSpieltag:
 
 class TestSaison:
     def test_accepts_a_valid_saison(self, saison):
-        """Positive baseline for the season model, including its nested rules."""
         assert FLSaison.model_validate(saison()).rules.win_points == 3
 
     def test_rejects_non_positive_win_points(self, saison):
@@ -224,7 +161,6 @@ class TestSaison:
         with pytest.raises(ValidationError):
             FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": -1}))
 
-    # A draw being worth nothing is a legal rule set, unlike a win being worth nothing.
     def test_accepts_zero_draw_points(self, saison):
         """The asymmetry with wins: a draw worth nothing is a legal rule set."""
         rules = {
@@ -238,16 +174,9 @@ class TestSaison:
 
         assert FLSaison.model_validate(saison(rules=rules)).rules.draw_points == 0
 
-    # `erlaubte_stufen` names WHICH of the league's levels this season runs. It is a
-    # subset of the vocabulary, never a redefinition of it, and never empty.
+    # `erlaubte_stufen` is a subset of the league's vocabulary, never a redefinition and never empty.
     def test_rejects_a_stufe_the_league_does_not_have(self, saison):
-        """
-        A season may narrow the set, not extend it — `10` is outside `FLSpielerStufe`.
-
-        Asserted directly rather than through `assert_rejects`: that helper reads the LAST element of
-        the error location, and a rejected LIST ITEM ends its location with the index, so the field's
-        name sits one step up.
-        """
+        """Not `assert_rejects`: it reads the last element of the error location, and a rejected list item ends with the index."""
         rules = {**saison()["rules"], "erlaubte_stufen": ["Q1", "10"]}
 
         with pytest.raises(ValidationError) as failure:
@@ -272,19 +201,15 @@ class TestSaison:
         with pytest.raises(ValidationError):
             FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1, "qualifiers_per_group": 0}))
 
-    # No Pydantic default, deliberately: a season that never carried the key would read as though it
-    # had, and the number seeding the bracket would be a constant in the model file -- the same
-    # reason 3/1/0 is not hardcoded either.
+    # No Pydantic default: a season missing the key would read as though it had one, and the bracket's
+    # size would be a constant in a model.
     def test_rejects_rules_with_no_qualifier_count(self, saison):
-        """Required, so a season predating the field is refused rather than silently given a number."""
         with pytest.raises(ValidationError):
             FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1}))
 
-    # The capacity pair is required for the same reason as the qualifier count above: absent keys must
-    # fail loudly, not read as a bound nobody chose.
+    # Required for the qualifier count's reason: an absent key must fail, not read as a bound nobody chose.
     @pytest.mark.parametrize("field", ["number_of_groups", "teams_per_group"])
     def test_rejects_rules_with_no_capacity(self, saison, field):
-        """Required, so a season predating the capacity fields is refused rather than silently bounded."""
         rules = {"win_points": 3, "draw_points": 1, "qualifiers_per_group": 2, "number_of_groups": 4, "teams_per_group": 4}
         del rules[field]
 
@@ -300,20 +225,13 @@ class TestSaison:
 
     @pytest.mark.parametrize("field", ["start_date", "end_date"])
     def test_rejects_a_date_that_does_not_exist(self, saison, field):
-        """Both season boundaries get the calendar check — 2026-04-31 passes the regex and is not a real day."""
+        """Both boundaries get the calendar check: the value passes the regex and is not a real day."""
         with pytest.raises(ValidationError):
             FLSaison.model_validate(saison(**{field: "2026-04-31"}))
 
 
 class TestSpielBooking:
-    """
-    The clash rule's projection, which is validated rather than read as a raw dict (decided 2026-08-08).
-
-    `find_clash_refusal` ACTS on these values — it splits `uhrzeit` into three parts to compare times — and
-    the read behind them is a bare projection over every season rather than a validated fixture list. The
-    database is hand-edited, which is the whole reason `constraints.py` exists, so a malformed time reached
-    the comparison and raised `ValueError`: a 500 on a legitimate match edit.
-    """
+    """`find_clash_refusal` splits `uhrzeit` into three parts over a bare projection, and the database is hand-edited."""
 
     def booking(self, **overrides):
         return {"spiel_nr": 3, "datum": "2026-03-15", "uhrzeit": "18:00:00", **overrides}
@@ -323,12 +241,7 @@ class TestSpielBooking:
 
     @pytest.mark.parametrize("uhrzeit", ["18:00", "18", "abend", "25:00:00"])
     def test_rejects_a_time_the_comparison_could_not_read(self, uhrzeit):
-        """
-        `18:00` is the one that mattered: three-part unpacking raised `ValueError` on it, not a 422.
-
-        The others are here because a hand edit is a hand edit — nothing about the two-part case makes it
-        more likely than a word or an impossible hour.
-        """
+        """`18:00` is load-bearing: three-part unpacking raises `ValueError` on it rather than a 422."""
 
         with pytest.raises(ValidationError):
             FLSpielBooking.model_validate(self.booking(uhrzeit=uhrzeit))

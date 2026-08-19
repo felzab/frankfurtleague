@@ -15,13 +15,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * No Suspense boundary here on purpose: Next nests `loading.tsx` INSIDE the layout, so that fallback
- * is strictly closer to the page and always wins the race. Nothing else in this layout suspends —
- * `SaisonMetadataDisplay` has its own boundary inside the sidemenu — so one here would be dead code.
- * `admin/layout.tsx` is the opposite case; see the note there.
- *
- * The shell owns the whole frame now, `<main>` and the skip link included, so both signed-in
- * layouts declare their navigation and their metadata and nothing about their geometry.
+ * No Suspense boundary here: Next nests `loading.tsx` INSIDE the layout, so that fallback always
+ * wins the race, and nothing else here suspends. `admin/layout.tsx` is the opposite case.
  */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return <DashboardShell saisonMetadataDisplay={<SaisonMetadataDisplay />}>{children}</DashboardShell>;

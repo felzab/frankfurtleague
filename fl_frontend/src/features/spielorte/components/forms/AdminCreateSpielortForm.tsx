@@ -17,14 +17,9 @@ const EMPTY_DRAFT: SpielortDraft = {
 };
 
 /**
- * `onCreated` receives the finished record, for a caller that has to show it before the next server
- * render — the match editor's venue picker selects what it just created, and the picker's own list still
- * comes from the last render.
- *
- * **The record is composed here rather than at that call site**, because composing it means reproducing
- * what `post_spielort` stores: `maps_link` is `f"{name}, {address.to_string}, Deutschland"`
- * (`spielorte/admin_router.py`), and `formatAddressFull` assembles the same parts in the same order.
- * That reproduction belongs beside the action that causes it, not in a form in another slice.
+ * `onCreated` hands back the finished record: the match editor's picker selects what it just
+ * created, and its list still comes from the last server render. Composed here and not at the call
+ * site, because it reproduces what `post_spielort` stores.
  */
 export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () => void; onCreated?: (created: FLSpielort) => void }) {
   return (
@@ -42,7 +37,6 @@ export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () =>
           default_mietpreis: draft.default_mietpreis,
           address: draft.address,
         });
-        // A create only counts if the backend actually handed back an id.
         const success = res.success && !!res.created_id;
 
         if (success && res.created_id) {
@@ -50,8 +44,7 @@ export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () =>
             id: res.created_id,
             name: draft.name,
             address: draft.address,
-            // A plain search string, as the backend stores it — `formatMapsLink` is what wraps one for
-            // an href.
+            // A plain search string, as the backend stores it; `formatMapsLink` wraps one for an href.
             maps_link: `${draft.name}, ${formatAddressFull(draft.address)}`,
             default_mietpreis: draft.default_mietpreis,
             // Just created, so current — and `null` is what current means.

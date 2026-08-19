@@ -14,19 +14,9 @@ import { appToast } from "@/shared/utils/appToast";
 import type { SpieltagBanner } from "./banners";
 
 /**
- * Taking the matchday off the public Spielplan — the editor's danger zone, in the same shape as the
- * squad editor's Austragen panel: last on the page, in the danger tone.
- *
- * **A button rather than a field.** It writes the moment it is pressed and never joins the save bar,
- * because there is no half-entered state for the bar to hold. Reversible either way, which is why it
- * is not a confirmation dialog: the delete is soft and `reactivate` puts the matchday back
- * with its fixtures untouched — they were never touched.
- *
- * **Both refusals are stated before the press rather than explained after it.** `REQ-RETIRE-002`
- * refuses while a fixture here carries a result, and `REQ-RETIRE-005` refuses while the phase would
- * drop below the count its rules imply; each is a fact the page already holds, so the control is
- * disabled with the reason in a banner beside it rather than opening onto a 409. The endpoint stays
- * the authority — a fixture scored in another tab reaches it — so the action still maps both codes.
+ * **Both refusals are stated before the press rather than explained after it** — `REQ-RETIRE-002`
+ * and `REQ-RETIRE-005`, each a fact the page already holds. No confirmation: the write is soft and
+ * `reactivate` puts the matchday back.
  */
 export function FormStilllegenSection({
   spieltagId,
@@ -41,7 +31,6 @@ export function FormStilllegenSection({
   inactiveSince: string | null;
   /** Whether the page can see a reason the retirement would be refused. */
   isRetireable: boolean;
-  /** The editor's whole Hinweis list; the spot below takes its own entries out of it. */
   banners: readonly SpieltagBanner[];
 }) {
   const styles = formPanel({ tone: "danger" });

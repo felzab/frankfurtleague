@@ -1,17 +1,5 @@
 "use client";
 
-/**
- * SAISONS · the two field primitives both season forms render
- *
- * The create form is a dialog and the editor is a page, so they cannot share a whole form — but a
- * season has dates and counters, and writing either control out twice is how a picker and a stepper
- * end up with different popovers, different bounds and different empty-value handling in one app.
- *
- * **`label` is a slot rather than a string, and that is what lets one control serve both surfaces.**
- * The dialog passes a plain `<Label>`; the editor passes a `SaisonFieldLabel`, which reads the
- * draft-status context to render its own change marker and carries the `feld-` anchor a rail row
- * links to.
- */
 import { Calendar, DateField, DatePicker, FieldError, NumberField } from "@heroui/react";
 
 import {
@@ -27,10 +15,6 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
 
-/**
- * One date, as the app's one date picker: the composition matches `FormDisqualifikationSection` and
- * `FormDateTimeSection`, the other places a `DatePicker` is fully spelled out.
- */
 export function SaisonDateField({
   name,
   label,
@@ -52,12 +36,8 @@ export function SaisonDateField({
   onBlur?: () => void;
   isRequired?: boolean;
   /**
-   * The range this date may fall in, where the caller knows one. Days outside it are greyed out in the
-   * calendar and refused by the field, so the illegal value is UNPICKABLE rather than reported after the
-   * fact — which is the strongest form of refusing before the request (decided 2026-08-08).
-   *
-   * The matchday form bounds by its season's span (`REQ-DATE-002`); the season editor bounds by its
-   * live matchdays' span (`REQ-DATE-004`, `FormZeitraumSection`'s `spieltagBound`).
+   * Days outside it are greyed out in the calendar and refused by the field, so an illegal value is
+   * UNPICKABLE rather than reported after the fact.
    */
   minValue?: CalendarDate;
   maxValue?: CalendarDate;
@@ -121,11 +101,8 @@ export function SaisonDateField({
 }
 
 /**
- * One counter from `rules`, as the app's one stepper group.
- *
- * `minValue` doubles as the value a cleared box falls back to: an emptied number field reports `NaN` and
- * the payload needs a number, so the floor is what the schema would demand anyway and the draft never
- * holds a value the field cannot render.
+ * `minValue` doubles as the fallback for a cleared box: an emptied number field reports `NaN` and the
+ * payload needs a number, so the draft never holds a value the field cannot render.
  */
 export function SaisonRuleNumberField({
   name,
@@ -145,11 +122,9 @@ export function SaisonRuleNumberField({
   minValue: number;
   maxValue?: number;
   /**
-   * For a value this season may no longer change. READ-ONLY rather than disabled, deliberately: a disabled
-   * `NumberField` is skipped by keyboard navigation and its value is announced as unavailable, when the
-   * value is the point -- somebody reading a finished season needs to see what it was scored with. It also
-   * keeps the field in the form, so the payload still carries it and the backend's own freeze compares
-   * equal values rather than receiving a gap (`REQ-RULES-005`).
+   * READ-ONLY rather than disabled: a disabled `NumberField` is skipped by keyboard navigation and
+   * announced as unavailable, and it keeps the field in the form so the payload still carries the value
+   * the freeze compares (`REQ-RULES-005`).
    */
   isReadOnly?: boolean;
 }) {

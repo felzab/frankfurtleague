@@ -8,7 +8,7 @@
     "/api/v0/system/is_live": {
       "get": {
         "summary": "Liveness probe",
-        "description": "Liveness: is this process serving requests?\n\nDeliberately unauthenticated and deliberately does not touch the database -- this is what the\ncontainer healthcheck calls, and it must not fail for reasons a restart cannot fix.",
+        "description": "Liveness: is this process serving requests?\n\nUnauthenticated, and it does not touch the database: it must not fail for reasons a restart\ncannot fix.",
         "operationId": "check_is_live_api_v0_system_is_live_get",
         "responses": {
           "200": {
@@ -75,7 +75,7 @@
     "/api/v0/spiele": {
       "get": {
         "summary": "List Spiele",
-        "description": "List Spiele matching the given filters.\n\nOmitting `saison_id` returns the **current** season, not every season.\n\n`saison_phase` accepts `playoffs` as an alias for \"any phase except gruppenphase\".\n`spiel_status` is resolved against the current German date: `ausstehend` includes today.",
+        "description": "List Spiele matching the given filters.\n\nOmitting `saison_id` returns the CURRENT season. `saison_phase` accepts `playoffs` as an alias\nfor \"any phase except gruppenphase\", and `ausstehend` includes today.",
         "operationId": "get_spiele_api_v0_spiele_get",
         "security": [
           {
@@ -235,7 +235,7 @@
     "/api/v0/spiele/{spiel_id}": {
       "get": {
         "summary": "One Spiel",
-        "description": "Return one match by its id.\n\nNo season is resolved and no status is derived: the match carries its own `saison_id`, and\n`spiel_status` is a property of a query rather than of a match.",
+        "description": "Return one match by its id.\n\nNo season is resolved and no status derived: the match carries its own `saison_id`, and\n`spiel_status` is a property of a query rather than of a match.",
         "operationId": "get_spiel_api_v0_spiele__spiel_id__get",
         "security": [
           {
@@ -278,7 +278,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel, then resolve the season's playoff bracket.\n\n`ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written\nwholesale, so every field must be present -- an omitted field is overwritten, not preserved.\n\n`elfmeterschiessen` records how a knockout that finished level was settled, and is kept only on a\nfixture outside the Gruppenphase whose two goal counts are equal; anywhere else it is discarded\nrather than refused, because a group draw is a final result and the goals are what say whether a\nshoot-out was possible at all. It decides the bracket below and is invisible to the league table,\nwhich counts the match as the draw it was.\n\n**A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is\nthe winner of match 25, so entering that match's result fills the slot, correcting it later moves\nthe right team in, and deleting it empties the slot again. A slot referring to a group\nplacing is filled the same way, once no remaining fixture in that group can still change who holds\nit. Every fixture written either way is named in `advanced_to`.\n\n`bracket_faults` names every stored contradiction this season's resolution walked past: a `platz`\nits group will never produce, a placing the tiebreak chain cannot separate in a group that has\nfinished, a `quelle` naming a match the season does not have, a chain of references that closes on\nitself, and a fixture whose two sides resolve to one club. A group still being played is\nnot reported: that placing is simply not decided yet. The same list is re-derivable at\n`GET /spiele/action_required`, so missing it here is not losing it.\n\nThe league table follows on its own: team statistics are computed from the match documents by\n`GET /teams`, so a result entered here is reflected the next time that table is read.\n\n**`dry_run=true` answers the same question and writes nothing.** It applies the payload\nin memory through `apply_payload_to_spiel`, resolves the bracket against the season that produces,\nand returns the same response -- so the edit surface can name exactly which fixtures a save would\ntake a stored result from, before the admin commits to it. Every refusal below runs first, so a\npreview either reports the save's own 409 or the save's own outcome; it can never promise a write\nthat would then be refused.\n\n**Wiring the season cannot hold is refused with a 409** (`REQ-WIRING-001`) before\nanything is written: a `quelle` on a Gruppenphase fixture, a `spiel` source the season does not\nhave or that is not played before this fixture, one outcome feeding two slots, and a team\nsubmitted against a side a `quelle` maintains. The form does not offer these shapes, so a request\ncarrying one is stale or racing another admin -- reloading is the way past the 409.\n\n**An occupant the season cannot hold is refused with a 409 of its own**, because the\nadvice differs and \"reload the page\" is wrong for it. `REQ-ELIGIBILITY-001` is a disqualified team\nbeing newly fielded, `REQ-ELIGIBILITY-002` a team with no `saison_teams` row for the season, and\n`REQ-SPIELTAG-001` a team that would then stand in two fixtures of one Spieltag on a side the\nresolution maintains. Resubmitting a stored occupant unchanged always passes, or the fixture whose\noccupant was disqualified after being placed would be the one fixture nobody could correct.\n\n**A Spieltag clash against a MANUAL side moves it rather than refusing.** Fielding a team here is\na statement about where it plays, so the other fixture gives the team up -- and loses its own\nresult with it, for the reason an advancement does. Every side emptied that way is named in\n`released_sides`.\n\n`saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic\nwould discard it. The frontend passes it separately, for cache invalidation only.",
+        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten. A result can fill or empty the\nslots below it, each named in `advanced_to`. `dry_run=true` answers the same and writes nothing.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -345,7 +345,7 @@
     "/api/v0/teams": {
       "get": {
         "summary": "List teams, flat or grouped",
-        "description": "List teams for a season.\n\nThe response shape depends on the query: `in_gruppen=true` returns the four groups keyed A-D, and\notherwise a plain list. Check the `format` field to tell them apart.\n\nOmitting `saison_id` returns the **current** season. Group and disqualification are season-scoped\nand come from a junction collection, so a team with no entry for the requested season is absent\nfrom the response entirely. Statistics are season-scoped as well, and are computed from that\nseason's matches on every read rather than stored.\n\n`statistik_scope` chooses which matches those statistics count. It defaults to `gruppenphase` —\nthe league table, which playoff results must not move. Pass `gesamt` for a team's figures across\nevery phase of the season. Both scopes return the same fields.",
+        "description": "List teams for a season.\n\n`in_gruppen=true` returns the four groups keyed A-D, otherwise a plain list; check `format` to\ntell them apart. Omitting `saison_id` returns the CURRENT season, and a team not in it is absent.",
         "operationId": "get_teams_api_v0_teams_get",
         "security": [
           {
@@ -525,7 +525,7 @@
       },
       "post": {
         "summary": "Create a team",
-        "description": "Create a club.\n\n`shorthand` is unique across every club, retired ones included, and the database enforces it — a\nduplicate comes back as 409, not as a second team.\n\n**It never revives a retired club, and that is deliberate.** A shorthand collision has two possible\nmeanings — the same club returning, or a different club wanting two letters the old one still\nholds — and nothing in the payload distinguishes them. Reviving on the first reading would, on the\nsecond, silently repoint every historical match of the retired club at a different club's name.\nReactivation is `POST /teams/{team_id}/reactivate`, which names an id and so cannot be ambiguous.\n\nThis creates the club only. It plays no season until it has a junction row, which is\n`POST /teams/{team_id}/saisons` — and until then it is absent from every season-scoped read,\nbecause that join is strict.",
+        "description": "Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409.",
         "operationId": "post_team_api_v0_teams_post",
         "security": [
           {
@@ -569,7 +569,7 @@
     "/api/v0/teams/{team_id}": {
       "get": {
         "summary": "One team",
-        "description": "Return one team, with its group and its statistics for a season.\n\nThe path names **which team**; the query still names **which season's figures to compute**, because\n`gruppe` and `statistik` are season-scoped — the former joined from a junction, the latter derived\nfrom that season's matches on every read. So `saison_id` and `statistik_scope` remain\nquery parameters here and are not a redundant second identifier.\n\n404 when the id names no team, and equally when it names a team with no junction row for the\nrequested season — the join is strict, and a team that did not play that season has no group and no\ntable position to report.",
+        "description": "Return one team, with its group and its statistics for a season.\n\nThe path names WHICH TEAM; the query names WHICH SEASON'S figures: `gruppe` and `statistik` are\nseason-scoped. 404 for an id naming no team, and for one with no row that season.",
         "operationId": "get_team_api_v0_teams__team_id__get",
         "security": [
           {
@@ -642,7 +642,7 @@
       },
       "patch": {
         "summary": "Update a team and fan the rename out",
-        "description": "Update a club, then rewrite the name and shorthand embedded in every match it plays in.\n\nThe fan-out is not optional: matches carry a copy of both fields, so without it every match card\nshows a stale name indefinitely. Measured 2026-08-09: zero drift across the embedded copies, which\nis the state this endpoint exists to preserve.\n\n**It runs for every club, with no exception to remember.** The embedded `name` is a display copy of\nthis document and carries nothing else — a bracket slot's source is the match's own `teamN_quelle`,\nwhich no path under `team1.`/`team2.` reaches.",
+        "description": "Update a club, then rewrite the name and shorthand embedded in its matches.\n\nThe fan-out is not optional: matches carry a copy of both fields, so without it every match card\nshows a stale name indefinitely.",
         "operationId": "patch_team_api_v0_teams__team_id__patch",
         "security": [
           {
@@ -695,7 +695,7 @@
       },
       "delete": {
         "summary": "Retire a team (soft delete)",
-        "description": "Retire a club from the league.\n\nA SOFT delete: it stamps `inactive_since` and the document stays.\n\n**Refused with a 409 (`REQ-RETIRE-001`) while the club is entered in an `active` or `future`\nseason.** Retiring hides the club from every picker and default list while its fixtures are\nstill being played or drawn; a club leaves a running season only by disqualification.\nA club whose seasons are all `past`, or that is in no season, retires normally.\n\nMatches embed a copy of the team and reference it by id, so a hard delete would orphan every\nhistorical match it ever played. Its junction rows are left alone as well — the seasons it played\nin still happened, and its results still count towards those tables.\n\nReversed by `POST /teams/{team_id}/reactivate`, never by creating the club again — the create\nendpoint refuses a shorthand a retired club still holds, because it cannot tell the same club\nreturning from a different one wanting those two letters.",
+        "description": "Retire a club from the league. SOFT: `inactive_since` is stamped and the document stays.\n\nRefused while the club is entered in an `active` or `future` season. Its junction rows are left\nalone: the seasons it played still happened.",
         "operationId": "delete_team_api_v0_teams__team_id__delete",
         "security": [
           {
@@ -740,7 +740,7 @@
     "/api/v0/spieltage": {
       "get": {
         "summary": "List Spieltage",
-        "description": "List matchdays for a season, in the order they are played.\n\nThat order is derived rather than stored: the phase in bracket order, then `beginn`, then `_id`. It\nis what `sort_by=natural` means and it is the default; the other two sort options are dates, and\nneither is what a bracket reads.\n\nOmitting `saison_id` returns the **current** season. `saison_phase` accepts `playoffs` as an alias\nfor \"any phase except gruppenphase\".",
+        "description": "List matchdays for a season, in the order they are played.\n\nThat order is derived, not stored -- the phase in bracket order, then `beginn`, then `_id` -- and\nis what `sort_by=natural` means. Omitting `saison_id` returns the CURRENT season.",
         "operationId": "get_spieltage_api_v0_spieltage_get",
         "security": [
           {
@@ -868,7 +868,7 @@
       },
       "post": {
         "summary": "Create a Spieltag",
-        "description": "Create a matchday.\n\nWhere it sits in the season follows from what it is: the phase in bracket order, then `beginn`. So a\nmatchday created out of sequence is not a matchday in the wrong place — it is one whose phase or date\nis wrong, and correcting either moves it. Its NAME follows from the same two facts, which is why the\npayload carries none.\n\n**Three refusals.** The phase has to be one the season's rules actually produce\n(`REQ-SPIELTAG-004`, decided 2026-08-13) — a season sending eight teams into the bracket plays no\nround of sixteen, so an `achtelfinale` matchday there belongs to a round nobody plays. **That is a\nrule about WHICH phase and never about how many:** the matchday count a phase implies is a floor\nrather than a quota, because a round split across two dates is two matchdays for one phase.\n\nA season whose knockout phase is already under way takes no new matchdays at all\n(`REQ-SPIELTAG-003`, decided 2026-08-08) — \"under way\" meaning its earliest non-group matchday begins\ntoday or began earlier, which is a date rather than a result. And the span has to sit inside the\nseason's own (`REQ-DATE-002`).",
+        "description": "Create a matchday.\n\nIts position and its NAME both follow from the phase and `beginn`, which is why the payload\ncarries neither. A season whose knockout phase is under way takes no new matchday.",
         "operationId": "post_spieltag_api_v0_spieltage_post",
         "security": [
           {
@@ -912,7 +912,7 @@
     "/api/v0/spieltage/{spieltag_id}": {
       "get": {
         "summary": "One Spieltag",
-        "description": "Return one matchday by its id.\n\nAddressed directly, so no season is chosen by this endpoint and a retired matchday is returned rather\nthan hidden — a caller holding an id was given it by something. The matchday's OWN `saison_id` is\nstill resolved, because the derived match count needs that season's rules.",
+        "description": "Return one matchday by its id.\n\nAddressed directly, so a retired matchday is returned rather than hidden. Its OWN `saison_id` is\nstill resolved, the derived match count needing that season's rules.",
         "operationId": "get_spieltag_api_v0_spieltage__spieltag_id__get",
         "security": [
           {
@@ -955,7 +955,7 @@
       },
       "patch": {
         "summary": "Update a Spieltag",
-        "description": "Update a matchday.\n\nNo fan-out: matches reference a matchday by id and embed no copy of it, so a renamed or re-dated\nmatchday is picked up by every consumer on the next read.\n\n**A phase accounting for fewer matches than the matchday already holds is refused**\n(`REQ-SPIELTAG-002`). A single round robin per group fixes that number, so moving a matchday\nof eight group fixtures into a Finale would leave seven of them with nowhere to be played. The other\ndirection -- fewer fixtures than expected -- is left alone, because that is every season part-way\nthrough being set up.\n\n**What that refuses is the MOVE, never the state.** A matchday already holding more fixtures than its\nphase accounts for got there from data this API never wrote, and refusing a payload that repeats its\nown phase would cost it its dates as well, over a mismatch no edit here can repair. Moving one from\nthat state into a narrower phase still is refused, because it makes the mismatch worse.\n\n**Two transitions are refused outright, whatever the counts say.** A move into a round the\nseason's rules never produce is `REQ-SPIELTAG-005`, the mirror of the create's `REQ-SPIELTAG-004`. And\na matchday carrying fixtures may not cross the gruppenphase/knockout boundary away from them\n(`REQ-SPIELTAG-006`): the bracket selects rounds by the MATCHDAY's phase and fixtures by the\nFIXTURE's, and no endpoint writes `spiele.saison_phase`, so the move would strand every one of them\nwith nothing able to repair it. **An EMPTY matchday crosses freely** — correcting a mislabelled row is\nexactly the scheduling decision `saison_phase` stays editable for.",
+        "description": "Update a matchday.\n\nNo fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. A phase\nchange is refused where it would strand fixtures; an EMPTY matchday moves freely.",
         "operationId": "patch_spieltag_api_v0_spieltage__spieltag_id__patch",
         "security": [
           {
@@ -1008,7 +1008,7 @@
       },
       "delete": {
         "summary": "Retire a Spieltag (soft delete)",
-        "description": "Retire a matchday. SOFT: it stamps `inactive_since` and the document stays.\n\nIts matches are **not** touched and stay resolvable — `GET /spiele` never joins `spieltage`. That is\nthe reason this is soft rather than a delete: a hard one would leave every one of those matches\npointing at nothing.\n\n**It is refused while any of them carries a result** (`REQ-RETIRE-002`, decided 2026-08-08). Resolvable\nis not the same as visible: a retired matchday leaves `GET /spieltage`, and the public Spielplan joins\nfixtures onto the matchdays it received — so this retirement takes played results off that page. An\nunplayed matchday retires freely, which is the one somebody created by mistake.\n\n**And it is refused while the phase would drop below the count its rules imply** (`REQ-RETIRE-005`,\ndecided 2026-08-13). Until this existed a season could be emptied of a phase it still had to play,\none unplayed matchday at a time, with nothing anywhere to refuse a single step. The derived figure\nis a **floor, never a ceiling** — a phase may hold more rows than the rules imply, because a round\nsplit across two dates is two matchdays — so a phase above the floor retires back down to it and\nstops there. A phase already **below** the floor is not refused (`REQ-RETIRE-005`): no\nretirement put it there, and the emptying above is still refused at its first step.\n\n**The floor governs this endpoint and `POST /spieltage`, and nothing watches `PATCH`**, which can\nmove a row between phases and so change both counts from a side neither refusal sees.",
+        "description": "Retire a matchday. SOFT: it stamps `inactive_since` and the document stays.\n\nIts matches are NOT touched and stay resolvable. Refused while any carries a result, or while\nthe phase would drop below the count its rules imply.",
         "operationId": "delete_spieltag_api_v0_spieltage__spieltag_id__delete",
         "security": [
           {
@@ -1212,7 +1212,7 @@
       },
       "post": {
         "summary": "Create a Spieler",
-        "description": "Create a player — the person, and nothing else.\n\nA player created here belongs to no team and appears in no squad list until they have a junction\nrow, which is `POST /spieler/{spieler_id}/saisons`. That split is what makes a player who changes\nclub next season the same person rather than a second record of them.\n\nThere is deliberately **no uniqueness rule on a name**. Two people genuinely can share one, and a\nleague that refused the second would be wrong about the world rather than careful.",
+        "description": "Create a player -- the person, and nothing else.\n\nThey belong to no team until they have a junction row, and no uniqueness rule applies to a name.",
         "operationId": "post_spieler_api_v0_spieler_post",
         "security": [
           {
@@ -1256,7 +1256,7 @@
     "/api/v0/spieler/{spieler_id}": {
       "get": {
         "summary": "One Spieler",
-        "description": "Return one player — the person only.\n\nDeliberately **not** the flattened squad shape the list returns. Team, number, position and stufe\nare season-scoped and live on a junction row, so a player addressed without a season has none of\nthem; picking a season here would make the answer depend on a default the caller never asked for.\nA squad entry is read through `GET /spieler?team_id=…&saison_id=…`, which is a filter and stays one.",
+        "description": "Return one player -- the person only.\n\nNOT the flattened squad shape the list returns: those fields are season-scoped, and picking a\nseason here would make the answer depend on a default the caller never asked for.",
         "operationId": "get_spieler_by_id_api_v0_spieler__spieler_id__get",
         "security": [
           {
@@ -1299,7 +1299,7 @@
       },
       "patch": {
         "summary": "Update a Spieler's name",
-        "description": "Update a player's name.\n\nNo fan-out: unlike a team or a venue, a player's name is embedded in no other document. Squad lists\nread it through a `$lookup` at request time, so a correction here is visible everywhere at once.",
+        "description": "Update a player's name. No fan-out: unlike a team or a venue, it is embedded in no other document.",
         "operationId": "patch_spieler_api_v0_spieler__spieler_id__patch",
         "security": [
           {
@@ -1352,7 +1352,7 @@
       },
       "delete": {
         "summary": "Retire a Spieler (soft delete)",
-        "description": "Retire a player from the league. SOFT: it stamps `inactive_since` and the document stays.\n\nTheir squad rows are **left alone**. The seasons they played still happened, and a squad list for a\npast season should still name them — retiring the person says nothing about their history.\n\nThe date is what a future scheduled purge selects on; without it \"retired\" could only ever mean\n\"eventually\" (open item BE-12).",
+        "description": "Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE.",
         "operationId": "delete_spieler_api_v0_spieler__spieler_id__delete",
         "security": [
           {
@@ -1397,7 +1397,7 @@
     "/api/v0/saisons": {
       "get": {
         "summary": "List Saisons",
-        "description": "List seasons, optionally filtered by status (`past`, `active`, `future`).\n\nUnlike the other resources, this does NOT default to the current season -- listing seasons is the\none case where \"all of them\" is the sensible default.",
+        "description": "List seasons, optionally filtered by status (`past`, `active`, `future`).\n\nUnlike the other resources, this does NOT default to the current season.",
         "operationId": "get_saisons_api_v0_saisons_get",
         "security": [
           {
@@ -1493,7 +1493,7 @@
       },
       "post": {
         "summary": "Create a Saison",
-        "description": "Create a season. It is always created `future` and never `active`.\n\nThe id is supplied rather than generated: `saisons._id` is the four-character season string that\nevery `saison_id` elsewhere in the database references. Reusing an existing one is refused by the\n`_id` index and comes back as a 409.\n\nMaking it live is a separate, deliberate step — `POST /saisons/{saison_id}/activate`.\n\nThe rules are refused if they describe a competition with no bracket — `number_of_groups x\nqualifiers_per_group` has to be a power of two the phase set can hold (`REQ-RULES-001`), and\n`REQ-RULES-007` refuses more qualifiers than a group holds. Every other RULES rule reads stored\ndata, which a season with no teams and no fixtures has none of.\n\n**The span has to be long enough to hold the schedule those rules imply** (`REQ-DATE-005`, decided\n2026-08-13) — six matchdays need six days, because no two of them can be played on one. It is\nderived from the rules rather than set as a floor, so widening the competition raises it.",
+        "description": "Create a season, always `future`.\n\nThe id is supplied rather than generated -- it is the string every `saison_id` elsewhere\nreferences, so reusing one comes back 409. Making the season live is a separate step.",
         "operationId": "post_saison_api_v0_saisons_post",
         "security": [
           {
@@ -1537,7 +1537,7 @@
     "/api/v0/saisons/current": {
       "get": {
         "summary": "The active Saison",
-        "description": "Return the season currently marked active.\n\nThis is what every other endpoint resolves an omitted `saison_id` against, so it sits on the hot\npath of most page loads. Exactly one season is expected to have `status: \"active\"`.",
+        "description": "Return the season currently marked active -- what every other endpoint resolves an omitted `saison_id` against.",
         "operationId": "get_current_saison_api_v0_saisons_current_get",
         "responses": {
           "200": {
@@ -1561,7 +1561,7 @@
     "/api/v0/saisons/{saison_id}": {
       "get": {
         "summary": "One Saison",
-        "description": "Return one season by its four-character id.\n\n404 when no season carries that id, rather than an empty list — which is the reason this exists\nseparately from `GET /saisons` rather than as a filter on it.",
+        "description": "Return one season by its four-character id; 404 when none carries it, rather than an empty list.",
         "operationId": "get_saison_api_v0_saisons__saison_id__get",
         "security": [
           {
@@ -1604,7 +1604,7 @@
       },
       "patch": {
         "summary": "Update a Saison's dates and rules",
-        "description": "Update a season's dates and scoring rules. `status` is deliberately not part of the payload.\n\nEditing `rules.win_points` or `draw_points` changes **every league table for this season on the\nnext read** — the standings are derived from the matches rather than stored, so there is no\nmigration to run and equally nothing to announce that the numbers moved. Which is exactly why a\n`past` season freezes them: `REQ-RULES-005` refuses the edit rather than silently rewriting who won a\nfinished competition.\n\n**Most of these refusals read the season's own data.** The rules\ndecide the shape of the competition, so narrowing one below what already exists strands it: a group the\nseason stops running while teams are still entered in it, a group left over its own capacity, a bracket\nslot naming a placing that can no longer be reached, or a matchday left holding more fixtures than its\nphase accounts for. The DATES obey the same principle (`REQ-DATE-004`): a span cannot shrink below a\nlive matchday's own, which is `REQ-DATE-002`'s containment refused from the container's side. Each of\nthose states is legal at every layer and invisible until something downstream reads it.",
+        "description": "Update a season's dates and scoring rules. `status` is on no payload.\n\nEditing the points moves every league table on the NEXT READ, standings being derived. A `past`\nseason's are frozen, and a rule narrowed below what the season holds is refused.",
         "operationId": "patch_saison_api_v0_saisons__saison_id__patch",
         "security": [
           {
@@ -1659,7 +1659,7 @@
     "/api/v0/spielorte": {
       "get": {
         "summary": "List Spielorte",
-        "description": "List venues.\n\nDeactivated venues are soft-deleted rather than removed, so they remain retrievable for historical\nmatches. `maps_link` is a Maps search string, not a URL.",
+        "description": "List venues.\n\nDeactivated venues are soft-deleted rather than removed, so they stay retrievable for historical\nmatches. `maps_link` is a Maps search string, not a URL.",
         "operationId": "get_spielorte_api_v0_spielorte_get",
         "security": [
           {
@@ -1740,7 +1740,7 @@
       },
       "post": {
         "summary": "Create a Spielort",
-        "description": "Create a venue.\n\n`maps_link` is built server-side from the name and address and must not be submitted. Despite the\nname it is a Google Maps search string, not a URL.",
+        "description": "Create a venue. `maps_link` is built server-side from the name and address and must not be submitted.",
         "operationId": "post_spielort_api_v0_spielorte_post",
         "security": [
           {
@@ -1784,7 +1784,7 @@
     "/api/v0/spielorte/{spielort_id}": {
       "get": {
         "summary": "One Spielort",
-        "description": "Return one venue by its id, deactivated ones included.\n\nA caller holding an id was given it by something, and a historical match's venue is exactly the\ncase worth answering.",
+        "description": "Return one venue by its id, deactivated ones included -- a historical match's venue is the case worth answering.",
         "operationId": "get_spielort_api_v0_spielorte__spielort_id__get",
         "security": [
           {
@@ -1827,7 +1827,7 @@
       },
       "patch": {
         "summary": "Update a Spielort and fan the change out",
-        "description": "Update a venue, then update every Spiel that embeds it.\n\nMatches carry an embedded copy of the venue's name and maps link, so the fan-out is not optional:\nwithout it, match cards keep showing the old name indefinitely.\n\n`mietpreis` is deliberately **not** fanned out. The rent recorded on a match is what was agreed for\nthat match; rewriting it would rewrite history.",
+        "description": "Update a venue, then update every Spiel that embeds it.\n\nThe fan-out is not optional: without it, match cards keep showing the old name. `mietpreis` is\nNOT fanned out -- the rent on a match is what was agreed for that match.",
         "operationId": "patch_spielort_api_v0_spielorte__spielort_id__patch",
         "security": [
           {
@@ -1880,7 +1880,7 @@
       },
       "delete": {
         "summary": "Deactivate a Spielort (soft delete)",
-        "description": "Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.\n\nMatches embed a copy of the venue, so a hard delete would orphan every historical match that used\nit. Returns the updated document rather than a bare acknowledgement.\n\n**It is refused while an unplayed fixture is still booked here** (`REQ-RETIRE-003`), for the reason\n`fl_backend/app/api/spielorte/services.py :: VENUE_STILL_BOOKED` states in full.",
+        "description": "Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.\n\nMatches embed a copy, so a hard delete would orphan every historical match that used it. Refused\nwhile an unplayed fixture is still booked here (`REQ-RETIRE-003`).",
         "operationId": "delete_spielort_api_v0_spielorte__spielort_id__delete",
         "security": [
           {
@@ -1925,7 +1925,7 @@
     "/api/v0/schiedsrichter": {
       "get": {
         "summary": "List Schiedsrichter",
-        "description": "List referees.\n\nDeactivated referees are soft-deleted rather than removed, so they remain retrievable for the\nhistorical matches that embed them.",
+        "description": "List referees; deactivated ones are soft-deleted rather than removed, so historical matches stay resolvable.",
         "operationId": "get_schiedsrichter_api_v0_schiedsrichter_get",
         "security": [
           {
@@ -2069,7 +2069,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}": {
       "get": {
         "summary": "One Schiedsrichter",
-        "description": "Return one referee by their id, deactivated ones included.\n\nA historical match embeds a referee and references them by id, which is exactly the case worth\nanswering.",
+        "description": "Return one referee by their id, deactivated ones included -- a historical match references them by id.",
         "operationId": "get_schiedsrichter_by_id_api_v0_schiedsrichter__schiedsrichter_id__get",
         "security": [
           {
@@ -2112,7 +2112,7 @@
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name is fanned out. `payment` is deliberately not propagated: the fee recorded on a match\nis what was agreed for that match, and rewriting it would rewrite history.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {
@@ -2210,7 +2210,7 @@
     "/api/v0/spiele/action_required": {
       "get": {
         "summary": "Spiele needing attention",
-        "description": "List Spiele that need an admin's attention, and the bracket faults among them.\n\nA match qualifies if it is cancelled, is missing a date, time, venue or referee, is in the past\nwith no result recorded, or is a knockout fixture with a side that has neither a team nor a\n`quelle`. That last shape is legal and permanent-by-default: nothing resolves such a slot and\nnothing else reminds the admin that it is theirs. A Gruppenphase fixture is exempt --\nan unscheduled group match is an unfilled schedule, not an orphaned slot, and every group fixture\nlegitimately carries no `quelle` forever. Not season-filtered: it spans every season.\n\n**`bracket_faults` is derived here rather than filtered.** A fault is a contradiction\nbetween documents -- a `quelle` naming a match the season does not have, a cycle, a placing no\nstanding will produce, a fixture resolving to one club -- so no Mongo filter can select one, and\nthe resolution is what decides them. Every fixture a fault names is added to `spiele` below, so the\nclient holds the document behind each fault whether or not the filter also selected it.\n\nDeliberately uncached on the frontend — admin-authorized data does not belong in a shared cache\nand a derived fault list would be wrong the moment a document changed under it anyway.",
+        "description": "List Spiele needing an admin's attention, and the bracket faults among them.\n\nQualifying: cancelled, missing a date, time, venue or referee, past with no result, or a\nknockout side holding neither team nor `quelle`. Every season.",
         "operationId": "get_spiele_action_required_api_v0_spiele_action_required_get",
         "responses": {
           "200": {
@@ -2234,7 +2234,7 @@
     "/api/v0/teams/memberships": {
       "get": {
         "summary": "Every team with its season memberships",
-        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\nThe admin list's one read. `GET /teams` cannot answer it: that read is season-scoped with a\nstrict junction join by design, so listing every team meant one request per season and a\nclient-side union. This is the club-centric question as one aggregation instead.\n\nIn the admin router rather than the read router because only the admin surface asks it — the\nsame split that puts `GET /spiele/action_required` beside the match writes.\n\nA static path beside `by_id` routes: the id convertor takes 24 hex characters, so\n`/teams/memberships` can never be captured by an id route regardless of declaration order.",
+        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\n`GET /teams` cannot answer it: that read is season-scoped with a strict junction join.",
         "operationId": "get_team_memberships_api_v0_teams_memberships_get",
         "responses": {
           "200": {
@@ -2258,7 +2258,7 @@
     "/api/v0/teams/{team_id}/reactivate": {
       "post": {
         "summary": "Bring a retired team back",
-        "description": "Clear `inactive_since`, putting a retired club back into every read that hides retired ones.\n\nSeparate from create on purpose. Reviving inside create would have to key off `shorthand`, which\ncannot distinguish the same club returning from a different club wanting two letters the retired\none still holds — and getting that wrong repoints every historical match of the old club at the new\none's name. An id cannot be ambiguous, so reactivation names one.",
+        "description": "Clear `inactive_since`, restoring a retired club to reads that hide retired ones.",
         "operationId": "reactivate_team_api_v0_teams__team_id__reactivate_post",
         "security": [
           {
@@ -2303,7 +2303,7 @@
     "/api/v0/teams/{team_id}/saisons": {
       "post": {
         "summary": "Enter a team into a season",
-        "description": "Enter a team into a season, in a group.\n\nA team with no row here is **absent from that season entirely** — the join is strict, so it appears\nin no table, no group and no statistics. Entering every participating team is therefore the\nsubstantive step in setting a season up.\n\n**Refused with a 409 unless the season is `future`, the group is one it offers and that group has\nspace** (`REQ-ENTER-001..003`, decided 2026-08-07). The bounds are the season's own\n`rules.number_of_groups` and `rules.teams_per_group`. The count-then-insert is not transactional;\nthe single-admin surface makes the race a non-concern, and the cost of losing it is one team over\na planning bound rather than corrupt data.\n\nOne row per team per season, enforced by a unique index; a second attempt is a 409. Creating is a\nplain insert rather than a revive, because no row here is ever retired — a team leaves a season\nonly by disqualification.",
+        "description": "Enter a team into a season, in a group.\n\nA team with no row here is ABSENT from that season entirely: the join is strict. Refused unless\nthe season is `future` and the group it names has space.",
         "operationId": "post_saison_team_api_v0_teams__team_id__saisons_post",
         "security": [
           {
@@ -2358,7 +2358,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}": {
       "patch": {
         "summary": "Change a team's group or disqualify it",
-        "description": "Change which group a team is in for a season, or disqualify it.\n\nDisqualification is how a team leaves a season; there is no delete here. It is a RECORD carrying\nthe reason and the effective date, and `null` is what lifting one looks like — there is no boolean\nbeside it to contradict it. The record is read by `GET /teams` and joined into match data rather\nthan copied, so entering it here reaches every surface that shows a DQ badge with no second write\nto keep in step.\n\nBoth writable fields are required on the payload, so this replaces them wholesale. An omitted\n`disqualifikation` is a 422 rather than a team quietly reinstated by a form that forgot the field.\n\n**A group CHANGE is held to its own rules**, and only a change is checked — a disqualification writes\nthe same row without moving anyone. The target group must be one the season offers and must have space\n(`REQ-ENTER-002`/`003`), and the move must fall inside the window\n`fl_backend/app/api/teams/services.py :: find_gruppe_move_refusal` states (`REQ-ENTER-004`). A picker\nlock alone is no rule: without this check a direct request moves a team whose group fixtures are drawn\n— and the group phase is a round robin INSIDE a group, so those fixtures are its group.",
+        "description": "Change which group a team is in for a season, or disqualify it.\n\nDisqualification is how a team leaves a season; there is no delete. Both fields are required, so\nan omitted `disqualifikation` is a 422 rather than a team quietly reinstated.",
         "operationId": "patch_saison_team_api_v0_teams__team_id__saisons__saison_id__patch",
         "security": [
           {
@@ -2422,7 +2422,7 @@
     "/api/v0/spieltage/{spieltag_id}/reactivate": {
       "post": {
         "summary": "Bring a retired Spieltag back",
-        "description": "Clear `inactive_since`, restoring the matchday to every read that hides retired ones.\n\n**The span is checked on the way back in** (`REQ-DATE-002`). While the matchday was retired the\nseason's dates were free to move past it: `PATCH /saisons/{saison_id}` reads only LIVE matchdays for\n`REQ-DATE-004`, deliberately, so that retiring a mis-dated matchday is what lets the dates it was\nretired over be repaired. Restoring it is therefore the moment the containment has to hold again, and\nthe way through is to re-date the matchday first.\n\nIts own fixtures need no check here. `spieltag_id` is on no payload and `REQ-DATE-001` reads this\nmatchday whether or not it is retired, so no fixture can have drifted outside the span meanwhile.",
+        "description": "Clear `inactive_since`, restoring the matchday to reads that hide retired ones.\n\nThe span is re-checked on the way in, because the season's dates were free to move past a\nretired matchday.",
         "operationId": "reactivate_spieltag_api_v0_spieltage__spieltag_id__reactivate_post",
         "security": [
           {
@@ -2467,7 +2467,7 @@
     "/api/v0/spieler/memberships": {
       "get": {
         "summary": "Every Spieler with their squad rows",
-        "description": "Every player, retired ones included, each with every squad row they hold. Sorted by name.\n\nThe admin list's one read. `GET /spieler` cannot answer it at any filter setting, and the reasons\nare three separate ones: with a `saison_id` its junction join is strict, so a player with no row\nfor that season is invisible to the only list that could give them one; without a `saison_id` it\nunwinds the junction and a player with no row at all comes back missing the `team_id` `FLSpieler`\nrequires; and `FLSpieler` carries no `saison_id`, so a player who has played two seasons comes\nback as two rows nothing can tell apart. This is the player-centric question as one aggregation.\n\nIn the admin router rather than the read router because only the admin surface asks it — the same\nsplit that puts `GET /teams/memberships` beside the team writes.\n\nA static path beside `by_id` routes: the id convertor takes 24 hex characters, so\n`/spieler/memberships` can never be captured by an id route regardless of declaration order.",
+        "description": "Every player, retired ones included, each with every squad row they hold.\n\n`GET /spieler` cannot answer it at any setting: with a `saison_id` the junction join is strict,\nwithout one a player with no row comes back missing `team_id`.",
         "operationId": "get_spieler_memberships_api_v0_spieler_memberships_get",
         "responses": {
           "200": {
@@ -2536,7 +2536,7 @@
     "/api/v0/spieler/{spieler_id}/saisons": {
       "post": {
         "summary": "Add a Spieler to a squad",
-        "description": "Put a player in a team's squad for a season, with their number, position and stufe.\n\nOne row per player per season, enforced by a unique index — a player cannot be in two squads at\nonce, and moving them is a PATCH of `team_id` rather than a second row.\n\nA repeat is a **409, including against a retired row**, because the index keeps holding the key.\nBringing a player back into a season they already have a row for is\n`POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate` — reviving inside create would quietly\noverwrite the number and position the old row still carries.",
+        "description": "Put a player in a team's squad for a season.\n\nOne row per player per season, enforced by a unique index, so moving a player is a PATCH of\n`team_id` rather than a second row. A repeat is a 409, retired rows included.",
         "operationId": "post_saison_spieler_api_v0_spieler__spieler_id__saisons_post",
         "security": [
           {
@@ -2591,7 +2591,7 @@
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
       "patch": {
         "summary": "Update a squad entry",
-        "description": "Update a player's squad entry — their team, number, position or stufe for that season.\n\nChanging `team_id` here is how a transfer is recorded, and it is the whole reason the junction\nexists separately from the person.\n\n`position` and `stufe` are closed sets, so a value outside either is a 422 rather than a second\nspelling of a position the league already has. `nummer` stays free TEXT — a squad number is worn\nrather than counted — and **a duplicate is permitted rather than refused** (decided\n2026-08-13, declared in `fl_backend/app/core/domain.py :: UNENFORCED`). The league fields four\ngoalkeepers wearing 1, and this endpoint answers the same way as the create and the reactivate.",
+        "description": "Update a player's squad entry for that season.\n\nChanging `team_id` is how a transfer is recorded. `nummer` stays free TEXT and a DUPLICATE IS\nPERMITTED (`fl_backend/app/core/domain.py :: UNENFORCED`): the league fields four keepers on 1.",
         "operationId": "patch_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__patch",
         "security": [
           {
@@ -2653,7 +2653,7 @@
       },
       "delete": {
         "summary": "Remove a Spieler from a squad",
-        "description": "Take a player out of a season's squad. SOFT: it stamps `inactive_since` and the row stays.\n\nThe row is preserved rather than removed because it is the record that this player was in this\nsquad, wearing this number — which stays true after they leave. Every read hides it by default;\n`include_inactive=true` is how an admin list gets it back.",
+        "description": "Take a player out of a season's squad. SOFT: the row stays.\n\nThe row records that this player wore this number in this squad, which stays true after they\nleave. `include_inactive=true` is how an admin list gets it back.",
         "operationId": "delete_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__delete",
         "security": [
           {
@@ -2707,7 +2707,7 @@
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
       "post": {
         "summary": "Put a Spieler back in a squad they left",
-        "description": "Clear a squad row's `inactive_since`, restoring the entry with the number and position it had.\n\nThis is the endpoint a repeat create is redirected to. `uniq_spieler_id_saison_id` means the\nretired row still holds the key, so a second create cannot succeed — and reviving inside create\nwould silently overwrite the number, position and stufe the old row still carries, which is\nprecisely the information worth keeping.",
+        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected: the retired row still holds the unique key.",
         "operationId": "reactivate_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__reactivate_post",
         "security": [
           {
@@ -2761,7 +2761,7 @@
     "/api/v0/saisons/{saison_id}/activate": {
       "post": {
         "summary": "Make this the active Saison",
-        "description": "Make this the active season, moving whichever season currently holds `active` to `past`.\n\nThis is the **only** path to `status: \"active\"` — no other endpoint writes the field, so \"exactly\none active season\" holds by construction rather than by convention. `pull_current_saison` and every\nendpoint defaulting an omitted `saison_id` depend on it.\n\nBoth writes run in one transaction, so the league is never briefly without an active season and\nnever briefly with two.\n\n**The outgoing season has to be finished** (`REQ-ACTIVATE-001`, decided 2026-08-08). Demoting it to\n`past` freezes its competitive rules and makes its derived table the record of what happened, so\nrolling over across unplayed fixtures closes a competition that is not over. Entering the missing\nresults or cancelling the fixtures is the way through; cancelling is what turns a match nobody will\nplay into a settled one.",
+        "description": "Make this the active season, moving whichever holds `active` to `past`.\n\nThe only path to `status: \"active\"`. One transaction, so the league is never briefly without an\nactive season nor with two. The outgoing season must be finished.",
         "operationId": "activate_saison_api_v0_saisons__saison_id__activate_post",
         "security": [
           {
@@ -2806,7 +2806,7 @@
     "/api/v0/saisons/{saison_id}/gruppen/swap": {
       "post": {
         "summary": "Exchange two teams' groups",
-        "description": "Exchange the groups of two clubs entered in this season, as one write.\n\n**The one mid-season group change that is defensible.** A group decides which table counts a club's\nresults and which bracket slot its placing seeds, so moving a single club falsifies both; two clubs\nexchanging keeps each group's size and leaves every drawn fixture facing the opponents it was drawn\nagainst.\n\n**On the season rather than on the club**: `PATCH /teams/{team_id}/saisons/{saison_id}`\naddresses one junction row, so a swap done there is two requests with a window between them in which\none group is a club short and the other a club over — and a failure after the first leaves the season\nin that state with nothing to say so. Both rows are written in **one transaction**, so the season\nnever holds half a swap.\n\n**Refused with a 409 unless the two ids name two clubs of this season standing in different groups**\n(`REQ-SWAP-001`). One club named twice, a club with no junction row, and two clubs of one group all\ndescribe something that is not a swap. The control offers only pairs that are one, so a request\ncarrying any of them is stale or racing another admin, and reloading is the way past it.\n\n**Refused with a 409 of its own while the season is `past`** (`REQ-SWAP-003`). A finished season's\ntable is the record of what happened, and it is derived from these groups on every read — so the\ngroups are frozen for the same reason `REQ-RULES-005` freezes the scoring rules.\n\n**Refused with a 409 of its own once the knockout rounds have begun** (`REQ-SWAP-002`) — any fixture\noutside the Gruppenphase that has taken place. By then the standings have been consumed by the\nseeding, so exchanging the groups behind it rewrites what its slots meant. That is a refusal and not a\nwarning: there is no reading of it under which the swap is still defensible.\n\n**Refused with a 409 of its own once either club has taken part in its group's round robin**\n(`REQ-SWAP-004`) — a Gruppenphase fixture fielding it that has taken place. The group phase is a round\nrobin, so a club that has played inside one cannot leave it: its results stand against a group it is\nno longer in, and its new group gains a member who has played nobody in it. Neither group is a round\nrobin afterwards.\n\n**Both windows ask `_has_taken_place`, so a cancellation and a lone goal count reach them as squarely\nas a result does.** They differ only in which phase they read, and in `REQ-SWAP-004` narrowing to the\ntwo clubs while `REQ-SWAP-002` counts the season's.\n\n**Refused with a 409 of its own where the exchange would field a club twice on one Spieltag**\n(`REQ-SWAP-005`). The rewrite below moves a group side and never a bracket one, so a\nSpieltag holding a group fixture of one club beside a bracket fixture whose manual pick is the other\ndoubles a club the moment they exchange. It is answered LAST because it is the only one of the five an\nadmin can act on — `_spieltag_clashes` says which, and moving either fixture or clearing that manual\npick reopens the swap.\n\n**`REQ-ENTER-004`'s lock is deliberately not consulted.** It refuses a MOVE for a club whose fixtures\nare drawn, and its own message names a swap as the case that would be defensible — so this operation\nexists beside that lock rather than relaxing it. `disqualifikation` is untouched here: a swap changes\nwhere a club plays and nothing about whether it may.\n\n**The drawn fixtures move with the clubs.** Every Gruppenphase fixture fielding either club has that\nside rewritten to the other, in the same transaction as the two junction rows — so each club inherits\nthe opponents, dates and venues the other was scheduled against, and both groups are round robins\nagain. `tore` is never carried across, and under `REQ-SWAP-004` — which counts a lone goal count as a\nfixture that was played — there is none to carry.",
+        "description": "Exchange the groups of two clubs entered in this season, as one write.\n\nEvery Gruppenphase fixture fielding either club has that side rewritten in the same transaction,\nso each group stays a round robin. Neither `tore` nor `disqualifikation` moves.",
         "operationId": "swap_gruppen_api_v0_saisons__saison_id__gruppen_swap_post",
         "security": [
           {
@@ -3118,7 +3118,7 @@
           "platz"
         ],
         "title": "FLBracketFaultGruppe",
-        "description": "One bracket slot whose `gruppe` reference names a placing the standings will never hand it.\n\nBoth reasons need a person, which is what separates them from the ordinary state of a group that is\nsimply still being played -- that one is reported by nobody, because \"not yet\" is not a problem.\n\n`gruppe_too_small` is a data-entry mistake: the group holds fewer teams that can hold a placing than\nthe `platz` asks for, so no result will ever produce it. Like a `spiel_nr` naming no match, the slot\nis left exactly as it stands -- erasing a team over a typo destroys more than it reports.\n\n`tie_unresolved` is a real outcome: the group is played out and the tiebreak chain still cannot\nseparate two teams at that placing. The slot IS emptied, because naming either team would be a\nguess, and clearing the `quelle` and entering a side by hand is the route past it."
+        "description": "One bracket slot whose `gruppe` reference names a placing no standing will hand it.\n\n`gruppe_too_small` is a typo and the slot is left alone; `tie_unresolved` is a played-out group\nthe chain cannot separate, so the slot IS emptied."
       },
       "FLBracketFaultOccupant": {
         "properties": {
@@ -3183,7 +3183,7 @@
           "spiel_datum"
         ],
         "title": "FLBracketFaultOccupant",
-        "description": "One fixture that fields a team the season disqualified before the day it is played.\n\n**Not a fault of the bracket, and the only one here that is not.** The others are contradictions\nbetween a slot's references and what the season can produce; this one is a contradiction between a\nfixture's DATE and a decision recorded on the junction row, and it applies to a group-phase fixture\nexactly as much as to a knockout slot. It shares this union because it shares the channel: a derived\ncontradiction that needs a person, reported on the same triage list.\n\n**A fixture played BEFORE the disqualification is not a fault.** The team was eligible on the day, so\nthe match and its result stand -- `find_eligibility_refusal` permits entering that result for the same\nreason (decided 2026-08-08). What is reported is a fixture on or after the effective day.\n\n`spiel_datum` is null where the fixture carries no date, which is reported: an undated fixture cannot\nbe shown to have been played in time, and that is the same refuse-by-default reading the write path\ntakes.\n\nNothing is emptied. The fixture keeps both sides, because the answer -- cancel it, award it, or\nreplace the team -- is a competition decision and not one a derivation may take."
+        "description": "One fixture fielding a team the season disqualified before the day it is played.\n\nA fixture's DATE against a junction record rather than a bracket fault, so it covers a group\nfixture too. Nothing is emptied: that is a competition decision."
       },
       "FLBracketFaultQuelle": {
         "properties": {
@@ -3218,7 +3218,7 @@
           "quelle_spiel_nr"
         ],
         "title": "FLBracketFaultQuelle",
-        "description": "One bracket slot whose `spiel` reference names a match that cannot state an outcome.\n\n`spiel_missing` is a number the season has no match for; `reference_cycle` is a chain of references\nthat closes on itself, and it is reported on every fixture the loop reaches, because each of them is\nequally underivable. `quelle_spiel_nr` is the number the slot names, which is the value to correct.\n\nBoth leave the slot exactly as it stands, and neither is reachable through the write path -- so a\nstored one is a hand edit, which is the caller this model reports to."
+        "description": "One bracket slot whose `spiel` reference names a match that cannot state an outcome.\n\nBoth leave the slot as it stands, and neither is reachable through the write path. A cycle is\nreported on every fixture it reaches."
       },
       "FLBracketFaultSpiel": {
         "properties": {
@@ -3244,7 +3244,7 @@
           "spiel_nr"
         ],
         "title": "FLBracketFaultSpiel",
-        "description": "One fixture whose two references resolve to the SAME club, so it would be a team against itself.\n\nUnlike the others, this one survives every write-path rule: the refusal keys a source by its\nidentity, so two DIFFERENT sources that happen to name one club pass it. A manual side\nholding a club, against a side fed by a match that club then wins, is the reachable shape.\n\nThe fixture keeps its stored sides and everything downstream keeps deriving from them."
+        "description": "One fixture whose two references resolve to the SAME club.\n\nIt survives the write-path rule, which keys a source by identity, so two DIFFERENT sources\nnaming one club pass. The fixture keeps its stored sides."
       },
       "FLDisqualifikation": {
         "properties": {
@@ -3265,7 +3265,7 @@
           "datum"
         ],
         "title": "FLDisqualifikation",
-        "description": "Why a team is out of one season, and from when.\n\nEmbedded on the `saison_teams` junction row and served from there. Its ABSENCE — the field holding\n`null` — is what \"not disqualified\" means, so nothing beside it records the same fact and the two\ncannot disagree. That is the soft delete's shape applied to a second question, for the same reason:\na boolean and a record together is the one arrangement with a state the database cannot refuse.\n\n`grund` is FREE TEXT and it is PUBLIC. It is written knowing it appears on the team's own page,\nwhich is the same trust this system already places in `teams.description`. A closed set was rejected\nbecause this league publishes no disciplinary code an enum could cite."
+        "description": "Why a team is out of one season, and from when.\n\n`grund` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite."
       },
       "FLGruppen": {
         "additionalProperties": {
@@ -3284,7 +3284,7 @@
         },
         "type": "object",
         "title": "FLGruppen",
-        "description": "The four groups, always all four, each already in standing order.\n\nKeyed by FLGruppenNames rather than a free-form str, and seeded with every group, so the response\nshape does not depend on which groups happen to have teams. Never build it from the teams present\nalone, for the reason `fl_backend/app/api/teams/services.py :: build_gruppen` states.\n\n**Built by `fl_backend/app/api/teams/services.py :: build_gruppen` and by nothing else.** The\norder inside each list is the competition's tiebreak chain, whose last criterion is the head-to-head\ntable -- and that reads the season's matches, which a model holding only teams cannot see. Constructing\nthis from a list of teams here would produce a table ordered on two of the four criteria, which is\nthe ordering the bracket must not disagree with."
+        "description": "The four groups, always all four, in standing order.\n\nBuilt by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak\nchain, whose last criterion reads the season's matches."
       },
       "FLKontakt": {
         "properties": {
@@ -3744,7 +3744,7 @@
         },
         "type": "object",
         "title": "FLPatchSpielDataResponse",
-        "description": "What `patch_spiel_data` returns: the envelope, plus every fixture it moved and what that cost.\n\n`advanced_to` carries one entry per bracket fixture whose sides the result entry resolved — a\nsemi-final that gained its winner, and, when a result was corrected, a later fixture that lost an\noccupant it should never have had. It reports what happened rather than what was asked\nfor, so it names a fixture that was emptied as readily as one that was filled, and each entry\ncarries the result the rewrite destroyed rather than leaving the reader to infer it.\n\n`released_sides` carries the other kind of write this endpoint can make: a side of another fixture\non the same Spieltag, emptied because the team it held is now fielded here.\n\nReported for the same reason `PATCH /teams/{team_id}` reports `fanned_out_to_spiele`: a write that\nsilently changes documents the caller did not name is one whose failures are invisible. Both lists\nare empty for the ordinary group-phase edit.\n\n**`dry_run=true` returns this same shape and writes nothing.** One model, because a preview that\ncould disagree with the save it previews is worse than no preview.\n\n`bracket_faults` carries every stored contradiction the resolution walked past in this season: a\n`gruppe` reference that cannot be honoured and will not become honourable by waiting, a\n`spiel` reference naming no match or sitting on a cycle, and a fixture whose two sides resolve to one\nclub. A group still being played is in none of them: a placing that is not decided yet is the\nordinary state and needs nobody.\n\nThe same list is derived on `GET /spiele/action_required`, which is where it can be re-asked for.\nReported here as well because the save that introduces a fault is the moment its cause is known."
+        "description": "What `patch_spiel_data` returns: every fixture it moved, and what that cost.\n\nBoth lists report writes the caller did not ask for, each carrying the result it destroyed."
       },
       "FLPatchSpielerPayload": {
         "properties": {
@@ -3773,7 +3773,7 @@
           "nachname"
         ],
         "title": "FLPatchSpielerPayload",
-        "description": "Replaces the person's names WHOLESALE.\n\nEvery field is required with no default, as on the team junction and for the same reason. The\nhandler `$set`s this model's dump. A field with a default would therefore let a form that forgot\nit write that default over a stored value -- silently, because nothing distinguishes \"omitted\"\nfrom \"deliberately cleared\" once the dump is built. An omitted `nachname` is a 422."
+        "description": "Replaces the person's names WHOLESALE.\n\nThe handler `$set`s this model's dump, so a field with a default would let a form that forgot it\nwrite that default over a stored value."
       },
       "FLPatchSpielortPayload": {
         "properties": {
@@ -4052,7 +4052,7 @@
           "is_captain"
         ],
         "title": "FLPostSaisonSpielerPayload",
-        "description": "One player's membership of one team's squad for one season. `spieler_id` comes from the path.\n\nEvery field is required, including the three a squad often does not know yet: a caller states\n`null` rather than omitting, which is what keeps `is_nachgetragen` an answer rather than a\ndefault nobody chose. That flag decides whether a player reads as a late arrival, and the one\nthing it must not be is quietly `False` because a caller forgot it (decided 2026-08-07)."
+        "description": "One player's membership of one team's squad for one season.\n\nEvery field is required, including those a squad often does not know: a caller states `null`\nrather than omitting, so the answer is theirs and not a default nobody chose."
       },
       "FLPostSaisonTeamPayload": {
         "properties": {
@@ -4397,7 +4397,7 @@
           "matches_per_matchday"
         ],
         "title": "FLSaisonPhaseSchedule",
-        "description": "One phase of a season: how many matchdays it takes, and how many matches each of those holds.\n\nMirrors `fl_backend/app/api/saisons/schedule.py :: PhaseSchedule`, which is the derivation; this is the wire\nshape for it. A phase this season's bracket does not reach is absent rather than present with zeroes,\nso the list IS the phases the season plays, in playing order."
+        "description": "One phase of a season: how many matchdays it takes, and how many matches each holds.\n\nA phase the bracket does not reach is ABSENT rather than present with zeroes, so the list IS the\nphases the season plays, in playing order."
       },
       "FLSaisonRules": {
         "properties": {
@@ -4827,7 +4827,7 @@
           "voided_elfmeterschiessen"
         ],
         "title": "FLSpielAdvancement",
-        "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\n**The two are separate facts and the second is the one an admin needs.** A slot filling from empty\nis the ordinary, harmless case; a slot whose occupant changed while the fixture already held a\nscoreline loses that scoreline in the same transaction -- which a response reporting only that a\n`Paarung` was updated cannot convey.\n\nBoth voided fields are `None` on the harmless case, so \"was anything destroyed here\" is a null\ncheck rather than a comparison against the fixture's earlier state — which the caller does not\nhave."
+        "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\nBoth voided fields are `None` where a slot merely filled from empty, so \"was anything destroyed\"\nis a null check."
       },
       "FLSpielElfmeterschiessen": {
         "properties": {
@@ -4848,7 +4848,7 @@
           "team2"
         ],
         "title": "FLSpielElfmeterschiessen",
-        "description": "The penalty shoot-out that settled a knockout fixture whose goals finished level.\n\n**A `gruppenphase` fixture never carries one**, and that is not expressible here: `saison_phase` is a\nsibling field, so pairing the two would be a cross-field rule failing on READ for a hand-edited\ndocument and taking the bracket page down with it (`docs/backend/spec.md :: I22`). `patch_spiel_data`\ndiscards a shoot-out arriving on a group fixture, and `_outcome_of` refuses to read one.\n\nThe two counts are the SHOOT-OUT's own scoreline and are never added to `tore`: a shoot-out win is a\ndraw for the league table, and only the bracket reads the winner off this.\n\n`team1` and `team2` name the same two sides the fixture does, so the winner is DERIVED here exactly\nas it is from the goals. There is deliberately no `sieger` field: a second statement of the same\nfact could contradict the counts, and no `$jsonSchema` validator could express that it must not --\nthe reasoning that kept an `is_manual` flag off `quelle` and made `inactive_since` a date."
+        "description": "The penalty shoot-out that settled a knockout fixture whose goals finished level.\n\nNo `sieger`: a second statement of the same fact could contradict the counts, and no validator\ncould express that it must not (`docs/backend/spec.md :: I25`)."
       },
       "FLSpielJoined": {
         "properties": {
@@ -5054,7 +5054,7 @@
           "saison_id"
         ],
         "title": "FLSpielJoined",
-        "description": "One fixture as an ENDPOINT serves it.\n\nThe stored document above, with each side's season state joined onto it by `build_spiele_pipeline`.\n\n**This is the wire shape of every response carrying matches**, and that uniformity is load-bearing\nrather than tidy: the frontend mirrors all of them with one `FLSpielSchema`, so a route serving the\nnarrower shape would leave `SpielTeamSlot` with no badge to render and nothing would report it\n(the mirror check compares the published document, and a field absent from one route is still published).\n\n**A subclass, so a joined fixture is still an `FLSpiel`.** The bracket resolution takes the stored\nshape and reads none of what is added here, and `find_bracket_faults` reports faults over documents\nit has already joined for display -- so narrowing the two sides keeps one read serving both instead\nof forcing a second query per faulted fixture. Nothing assigns to `team1` or `team2` after\nvalidation; a joined fixture is built by the pipeline and read.\n\n**The direction of the inheritance is deliberate and must not be flipped.** The stored shape is the\none a write can reach, so it is the one that stays free of derived fields. Adding\n`disqualifikation` to `FLSpielTeamField` and stripping it on write would put the burden on every\nfuture writer instead of on the type."
+        "description": "One fixture as an ENDPOINT serves it: the stored document plus each side's joined season state.\n\n**A subclass, and the direction must not be flipped**: the stored shape is the one a write can\nreach, so it stays free of derived fields."
       },
       "FLSpielOrtField": {
         "properties": {
@@ -5201,7 +5201,7 @@
           "voided_elfmeterschiessen"
         ],
         "title": "FLSpielReleasedSide",
-        "description": "One side another fixture gave up so a team could be fielded on the same Spieltag.\n\nA team plays at most one match per matchday, so fielding it here takes it out of there. Only a\nside the admin owns is moved this way: a side carrying a `quelle` is the resolution's, emptying it\nwould be undone on the next pass, and that case is refused instead.\n\n`team_name` rather than an id, because the message quoting this has no `spiele` list to join\nagainst. It cannot go stale — the rename fan-out maintains the copy it is read from, and\nthis is derived per request."
+        "description": "One side another fixture gave up so a team can play this Spieltag.\n\n`team_name` rather than an id: the message quoting this has no `spiele` list to join against,\nand the rename fan-out keeps the copy it reads fresh."
       },
       "FLSpielSchiedsrichterField": {
         "properties": {
@@ -5266,7 +5266,7 @@
           "shorthand"
         ],
         "title": "FLSpielTeamField",
-        "description": "One side of a fixture as the DOCUMENT stores it, and as the admin PATCH writes it back.\n\nEvery key here is either embedded on `spiele` or derived from what is. Nothing joined belongs on\nthis model: `patch_spiel_data` writes the payload back wholesale with `$set` and\n`advance_bracket_winners` dumps a resolved side straight into one, so a field added here reaches\nthe document on the next edit -- the denormalisation a joined field must never become,\narriving through the write path instead of through a fan-out. `FLSpielTeamFieldJoined` below is where a\njoined field goes."
+        "description": "One side of a fixture as the DOCUMENT stores it and the admin PATCH writes it back.\n\nNothing joined belongs here: the payload is written back wholesale, so a field added reaches the\ndocument on the next edit."
       },
       "FLSpielTeamFieldJoined": {
         "properties": {
@@ -5317,7 +5317,7 @@
           "disqualifikation"
         ],
         "title": "FLSpielTeamFieldJoined",
-        "description": "One side as a READ serves it: the stored copy above, plus this season's state joined onto it.\n\nProduced only by `build_spiele_pipeline`, never by a write and never by a validation of a raw\n`spiele` document. The distinction is the whole reason there are two models -- see `FLSpielJoined`."
+        "description": "One side as a READ serves it, produced only by `build_spiele_pipeline` and never by a write."
       },
       "FLSpieleActionRequiredResponse": {
         "properties": {
@@ -5374,7 +5374,7 @@
           "spiele"
         ],
         "title": "FLSpieleActionRequiredResponse",
-        "description": "What `get_spiele_action_required` returns: the matches needing attention, and why the bracket ones do.\n\n`spiele` carries every match the route's filter selected PLUS every match named by a fault below, so\nthe client always holds the document behind a fault and can render it as an ordinary card. A fault is\njoined to its match by `spiel_id`, never by `spiel_nr`, which repeats across seasons\n(`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`) and this route spans them.\n\n`bracket_faults` is DERIVED on every request and stored nowhere. It is the same list\n`PATCH /spiele/{spiel_id}` reports in its response, computed over every season instead of one.\n\nThe matches are `FLSpielJoined`, as the two read endpoints' are. This route's list renders through\nthe same `SpielCard`, so a narrower shape here would be a DQ badge that the public grids show and\nthe admin triage list silently does not."
+        "description": "The matches needing attention, and why the bracket ones do.\n\nA fault joins its match by `spiel_id`, never `spiel_nr`, which repeats across the seasons this\nroute spans. `spiele` carries every match a fault names."
       },
       "FLSpieleListResponse": {
         "properties": {
@@ -5646,7 +5646,7 @@
           "inactive_since"
         ],
         "title": "FLSpielerMembership",
-        "description": "One squad row as seen from its player -- the season, the team, and what they wore and played.\n\nCarries `inactive_since`, which the team junction's equivalent does not and cannot: a squad row\nreally is retired when a player leaves a team mid-season, while a team never leaves a season at\nall. The admin list badges a retired row in place and offers the reactivate beside it."
+        "description": "One squad row as seen from its player.\n\nCarries `inactive_since`, which the team junction does not: a player leaves a squad mid-season,\nwhere a team never leaves a season at all."
       },
       "FLSpielerMembershipsResponse": {
         "properties": {
@@ -5724,7 +5724,7 @@
           "inactive_since"
         ],
         "title": "FLSpielerSingleResponse",
-        "description": "One player, from `GET /spieler/{spieler_id}`.\n\nCarries only the person: `vorname`, `nachname` and whether they are retired. The squad fields on\n`FLSpieler` -- team, number, position, stufe -- are season-scoped, so a player addressed without a\nseason has none of them, and inventing a season here would make the answer depend on a default the\ncaller never stated."
+        "description": "One player, from `GET /spieler/{spieler_id}`.\n\nThe person alone: `FLSpieler`'s squad fields are season-scoped, and inventing a season would make\nthe answer depend on a default the caller never stated."
       },
       "FLSpielerWithMemberships": {
         "properties": {
@@ -5777,7 +5777,7 @@
           "memberships"
         ],
         "title": "FLSpielerWithMemberships",
-        "description": "The person as stored, plus every squad row they hold -- the admin list's one read.\n\nA DIFFERENT question from `FLSpieler`, not a projection of it. `FLSpieler` is one player\nFLATTENED against one season, which is why it carries a `team_id` and no `saison_id`: the read\nthat produces it unwinds the junction, so a player in two seasons comes back as two\nindistinguishable rows and a player in none fails validation on the `team_id` they have not got.\nThe admin surface asks \"every player, and which squads hold them\", which that shape cannot answer\nat any filter setting."
+        "description": "The person as stored, plus every squad row they hold.\n\nA DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one\nseason, so a player in two comes back as two indistinguishable rows."
       },
       "FLSpielerWriteResponse": {
         "properties": {
@@ -6075,7 +6075,7 @@
           "team2_id"
         ],
         "title": "FLSwapGruppenPayload",
-        "description": "The two clubs a group swap exchanges. Symmetric -- neither side is the one being moved.\n\n**Neither side carries a `gruppe`, and that absence is the design.** The groups being exchanged\nare what the two `saison_teams` rows already hold, so reading them from the payload would let a\nform built against a season that has since moved write a group nobody is standing in. The season\nis in the path, because a swap belongs to the season."
+        "description": "The two clubs a group swap exchanges. Symmetric.\n\nNeither side carries a `gruppe`: reading one from the payload would let a stale form write a\ngroup nobody stands in."
       },
       "FLSwapGruppenResponse": {
         "properties": {
@@ -6135,7 +6135,7 @@
           "rewritten_spiele"
         ],
         "title": "FLSwapGruppenResponse",
-        "description": "Both junction rows as the swap left them: each club, and the group it now holds.\n\nFlat rather than two nested sides, because there is nothing else on a junction row this write\ntouches -- `disqualifikation` is `PATCH /teams/{team_id}/saisons/{saison_id}`'s and is not read here.\n\n`rewritten_spiele` reports the second half of the write: how many Gruppenphase fixtures had a side\nmoved to the other club. Reported for `FLPatchTeamResponse.fanned_out_to_spiele`'s reason -- a write\nthat reaches documents the caller did not name is one the caller should be told the size of."
+        "description": "Both junction rows as the swap left them, plus `rewritten_spiele` -- the second half of the write, reported not assumed."
       },
       "FLTeam": {
         "properties": {
@@ -6318,7 +6318,7 @@
           "inactive_since"
         ],
         "title": "FLTeamRecord",
-        "description": "The club document as it is STORED — `FLTeam` minus the three fields no `teams` document carries.\n\nWhat the write endpoints echo back. A write to `teams` changes the club and nothing season-scoped,\nso `gruppe`, `disqualifikation` and `statistik` are not this endpoint's to report — and reading them\nwould mean re-running the team pipeline, whose junction join is strict. A club with no\n`saison_teams` row for the current season drops out of that pipeline entirely, which is the normal\nstate for a club being created, retired or reactivated."
+        "description": "The club document as it is STORED, and what the write endpoints echo.\n\nThe season-scoped fields would mean re-running the team pipeline, whose junction join is strict\n-- and a club being created holds no row yet."
       },
       "FLTeamStatistik": {
         "properties": {
@@ -6441,7 +6441,7 @@
           "memberships"
         ],
         "title": "FLTeamWithMemberships",
-        "description": "The stored club document plus every season membership it holds — the admin list's one read.\n\nA DIFFERENT question from `FLTeam`, not a projection of it: `FLTeam` answers \"this\nclub in one season\" with a strict junction join and a derived `statistik`, which is why a club\noutside the season is absent from it by design. The admin surface asks \"every club, and which\nseasons hold it\", which no composition of season-scoped reads answers in one request."
+        "description": "The stored club document plus every season membership it holds.\n\nA DIFFERENT question from `FLTeam`, not a projection: that one joins strictly against one season,\nso a club outside it is absent by design."
       },
       "FLTeamWriteResponse": {
         "properties": {
@@ -6497,7 +6497,7 @@
           "qualifiers_per_group"
         ],
         "title": "FLTeamsGroupedResponse",
-        "description": "The four groups in standing order, and how many of each advance.\n\n`qualifiers_per_group` is the season's own `rules.qualifiers_per_group`, carried here because it is\nwhat turns an ordered list into a statement about qualification: the teams in a playoff place are a\nprefix of each list above, and a caller cannot mark them without knowing where it ends. It rides on\nthis response rather than being fetched separately so that a page rendering the table cannot show a\ncutoff drawn from a different season than the table itself.\n\nOn the GROUPED shape only. A flat list is sorted by name and is not a standing, so a cutoff into it\nwould mean nothing."
+        "description": "The four groups in standing order, and how many of each advance.\n\n`qualifiers_per_group` rides along rather than being fetched separately, so a page cannot mark a\ncutoff drawn from a different season than the table it marks."
       },
       "FLTeamsListResponse": {
         "properties": {
@@ -6582,7 +6582,7 @@
           "team"
         ],
         "title": "FLTeamsSingleResponse",
-        "description": "One team, from `GET /teams/{team_id}`.\n\nDeliberately not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can\nreturn, and this is a different endpoint returning exactly one shape."
+        "description": "One team, from `GET /teams/{team_id}`.\n\nNot part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can return."
       },
       "HTTPValidationError": {
         "properties": {

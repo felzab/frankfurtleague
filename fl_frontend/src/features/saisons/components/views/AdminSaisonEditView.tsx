@@ -14,18 +14,8 @@ import type { FLSaisonStatus } from "@/features/saisons/schemas";
 import type { SaisonDraftFields, SaisonGruppenSwapContext, SaisonRolloverContext } from "@/features/saisons/types";
 
 /**
- * The whole body of `/admin/saisons/[saison_id]` — which season this is, then the form that edits it, in
- * the match editor's shell: the header scrolls with the form's content, the action bar stays pinned below
- * it, and every exit routes through the form's own discard guard.
- *
- * **The header carries no control.** On the club and player editors it owns the retirement, because a
- * person or a club can be retired; a season cannot be — one that is over is `past`, and the only thing
- * that writes `status` is the rollover, which is a whole panel rather than a button. So the
- * header names the season, and every write on this page is below it.
- *
- * **The season's dates and its status are stated where they can be changed** — the Zeitraum panel's
- * pickers and the Umstellung panel's badge. The header repeats neither: a value shown twice on one screen
- * is a value that can be read as two.
+ * The body of `/admin/saisons/[saison_id]`. **The header carries no control and states no value**: a
+ * season cannot be retired, and the dates and status are shown where they can be changed.
  */
 export function AdminSaisonEditView({
   saison,

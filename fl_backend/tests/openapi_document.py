@@ -1,22 +1,3 @@
-"""
-TESTS · the published OpenAPI document, built and read
-
-`fl_backend/openapi.json` is committed because the frontend's contract test compares its Zod
-mirror against it and the frontend gate scope has no Python; the regenerated document maps to
-both scopes, which is what pulls the mirror check into the same pull request as the model change
-that needs it. Not a test module — pytest collects `test_*.py`, so nothing here is
-collected.
-
-Run from `fl_backend/`: `python -m tests.openapi_document --write` rewrites the document, and
-`--check` reports whether it is stale, writing nothing.
-
-Invariants:
-- Built from `build_test_config()` — the published surface never depends on the settings used.
-
-See:
-- tests/api/test_openapi_document.py — the gate's copy of `--check`, in the default tier
-"""
-
 import argparse
 import json
 from pathlib import Path
@@ -29,12 +10,11 @@ DOCUMENT_PATH = Path(__file__).resolve().parents[1] / "openapi.json"
 
 
 def build_document() -> dict[str, Any]:
-    """The document FastAPI publishes for the current models, routes and response models."""
     return create_app(build_test_config()).openapi()
 
 
 def read_document() -> dict[str, Any]:
-    """The committed document, PARSED — never compared as bytes, because prettier owns its formatting."""
+    """Parsed, never compared as bytes: prettier owns this file's formatting."""
     return json.loads(DOCUMENT_PATH.read_text(encoding="utf-8"))
 
 
@@ -58,9 +38,8 @@ def _main() -> int:
     built = build_document()
 
     if arguments.write:
-        # newline="\n" so a Windows run and a Linux run write the same bytes. Without it Python
-        # translates to CRLF here and git normalises on the way in, which makes every regeneration on
-        # a dev machine report a whitespace change it did not make.
+        # newline="\n" so a Windows run and a Linux run write the same bytes: without it Python
+        # translates to CRLF and git normalises on the way in, reporting a whitespace change nobody made.
         DOCUMENT_PATH.write_text(serialize(built), encoding="utf-8", newline="\n")
         paths = len(built["paths"])
         schemas = len(built.get("components", {}).get("schemas", {}))

@@ -10,21 +10,13 @@ import { ExternalUrlSchema } from "@/shared/schemas";
 
 import type { ReactNode } from "react";
 
-/** What the admin edits: the URL with its scheme stripped — the group's prefix carries the scheme. */
+/** What the admin edits — the group's prefix carries the scheme. */
 const withoutScheme = (url: string): string => url.replace(/^https?:\/\//i, "");
 
 /**
- * The website input, shared by the club editor and the create form.
- *
- * **The `https://` sits in the group's prefix, not in the value.** It cannot be deleted, so nobody
- * has to type or repair a scheme by hand — and a full URL PASTED into the field is de-duplicated,
- * because the change handler strips any scheme off the incoming text before re-attaching the fixed
- * one. The value this field reports upward is always the complete URL the payload wants, or the
- * empty string for an emptied input, which the schema then rejects with its own message.
- *
- * **The suffix opens the link**, so the admin can check it is the right site before saving. An
- * anchor rather than a button, disabled (no href) while the draft does not parse as an external
- * URL — following half an address helps nobody.
+ * **The `https://` sits in the group's prefix, not in the value**, so a pasted full URL is
+ * de-duplicated by the change handler. What this reports upward is the complete URL, or `""` for an
+ * emptied input, which the schema rejects.
  */
 export function WebsiteUrlField({
   value,

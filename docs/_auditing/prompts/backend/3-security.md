@@ -21,14 +21,13 @@ before calling anything unreachable — do not assert topology from memory.
 
 THE CHECKS, in priority order:
 
-0. **STANDARDS COVERAGE.** Anchor this pass to two published control lists rather than to a
-   hand-rolled checklist, per the shared protocol's rule on external standards.
+0. **STANDARDS COVERAGE.** Anchor this pass to two published control lists, per the shared protocol's
+   rule on external standards, one coverage table each.
 
    - **OWASP ASVS**, the Application Security Verification Standard
      (<https://github.com/OWASP/ASVS>). Target **Level 1** as the floor, and treat Level 2 controls
-     as decisions to confirm rather than defects: this is a small public site with one privileged
-     operator, so some Level 2 controls are legitimately not applicable — but each N/A carries its
-     reason. Cover the chapters that apply to an API with no browser-facing session of its own:
+     as decisions to confirm rather than defects — this is a small public site with one privileged
+     operator. Cover the chapters that apply to an API with no browser-facing session of its own:
      authentication and access control, validation and encoding, error handling and logging,
      configuration, and data protection. A chapter covering a surface this service does not have is
      one `not applicable` row, not silence.
@@ -36,8 +35,6 @@ THE CHECKS, in priority order:
      (<https://owasp.org/API-Security/editions/2023/en/0x11-t10/>). One row per entry, no exceptions.
      Broken object-level and function-level authorization, and unrestricted resource consumption, are
      the ones this architecture is most exposed to.
-
-   Produce one coverage table per list, in the shape the shared protocol sets.
 
 1. **PER-ENDPOINT AUTHORIZATION TABLE.** The required table, one row per route in every
    `app/api/*/router.py` and `admin_router.py`: method+path | handler file:line | dependency chain |
@@ -82,18 +79,15 @@ THE CHECKS, in priority order:
 
 8. **TOPOLOGY-ONLY CONTROLS INVENTORY.** Every control that exists _only_ as network topology, with
    no in-band check: list them with what breaks if an nginx location is ever added or the compose
-   network changes. The retired revalidation route is the pattern — the point is that each
-   such control is _named_, so no future nginx edit removes one unknowingly. Hand the list to
-   `ops 2`, which owns the nginx side.
+   network changes. The point is that each such control is _named_, so no future nginx edit removes
+   one unknowingly. Hand the list to `ops 2`, which owns the nginx side.
 
 SEVERITY HONESTY: a finding reachable only by an attacker who already holds an internal API key or
 compose-network access is real but must be rated for that position, not for the open internet.
 
 FIX PRESCRIPTIONS: verify any fix touching auth flow, config gating or container runtime against the
-running stack or a built image before prescribing it. **A security fix reasoned about rather than
-measured is routinely unshippable** — a gate that looks correct can refuse to boot the local stack,
-and a check can fail to resolve its imports inside a bundled image. Label the prescription unverified
-where you cannot verify.
+running stack or a built image before prescribing it, or label it unverified — a security fix
+reasoned about rather than measured is routinely unshippable (`docs/_auditing/lessons.md` §1).
 
 BOUNDARIES — not this pass: write→read consistency → b1 · constraint and mirror divergence → b2 ·
 module layout, excess, tests, tooling → b4 · nginx, compose, TLS and headers themselves → the ops

@@ -20,23 +20,9 @@ import { formatMapsLink } from "../../utils";
 import type { FLSpielort } from "../../schemas";
 
 /**
- * Memoised deliberately, and load-bearing: see the collection-identity note in `AdminCrudView`.
- *
- * The parent view calls `useSearchParams()`, which subscribes it to the client router. Next keeps
- * the previous route mounted in a hidden React Activity tree for instant back-navigation, so every
- * navigation *elsewhere* re-renders this table while it is hidden. A react-aria collection that
- * re-renders while hidden drops its rows and never rebuilds them on restore, leaving the table
- * shell with neither rows nor `renderEmptyState`. Bisected against seven probe routes: the table
- * alone is fine, `useSearchParams` alone is fine, the two together fail on the third visit.
- *
- * `memo` keeps that churn down, but note what it does *not* do: `spielortQuery` is read from the
- * live router, and a hidden tree still sees the incoming route's params, so leaving this page for
- * one whose `q` differs changes the prop and the memo cannot bail out — and `useSearchParams` below
- * subscribes this table to the router directly, so any parameter change re-renders it too. Measured
- * over 15 such round trips with the query varying each time: the rows survive. What carries the fix
- * is the `items` + render-function form of `Table.Body` below; `memo` is the cheap second layer.
- * **Do not pass an inline lambda or a freshly-built array here**, and do not convert `Table.Body`
- * back to mapped children.
+ * A react-aria collection re-rendered while hidden in an Activity tree loses its rows, and the
+ * parent's `useSearchParams()` re-renders this one on any navigation. `Table.Body`'s `items` form
+ * carries the fix; `memo` is the second layer.
  */
 export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   spielortQuery,
@@ -49,9 +35,8 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
 }) {
   const [, startReactivating] = useTransition();
 
-  // The sidemenu's season rides along, so the fixture list opens on the season the admin is working
-  // in rather than on the current one. Reading it here is safe: the parent view already subscribes
-  // this tree to the router.
+  // The sidemenu's season rides along, so the fixture list opens on the season being worked in
+  // rather than on the current one.
   const searchParams = useSearchParams();
   const selectedSaisonId = searchParams.get("saison_id");
   const saisonParam = selectedSaisonId ? `&saison_id=${encodeURIComponent(selectedSaisonId)}` : "";
@@ -63,8 +48,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
     else appToast.danger(CLIPBOARD_ERROR_TITLE, { description: CLIPBOARD_ERROR_DETAIL });
   };
 
-  // One press, then a toast either way. No confirmation step: the reactivation is undone by the
-  // retire control that takes its place — the teams table's arrangement, on the same endpoint shape.
+  // No confirmation step: the reactivation is undone by the retire control that takes its place.
   const handleReactivate = (ort: FLSpielort) => {
     startReactivating(async () => {
       const res = await reactivateSpielortAction({ id: ort.id });
@@ -73,8 +57,8 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
     });
   };
 
-  // One source for both layouts, the teams table's pattern: the `md+` table's cells and the phone
-  // cards render these, so the two presentations cannot disagree about a row or its controls.
+  // One source for both layouts, so the table's cells and the phone cards cannot disagree about a
+  // row or its controls.
   const renderAddress = (ort: FLSpielort) => (
     <div className="flex flex-col gap-0.5">
       <span className="fluid-sm text-foreground">
@@ -87,8 +71,8 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
     </div>
   );
 
-  // Stated beside the identity rather than in a column of its own: retirement is the only state a
-  // venue has, so a column would be empty on every live row.
+  // Beside the identity rather than in a column: retirement is the only state a venue has, so a
+  // column would be empty on every live row.
   const renderRetiredBadge = (ort: FLSpielort) =>
     ort.inactive_since === null ? null : (
       <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(ort.inactive_since)}</span>
@@ -113,8 +97,8 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           height={18}
         />
       </RowActionLink>
-      {/* `ort` as `buildSpielFacets` declares it, carrying the id its options are keyed by: a `q=`
-          here fuzzy-matches every `SEARCH_KEYS` entry, the venue's maps link among them, and lights no chip. */}
+      {/* `ort` as `buildSpielFacets` declares it, carrying the id its options are keyed by. A `q=`
+          here would fuzzy-match every `SEARCH_KEYS` entry and light no chip. */}
       <RowActionLink
         href={`/admin/spielsuche?ort=${ort.id}${saisonParam}`}
         label="Spiele anzeigen"
@@ -130,8 +114,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
         ariaLabel={`Adresse von ${ort.name} kopieren`}
         onPress={() => handleCopyAddress(ort)}
       />
-      {/* A link rather than a press: the venue form edits on a page, so the pencil is a
-          navigation and the shared view renders no edit overlay. */}
+      {/* A link and not a press: the venue form edits on a page of its own. */}
       <RowActionLink
         href={`/admin/spielorte/${ort.id}`}
         label="Bearbeiten"
@@ -168,8 +151,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
 
   return (
     <>
-      {/* The phone layout: one card per venue, no horizontal scrolling anywhere (decided 2026-08-07
-          — the teams table's card pattern, applied here). */}
+      {/* One card per venue, so nothing scrolls horizontally. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
         {filteredSpielorte.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
         {filteredSpielorte.map((ort) => (
@@ -213,8 +195,8 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                 </Table.Column>
               </Table.Header>
 
-              {/* `items` + a render function, not mapped children: the static form stops committing its
-                  row collection after a few client navigations away and back. */}
+              {/* `items` plus a render function, never mapped children: the static form stops
+                  committing its row collection after a few navigations away and back. */}
               <Table.Body
                 items={filteredSpielorte}
                 renderEmptyState={() => emptyState}>

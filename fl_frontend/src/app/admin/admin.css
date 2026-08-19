@@ -1,27 +1,14 @@
-/* ADMIN · the component styles only /admin renders
+/* ADMIN · the HeroUI component styles only /admin renders, imported by
+   `app/admin/layout.tsx`. A component belongs here only where the import graph
+   proves no public route reaches it; the checklist is `docs/frontend/spec.md` §1.11. */
 
-   Imported by `app/admin/layout.tsx`, which is what keeps this block out of every public route's
-   stylesheet — a material share of it, for a date picker no public page shows.
-
-   **A component belongs here only if NO public route can reach it.** Establish that by walking the
-   import graph from every route entry and following the dynamic imports, never by reading folder
-   names: `Select` and `ListBox` look admin-shaped and are reached by public pages, and
-   `CloseButton` is imported only by an admin form but may be composed by the public
-   `SpielDetailsModal`, so all three stay in `globals.css`.
-
-   Order is HeroUI's own, as in globals.css. `@reference` gives `@apply` inside these files the theme
-   without emitting it twice — several of them use it, and without this the build fails.
-
-   The overrides below the imports are the app's answer to what the vendored calendar ships, and they
-   sit last so the cascade reaches them without the import order moving. */
-
+/* `@reference` gives the `@apply`s below globals.css's theme without emitting it a second time.
+   Without it the build fails. */
 @reference "../globals.css";
 
 /* Forms */
 @import "@heroui/styles/components/number-field.css" layer(components);
-/* The description editors (create dialog and edit modal) — admin-only, so it stays out of
-   globals.css. Position matches @heroui/styles/dist/components/index.css: after
-   number-field, before the calendar block. */
+/* The description editors, admin-only. */
 @import "@heroui/styles/components/textarea.css" layer(components);
 
 /* Date & Time */
@@ -32,18 +19,14 @@
 @import "@heroui/styles/components/date-input-group.css" layer(components);
 @import "@heroui/styles/components/date-picker.css" layer(components);
 
-/* Pickers. A HeroUI component's stylesheet is imported here in the change that first renders that
-   component on an admin route, at the position it holds in HeroUI's own index. The
-   checklist is `docs/frontend/spec.md` §1.11. */
+/* Pickers */
 @import "@heroui/styles/components/autocomplete.css" layer(components);
 
-/* App-side overrides for the calendar, after every import above so each rule beats the vendored one
-   it names at equal specificity. Written against @heroui/styles 3.2.4, whose class names these are
-   (`docs/frontend/spec.md` §1.11). */
+/* App-side overrides for the calendar, last so each beats the vendored rule it names at equal
+   specificity. Written against @heroui/styles 3.2.4, whose class names these are. */
 @layer components {
-  /* HeroUI rounds both cells to 24px, a circle on a 37.7px day. `rounded-lg` is what every option
-     row, tab and field in this app takes, so a day's hover fill and its selected indicator read as
-     the same control family as the form behind them. */
+  /* `rounded-lg` is what every option row, tab and field here takes, so a day reads as the same
+     control family as the form behind it. HeroUI ships a circle. */
   .calendar__cell,
   .calendar-year-picker__year-cell {
     @apply rounded-lg;
@@ -54,27 +37,22 @@
     @apply rounded-md;
   }
 
-  /* The day number is the one thing in this panel a reader is aiming at, so it is the one thing that
-     grows with the viewport. The heading and the weekday row hold their size deliberately. */
+  /* The day number is what a reader aims at, so it is the one thing here that grows with the
+     viewport. The heading and the weekday row hold their size deliberately. */
   .calendar__cell {
     @apply sm:text-base;
   }
 
-  /* `text-muted` resolves to --bg-muted here, a *background* grey: the weekday letters measured
-     1.16:1 light and 1.24:1 dark. The date segments' literal separators carry the same confusion
-     (`FormDateTimeSection.tsx`). */
+  /* Not `text-muted`, which resolves to a *background* grey: the weekday letters measured 1.16:1. */
   .calendar__header-cell,
   .calendar__cell[data-outside-month="true"] {
     @apply text-foreground-muted;
   }
 
-  /* --- The palette. Every fill below is a declared token, never a value ------------------------
-     HeroUI's `accent` and `default` are its own blue and grey, which this app overrides nowhere, so
-     the calendar was the last admin surface off the brand. Nothing here names a colour. */
+  /* --- The palette: every fill below is a declared token, never a value --- */
 
   /* Today is OUTLINED where the chosen day is FILLED, because a red tint beside a red fill is two
-     reds a reader has to rank -- the objection `AdminBracketWiringView` records against `brand`
-     joining its chip set. Bold too, so the marker does not rest on colour alone. */
+     reds a reader has to rank. Bold too, so the marker does not rest on colour alone. */
   .calendar__cell[data-today="true"] {
     @apply text-foreground bg-transparent;
   }
@@ -83,16 +61,14 @@
     @apply border-brand border font-bold;
   }
 
-  /* The chosen day, in the pair `StufenPicker` and the toast's action button already carry: the
-     opaque brand fill with its own paired foreground, measured at 10.03:1 in both themes. */
+  /* The chosen day, in the pair `StufenPicker` and the toast's action button already carry. */
   .calendar__cell[data-selected="true"],
   .calendar-year-picker__year-cell[data-selected="true"],
   .calendar-year-picker__year-cell[aria-selected="true"] {
     @apply bg-brand-solid text-brand-solid-foreground;
   }
 
-  /* A chosen day from a neighbouring month keeps HeroUI's demotion off the brand fill, and needs its
-     own arm: the two rules above it are equally specific, so the fill's white would otherwise win. */
+  /* Needs its own arm: the two rules above are equally specific, so the fill's white would win. */
   .calendar__cell[data-selected="true"][data-outside-month="true"] {
     @apply bg-muted text-foreground-muted;
   }
@@ -107,25 +83,24 @@
     @apply bg-brand-solid-hover;
   }
 
-  /* The chevrons stay neutral rather than becoming a third red, on `dismissControl`'s own treatment
-     for an icon-only control. The year picker's chevron and its open heading follow the same split. */
+  /* The chevrons stay neutral rather than becoming a third red, on `dismissControl`'s treatment for
+     an icon-only control. The year picker's chevron and open heading follow the same split. */
   .calendar__nav-button,
   .calendar-year-picker__trigger-indicator {
     @apply text-foreground-muted;
   }
 
-  /* The calendar trigger sits beside `ClearFieldButton` in the same suffix, so it takes that
-     control's geometry and hover — 28px, `rounded-md`, `bg-hover` — not `dismissControl` itself,
-     whose contract is a label naming what goes. */
+  /* Takes `ClearFieldButton`'s geometry and hover, since the two share a field's suffix — not
+     `dismissControl` itself, whose contract is a label naming what goes. */
   .date-picker__trigger {
     @apply text-foreground-muted size-7 shrink-0 justify-center rounded-md p-0;
-    /* HeroUI transitions this trigger on `box-shadow` alone, so the fill would snap in beside a ×
-       that fades. `box-shadow` stays, since it is what the focus ring rides. */
+    /* HeroUI transitions this on `box-shadow` alone, so the fill would snap in beside a fading ×.
+       `box-shadow` stays, since it is what the focus ring rides. */
     @apply transition-[color,background-color,box-shadow] duration-(--motion-fast);
   }
 
-  /* `text-current` so the icon follows the trigger's colour through hover, rather than pinning itself
-     to `--field-placeholder`, which is a stock token this app never declares. */
+  /* `text-current` so the icon follows the trigger through hover, rather than pinning itself to
+     `--field-placeholder`, a stock token this app never declares. */
   .date-picker__trigger-indicator {
     @apply text-current;
   }
@@ -134,8 +109,7 @@
     @apply text-brand;
   }
 
-  /* Where the caret sits in a segmented field, as a tint with its text-grade companion on it -- the
-     `/10` and not `/15` that `app/(public)/page.tsx` measured at 4.70:1 against 4.42:1 in the dark. */
+  /* Where the caret sits in a segmented field: a tint with its text-grade companion on it. */
   .date-input-group__segment:focus,
   .date-input-group__segment[data-focused="true"] {
     @apply bg-brand/10 text-brand;
@@ -147,30 +121,26 @@
   }
 
   /* Hover is guarded exactly as HeroUI guards it, because `:hover` sticks after a tap on a touch
-     device and the guard is what clears it. Each block mirrors the query the rule it beats sits in. */
+     device. Each block mirrors the query the rule it beats sits in. */
   @media (hover: hover) {
     .calendar__cell:hover:not([data-selected="true"]),
     .calendar__cell[data-hovered="true"]:not([data-selected="true"]) {
       @apply bg-hover;
     }
 
-    /* Today needs its own arm at the same specificity HeroUI gives its louder today-hover. */
+    /* Its own arm, at the specificity of HeroUI's louder today-hover. */
     .calendar__cell[data-today="true"]:hover:not([data-selected="true"]),
     .calendar__cell[data-today="true"][data-hovered="true"]:not([data-selected="true"]) {
       @apply bg-hover;
     }
-
-    /* A chosen day gains no hover fill, and that absence is deliberate on both sides: HeroUI declares
-       no such arm, and `TAB_ITEM` and `STUFE_CHIP` each record why a selected control keeps one
-       appearance. Its press still moves, above, because HeroUI declares that one. */
 
     .calendar__nav-button:hover,
     .calendar__nav-button[data-hovered="true"] {
       @apply bg-hover text-foreground;
     }
 
-    /* The one fill the two controls in a field's suffix share. HeroUI ships the trigger no hover arm
-       at all, so this is the only place either theme's step gets declared for it. */
+    /* HeroUI ships the trigger no hover arm at all, so this is the only place either theme's step
+       gets declared for it. */
     .date-picker__trigger:hover,
     .date-picker__trigger[data-hovered="true"] {
       @apply bg-hover text-foreground;
