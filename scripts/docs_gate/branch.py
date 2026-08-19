@@ -81,7 +81,8 @@ COUNT_WORDS: Final[tuple[str, ...]] = (
     "eighteen",
     "nineteen",
     "twenty",
-    "both",
+    # `both` is absent deliberately: COR-4 catches a count that rots SILENTLY, and this one cannot.
+    # It closes a set of exactly two, so a third member makes it read as broken rather than as stale.
     "second",
     "third",
     "fourth",
