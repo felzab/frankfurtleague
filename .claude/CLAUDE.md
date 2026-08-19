@@ -368,6 +368,7 @@ decision nobody ratified. Each row is one never-clause; the argument lives in `d
 | 0074 | Reach the swap's disqualification refusal backwards; refuse a club standing on its own fixture |
 | 0075 | Grade a phase change as a state; refuse an empty matchday's move, or one towards its fixtures  |
 | 0076 | Leave a vendored overlay's zoom in place; write the app's scale override inside a `@layer`     |
+| 0077 | Stop a loading indicator under reduced motion; freeze an ornament that rests visible           |
 
 ## 8. Documentation
 

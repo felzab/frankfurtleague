@@ -90,6 +90,7 @@ cited from code and the path must never move
 | [0074](0074-the-group-swap-refuses-a-disqualified-club.md)                        | The group swap refuses moving a disqualified club forward                    | backend                | Accepted               | 2026-08-13 |
 | [0075](0075-a-matchdays-phase-moves-only-where-the-move-means-something.md)       | A matchday's phase moves only where the move means something                 | backend, frontend      | Accepted               | 2026-08-13 |
 | [0076](0076-the-arrival-language-carries-no-scale.md)                             | The app's arrival language carries no scale, vendored overlays included      | frontend               | Accepted               | 2026-08-19 |
+| [0077](0077-a-loading-indicator-keeps-moving.md)                                  | A loading indicator keeps moving under reduced motion                        | frontend               | Accepted               | 2026-08-19 |
 
 ## Read next
 

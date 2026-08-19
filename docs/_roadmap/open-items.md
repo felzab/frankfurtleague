@@ -59,7 +59,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 4   | FB-17 | Season setup is hand-run, and only an admin enters a squad      | FE, BE, DB, Ops | XL     | Open     | —          |
 | 5   | BE-17 | Every server-ordered name list sorts in byte order              | BE, FE          | M      | Open     | —          |
 | 6   | FE-15 | Vendored overlays enter at a scale the app's own set never uses | FE              | S      | Closed   | —          |
-| 7   | FE-14 | The two loaders answer reduced motion in opposite directions    | FE              | S      | Open     | —          |
+| 7   | FE-14 | The two loaders answer reduced motion in opposite directions    | FE              | S      | Closed   | —          |
 | 8   | FE-16 | The filter hooks are mounted for machinery nobody reads         | FE              | S      | Open     | —          |
 | 9   | FE-1  | A fixture carries one date, not a play window                   | FE, BE          | XL     | Open     | —          |
 | 10  | LOG-2 | A cached read's call joins to no render                         | FE, BE, Ops     | L      | Open     | —          |
@@ -475,7 +475,7 @@ longer brings with it.
 
 ### 7 · FE-14 — The two loading indicators answer reduced motion in opposite directions
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE\
 **Effort:** S\
 **Path:** Independent — the reduced-motion block in `fl_frontend/src/app/globals.css` is where the
@@ -501,6 +501,18 @@ are decoration, in which case `ContentLoader` needs a non-moving way to say it i
 **Whichever wins belongs at the block's own comment.** That comment already carries the policy in
 terms — "remove movement, keep fades" — and names the spinner exemption, so the third loading
 component the app grows would otherwise ask this same question from scratch.
+
+**Concluded by [ADR-0077](../_decisions/0077-a-loading-indicator-keeps-moving.md):** the dots are a
+readout, so they leave the selector list and keep moving, and the block's comment now states the rule
+rather than naming the two components it happened to have. The entry framed this as a choice between
+two answers for one component; what the work found is that the block's own policy already decided it
+and the selector list simply disagreed with the comment above it.
+
+One finding the entry did not name was rehomed rather than dropped. `PageLoader`'s halo was stopped by
+the same block, and `animation: none` rests an element at its UNANIMATED style — Tailwind's `ping`
+keyframe declares only its `75%, 100%` frames, so the halo rested as a full-size disc over the spinner
+instead of the invisible end state. It is removed at the element with `motion-reduce:hidden`, because
+dropping the animation class would have left exactly the same disc.
 
 ### 8 · FE-16 — The filter hooks are mounted for machinery their caller never reads
 
