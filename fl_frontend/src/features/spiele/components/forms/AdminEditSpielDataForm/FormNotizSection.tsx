@@ -30,8 +30,8 @@ export function FormNotizSection({
   const status = useFieldStatus("notiz");
   const notizRef = useRef<HTMLTextAreaElement>(null);
 
-  // Whitespace is empty, as `draftStatus.ts`'s `notiz` descriptor reads it, or the button offers
-  // to remove a note the change list already reports as absent.
+  // Whitespace is empty, as `fl_frontend/src/features/spiele/draftStatus.ts`'s `notiz` descriptor reads it, or the
+  // button offers to remove a note the change list already reports as absent.
   const hasNotiz = notiz !== null && notiz.trim() !== "";
 
   return (

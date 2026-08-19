@@ -158,9 +158,9 @@ export function SpielDetailsModal({
                   </div>
                 </div>
 
-                {/* Its own block below the grid, not a cell in it: a note is prose of any length.
-                    `.trim()` is this field's emptiness rule (`draftStatus.ts :: notiz`); an empty
-                    "Notiz" would advertise a field blank on almost every match. */}
+                {/* Its own block below the grid, not a cell in it: a note is prose of any length. `.trim()` is this
+                    field's emptiness rule (`fl_frontend/src/features/spiele/draftStatus.ts :: notiz`); an empty "Notiz"
+                    would advertise a field blank on almost every match. */}
                 {spielData.notiz !== null && spielData.notiz.trim() !== "" && (
                   <>
                     <Separator className="bg-border my-4 h-[2px]" />

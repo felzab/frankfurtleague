@@ -15,23 +15,27 @@ import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
+import type { FLSlotHerkunft } from "@/features/spiele/utils";
 import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
+
+/** The wiring review colours a group-fed slot apart from a match-fed one, so `quelle` splits here and stays whole in `FLSlotHerkunft`. */
+type FLSlotChipKey = Exclude<FLSlotHerkunft, "quelle"> | FLSpielQuelle["type"];
 
 /**
  * `gruppe` reads `PHASE_TINTS` rather than spelling the token, so the chip tracks the phase it names
  * everywhere else. Warm means the slot needs an admin; `brand` is excluded as a second deep red
  * beside `danger`.
  */
-const HERKUNFT_CHIPS = {
+const HERKUNFT_CHIPS: Record<FLSlotChipKey, string> = {
   gruppe: PHASE_TINTS.gruppenphase,
   spiel: "bg-info/15 text-info-strong",
   manuell: "bg-warning/15 text-warning-strong",
   offen: "bg-danger/15 text-danger-strong",
-} as const;
+};
 
 /** Source and occupant both, always — unlike a card, which drops the provenance once a winner arrives. */
 function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: FLSpielQuelle | null }) {
-  const herkunft = deriveSlotHerkunft(team, quelle);
+  const herkunft = deriveSlotHerkunft({ team, quelle });
 
   let label: string;
   let chip: string;

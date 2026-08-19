@@ -108,7 +108,7 @@ export const formatQuelle = (quelle: FLSpielQuelle | null): string | null => {
  */
 export type FLSlotHerkunft = "quelle" | "manuell" | "offen";
 
-export const deriveSlotHerkunft = (team: FLSpielTeamField | null, quelle: FLSpielQuelle | null): FLSlotHerkunft =>
+export const deriveSlotHerkunft = ({ team, quelle }: { team: FLSpielTeamField | null; quelle: FLSpielQuelle | null }): FLSlotHerkunft =>
   quelle !== null ? "quelle" : team !== null ? "manuell" : "offen";
 
 /**

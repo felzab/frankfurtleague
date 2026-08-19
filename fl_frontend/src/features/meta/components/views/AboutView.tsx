@@ -47,7 +47,11 @@ export function AboutView() {
           <h2 className="fluid-lg font-extrabold tracking-wide uppercase">Das Regelwerk (FAQ)</h2>
         </div>
 
-        <Accordion className="flex flex-col gap-y-3">
+        {/* Each item is its own bordered card, so the separator would draw a hairline along every
+            card's bottom edge instead of dividing the rows of one continuous list. */}
+        <Accordion
+          hideSeparator
+          className="flex flex-col gap-y-3">
           {QA_QUESTIONS.map((item) => (
             <Accordion.Item
               key={item.id}

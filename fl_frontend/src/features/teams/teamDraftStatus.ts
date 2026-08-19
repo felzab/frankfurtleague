@@ -1,6 +1,8 @@
+import { deriveDraftStatus } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLAddress } from "@/shared/schemas";
+import type { FLDraftStatus, FLFieldDescriptor, FLFieldStatus } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLDisqualifikation, FLGruppenNames } from "./schemas";
 
@@ -23,45 +25,13 @@ export type FLTeamDraftFields = {
 
 export type FLTeamFieldGroup = "Team" | "Adresse" | "Saison";
 
-export type FLTeamFieldStatus = {
-  path: string;
-  label: string;
-  group: FLTeamFieldGroup;
-  isChanged: boolean;
-  error: string | null;
-  storedText: string | null;
-  draftText: string | null;
-};
+export type FLTeamFieldStatus = FLFieldStatus<FLTeamFieldGroup>;
 
-export type FLTeamDraftStatus = {
-  fields: readonly FLTeamFieldStatus[];
-  byPath: ReadonlyMap<string, FLTeamFieldStatus>;
-  changed: readonly FLTeamFieldStatus[];
-  invalid: readonly FLTeamFieldStatus[];
-  isDirty: boolean;
-};
-
-type FieldDescriptor = {
-  /** The payloads' dotted path AND the input `name`, `FieldErrors` key and anchor id. */
-  path: string;
-  label: string;
-  group: FLTeamFieldGroup;
-  read: (source: FLTeamDraftFields) => string | null;
-  /** Restricts the row to drafts where it exists — the two membership rows. Defaults to always. */
-  appliesTo?: (source: FLTeamDraftFields) => boolean;
-  /** Widened where a schema reports a field's failures under several keys. Defaults to `[path]`. */
-  errorPaths?: readonly string[];
-};
+export type FLTeamDraftStatus = FLDraftStatus<FLTeamFieldGroup>;
 
 const emptyAsNull = (value: string): string | null => (value.trim() === "" ? null : value);
 
-/**
- * `read` returns DISPLAY text that doubles as the comparison key: every field formats to a string
- * that changes exactly when the value does.
- *
- * A field with no row here is invisible to the whole edit page.
- */
-const FIELD_DESCRIPTORS: readonly FieldDescriptor[] = [
+const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLTeamDraftFields, FLTeamFieldGroup>[] = [
   { path: "name", label: "Name", group: "Team", read: (source) => emptyAsNull(source.name) },
   { path: "shorthand", label: "Kürzel", group: "Team", read: (source) => emptyAsNull(source.shorthand) },
   { path: "full_name", label: "Vollständiger Name", group: "Team", read: (source) => emptyAsNull(source.full_name) },
@@ -103,30 +73,5 @@ export function deriveTeamDraftStatus({
   draft: FLTeamDraftFields;
   fieldErrors: FieldErrors;
 }): FLTeamDraftStatus {
-  const fields = FIELD_DESCRIPTORS.filter((descriptor) => descriptor.appliesTo?.(draft) ?? true).map((descriptor): FLTeamFieldStatus => {
-    const storedText = descriptor.read(stored);
-    const draftText = descriptor.read(draft);
-    const error =
-      (descriptor.errorPaths ?? [descriptor.path]).map((path) => fieldErrors[path]).find((message) => message !== undefined) ?? null;
-
-    return {
-      path: descriptor.path,
-      label: descriptor.label,
-      group: descriptor.group,
-      isChanged: storedText !== draftText,
-      error,
-      storedText,
-      draftText,
-    };
-  });
-
-  const changed = fields.filter((field) => field.isChanged);
-
-  return {
-    fields,
-    byPath: new Map(fields.map((field) => [field.path, field])),
-    changed,
-    invalid: fields.filter((field) => field.error !== null),
-    isDirty: changed.length > 0,
-  };
+  return deriveDraftStatus({ descriptors: FIELD_DESCRIPTORS, stored, draft, fieldErrors });
 }

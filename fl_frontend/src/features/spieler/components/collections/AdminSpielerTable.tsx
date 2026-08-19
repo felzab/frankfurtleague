@@ -8,6 +8,7 @@ import { Pencil, Person } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
+import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
@@ -16,10 +17,6 @@ import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { AdminSpielerRow } from "../../types";
-
-/** Declared once: the phone layout's captain marker has to be the exact same box. */
-const SHORTHAND_CHIP =
-  "bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide";
 
 /**
  * Memoised, and load-bearing — `AdminCrudView`'s collection-identity note carries why.
@@ -185,12 +182,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
             key={spieler.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4 ${spieler.inactive_since !== null ? "opacity-80" : ""}`}>
             <div className="flex w-full flex-row items-center gap-3">
-              {renderNummer(spieler) ?? (
-                <span
-                  className="w-10 shrink-0"
-                  aria-hidden="true"
-                />
-              )}
+              {renderNummer(spieler)}
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="fluid-sm text-foreground truncate font-semibold">{spieler.fullName}</span>
                 <span className="fluid-xs text-foreground-muted truncate">
@@ -267,9 +259,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                         {spieler.selected?.teamName ? (
                           <div className="flex items-center gap-2">
                             {/* The TeamCard's chip colour, so a Kürzel wears one tint everywhere. */}
-                            <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide">
-                              {spieler.selected.teamShorthand}
-                            </span>
+                            <span className={SHORTHAND_CHIP}>{spieler.selected.teamShorthand}</span>
                             <span className="fluid-sm text-foreground truncate font-semibold">{spieler.selected.teamName}</span>
                           </div>
                         ) : null}

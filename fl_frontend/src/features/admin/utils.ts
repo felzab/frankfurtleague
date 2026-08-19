@@ -115,7 +115,8 @@ export function categorizeActionRequired<T extends FLSpielWithDraftFields>(
     // none. Via `deriveSlotHerkunft`, so this and the wiring review cannot spell `offen` twice.
     if (
       spiel.saison_phase !== "gruppenphase" &&
-      (deriveSlotHerkunft(spiel.team1, spiel.team1_quelle) === "offen" || deriveSlotHerkunft(spiel.team2, spiel.team2_quelle) === "offen")
+      (deriveSlotHerkunft({ team: spiel.team1, quelle: spiel.team1_quelle }) === "offen" ||
+        deriveSlotHerkunft({ team: spiel.team2, quelle: spiel.team2_quelle }) === "offen")
     ) {
       categorized.besetzung_missing.push(spiel);
     }

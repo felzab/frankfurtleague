@@ -2,6 +2,7 @@
 
 import { FieldError, Label, ListBox, Select } from "@heroui/react";
 
+import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
@@ -79,9 +80,7 @@ export function TeamSelect({
               className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
               {team.name}
               {/* A declared fill, not an alpha: this row's hover is a ground an alpha would shift against. */}
-              <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide">
-                {team.shorthand}
-              </span>
+              <span className={SHORTHAND_CHIP}>{team.shorthand}</span>
             </ListBox.Item>
           ))}
         </ListBox>

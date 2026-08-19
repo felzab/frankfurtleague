@@ -1,16 +1,7 @@
-import { notFound } from "next/navigation";
-
-import { CustomObjectIdStringSchema } from "@/shared/schemas";
+import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
 import type { NextPageProps } from "@/shared/types/types";
 
-/**
- * Parses a `[spielort_id]` route segment, or renders not-found. Parse and never cast: an unvalidated
- * segment is a backend request and a cache entry per variant.
- */
-export async function resolveSpielortId(paramsPromise: NextPageProps<{ spielort_id: string }>["params"]): Promise<string> {
-  const parsed = CustomObjectIdStringSchema.safeParse((await paramsPromise).spielort_id);
-  if (!parsed.success) notFound();
-
-  return parsed.data;
+export function resolveSpielortId(paramsPromise: NextPageProps<{ spielort_id: string }>["params"]): Promise<string> {
+  return resolveObjectIdParam(paramsPromise, "spielort_id");
 }
