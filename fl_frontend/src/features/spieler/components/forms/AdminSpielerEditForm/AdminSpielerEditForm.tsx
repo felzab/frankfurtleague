@@ -13,8 +13,7 @@ import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal"
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
-import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -120,21 +119,17 @@ export function AdminSpielerEditForm({
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
-  const {
-    fieldErrors: serverFieldErrors,
-    setFieldErrors,
-    formRef,
-  } = useServerFieldErrors(() =>
-    appToast.danger("Speichern fehlgeschlagen", {
-      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-    }),
-  );
+  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+    schemas: { spieler: FLPatchSpielerPayloadSchema, saisonSpieler: FLPatchSaisonSpielerPayloadSchema },
+    onUnhandledErrors: () =>
+      appToast.danger("Speichern fehlgeschlagen", {
+        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
+      }),
+  });
 
-  // Two validators, because the two halves are two payloads with two schemas — merged at render so
-  // one map reaches the fields, exactly as the server's own messages do.
-  const personValidation = useDraftValidation(FLPatchSpielerPayloadSchema);
-  const saisonValidation = useDraftValidation(FLPatchSaisonSpielerPayloadSchema);
-
+  // Both payloads' ids ride in the request URI, off an already-parsed record, and `is_nachgetragen`
+  // is round-tripped read-only — a historical fact rather than a field. So none of the four is a path
+  // an input renders, or one a refusal can name.
   const buildPersonPayload = () => ({ id: spieler.id, ...personDraft });
   const buildSaisonPayload = () => ({
     spieler_id: spieler.id,
@@ -173,7 +168,6 @@ export function AdminSpielerEditForm({
           },
   };
 
-  const fieldErrors = saisonValidation.mergedWith(personValidation.mergedWith(serverFieldErrors));
   const status = deriveSpielerDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors, teams });
   const isDirty = status.isDirty && !hasSaved;
 
@@ -201,12 +195,12 @@ export function AdminSpielerEditForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
-  const validatePersonFields = (paths: readonly string[]) => personValidation.validatePaths(buildPersonPayload(), paths);
-  const validateSaisonFields = (paths: readonly string[]) => saisonValidation.validatePaths(buildSaisonPayload(), paths);
+  const validatePersonFields = (paths: readonly string[]) => validatePaths("spieler", buildPersonPayload(), paths);
+  const validateSaisonFields = (paths: readonly string[]) => validatePaths("saisonSpieler", buildSaisonPayload(), paths);
   // The picked-control variant — judged with the value that arrived in the event, because state has
   // not committed yet (see the match editor's `validateSelection`).
   const validateTeamSelection = (paths: readonly string[], selected: { team_id: string }) =>
-    saisonValidation.validatePaths({ ...buildSaisonPayload(), ...selected }, paths);
+    validatePaths("saisonSpieler", { ...buildSaisonPayload(), ...selected }, paths);
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
 
@@ -269,9 +263,7 @@ export function AdminSpielerEditForm({
     setIsNachgetragen(storedMembership?.is_nachgetragen ?? false);
     setIsCaptain(storedMembership?.is_captain ?? false);
 
-    setFieldErrors({});
-    personValidation.clearVerdicts();
-    saisonValidation.clearVerdicts();
+    setSubmitFieldErrors({}, {});
   };
 
   const discardAndLeave = () => {
@@ -300,6 +292,10 @@ export function AdminSpielerEditForm({
   const handleFormSubmit = () => {
     startTransition(async () => {
       const collectedErrors: FieldErrors = {};
+      // Both halves, built once: what goes to each action is also what a later blur is graded
+      // against, so the two cannot be different renders of the draft.
+      const personPayload = buildPersonPayload();
+      const saisonPayload = buildSaisonPayload();
       // Only what the admin cannot see from the form itself earns a sentence: the transfer, because
       // it moves the player out of one public squad list and into another. An untouched half
       // contributes nothing to the toast.
@@ -310,7 +306,7 @@ export function AdminSpielerEditForm({
 
       // Person half first: it cannot depend on the squad half.
       if (personDirty) {
-        const res = await patchSpielerAction(buildPersonPayload());
+        const res = await patchSpielerAction(personPayload);
         if (res.success) {
           savedParts.push("Name gespeichert.");
         } else {
@@ -320,7 +316,7 @@ export function AdminSpielerEditForm({
       }
 
       if (saisonDirty) {
-        const res = await patchSaisonSpielerAction(buildSaisonPayload());
+        const res = await patchSaisonSpielerAction(saisonPayload);
         if (res.success) {
           savedParts.push("Kadereintrag gespeichert.");
           if (transferTouched) consequenceNotes.push("Der Spieler steht ab sofort im neuen Team.");
@@ -331,7 +327,7 @@ export function AdminSpielerEditForm({
       }
 
       if (failedNotes.length > 0) {
-        setFieldErrors(collectedErrors);
+        setSubmitFieldErrors(collectedErrors, { spieler: personPayload, saisonSpieler: saisonPayload });
         // ALWAYS toasted, field errors or not: the toast is what survives when a half that SUCCEEDED
         // revalidates the route and remounts this form. An inline message alone would be gone before
         // it was read.
@@ -341,9 +337,7 @@ export function AdminSpielerEditForm({
         return;
       }
 
-      setFieldErrors({});
-      personValidation.clearVerdicts();
-      saisonValidation.clearVerdicts();
+      setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
       // The halves the save wrote, holding their pre-save values — `spieler` and `storedMembership`

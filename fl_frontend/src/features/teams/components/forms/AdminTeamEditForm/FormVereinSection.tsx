@@ -108,7 +108,8 @@ export function FormVereinSection({
         <div className="flex w-full flex-col gap-y-1">
           <TeamFieldLabel path="description">Beschreibung</TeamFieldLabel>
           {/* A preview, deliberately not an input: pressing it opens the modal, exactly like the
-              pencil beside it, so the whole block is one large target for one action. */}
+              pencil beside it, so the whole block is one large target for one action. The modal caps
+              at the schema's own 4096, and the loaded value came through a schema carrying it. */}
           <button
             type="button"
             onClick={() => setIsEditingDescription(true)}

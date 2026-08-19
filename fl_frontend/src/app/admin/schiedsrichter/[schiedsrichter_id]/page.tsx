@@ -30,9 +30,9 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   const schiedsrichterId = await resolveSchiedsrichterId(params);
 
   // The list read, not `GET /schiedsrichter/{id}`: already cached under the tag this page's write
-  // clears, so no second entry. It excludes retired referees — hence not-found for one, which is
-  // where every list and link already leaves them.
-  const schiedsrichterRes = await getSchiedsrichter();
+  // clears. `include_inactive` matches the list this page opens from — without it a retired referee's
+  // own editor answers not-found.
+  const schiedsrichterRes = await getSchiedsrichter({ include_inactive: true });
   const schiedsrichter = schiedsrichterRes.schiedsrichter.find((candidate) => candidate.id === schiedsrichterId);
   if (!schiedsrichter) {
     notFound();
@@ -50,6 +50,7 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
         kontakt: schiedsrichter.kontakt,
         default_payment: schiedsrichter.default_payment,
       }}
+      inactiveSince={schiedsrichter.inactive_since}
     />
   );
 }

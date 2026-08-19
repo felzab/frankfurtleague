@@ -38,6 +38,8 @@ export function AdminCreateSpieltagForm({
         beginn: "",
         ende: "",
         saison_phase: null,
+        // The page's own season, resolved against the season list (ADR-0055) before this form mounts —
+        // so it is a path no picker here renders and no refusal can name.
         saison_id: saisonId,
       }}
       renderFields={(draft, setDraft) => (

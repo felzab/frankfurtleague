@@ -8,7 +8,8 @@
  *
  * Invariants:
  * - The sweep discovers its subjects, so a new editor is covered without an edit here.
- * - `useServerFieldErrors(` marks a controlled draft; the sign-in form has none and keeps its action.
+ * - Holding one of the two field-error hooks marks a controlled draft; the sign-in form holds
+ *   neither and keeps its action.
  */
 
 import assert from "node:assert/strict";
@@ -37,8 +38,12 @@ const sources = new Map(
 
 const filesContaining = (needle: string): string[] => [...sources].filter(([, text]) => text.includes(needle)).map(([file]) => file);
 
-/** The forms whose values live in React state rather than in the DOM. */
-const draftForms = filesContaining("useServerFieldErrors(");
+/**
+ * The forms whose values live in React state rather than in the DOM: the page-owned editors, which
+ * hold the composed hook, and the create/edit shell, which has no draft schema to validate against
+ * and holds the submit half alone.
+ */
+const draftForms = [...new Set([...filesContaining("useDraftFieldErrors("), ...filesContaining("useServerFieldErrors(")])];
 
 describe("runOnSubmit", () => {
   it("stops the browser's own submit and runs the caller", () => {
@@ -60,7 +65,7 @@ describe("every form holding a draft", () => {
 
   for (const file of draftForms) {
     it(`${file} submits through runOnSubmit and passes no action`, () => {
-      assert.ok(sources.get(file)?.includes("<Form"), `${file} calls useServerFieldErrors but renders no <Form>`);
+      assert.ok(sources.get(file)?.includes("<Form"), `${file} holds a draft's field errors but renders no <Form>`);
       assert.ok(sources.get(file)?.includes("onSubmit={runOnSubmit("), `${file} does not submit through runOnSubmit`);
       // React resets a form whose `action` is a function, and the reset reaches the draft through
       // react-aria's per-field listeners. Matched at a JSX prop position, so `onAction` and a

@@ -18,7 +18,18 @@ import { z } from "zod";
 // catches this one drifting from the backend's.
 const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{3,20})$/);
 
-export const CustomDateStringSchema = z.iso.date({ error: "Bitte gib ein gültiges Datum ein." });
+/**
+ * `YYYY-MM-DD`, and a day that exists.
+ *
+ * `z.iso.date()` is a calendar regex rather than a shape one — month lengths and the 400-year leap rule
+ * are both in it — which is what makes it the mirror of `CustomDateString`'s `DATE_REGEX` plus
+ * `validate_calendar_date`. The refinement closes the one value the two disagree on: `\d{4}` admits year
+ * 0000 and `date.fromisoformat` refuses it, because `date.MINYEAR` is 1. That divergence would return a
+ * 422 carrying no field path at all (`error_response` sends `error_code` and `correlation_id` alone).
+ */
+export const CustomDateStringSchema = z.iso
+  .date({ error: "Bitte gib ein gültiges Datum ein." })
+  .refine((value) => !value.startsWith("0000"), { error: "Bitte gib ein gültiges Datum ein." });
 
 /**
  * `HH:MM:SS`, seconds required.

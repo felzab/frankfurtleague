@@ -55,6 +55,7 @@ export function FormCancelSection({
         {/* No `aria-label`: "Spiel absagen" below sits inside the switch's own <label>, so an
             aria-label would only override the visible text with a copy of itself. */}
         <Switch
+          name="is_canceled"
           size="md"
           isSelected={spielIsCanceled}
           onChange={onSpielIsCanceledChange}>

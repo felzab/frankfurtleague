@@ -15,6 +15,7 @@ import type { SchiedsrichterBanner } from "./banners.ts";
 
 const build = (overrides: Partial<Parameters<typeof buildSchiedsrichterBanners>[0]> = {}): readonly SchiedsrichterBanner[] =>
   buildSchiedsrichterBanners({
+    isRetired: false,
     isNameChanged: false,
     isPaymentChanged: false,
     hasKontakt: true,
@@ -26,6 +27,20 @@ const ids = (banners: readonly SchiedsrichterBanner[]): string[] => banners.map(
 describe("buildSchiedsrichterBanners", () => {
   it("raises nothing for a settled referee with no pending edit", () => {
     assert.deepEqual(ids(build()), []);
+  });
+
+  it("reports a retirement without stopping a save, because the fields stay editable", () => {
+    const [banner] = build({ isRetired: true });
+
+    assert.equal(banner?.id, "schiedsrichter.retired");
+    assert.equal(banner?.severity, "info");
+    // Rail-only: the retirement belongs to no panel's field, and the header carries the date and the
+    // control that reverses it.
+    assert.equal(banner?.inline, null);
+  });
+
+  it("leads with the retirement, which is what the rest of the page has to be read against", () => {
+    assert.equal(ids(build({ isRetired: true, isNameChanged: true, hasKontakt: false }))[0], "schiedsrichter.retired");
   });
 
   it("grades the rename as the one banner that stops a save", () => {

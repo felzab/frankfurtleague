@@ -14,8 +14,7 @@ import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal"
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
-import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -112,20 +111,18 @@ export function AdminSaisonEditForm({
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
-  const {
-    fieldErrors: serverFieldErrors,
-    setFieldErrors,
-    formRef,
-  } = useServerFieldErrors(() =>
-    appToast.danger("Speichern fehlgeschlagen", {
-      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-    }),
-  );
-
-  const validation = useDraftValidation(FLPatchSaisonPayloadSchema);
+  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+    schemas: { saison: FLPatchSaisonPayloadSchema },
+    onUnhandledErrors: () =>
+      appToast.danger("Speichern fehlgeschlagen", {
+        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
+      }),
+  });
 
   // `""` for a cleared picker rather than a cast: the schema refuses an empty string with the date
   // message, which is the same complaint a null would deserve and one the form can render on the field.
+  // `id` is the loaded record's own, already parsed, and the wire carries it in the path — so no
+  // refusal can name it and no input renders it.
   const buildPayload = (): FLPatchSaisonPayload => ({
     id: saison.id,
     start_date: startDate?.toString() ?? "",
@@ -140,7 +137,6 @@ export function AdminSaisonEditForm({
   };
   const storedFields: SaisonDraftFields = { start_date: saison.start_date, end_date: saison.end_date, rules: saison.rules };
 
-  const fieldErrors = validation.mergedWith(serverFieldErrors);
   const status = deriveSaisonDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
@@ -168,11 +164,11 @@ export function AdminSaisonEditForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
-  const validateFields = (paths: readonly string[]) => validation.validatePaths(buildPayload(), paths);
+  const validateFields = (paths: readonly string[]) => validatePaths("saison", buildPayload(), paths);
   // The picked-control variant — judged with the value that arrived rather than with state, which has
   // not committed yet (see the match editor's `validateSelection`).
   const validateStufen = (next: FLSpielerStufe[]) =>
-    validation.validatePaths({ ...buildPayload(), rules: { ...rules, erlaubte_stufen: next } }, ["rules.erlaubte_stufen"]);
+    validatePaths("saison", { ...buildPayload(), rules: { ...rules, erlaubte_stufen: next } }, ["rules.erlaubte_stufen"]);
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
   const isEndBeforeStart = startDate !== null && endDate !== null && endDate.compare(startDate) < 0;
@@ -216,8 +212,7 @@ export function AdminSaisonEditForm({
     setEndDate(parseDate(saison.end_date));
     setRules(saison.rules);
 
-    setFieldErrors({});
-    validation.clearVerdicts();
+    setSubmitFieldErrors({}, {});
   };
 
   const discardAndLeave = () => {
@@ -270,10 +265,11 @@ export function AdminSaisonEditForm({
         rules: saison.rules,
       };
 
-      const res = await patchSaisonAction(buildPayload());
+      const payload = buildPayload();
+      const res = await patchSaisonAction(payload);
 
       if (!res.success) {
-        setFieldErrors(res.fieldErrors ?? {});
+        setSubmitFieldErrors(res.fieldErrors ?? {}, { saison: payload });
         // ALWAYS toasted, field errors or not: the page stays here, and a failure that belongs to no
         // field would otherwise be silent.
         appToast.danger("Speichern fehlgeschlagen", {
@@ -282,8 +278,7 @@ export function AdminSaisonEditForm({
         return;
       }
 
-      setFieldErrors({});
-      validation.clearVerdicts();
+      setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
       offerUndo(undoPayload);
@@ -395,7 +390,6 @@ export function AdminSaisonEditForm({
                     setRules({ ...rules, erlaubte_stufen: next });
                     validateStufen(next);
                   }}
-                  stufenError={fieldErrors["rules.erlaubte_stufen"]}
                   isFinishedSaison={saison.status === "past"}
                   banners={banners}
                 />

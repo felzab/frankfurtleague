@@ -24,7 +24,7 @@ import type { FieldErrors } from "@/shared/utils/validation";
  * and react-aria's handler suppresses the browser's own error bubble.
  *
  * It returning `true` means nothing was invalid, i.e. the payload was rejected on a path no input
- * renders — `spiel_id` and `is_canceled` on the match form, for instance. That is what
+ * renders — `spiel_id` on the match form, for instance. That is what
  * `onUnhandledErrors` is for.
  */
 export function useServerFieldErrors(onUnhandledErrors?: (errors: FieldErrors) => void) {

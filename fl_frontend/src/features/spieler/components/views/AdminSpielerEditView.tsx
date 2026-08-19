@@ -54,7 +54,7 @@ export function AdminSpielerEditView({
     startWritingStatus(async () => {
       const res = await write();
       if (res.success) appToast.success(res.message ?? "Gespeichert!");
-      else appToast.danger(failureHeading, { description: res.error });
+      else appToast.danger(failureHeading, { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
     });
   };
 

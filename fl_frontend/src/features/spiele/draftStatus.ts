@@ -27,7 +27,7 @@ import type {
   FLSpielQuelle,
   FLSpielSchiedsrichterFieldDraft,
   FLSpielTeamField,
-  FLSpielWithStoredSides,
+  FLSpielWithDraftFields,
 } from "./schemas";
 import type { ActionRequiredCategory } from "./types";
 
@@ -53,6 +53,27 @@ export type FLSpielDraftFields = {
 };
 
 /**
+ * Whether the draft, as it now stands, is the one shape a shoot-out can describe (ADR-0036).
+ *
+ * **The single statement of the condition, because its readers must not disagree about it**: the
+ * Ergebnis panel offers the fields on it, the form retracts the record when it stops holding, and the
+ * preview below discards a record stored against anything else — exactly as the write path does. Two
+ * copies would let the form keep a record the panel does not show, which submits as a shoot-out no
+ * rendered input can carry a message about.
+ *
+ * `NaN` is a count in the middle of being typed, not a level score.
+ */
+export function isLevelKnockout(saisonPhase: FLSpiel["saison_phase"], team1: FLSpielTeamField | null, team2: FLSpielTeamField | null): boolean {
+  const tore1 = team1?.tore ?? null;
+  const tore2 = team2?.tore ?? null;
+
+  if (saisonPhase === "gruppenphase") return false;
+  if (tore1 === null || tore2 === null || Number.isNaN(tore1) || Number.isNaN(tore2)) return false;
+
+  return tore1 === tore2;
+}
+
+/**
  * The fixture as it will stand once the draft is saved.
  *
  * **One place builds this, and three read it**: the preview card, the live action-required
@@ -69,19 +90,21 @@ export type FLSpielDraftFields = {
  * sides are what the payload sends, and a team the admin has just picked has no joined season state to
  * carry. Nothing reading this asks for one — `SpielDraftPreview` mounts no popover, and the picker
  * warns about a disqualified team where the choice is actually made.
+ *
+ * The venue and the referee ride out in the draft's own shape for the matching reason: a cleared
+ * Mietpreis is `null` mid-edit, and a return type declaring otherwise would take a cast to satisfy
+ * (I33). Every reader of this asks whether the field is set, never what it costs.
  */
-export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): FLSpielWithStoredSides {
+export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): FLSpielWithDraftFields {
   const team1Tore = draft.team1?.tore ?? null;
   const team2Tore = draft.team2?.tore ?? null;
   const hasBothTore = team1Tore !== null && !Number.isNaN(team1Tore) && team2Tore !== null && !Number.isNaN(team2Tore);
-  const isLevel = hasBothTore && team1Tore === team2Tore;
-  const isKnockout = stored.saison_phase !== "gruppenphase";
 
   const shootOut = draft.elfmeterschiessen;
   // Narrowed field by field rather than through a compound flag: both counts have to be present for the
   // record to be storable, and TypeScript only carries that knowledge if the checks are in the branch.
   const storableShootOut =
-    isKnockout && isLevel && shootOut !== null && shootOut.team1 !== null && shootOut.team2 !== null
+    isLevelKnockout(stored.saison_phase, draft.team1, draft.team2) && shootOut !== null && shootOut.team1 !== null && shootOut.team2 !== null
       ? { team1: shootOut.team1, team2: shootOut.team2 }
       : null;
 
@@ -89,8 +112,8 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
     ...stored,
     datum: draft.datum,
     uhrzeit: draft.uhrzeit,
-    ort: draft.ort as FLSpiel["ort"],
-    schiedsrichter: draft.schiedsrichter as FLSpiel["schiedsrichter"],
+    ort: draft.ort,
+    schiedsrichter: draft.schiedsrichter,
     team1: draft.team1,
     team2: draft.team2,
     team1_quelle: draft.team1_quelle,

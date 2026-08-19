@@ -34,6 +34,10 @@ export function FormSpielortSection({
   // The picker hands over the resolved record. Looking it up here against `spielorte` would miss a
   // Spielort just created in the modal, which lives only in the picker's own list until the next
   // server render — a silent failure behind a success toast.
+  //
+  // Which is also why `name` and `maps_link` need no inputs: both arrive off a record `FLSpielortSchema`
+  // parsed `.nonempty()`, or off a create whose payload schema refused an empty name — so neither is a
+  // path this form can be refused on.
   const handleOrtChange = (resolvedOrt: FLSpielort | null) => {
     onOrtChange(
       resolvedOrt
@@ -95,7 +99,7 @@ export function FormSpielortSection({
         onChange={handleMietpreisChange}
         // On blur, not on change: a cleared box is `NaN` for as long as it takes to type the first
         // digit of the replacement, and complaining in that window is the eager-validation failure
-        // (`useDraftValidation`).
+        // (`useDraftFieldErrors`).
         onBlur={() => onValidateFields(["ort.mietpreis"])}
         onKeyDown={suppressEnterSubmit}
         formatOptions={{

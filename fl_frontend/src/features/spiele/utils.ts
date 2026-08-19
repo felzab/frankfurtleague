@@ -31,6 +31,7 @@ import type {
   FLSpielReleasedSide,
   FLSpielStatus,
   FLSpielTeamField,
+  FLSpielTeamFieldJoined,
 } from "./schemas";
 
 export const computeSpielStatus = ({
@@ -289,6 +290,20 @@ export const listFeederSpiele = (saisonSpiele: readonly FLSpiel[], target: Pick<
     .sort((a, b) => a.spiel_nr - b.spiel_nr);
 
 /**
+ * One side of a read fixture, narrowed to what the match document actually stores.
+ *
+ * A read serves the joined side, which carries the season's `disqualifikation` looked up per request
+ * (ADR-0021 rule 4). Structural typing accepts that object wherever the stored shape is asked for, so
+ * without this the join rides into the editor's draft and back onto the write path — where Zod's
+ * `strip` mode is the only thing keeping it off the wire and Pydantic's `extra="ignore"` the only
+ * thing keeping it out of the document.
+ *
+ * Every field is listed rather than omitted by key, so a field added to the join stays out by default.
+ */
+export const toStoredSide = (side: FLSpielTeamFieldJoined | null): FLSpielTeamField | null =>
+  side === null ? null : { team_id: side.team_id, name: side.name, tore: side.tore, shorthand: side.shorthand };
+
+/**
  * One stored fixture as the payload that would restore it.
  *
  * **What the undo toast is built from** (ADR-0041). A save that resolves the bracket can delete a
@@ -308,8 +323,8 @@ export const listFeederSpiele = (saisonSpiele: readonly FLSpiel[], target: Pick<
 export const toPatchPayload = (spiel: FLSpiel): FLPatchSpielDataPayload => ({
   spiel_id: spiel.id,
   is_canceled: spiel.is_canceled,
-  team1: spiel.team1,
-  team2: spiel.team2,
+  team1: toStoredSide(spiel.team1),
+  team2: toStoredSide(spiel.team2),
   team1_quelle: spiel.team1_quelle,
   team2_quelle: spiel.team2_quelle,
   elfmeterschiessen: spiel.elfmeterschiessen,

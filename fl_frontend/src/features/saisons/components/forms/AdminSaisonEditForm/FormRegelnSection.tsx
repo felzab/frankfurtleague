@@ -34,7 +34,6 @@ export function FormRegelnSection({
   onRulesChange,
   onFieldLeft,
   onStufenChange,
-  stufenError,
   isFinishedSaison,
   banners,
 }: {
@@ -43,7 +42,6 @@ export function FormRegelnSection({
   onFieldLeft: (paths: readonly string[]) => void;
   /** Separate from `onRulesChange`, because a picked control is judged on change (ADR-0040). */
   onStufenChange: (next: FLSpielerStufe[]) => void;
-  stufenError?: string;
   /**
    * Whether this season is over, which freezes the three fields the league table is scored from
    * (`REQ-RULES-005`). The endpoint refuses a change to any of them; this stops the page offering one.
@@ -150,9 +148,9 @@ export function FormRegelnSection({
           <h3 className={FORM_SECTION_HEADING}>Erlaubte Stufen</h3>
           <SaisonFieldLabel path="rules.erlaubte_stufen">Welche Stufen diese Saison spielen</SaisonFieldLabel>
           <StufenPicker
+            name="rules.erlaubte_stufen"
             value={rules.erlaubte_stufen}
             onChange={onStufenChange}
-            error={stufenError}
           />
         </div>
 

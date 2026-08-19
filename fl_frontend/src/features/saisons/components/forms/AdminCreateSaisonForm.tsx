@@ -158,6 +158,7 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
           <div className="flex w-full flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING}>Erlaubte Stufen</h3>
             <StufenPicker
+              name="rules.erlaubte_stufen"
               value={draft.rules.erlaubte_stufen}
               onChange={(erlaubte_stufen) => setDraft((current) => ({ ...current, rules: { ...current.rules, erlaubte_stufen } }))}
             />

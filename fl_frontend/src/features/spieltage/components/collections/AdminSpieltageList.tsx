@@ -77,7 +77,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     startReactivating(async () => {
       const res = await reactivateSpieltagAction({ id: spieltag.id });
       if (res.success) appToast.success(res.message ?? "Spieltag reaktiviert.");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
     });
   };
 

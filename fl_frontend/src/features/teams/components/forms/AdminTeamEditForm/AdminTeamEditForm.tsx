@@ -14,8 +14,7 @@ import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal"
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
-import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -141,25 +140,20 @@ export function AdminTeamEditForm({
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
-  const {
-    fieldErrors: serverFieldErrors,
-    setFieldErrors,
-    formRef,
-  } = useServerFieldErrors(() =>
-    appToast.danger("Speichern fehlgeschlagen", {
-      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-    }),
-  );
-
-  // Two validators, because the two halves are two payloads with two schemas — merged at render so
-  // one map reaches the fields, exactly as the server's own messages do.
-  const clubValidation = useDraftValidation(FLPatchTeamPayloadSchema);
-  const saisonValidation = useDraftValidation(FLPatchSaisonTeamPayloadSchema);
+  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+    schemas: { team: FLPatchTeamPayloadSchema, saisonTeam: FLPatchSaisonTeamPayloadSchema },
+    onUnhandledErrors: () =>
+      appToast.danger("Speichern fehlgeschlagen", {
+        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
+      }),
+  });
 
   // The record as the draft would save it. `""` for a cleared date is what the schema rejects with
   // its own German message, so a half-entered record is a field error rather than a silent skip.
   const draftDisqualifikation = isDisqualified ? { grund, datum: datum?.toString() ?? "" } : null;
 
+  // The ids on both payloads are the loaded record's own, already parsed, and the wire carries each
+  // in the path — so no refusal can name one and no input renders it.
   const buildClubPayload = () => ({ id: team.id, ...clubDraft });
   const buildSaisonPayload = () => ({
     team_id: team.id,
@@ -182,7 +176,6 @@ export function AdminTeamEditForm({
     membership: storedMembership,
   };
 
-  const fieldErrors = saisonValidation.mergedWith(clubValidation.mergedWith(serverFieldErrors));
   const status = deriveTeamDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
@@ -210,12 +203,12 @@ export function AdminTeamEditForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
-  const validateClubFields = (paths: readonly string[]) => clubValidation.validatePaths(buildClubPayload(), paths);
-  const validateSaisonFields = (paths: readonly string[]) => saisonValidation.validatePaths(buildSaisonPayload(), paths);
+  const validateClubFields = (paths: readonly string[]) => validatePaths("team", buildClubPayload(), paths);
+  const validateSaisonFields = (paths: readonly string[]) => validatePaths("saisonTeam", buildSaisonPayload(), paths);
   // The picked-control variant — judged with the value that arrived in the event, because state has
   // not committed yet (see the match editor's `validateSelection`).
   const validateGruppeSelection = (paths: readonly string[], selected: { gruppe: FLGruppenNames }) =>
-    saisonValidation.validatePaths({ ...buildSaisonPayload(), ...selected }, paths);
+    validatePaths("saisonTeam", { ...buildSaisonPayload(), ...selected }, paths);
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
   const clubDirty = status.changed.some((field) => field.group !== "Saison");
@@ -269,9 +262,7 @@ export function AdminTeamEditForm({
     setGrund(storedMembership?.disqualifikation?.grund ?? "");
     setDatum(storedMembership?.disqualifikation?.datum ? parseDate(storedMembership.disqualifikation.datum) : null);
 
-    setFieldErrors({});
-    clubValidation.clearVerdicts();
-    saisonValidation.clearVerdicts();
+    setSubmitFieldErrors({}, {});
   };
 
   const discardAndLeave = () => {
@@ -300,6 +291,10 @@ export function AdminTeamEditForm({
   const handleFormSubmit = () => {
     startTransition(async () => {
       const collectedErrors: FieldErrors = {};
+      // Both halves, built once: what goes to each action is also what a later blur is graded
+      // against, so the two cannot be different renders of the draft.
+      const clubPayload = buildClubPayload();
+      const saisonPayload = buildSaisonPayload();
       // Only what the admin cannot see from the form itself earns a sentence (decided 2026-08-07):
       // the fan-out only when the name or Kürzel moved, the disqualification only when the record
       // changed.
@@ -312,7 +307,7 @@ export function AdminTeamEditForm({
       // Club half first: it cannot depend on the season half, and its fan-out note belongs first in
       // the toast.
       if (clubDirty) {
-        const res = await patchTeamAction(buildClubPayload());
+        const res = await patchTeamAction(clubPayload);
         if (res.success) {
           savedParts.push("Stammdaten gespeichert.");
           if (renameTouched) consequenceNotes.push(describeFanOut(res.fanned_out_to_spiele ?? 0));
@@ -323,7 +318,7 @@ export function AdminTeamEditForm({
       }
 
       if (saisonDirty) {
-        const res = await patchSaisonTeamAction(buildSaisonPayload());
+        const res = await patchSaisonTeamAction(saisonPayload);
         if (res.success) {
           savedParts.push("Saison gespeichert.");
           if (disqualifikationTouched) {
@@ -335,12 +330,12 @@ export function AdminTeamEditForm({
           }
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.error ?? "Die Saison-Zugehörigkeit konnte nicht gespeichert werden.");
+          failedNotes.push(res.fieldErrors?.gruppe ?? res.error ?? "Die Saison-Zugehörigkeit konnte nicht gespeichert werden.");
         }
       }
 
       if (failedNotes.length > 0) {
-        setFieldErrors(collectedErrors);
+        setSubmitFieldErrors(collectedErrors, { team: clubPayload, saisonTeam: saisonPayload });
         // ALWAYS toasted, field errors or not (decided 2026-08-07, for the shorthand conflict): the
         // toast is what survives when a half that SUCCEEDED revalidates the route and remounts this
         // form. An inline message alone would be gone before it was read.
@@ -350,9 +345,7 @@ export function AdminTeamEditForm({
         return;
       }
 
-      setFieldErrors({});
-      clubValidation.clearVerdicts();
-      saisonValidation.clearVerdicts();
+      setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
       // The halves the save wrote, holding their pre-save values — `team` and `storedMembership`

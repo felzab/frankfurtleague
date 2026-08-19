@@ -17,6 +17,7 @@ import type { SpielortBanner } from "./banners.ts";
 
 const build = (overrides: Partial<Parameters<typeof buildSpielortBanners>[0]> = {}): readonly SpielortBanner[] =>
   buildSpielortBanners({
+    isRetired: false,
     isNameChanged: false,
     isAddressChanged: false,
     isMietpreisChanged: false,
@@ -29,6 +30,20 @@ const ids = (banners: readonly SpielortBanner[]): string[] => banners.map((banne
 describe("buildSpielortBanners", () => {
   it("raises nothing for a settled venue with no pending edit", () => {
     assert.deepEqual(ids(build()), []);
+  });
+
+  it("reports a retirement without stopping a save, because the fields stay editable", () => {
+    const [banner] = build({ isRetired: true });
+
+    assert.equal(banner?.id, "spielort.retired");
+    assert.equal(banner?.severity, "info");
+    // Rail-only: the retirement belongs to no panel's field, and the header carries the date and the
+    // control that reverses it.
+    assert.equal(banner?.inline, null);
+  });
+
+  it("leads with the retirement, which is what the rest of the page has to be read against", () => {
+    assert.equal(ids(build({ isRetired: true, isNameChanged: true, hasStadtteil: false }))[0], "spielort.retired");
   });
 
   it("treats a moved address as the same fan-out a rename is", () => {

@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { previewAdminSpielDataAction } from "../../../actions";
 
-import type { FLPatchSpielDataPayload } from "@/features/spiele/schemas";
+import type { FLPatchSpielDataPayloadDraft } from "@/features/spiele/schemas";
 
 /** The `spiel_nr` of every other fixture a save would rewrite, split by what it would cost them. */
 export type VoidPreview = {
@@ -51,7 +51,7 @@ export function useVoidPreview({
 }: {
   /** A stable string over the fields that can move an occupant. Changing it is what triggers a fetch. */
   previewKey: string;
-  buildPayload: () => FLPatchSpielDataPayload;
+  buildPayload: () => FLPatchSpielDataPayloadDraft;
   /** False while there is nothing to preview — a group-phase fixture that feeds no bracket slot. */
   isEnabled: boolean;
 }): VoidPreview | null {

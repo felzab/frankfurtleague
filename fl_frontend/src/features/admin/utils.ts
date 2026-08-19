@@ -16,7 +16,7 @@
 import { deriveSlotHerkunft } from "@/features/spiele/utils";
 import { typedObjectEntries } from "@/shared/utils/type";
 
-import type { FLBracketFault, FLSpiel, FLSpielWithStoredSides } from "../spiele/schemas";
+import type { FLBracketFault, FLSpiel, FLSpielWithDraftFields } from "../spiele/schemas";
 import type { ActionRequiredCategory } from "../spiele/types";
 
 // Re-exported so this module stays the obvious place to look for it. It is
@@ -111,7 +111,7 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
  * `datum` and `today` are both `YYYY-MM-DD`, so the `<` comparison is lexicographic and correct.
  * It is strict: a match dated today with no result is not yet overdue.
  */
-export function categorizeActionRequired<T extends FLSpielWithStoredSides>(
+export function categorizeActionRequired<T extends FLSpielWithDraftFields>(
   spiele: readonly T[],
   today: string,
   bracketFaults: readonly FLBracketFault[] = [],

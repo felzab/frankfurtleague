@@ -12,8 +12,7 @@ import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal"
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
-import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -72,10 +71,14 @@ async function postSpielortUndo(payload: FLPatchSpielortPayload): Promise<{ succ
  */
 export function AdminSpielortEditForm({
   spielort,
+  isRetired,
   registerRequestLeave,
   pageHeader,
 }: {
   spielort: { id: string; name: string; address: FLAddress; default_mietpreis: number };
+  /** Retirement is a fact about the row rather than a field this form commits, so it arrives beside
+   * the values rather than inside them (ADR-0025). */
+  isRetired: boolean;
   registerRequestLeave?: (requestLeave: () => void) => void;
   pageHeader?: ReactNode;
 }) {
@@ -91,18 +94,16 @@ export function AdminSpielortEditForm({
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
-  const {
-    fieldErrors: serverFieldErrors,
-    setFieldErrors,
-    formRef,
-  } = useServerFieldErrors(() =>
-    appToast.danger("Speichern fehlgeschlagen", {
-      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-    }),
-  );
+  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+    schemas: { spielort: FLPatchSpielortPayloadSchema },
+    onUnhandledErrors: () =>
+      appToast.danger("Speichern fehlgeschlagen", {
+        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
+      }),
+  });
 
-  const validation = useDraftValidation(FLPatchSpielortPayloadSchema);
-
+  // `id` is the loaded record's own, already parsed, and the wire carries it in the path — so no
+  // refusal can name it and no input renders it.
   const buildPayload = (): FLPatchSpielortPayload => ({
     id: spielort.id,
     name,
@@ -117,7 +118,6 @@ export function AdminSpielortEditForm({
     default_mietpreis: spielort.default_mietpreis,
   };
 
-  const fieldErrors = validation.mergedWith(serverFieldErrors);
   const status = deriveSpielortDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
@@ -145,17 +145,18 @@ export function AdminSpielortEditForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
-  const validateFields = (paths: readonly string[]) => validation.validatePaths(buildPayload(), paths);
+  const validateFields = (paths: readonly string[]) => validatePaths("spielort", buildPayload(), paths);
   // The picked-control variant — judged with the value that arrived in the event, because state has
   // not committed yet (see the match editor's `validateSelection`).
   const validatePicked = (paths: readonly string[], picked: { default_mietpreis: number }) =>
-    validation.validatePaths({ ...buildPayload(), ...picked }, paths);
+    validatePaths("spielort", { ...buildPayload(), ...picked }, paths);
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
   const isAddressChanged = status.changed.some((field) => field.group === "Adresse");
 
   /** Every Hinweis this draft raises — the rail's list and the panels' inline callouts alike. */
   const banners = buildSpielortBanners({
+    isRetired,
     isNameChanged: isChanged("name"),
     isAddressChanged,
     isMietpreisChanged: isChanged("default_mietpreis"),
@@ -189,8 +190,7 @@ export function AdminSpielortEditForm({
     setAddress(spielort.address);
     setDefaultMietpreis(spielort.default_mietpreis);
 
-    setFieldErrors({});
-    validation.clearVerdicts();
+    setSubmitFieldErrors({}, {});
   };
 
   const discardAndLeave = () => {
@@ -230,15 +230,15 @@ export function AdminSpielortEditForm({
       // reaches every match card held at this venue rather than this page.
       const identityTouched = isChanged("name") || isAddressChanged;
 
-      const res = await patchSpielortAction(buildPayload());
+      const payload = buildPayload();
+      const res = await patchSpielortAction(payload);
       if (!res.success) {
-        setFieldErrors(res.fieldErrors ?? {});
+        setSubmitFieldErrors(res.fieldErrors ?? {}, { spielort: payload });
         appToast.danger("Speichern fehlgeschlagen", { description: res.error ?? "Die Spielortdaten konnten nicht gespeichert werden." });
         return;
       }
 
-      setFieldErrors({});
-      validation.clearVerdicts();
+      setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
       offerUndo(undoPayload, identityTouched ? "Jedes Spiel an diesem Ort zeigt jetzt den neuen Namen und die neue Karte." : undefined);

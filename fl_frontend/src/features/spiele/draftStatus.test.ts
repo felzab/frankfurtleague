@@ -10,10 +10,12 @@
  */
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 // Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { deriveSpielDraftStatus } from "./draftStatus.ts";
+import { applyDraftToSpiel, deriveSpielDraftStatus, isLevelKnockout } from "./draftStatus.ts";
 
 import type { FLSpielDraftFields } from "./draftStatus.ts";
 import type { FLSpiel, FLSpielTeamFieldJoined } from "./schemas.ts";
@@ -292,5 +294,81 @@ describe("deriveSpielDraftStatus · the table itself", () => {
     const status = derive(stored, draftOf(stored));
 
     assert.equal(status.byPath.size, status.fields.length);
+  });
+});
+
+describe("isLevelKnockout · the shape a shoot-out describes", () => {
+  const level = (tore: number | null) => side(TEAM_1, "Team A", "TA", tore);
+  const other = (tore: number | null) => side(TEAM_2, "Team B", "TB", tore);
+
+  it("holds for a knockout fixture whose goals finished level", () => {
+    assert.equal(isLevelKnockout("achtelfinale", level(2), other(2)), true);
+  });
+
+  // Each of these is a route out of the shape, and each is a route the editor's own handlers do NOT
+  // cover: a goal edit that unlevels the score, a side cleared, and a count still being typed.
+  it("does not hold once a goal edit unlevels the fixture", () => {
+    assert.equal(isLevelKnockout("achtelfinale", level(3), other(2)), false);
+  });
+
+  it("does not hold once a side is cleared", () => {
+    assert.equal(isLevelKnockout("achtelfinale", null, other(2)), false);
+  });
+
+  it("does not hold while a count is empty or mid-entry", () => {
+    assert.equal(isLevelKnockout("achtelfinale", level(null), other(2)), false);
+    assert.equal(isLevelKnockout("achtelfinale", level(NaN), other(NaN)), false);
+  });
+
+  // A group-phase draw is a final result worth a point to each side, whatever the goals are.
+  it("never holds in the group phase", () => {
+    assert.equal(isLevelKnockout("gruppenphase", level(2), other(2)), false);
+  });
+});
+
+describe("applyDraftToSpiel · an orphaned shoot-out", () => {
+  const knockout = () =>
+    makeStored({
+      saison_phase: "achtelfinale",
+      team1: side(TEAM_1, "Team A", "TA", 2),
+      team2: side(TEAM_2, "Team B", "TB", 2),
+      ergebnis: "2:2",
+      elfmeterschiessen: { team1: 5, team2: 4 },
+    });
+
+  it("keeps the record while the draft is still a level knockout", () => {
+    const stored = knockout();
+
+    assert.deepEqual(applyDraftToSpiel(stored, draftOf(stored)).elfmeterschiessen, { team1: 5, team2: 4 });
+  });
+
+  it("drops the record the moment the draft stops being one", () => {
+    const stored = knockout();
+    const unlevelled = draftOf(stored, { team1: side(TEAM_1, "Team A", "TA", 3) });
+
+    assert.equal(applyDraftToSpiel(stored, unlevelled).elfmeterschiessen, null);
+  });
+
+  it("drops a half-entered record rather than sending one count", () => {
+    const stored = knockout();
+
+    assert.equal(applyDraftToSpiel(stored, draftOf(stored, { elfmeterschiessen: { team1: 5, team2: null } })).elfmeterschiessen, null);
+  });
+});
+
+/**
+ * The editor retracts by DERIVING, so no handler can forget it.
+ *
+ * Read from the source because a hook cannot be rendered here. What it guards is the shape of the fix
+ * rather than its wording: a retraction moved back into the toggle handlers would leave the atom
+ * feeding the draft unconditionally, which is how a shoot-out reached the payload after its inputs
+ * had unmounted.
+ */
+describe("the match editor's draft", () => {
+  const editor = readFileSync(path.resolve(import.meta.dirname, "components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx"), "utf8");
+
+  it("gates its shoot-out through isLevelKnockout rather than passing the atom straight in", () => {
+    assert.ok(editor.includes("isLevelKnockout(spielData.saison_phase"), "the editor does not gate its shoot-out on isLevelKnockout");
+    assert.ok(!/\n {4}elfmeterschiessen,\n/.test(editor), "the editor feeds the raw shoot-out atom into its draft");
   });
 });

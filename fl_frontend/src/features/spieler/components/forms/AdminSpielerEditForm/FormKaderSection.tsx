@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { Button, FieldError, Input, Switch, TextField } from "@heroui/react";
 
@@ -88,6 +88,17 @@ export function FormKaderSection({
   const panel = formPanel();
   const [isEntering, startEntering] = useTransition();
 
+  /**
+   * What the entry write was refused on, held here rather than in the editor's `useDraftFieldErrors`.
+   *
+   * The entry is a different write from the save bar's: it creates the row the rest of this panel
+   * edits, and it fires on its own button. Its refusal has no business in the map the editor derives
+   * from — `deriveSpielerDraftStatus` counts that map into the unsaved-error badge and the rail, the
+   * next `setSubmitFieldErrors` would clear it, and `reportValidity()` would move focus across a form
+   * whose squad half is not on screen while the entry control is.
+   */
+  const [entryTeamError, setEntryTeamError] = useState<string | null>(null);
+
   // A season that has already started means this player arrived late, which is exactly what the flag
   // records (decided 2026-08-07). Derived rather than asked, so it cannot be forgotten.
   const entryIsNachgetragen = saison.saisonStatus !== "future";
@@ -98,14 +109,27 @@ export function FormKaderSection({
         spieler_id: spielerId,
         saison_id: saison.saisonId,
         team_id: teamId,
-        nummer,
+        // Emptied means absent, not a number nobody wears — the boundary the save's own payload
+        // applies. This branch renders no `nummer` input, so a refusal on it would have nowhere to go.
+        nummer: nummer.trim() === "" ? null : nummer.trim(),
         position,
         stufe,
         is_nachgetragen: entryIsNachgetragen,
         is_captain: false,
       });
-      if (res.success) appToast.success(res.message ?? "Spieler aufgenommen!");
-      else appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || "Ein unerwarteter Fehler ist aufgetreten." });
+
+      const teamError = res.fieldErrors?.team_id ?? null;
+      setEntryTeamError(teamError);
+
+      if (res.success) {
+        appToast.success(res.message ?? "Spieler aufgenommen!");
+        return;
+      }
+      // Suppressed where the picker below carries the message: the same split `EntityForm` makes, so a
+      // refusal about the chosen team is not also said in a toast that names no field.
+      if (teamError === null) {
+        appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || "Ein unerwarteter Fehler ist aufgetreten." });
+      }
     });
   };
 
@@ -222,8 +246,14 @@ export function FormKaderSection({
             <div className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,18rem)_auto]">
               <TeamSelect
                 value={teamId}
-                onChange={onTeamIdChange}
+                onChange={(next) => {
+                  // Retracted on the pick, not on the next attempt: the message is about the team
+                  // that was refused, and it stops describing the picker the moment that one moves.
+                  setEntryTeamError(null);
+                  onTeamIdChange(next);
+                }}
                 teams={teams}
+                error={entryTeamError ?? undefined}
               />
               <Button
                 type="button"

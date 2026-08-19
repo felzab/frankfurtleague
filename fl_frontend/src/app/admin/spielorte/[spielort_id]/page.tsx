@@ -29,10 +29,10 @@ async function AdminSpielortEditContent({ params }: { params: NextPageProps<{ sp
   await connection();
   const spielortId = await resolveSpielortId(params);
 
-  // The list read, not `GET /spielorte/{id}`: already cached under the tag this page's write clears,
-  // so no second entry. It excludes retired venues — hence not-found for one, which is where every
-  // list and link already leaves them.
-  const spielorteRes = await getSpielorte();
+  // The list read, not `GET /spielorte/{id}`: already cached under the tag this page's write clears.
+  // `include_inactive` matches the list this page opens from — without it a retired venue's own editor
+  // answers not-found.
+  const spielorteRes = await getSpielorte({ include_inactive: true });
   const spielort = spielorteRes.spielorte.find((candidate) => candidate.id === spielortId);
   if (!spielort) {
     notFound();
@@ -49,6 +49,7 @@ async function AdminSpielortEditContent({ params }: { params: NextPageProps<{ sp
         address: spielort.address,
         default_mietpreis: spielort.default_mietpreis,
       }}
+      inactiveSince={spielort.inactive_since}
     />
   );
 }

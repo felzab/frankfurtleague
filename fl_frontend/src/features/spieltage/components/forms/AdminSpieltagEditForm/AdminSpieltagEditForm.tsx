@@ -13,8 +13,7 @@ import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal"
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
-import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -102,18 +101,16 @@ export function AdminSpieltagEditForm({
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
-  const {
-    fieldErrors: serverFieldErrors,
-    setFieldErrors,
-    formRef,
-  } = useServerFieldErrors(() =>
-    appToast.danger("Speichern fehlgeschlagen", {
-      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-    }),
-  );
+  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+    schemas: { spieltag: FLPatchSpieltagPayloadSchema },
+    onUnhandledErrors: () =>
+      appToast.danger("Speichern fehlgeschlagen", {
+        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
+      }),
+  });
 
-  const validation = useDraftValidation(FLPatchSpieltagPayloadSchema);
-
+  // `id` is the loaded record's own, already parsed, and the wire carries it in the path — so no
+  // refusal can name it and no input renders it.
   const buildPayload = (): SpieltagEditDraft => ({ id: spieltag.id, beginn, ende, saison_phase: phase });
 
   const draftFields: FLSpieltagDraftFields = { beginn, ende, saison_phase: phase };
@@ -123,7 +120,6 @@ export function AdminSpieltagEditForm({
     saison_phase: spieltag.saison_phase,
   };
 
-  const fieldErrors = validation.mergedWith(serverFieldErrors);
   const status = deriveSpieltagDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
@@ -155,7 +151,7 @@ export function AdminSpieltagEditForm({
   // change (ADR-0040) — and the cross-field span rule reports on `ende`, so both paths refresh
   // together or its message never clears.
   const validatePicked = (paths: readonly string[], picked: Partial<FLSpieltagDraftFields>) =>
-    validation.validatePaths({ ...buildPayload(), ...picked }, paths);
+    validatePaths("spieltag", { ...buildPayload(), ...picked }, paths);
 
   const isZeitraumChanged = status.changed.some((field) => field.group === "Zeitraum");
 
@@ -210,8 +206,7 @@ export function AdminSpieltagEditForm({
     setBeginn(spieltag.beginn);
     setEnde(spieltag.ende);
 
-    setFieldErrors({});
-    validation.clearVerdicts();
+    setSubmitFieldErrors({}, {});
   };
 
   const discardAndLeave = () => {
@@ -251,15 +246,15 @@ export function AdminSpieltagEditForm({
       // sits in the season, which is decided by the two fields above and shown on another page.
       const positionTouched = isZeitraumChanged || phase !== spieltag.saison_phase;
 
-      const res = await patchSpieltagAction(buildPayload());
+      const payload = buildPayload();
+      const res = await patchSpieltagAction(payload);
       if (!res.success) {
-        setFieldErrors(res.fieldErrors ?? {});
+        setSubmitFieldErrors(res.fieldErrors ?? {}, { spieltag: payload });
         appToast.danger("Speichern fehlgeschlagen", { description: res.error ?? "Der Spieltag konnte nicht gespeichert werden." });
         return;
       }
 
-      setFieldErrors({});
-      validation.clearVerdicts();
+      setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
       offerUndo(undoPayload, positionTouched ? "Name und Position des Spieltags ergeben sich neu aus Phase und Beginn." : undefined);

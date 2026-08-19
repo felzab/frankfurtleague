@@ -336,6 +336,17 @@ export function FormSaisonSection({
   const panel = formPanel();
   const [isEntering, startEntering] = useTransition();
 
+  /**
+   * What the entry write was refused on, held here rather than in the editor's `useDraftFieldErrors`.
+   *
+   * The entry is a different write from the save bar's: it creates the junction row the rest of this
+   * panel edits, and it fires on its own button. Its refusal has no business in the map the editor
+   * derives from — `deriveTeamDraftStatus` counts that map into the unsaved-error badge and the rail,
+   * the next `setSubmitFieldErrors` would clear it, and `reportValidity()` would move focus across a
+   * form whose Gruppe field is not on screen while the entry control is.
+   */
+  const [entryGruppeError, setEntryGruppeError] = useState<string | null>(null);
+
   // The page's club as the swap sees it. Absent while the club holds no junction row for this season,
   // which is the state the entry affordance below answers instead.
   const self = swap.teams.find((team) => team.id === teamId) ?? null;
@@ -343,11 +354,17 @@ export function FormSaisonSection({
   const handleEnterSaison = () => {
     startEntering(async () => {
       const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe });
+
+      const gruppeError = res.fieldErrors?.gruppe ?? null;
+      setEntryGruppeError(gruppeError);
+
       if (res.success) {
         appToast.success(res.message ?? "Mannschaft aufgenommen!");
-      } else if (res.fieldErrors?.gruppe !== undefined) {
-        appToast.danger("Aufnehmen fehlgeschlagen", { description: res.fieldErrors.gruppe });
-      } else {
+        return;
+      }
+      // Suppressed where the picker below carries the message: the same split `EntityForm` makes, so a
+      // refusal about the chosen group is not also said in a toast that names no field.
+      if (gruppeError === null) {
         appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || "Ein unerwarteter Fehler ist aufgetreten." });
       }
     });
@@ -441,8 +458,14 @@ export function FormSaisonSection({
             <div className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,15rem)_auto]">
               <GruppeSelect
                 value={gruppe}
-                onChange={onGruppeChange}
+                onChange={(next) => {
+                  // Retracted on the pick, not on the next attempt: the message is about the group
+                  // that was refused, and it stops describing the picker the moment that one moves.
+                  setEntryGruppeError(null);
+                  onGruppeChange(next);
+                }}
                 offer={gruppeOffer}
+                error={entryGruppeError ?? undefined}
               />
               <Button
                 type="button"

@@ -35,7 +35,11 @@ export function GruppeSelect({
   offer: readonly GruppeOffer[];
   /** The field's path in the enclosing payload, so `Form`'s `validationErrors` reach it by name. */
   name?: string;
-  /** The message for the caller without a `<Form>` context — same split as `SpielortFormFields`. */
+  /**
+   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `name`.
+   * For a caller with no `<Form>` above it, and for one whose write is not the form's — the club
+   * editor's entry control fires its own action and keeps its refusal out of the save bar's map.
+   */
   error?: string;
   /** Off for the caller whose label is a marker-carrying `TeamFieldLabel` rendered outside. */
   withOwnLabel?: boolean;
