@@ -32,6 +32,7 @@ from app.api.spiele.services import (
     find_result_removal_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
+    stored_in_slice,
 )
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
@@ -159,23 +160,25 @@ async def patch_spiel_data(
         verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
         refuse(verdict.refusal)
 
-        stored = next((entry for entry in season if entry.id == spiel_id), None)
-        if stored is not None:
-            # `find_one` directly, because `pull_one_from_db` takes no session, and the session is
-            # what makes a matchday widened by a concurrent write visible.
-            spieltag_raw = await spieltage_collection.find_one(
-                {"_id": stored.spieltag_id},
-                {"beginn": 1, "ende": 1},
-                session=session,
-            )
-            if spieltag_raw is not None:
-                refuse(
-                    find_fixture_date_refusal(
-                        datum=spiel_data.datum,
-                        spieltag_beginn=str(spieltag_raw["beginn"]),
-                        spieltag_ende=str(spieltag_raw["ende"]),
-                    )
+        # The same slice the refusals above judged (`docs/backend/spec.md :: I45`), so this read
+        # cannot quietly skip the date rule over a fixture they already stood on.
+        stored = stored_in_slice(spiel_id, season)
+
+        # `find_one` directly, because `pull_one_from_db` takes no session, and the session is
+        # what makes a matchday widened by a concurrent write visible.
+        spieltag_raw = await spieltage_collection.find_one(
+            {"_id": stored.spieltag_id},
+            {"beginn": 1, "ende": 1},
+            session=session,
+        )
+        if spieltag_raw is not None:
+            refuse(
+                find_fixture_date_refusal(
+                    datum=spiel_data.datum,
+                    spieltag_beginn=str(spieltag_raw["beginn"]),
+                    spieltag_ende=str(spieltag_raw["ende"]),
                 )
+            )
 
         # No `saison_id` in the query below: a double booking crosses competitions.
         if spiel_data.datum is not None:

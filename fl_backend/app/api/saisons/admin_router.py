@@ -227,6 +227,8 @@ async def patch_saison(
     # fixture's can disagree with.
     attached_by_phase: dict[Any, int] = {}
     phase_of_spieltag: dict[Any, Any] = {}
+    # Retired matchdays counted too, unlike the span read below: retiring one does not release its
+    # fixtures, so filtering here would open a narrowing that strands them.
     async for spieltag in spieltage_collection.find({"saison_id": saison_id}, {"saison_phase": 1}):
         phase_of_spieltag[spieltag["_id"]] = spieltag["saison_phase"]
 

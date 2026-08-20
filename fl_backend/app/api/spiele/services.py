@@ -452,6 +452,20 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload) ->
     )
 
 
+def stored_in_slice(spiel_id: CustomObjectId, season: Sequence[FLSpiel]) -> FLSpiel:
+    """The fixture under edit, from the caller's slice (`docs/backend/spec.md :: I45`).
+
+    Absent means a truncated or wrong-season slice: the route has already read this `_id`. A
+    refusal that permits what it cannot see is the wrong default.
+    """
+
+    stored = next((spiel for spiel in season if spiel.id == spiel_id), None)
+    if stored is None:
+        raise ValueError(f"the season slice does not hold spiel {spiel_id}, so no refusal over it can be trusted")
+
+    return stored
+
+
 # What each code refuses is `docs/backend/spec.md` §1.4.
 ELIGIBILITY_DISQUALIFIED = "REQ-ELIGIBILITY-001"
 ELIGIBILITY_NO_MEMBERSHIP = "REQ-ELIGIBILITY-002"
@@ -467,9 +481,7 @@ def find_eligibility_refusal(
 ) -> WriteRefusal | None:
     """Why this patch's OCCUPANTS must be refused. Keyed on the PAYLOAD's `datum`, so an UNDATED fixture is refused."""
 
-    stored = next((spiel for spiel in season if spiel.id == spiel_id), None)
-    if stored is None:
-        return None
+    stored = stored_in_slice(spiel_id, season)
 
     for label, submitted, stored_side in (("team1", payload.team1, stored.team1), ("team2", payload.team2, stored.team2)):
         if submitted is None or (stored_side is not None and stored_side.team_id == submitted.team_id):
@@ -568,9 +580,7 @@ def find_clash_refusal(*, datum: str | None, uhrzeit: str | None, booked: Sequen
 def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> WriteRefusal | None:
     """Why emptying a side must be refused. Keyed on the STORED goals: a hand edit can hold `tore` with no `ergebnis`."""
 
-    stored = next((spiel for spiel in season if spiel.id == spiel_id), None)
-    if stored is None:
-        return None
+    stored = stored_in_slice(spiel_id, season)
 
     for label, submitted, stored_side in (("team1", payload.team1, stored.team1), ("team2", payload.team2, stored.team2)):
         if submitted is not None or stored_side is None or stored_side.tore is None:
@@ -641,9 +651,7 @@ class SpieltagVerdict:
 def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> SpieltagVerdict:
     """Where this payload's teams already stand on the same Spieltag (`docs/backend/spec.md :: I30`)."""
 
-    stored = next((spiel for spiel in season if spiel.id == spiel_id), None)
-    if stored is None:
-        return SpieltagVerdict(refusal=None, releases=[])
+    stored = stored_in_slice(spiel_id, season)
 
     if payload.team1 is not None and payload.team2 is not None and payload.team1.team_id == payload.team2.team_id:
         return SpieltagVerdict(
@@ -719,9 +727,7 @@ def _wiring_refusal(message: str) -> WriteRefusal:
 def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> WriteRefusal | None:
     """Why this patch's bracket wiring must be refused (`docs/backend/spec.md :: I27`) -- the WRITE PATH only."""
 
-    stored = next((spiel for spiel in season if spiel.id == spiel_id), None)
-    if stored is None:
-        return None
+    stored = stored_in_slice(spiel_id, season)
 
     by_nr = {spiel.spiel_nr: spiel for spiel in season}
     used = {

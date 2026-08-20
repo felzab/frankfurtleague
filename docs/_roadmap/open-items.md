@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `19dd2c1c`, 2026-08-20\
+**Verified against:** `c90a98dc`, 2026-08-20\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -203,22 +203,17 @@ year, confirmed 2026-08-12. When that lands the justification is gone and only t
 nothing joins the two: the concession lives at the call site rather than in `UNENFORCED`, where a
 reader looking for what this system tolerates would find it.
 
-**The same file's third list is short in a direction as well.** `FIELD_POLICIES` declares when each
-field may be written, and it is resolved one way only:
-`fl_backend/tests/core/test_domain.py :: test_every_field_policy_names_a_real_field` proves every
-declared policy names a real field, and nothing proves a real non-editable field carries a policy.
-`FIELD_POLICIES` names no field of `spielorte` or `schiedsrichter` at all, and no check reports that.
+**The declaration's own machinery is not what is left.** An entry in `UNENFORCED` is checked in full
+from the day it is written — the refusal codes it sits near, the test that executes the state it
+claims, and the surface it says a person can see it on, all resolved against the code and the
+frontend tree ([`docs/domain.md`](../domain.md)). What no check can reach is the decision nobody
+took, and that is the whole of this entry: a state permitted because somebody weighed it and a state
+permitted because nobody looked still read identically until one of them is written down.
 
 **Each state is one of two answers: refuse it, or write it into `UNENFORCED` with the reason.** Both
 are cheap, and choosing is the work — which is why they are one entry rather than five. The
 precedent is set: the duplicate squad number in one team and season was answered by declaring it,
 because the live data already holds the state and refusing it would make those rows uneditable.
-
-**What makes this more than five edits is that nothing would have caught them.** An `Unenforced`
-entry is asserted only to carry a non-empty reason, so a state that is real, permitted and
-undeclared reads exactly like one somebody considered — and the whole value of the declaration is
-that those two are distinguishable. Making each half resolvable against the code, the way `RULES`
-already is, closes the class rather than the instances.
 
 ### 3 · FB-16 — Nothing announces that a season rollover is due
 

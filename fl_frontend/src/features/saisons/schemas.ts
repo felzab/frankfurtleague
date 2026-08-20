@@ -80,8 +80,9 @@ export const FLSaisonsSingleResponseSchema = BaseAPIResponseSchema.extend({
 export type FLSaisonsSingleResponse = z.infer<typeof FLSaisonsSingleResponseSchema>;
 
 /**
- * The two rules this payload can judge alone, mirroring `find_rules_refusal`'s first two checks in its
- * order (`REQ-RULES-007`, then `REQ-RULES-001`). The other five read data this form does not have.
+ * The two rules a CREATE judges alone. A patch judges none of the family: each one turns on the step
+ * from the stored rules, which the payload does not carry (`docs/backend/spec.md :: I44`), so the
+ * server's 409 is what names them.
  */
 const groupCannotOverQualify = {
   error: "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.",
@@ -131,9 +132,7 @@ export const FLPatchSaisonPayloadSchema = z
     end_date: CustomDateStringSchema,
     rules: FLSaisonRulesSchema,
   })
-  .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
-  .refine((saison) => saison.rules.qualifiers_per_group <= saison.rules.teams_per_group, groupCannotOverQualify)
-  .refine((saison) => hasPlayableBracket(saison.rules), bracketMustHaveAShape);
+  .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts);
 export type FLPatchSaisonPayload = z.infer<typeof FLPatchSaisonPayloadSchema>;
 
 /** An id in the path and no request body. */

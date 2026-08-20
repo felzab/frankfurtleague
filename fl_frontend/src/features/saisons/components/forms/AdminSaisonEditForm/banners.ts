@@ -68,12 +68,14 @@ export function buildSaisonBanners({
     });
   }
 
+  // The save is NOT blocked, unlike the span banner above: the server refuses only a step that makes
+  // this worse, so a season already over-qualifying still saves its dates (`docs/backend/spec.md :: I44`).
   if (qualifiersPerGroup > teamsPerGroup) {
     banners.push({
       id: "saison.qualifiers-overflow",
       severity: "danger",
       title: "Mehr Qualifikanten als Teams pro Gruppe",
-      body: "So lässt sich die Saison nicht speichern. Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.",
+      body: "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst. Speichern lässt sich die Saison nur, solange sich dieses Verhältnis nicht weiter verschlechtert.",
       inline: "regeln-qualifikanten",
     });
   }

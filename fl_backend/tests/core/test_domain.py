@@ -20,6 +20,11 @@ from app.core.domain import AGGREGATES, FIELD_POLICIES, REFERENCES, RULES, UNENF
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
+# The frontend, because `Unenforced.surfaced_by` names the page or component reporting the state.
+REPO_ROOT = BACKEND_ROOT.parent
+
+# One file, so the pairing below can be exact in both directions.
+UNENFORCED_TESTS = "tests/core/test_unenforced.py"
 
 # `saison_teams` and `saison_spieler` have no row model: their fields are declared by their
 # `$jsonSchema` alone.
@@ -84,16 +89,101 @@ def _resolves(collection: Collection, path: str) -> bool:
 
 
 @functools.cache
+def _parsed(file: Path) -> ast.Module:
+    """Cached across the declarations citing one file; every walk below starts here."""
+
+    return ast.parse(file.read_text(encoding="utf-8"))
+
+
+@functools.cache
 def _declared_classes(file: Path) -> frozenset[str]:
     """Every class the file declares, at any nesting depth.
 
     Walked rather than read off `tree.body`, because a case class nested inside another would
-    otherwise report as missing. Cached across the rules citing the same file.
+    otherwise report as missing.
     """
 
-    tree = ast.parse(file.read_text(encoding="utf-8"))
+    return frozenset(node.name for node in ast.walk(_parsed(file)) if isinstance(node, ast.ClassDef))
 
-    return frozenset(node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef))
+
+@functools.cache
+def _declared_functions(file: Path) -> Mapping[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+    """Every function the file declares, by name. A shadowed name resolves to the last one, as the module itself would."""
+
+    return {node.name: node for node in ast.walk(_parsed(file)) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+
+def _names_referenced(node: ast.AST) -> frozenset[str]:
+    """Every bare name and attribute name under `node` -- the candidates for a constant or a helper it reaches."""
+
+    return frozenset(
+        child.id if isinstance(child, ast.Name) else child.attr for child in ast.walk(node) if isinstance(child, (ast.Name, ast.Attribute))
+    )
+
+
+@functools.cache
+def _import_origins(file: Path) -> Mapping[str, tuple[str, str]]:
+    """Each `from x import y` name in the file, as `(module, symbol)`, so a value resolves without importing the file."""
+
+    origins: dict[str, tuple[str, str]] = {}
+    for node in ast.walk(_parsed(file)):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                origins[alias.asname or alias.name] = (node.module, alias.name)
+
+    return origins
+
+
+def _module_file(dotted: str) -> Path:
+    return Path(importlib.import_module(dotted).__file__ or "")
+
+
+def _reaches_code(dotted: str, code: str) -> bool:
+    """Whether the callable at `dotted` reaches the constant holding `code`.
+
+    Same-module helpers are followed, because a shared refusal builder is exactly where a code that
+    several messages carry ends up (`app/api/spiele/services.py :: _wiring_refusal`).
+    """
+
+    module_path, _, symbol = dotted.rpartition(".")
+    module = importlib.import_module(module_path)
+    functions = _declared_functions(_module_file(module_path))
+
+    seen: set[str] = set()
+    pending = [symbol]
+    while pending:
+        name = pending.pop()
+        if name in seen or name not in functions:
+            continue
+        seen.add(name)
+        for referenced in _names_referenced(functions[name]):
+            if getattr(module, referenced, None) == code:
+                return True
+            pending.append(referenced)
+
+    return False
+
+
+def _test_class_asserts_code(tested_by: str, code: str) -> bool:
+    """Whether the cited class reaches an IMPORTED name holding `code`.
+
+    A literal is refused: every code is bound to a constant, so a test asserting the string
+    carries a copy of it. Parsed rather than imported, which needs no fixtures.
+    """
+
+    path, _, class_name = tested_by.partition("::")
+    file = BACKEND_ROOT / path
+    node = next((entry for entry in ast.walk(_parsed(file)) if isinstance(entry, ast.ClassDef) and entry.name == class_name), None)
+    if node is None:
+        return False
+
+    origins = _import_origins(file)
+    for referenced in _names_referenced(node):
+        origin = origins.get(referenced)
+        if origin is not None and getattr(importlib.import_module(origin[0]), origin[1], None) == code:
+            return True
+
+    return False
 
 
 def _import_symbol(dotted: str) -> Any:
@@ -157,7 +247,11 @@ def test_every_collection_is_declared_once():
 def test_every_declared_value_is_used():
     """`UNUSED_ACTIONS` is asserted exact rather than as a floor: an unused new member and a used listed one both fail."""
 
-    used_actions = {reference.on_target_change for reference in REFERENCES} | {reference.on_target_removed for reference in REFERENCES}
+    used_actions = {
+        action
+        for reference in REFERENCES
+        for action in (reference.on_reference_created, reference.on_target_change, reference.on_target_removed)
+    }
     used_editability = {policy.editability for policy in FIELD_POLICIES}
 
     assert set(Action) - used_actions == UNUSED_ACTIONS
@@ -224,13 +318,16 @@ def test_every_named_enforcer_resolves(policy):
 
 
 @pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)
-def test_every_rule_is_implemented_by_a_callable(rule):
+def test_every_rule_is_implemented_where_it_says(rule):
+    """The CLAIM, not the address: a callable that no longer carries the code has stopped implementing the rule."""
+
     assert callable(_import_symbol(rule.implemented_by))
+    assert _reaches_code(rule.implemented_by, rule.code), f"{rule.implemented_by} reaches no constant holding {rule.code}"
 
 
 @pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)
-def test_every_rule_names_a_test_that_exists(rule):
-    """Parsed rather than imported: the AST needs no fixtures and cannot run another module's collection-time code."""
+def test_every_rule_is_tested_where_it_says(rule):
+    """The CLAIM again: a class that asserts on messages alone proves the wording, never the contract a client maps."""
 
     path, _, class_name = rule.tested_by.partition("::")
     file = BACKEND_ROOT / path
@@ -240,6 +337,55 @@ def test_every_rule_names_a_test_that_exists(rule):
     declared = _declared_classes(file)
 
     assert class_name in declared, f"{rule.code} cites {rule.tested_by}, and that file declares {sorted(declared)}"
+    assert _test_class_asserts_code(rule.tested_by, rule.code), f"{rule.tested_by} never asserts on {rule.code}"
+
+
+@pytest.mark.parametrize("entry", UNENFORCED, ids=lambda entry: entry.subject)
+def test_every_unenforced_entry_names_the_rule_a_reader_would_expect(entry):
+    """D76's entry bar, as a check: a state sitting near no rule surprises nobody, so it is a comment rather than a row."""
+
+    assert entry.near, f"'{entry.subject}' names no adjacent rule and so clears no entry bar"
+
+    defined = _codes_in(APP_ROOT)
+    unknown = [code for code in entry.near if code not in defined]
+
+    assert not unknown, f"'{entry.subject}' sits near {unknown}, which the application defines nowhere"
+
+
+@pytest.mark.parametrize("entry", UNENFORCED, ids=lambda entry: entry.subject)
+def test_every_unenforced_surface_resolves(entry):
+    """A dead surface is the rot this catches: an entry claiming a person can see the state, pointing at a page that is gone."""
+
+    if not entry.surfaced_by:
+        return
+
+    target = REPO_ROOT / (f"fl_frontend/src/app{entry.surfaced_by}/page.tsx" if entry.surfaced_by.startswith("/") else entry.surfaced_by)
+
+    assert target.is_file(), f"'{entry.subject}' is surfaced by {entry.surfaced_by}, which resolves to no file"
+
+
+def test_every_unenforced_entry_is_paired_with_the_test_that_proves_it():
+    """Both directions, because either half alone rots: an entry nothing executes, or a test no entry claims."""
+
+    file = BACKEND_ROOT / UNENFORCED_TESTS
+    claimed = {entry.proven_by for entry in UNENFORCED}
+    misfiled = sorted(cited for cited in claimed if not cited.startswith(f"{UNENFORCED_TESTS}::"))
+
+    assert not misfiled, f"an entry proves itself outside {UNENFORCED_TESTS}: {misfiled}"
+
+    declared = {f"{UNENFORCED_TESTS}::{name}" for name in _declared_classes(file)}
+
+    assert claimed == declared, f"unproven: {sorted(claimed - declared)}; unclaimed: {sorted(declared - claimed)}"
+
+
+def test_every_collection_that_retires_declares_when_that_field_is_written():
+    """`FIELD_POLICIES`' other direction, at the one place it is mechanical: a collection that retires declares when that field is written."""
+
+    declared = {(policy.collection, policy.field) for policy in FIELD_POLICIES}
+    retiring = {collection for collection in COLLECTION_VALIDATORS if _resolves_in_validator(collection, "inactive_since")}
+    undeclared = sorted(str(collection) for collection in retiring if (collection, "inactive_since") not in declared)
+
+    assert not undeclared, f"{undeclared} carry `inactive_since` and declare nothing about when it may be written"
 
 
 def test_every_declaration_carries_its_reason():
