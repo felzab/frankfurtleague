@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `30a8b1ef`, 2026-08-20\
+**Verified against:** `77078f34`, 2026-08-20\
 **Purpose:** the German domain vocabulary — what each term is, where it lives, and what catches people.
 
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs. Translating
@@ -68,6 +68,13 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 **In code:** the `spielorte` collection — `fl_backend/app/core/collections.py :: Collection`.\
 **Trap:** `maps_link` is **not** a URL despite the name — free text built server-side and searched on Google Maps, so it carries no scheme check.\
 **See:** backend spec I13.
+
+### `Aktion` — one recorded write, and what it replaced
+
+**Is:** a row of the `aktionen` collection — one write, carrying the actor it is attributed to (an admin session, or the system where no request made it), the route, the collection, the operation, and the pre-image where the write replaced a document.\
+**In code:** `fl_backend/app/core/recording.py :: record_write` appends it from `fl_backend/app/core/crud.py`, which every write passes through; `fl_backend/app/api/aktionen/schemas.py :: FLAktion` is the shape served back.\
+**Trap:** a fan-out is ONE row, carrying the filter it ran and a count and no pre-image at all, so the matches a club rename rewrote are a single row nothing can restore a document from; and that filter is text rendered for a reader rather than a query anything can replay.\
+**See:** backend spec I40 for what a fan-out records, and [`domain.md`](domain.md) for why the collection sits in no consistency boundary.
 
 ---
 

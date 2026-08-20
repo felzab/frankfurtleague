@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `31e23ce2`, 2026-08-20\
+**Verified against:** `77078f34`, 2026-08-20\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -31,20 +31,21 @@
 
 The Notes column lists everything a slice holds beyond the four columns and its `components/` folder.
 
-| Slice            | queries | mutations | actions | schemas | Notes                                                                                                                                               |
-| ---------------- | :-----: | :-------: | :-----: | :-----: | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `spiele`         |   ✅    |    ✅     |   ✅    |   ✅    | Owns the Spiel write path; `draftStatus.ts`, `facets.ts`, `resolvers.ts`, `types.ts`, `utils.ts`, tests                                             |
-| `spielorte`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `resolvers.ts`, `spielortDraftStatus.ts`, `types.ts`, `utils.ts`, tests                                     |
-| `schiedsrichter` |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `resolvers.ts`, `schiedsrichterDraftStatus.ts`, `types.ts`, tests                                           |
-| `teams`          |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + season junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `teamDraftStatus.ts`, `types.ts`, `utils.ts`, tests                       |
-| `saisons`        |   ✅    |    ✅     |   ✅    |   ✅    | Create, edit, rollover, group swap — no delete; `constants.ts`, `facets.ts`, `resolvers.ts`, `saisonDraftStatus.ts`, `types.ts`, `utils.ts`, tests  |
-| `spieler`        |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + squad junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `shorthandChip.ts`, `spielerDraftStatus.ts`, `types.ts`, `utils.ts`, tests |
-| `spieltage`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `resolvers.ts`, `spieltagDraftStatus.ts`, `types.ts`, `utils.ts`, tests                                     |
-| `system`         |   ✅    |     —     |    —    |   ✅    | Read-only; nothing else                                                                                                                             |
-| `admin`          |   ✅    |     —     |    —    |    —    | Aggregator; `constants.ts`, `types.ts`, `utils.ts`, tests                                                                                           |
-| `auth`           |    —    |     —     |   ✅    |    —    | `handleSignIn` + `signOutAction`; nothing else                                                                                                      |
-| `dashboard`      |    —    |     —     |    —    |    —    | Components + `constants.ts`                                                                                                                         |
-| `meta`           |    —    |     —     |    —    |    —    | Components + `constants.ts`, `types.ts`                                                                                                             |
+| Slice            | queries | mutations | actions | schemas | Notes                                                                                                                                                 |
+| ---------------- | :-----: | :-------: | :-----: | :-----: | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spiele`         |   ✅    |    ✅     |   ✅    |   ✅    | Owns the Spiel write path; `draftStatus.ts`, `facets.ts`, `resolvers.ts`, `types.ts`, `utils.ts`, tests                                               |
+| `spielorte`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `resolvers.ts`, `spielortDraftStatus.ts`, `types.ts`, `utils.ts`, tests                                       |
+| `schiedsrichter` |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `resolvers.ts`, `schiedsrichterDraftStatus.ts`, `types.ts`, tests                                             |
+| `teams`          |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + season junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `teamDraftStatus.ts`, `types.ts`, `utils.ts`, tests                         |
+| `saisons`        |   ✅    |    ✅     |   ✅    |   ✅    | Create, edit, rollover, group swap — no delete; `constants.ts`, `facets.ts`, `resolvers.ts`, `saisonDraftStatus.ts`, `types.ts`, `utils.ts`, tests    |
+| `spieler`        |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + squad junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `shorthandChip.ts`, `spielerDraftStatus.ts`, `types.ts`, `utils.ts`, tests   |
+| `spieltage`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `resolvers.ts`, `spieltagDraftStatus.ts`, `types.ts`, `utils.ts`, tests                                       |
+| `aktionen`       |   ✅    |     —     |    —    |   ✅    | Read-only; the action log is written by the backend on every admin write, never from here; `constants.ts`, `facets.ts`, `types.ts`, `utils.ts`, tests |
+| `system`         |   ✅    |     —     |    —    |   ✅    | Read-only; nothing else                                                                                                                               |
+| `admin`          |   ✅    |     —     |    —    |    —    | Aggregator; `constants.ts`, `types.ts`, `utils.ts`, tests                                                                                             |
+| `auth`           |    —    |     —     |   ✅    |    —    | `handleSignIn` + `signOutAction`; nothing else                                                                                                        |
+| `dashboard`      |    —    |     —     |    —    |    —    | Components + `constants.ts`                                                                                                                           |
+| `meta`           |    —    |     —     |    —    |    —    | Components + `constants.ts`, `types.ts`                                                                                                               |
 
 `utils.ts`, `resolvers.ts` and `facets.ts` are sanctioned optional modules. `utils.ts` and
 `resolvers.ts` exist separately from `queries.ts` because they hold non-caching code, and folding them
@@ -75,10 +76,12 @@ answer.
 | `checkIsLive`, `checkIsReady`, `getSystemInfo` | system         | `minutes` | `system`                                         |
 
 **Uncached, deliberately:** the admin-authed reads — `getAdminSpieleActionRequired`,
-`getTeamMemberships` and `getSpielerMemberships`. Admin-authorized data does not
+`getTeamMemberships`, `getSpielerMemberships` and `getAktionen`. Admin-authorized data does not
 belong in a shared cache, and `getAdminSpieleActionRequired`'s `bracket_faults` are derived per request
 over the stored bracket, so a
-cached copy would be wrong the moment a document moved under it. None carries a cache tag either: a tag
+cached copy would be wrong the moment a document moved under it. `getAktionen` could not be cached even if
+the tier allowed it: an action-log row carries the document its write replaced, so one shared entry would
+hold data from every collection at once. None carries a cache tag either: a tag
 only means something inside a cache scope. Each seeds the request's correlation scope, which a
 `"use cache"` read cannot ([`docs/logging/spec.md`](../logging/spec.md#11-the-correlation-id)).
 
@@ -126,6 +129,12 @@ access-denied `FormState` rather than throwing, and every one runs inside
 request scope and converts a thrown API error into the `FormState` the caller toasts — without it a
 409 (an ordinary create outcome) crosses the server-action boundary redacted and replaces
 the admin page with the error page ([`docs/logging/error-codes.md`](../logging/error-codes.md)).
+
+**That `getAdminSession()` call is also what makes the write attributable.** It records the session's address
+in the same request scope `runAdminMutation` has just seeded, and `apiClient` reads it from there and sends it
+as `X-FL-Actor` on admin-tier calls alone — so the ordering is load-bearing rather than stylistic. A write
+reaching the backend without it comes back 401 rather than landing unattributed
+([`docs/backend/spec.md`](../backend/spec.md) I41).
 
 **The route handlers are the seven page-owned editors' undos — `POST /api/admin/spiele/undo`,
 `POST /api/admin/teams/undo`, `POST /api/admin/spieler/undo`, `POST /api/admin/saisons/undo`,
@@ -641,8 +650,9 @@ that. They hold by review.
 
 ### 1.13 Metadata and indexing
 
-Every route sets its own `title`, `description` and canonical; `metadataBase` in the root layout is what
-lets the canonicals be paths. The consequences worth knowing before editing metadata:
+Every public route sets its own `title`, `description` and canonical; `metadataBase` in the root layout is
+what lets the canonicals be paths. **No route under `/admin` sets any**, so the whole admin tree inherits.
+The consequences worth knowing before editing metadata:
 
 - **A route that sets no metadata inherits the root layout's, canonical included**, so an unset canonical
   claims to be the homepage rather than claiming nothing.

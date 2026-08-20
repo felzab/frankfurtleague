@@ -4,6 +4,10 @@ CORE · database access, the query one list read runs, and the conventions a wri
 One contract across the module, so no caller needs a `None` branch to reach a 404: a `*_one_*`
 helper raises `DocumentNotFoundException` on a miss and never returns `None`, and a `*_many_*`
 helper returns the empty result and never raises for absence.
+
+Every write here also appends to the action log (`app/core/recording.py`). Recording at the one
+chokepoint every write already passes through is what makes the log complete by construction; a
+router that forgets to record cannot exist, because no router reaches the driver directly.
 """
 
 from typing import AbstractSet, Any, Mapping, Sequence
@@ -14,6 +18,7 @@ from pymongo import ReturnDocument
 from pymongo.results import InsertOneResult, UpdateResult
 
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException, WriteRefusal
+from app.core.recording import record_write
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # Section 1, the driver. Keyword-only throughout, so no call site can bind `db_filter` to `update`
@@ -63,13 +68,34 @@ async def patch_one_in_db(
     session: AsyncIOMotorClientSession | None = None,
     return_document: bool = ReturnDocument.AFTER,
 ) -> Mapping[str, Any]:
-    """`AFTER` by default because no path reads the pre-image, and an echo of it answers with the state the write just replaced."""
+    """`AFTER` by default: a caller echoing the pre-image would answer with the state the write just replaced.
 
-    doc = await collection.find_one_and_update(filter=db_filter, update=update, session=session, return_document=return_document)
-    if doc is None:
+    The driver yields ONE image, and the log takes the atomic one (`docs/backend/spec.md :: I39`).
+    """
+
+    # The update itself carries the pre-image, so nothing can land between reading it and replacing
+    # it. The echo is re-read after, where a racing write costs a stale response rather than a log
+    # row naming a document this write never touched.
+    before = await collection.find_one_and_update(filter=db_filter, update=update, session=session, return_document=ReturnDocument.BEFORE)
+    if before is None:
         raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
 
-    return doc
+    await record_write(
+        collection=collection,
+        operation="patch_one",
+        document_id=before.get("_id"),
+        before=before,
+        session=session,
+    )
+
+    if return_document is ReturnDocument.BEFORE:
+        return before
+
+    after = await collection.find_one(filter={"_id": before["_id"]}, projection=None, session=session)
+    if after is None:
+        raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
+
+    return after
 
 
 async def patch_many_in_db(
@@ -79,9 +105,22 @@ async def patch_many_in_db(
     update: Mapping[str, Any],
     session: AsyncIOMotorClientSession | None = None,
 ) -> UpdateResult:
-    """The driver's result, unwrapped: `modified_count` is reported on the wire, so nothing here may swallow it."""
+    """The driver's result, unwrapped: `modified_count` is reported on the wire, so nothing here may swallow it.
 
-    return await collection.update_many(filter=db_filter, update=update, session=session)
+    One log row with the filter and the count, never pre-images (`docs/backend/spec.md :: I40`).
+    """
+
+    result = await collection.update_many(filter=db_filter, update=update, session=session)
+
+    await record_write(
+        collection=collection,
+        operation="patch_many",
+        db_filter=db_filter,
+        modified_count=result.modified_count,
+        session=session,
+    )
+
+    return result
 
 
 async def post_one_to_db(
@@ -92,7 +131,13 @@ async def post_one_to_db(
 ) -> InsertOneResult:
     """The driver's result, unwrapped: every create answers with `inserted_id` and `acknowledged`."""
 
-    return await collection.insert_one(document=document, session=session)
+    result = await collection.insert_one(document=document, session=session)
+
+    # No `before`: a create replaced nothing, and a null there is what tells the page this row offers
+    # a deletion to undo rather than a restore.
+    await record_write(collection=collection, operation="insert", document_id=result.inserted_id, session=session)
+
+    return result
 
 
 async def aggregate_many_from_db(
@@ -173,13 +218,23 @@ async def set_inactive_since(
     collection: AsyncIOMotorCollection,
     db_filter: Mapping[str, Any],
     when: str | None,
+    session: AsyncIOMotorClientSession | None = None,
 ) -> Mapping[str, Any]:
-    """Retire and revive in one helper: `inactive_since` is one nullable date, so they are one write in two directions."""
+    """Retire and revive in one helper: `inactive_since` is one nullable date, so they are one write in two directions.
 
-    return await patch_one_in_db(collection=collection, db_filter=db_filter, update={"$set": {"inactive_since": when}})
+    `session` is carried, not dropped: a transactional caller would otherwise have the write and its
+    log row land outside the transaction.
+    """
+
+    return await patch_one_in_db(collection=collection, db_filter=db_filter, update={"$set": {"inactive_since": when}}, session=session)
 
 
-async def insert_live(*, collection: AsyncIOMotorCollection, document: Mapping[str, Any]) -> InsertOneResult:
+async def insert_live(
+    *,
+    collection: AsyncIOMotorCollection,
+    document: Mapping[str, Any],
+    session: AsyncIOMotorClientSession | None = None,
+) -> InsertOneResult:
     """`inactive_since` is on no create payload, so a create states it here rather than in each router."""
 
-    return await post_one_to_db(collection=collection, document={**document, "inactive_since": None})
+    return await post_one_to_db(collection=collection, document={**document, "inactive_since": None}, session=session)

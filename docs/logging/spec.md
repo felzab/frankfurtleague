@@ -1,8 +1,8 @@
 # Logging — spec
 
-**Verified against:** `30a8b1ef`, 2026-08-20\
-**Scope:** the correlation id, the log stream on all three surfaces, the browser-crash path, and
-the development formats.
+**Verified against:** `77078f34`, 2026-08-20\
+**Scope:** the correlation id and the second header the edge controls beside it, the log stream on
+all three surfaces, the browser-crash path, and the development formats.
 
 | Section                                            | Answers                                        |
 | -------------------------------------------------- | ---------------------------------------------- |
@@ -32,6 +32,14 @@ A well-formed id is `[a-f0-9]{8,64}`, and both validators
 (`fl_backend/app/core/middlewares.py :: WELL_FORMED_ID`,
 `fl_frontend/src/core/correlation.ts :: isWellFormedCorrelationId`) refuse anything else, so a
 malformed or hostile header is replaced rather than propagated.
+
+**One other header crosses that edge, and is cleared rather than minted.** nginx blanks `X-FL-Actor` on
+every proxied request just as it discards a client-supplied correlation id
+(`nginx/prod.conf :: proxy_set_header X-FL-Actor`), so the only actor FastAPI can act on is the one the
+frontend container sets from the signed-in session — `fl_frontend/src/core/api.ts :: apiClient` sends it on
+admin-tier calls alone. It names **who** a write is attributed to rather than which request it belongs to,
+and the guard refusing a write that carries no well-formed one is
+[`docs/backend/spec.md`](../backend/spec.md) I41.
 
 **The cache-fill boundary.** A `"use cache"` execution is shared by later requests, so Next refuses
 request APIs inside one and no page-request id can exist there; a cached read's backend fetch
@@ -147,29 +155,31 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 
 ## 2. Invariants
 
-| #   | Invariant                                                                              | Enforced by                                                                                                              |
-| --- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| L1  | One JSON document per line per service in the `json` format                            | `fl_backend/tests/core/test_logging.py`; `fl_frontend/src/core/logFormat.test.ts`                                        |
-| L2  | The JSON field set matches across surfaces                                             | the same two suites, asserting names and shapes                                                                          |
-| L3  | An id is honoured only when well-formed, and minted otherwise                          | `fl_backend/tests/core/test_logging.py :: TestResolveCorrelationId`; `fl_frontend/src/core/correlation.test.ts`          |
-| L4  | Every failure response is `{error_code, correlation_id}`, the code the exception's own | `fl_backend/tests/api/test_error_responses.py`                                                                           |
-| L5  | Every request gets exactly one backend access line, id and duration on it              | `fl_backend/tests/api/test_error_responses.py :: TestAccessLine`                                                         |
-| L6  | A thrown API error never escapes a server action                                       | `fl_frontend/src/shared/utils/actionError.test.ts`                                                                       |
-| L7  | The `X-Correlation-ID` a visitor sends is discarded at the edge                        | `nginx/prod.conf :: proxy_set_header X-Correlation-ID` (unconditional)                                                   |
-| L8  | Every uncached admin-authed read runs inside `runWithIncomingCorrelationId`            | review — the set is listed in [`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) §1.2                        |
-| L9  | A log line names a REJECTED FIELD, never the value submitted for it                    | review — `fl_backend/app/core/logging.py :: STRUCTURED_EXTRAS` bounds what travels as a field; message text is unchecked |
+| #   | Invariant                                                                              | Enforced by                                                                                                                          |
+| --- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| L1  | One JSON document per line per service in the `json` format                            | `fl_backend/tests/core/test_logging.py`; `fl_frontend/src/core/logFormat.test.ts`                                                    |
+| L2  | The JSON field set matches across surfaces                                             | the same two suites, asserting names and shapes                                                                                      |
+| L3  | An id is honoured only when well-formed, and minted otherwise                          | `fl_backend/tests/core/test_logging.py :: TestResolveCorrelationId`; `fl_frontend/src/core/correlation.test.ts`                      |
+| L4  | Every failure response is `{error_code, correlation_id}`, the code the exception's own | `fl_backend/tests/api/test_error_responses.py`                                                                                       |
+| L5  | Every request gets exactly one backend access line, id and duration on it              | `fl_backend/tests/api/test_error_responses.py :: TestAccessLine`                                                                     |
+| L6  | A thrown API error never escapes a server action                                       | `fl_frontend/src/shared/utils/actionError.test.ts`                                                                                   |
+| L7  | The `X-Correlation-ID` a visitor sends is discarded at the edge                        | `nginx/prod.conf :: proxy_set_header X-Correlation-ID` (unconditional)                                                               |
+| L8  | Every uncached admin-authed read runs inside `runWithIncomingCorrelationId`            | review — the set is listed in [`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) §1.2                                    |
+| L9  | A log line names a REJECTED FIELD, never the value submitted for it                    | review — `fl_backend/app/core/logging.py :: STRUCTURED_EXTRAS` bounds what travels as a field; message text is unchecked             |
+| L10 | The `X-FL-Actor` a visitor sends is cleared on every proxied path that reaches a write | `nginx/prod.conf :: proxy_set_header X-FL-Actor`, set at server level and inherited by every location declaring no header of its own |
 
 ## 3. Violation → remedy
 
-| Symptom                                               | Cause                                                                             | Remedy                                                                                    |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| A page view has an nginx line and no application line | A cache hit issued no request                                                     | Working as intended (1.1). The edge line is the record                                    |
-| A frontend error's id matches no page view            | A cache fill minted its own id                                                    | Join on `fetch_correlation_id`, not `correlation_id` (1.1)                                |
-| A total backend outage reports HTTP 200               | The error boundary streams after headers are sent, so status is no health signal  | Monitor `GET /api/v0/system/is_live` through the edge (`fl_backend/app/core/security.py`) |
-| Log lines vanish after a deploy                       | `up -d --force-recreate` replaces the container and its log file                  | Copy the stream off the host before deploying (1.2)                                       |
-| One digest matches many unrelated incidents           | A digest names an error class, not an incident — Next derives it from the message | Search on digest plus time plus route, then follow the `FE-RSC-001` line's id             |
-| Non-JSON lines appear in a stream                     | nginx's error log and both services' boot lines are outside the contract          | Working as intended (1.2, section 4). A parser skips non-`{` lines                        |
-| A log line carries personal data                      | A handler logged a rejected value rather than the field that carried it           | Log the field NAME; the value belongs in neither the message nor an extra (L9)            |
+| Symptom                                               | Cause                                                                               | Remedy                                                                                                                   |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| A page view has an nginx line and no application line | A cache hit issued no request                                                       | Working as intended (1.1). The edge line is the record                                                                   |
+| A frontend error's id matches no page view            | A cache fill minted its own id                                                      | Join on `fetch_correlation_id`, not `correlation_id` (1.1)                                                               |
+| A total backend outage reports HTTP 200               | The error boundary streams after headers are sent, so status is no health signal    | Monitor `GET /api/v0/system/is_live` through the edge (`fl_backend/app/core/security.py`)                                |
+| Log lines vanish after a deploy                       | `up -d --force-recreate` replaces the container and its log file                    | Copy the stream off the host before deploying (1.2)                                                                      |
+| One digest matches many unrelated incidents           | A digest names an error class, not an incident — Next derives it from the message   | Search on digest plus time plus route, then follow the `FE-RSC-001` line's id                                            |
+| Non-JSON lines appear in a stream                     | nginx's error log and both services' boot lines are outside the contract            | Working as intended (1.2, section 4). A parser skips non-`{` lines                                                       |
+| A log line carries personal data                      | A handler logged a rejected value rather than the field that carried it             | Log the field NAME; the value belongs in neither the message nor an extra (L9)                                           |
+| A stored action holds a submitted value               | L9 binds the log stream; the action log is a collection and keeps values on purpose | Working as intended — a restore replays the document a write replaced ([`docs/backend/spec.md`](../backend/spec.md) I42) |
 
 ## 4. Known-open
 

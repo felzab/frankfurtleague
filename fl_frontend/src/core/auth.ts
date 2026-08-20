@@ -8,6 +8,7 @@ import { buildMagicLinkEmail } from "./authEmail";
 import { frontend_config } from "./config";
 import { client } from "./db";
 import { logger } from "./logging";
+import { setRequestActor } from "./requestScope";
 
 import type { Session } from "next-auth";
 
@@ -89,12 +90,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 });
 
 /**
- * The one definition of the admin policy: the session for an admin, `null` otherwise.
+ * The one definition of the admin policy: the session for an admin, `null` otherwise. Also where the
+ * actor `api.ts` sends is recorded, because every admin write already awaits this inside its request
+ * scope and a second resolution would cost another round trip to the session store.
  *
  * Named `get...`, not `require...`: it neither throws nor redirects, so calling it on its own
  * line guards nothing. **Check the return value.**
  */
 export async function getAdminSession(): Promise<Session | null> {
   const session = await auth();
-  return session?.user?.role === "admin" ? session : null;
+  if (session?.user?.role !== "admin") return null;
+
+  setRequestActor(session.user.email);
+
+  return session;
 }

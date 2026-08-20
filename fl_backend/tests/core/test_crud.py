@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from pymongo import ReturnDocument
 from pymongo.helpers_shared import _index_document
 
+from app.core.collections import Collection
 from app.core.crud import build_query, build_sort, patch_one_in_db, pull_one_from_db
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.shared.schemas.custom import CustomObjectId
@@ -101,6 +102,18 @@ class TestBuildSort:
 FILTER: Mapping[str, Any] = {"_id": ObjectId(TEAM_OID)}
 UPDATE: Mapping[str, Any] = {"$set": {"name": "Lessing"}}
 STORED: Mapping[str, Any] = {"_id": ObjectId(TEAM_OID), "name": "Lessing"}
+# What the update replaced, distinct from the post-image so a test can tell which one it was handed.
+REPLACED: Mapping[str, Any] = {"_id": ObjectId(TEAM_OID), "name": "Lessing-Gymnasium"}
+
+
+class _RecordingCollection:
+    """The log the write helpers append to, so a crud test can see what was recorded."""
+
+    def __init__(self, rows: list[Mapping[str, Any]]) -> None:
+        self.rows = rows
+
+    async def insert_one(self, row: Mapping[str, Any], session: Any = None) -> None:
+        self.rows.append(row)
 
 
 class _OneDocumentCollection:
@@ -110,17 +123,28 @@ class _OneDocumentCollection:
     argument bound to the wrong parameter.
     """
 
-    def __init__(self, document: Mapping[str, Any] | None) -> None:
+    def __init__(self, document: Mapping[str, Any] | None, pre: Mapping[str, Any] | None = None) -> None:
         self.document = document
+        # The two images a patch involves. Distinct where a test needs to prove which one reached
+        # which consumer; the same object otherwise, which is what most callers care about.
+        self.pre = document if pre is None else pre
         self.calls: list[dict[str, Any]] = []
+        # Separate from `calls`: a patch re-reads for the caller's echo, and folding both shapes into
+        # one list would make `calls[0]` mean whichever call happened to come first.
+        self.reads: list[dict[str, Any]] = []
+        # A write records (`app/core/recording.py`), and it reaches the log through the target
+        # collection's own database handle -- so a double standing in for a collection needs both.
+        self.recorded: list[Mapping[str, Any]] = []
+        self.name = Collection.TEAMS
+        self.database = {Collection.AKTIONEN: _RecordingCollection(self.recorded)}
 
     async def find_one_and_update(self, *, filter: Any, update: Any, session: Any, return_document: Any) -> Mapping[str, Any] | None:
         self.calls.append({"filter": filter, "update": update, "session": session, "return_document": return_document})
 
-        return self.document
+        return self.pre
 
     async def find_one(self, *, filter: Any, projection: Any, session: Any) -> Mapping[str, Any] | None:
-        self.calls.append({"filter": filter, "projection": projection, "session": session})
+        self.reads.append({"filter": filter, "projection": projection, "session": session})
 
         return self.document
 
@@ -130,22 +154,33 @@ def as_collection(stub: _OneDocumentCollection) -> AsyncIOMotorCollection:
 
 
 class TestPatchOneInDb:
-    def test_the_default_asks_the_driver_for_the_post_write_document(self):
-        """Call sites echo what this returns, so a regression to `BEFORE` answers an admin write with the state it just replaced."""
-        stub = _OneDocumentCollection(STORED)
+    def test_the_default_answers_with_the_post_write_document(self):
+        """Call sites echo what this returns, so answering with the pre-image would report the state the write just replaced."""
+        stub = _OneDocumentCollection(STORED, pre=REPLACED)
 
         returned = asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE))
 
-        assert stub.calls[0]["return_document"] is ReturnDocument.AFTER
         assert returned == STORED
 
-    def test_an_explicit_pre_image_still_reaches_the_driver(self):
-        """A default, not a rewrite: a caller that wants the document as it stood may still ask for it."""
-        stub = _OneDocumentCollection(STORED)
+    def test_the_log_is_given_the_image_the_update_itself_replaced(self):
+        """The atomic one. A pre-image read separately could name a document another writer had already replaced."""
+        stub = _OneDocumentCollection(STORED, pre=REPLACED)
 
-        asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.BEFORE))
+        asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE))
 
         assert stub.calls[0]["return_document"] is ReturnDocument.BEFORE
+        assert stub.recorded[0]["before"] == REPLACED
+
+    def test_an_explicit_pre_image_is_answered_without_a_second_read(self):
+        """A default, not a rewrite: a caller wanting the document as it stood already holds it."""
+        stub = _OneDocumentCollection(STORED, pre=REPLACED)
+
+        returned = asyncio.run(
+            patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.BEFORE)
+        )
+
+        assert returned == REPLACED
+        assert stub.reads == []
 
     def test_a_miss_raises_rather_than_returning_none(self):
         """No caller branches on `None`, so returning one would put a miss into a response body as a 200."""

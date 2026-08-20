@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `31e23ce2`, 2026-08-20\
+**Verified against:** `77078f34`, 2026-08-20\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 | Section                                                | Answers                                                              |
@@ -82,10 +82,11 @@ terminates there and an origin-side failure can surface as a Cloudflare status c
 neither nginx nor the block responsible.
 
 Proxy headers set globally: `Host`, `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`,
-`X-Forwarded-Host`, `X-Forwarded-Port`, HTTP/1.1 — plus `X-Correlation-ID`, minted from
-`$request_id` unconditionally so a client-supplied id never reaches a log
-([`docs/logging/spec.md`](../logging/spec.md)). Every SERVING block writes the `fl_json` access
-format, which carries the id, `$request_time` and `$upstream_response_time`.
+`X-Forwarded-Host`, `X-Forwarded-Port`, HTTP/1.1 — plus two the edge controls outright,
+`X-Correlation-ID`, minted from `$request_id` unconditionally so a client-supplied id never reaches a
+log, and `X-FL-Actor`, blanked unconditionally so a visitor cannot name the administrator a write is
+attributed to ([`docs/logging/spec.md`](../logging/spec.md) §1.1 and L10). Every SERVING block writes
+the `fl_json` access format, which carries the id, `$request_time` and `$upstream_response_time`.
 
 Buffers are enlarged (`proxy_buffer_size 128k`, `proxy_buffers 4 256k`) specifically to stop 502s from
 large Auth.js cookies.

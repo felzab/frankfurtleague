@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `31e23ce2`, 2026-08-20\
+**Verified against:** `77078f34`, 2026-08-20\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -53,7 +53,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 
 | #   | ID    | Item                                                       | Surfaces        | Effort | Status   | Depends on |
 | --- | ----- | ---------------------------------------------------------- | --------------- | ------ | -------- | ---------- |
-| 1   | BE-15 | Nothing records who changed what, or what it replaced      | FE, BE, DB      | L      | Open     | —          |
+| 1   | BE-15 | The recording exists; the restore over it does not         | FE, BE, DB      | M      | Open     | —          |
 | 2   | BE-18 | Five permitted states the domain declaration does not name | BE              | M      | Open     | —          |
 | 3   | FB-16 | Nothing announces that a season rollover is due            | BE, Ops         | M      | Open     | —          |
 | 4   | FB-17 | Season setup is hand-run, and only an admin enters a squad | FE, BE, DB, Ops | XL     | Open     | —          |
@@ -79,20 +79,56 @@ own `Path` line.
 
 ## The items in rank order
 
-### 1 · BE-15 — Nothing records who changed what, or what a write replaced
+### 1 · BE-15 — The recording exists; the restore over it does not
 
 **Status:** Open\
 **Surfaces:** FE, BE, DB\
-**Effort:** L\
+**Effort:** M — the recording and the page are built\
 **Path:** Independent — what dates it is a second writer arriving this year, not another entry.
 
-**Every admin write overwrites in place.** A result is `$set` over its predecessor, `is_disqualified`
-flips with no trace of who flipped it or why, and the write that destroys the most is one nobody asked
-for — applying a bracket advancement clears the advanced fixture's `ergebnis` and `elfmeterschiessen`
+**What is built.** Every write funnels through `fl_backend/app/core/crud.py`, so the log records there
+and is complete by construction rather than by discipline — a router that forgets to record cannot
+exist, because none reaches the driver. A row carries the actor, the request, the collection, the
+document and the image the write replaced (`fl_backend/app/core/recording.py`), and `/admin/aktionen`
+lists them. The actor travels as a header the frontend composes from its own session, and an admin
+write carrying none is refused rather than attributed to nobody (`docs/backend/spec.md :: I41`).
+
+**What remains is the restore, and it is blocked on a measurement.** A row holds what its write
+replaced, so replaying one is a small change over the spine the seven undo handlers already share.
+But `docs/frontend/spec.md` §1.3 admits a route handler for a page-owned editor and refuses one for a
+row control, and a restore on a log row is a row control. Whether Next's E592 reproduces on a page
+that stays mounted is what decides between a server action and an eighth handler, and nobody has
+measured it. Retention is the other half, and it sits with the Datenschutzexperte.
+
+**Two gaps in what shipped, both found by a review that had not seen the work written.**
+
+- **A log write that fails outside a transaction reports a failure for a write that committed.**
+  `record_write` runs after the domain write, so where the caller opened no transaction — every
+  create, and every retire and revive through `set_inactive_since` — a failed log insert answers 500
+  while the row exists. An administrator then retries and creates a duplicate. The honest fix is that
+  a write and its log row commit together or not at all, which is **BE-19**'s subject rather than
+  this entry's; recorded here because this entry is what gave BE-19 a case with a legal consequence
+  instead of a data-integrity one.
+- **The log page reads at most 1024 rows and sends the API none of its filters.** Search and the
+  facets run client-side over whatever that first page held, so once the log passes
+  `LIST_LIMIT_MAX` the older rows cannot be reached through the interface at all, and the hint
+  telling an administrator to search by correlation id stops finding anything older. The endpoint
+  already takes `collection`, `operation` and `correlation_id`; nothing sends them.
+
+**What this settles for the domain programme.** D30 gates round 3 on this entry, reasoning that
+writes made before an action log exists are writes nobody can reconstruct. The recording is what that
+gate wanted, and the restore is a convenience over the log rather than the thing being waited for — so
+the gate lifts when the recording reaches `main`, not when it is written. Round 3's phases 1 and 2
+write no data and never depended on it; the phases that migrate and generate do, and for those "the
+log exists" has to mean the tree those writes run against.
+
+**An admin write still overwrites in place; what changed is that the log keeps what it replaced.** A
+result is `$set` over its predecessor, and the write that destroys the most is one nobody asked for —
+applying a bracket advancement clears the advanced fixture's `ergebnis` and `elfmeterschiessen`
 (`fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`), so correcting a quarter-final
-silently deletes a semi-final scoreline that a person had entered.
-That destruction is made **visible** and deliberately not **recoverable** beyond a fifteen-second
-undo — which is the question this entry carries.
+silently deletes a semi-final scoreline that a person had entered. That destruction is now recorded
+and attributable. Making it **recoverable** past the fifteen-second undo is what this entry still
+carries.
 
 **What the reference model does.** Federation administration software treats a disciplinary action as
 a case with an audit trail, because a disqualification is a decision somebody has to be able to
@@ -101,29 +137,32 @@ that is built — a disqualification carries a reason and a date — but a
 reason and a date on the current state is not a history: it says why the team is disqualified, never
 what its standing was a week ago.
 
-**What I have asked this to become (2026-08-06): an admin action-log page listing every edit and every
-add, with a smarter undo built over it.** That fixes what is recorded, where it goes, and whether a
-restore is offered:
+**What I asked this to become (2026-08-06): an admin action-log page listing every edit and every add,
+with a smarter undo built over it.** What is recorded and where it goes are settled; the restore is not:
 
-- **What is recorded:** every write, not only the destructive ones. A page that lists half of them is a
-  page nobody trusts.
+- **What is recorded:** every write, not only the destructive ones — a page that lists half of them is
+  a page nobody trusts. Settled by recording at the one chokepoint every write passes through, so
+  completeness is structural rather than a discipline anyone can lapse from.
 - **Where it goes:** a collection, because the page reads it. A log stream is out — `deploy.sh`
   recreates the containers and the history would end at the last deploy (`docs/logging/spec.md`).
-- **Whether a restore is offered:** yes, and that is the smarter undo. The bound to beat is the one
-  the editor already ships: fifteen seconds, held in the browser, gone on reload. An undo over a stored
-  log outlives the fifteen seconds and survives a reload, and it can restore a write nobody was
-  watching at the time — which is the case the client-held one cannot reach.
+- **Whether a restore is offered:** yes, and that is the part still open. The bound to beat is the one
+  the editor already ships: fifteen seconds, held in the browser, gone on reload. A restore over the
+  stored log outlives that and survives a reload, and it reaches a write nobody was watching at the
+  time — the case the client-held one cannot.
 
 **Still open: how long it is kept, and whether it holds personal data.** A squad row names a person, so
-a history of squad edits is a retention decision rather than a storage one.
+a history of squad edits is a retention decision rather than a storage one, and it sits with the
+Datenschutzexperte. Nothing purges a row today, so whatever they answer is additive rather than a
+migration. A third question arrived with the design and is answered: a row keeps the document its
+write replaced, so erasing a person has to reach the log or it leaves them intact there — which
+`redacted_at` is for (`docs/backend/spec.md :: I42`).
 
-**What makes it urgent is a second person who can write, and that now has a year on it.** I confirmed
-on 2026-08-12 that a second person will be writing in the season plan this year. Today the only person
-who can dispute an entry is the one who made it, and from the first shared write that stops being
-true. The cost of delay is the part that cannot be recovered — a log records from the day it exists
-and never backwards, so every write made before it lands is one nobody can reconstruct. The
-client-held undo raises the value of doing it meanwhile: it makes the gap visible on the one surface
-an admin uses most.
+**What made it urgent was a second person who can write, and that is now covered.** I confirmed on
+2026-08-12 that a second person will be writing in the season plan this year, and the cost of delay
+was the part that cannot be recovered: a log records from the day it exists and never backwards. That
+day has passed. What is left carries no such clock — an unrestorable write is recoverable by hand from
+the row that recorded it, slowly, which is a different order of problem from one nobody can
+reconstruct at all.
 
 ### 2 · BE-18 — Five states the code permits are named by neither half of the domain declaration
 
@@ -425,6 +464,11 @@ are already inconsistent enough that a reader cannot tell which one is deliberat
 **Status:** Open\
 **Surfaces:** BE, Docs\
 **Effort:** S\
+**Also covers:** the action log's own pairing. Every write now appends a log row
+(`fl_backend/app/core/recording.py`), and where the caller opened no transaction the two are separate
+writes — so a failed log insert answers 500 for a domain write that committed, and the administrator's
+retry duplicates it. That is this entry's rule applied to a path where getting it wrong costs an
+attribution nobody can reconstruct rather than a row nobody can join. See BE-15.\
 **Path:** Independent — the sweep is below and is done. What is left is where the rule is recorded,
 and whether anything holds a later endpoint to it. Backend audit pass B1's multi-document write check
 (`docs/_auditing/prompts/backend/1-consistency.md`) asks the same question of the code.

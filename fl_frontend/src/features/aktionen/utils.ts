@@ -1,0 +1,34 @@
+import { AKTION_COLLECTION_LABELS } from "./constants";
+
+/** Falls back to the stored name, so a collection the backend adds lists as itself rather than as an empty cell. */
+export function labelForCollection(collection: string): string {
+  return AKTION_COLLECTION_LABELS[collection] ?? collection;
+}
+
+// Europe/Berlin, as every other date in this app is rendered: the log stores UTC, and an admin reading
+// "14:23" for a write they made at 16:23 would look for it on the wrong side of midnight.
+const ZEITPUNKT_DATUM = new Intl.DateTimeFormat("de-DE", {
+  timeZone: "Europe/Berlin",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
+const ZEITPUNKT_UHRZEIT = new Intl.DateTimeFormat("de-DE", {
+  timeZone: "Europe/Berlin",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** `uhrzeit` is null only where `at` could not be read, and `datum` then carries the stored value unchanged. */
+export type AktionZeitpunkt = { datum: string; uhrzeit: string | null };
+
+export function formatAktionZeitpunkt(at: string): AktionZeitpunkt {
+  const instant = new Date(at);
+
+  // The read model refuses no stored value, so an unreadable `at` arrives here rather than failing the
+  // response — and `Intl.format` throws on one, which would take the whole page with it.
+  if (Number.isNaN(instant.getTime())) return { datum: at, uhrzeit: null };
+
+  return { datum: ZEITPUNKT_DATUM.format(instant), uhrzeit: ZEITPUNKT_UHRZEIT.format(instant) };
+}

@@ -1,9 +1,9 @@
 # Backend — overview
 
-**Verified against:** `30a8b1ef`, 2026-08-20\
+**Verified against:** `77078f34`, 2026-08-20\
 **Scope:** `fl_backend/`
 
-A FastAPI application over MongoDB, with a read router and a write router per resource plus `system`. The
+A FastAPI application over MongoDB, with a read router and a write router per resource. The
 single fact that explains most of its shape: **no browser ever talks to this service.** nginx routes `/api`
 here, but the only client is the Next.js container making server-side calls — which is why authentication is
 shared API keys rather than user sessions, and why caching lives entirely in the frontend. The endpoint
@@ -16,34 +16,40 @@ fl_backend/
 ├── app/
 │   ├── asgi.py        the process entry point — the ONE module that builds an app on import
 │   ├── main.py        `create_app()`: middleware, router registration. Builds nothing on import
-│   ├── core/          infrastructure: config · db · security · crud · dependencies · routing
-│   │                  exceptions · exception_handlers · middlewares · logging
+│   ├── core/          infrastructure: config · db · security · crud · recording · dependencies
+│   │                  routing · exceptions · exception_handlers · middlewares · logging
 │   │                  collections · constraints · domain — the declarations read as data
 │   ├── api/<entity>/  one package per entity: router · admin_router · schemas · services · crud
-│   │                  saisons adds cache.py and schedule.py
+│   │                  saisons adds cache.py and schedule.py; aktionen has two of the five
 │   └── shared/        schemas reused across entities (addresses, kontakt, custom types)
 └── tests/             pytest — schema constraints by default; `-m db` adds a real mongod
 ```
 
 `api/<entity>/` is the repeating unit: `router.py` declares endpoints and orchestrates, `schemas.py` holds
 the Pydantic models, `services.py` holds pure query-building and computation, and `crud.py` holds
-slice-level database access more than one endpoint needs. A slice carries only the files it needs. Every
-entity package but `system` has both routers, all mounted under `/api/v{API_VERSION}`, a constant of the code
-rather than a setting ([`spec.md`](spec.md) §1.5).
+slice-level database access more than one endpoint needs. A slice carries only the files it needs. Two
+packages carry one router rather than both: `system`, whose endpoints are all reads, and `aktionen` — the
+action log, which serves back what every admin write recorded and has nothing public to offer. All routers
+are mounted under `/api/v{API_VERSION}`, a constant of the code rather than a setting
+([`spec.md`](spec.md) §1.5).
 
 ## Authorization
 
 Bearer keys, not user identities:
 
-| Key      | Guards                                | Used by                |
-| -------- | ------------------------------------- | ---------------------- |
-| `base`   | every read router                     | every normal page load |
-| `admin`  | every write router                    | every mutation         |
-| `system` | `/system/is_ready` and `/system/info` | health and diagnostics |
+| Key      | Guards                                                 | Used by                          |
+| -------- | ------------------------------------------------------ | -------------------------------- |
+| `base`   | every read router                                      | every normal page load           |
+| `admin`  | every write router, and the action log's read-only one | every mutation, and the log read |
+| `system` | `/system/is_ready` and `/system/info`                  | health and diagnostics           |
 
 Guards sit on the `APIRouter` rather than on an endpoint, so an endpoint reaches the wrong authorization only
 by being written in the wrong file ([`spec.md`](spec.md) I7). `/system/is_live` is deliberately unguarded: it
 is the container healthcheck, and a healthcheck that needs a secret fails for the wrong reasons.
+
+Every admin router declares `bind_actor` in that same `dependencies` list, which is what attributes a write to
+the administrator who made it — and refuses one it cannot attribute, before the handler runs
+([`spec.md`](spec.md) I41).
 
 ## Data access
 
@@ -53,7 +59,9 @@ Collections are injected as typed dependencies rather than reached for directly.
 **The application refuses to start unless MongoDB answers and the database's own constraints apply.**
 `lifespan` pings the server, then `core/constraints.py` reapplies every `$jsonSchema` validator and unique
 index on every boot ([`spec.md`](spec.md) I9 and I15) — so the cluster cannot hold a set this repository does
-not describe, and a constraint survives a restore. Those validators are a hand-written copy of the schema,
+not describe, and a constraint survives a restore. The same pass builds the action log's read indexes, which
+constrain nothing and are declared apart from the unique ones for exactly that reason
+(`fl_backend/app/core/constraints.py :: SupportIndex`). Those validators are a hand-written copy of the schema,
 which keeps the rules where a hand edit lands: `saison_teams` and `saison_spieler` have write payloads but no
 stored-document model, and Compass is reachable whatever the API offers. What holds the copy to its model is
 [`spec.md`](spec.md) I17; the database user's `collMod` requirement is §4.
@@ -63,8 +71,11 @@ helpers are keyword-only and take a session, which is what lets a read inside a 
 transaction's own writes. The query and sort builders behind a list read are pure, so no resource
 translates a filter term or a tie-break chain its own way. The rest is what a write does beyond the driver
 call: a refusal turned into the 409 it means, a retirement written as a date on `inactive_since`, a create
-stamped live. A handler reaches for Motor directly only to iterate a cursor, to sort a single-document
-read, to count without reading the documents, or where absence is a meaningful answer rather than a 404.
+stamped live, and one action-log row appended per write (`app/core/recording.py`). Recording at the one
+chokepoint every write already passes through is what makes that log complete by construction rather than by
+discipline; what a single-document write records and what a fan-out records are [`spec.md`](spec.md) I39 and
+I40. A handler reaches for Motor directly only to iterate a cursor, to sort a single-document read,
+to count without reading the documents, or where absence is a meaningful answer rather than a 404.
 One contract governs the module: a `*_one_*` helper raises on a miss and never returns `None` —
 [`spec.md`](spec.md) I2.
 

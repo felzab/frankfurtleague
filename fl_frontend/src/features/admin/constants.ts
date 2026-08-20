@@ -1,4 +1,15 @@
-import { Calendar, ExclamationShape, Magnifier, MapPin, Medal, Person, PersonPencil, Persons, Sliders } from "@gravity-ui/icons";
+import {
+  Calendar,
+  ClockArrowRotateLeft,
+  ExclamationShape,
+  Magnifier,
+  MapPin,
+  Medal,
+  Person,
+  PersonPencil,
+  Persons,
+  Sliders,
+} from "@gravity-ui/icons";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
@@ -18,6 +29,7 @@ export const ADMIN_SIDEMENU_ICONS = {
   // The season's glyph, never a calendar — that is the Spieltage entry's below.
   Sliders,
   Calendar,
+  ClockArrowRotateLeft,
 } as const satisfies Record<string, React.ElementType>;
 
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
@@ -176,6 +188,27 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             { term: "Stilllegen", detail: "nimmt die Person aus den Auswahllisten, ohne sie zu löschen." },
           ],
           note: "Eine stillgelegte Person bleibt in jedem Spiel stehen, das sie schon nennt.",
+        },
+      },
+    ],
+  },
+
+  {
+    category_name: "System",
+    sub_options: [
+      {
+        id: "aktionen",
+        label: "Änderungsprotokoll",
+        iconName: "ClockArrowRotateLeft",
+        hint: {
+          lead: "Jede Änderung, die über die Verwaltung geschrieben wurde, neueste zuerst.",
+          points: [
+            { term: "Wer", detail: "die angemeldete Person. „System“ steht für einen Lauf ohne Anmeldung, etwa eine Wartung." },
+            { term: "Art", detail: "was geschehen ist. Eine Sammeländerung trifft alle Datensätze eines Filters auf einmal." },
+            { term: "Stand gesichert", detail: "der Datensatz von vor der Änderung liegt in dieser Zeile." },
+            { term: "Vorgangsnummer", detail: "kopiere sie und suche danach, um jede Zeile eines einzelnen Speicherns zu sehen." },
+          ],
+          note: "Das Protokoll ist zum Nachschlagen da. Von hier aus lässt sich nichts zurücknehmen.",
         },
       },
     ],

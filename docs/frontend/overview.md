@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `cf911568`, 2026-08-20\
+**Verified against:** `77078f34`, 2026-08-20\
 **Scope:** `fl_frontend/`
 
 A Next.js application on the App Router, with React, HeroUI and Tailwind. It is both the website and, in
@@ -70,8 +70,8 @@ render this app at all. It does **not** govern Next's own polyfill bundle ([`spe
 ## Copy and metadata
 
 The site addresses its reader as `Du` — informal, capitalised, never `Sie` — with a second register on top of
-that for refusal copy ([`spec.md`](spec.md) §1.12). Every route sets its own `title`, `description` and
-canonical, and `metadataBase` in the root layout is what lets the canonicals be paths (§1.13).
+that for refusal copy ([`spec.md`](spec.md) §1.12). Every public route sets its own `title`, `description`
+and canonical, and `metadataBase` in the root layout is what lets the canonicals be paths (§1.13).
 
 ## Authentication and authorization
 

@@ -20,7 +20,7 @@ import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
-import { appToast } from "@/shared/utils/appToast";
+import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 
 import { buildTeamBanners } from "./banners";
 import { FormAdresseSection } from "./FormAdresseSection";
@@ -36,8 +36,6 @@ import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
-
-const UNDO_TIMEOUT_MS = 15000;
 
 /** What the undo replays: the halves the save wrote, holding their PRE-SAVE values. */
 type TeamUndoPayloads = {
@@ -366,7 +364,6 @@ export function AdminTeamEditForm({
 
     raise("Änderung gespeichert", {
       description: message ?? "Die Teamdaten wurden aktualisiert.",
-      // A decision window, not a reading time — the one case the text's length does not govern.
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",

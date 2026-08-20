@@ -18,12 +18,12 @@ from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, insert_live, patch_one_in_db, post_one_to_db, refuse, set_inactive_since
 from app.core.dependencies import SaisonSpielerCollection, SaisonTeamsCollection, SpielerCollection, get_german_date_str
 from app.core.routing import by_id
-from app.core.security import verify_access_admin
+from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieler",
-    dependencies=[Depends(verify_access_admin)],
+    dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
 )
 
 

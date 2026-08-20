@@ -45,12 +45,12 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.routing import by_id
-from app.core.security import verify_access_admin
+from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spiele",
-    dependencies=[Depends(verify_access_admin)],
+    dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
 )
 
 

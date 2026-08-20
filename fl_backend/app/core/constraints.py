@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from pymongo import ASCENDING
+from pymongo import ASCENDING, DESCENDING
 from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
@@ -46,6 +46,14 @@ _QUELLE_AUSGAENGE = ["sieger", "verlierer"]
 _POSITIONEN = ["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 _STUFEN = ["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 
+# Derived, not spelled: these ARE the collection names, and the log never records itself.
+_LOGGED_COLLECTIONS = [str(name) for name in Collection if name is not Collection.AKTIONEN]
+
+# Mirrors `app/core/recording.py :: Operation` and `:: Actor.kind`; the models are hand-copied here,
+# which is why both move in one commit.
+_AKTION_OPERATIONS = ["insert", "patch_one", "patch_many"]
+_AKTOR_KINDS = ["admin_session", "system"]
+
 
 def _object(*, required: Sequence[str], properties: Mapping[str, Any], nullable: bool = False) -> Mapping[str, Any]:
     """One object sub-schema.
@@ -74,6 +82,20 @@ _ADDRESS = _object(
 _KONTAKT = _object(
     required=("telefon", "email"),
     properties={"telefon": {"bsonType": _STRING_OR_NULL}, "email": {"bsonType": _STRING_OR_NULL}},
+)
+
+_AKTOR = _object(
+    required=("kind", "email"),
+    properties={
+        "kind": {"bsonType": "string", "enum": _AKTOR_KINDS},
+        "email": {"bsonType": "string"},
+    },
+)
+
+_AKTION_REQUEST = _object(
+    required=("method", "path"),
+    properties={"method": {"bsonType": "string"}, "path": {"bsonType": "string"}},
+    nullable=True,
 )
 
 _DISQUALIFIKATION = _object(
@@ -332,6 +354,43 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.AKTIONEN: {
+        "$jsonSchema": _object(
+            required=(
+                "_id",
+                "at",
+                "actor",
+                "correlation_id",
+                "request",
+                "collection",
+                "operation",
+                "document_id",
+                "db_filter",
+                "before",
+                "modified_count",
+                "redacted_at",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "at": {"bsonType": "string"},
+                "actor": _AKTOR,
+                "correlation_id": {"bsonType": "string"},
+                "request": _AKTION_REQUEST,
+                "collection": {"bsonType": "string", "enum": _LOGGED_COLLECTIONS},
+                "operation": {"bsonType": "string", "enum": _AKTION_OPERATIONS},
+                # Whatever the recorded collection uses for its own `_id`: an objectId everywhere but
+                # `saisons`, whose is the four-character season string. Null on a fan-out, which
+                # matched a filter rather than one document.
+                "document_id": {"bsonType": ["objectId", "string", "null"]},
+                "db_filter": {"bsonType": ["object", "null"]},
+                # Deliberately unconstrained: it copies a document from whichever collection was
+                # written, so a schema tight enough to be worth having would refuse the next one.
+                "before": {"bsonType": ["object", "null"]},
+                "modified_count": {"bsonType": _INT_OR_NULL},
+                "redacted_at": {"bsonType": _STRING_OR_NULL},
+            },
+        )
+    },
 }
 
 
@@ -350,6 +409,38 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     UniqueIndex(Collection.SAISON_SPIELER, "uniq_spieler_id_saison_id", ("spieler_id", "saison_id"), "one junction row per player per season"),
     UniqueIndex(Collection.SPIELE, "uniq_saison_id_spiel_nr", ("saison_id", "spiel_nr"), "a spiel_nr identifies one match within a season"),
     UniqueIndex(Collection.TEAMS, "uniq_shorthand", ("shorthand",), "a shorthand identifies exactly one team"),
+)
+
+
+@dataclass(frozen=True)
+class SupportIndex:
+    """One read this database would otherwise answer with a collection scan.
+
+    Separate from `UniqueIndex` because dropping one of these costs speed, not correctness.
+    """
+
+    collection: str
+    name: str
+    keys: tuple[tuple[str, int], ...]
+    rule: str
+
+
+# The action log is the one collection that only ever grows, so it is the one whose reads cannot be
+# left to a scan (`app/core/recording.py`).
+SUPPORT_INDEXES: Sequence[SupportIndex] = (
+    SupportIndex(Collection.AKTIONEN, "aktionen_at", (("at", DESCENDING),), "the log page reads newest first"),
+    SupportIndex(
+        Collection.AKTIONEN,
+        "aktionen_correlation_id",
+        (("correlation_id", ASCENDING),),
+        "a write and its fan-out are read as one action",
+    ),
+    SupportIndex(
+        Collection.AKTIONEN,
+        "aktionen_target",
+        (("collection", ASCENDING), ("document_id", ASCENDING)),
+        "one document's history, and the rows a person's erasure must redact",
+    ),
 )
 
 
@@ -392,7 +483,13 @@ async def apply_constraints(db: AsyncIOMotorDatabase) -> ConstraintSummary:
         except OperationFailure as failure:
             raise RuntimeError(f"Could not build unique index '{index.collection}.{index.name}' ({index.rule}): {failure}") from failure
 
-    return ConstraintSummary(validators=len(COLLECTION_VALIDATORS), indexes=len(UNIQUE_INDEXES))
+    for support in SUPPORT_INDEXES:
+        try:
+            await db[support.collection].create_index(list(support.keys), name=support.name)
+        except OperationFailure as failure:
+            raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
+
+    return ConstraintSummary(validators=len(COLLECTION_VALIDATORS), indexes=len(UNIQUE_INDEXES) + len(SUPPORT_INDEXES))
 
 
 @dataclass(frozen=True)

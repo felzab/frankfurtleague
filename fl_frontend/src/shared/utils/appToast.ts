@@ -18,6 +18,12 @@ export function readingDuration(title: string, description?: string): number {
   return Math.min(MAX_MS, Math.max(MIN_MS, NOTICE_MS + characters * MS_PER_CHARACTER));
 }
 
+/**
+ * A decision window, not a reading time — stated rather than derived by `readingDuration`. Long enough to weigh the sentence naming what
+ * went, short enough that the page's data cannot go stale enough for the replay to be refused.
+ */
+export const UNDO_TIMEOUT_MS = 15000;
+
 interface AppToastOptions {
   /** The detail — what the reader needs in order to act. Omit it when the title is the whole message. */
   description?: string;

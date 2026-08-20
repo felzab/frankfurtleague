@@ -1,6 +1,6 @@
 # Ops — runbooks
 
-**Verified against:** `889c31dd`, 2026-08-19\
+**Verified against:** `77078f34`, 2026-08-20\
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
@@ -32,6 +32,11 @@ It writes nothing and exit 0 means clean. Run it whenever `fl_backend/app/core/c
 what it reports, and what a database user without `collMod` produces, are
 [`../backend/spec.md`](../backend/spec.md) §4. `--apply` does the same work startup does, which is how to
 put a corrected constraint in place without waiting for a deploy.
+
+**A change that only adds a read index has nothing for `--check` to answer**, and a clean report is not
+evidence it landed: those indexes constrain nothing, so no stored document can be in breach of one
+(`fl_backend/app/core/constraints.py :: SupportIndex`). `--apply` or the next boot is what builds it, and
+either fails loudly if it cannot.
 
 ## 3. After changing anything about the brand mark
 

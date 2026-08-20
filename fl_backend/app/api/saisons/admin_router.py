@@ -23,11 +23,11 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SaisonTeamsCollection, SpieleCollection, SpieltageCollection, TeamsCollection
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
-from app.core.security import verify_access_admin
+from app.core.security import bind_actor, verify_access_admin
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
-    dependencies=[Depends(verify_access_admin)],
+    dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
 )
 
 # No `tore`: goals belong to whoever scored them, and `_has_taken_place` leaves none to move.

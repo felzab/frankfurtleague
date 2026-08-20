@@ -5,7 +5,13 @@ import { z } from "zod";
 
 export const frontend_config = createEnv({
   server: {
-    API_URL: z.url(),
+    // Must not share AUTH_URL's origin (`docs/backend/spec.md :: I41`): nginx blanks `X-FL-Actor` on
+    // everything it proxies, so an API_URL on the public origin arrives stripped and every admin
+    // write is refused. Caught at boot.
+    API_URL: z.url().refine((raw) => {
+      const authUrl = process.env.AUTH_URL;
+      return !authUrl || new URL(raw).origin !== new URL(authUrl).origin;
+    }, "API_URL must reach the backend directly, not through the public origin AUTH_URL names"),
     API_VERSION: z.coerce.number().int(),
 
     MONGODB_URI: z.string().regex(/^(mongodb(?:\+srv)?):\/\/.+/, "MongoDB URI must start with 'mongodb://' or 'mongodb+srv://'"),

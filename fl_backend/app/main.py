@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
+from app.api.aktionen.admin_router import router as aktionen_admin_router
 from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
@@ -34,6 +35,7 @@ WRITE_ROUTERS = (
     saisons_admin_router,
     spielorte_admin_router,
     schiedsrichter_admin_router,
+    aktionen_admin_router,
 )
 
 

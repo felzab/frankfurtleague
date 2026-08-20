@@ -32,6 +32,7 @@ SPIELER_OID = ObjectId("6890a1b2c3d4e5f607200002")
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607200003")
 SPIELORT_OID = ObjectId("6890a1b2c3d4e5f607200004")
 SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200005")
+AKTION_OID = ObjectId("6890a1b2c3d4e5f607200006")
 
 ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
@@ -118,6 +119,21 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "default_payment": 20,
             "kontakt": {"telefon": None, "email": None},
             "inactive_since": None,
+        },
+        "aktionen": {
+            "_id": AKTION_OID,
+            "at": "2026-03-15T09:30:00+00:00",
+            "actor": {"kind": "admin_session", "email": "admin@example.invalid"},
+            "correlation_id": secrets.token_hex(16),
+            "request": {"method": "PATCH", "path": "/api/v0/teams/{team_id}"},
+            # Any collection but its own: the log records every other one and never itself.
+            "collection": "teams",
+            "operation": "patch_one",
+            "document_id": TEAM_OID,
+            "db_filter": None,
+            "before": {"name": "Lessing"},
+            "modified_count": None,
+            "redacted_at": None,
         },
     }
 

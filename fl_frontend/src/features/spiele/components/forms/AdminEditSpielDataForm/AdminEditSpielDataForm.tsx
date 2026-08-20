@@ -17,7 +17,7 @@ import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
-import { appToast } from "@/shared/utils/appToast";
+import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielDataAction } from "../../../actions";
@@ -56,10 +56,10 @@ import type { CalendarDate, Time } from "@internationalized/date";
 import type { ReactNode } from "react";
 
 /**
- * A decision window, not a reading time: long enough to weigh the sentence naming what went, short
- * enough that the page's copy of the season cannot go stale enough for the replay to be refused.
+ * Long enough to transcribe the only copy of a diagnosis, not merely to read it. Deliberately not `UNDO_TIMEOUT_MS`: this stands over a
+ * restore that never dispatched, so it must not follow the undo window wherever that is taken.
  */
-const UNDO_TIMEOUT_MS = 15000;
+const DIAGNOSIS_TIMEOUT_MS = 15000;
 
 /**
  * A `fetch` rather than a server action: the offer is pressed from another route, where a dispatch
@@ -425,7 +425,6 @@ export function AdminEditSpielDataForm({
 
     raise("Änderung gespeichert", {
       description: message || "Die Spieldaten wurden erfolgreich aktualisiert.",
-      // Stated rather than derived from the sentence's length; see `UNDO_TIMEOUT_MS`.
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",
@@ -466,8 +465,7 @@ export function AdminEditSpielDataForm({
               // stays generic.
               appToast.danger("Rücknahme konnte nicht gesendet werden", {
                 description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
-                // Long enough to transcribe the only copy of the diagnosis, not merely to read it.
-                timeout: 15000,
+                timeout: DIAGNOSIS_TIMEOUT_MS,
               });
             },
           );
