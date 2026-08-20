@@ -31,9 +31,8 @@ SYSTEM_ACTOR_EMAIL = "SYSTEM"
 class Actor:
     """Who a write is attributed to.
 
-    A sub-document rather than a bare address: the backend authenticates a tier, never a person, so
-    `kind` is what records how strongly the identity is held. A later scheme that verifies rather
-    than trusts writes a different `kind`, leaving old rows readable and correctly weaker.
+    A sub-document, not a bare address: the backend authenticates a tier and never a person, so
+    `kind` records how strongly the identity is held. A stronger scheme later writes a different one.
     """
 
     kind: Literal["admin_session", "system"]
@@ -77,12 +76,8 @@ async def record_write(
 ) -> None:
     """Append one row describing a write that has just happened.
 
-    Reached through the target collection's own database handle rather than an injected one, which
-    is what keeps this module off `app/core/db.py`'s import path and out of a cycle.
-
-    Not wrapped in a try: a write nobody could record is a write this feature exists to prevent, so
-    the failure belongs to the caller. Inside a transaction that aborts it, which is the behaviour
-    the erasure redaction depends on.
+    Not wrapped in a try: a write nobody could record is what this feature exists to prevent, and
+    inside a transaction the failure aborts it.
     """
 
     if collection.name == Collection.AKTIONEN:
@@ -111,6 +106,8 @@ async def record_write(
         "redacted_at": None,
     }
 
+    # The target's own database handle, not an injected one: that is what keeps this module off
+    # `app/core/db.py`'s import path and out of a cycle.
     await collection.database[Collection.AKTIONEN].insert_one(row, session=session)
 
 

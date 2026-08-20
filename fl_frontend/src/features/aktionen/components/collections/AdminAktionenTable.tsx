@@ -18,9 +18,9 @@ import { formatAktionZeitpunkt, labelForCollection } from "../../utils";
 import type { AdminAktionRow } from "../../types";
 
 /**
- * A react-aria collection re-rendered while hidden in an Activity tree loses its rows, and the parent's
- * `useSearchParams()` re-renders this one on any navigation. `Table.Body`'s `items` form carries the fix; `memo` is the
- * second layer. **The order is the API's, newest first, and nothing here re-sorts it.**
+ * A react-aria collection re-rendered while hidden loses its rows, and the parent's
+ * `useSearchParams()` re-renders this one on any navigation. `Table.Body`'s `items` form carries the
+ * fix; `memo` is the second layer.
  */
 export const AdminAktionenTable = memo(function AdminAktionenTable({
   aktionenQuery,

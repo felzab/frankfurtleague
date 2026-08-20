@@ -63,8 +63,7 @@ class FLAktion(BaseModel):
     def _as_text(cls, value: Any) -> str | None:
         """An ObjectId everywhere but `saisons`, whose `_id` is already the season string.
 
-        Stringified rather than typed as a union, because the wire carries it only to identify the
-        row a restore targets and a client comparing it never needs to know which it was.
+        Text rather than a union: the wire carries it only to identify the row a restore targets.
         """
 
         return None if value is None else str(value)

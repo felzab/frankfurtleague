@@ -39,8 +39,8 @@ def stored_row(**overrides):
 class TestARecordedRowSurvivesTheResponseModel:
     """The write side is proved elsewhere; nothing proved a stored row could be served back out.
 
-    The log is append-only, so a row the response model cannot render is one nothing can remove --
-    and because the read answers with a list, one such row takes the whole page down with it.
+    Append-only, and the read answers with a list, so one unrenderable row takes the page down and
+    nothing can remove it.
     """
 
     def test_a_stored_pre_image_serializes_to_json(self):

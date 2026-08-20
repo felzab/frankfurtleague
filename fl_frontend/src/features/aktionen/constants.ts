@@ -11,9 +11,8 @@ export const AKTIONEN_CRUD_COPY = {
 } as const;
 
 /**
- * The nine collections a write is recorded against. **Read through
- * `fl_frontend/src/features/aktionen/utils.ts :: labelForCollection`**, never indexed directly: the backend types this
- * field as an open string, so a name added there has to render as itself rather than as nothing.
+ * Read through `fl_frontend/src/features/aktionen/utils.ts :: labelForCollection`, never indexed
+ * directly: the backend types this field as an open string, so an unknown name must render as itself.
  */
 export const AKTION_COLLECTION_LABELS: Record<string, string> = {
   saisons: "Saisons",

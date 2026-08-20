@@ -117,8 +117,10 @@ measured it. Retention is the other half, and it sits with the Datenschutzexpert
 
 **What this settles for the domain programme.** D30 gates round 3 on this entry, reasoning that
 writes made before an action log exists are writes nobody can reconstruct. The recording is what that
-gate wanted and it now exists; the restore is a convenience over the log rather than the thing being
-waited for.
+gate wanted, and the restore is a convenience over the log rather than the thing being waited for — so
+the gate lifts when the recording reaches `main`, not when it is written. Round 3's phases 1 and 2
+write no data and never depended on it; the phases that migrate and generate do, and for those "the
+log exists" has to mean the tree those writes run against.
 
 **An admin write still overwrites in place; what changed is that the log keeps what it replaced.** A
 result is `$set` over its predecessor, and the write that destroys the most is one nobody asked for —
