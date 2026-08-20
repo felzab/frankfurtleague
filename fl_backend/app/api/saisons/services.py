@@ -1,9 +1,9 @@
 from datetime import date
 from typing import Any, Iterable, Mapping, Sequence
 
-from app.api.saisons.schedule import expected_matches, knockout_phases_for, schedule_for
+from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import MAX_QUALIFIERS, FLSaisonPhase, FLSpiel
+from app.api.spiele.schemas import MAX_QUALIFIERS, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSaisonPhase, FLSpiel
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
 from app.core.exceptions import WriteRefusal
@@ -27,10 +27,23 @@ RULES_QUALIFIERS_BELOW_WIRING = "REQ-RULES-004"
 RULES_SAISON_FINISHED = "REQ-RULES-005"
 RULES_QUALIFIERS_ABOVE_GROUP = "REQ-RULES-007"
 RULES_MATCHDAY_OVER_ITS_PHASE = "REQ-RULES-006"
+RULES_DRAW_OUTVALUES_WIN = "REQ-RULES-008"
+RULES_KADER_BELOW_USE = "REQ-RULES-009"
+RULES_FORFEIT_DRAWS_A_KNOCKOUT = "REQ-RULES-010"
 
 # `erlaubte_stufen` stays editable because it bounds what a form offers, never what a stored squad
 # row holds.
-FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers_per_group")
+FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers_per_group", "tiebreak_order")
+
+
+def _forfeit_draws_a_knockout(rules: FLSaisonRules) -> bool:
+    """Whether these rules compose a knockout no-show as a level result.
+
+    `knockout_phases_for` again rather than a second reading of the product, so this and
+    `REQ-RULES-001` cannot disagree about whether the season has a bracket.
+    """
+
+    return bool(knockout_phases_for(qualifier_count(rules))) and rules.forfeit_ergebnis.sieger_tore == rules.forfeit_ergebnis.verlierer_tore
 
 
 def find_rules_refusal(
@@ -40,6 +53,7 @@ def find_rules_refusal(
     proposed: FLSaisonRules,
     occupancy_by_gruppe: dict[FLGruppenNames, int],
     highest_wired_platz: int,
+    largest_squad: int = 0,
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
 ) -> WriteRefusal | None:
     """Why these rules must be refused, or `None`.
@@ -71,6 +85,16 @@ def find_rules_refusal(
             "a group cannot send more teams into the bracket than it holds",
         )
 
+    # The EXCESS again, so a stored violation resubmitted unchanged passes and shrinking it repairs
+    # the season (`docs/backend/spec.md :: I44`).
+    draw_excess = proposed.draw_points - proposed.win_points
+    if draw_excess > 0 and (stored is None or draw_excess > stored.draw_points - stored.win_points):
+        return WriteRefusal(
+            error_code=RULES_DRAW_OUTVALUES_WIN,
+            message=f"a draw would be worth {proposed.draw_points} against {proposed.win_points} for a win; "
+            "no season can make drawing the better result",
+        )
+
     qualifiers = proposed.number_of_groups * proposed.qualifiers_per_group
     stored_qualifiers = None if stored is None else stored.number_of_groups * stored.qualifiers_per_group
     # Against the stored product: an unchanged product carries an unchanged verdict, so equality
@@ -81,6 +105,16 @@ def find_rules_refusal(
             error_code=RULES_BRACKET_IMPOSSIBLE,
             message=f"{proposed.number_of_groups} group(s) x {proposed.qualifiers_per_group} qualifier(s) is {qualifiers}, "
             f"which is not a power of two between 2 and {MAX_QUALIFIERS}; a knockout bracket has no shape for it",
+        )
+
+    # No shoot-out can break it: a composed forfeit discards one, so a level award leaves
+    # `app/api/spiele/services.py :: _outcome_of` advancing nobody. Only the step that pairs the two
+    # is refused (`docs/backend/spec.md :: I44`).
+    if _forfeit_draws_a_knockout(proposed) and (stored is None or not _forfeit_draws_a_knockout(stored)):
+        return WriteRefusal(
+            error_code=RULES_FORFEIT_DRAWS_A_KNOCKOUT,
+            message=f"a no-show would be awarded {proposed.forfeit_ergebnis.sieger_tore}:{proposed.forfeit_ergebnis.verlierer_tore} "
+            "and this season plays a knockout round; a drawn forfeit leaves that round with nobody to advance",
         )
 
     if stored is None:
@@ -102,6 +136,14 @@ def find_rules_refusal(
                 error_code=RULES_CAPACITY_BELOW_USE,
                 message=f"a group already holds {fullest} teams; teams_per_group cannot drop below the fullest group",
             )
+
+    # Only where the patch LOWERS it, on `REQ-RULES-003`'s shape: a cap left where it stands is not
+    # this edit's doing, and refusing it would bar the very edit that repairs the season.
+    if proposed.max_kadergroesse < stored.max_kadergroesse and largest_squad > proposed.max_kadergroesse:
+        return WriteRefusal(
+            error_code=RULES_KADER_BELOW_USE,
+            message=f"a squad already holds {largest_squad} players; max_kadergroesse cannot drop below the largest squad the season holds",
+        )
 
     # Only where the patch LOWERS it: `rules` is required, so a dates-only edit resubmits a count
     # already under the wiring, and refusing that would leave the season unpatchable
@@ -142,8 +184,8 @@ def find_saison_span_refusal(
 ) -> WriteRefusal | None:
     """Why this season's span must be refused, or `None`.
 
-    `spieltag_spans` is each LIVE matchday's `(beginn, ende)`; excluding retired ones is the
-    caller's, retirement being how a mis-dated matchday leaves the schedule.
+    `spieltag_spans` is every matchday of the season, as `(beginn, ende)`: a span the season no
+    longer covers strands the matchday, so the repair is that matchday's dates or the rules.
     """
 
     # Inclusive: a season running 2026-05-01 to 2026-05-01 offers one day, not zero.
@@ -181,7 +223,9 @@ def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
     slot being as unfinished as an unscored match.
     """
 
-    return sorted(spiel.spiel_nr for spiel in spiele if spiel.ergebnis is None and not spiel.is_canceled)
+    # An ABANDONED fixture with no result still owes one, because a replay may follow; the two
+    # states that award nothing owe nothing.
+    return sorted(spiel.spiel_nr for spiel in spiele if spiel.ergebnis is None and spiel.sonderereignis not in SONDEREREIGNIS_WITHOUT_A_RESULT)
 
 
 def find_activation_refusal(*, outgoing_unplayed: Sequence[int]) -> WriteRefusal | None:

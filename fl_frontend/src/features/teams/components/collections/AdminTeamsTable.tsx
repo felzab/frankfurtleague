@@ -8,6 +8,7 @@ import { Calendar, Globe, Pencil, Persons } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateTeamAction } from "@/features/teams/actions";
+import { austrittZustand } from "@/features/teams/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
@@ -59,8 +60,10 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(team.inactive_since)}</span>
       )}
       {team.selected === null && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Nicht aufgenommen</span>}
-      {team.selected?.disqualifikation != null && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>Disqualifiziert</span>}
-      {team.inactive_since === null && team.selected !== null && team.selected.disqualifikation === null && (
+      {team.selected?.austritt != null && (
+        <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>{austrittZustand(team.selected.austritt.type)}</span>
+      )}
+      {team.inactive_since === null && team.selected !== null && team.selected.austritt === null && (
         <>
           {/* The season's own vocabulary: „Aktiv“ is the filter's word for „nicht stillgelegt“, a
               different fact about a different subject. */}

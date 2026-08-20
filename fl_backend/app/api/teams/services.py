@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from itertools import product
-from typing import AbstractSet, Any, Iterable, Mapping, Sequence, get_args
+from itertools import combinations, product
+from typing import AbstractSet, Any, Callable, Iterable, Mapping, Sequence, get_args
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import FLSpiel
+from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_ABSAGE, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpiel
 from app.api.teams.schemas import FLGruppen, FLGruppenNames, FLTeam, FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 from app.core.collections import Collection
 from app.core.crud import build_query
@@ -121,7 +121,7 @@ def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Ma
                         **_fixtures_of_this_team(saison_id, scope),
                         # The flag is the whole rule: `ergebnis: None` beside it would drop the
                         # forfeits, which are nearly every cancellation here.
-                        "is_canceled": True,
+                        "sonderereignis": {"$in": list(SONDEREREIGNIS_COUNTED_AS_ABSAGE)},
                     }
                 },
                 {"$count": ABSAGE_COUNT_NAME},
@@ -141,7 +141,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
 
     base_match: dict[str, Any] = {}
 
-    # Clubs that left the league -- never a team disqualified FOR a season, which keeps its row.
+    # Clubs that left the league -- never a team that left one season, which keeps its row.
     if not filters.include_inactive:
         base_match["inactive_since"] = None
 
@@ -155,7 +155,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
         filters,
         terms={"saison_id", "gruppe"},
         # Translated, not dumped: the row stores a record, never a boolean (`docs/backend/spec.md :: I31`).
-        compiled=None if filters.is_disqualified is None else {"disqualifikation": {"$ne": None} if filters.is_disqualified else None},
+        compiled=None if filters.is_disqualified is None else {"austritt": {"$ne": None} if filters.is_disqualified else None},
     )
 
     lookup_pipeline: list[Mapping[str, Any]] = [{"$match": {"$expr": {"$eq": ["$team_id", "$$base_team_id"]}}}]
@@ -210,7 +210,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
                 },
                 "saison_id": f"${AS_NAME}.saison_id",
                 "gruppe": f"${AS_NAME}.gruppe",
-                "disqualifikation": f"${AS_NAME}.disqualifikation",
+                "austritt": f"${AS_NAME}.austritt",
             }
         }
     )
@@ -243,11 +243,27 @@ def _goal_key(team: FLTeam) -> tuple[int, int]:
     return (team.statistik.tore_geschossen - team.statistik.tore_kassiert, team.statistik.tore_geschossen)
 
 
-def _head_to_head_keys(
+@dataclass(frozen=True)
+class _MiniTable:
+    """The mini-table over one set of teams, and whether it can rank the ones that can place.
+
+    A vacuous (0, 0, 0) -- a team that met none of the others -- is indistinguishable from a real
+    one inside the keys, so the caller is told separately.
+    """
+
+    keys: Mapping[CustomObjectId, tuple[int, int, int]]
+    every_pair_met: bool
+
+    def key_of(self, team: FLTeam) -> tuple[int, ...]:
+        return self.keys[team.id]
+
+
+def _head_to_head_table(
     teams: Sequence[FLTeam],
     spiele: Iterable[FLSpiel],
     rules: FLSaisonRules,
-) -> Mapping[CustomObjectId, tuple[int, int, int]]:
+    placeable: AbstractSet[CustomObjectId],
+) -> _MiniTable:
     """The mini-table over the matches `teams` played against EACH OTHER.
 
     Over the whole tied set, never pair by pair: with three level, "who beat whom" is not
@@ -258,6 +274,7 @@ def _head_to_head_keys(
     punkte = dict.fromkeys(ids, 0)
     geschossen = dict.fromkeys(ids, 0)
     kassiert = dict.fromkeys(ids, 0)
+    met: set[frozenset[CustomObjectId]] = set()
 
     for spiel in spiele:
         counted = _counted_goals(spiel)
@@ -268,6 +285,7 @@ def _head_to_head_keys(
         if team1_id not in ids or team2_id not in ids:
             continue
 
+        met.add(frozenset((team1_id, team2_id)))
         geschossen[team1_id] += tore1
         kassiert[team1_id] += tore2
         geschossen[team2_id] += tore2
@@ -279,35 +297,63 @@ def _head_to_head_keys(
         else:
             punkte[team1_id if tore1 > tore2 else team2_id] += rules.win_points
 
-    return {team_id: (punkte[team_id], geschossen[team_id] - kassiert[team_id], geschossen[team_id]) for team_id in ids}
+    return _MiniTable(
+        keys={team_id: (punkte[team_id], geschossen[team_id] - kassiert[team_id], geschossen[team_id]) for team_id in ids},
+        # Asked of the clubs that can hold a placing, pair by pair rather than counted: a club that
+        # has left the season is ranked here but can place nowhere, so the meetings it never played
+        # decide nothing for the ones that can.
+        every_pair_met=all(frozenset(pair) in met for pair in combinations(ids & placeable, 2)),
+    )
 
 
-def _break_tie(band: Sequence[FLTeam], spiele: Iterable[FLSpiel], rules: FLSaisonRules) -> list[list[FLTeam]]:
-    """Teams level on points, split by goal difference, goals scored, then the head-to-head table.
+def _grouped(band: Sequence[FLTeam], key_of: Callable[[FLTeam], tuple[int, ...]]) -> list[list[FLTeam]]:
+    """`band` split into descending groups by one criterion; a group of one is decided."""
+
+    grouped: dict[tuple[int, ...], list[FLTeam]] = {}
+    for team in band:
+        grouped.setdefault(key_of(team), []).append(team)
+
+    return [grouped[key] for key in sorted(grouped, reverse=True)]
+
+
+def _break_tie(
+    band: Sequence[FLTeam],
+    spiele: Sequence[FLSpiel],
+    rules: FLSaisonRules,
+    placeable: AbstractSet[CustomObjectId],
+) -> list[list[FLTeam]]:
+    """Teams level on points, split by one criterion then the other; `tiebreak_order` picks which leads, where it can.
 
     Every member's figures must already be final -- the caller checks: a team with a match left has
     an unbounded goal difference.
     """
 
-    by_goals: dict[tuple[int, int], list[FLTeam]] = {}
-    for team in band:
-        by_goals.setdefault(_goal_key(team), []).append(team)
+    lead_table = _head_to_head_table(band, spiele, rules, placeable) if rules.tiebreak_order == "direkter_vergleich" else None
+    if lead_table is not None and not lead_table.every_pair_met:
+        # A team that has met none of the others scores a vacuous 0:0, above everyone who lost, so a
+        # comparison missing a pair cannot rank the band: it takes the goal keys, and the mini-table
+        # follows as it does under `tordifferenz`.
+        lead_table = None
 
     tiers: list[list[FLTeam]] = []
-    for goal_key in sorted(by_goals, reverse=True):
-        still_level = by_goals[goal_key]
+    outer = _grouped(band, lead_table.key_of) if lead_table is not None else _grouped(band, _goal_key)
+
+    # One pass, never a recursion back up the chain: a set the second criterion cannot separate is a
+    # genuine tie, reported as one.
+    for still_level in outer:
         if len(still_level) == 1:
             tiers.append(still_level)
             continue
 
-        head_to_head = _head_to_head_keys(still_level, spiele, rules)
-        by_head_to_head: dict[tuple[int, int, int], list[FLTeam]] = {}
-        for team in still_level:
-            by_head_to_head.setdefault(head_to_head[team.id], []).append(team)
+        if lead_table is not None:
+            tiers.extend(_grouped(still_level, _goal_key))
+            continue
 
-        # One pass, never a recursion back up the chain: a set the head-to-head table cannot
-        # separate is a genuine tie, reported as one.
-        tiers.extend(by_head_to_head[key] for key in sorted(by_head_to_head, reverse=True))
+        # Recomputed over THESE teams and refused where they have not all met: a table that cannot
+        # rank them ranks nobody, wherever it sits in the chain, and the criterion that led is
+        # already level across them -- so what is left is a genuine tie.
+        inner_table = _head_to_head_table(still_level, spiele, rules, placeable)
+        tiers.extend(_grouped(still_level, inner_table.key_of) if inner_table.every_pair_met else [still_level])
 
     return tiers
 
@@ -316,7 +362,7 @@ def _tiers(
     teams: Sequence[FLTeam],
     punkte: Mapping[CustomObjectId, int],
     settled: AbstractSet[CustomObjectId],
-    spiele: Iterable[FLSpiel],
+    spiele: Sequence[FLSpiel],
     rules: FLSaisonRules,
 ) -> list[list[FLTeam]]:
     """`teams` in descending bands; a band of one is a decided position.
@@ -329,6 +375,12 @@ def _tiers(
     for team in teams:
         by_punkte.setdefault(punkte[team.id], []).append(team)
 
+    # Derived here so both callers ask one question: `build_gruppen` ranks a club that has left and
+    # `build_decided_standings` never sees one, so completeness judged over whoever is present
+    # splits the two surfaces (`docs/backend/spec.md :: I24`).
+    still_to_play = _still_to_play(spiele)
+    placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0)))
+
     tiers: list[list[FLTeam]] = []
     for score in sorted(by_punkte, reverse=True):
         band = by_punkte[score]
@@ -338,7 +390,7 @@ def _tiers(
             tiers.append(band)
             continue
 
-        tiers.extend(_break_tie(band, spiele, rules))
+        tiers.extend(_break_tie(band, spiele, rules, placeable))
 
     return tiers
 
@@ -346,7 +398,7 @@ def _tiers(
 def _may_hold_a_platz(team: FLTeam, still_to_play: int) -> bool:
     """Whether a team can hold a placing a bracket slot could name (`docs/backend/spec.md :: I24b`)."""
 
-    return team.disqualifikation is None and (team.statistik.anzahl_gespielte_spiele + still_to_play) > 0
+    return team.austritt is None and (team.statistik.anzahl_gespielte_spiele + still_to_play) > 0
 
 
 def _spiele_by_gruppe(
@@ -370,7 +422,7 @@ def _spiele_by_gruppe(
             by_gruppe[left].append(spiel)
             continue
 
-        if _counted_goals(spiel) is None and not spiel.is_canceled:
+        if _counted_goals(spiel) is None and spiel.sonderereignis not in SONDEREREIGNIS_WITHOUT_A_RESULT:
             if spiel.team1 is None and spiel.team2 is None:
                 # NO side to attribute, so nothing can say which group it lands in.
                 unattributable.update(get_args(FLGruppenNames))
@@ -385,7 +437,7 @@ def _still_to_play(spiele: Iterable[FLSpiel]) -> Mapping[CustomObjectId, int]:
 
     counts: dict[CustomObjectId, int] = {}
     for spiel in spiele:
-        if _counted_goals(spiel) is not None or spiel.is_canceled:
+        if _counted_goals(spiel) is not None or spiel.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT:
             continue
         for side in (spiel.team1, spiel.team2):
             if side is not None:
@@ -421,7 +473,10 @@ def _decide_one_gruppe(
     open_pairs: list[tuple[CustomObjectId, CustomObjectId]] = [
         (spiel.team1.team_id, spiel.team2.team_id)
         for spiel in spiele
-        if _counted_goals(spiel) is None and not spiel.is_canceled and spiel.team1 is not None and spiel.team2 is not None
+        if _counted_goals(spiel) is None
+        and spiel.sonderereignis not in SONDEREREIGNIS_WITHOUT_A_RESULT
+        and spiel.team1 is not None
+        and spiel.team2 is not None
     ]
 
     eligible = [team for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0))]
@@ -475,7 +530,7 @@ def _placings(
     teams: Sequence[FLTeam],
     punkte: Mapping[CustomObjectId, int],
     settled: AbstractSet[CustomObjectId],
-    spiele: Iterable[FLSpiel],
+    spiele: Sequence[FLSpiel],
     rules: FLSaisonRules,
 ) -> Mapping[int, FLTeam]:
     """The placings one points table pins down. A band holding several teams pins none of them."""
@@ -575,7 +630,7 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
                 "from": Collection.SAISON_TEAMS,
                 "localField": "_id",
                 "foreignField": "team_id",
-                "pipeline": [{"$project": {"_id": 0, "saison_id": 1, "gruppe": 1, "disqualifikation": 1}}],
+                "pipeline": [{"$project": {"_id": 0, "saison_id": 1, "gruppe": 1, "austritt": 1}}],
                 "as": "memberships",
             }
         },
@@ -616,8 +671,8 @@ def find_gruppe_move_refusal(*, saison_status: str, fixtures_drawn: int) -> Writ
 def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> WriteRefusal | None:
     """Why entering this team into the season must be refused, or `None`.
 
-    `occupied` is the group's row count, DISQUALIFIED rows included: a team never leaves a season,
-    so its place stays taken.
+    `occupied` is the group's row count, rows carrying an `austritt` included: a team never leaves a
+    season, so its place stays taken.
     """
 
     if saison_status != "future":
@@ -647,17 +702,18 @@ SWAP_SPIELTAG_CLASH = "REQ-SWAP-005"
 SWAP_FIELDS_DISQUALIFIED = "REQ-SWAP-006"
 
 
-def fixtures_newly_fielding_a_disqualified_club(
+def fixtures_newly_fielding_a_departed_club(
     *,
     team1_id: Any,
     team2_id: Any,
-    disqualified_since: Mapping[Any, str | None],
+    departed_since: Mapping[Any, str | None],
     gruppenphase_spiele: Sequence[Mapping[str, Any]],
 ) -> int:
-    """How many group fixtures the exchange would move a disqualified club onto.
+    """How many group fixtures the exchange would move a club that has left the season onto.
 
     `find_eligibility_refusal`'s boundary: ON OR AFTER the effective day, and an UNDATED fixture
-    counts too, since it can still be dated after the disqualification.
+    counts too, since it can still be dated after the exit. Which ROUTE out it was does not enter:
+    a withdrawal keeps a club off a later fixture exactly as a disqualification does.
     """
 
     arriving = {team1_id: team2_id, team2_id: team1_id}
@@ -671,7 +727,7 @@ def fixtures_newly_fielding_a_disqualified_club(
             if incoming is None:
                 continue
 
-            effective_from = disqualified_since.get(incoming)
+            effective_from = departed_since.get(incoming)
             if effective_from is None:
                 continue
 
@@ -691,7 +747,7 @@ def find_gruppe_swap_refusal(
     played_knockout_fixtures: int,
     played_gruppenphase_fixtures: int,
     clashing_spieltage: int,
-    disqualified_fixtures: int,
+    departed_fixtures: int,
 ) -> WriteRefusal | None:
     """Why exchanging these two clubs' groups must be refused, or `None`.
 
@@ -726,9 +782,7 @@ def find_gruppe_swap_refusal(
 
         return WriteRefusal(
             error_code=SWAP_KNOCKOUT_STARTED,
-            message=(
-                f"{played_knockout_fixtures} knockout {noun} already been played or called off; the bracket has been seeded from these groups"
-            ),
+            message=(f"{played_knockout_fixtures} knockout {noun} already left a record; the bracket has been seeded from these groups"),
         )
 
     # Narrowed to these two clubs: this rule is about their own participation.
@@ -737,7 +791,7 @@ def find_gruppe_swap_refusal(
 
         return WriteRefusal(
             error_code=SWAP_GRUPPENPHASE_PLAYED,
-            message=f"{played_gruppenphase_fixtures} gruppenphase {noun} already been played or called off for these two clubs; "
+            message=f"{played_gruppenphase_fixtures} gruppenphase {noun} already left a record for these two clubs; "
             "a club that has played inside its group cannot leave it without leaving a round robin that is not one",
         )
 
@@ -750,13 +804,13 @@ def find_gruppe_swap_refusal(
             "a club plays at most one match per spieltag, and a bracket side does not move with the swap",
         )
 
-    if disqualified_fixtures > 0:
-        noun = "fixture" if disqualified_fixtures == 1 else "fixtures"
+    if departed_fixtures > 0:
+        noun = "fixture" if departed_fixtures == 1 else "fixtures"
 
         return WriteRefusal(
             error_code=SWAP_FIELDS_DISQUALIFIED,
-            message=f"the exchange would field a disqualified club in {disqualified_fixtures} {noun} dated on or after its "
-            "disqualification; lift the disqualification, swap, then re-apply it",
+            message=f"the exchange would field a club that has left the season in {departed_fixtures} {noun} dated on or "
+            "after its exit; lift the austritt, swap, then re-apply it",
         )
 
     return None

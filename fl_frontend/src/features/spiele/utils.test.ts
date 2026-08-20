@@ -10,6 +10,7 @@ import {
   computeErgebnisFor,
   computeSpielStatus,
   deriveSlotHerkunft,
+  describeBracketFaultOnCard,
   formatBracketFault,
   formatElfmeterschiessen,
   formatQuelle,
@@ -23,6 +24,7 @@ import {
   toPatchPayload,
 } from "./utils.ts";
 
+import type { FLAustrittType } from "../teams/schemas.ts";
 import type { FLBracketFault, FLSpiel, FLSpielAdvancement } from "./schemas.ts";
 
 const TODAY = "2026-07-29";
@@ -39,36 +41,47 @@ function makeSpiel(ergebnis: string | null): FLSpiel {
 }
 
 describe("computeSpielStatus", () => {
-  it("returns 'abgesagt' regardless of date", () => {
-    assert.equal(computeSpielStatus({ datum: "2020-01-01", isCanceled: true, today: TODAY }), "abgesagt");
-    assert.equal(computeSpielStatus({ datum: "2099-01-01", isCanceled: true, today: TODAY }), "abgesagt");
+  it("returns 'abgesagt' regardless of date for every event that means the match did not happen", () => {
+    for (const sonderereignis of ["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "annulliert"] as const) {
+      assert.equal(computeSpielStatus({ datum: "2020-01-01", sonderereignis, today: TODAY }), "abgesagt", sonderereignis);
+      assert.equal(computeSpielStatus({ datum: "2099-01-01", sonderereignis, today: TODAY }), "abgesagt", sonderereignis);
+    }
   });
 
-  // isCanceled must win over a null date, or a cancelled undated match reads as merely unknown.
+  // The one member this chip does NOT collapse: an abandoned match happened, so it reads by date like
+  // any other. Folding it in would make four events answer as one, which is what each set exists to stop.
+  it("reads 'abgebrochen' by date, never as 'abgesagt'", () => {
+    assert.equal(computeSpielStatus({ datum: "2026-07-28", sonderereignis: "abgebrochen", today: TODAY }), "vergangen");
+    assert.equal(computeSpielStatus({ datum: TODAY, sonderereignis: "abgebrochen", today: TODAY }), "heute");
+    assert.equal(computeSpielStatus({ datum: "2099-01-01", sonderereignis: "abgebrochen", today: TODAY }), "ausstehend");
+    assert.equal(computeSpielStatus({ datum: null, sonderereignis: "abgebrochen", today: TODAY }), "unbekannt");
+  });
+
+  // The event must win over a null date, or an undated cancelled match reads as merely unknown.
   it("prefers 'abgesagt' over 'unbekannt' when the date is null", () => {
-    assert.equal(computeSpielStatus({ datum: null, isCanceled: true, today: TODAY }), "abgesagt");
+    assert.equal(computeSpielStatus({ datum: null, sonderereignis: "ausgefallen", today: TODAY }), "abgesagt");
   });
 
   it("returns 'unbekannt' for a null date", () => {
-    assert.equal(computeSpielStatus({ datum: null, isCanceled: false, today: TODAY }), "unbekannt");
+    assert.equal(computeSpielStatus({ datum: null, sonderereignis: null, today: TODAY }), "unbekannt");
   });
 
   it("returns 'ausstehend' for a future date", () => {
-    assert.equal(computeSpielStatus({ datum: "2026-07-30", isCanceled: false, today: TODAY }), "ausstehend");
+    assert.equal(computeSpielStatus({ datum: "2026-07-30", sonderereignis: null, today: TODAY }), "ausstehend");
   });
 
   it("returns 'heute' for today", () => {
-    assert.equal(computeSpielStatus({ datum: TODAY, isCanceled: false, today: TODAY }), "heute");
+    assert.equal(computeSpielStatus({ datum: TODAY, sonderereignis: null, today: TODAY }), "heute");
   });
 
   it("returns 'vergangen' for a past date", () => {
-    assert.equal(computeSpielStatus({ datum: "2026-07-28", isCanceled: false, today: TODAY }), "vergangen");
+    assert.equal(computeSpielStatus({ datum: "2026-07-28", sonderereignis: null, today: TODAY }), "vergangen");
   });
 
   // Lexicographic on YYYY-MM-DD, so correct only while both operands are zero-padded.
   it("compares correctly across month and year boundaries", () => {
-    assert.equal(computeSpielStatus({ datum: "2026-08-01", isCanceled: false, today: "2026-07-31" }), "ausstehend");
-    assert.equal(computeSpielStatus({ datum: "2025-12-31", isCanceled: false, today: "2026-01-01" }), "vergangen");
+    assert.equal(computeSpielStatus({ datum: "2026-08-01", sonderereignis: null, today: "2026-07-31" }), "ausstehend");
+    assert.equal(computeSpielStatus({ datum: "2025-12-31", sonderereignis: null, today: "2026-01-01" }), "vergangen");
   });
 });
 
@@ -310,6 +323,21 @@ describe("formatSpielUpdateMessage", () => {
   });
 });
 
+/** Dated after the fixture, which is what makes it a fault; the callers vary only the route out. */
+function departedFault(austritt_type: FLAustrittType): FLBracketFault {
+  return {
+    reason: "departed_occupant",
+    spiel_id: "6890a1b2c3d4e5f607180029",
+    spiel_nr: 29,
+    side: "team1",
+    team_id: "6890a1b2c3d4e5f607182932",
+    team_name: "Adler",
+    austritt_type,
+    ausgeschieden_seit: "2026-03-01",
+    spiel_datum: "2026-03-15",
+  };
+}
+
 /** The id is read only as a key, so any valid one will do. */
 function gruppeFault(reason: "gruppe_too_small" | "tie_unresolved", gruppe: "A" | "B", platz: number): FLBracketFault {
   return { reason, spiel_id: "6890a1b2c3d4e5f607180025", spiel_nr: 25, gruppe, platz };
@@ -320,7 +348,7 @@ describe("toPatchPayload and buildUndoPayloads", () => {
     ({
       id: `6890a1b2c3d4e5f6071800${String(spielNr).padStart(2, "0")}`,
       spiel_nr: spielNr,
-      is_canceled: false,
+      sonderereignis: null,
       team1: { team_id: TEAM_1, name: "Team A", tore: ergebnis === null ? null : Number(ergebnis.split(":")[0]), shorthand: "TA" },
       team2: { team_id: TEAM_2, name: "Team B", tore: ergebnis === null ? null : Number(ergebnis.split(":")[1]), shorthand: "TB" },
       team1_quelle: null,
@@ -339,10 +367,10 @@ describe("toPatchPayload and buildUndoPayloads", () => {
     assert.deepEqual(Object.keys(toPatchPayload(fixture(29, "2:0"))).sort(), [
       "datum",
       "elfmeterschiessen",
-      "is_canceled",
       "notiz",
       "ort",
       "schiedsrichter",
+      "sonderereignis",
       "spiel_id",
       "team1",
       "team1_quelle",
@@ -382,7 +410,7 @@ describe("toPatchPayload and buildUndoPayloads", () => {
     assert.equal("ergebnis" in toPatchPayload(fixture(29, "2:0")), false);
   });
 
-  it("does not carry a side's joined disqualifikation onto the write path", () => {
+  it("does not carry a side's joined austritt onto the write path", () => {
     // Structural typing accepts the joined side wherever the stored one is asked for, so nothing in
     // the toolchain sees this: only Zod's `strip` keeps the join off the wire, and Pydantic's
     // `extra="ignore"` keeps it out of the document.
@@ -393,7 +421,7 @@ describe("toPatchPayload and buildUndoPayloads", () => {
         name: "Team A",
         tore: 2,
         shorthand: "TA",
-        disqualifikation: { grund: "Nicht angetreten", datum: "2026-03-01" },
+        austritt: { type: "rueckzug", grund: "Die Schule hat den Standort geschlossen", datum: "2026-03-01" },
       },
     } as FLSpiel;
 
@@ -473,6 +501,24 @@ describe("formatBracketFault", () => {
       formatBracketFault({ reason: "same_team", spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29 }),
       "In Spiel 29 führen beide Seiten zur selben Mannschaft",
     );
+  });
+
+  // **The route out has to be named, never assumed.** Both words come from the teams slice's own
+  // table, so a divergence between the two slices fails here.
+  it("names which way a departed occupant left, on both wordings", () => {
+    assert.match(formatBracketFault(departedFault("disqualifikation")), /disqualifiziert seit 01\.03\.2026/);
+    assert.match(formatBracketFault(departedFault("rueckzug")), /zurückgezogen seit 01\.03\.2026/);
+
+    assert.match(describeBracketFaultOnCard(departedFault("disqualifikation")), /seit dem 01\.03\.2026 disqualifiziert/);
+    assert.match(describeBracketFaultOnCard(departedFault("rueckzug")), /seit dem 01\.03\.2026 zurückgezogen/);
+  });
+
+  // An undated fixture is reported too — nothing shows it was played before the exit took effect.
+  it("says the undated case cannot be cleared by the dates alone", () => {
+    const undated = { ...departedFault("rueckzug"), spiel_datum: null };
+
+    assert.match(formatBracketFault(undated), /Das Spiel hat kein Datum/);
+    assert.match(describeBracketFaultOnCard(undated), /Ohne Spieldatum/);
   });
 });
 

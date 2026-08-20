@@ -5,6 +5,7 @@ import { Autocomplete, FieldError, Label, ListBox, SearchField, useFilter } from
 import { dismissControl } from "@/core/dismissControl";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { formatQuelle, isDirectlyPrecedingRound, listFeederSpiele, quelleKey, toStoredSide } from "@/features/spiele/utils";
+import { austrittZustand } from "@/features/teams/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
@@ -224,14 +225,16 @@ export function FormTeamPicker({
   // recorded result, and a draft that already cleared the goals is the edit doing exactly that.
   const hasStoredGoals = (fieldName === "team1" ? spielData.team1 : spielData.team2)?.tore != null;
 
-  // From `teams`, not the payload: the payload holds the embedded display copy, while the
-  // disqualification is joined onto the list on every read.
-  const isSelectedDisqualified =
-    teamPayload !== null && teams.find((candidate) => candidate.id === teamPayload.team_id)?.disqualifikation != null;
+  // From `teams`, not the payload: the payload holds the embedded display copy, while the exit
+  // record is joined onto the list on every read. The RECORD rather than a flag, so the badge below
+  // can say which way the club left.
+  const selectedAustritt = (teamPayload === null ? null : teams.find((candidate) => candidate.id === teamPayload.team_id)?.austritt) ?? null;
 
+  // Any `austritt`, whichever type: a club that has left is unpickable however it left, which is
+  // what `REQ-ELIGIBILITY-001` refuses.
   const disabledTeamKeys = [
     ...(disabledTeamId ? [disabledTeamId] : []),
-    ...teams.filter((team) => team.disqualifikation !== null || spieltagOccupancy.has(team.id)).map((team) => team.id),
+    ...teams.filter((team) => team.austritt !== null || spieltagOccupancy.has(team.id)).map((team) => team.id),
   ];
 
   const teamPicker = (
@@ -256,8 +259,10 @@ export function FormTeamPicker({
           {teamPayload?.name ?? PLACEHOLDER.slot}
         </span>
         {/* A SIBLING of the truncating span: the free space above parks it at the trailing edge,
-            so the clear button does not move when a team is disqualified. */}
-        {isSelectedDisqualified && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong ms-2 shrink-0`}>Disqualifiziert</span>}
+            so the clear button does not move when a team has left the season. */}
+        {selectedAustritt !== null && (
+          <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong ms-2 shrink-0`}>{austrittZustand(selectedAustritt.type)}</span>
+        )}
         {/* Withheld while this side carries goals: emptying it would take them and the composed
             `ergebnis` with it, which `REQ-RESULT-001` refuses. Switching the team stays available
             through the list. */}
@@ -302,8 +307,8 @@ export function FormTeamPicker({
               // One chip per row, blocking reasons before the advisory one. The unqualified team
               // stays pickable: correcting a hand-run season needs it.
               const chip =
-                item.disqualifikation !== null
-                  ? { text: "Disqualifiziert", cls: "bg-danger/15 text-danger-strong" }
+                item.austritt !== null
+                  ? { text: austrittZustand(item.austritt.type), cls: "bg-danger/15 text-danger-strong" }
                   : occupiedBy !== undefined
                     ? { text: `Schon in Spiel ${occupiedBy}`, cls: "bg-danger/15 text-danger-strong" }
                     : isKnockout && !knockoutTeamIds.has(item.id)

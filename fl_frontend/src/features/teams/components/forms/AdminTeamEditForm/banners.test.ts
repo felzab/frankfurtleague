@@ -11,8 +11,8 @@ const build = (overrides: Partial<Parameters<typeof buildTeamBanners>[0]> = {}):
     saisonId: "2026",
     saisonStatus: "future",
     isMember: true,
-    storedDisqualifikation: null,
-    isDisqualified: false,
+    storedAustritt: null,
+    hasAustritt: false,
     isGruppeLocked: false,
     isGruppeChanged: false,
     ...overrides,
@@ -48,19 +48,27 @@ describe("buildTeamBanners", () => {
     assert.match(closed("past"), /beendet/);
   });
 
-  it("tells entering a disqualification apart from lifting one", () => {
-    const record = { grund: "Nicht angetreten", datum: "2026-03-12" };
+  it("tells entering an austritt apart from lifting one", () => {
+    const record = { type: "disqualifikation", grund: "Nicht angetreten", datum: "2026-03-12" } as const;
 
-    assert.deepEqual(ids(build({ isDisqualified: true })), ["team.dq-entering"]);
-    assert.deepEqual(ids(build({ storedDisqualifikation: record })), ["team.dq-lifting"]);
+    assert.deepEqual(ids(build({ hasAustritt: true })), ["team.austritt-entering"]);
+    assert.deepEqual(ids(build({ storedAustritt: record })), ["team.austritt-lifting"]);
   });
 
   it("renders the stored reason verbatim, with its date in the title", () => {
-    const record = { grund: "Wiederholt nicht angetreten", datum: "2026-03-12" };
-    const [banner] = build({ isDisqualified: true, storedDisqualifikation: record });
+    const record = { type: "disqualifikation", grund: "Wiederholt nicht angetreten", datum: "2026-03-12" } as const;
+    const [banner] = build({ hasAustritt: true, storedAustritt: record });
 
     assert.equal(banner?.body, record.grund);
     assert.match(banner?.title ?? "", /12\.03\.2026/);
+  });
+
+  it("titles the standing banner from the route, so a withdrawal is not called a disqualification", () => {
+    const standing = (type: "disqualifikation" | "rueckzug") =>
+      build({ hasAustritt: true, storedAustritt: { type, grund: "Schule aufgelöst", datum: "2026-03-12" } })[0]?.title ?? "";
+
+    assert.match(standing("disqualifikation"), /^Disqualifiziert seit/);
+    assert.match(standing("rueckzug"), /^Zurückgezogen seit/);
   });
 
   it("keeps the group warning off a locked group, whatever the draft says", () => {

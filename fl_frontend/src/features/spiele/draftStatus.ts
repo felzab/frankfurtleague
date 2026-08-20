@@ -1,9 +1,11 @@
 import { formatEuro, formatSpielDatum, formatUhrzeit } from "@/shared/utils/format";
 
+import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_NONE_LABEL } from "./constants";
 import { formatQuelle } from "./utils";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
+  FLSonderereignis,
   FLSpiel,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
@@ -28,19 +30,31 @@ export type FLSpielDraftFields = {
   team1_quelle: FLSpielQuelle | null;
   team2_quelle: FLSpielQuelle | null;
   elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;
-  is_canceled: boolean;
+  sonderereignis: FLSonderereignis | null;
   notiz: string | null;
 };
 
 /**
- * **The single statement of the condition.** Two copies would let the form keep a record the panel
- * does not show, submitting a shoot-out no rendered input can carry a message about.
+ * **The single statement of the condition**, read by the panel that offers the control, the draft
+ * that carries the record and the preview that shows it. Two copies would let the form keep a record
+ * the panel does not show, submitting a shoot-out no rendered input can carry a message about.
  */
-export function isLevelKnockout(saisonPhase: FLSpiel["saison_phase"], team1: FLSpielTeamField | null, team2: FLSpielTeamField | null): boolean {
+export function admitsShootOut(
+  saisonPhase: FLSpiel["saison_phase"],
+  team1: FLSpielTeamField | null,
+  team2: FLSpielTeamField | null,
+  sonderereignis: FLSonderereignis | null,
+): boolean {
   const tore1 = team1?.tore ?? null;
   const tore2 = team2?.tore ?? null;
 
   if (saisonPhase === "gruppenphase") return false;
+
+  // A no-show's award is COMPOSED from the season's `forfeit_ergebnis`, and `REQ-RULES-010` refuses a
+  // level one only as a STEP -- so a grandfathered season composes one, and a kept shoot-out would
+  // advance the club that never appeared.
+  if (sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2") return false;
+
   if (tore1 === null || tore2 === null || Number.isNaN(tore1) || Number.isNaN(tore2)) return false;
 
   return tore1 === tore2;
@@ -48,10 +62,14 @@ export function isLevelKnockout(saisonPhase: FLSpiel["saison_phase"], team1: FLS
 
 /**
  * Built once, so readers cannot give two answers to "what am I about to save". `ergebnis` is
- * re-derived and the shoot-out discarded exactly where the write path does, so the preview cannot
- * promise what the save throws away.
+ * re-derived and the shoot-out discarded where the write path does, so the preview cannot promise
+ * what the save throws away. The one figure it cannot mirror is the forfeit's — see below.
  */
 export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): FLSpielWithDraftFields {
+  // A no-show's goals are COMPOSED on the server from the season's forfeit rule, which this page
+  // never loads -- so the preview states no figure rather than one the save overwrites.
+  const isNoShow = draft.sonderereignis === "nichtantreten_team1" || draft.sonderereignis === "nichtantreten_team2";
+
   const team1Tore = draft.team1?.tore ?? null;
   const team2Tore = draft.team2?.tore ?? null;
   const hasBothTore = team1Tore !== null && !Number.isNaN(team1Tore) && team2Tore !== null && !Number.isNaN(team2Tore);
@@ -60,7 +78,10 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
   // Narrowed field by field, not through a compound flag: TypeScript carries the knowledge that
   // both counts are present only when the checks are in the branch itself.
   const storableShootOut =
-    isLevelKnockout(stored.saison_phase, draft.team1, draft.team2) && shootOut !== null && shootOut.team1 !== null && shootOut.team2 !== null
+    admitsShootOut(stored.saison_phase, draft.team1, draft.team2, draft.sonderereignis) &&
+    shootOut !== null &&
+    shootOut.team1 !== null &&
+    shootOut.team2 !== null
       ? { team1: shootOut.team1, team2: shootOut.team2 }
       : null;
 
@@ -74,15 +95,15 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
     team2: draft.team2,
     team1_quelle: draft.team1_quelle,
     team2_quelle: draft.team2_quelle,
-    is_canceled: draft.is_canceled,
-    ergebnis: hasBothTore ? `${team1Tore}:${team2Tore}` : null,
+    sonderereignis: draft.sonderereignis,
+    ergebnis: !isNoShow && hasBothTore ? `${team1Tore}:${team2Tore}` : null,
     elfmeterschiessen: storableShootOut,
     notiz: draft.notiz,
   };
 }
 
 /** On the descriptor, so a surface grouping by panel needs no second path-to-panel mapping. */
-export type FLSpielFieldGroup = "Ansetzung" | "Begegnung" | "Ergebnis" | "Notiz" | "Absage";
+export type FLSpielFieldGroup = "Ansetzung" | "Begegnung" | "Ergebnis" | "Notiz" | "Sonderereignis";
 
 /**
  * A fixture cannot HAPPEN without a date, a time, an occupied slot or a result, while a venue and a
@@ -349,14 +370,15 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
     format: (value: string | null) => (value === null ? null : value.length > 60 ? `${value.slice(0, 59)}…` : value),
   }),
   describeField({
-    path: "is_canceled",
-    group: "Absage",
-    label: "Absage",
+    path: "sonderereignis",
+    group: "Sonderereignis",
+    label: "Sonderereignis",
     expectedWhen: null,
-    read: (source) => source.is_canceled,
-    // Both states get a word: `null` for the going-ahead one made a withdrawn Absage read as a
-    // deletion rather than as the fixture going back on.
-    format: (value: boolean) => (value ? "Abgesagt" : "Angesetzt"),
+    read: (source) => source.sonderereignis,
+    // Every state gets a word, `null` included: a null draft value renders as an emptied field in the
+    // danger grade, so withdrawing an event would read as a deletion rather than as the fixture going
+    // back to normal.
+    format: (value: FLSonderereignis | null) => (value === null ? SONDEREREIGNIS_NONE_LABEL : SONDEREREIGNIS_LABELS[value]),
   }),
 ];
 

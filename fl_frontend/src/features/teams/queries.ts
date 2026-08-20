@@ -18,7 +18,7 @@ export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTea
   "use cache";
 
   // `saison_id` is the only granular dimension: no mutation in the app changes gruppe,
-  // disqualifikation or in_gruppen. `statistik_scope` is a cache KEY, not a tag, so `teams` clears
+  // austritt or in_gruppen. `statistik_scope` is a cache KEY, not a tag, so `teams` clears
   // both scopes.
   const tags: string[] = ["teams"];
   if (filters.saison_id) tags.push(`teams:saison_id:${filters.saison_id}`);

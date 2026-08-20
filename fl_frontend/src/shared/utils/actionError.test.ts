@@ -20,7 +20,7 @@ describe("toActionErrorResult", () => {
     // survive the mapping: the form turns it into a message on a specific side. A dropped
     // code falls back to a toast naming no field.
     const refusals: [string, RegExp][] = [
-      ["REQ-ELIGIBILITY-001", /disqualifiziert/],
+      ["REQ-ELIGIBILITY-001", /ausgeschieden/],
       ["REQ-ELIGIBILITY-002", /nimmt nicht an dieser Saison teil/],
       ["REQ-SPIELTAG-001", /selben Spieltag/],
     ];

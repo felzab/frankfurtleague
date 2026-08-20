@@ -9,11 +9,11 @@ import { Button } from "@heroui/react";
 
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
 import { AdminSpieltagEditForm } from "@/features/spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
+import type { FLSpieltag } from "@/features/spieltage/schemas";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 
 /**
@@ -25,13 +25,13 @@ export function AdminSpieltagEditView({
   spieltag,
   saisonSpan,
   saisonSchedule,
-  livePhaseCount,
+  siblings,
 }: {
   spieltag: AdminSpieltagRow;
   saisonSpan?: { start: string; end: string };
   saisonSchedule?: readonly FLSaisonPhaseSchedule[];
-  /** Live matchdays the stored phase holds, this one included — half of `REQ-RETIRE-005`. */
-  livePhaseCount: number;
+  /** Every matchday of the season, this one included; the position picker filters it by `id`. */
+  siblings?: readonly FLSpieltag[];
 }) {
   const router = useRouter();
 
@@ -44,7 +44,7 @@ export function AdminSpieltagEditView({
         spieltag={spieltag}
         saisonSpan={saisonSpan}
         saisonSchedule={saisonSchedule}
-        livePhaseCount={livePhaseCount}
+        siblings={siblings}
         registerRequestLeave={(requestLeave) => {
           requestLeaveRef.current = requestLeave;
         }}
@@ -61,12 +61,6 @@ export function AdminSpieltagEditView({
               <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
                 <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">{spieltag.label}</h2>
                 <SaisonPhaseChip saisonPhase={spieltag.saison_phase} />
-
-                {spieltag.inactive_since !== null && (
-                  <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>
-                    Stillgelegt seit {formatSpielDatum(spieltag.inactive_since)}
-                  </span>
-                )}
               </div>
               <p className="muted-hint">
                 Saison {spieltag.saison_id} · {formatSpielDatum(spieltag.beginn)} – {formatSpielDatum(spieltag.ende)}

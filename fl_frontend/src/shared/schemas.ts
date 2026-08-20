@@ -59,6 +59,29 @@ export const FLAddressSchema = z.object({
 });
 export type FLAddress = z.infer<typeof FLAddressSchema>;
 
+/**
+ * The two ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Every frontend enforcement point reads
+ * them from here, so the schema below and the inputs bound by them cannot disagree about the cap.
+ */
+export const ADDRESS_STRASSE_MAX_LENGTH = 120;
+export const ADDRESS_STADT_MAX_LENGTH = 80;
+
+/**
+ * Mirrors `FLAddressPayload` — what every write payload embeds. The ceilings are here and not on `FLAddressSchema`,
+ * which the read schemas embed: a stored value over one of them must still parse, or one row fails a whole list.
+ */
+export const FLAddressPayloadSchema = FLAddressSchema.extend({
+  strasse: z
+    .string()
+    .nonempty({ error: "Bitte gib eine Straße ein." })
+    .max(ADDRESS_STRASSE_MAX_LENGTH, { error: `Die Straße darf höchstens ${String(ADDRESS_STRASSE_MAX_LENGTH)} Zeichen lang sein.` }),
+  stadt: z
+    .string()
+    .nonempty({ error: "Bitte gib eine Stadt ein." })
+    .max(ADDRESS_STADT_MAX_LENGTH, { error: `Die Stadt darf höchstens ${String(ADDRESS_STADT_MAX_LENGTH)} Zeichen lang sein.` }),
+});
+export type FLAddressPayload = z.infer<typeof FLAddressPayloadSchema>;
+
 export const FLKontaktSchema = z.object({
   // The message has to sit on the union: with `.or()` the branch messages are unreachable and zod falls
   // back to its own English.

@@ -6,8 +6,11 @@ import { CircleInfo, Persons } from "@gravity-ui/icons";
 
 import { Badge, Popover, Separator } from "@heroui/react";
 
+import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
+
+import type { FLAustrittType } from "@/features/teams/schemas";
 
 /**
  * **Every team this mounts for is a real team** — a fixture side with no occupant renders its
@@ -16,7 +19,7 @@ import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOv
 export function TeamPopoverMenu({
   teamName,
   teamId,
-  teamIsDisqualified,
+  teamAustritt,
   placement = "right",
   onNavigate,
   children,
@@ -24,10 +27,12 @@ export function TeamPopoverMenu({
   teamName: string;
   teamId: string;
   /**
-   * Required, not optional: an optional prop a caller omits compiles clean and renders no badge.
-   * `tsc` is what should catch the next caller that cannot supply it.
+   * The ROUTE out of the season, or `null` while the club competes. Required, not optional: an
+   * optional prop a caller omits compiles clean and renders no badge, and `tsc` is what should catch
+   * the next caller that cannot supply it. The route rather than a boolean, so a club that withdrew
+   * is not badged as one the league threw out.
    */
-  teamIsDisqualified: boolean;
+  teamAustritt: FLAustrittType | null;
   /**
    * `"top"` where the trigger is wide and centred: react-aria flips only on the MAIN axis and never
    * clamps to the viewport, so a vertical placement moves width onto the clamped cross axis.
@@ -81,10 +86,14 @@ export function TeamPopoverMenu({
 
             <Popover.Heading className="fluid-base flex w-full flex-row items-center justify-between font-bold">
               <span className="truncate pr-2">{teamName}</span>
-              {/* `-strong` on the tint, as `SaisontabelleView`'s DQ badge does: at this size the
+              {/* `-strong` on the tint, as `SaisontabelleView`'s badge does: at this size the
                   fill-grade accent measures 3.80:1 on this panel in light. */}
-              {teamIsDisqualified && (
-                <span className="bg-danger/10 text-danger-strong fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">DQ</span>
+              {teamAustritt !== null && (
+                <span
+                  aria-label={austrittZustand(teamAustritt)}
+                  className="bg-danger/10 text-danger-strong fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">
+                  {austrittKuerzel(teamAustritt)}
+                </span>
               )}
             </Popover.Heading>
 

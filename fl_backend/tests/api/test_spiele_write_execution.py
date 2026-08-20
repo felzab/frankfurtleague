@@ -17,8 +17,9 @@ from app.api.spiele.schemas import (
     FLSpielElfmeterschiessen,
     FLSpielListAdapter,
 )
-from app.api.spiele.services import judge_spieltag_occupancy
+from app.api.spiele.services import FIXTURE_DOUBLE_BOOKED, STATE_RESULT_ON_A_NON_EVENT, judge_spieltag_occupancy
 from app.core.collections import Collection
+from app.core.exceptions import DocumentConflictException
 
 pytestmark = pytest.mark.db
 
@@ -68,7 +69,7 @@ def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
 def junction(team_id: ObjectId) -> dict[str, Any]:
     """A dict rather than a model: `saison_teams` has no model of the row."""
 
-    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": "A", "disqualifikation": None}
+    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": "A", "austritt": None}
 
 
 def saison_document() -> dict[str, Any]:
@@ -82,6 +83,9 @@ def saison_document() -> dict[str, Any]:
             "qualifiers_per_group": 2,
             "number_of_groups": 4,
             "teams_per_group": 4,
+            "tiebreak_order": "tordifferenz",
+            "max_kadergroesse": 18,
+            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
             "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
         },
     }
@@ -95,7 +99,6 @@ def spieltag_documents() -> list[dict[str, Any]]:
             "ende": ende,
             "saison_id": SAISON_ID,
             "saison_phase": saison_phase,
-            "inactive_since": None,
         }
         for spieltag_id, (saison_phase, beginn, ende) in SPIELTAGE.items()
     ]
@@ -134,7 +137,7 @@ def spiel_document(
         "schiedsrichter": None,
         "ergebnis": ergebnis,
         "elfmeterschiessen": elfmeterschiessen,
-        "is_canceled": False,
+        "sonderereignis": None,
         "notiz": None,
     }
 
@@ -167,18 +170,35 @@ def bracket_season() -> list[dict[str, Any]]:
     ]
 
 
-def one_spieltag(*, opponent: ObjectId | None, ergebnis: str | None, tore: tuple[int | None, int | None]) -> list[dict[str, Any]]:
+def a_semi_final_recorded_as(sonderereignis: str) -> list[dict[str, Any]]:
+    """The same bracket, with the semi-final settled by `sonderereignis` rather than by play — Gamma awarded 0:3 over Beta."""
+
+    quarter, semi = bracket_season()
+    settled = {"team1": side(BETA, 0), "team2": side(GAMMA, 3), "ergebnis": "0:3", "elfmeterschiessen": None}
+
+    return [quarter, {**semi, **settled, "sonderereignis": sonderereignis}]
+
+
+def one_spieltag(
+    *,
+    opponent: ObjectId | None,
+    ergebnis: str | None,
+    tore: tuple[int | None, int | None],
+    sonderereignis: str | None = None,
+) -> list[dict[str, Any]]:
     """Two group fixtures on ONE matchday: Alpha stands in the first, and the second is about to field it."""
 
+    held = spiel_document(
+        spiel_id=GRUPPE_HELD,
+        spiel_nr=GRUPPE_HELD_NR,
+        spieltag_id=SPIELTAG_GRUPPE,
+        team1=side(ALPHA, tore[0]),
+        team2=None if opponent is None else side(opponent, tore[1]),
+        ergebnis=ergebnis,
+    )
+
     return [
-        spiel_document(
-            spiel_id=GRUPPE_HELD,
-            spiel_nr=GRUPPE_HELD_NR,
-            spieltag_id=SPIELTAG_GRUPPE,
-            team1=side(ALPHA, tore[0]),
-            team2=None if opponent is None else side(opponent, tore[1]),
-            ergebnis=ergebnis,
-        ),
+        {**held, "sonderereignis": sonderereignis},
         spiel_document(
             spiel_id=GRUPPE_FILLING,
             spiel_nr=GRUPPE_FILLING_NR,
@@ -187,6 +207,22 @@ def one_spieltag(*, opponent: ObjectId | None, ergebnis: str | None, tore: tuple
             team2=side(DELTA),
         ),
     ]
+
+
+SPIELORT = ObjectId("6890a1b2c3d4e5f6072200b1")
+
+
+def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
+    """Two group fixtures at one ground on one matchday, the first carrying `sonderereignis`."""
+
+    ort = {"spielort_id": SPIELORT, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80}
+
+    held = spiel_document(spiel_id=GRUPPE_HELD, spiel_nr=GRUPPE_HELD_NR, spieltag_id=SPIELTAG_GRUPPE, team1=side(ALPHA), team2=side(BETA))
+    filling = spiel_document(
+        spiel_id=GRUPPE_FILLING, spiel_nr=GRUPPE_FILLING_NR, spieltag_id=SPIELTAG_GRUPPE, team1=side(GAMMA), team2=side(DELTA)
+    )
+
+    return [{**held, "ort": ort, "sonderereignis": sonderereignis}, {**filling, "ort": ort}]
 
 
 Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
@@ -268,6 +304,49 @@ async def spiele_now(database: AsyncIOMotorDatabase) -> dict[int, dict[str, Any]
     return {row["spiel_nr"]: row for row in rows}
 
 
+class TestTheBookingReadAsksWhoUsedTheGround:
+    """The booking query's mapping, against a real read: set membership elsewhere cannot show which half a member falls in."""
+
+    @pytest.mark.parametrize(
+        ("sonderereignis", "refused"),
+        [("abgebrochen", True), ("ausgefallen", False), ("annulliert", False), ("nichtantreten_team1", False)],
+        ids=["abandoned-occupies", "called-off-frees", "annulled-frees", "no-show-frees"],
+    )
+    def test_only_a_fixture_that_took_place_still_holds_its_slot(self, mongo_replica_set_url: str, sonderereignis: str, refused: bool):
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            spiel_data = await payload_for(database, GRUPPE_FILLING, uhrzeit="18:00:00")
+
+            try:
+                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+            except DocumentConflictException as conflict:
+                return conflict.error_code
+
+            return None
+
+        answered = on_a_seeded_season(mongo_replica_set_url, body, spiele=one_venue_twice(sonderereignis=sonderereignis))
+
+        assert (answered == FIXTURE_DOUBLE_BOOKED) is refused
+
+
+class TestTheStateRefusalIsReachedThroughTheRoute:
+    """That `find_state_refusal` is WIRED, not merely written: an unwired refusal is a green suite and a dead rule."""
+
+    def test_goals_on_a_fixture_that_awards_nothing_are_refused(self, mongo_replica_set_url: str):
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            spiel_data = await payload_for(database, VIERTELFINALE, sonderereignis="ausgefallen", team1=side(ALPHA, 3), team2=side(BETA, 1))
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await call_patch(database, client, VIERTELFINALE, spiel_data)
+
+            return refused.value, await spiele_now(database)
+
+        refused, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season())
+
+        assert refused.error_code == STATE_RESULT_ON_A_NON_EVENT
+        # The whole save is taken back, so the event does not land without the refusal that judges it.
+        assert spiele[VIERTELFINALE_NR]["sonderereignis"] is None
+
+
 class TestASavedResultCarriesThroughTheBracket:
     def test_the_refilled_slot_loses_its_result_and_its_shoot_out(self, mongo_replica_set_url: str):
         """Alpha replaces Beta in the semi-final, and `docs/backend/spec.md :: I25b` says both halves of the old result go."""
@@ -291,6 +370,32 @@ class TestASavedResultCarriesThroughTheBracket:
         (advancement,) = response.advanced_to
         assert advancement.spiel_nr == HALBFINALE_NR
         assert (advancement.voided_ergebnis, advancement.voided_elfmeterschiessen) == ("2:2", FLSpielElfmeterschiessen(team1=4, team2=3))
+
+    @pytest.mark.parametrize(
+        ("stored_event", "after_the_advancement"),
+        [
+            pytest.param("nichtantreten_team1", None, id="the no-show names the slot that was refilled"),
+            pytest.param("nichtantreten_team2", None, id="the no-show names the slot that stayed"),
+            pytest.param("abgebrochen", "abgebrochen", id="an abandonment names no side and survives"),
+        ],
+    )
+    def test_a_refilled_slot_takes_the_no_show_it_was_holding_with_it(
+        self, mongo_replica_set_url: str, stored_event: str, after_the_advancement: str | None
+    ):
+        """A no-show naming a club the bracket replaced describes nobody, and `REQ-STATE-003` then refuses every later save of it."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
+            await call_patch(database, client, VIERTELFINALE, spiel_data)
+
+            return await spiele_now(database)
+
+        spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_semi_final_recorded_as(stored_event))
+
+        # The advancement itself, so the event assertion below cannot pass on a fixture nothing moved.
+        assert spiele[HALBFINALE_NR]["team1"]["team_id"] == ALPHA
+        assert spiele[HALBFINALE_NR]["ergebnis"] is None
+        assert spiele[HALBFINALE_NR]["sonderereignis"] == after_the_advancement
 
     def test_a_save_changing_nothing_advances_nobody(self, mongo_replica_set_url: str):
         """The control for the test above: the seeded season already agrees with its wiring, so that advancement is the save's doing."""
@@ -351,10 +456,13 @@ class ReleaseRun:
 
 class TestAReleaseWritesWhatThePureModelPredicts:
     @pytest.mark.parametrize(
-        ("opponent", "ergebnis", "tore"),
+        ("opponent", "ergebnis", "tore", "sonderereignis"),
         [
-            pytest.param(BETA, "2:1", (2, 1), id="a played fixture whose other side must lose its goals"),
-            pytest.param(None, None, (None, None), id="a fixture with no other side to strip"),
+            pytest.param(BETA, "2:1", (2, 1), None, id="a played fixture whose other side must lose its goals"),
+            pytest.param(None, None, (None, None), None, id="a fixture with no other side to strip"),
+            pytest.param(BETA, "0:3", (0, 3), "nichtantreten_team1", id="a no-show naming the side being emptied"),
+            pytest.param(BETA, "3:0", (3, 0), "nichtantreten_team2", id="a no-show naming the side that stays"),
+            pytest.param(BETA, "2:1", (2, 1), "abgebrochen", id="an abandonment, which names no side"),
         ],
     )
     def test_the_stored_fixture_is_what_apply_release_to_spiel_predicts(
@@ -363,6 +471,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         opponent: ObjectId | None,
         ergebnis: str | None,
         tore: tuple[int | None, int | None],
+        sonderereignis: str | None,
     ):
         """`release_spieltag_sides` writes a hand-built `$set` where the preview applies the model; nothing else holds the two to one answer."""
 
@@ -392,7 +501,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         run = on_a_seeded_season(
             mongo_replica_set_url,
             body,
-            spiele=one_spieltag(opponent=opponent, ergebnis=ergebnis, tore=tore),
+            spiele=one_spieltag(opponent=opponent, ergebnis=ergebnis, tore=tore, sonderereignis=sonderereignis),
         )
 
         assert run.after_save == run.predicted
@@ -402,3 +511,9 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         (released,) = run.saved.released_sides
         assert (released.spiel_nr, released.side, released.team_name) == (GRUPPE_HELD_NR, "team1", "Alpha")
         assert released.voided_ergebnis == ergebnis
+
+        # Asserted on both, so a seed that never landed cannot pass as an event correctly cleared.
+        assert run.before.sonderereignis == sonderereignis
+        # `REQ-STATE-003` refuses a no-show beside an unresolved slot, so one outliving this release
+        # would leave a fixture the admin's next save is refused over.
+        assert run.after_save.sonderereignis == (None if sonderereignis in ("nichtantreten_team1", "nichtantreten_team2") else sonderereignis)

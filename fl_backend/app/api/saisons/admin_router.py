@@ -17,11 +17,19 @@ from app.api.saisons.schemas import (
     FLSwapGruppenResponse,
 )
 from app.api.saisons.services import find_activation_refusal, find_rules_refusal, find_saison_span_refusal, unplayed_spiel_nrs, with_schedule
-from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
-from app.api.teams.services import find_gruppe_swap_refusal, fixtures_newly_fielding_a_disqualified_club
+from app.api.spiele.schemas import KNOCKOUT_PHASES, SONDEREREIGNIS_PRODUCING_A_RECORD, FLSpielListAdapter
+from app.api.teams.services import find_gruppe_swap_refusal, fixtures_newly_fielding_a_departed_club
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
-from app.core.dependencies import DBClient, SaisonsCollection, SaisonTeamsCollection, SpieleCollection, SpieltageCollection, TeamsCollection
+from app.core.dependencies import (
+    DBClient,
+    SaisonsCollection,
+    SaisonSpielerCollection,
+    SaisonTeamsCollection,
+    SpieleCollection,
+    SpieltageCollection,
+    TeamsCollection,
+)
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.security import bind_actor, verify_access_admin
 
@@ -37,7 +45,9 @@ SWAPPED_SIDE_KEYS: tuple[str, ...] = ("team_id", "name", "shorthand")
 def _has_taken_place(spiel: Mapping[str, Any]) -> bool:
     """Whether this fixture happened. NOT `unplayed_spiel_nrs` negated: a half-entered score reads unfinished there."""
 
-    if spiel.get("ergebnis") is not None or spiel.get("is_canceled"):
+    # An abandonment and a no-show each left a record the exchange would rewrite. A fixture called
+    # off or struck out left none, so its sides are still free to move.
+    if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") in SONDEREREIGNIS_PRODUCING_A_RECORD:
         return True
 
     # A fixture can hold `team1.tore` with no `ergebnis` at all, and nothing refuses that shape.
@@ -195,6 +205,7 @@ async def patch_saison(
     saison_teams_collection: SaisonTeamsCollection,
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
+    saison_spieler_collection: SaisonSpielerCollection,
 ) -> FLPatchSaisonResponse:
     """
     Update a season's dates and scoring rules. `status` is on no payload.
@@ -227,8 +238,6 @@ async def patch_saison(
     # fixture's can disagree with.
     attached_by_phase: dict[Any, int] = {}
     phase_of_spieltag: dict[Any, Any] = {}
-    # Retired matchdays counted too, unlike the span read below: retiring one does not release its
-    # fixtures, so filtering here would open a narrowing that strands them.
     async for spieltag in spieltage_collection.find({"saison_id": saison_id}, {"saison_phase": 1}):
         phase_of_spieltag[spieltag["_id"]] = spieltag["saison_phase"]
 
@@ -241,6 +250,16 @@ async def patch_saison(
         if phase is not None:
             attached_by_phase[phase] = max(attached_by_phase.get(phase, 0), attached)
 
+    largest_squad_rows = await saison_spieler_collection.aggregate(
+        [
+            {"$match": {"saison_id": saison_id, "inactive_since": None}},
+            {"$group": {"_id": "$team_id", "held": {"$sum": 1}}},
+            {"$sort": {"held": -1}},
+            {"$limit": 1},
+        ]
+    ).to_list(length=1)
+    largest_squad = int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0
+
     refuse(
         find_rules_refusal(
             saison_status=str(stored_raw["status"]),
@@ -250,15 +269,13 @@ async def patch_saison(
             proposed=saison_data.rules,
             occupancy_by_gruppe=occupancy,
             highest_wired_platz=highest_platz,
+            largest_squad=largest_squad,
             attached_by_phase=attached_by_phase,
         )
     )
 
-    # Retired matchdays excluded: retiring is how a mis-dated one leaves, so it must not block the
-    # repair of the dates it was retired over.
     spieltag_spans = [
-        (str(row["beginn"]), str(row["ende"]))
-        async for row in spieltage_collection.find({"saison_id": saison_id, "inactive_since": None}, {"beginn": 1, "ende": 1})
+        (str(row["beginn"]), str(row["ende"])) async for row in spieltage_collection.find({"saison_id": saison_id}, {"beginn": 1, "ende": 1})
     ]
     refuse(
         find_saison_span_refusal(
@@ -354,7 +371,7 @@ async def swap_gruppen(
     Exchange the groups of two clubs entered in this season, as one write.
 
     Every Gruppenphase fixture fielding either club has that side rewritten in the same transaction,
-    so each group stays a round robin. Neither `tore` nor `disqualifikation` moves.
+    so each group stays a round robin. Neither `tore` nor `austritt` moves.
     """
 
     # A read first, so an unknown season is a 404 rather than a 409 about clubs holding no row in it.
@@ -370,13 +387,13 @@ async def swap_gruppen(
         rows = await pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": {"$in": both_ids}},
-            projection=["team_id", "gruppe", "disqualifikation"],
+            projection=["team_id", "gruppe", "austritt"],
             session=session,
         )
         gruppe_of = {row["team_id"]: row["gruppe"] for row in rows}
 
         # The same rows as the groups, so `REQ-SWAP-006` cannot judge against a stale record.
-        disqualified_since = {row["team_id"]: (row.get("disqualifikation") or {}).get("datum") for row in rows}
+        departed_since = {row["team_id"]: (row.get("austritt") or {}).get("datum") for row in rows}
 
         # Again in-session, because `activate_saison` moves `status` in a transaction of its own.
         saison_raw = await pull_one_from_db(
@@ -392,7 +409,7 @@ async def swap_gruppen(
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
-            projection=["spieltag_id", "datum", "team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "is_canceled"],
+            projection=["spieltag_id", "datum", "team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "sonderereignis"],
             session=session,
         )
 
@@ -401,7 +418,7 @@ async def swap_gruppen(
         knockout_spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
-            projection=["spieltag_id", "team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "is_canceled"],
+            projection=["spieltag_id", "team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "sonderereignis"],
             session=session,
         )
 
@@ -418,10 +435,10 @@ async def swap_gruppen(
                     gruppenphase_spiele=gruppenphase_spiele,
                     knockout_spiele=knockout_spiele,
                 ),
-                disqualified_fixtures=fixtures_newly_fielding_a_disqualified_club(
+                departed_fixtures=fixtures_newly_fielding_a_departed_club(
                     team1_id=swap_data.team1_id,
                     team2_id=swap_data.team2_id,
-                    disqualified_since=disqualified_since,
+                    departed_since=departed_since,
                     gruppenphase_spiele=gruppenphase_spiele,
                 ),
             )

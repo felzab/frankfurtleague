@@ -1,18 +1,16 @@
 "use client";
 
-import { memo, useTransition } from "react";
+import { memo } from "react";
 import Link from "next/link";
 
 import { Globe, Pencil } from "@gravity-ui/icons";
 
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
-import { reactivateSpieltagAction } from "@/features/spieltage/actions";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
-import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
-import { appToast } from "@/shared/utils/appToast";
+import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
@@ -29,27 +27,14 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   filteredSpieltage,
   saisonId,
   phaseProgress,
-  onDelete,
 }: {
   spieltageQuery: string;
   filteredSpieltage: AdminSpieltagRow[];
   /** The season the list is showing, for the outbound Spielplan link. Null where no season exists. */
   saisonId: string | null;
-  /** Each phase's live matchday count against what the season's rules imply. Absent where no season is. */
+  /** Each phase's matchday count against what the season's rules imply. Absent where no season is. */
   phaseProgress?: readonly SpieltagPhaseProgress[];
-  onDelete: (spieltag: AdminSpieltagRow) => void;
 }) {
-  const [, startReactivating] = useTransition();
-
-  // No confirmation step: reactivation is undone by the retire control that takes its place.
-  const handleReactivate = (spieltag: AdminSpieltagRow) => {
-    startReactivating(async () => {
-      const res = await reactivateSpieltagAction({ id: spieltag.id });
-      if (res.success) appToast.success(res.message ?? "Spieltag reaktiviert.");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
-    });
-  };
-
   // A phase with no matchday is skipped rather than rendered empty: an empty heading reads as
   // something missing rather than something not reached.
 
@@ -78,8 +63,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
 
   /**
    * **The heading and the rows count different populations, and neither bounds the other**: the
-   * heading counts the season's LIVE matchdays, the rows whatever the search and facets left, retired
-   * included — the trade for `phasesWithout` reading these too.
+   * heading counts the season's matchdays, the rows whatever the search and facets left.
    */
   const renderPhaseCount = (phase: FLSaisonPhase, shownCount: number) => {
     const progress = progressByPhase.get(phase);
@@ -134,26 +118,6 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
           height={18}
         />
       </RowActionLink>
-      {spieltag.inactive_since !== null ? (
-        <RowActionRestore
-          label="Reaktivieren"
-          ariaLabel={`${spieltag.label} reaktivieren`}
-          onPress={() => handleReactivate(spieltag)}
-        />
-      ) : (
-        <RowActionDelete
-          // Not offered while the matchday holds a result: retiring it would take that result off the
-          // public Spielplan, which `REQ-RETIRE-002` refuses.
-          disabledReason={
-            spieltag.spieleGespielt > 0
-              ? `Stilllegen ist nicht möglich: ${spieltag.spieleGespielt === 1 ? "1 Spiel hat" : `${String(spieltag.spieleGespielt)} Spiele haben`} schon ein Ergebnis.`
-              : null
-          }
-          label="Stilllegen"
-          ariaLabel={`${spieltag.label} stilllegen`}
-          onPress={() => onDelete(spieltag)}
-        />
-      )}
     </RowActions>
   );
 
@@ -185,21 +149,19 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
             {rows.map((spieltag) => (
               <li
                 key={spieltag.id}
-                className={`${card()} flex w-full flex-col gap-y-3 p-4 md:flex-row md:items-center md:gap-x-4 md:gap-y-0 ${
-                  spieltag.inactive_since !== null ? "opacity-80" : ""
-                }`}>
-                {/* The ordinal and the identity share one row at EVERY width: a number belongs
+                className={`${card()} flex w-full flex-col gap-y-3 p-4 md:flex-row md:items-center md:gap-x-4 md:gap-y-0`}>
+                {/* The position and the identity share one row at EVERY width: a number belongs
                     beside the thing it numbers, and its own phone row spends a whole row on one
                     digit. From `md` that row starts the horizontal layout. */}
                 <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"
                     className="bg-brand-solid text-brand-solid-foreground fluid-sm flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold shadow-sm">
-                    {spieltag.ordinal}
+                    {spieltag.position}
                   </span>
 
                   <div className="flex min-w-0 flex-1 flex-col gap-y-1">
-                    {/* The ordinal is decorative for a screen reader — the list order already carries it,
+                    {/* The position is decorative for a screen reader — the list order already carries it,
                         and reading "1" before every name is noise. The name is the row's accessible
                         identity, which is what the action labels name too. */}
                     <span className="fluid-sm text-foreground truncate font-semibold">{spieltag.label}</span>
@@ -213,14 +175,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 md:shrink-0">
-                  {renderSpieleCount(spieltag)}
-                  {spieltag.inactive_since !== null && (
-                    <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>
-                      Stillgelegt seit {formatSpielDatum(spieltag.inactive_since)}
-                    </span>
-                  )}
-                </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 md:shrink-0">{renderSpieleCount(spieltag)}</div>
 
                 <div className="border-border/50 -mx-1 border-t pt-2 md:mx-0 md:shrink-0 md:border-t-0 md:pt-0">{renderActions(spieltag)}</div>
               </li>
@@ -232,11 +187,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       {/* Named once at the foot rather than as empty headings between the sections that have one:
           a season reaches its phases in order, so "not there yet" is normal. Unconditional, because
           `phasesWithout` reads counts no search or facet moves. */}
-      {phasesWithout.length > 0 && (
-        // „aktiven“ is load-bearing: `angelegt` counts live matchdays alone, so a phase whose
-        // only matchday is retired is named here.
-        <p className="muted-meta">Ohne aktiven Spieltag: {phasesWithout.map((phase) => PHASE_LABELS[phase]).join(", ")}.</p>
-      )}
+      {phasesWithout.length > 0 && <p className="muted-meta">Ohne Spieltag: {phasesWithout.map((phase) => PHASE_LABELS[phase]).join(", ")}.</p>}
 
       {/* One link out, at the foot: the same matchdays as a visitor sees them, which is the check that the
           sequence above actually produces the schedule somebody will read. */}

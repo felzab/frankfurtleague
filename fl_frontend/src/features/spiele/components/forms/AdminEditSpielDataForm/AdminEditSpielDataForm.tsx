@@ -21,15 +21,15 @@ import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielDataAction } from "../../../actions";
-import { applyDraftToSpiel, deriveSpielDraftStatus, isLevelKnockout } from "../../../draftStatus";
+import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { buildUndoPayloads, collectKnockoutTeamIds, collectSpieltagTeamOccupancy, listDependentSpiele, toStoredSide } from "../../../utils";
 import { buildSpielBanners } from "./banners";
 import { FormAnsetzungSection } from "./FormAnsetzungSection";
-import { FormCancelSection } from "./FormCancelSection";
 import { FormErgebnisSection } from "./FormErgebnisSection";
 import { FormMatchupSection } from "./FormMatchupSection";
 import { FormNotizSection } from "./FormNotizSection";
+import { FormSonderereignisSection } from "./FormSonderereignisSection";
 import { SpielExpectedProvider } from "./SpielExpectedContext";
 import { SpielRail } from "./SpielRail";
 import { useVoidPreview } from "./useVoidPreview";
@@ -39,6 +39,7 @@ import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
 import type {
   FLPatchSpielDataPayload,
   FLPatchSpielDataPayloadDraft,
+  FLSonderereignis,
   FLSpiel,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
@@ -120,8 +121,8 @@ export function AdminEditSpielDataForm({
    */
   pageHeader?: ReactNode;
   /**
-   * **A function, not a computed set, because the answer has to be live**: toggling Absage stops
-   * the "fehlt" categories applying at once. The rule stays in `admin`, keeping `spiele` from
+   * **A function, not a computed set, because the answer has to be live**: choosing a Sonderereignis
+   * stops the "fehlt" categories applying at once. The rule stays in `admin`, keeping `spiele` from
    * importing the aggregator.
    */
   categorize: (spiel: FLSpielWithDraftFields) => ReadonlySet<ActionRequiredCategory>;
@@ -129,7 +130,7 @@ export function AdminEditSpielDataForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const [spielIsCanceled, setSpielIsCanceled] = useState<boolean>(spielData.is_canceled);
+  const [sonderereignis, setSonderereignis] = useState<FLSonderereignis | null>(spielData.sonderereignis);
   const [ortPayload, setOrtPayload] = useState<FLSpielOrtFieldDraft | null>(spielData.ort);
   const [schiedsrichterPayload, setSchiedsrichterPayload] = useState<FLSpielSchiedsrichterFieldDraft | null>(spielData.schiedsrichter);
 
@@ -137,8 +138,8 @@ export function AdminEditSpielDataForm({
   const [datum, setDatum] = useState<CalendarDate | null>(spielData.datum ? parseDate(spielData.datum) : null);
   const [uhrzeit, setUhrzeit] = useState<Time | null>(spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null);
 
-  // Narrowed, not seeded whole: a read's side carries the season's `disqualifikation`, and a draft
-  // holding it writes that join back into the match document.
+  // Narrowed, not seeded whole: a read's side carries the season's `austritt`, and a draft holding
+  // it writes that join back into the match document.
   const [team1Payload, setTeam1Payload] = useState<FLSpielTeamField | null>(toStoredSide(spielData.team1));
   const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(toStoredSide(spielData.team2));
 
@@ -174,9 +175,11 @@ export function AdminEditSpielDataForm({
       }),
   });
 
-  // Derived rather than handled: a shoot-out describes a knockout that finished level and nothing
-  // else, so every route out of that shape drops it here, where no later handler can forget to.
-  const elfmeterschiessenInDraft = isLevelKnockout(spielData.saison_phase, team1Payload, team2Payload) ? elfmeterschiessen : null;
+  // Derived rather than handled: `admitsShootOut` names every fixture a record belongs to, so every
+  // route out of one drops it here, where no later handler can forget to.
+  const elfmeterschiessenInDraft = admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, sonderereignis)
+    ? elfmeterschiessen
+    : null;
 
   const draft: FLSpielDraftFields = {
     datum: datum?.toString() ?? null,
@@ -189,7 +192,7 @@ export function AdminEditSpielDataForm({
     team1_quelle: team1Quelle,
     team2_quelle: team2Quelle,
     elfmeterschiessen: elfmeterschiessenInDraft,
-    is_canceled: spielIsCanceled,
+    sonderereignis,
     notiz,
   };
 
@@ -255,7 +258,7 @@ export function AdminEditSpielDataForm({
     team1_quelle: team1Quelle,
     team2_quelle: team2Quelle,
     elfmeterschiessen: elfmeterschiessenInDraft,
-    is_canceled: spielIsCanceled,
+    sonderereignis,
   });
   const voidPreview = useVoidPreview({
     previewKey,
@@ -265,11 +268,25 @@ export function AdminEditSpielDataForm({
 
   const isKnockout = spielData.saison_phase !== "gruppenphase";
 
-  // A cancelled fixture with a decided score is legal — a Wertung is entered exactly like this —
-  // but it is also the shape a mistaken cancellation takes, hence the warning.
   const tore1 = team1Payload?.tore ?? null;
   const tore2 = team2Payload?.tore ?? null;
+
+  // `REQ-STATE-002`'s own subject: the write path refuses on ANY goal count standing beside an event
+  // that awards nothing, so a lone 0 in one box is already the refusal.
+  const hasAnyTore = (tore1 !== null && !Number.isNaN(tore1)) || (tore2 !== null && !Number.isNaN(tore2));
+
+  // An abandoned fixture with a decided score may legitimately keep it, or may be waiting for a
+  // replay — the one combination on this page a rule cannot settle, hence the warning.
   const hasDecidedErgebnis = tore1 !== null && tore2 !== null && !Number.isNaN(tore1) && !Number.isNaN(tore2) && tore1 !== tore2;
+
+  // Counts entered rather than a record merely switched on: an empty one is nothing to lose.
+  const hasEnteredShootOut = elfmeterschiessen !== null && (elfmeterschiessen.team1 !== null || elfmeterschiessen.team2 !== null);
+
+  // **The EVENT's doing, asked by giving the same condition no event**: an unlevelled score retracts
+  // a record silently by design and the counts come back with the goals, so only this route — where
+  // the save discards them — is worth announcing.
+  const dropsShootOut =
+    hasEnteredShootOut && elfmeterschiessenInDraft === null && admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, null);
 
   // The void and release entries name fixtures the dry run actually voided, never possibilities —
   // so a `null` preview means "no answer yet" and contributes nothing, not "nothing would be lost".
@@ -280,10 +297,15 @@ export function AdminEditSpielDataForm({
       { fieldName: "team2", label: "Team 2", quelle: team2Quelle, team: team2Payload },
     ],
     knockoutTeamIds,
-    isBeingCalledOff: spielIsCanceled && !spielData.is_canceled,
-    isCanceled: spielIsCanceled,
+    // Any pick differing from the stored one, not only a first event: swapping Ausgefallen for
+    // Annulliert changes what the fixture does as much as acquiring an event does, and the
+    // announcement states what the CHOSEN member means.
+    isNewlyChosen: sonderereignis !== spielData.sonderereignis,
+    sonderereignis,
     dependentSpielNummern: dependentSpiele.map((spiel) => spiel.spiel_nr),
+    hasAnyTore,
     hasDecidedErgebnis,
+    dropsShootOut,
     voidedSpielNummern: voidPreview?.voided ?? [],
     releasedSpielNummern: voidPreview?.released ?? [],
   });
@@ -338,7 +360,7 @@ export function AdminEditSpielDataForm({
   const resetDraftToStored = () => {
     // Every atom listed rather than looped: one added to the `useState` block above and forgotten
     // here leaves `status.changed` non-empty after both exits, silently.
-    setSpielIsCanceled(spielData.is_canceled);
+    setSonderereignis(spielData.sonderereignis);
     setOrtPayload(spielData.ort);
     setSchiedsrichterPayload(spielData.schiedsrichter);
     setDatum(spielData.datum ? parseDate(spielData.datum) : null);
@@ -489,8 +511,10 @@ export function AdminEditSpielDataForm({
 
       const team = teams.find((candidate) => candidate.id === side.team_id);
       switch (errorCode) {
+        // ANY `austritt`, whichever way the club left: `pull_saison_membership` keys the refusal on
+        // the record's `datum` alone, so a withdrawal refuses exactly as a disqualification does.
         case "REQ-ELIGIBILITY-001":
-          return team !== undefined && team.disqualifikation !== null;
+          return team !== undefined && team.austritt !== null;
         case "REQ-ELIGIBILITY-002":
           return team === undefined;
         case "REQ-SPIELTAG-001":
@@ -565,6 +589,7 @@ export function AdminEditSpielDataForm({
               onTeam2Change={setTeam2Payload}
               team1Quelle={team1Quelle}
               team2Quelle={team2Quelle}
+              sonderereignis={sonderereignis}
               elfmeterschiessen={elfmeterschiessenInDraft}
               onElfmeterschiessenChange={setElfmeterschiessen}
               ergebnisCanBeEdited={ergebnisCanBeEdited}
@@ -578,9 +603,12 @@ export function AdminEditSpielDataForm({
               onValidateFields={validateFields}
             />
 
-            <FormCancelSection
-              spielIsCanceled={spielIsCanceled}
-              onSpielIsCanceledChange={setSpielIsCanceled}
+            <FormSonderereignisSection
+              sonderereignis={sonderereignis}
+              // Read off the DRAFT, not the stored fixture: emptying a slot must close the two
+              // no-show states in the same tick, or the form offers what the save then refuses.
+              hasBothSides={team1Payload !== null && team2Payload !== null}
+              onSonderereignisChange={setSonderereignis}
               banners={banners}
             />
           </EditFormLayout>

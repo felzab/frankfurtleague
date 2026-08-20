@@ -35,8 +35,8 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
   // The bracket lines below pair matches by index, so the indices have to follow the wiring:
   // `teamN_quelle` stores the edges, and the arrival `datum` order respects none of them.
   const rounds = orderRoundsByWiring(playoffsSpieltage);
-  // Labelled from the PLAYED order rather than from `rounds`: the ordinal counts a matchday's place
-  // in its phase, not its column.
+  // From the served list, not from `rounds`: the label reads each matchday's own `position`, so the
+  // column order the wiring imposes cannot renumber anything.
   const labels = spieltagLabels(playoffsSpieltage);
 
   return (

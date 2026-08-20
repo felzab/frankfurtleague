@@ -14,10 +14,11 @@ export const FLSpieltagSchema = z.object({
   // Derived from the season's rules, stored nowhere. Zero is legitimate for a phase the bracket does
   // not reach, hence `nonnegative`.
   anzahl_spiele: z.int().nonnegative(),
+  // Stored, unique within one phase of one season, and the ordinal `spieltagLabel` renders — so it
+  // starts at one rather than at zero.
+  position: z.int().min(1),
   saison_phase: FLSaisonPhaseSchema,
   saison_id: z.string().length(4),
-  // Declared because the backend sends it: zod's strip mode discards an undeclared field silently.
-  inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLSpieltag = z.infer<typeof FLSpieltagSchema>;
 
@@ -34,7 +35,6 @@ export const FLSpieltageListResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLSpieltageListResponse = z.infer<typeof FLSpieltageListResponseSchema>;
 
-/** Retired ones included: a caller holding an id was given it by something. */
 export const FLSpieltageSingleResponseSchema = BaseAPIResponseSchema.extend({
   spieltag: FLSpieltagSchema,
 });
@@ -50,8 +50,7 @@ const spieltagPayloadFields = {
   saison_phase: FLSaisonPhaseSchema,
 };
 
-// Guards the list's order as well as the dates: matchdays sort by `beginn` within a phase. The
-// message names `ende`, the field to fix.
+// The message names `ende`, the field to fix.
 const endsAfterItBegins = {
   error: "Das Ende darf nicht vor dem Beginn liegen.",
   path: ["ende"],
@@ -71,15 +70,12 @@ export const FLPatchSpieltagPayloadSchema = z
     // In the PATH on the wire; here because the form has to know which matchday it is saving.
     id: CustomObjectIdStringSchema,
     ...spieltagPayloadFields,
+    // On the edit only: a create appends to its phase, and the server picks that number. There is no
+    // reorder endpoint, so this field is where a matchday moves.
+    position: z.int().min(1, { error: "Bitte wähle eine Position." }),
   })
   .refine((spieltag) => spieltag.ende >= spieltag.beginn, endsAfterItBegins);
 export type FLPatchSpieltagPayload = z.infer<typeof FLPatchSpieltagPayloadSchema>;
-
-/** The retire and reactivate calls: an id in the path, no request body. */
-export const FLSpieltagKeyPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-});
-export type FLSpieltagKeyPayload = z.infer<typeof FLSpieltagKeyPayloadSchema>;
 
 /** `updated_document` is nullable rather than optional: the create answers with the id alone. */
 export const FLSpieltagWriteResponseSchema = BaseAPIResponseSchema.extend({

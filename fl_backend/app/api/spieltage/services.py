@@ -11,37 +11,36 @@ from app.core.exceptions import WriteRefusal
 def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
     """The Mongo sort -- for the natural order an APPROXIMATION, refined by `order_spieltage`.
 
-    `beginn` first, because phases run in date order: the documents arrive within a swap or two of
-    their final positions, so `limit` keeps the right prefix.
+    `position` first, which is exact inside one phase; the phase RANK is on no document, so nothing
+    a `find` can sort on separates the phases and `limit` may keep a prefix from each.
     """
 
     if sort_by == "natural":
-        # The chain follows `order` only here, this sort being a prefix SELECTOR: on a `beginn` tie
+        # The chain follows `order` only here, this sort being a prefix SELECTOR: on a `position` tie
         # straddling `limit`, a descending page needs the descending end of that tie.
         direction = 1 if order == "asc" else -1
 
-        return build_sort(sort_by="beginn", order=order, chain=(("_id", direction),))
+        return build_sort(sort_by="position", order=order, chain=(("_id", direction),))
 
-    # Tie-broken by the two fields that make any ordering here reproducible.
-    return build_sort(sort_by=sort_by, order=order, chain=(("beginn", 1), ("_id", 1)))
+    # Tie-broken by the two fields that make any ordering here reproducible. `position` and not a
+    # date: every matchday has one, and it is the order a person chose.
+    return build_sort(sort_by=sort_by, order=order, chain=(("position", 1), ("_id", 1)))
 
 
 def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
-    """A season's matchdays in the order they are played: phase, then date, then id.
+    """A season's matchdays in the order they are played: phase, then the stored `position`.
 
-    The tie-break is the id because the DISPLAYED NAME is composed from this order and so could not
-    also decide it.
+    The id stays the last tie-break for a list spanning two seasons, where one phase's positions
+    repeat; `uniq_saison_id_saison_phase_position` makes it unreachable within one season.
     """
 
-    return sorted(spieltage, key=lambda spieltag: (PHASE_RANK[spieltag.saison_phase], spieltag.beginn, str(spieltag.id)))
+    return sorted(spieltage, key=lambda spieltag: (PHASE_RANK[spieltag.saison_phase], spieltag.position, str(spieltag.id)))
 
 
 def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
-    # Retiring hides the matchday, never its matches: `GET /spiele` joins no `spieltage` row.
     return build_query(
         filters,
         terms={"saison_id", "saison_phase"},
-        include_inactive=filters.include_inactive,
         compiled={"saison_phase": {"$ne": "gruppenphase"}} if filters.saison_phase == "playoffs" else None,
     )
 
@@ -57,44 +56,6 @@ def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules)
 
 
 # What each code below refuses is `docs/logging/error-codes.md`.
-SPIELTAG_HOLDS_PLAYED = "REQ-RETIRE-002"
-SPIELTAG_OVER_ITS_PHASE = "REQ-SPIELTAG-002"
-# An implied count is a FLOOR, never a ceiling: a split round is two rows for one phase.
-SPIELTAG_BELOW_IMPLIED_COUNT = "REQ-RETIRE-005"
-
-
-def find_spieltag_retire_refusal(*, played_count: int, live_in_phase: int, implied_in_phase: int) -> WriteRefusal | None:
-    """Why retiring this matchday must be refused, or `None`.
-
-    `played_count` counts fixtures carrying an `ergebnis`, so a cancellation with one blocks too;
-    `live_in_phase` INCLUDES this matchday.
-    """
-
-    if played_count > 0:
-        subject = (
-            "1 played match; retiring it would remove its result"
-            if played_count == 1
-            else f"{played_count} played matches; retiring it would remove their results"
-        )
-
-        return WriteRefusal(error_code=SPIELTAG_HOLDS_PLAYED, message=f"the matchday holds {subject} from the public Spielplan")
-
-    # The STEP across the floor, never the state below it: refusing there would lock the rows of an
-    # already-short phase in place.
-    has_a_floor = implied_in_phase > 0
-    satisfied_the_floor = live_in_phase >= implied_in_phase
-    would_fall_short = live_in_phase - 1 < implied_in_phase
-
-    if has_a_floor and satisfied_the_floor and would_fall_short:
-        return WriteRefusal(
-            error_code=SPIELTAG_BELOW_IMPLIED_COUNT,
-            message=f"the phase holds {live_in_phase} live matchday(s) and these rules imply {implied_in_phase}; "
-            "retiring this one would leave the season short of matchdays it still has to play",
-        )
-
-    return None
-
-
 SPIELTAG_MOVED_TO_UNPLAYED_PHASE = "REQ-SPIELTAG-005"
 SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY = "REQ-SPIELTAG-006"
 
@@ -150,6 +111,9 @@ def find_spieltag_boundary_refusal(
         f"moving it to {proposed_phase} would leave those fixtures on the other side of the bracket "
         "boundary from their own matchday, and nothing here can move them across",
     )
+
+
+SPIELTAG_OVER_ITS_PHASE = "REQ-SPIELTAG-002"
 
 
 def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int, expected_in_stored_phase: int) -> WriteRefusal | None:

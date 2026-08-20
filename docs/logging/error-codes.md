@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `c90a98dc`, 2026-08-20\
+**Verified against:** `d0ad46a4`, 2026-08-20\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
@@ -35,9 +35,10 @@ Every domain refusal is a 409, for one reason: nothing about the payload is malf
 would have succeeded against a different state of the database
 (`fl_backend/app/core/exceptions.py :: DocumentConflictException`).
 
-**A rules refusal names a step, never a state**: `REQ-RULES-001`, `REQ-RULES-004`, `REQ-RULES-006` and
-`REQ-RULES-007` arrive on the edit that introduces or worsens the violation and let a resubmission of the stored
-values through, because a season patch replaces `rules` wholesale (`docs/backend/spec.md :: I44`).
+**A rules refusal names a step, never a state**: `REQ-RULES-001`, `REQ-RULES-004`, `REQ-RULES-006`,
+`REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009` and `REQ-RULES-010` arrive on the edit that introduces or worsens the
+violation and let a resubmission of the stored values through, because a season patch replaces `rules` wholesale
+(`docs/backend/spec.md :: I44`).
 
 | Code                  | Status | Meaning                                                                                                                             |
 | --------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -52,10 +53,13 @@ values through, because a season patch replaces `rules` wholesale (`docs/backend
 | `REQ-RULES-002`       | 409    | `number_of_groups` would drop below a group that still holds teams                                                                  |
 | `REQ-RULES-003`       | 409    | `teams_per_group` would drop below the fullest group's occupancy                                                                    |
 | `REQ-RULES-004`       | 409    | `qualifiers_per_group` would drop below a placing a bracket slot already names                                                      |
-| `REQ-RULES-005`       | 409    | A finished season's points and qualifier count are frozen, because the table derives from them                                      |
+| `REQ-RULES-005`       | 409    | A finished season's points, qualifier count and tie-break are frozen, because the table derives from them                           |
 | `REQ-RULES-006`       | 409    | A narrowing would leave a matchday holding more fixtures than its phase accounts for                                                |
 | `REQ-RULES-007`       | 409    | A step put `qualifiers_per_group` over `teams_per_group`, or widened an excess already there                                        |
-| `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures that are neither played nor cancelled                                                      |
+| `REQ-RULES-008`       | 409    | A step put `draw_points` over `win_points`, or widened an excess already there                                                      |
+| `REQ-RULES-009`       | 409    | `max_kadergroesse` would drop below the largest squad the season already holds                                                      |
+| `REQ-RULES-010`       | 409    | A step paired a level `forfeit_ergebnis` with rules that produce a knockout round                                                   |
+| `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures with no result and no `sonderereignis` that awards none                                    |
 | `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                                               |
 | `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                                                        |
 | `REQ-DATE-003`        | 409    | A matchday's span would shrink below a date one of its own fixtures holds                                                           |
@@ -66,16 +70,14 @@ values through, because a season patch replaces `rules` wholesale (`docs/backend
 | `REQ-ENTER-003`       | 409    | A team was entered into, or moved to, a group already holding `teams_per_group` rows                                                |
 | `REQ-ENTER-004`       | 409    | A group change reached a team whose fixtures the started season has already drawn                                                   |
 | `REQ-SWAP-001`        | 409    | A group swap named something other than two clubs of that season standing in different groups                                       |
-| `REQ-SWAP-002`        | 409    | A group swap reached a season with a knockout fixture already played, called off or holding a goal count                            |
+| `REQ-SWAP-002`        | 409    | A group swap reached a season with a knockout fixture already played, abandoned, forfeited or holding a goal count                  |
 | `REQ-SWAP-003`        | 409    | A group swap reached a `past` season, whose table is derived from the groups it would exchange                                      |
-| `REQ-SWAP-004`        | 409    | A group swap named a club whose Gruppenphase fixture was played, called off or given a goal count                                   |
+| `REQ-SWAP-004`        | 409    | A group swap named a club whose Gruppenphase fixture was played, abandoned, forfeited or given a goal count                         |
 | `REQ-SWAP-005`        | 409    | A group swap would have BROKEN a Spieltag, leaving a club in two of its matches                                                     |
-| `REQ-SWAP-006`        | 409    | A group swap would field a disqualified club on a fixture dated on or after its exit, or on an undated one                          |
+| `REQ-SWAP-006`        | 409    | A group swap would field a club that has left the season on a fixture dated on or after its exit, or on an undated one              |
 | `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                                                                |
-| `REQ-RETIRE-002`      | 409    | A matchday holding a played match was asked to retire, which would unpublish that result                                            |
 | `REQ-RETIRE-003`      | 409    | A venue still booked for an unplayed fixture was asked to retire                                                                    |
 | `REQ-RETIRE-004`      | 409    | A referee still assigned to an unplayed fixture was asked to retire                                                                 |
-| `REQ-RETIRE-005`      | 409    | Retiring a matchday would take its phase below the count the season's rules imply                                                   |
 | `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved                                                       |
 | `REQ-SPIELTAG-002`    | 409    | A matchday was moved to a phase accounting for fewer matches than the one it holds now                                              |
 | `REQ-SPIELTAG-003`    | 409    | A season whose knockout phase has started was asked for a new matchday                                                              |
@@ -84,10 +86,13 @@ values through, because a season patch replaces `rules` wholesale (`docs/backend
 | `REQ-SPIELTAG-006`    | 409    | A matchday carrying fixtures was moved across the gruppenphase/knockout boundary, away from them                                    |
 | `REQ-CLASH-001`       | 409    | A venue or a referee would serve two fixtures less than four hours apart                                                            |
 | `REQ-WIRING-001`      | 409    | Bracket wiring the season cannot hold reached the match write path                                                                  |
-| `REQ-ELIGIBILITY-001` | 409    | A disqualified team was newly fielded on a match                                                                                    |
+| `REQ-ELIGIBILITY-001` | 409    | A team that has left the season was newly fielded on a match                                                                        |
 | `REQ-ELIGIBILITY-002` | 409    | A newly fielded team holds no `saison_teams` row for the fixture's season                                                           |
 | `REQ-RESULT-001`      | 409    | A side carrying goals on a played fixture was emptied rather than switched                                                          |
+| `REQ-STATE-002`       | 409    | A fixture whose `sonderereignis` awards nothing was submitted carrying goals                                                        |
+| `REQ-STATE-003`       | 409    | A no-show was recorded on a fixture with an unresolved side                                                                         |
 | `REQ-SQUAD-001`       | 409    | A squad row names a team holding no junction row for that season                                                                    |
+| `REQ-SQUAD-003`       | 409    | A squad row was added to a team already holding the season's `max_kadergroesse`                                                     |
 | `DB-CONN-001`         | 503    | Database client unavailable                                                                                                         |
 | `DB-CONN-002`         | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`)                                                                     |
 | `DB-COMMON-001`       | 404    | No document matched the filter                                                                                                      |

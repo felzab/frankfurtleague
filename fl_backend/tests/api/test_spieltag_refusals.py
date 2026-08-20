@@ -2,9 +2,7 @@ import pytest
 
 from app.api.spiele.schemas import FLSaisonPhase
 from app.api.spieltage.services import (
-    SPIELTAG_BELOW_IMPLIED_COUNT,
     SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY,
-    SPIELTAG_HOLDS_PLAYED,
     SPIELTAG_KNOCKOUT_STARTED,
     SPIELTAG_MOVED_TO_UNPLAYED_PHASE,
     SPIELTAG_OVER_ITS_PHASE,
@@ -12,12 +10,8 @@ from app.api.spieltage.services import (
     find_spieltag_boundary_refusal,
     find_spieltag_create_refusal,
     find_spieltag_phase_refusal,
-    find_spieltag_retire_refusal,
     find_spieltag_unplayed_phase_refusal,
 )
-
-# One more live matchday than the rules imply, so `REQ-RETIRE-005` cannot be what refuses.
-ABOVE_THE_FLOOR = {"live_in_phase": 4, "implied_in_phase": 3}
 
 # A phase the rules produce, so `REQ-SPIELTAG-004` cannot be what refuses.
 A_PLAYED_PHASE = {"implied_in_phase": 3, "saison_phase": "gruppenphase"}
@@ -27,72 +21,6 @@ BOTH_WAYS_ACROSS_THE_BOUNDARY: tuple[tuple[FLSaisonPhase, FLSaisonPhase], ...] =
     ("gruppenphase", "viertelfinale"),
     ("viertelfinale", "gruppenphase"),
 )
-
-
-class TestRetiringAMatchday:
-    def test_an_unplayed_matchday_retires_freely(self):
-        assert find_spieltag_retire_refusal(played_count=0, **ABOVE_THE_FLOOR) is None
-
-    @pytest.mark.parametrize("played", [1, 8])
-    def test_a_matchday_holding_a_result_is_refused(self, played):
-        """One result is enough; the harm is a result dropping off the public Spielplan."""
-
-        refusal = find_spieltag_retire_refusal(played_count=played, **ABOVE_THE_FLOOR)
-
-        assert refusal is not None
-        assert refusal.error_code == SPIELTAG_HOLDS_PLAYED
-
-    def test_the_refusal_names_the_count(self):
-        refusal = find_spieltag_retire_refusal(played_count=3, **ABOVE_THE_FLOOR)
-
-        assert refusal is not None
-        assert "3" in refusal.message
-
-
-class TestAPhaseKeepsTheMatchdaysItsRulesImply:
-    """`REQ-RETIRE-005`: the derived count is a floor, never a cap, and what crosses it is the step rather than the state."""
-
-    def test_retiring_down_to_the_floor_is_allowed(self):
-        assert find_spieltag_retire_refusal(played_count=0, live_in_phase=4, implied_in_phase=3) is None
-
-    def test_retiring_below_the_floor_is_refused(self):
-        refusal = find_spieltag_retire_refusal(played_count=0, live_in_phase=3, implied_in_phase=3)
-
-        assert refusal is not None
-        assert refusal.error_code == SPIELTAG_BELOW_IMPLIED_COUNT
-
-    def test_a_phase_already_below_the_floor_retires_freely(self):
-        """Refusing would lock the row in place without restoring the missing ones; the state comes of a create or a rules change."""
-
-        assert find_spieltag_retire_refusal(played_count=0, live_in_phase=1, implied_in_phase=3) is None
-
-    def test_a_split_round_stays_reducible_to_one(self):
-        """A round split across two dates is two rows against a floor of one: consolidating is allowed, retiring the survivor is not."""
-
-        assert find_spieltag_retire_refusal(played_count=0, live_in_phase=2, implied_in_phase=1) is None
-
-        refusal = find_spieltag_retire_refusal(played_count=0, live_in_phase=1, implied_in_phase=1)
-        assert refusal is not None
-        assert refusal.error_code == SPIELTAG_BELOW_IMPLIED_COUNT
-
-    def test_a_phase_the_bracket_never_reaches_retires_freely(self):
-        assert find_spieltag_retire_refusal(played_count=0, live_in_phase=1, implied_in_phase=0) is None
-
-    def test_a_played_matchday_is_refused_before_the_floor_is_consulted(self):
-        """Precedence: entering or cancelling the results is the actionable advice."""
-
-        # The floor arm must actually fire, or this asserts precedence over a branch never in the running.
-        refusal = find_spieltag_retire_refusal(played_count=2, live_in_phase=3, implied_in_phase=3)
-
-        assert refusal is not None
-        assert refusal.error_code == SPIELTAG_HOLDS_PLAYED
-
-    def test_the_refusal_names_both_numbers(self):
-        refusal = find_spieltag_retire_refusal(played_count=0, live_in_phase=3, implied_in_phase=3)
-
-        assert refusal is not None
-        assert "3 live matchday(s)" in refusal.message
-        assert "imply 3" in refusal.message
 
 
 class TestAMatchdayBelongsToAPhaseTheSeasonPlays:
@@ -319,11 +247,6 @@ class TestChangingThePhase:
 
         assert refusal is not None
         assert refusal.error_code == SPIELTAG_OVER_ITS_PHASE
-
-    def test_the_two_refusals_are_distinct(self):
-        """Different advice — cancel or enter results, against move fixtures — so different codes."""
-
-        assert SPIELTAG_HOLDS_PLAYED != SPIELTAG_OVER_ITS_PHASE
 
 
 class TestCreatingAMatchday:

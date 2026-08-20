@@ -15,13 +15,12 @@ from app.api.spieltage.services import (
     find_spieltag_boundary_refusal,
     find_spieltag_create_refusal,
     find_spieltag_phase_refusal,
-    find_spieltag_retire_refusal,
     find_spieltag_span_refusal,
     find_spieltag_unplayed_phase_refusal,
     with_expected_matches,
 )
 from app.core.config import API_VERSION
-from app.core.crud import insert_live, patch_one_in_db, pull_one_from_db, refuse, set_inactive_since
+from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import SaisonsCollection, SpieleCollection, SpieltageCollection, get_german_date_str
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -43,14 +42,13 @@ async def post_spieltag(
     """
     Create a matchday.
 
-    Its position and its NAME both follow from the phase and `beginn`, which is why the payload
-    carries neither. A season whose knockout phase is under way takes no new matchday.
+    The payload carries no `position`: a create APPENDS to its phase, and the `PATCH` is where one
+    moves. A season whose knockout phase is under way takes no new matchday.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": spieltag_data.saison_id})
     rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
-    # Retired ones included: hiding a knockout matchday from a list does not un-start the phase.
     earliest_knockout = await spieltage_collection.find_one(
         {"saison_id": spieltag_data.saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
         {"beginn": 1},
@@ -65,7 +63,7 @@ async def post_spieltag(
         )
     )
 
-    # A new matchday has no fixtures, so the second half of `REQ-DATE-002` has nothing to check yet.
+    # A new matchday has no fixtures, so `REQ-DATE-003` has nothing to check yet.
     refuse(
         find_spieltag_span_refusal(
             beginn=spieltag_data.beginn,
@@ -76,7 +74,20 @@ async def post_spieltag(
         )
     )
 
-    post_operation = await insert_live(collection=spieltage_collection, document=spieltag_data.model_dump(mode="json"))
+    # The phase's HIGHEST, never its count: a gap would otherwise hand out a number somebody holds.
+    # Two creates racing compute the same one, and `uniq_saison_id_saison_phase_position` refuses the
+    # second.
+    last_in_phase = await spieltage_collection.find_one(
+        {"saison_id": spieltag_data.saison_id, "saison_phase": spieltag_data.saison_phase},
+        {"position": 1},
+        sort=[("position", -1)],
+    )
+    position = 1 if last_in_phase is None else int(last_in_phase["position"]) + 1
+
+    post_operation = await post_one_to_db(
+        collection=spieltage_collection,
+        document={**spieltag_data.model_dump(mode="json"), "position": position},
+    )
 
     return FLSpieltagWriteResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
@@ -96,7 +107,8 @@ async def patch_spieltag(
     Update a matchday.
 
     No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. A phase
-    change is refused where it would strand fixtures; an EMPTY matchday moves freely.
+    change is refused where it would strand fixtures; an EMPTY matchday moves freely. `position` and
+    `saison_phase` land in one write, a slot another matchday of that phase holds being a 409.
     """
 
     stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
@@ -162,85 +174,6 @@ async def patch_spieltag(
         db_filter={"_id": spieltag_id},
         update={"$set": spieltag_data.model_dump(mode="json")},
     )
-
-    return FLSpieltagWriteResponse(
-        spieltag_id=spieltag_id,
-        updated_document=FLSpieltag.model_validate(with_expected_matches(updated_raw, rules)),
-    )
-
-
-@router.delete(by_id("spieltag_id"), response_model=FLSpieltagWriteResponse, summary="Retire a Spieltag (soft delete)")
-async def delete_spieltag(
-    spieltag_id: CustomRouteObjectId,
-    spieltage_collection: SpieltageCollection,
-    saisons_collection: SaisonsCollection,
-    spiele_collection: SpieleCollection,
-    today: str = Depends(get_german_date_str),
-) -> FLSpieltagWriteResponse:
-    """
-    Retire a matchday. SOFT: it stamps `inactive_since` and the document stays.
-
-    Its matches are NOT touched and stay resolvable. Refused while any carries a result, or while
-    the phase would drop below the count its rules imply.
-    """
-
-    # Ahead of the stamp, so an unresolvable season is a 404 rather than a retirement that landed
-    # and then answered with an error.
-    stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]})
-    rules = FLSaisonRules.model_validate(saison_raw["rules"])
-
-    played = await spiele_collection.count_documents({"spieltag_id": spieltag_id, "ergebnis": {"$ne": None}})
-
-    # THIS matchday included: the refusal subtracts it, so what arrives is the state before the
-    # retirement rather than after it.
-    live_in_phase = await spieltage_collection.count_documents(
-        {"saison_id": stored_raw["saison_id"], "saison_phase": stored_raw["saison_phase"], "inactive_since": None}
-    )
-    refuse(
-        find_spieltag_retire_refusal(
-            played_count=played,
-            live_in_phase=live_in_phase,
-            implied_in_phase=implied_matchdays(rules, stored_raw["saison_phase"]),
-        )
-    )
-
-    updated_raw = await set_inactive_since(collection=spieltage_collection, db_filter={"_id": spieltag_id}, when=today)
-
-    return FLSpieltagWriteResponse(
-        spieltag_id=spieltag_id,
-        updated_document=FLSpieltag.model_validate(with_expected_matches(updated_raw, rules)),
-    )
-
-
-@router.post(f"{by_id('spieltag_id')}/reactivate", response_model=FLSpieltagWriteResponse, summary="Bring a retired Spieltag back")
-async def reactivate_spieltag(
-    spieltag_id: CustomRouteObjectId,
-    spieltage_collection: SpieltageCollection,
-    saisons_collection: SaisonsCollection,
-) -> FLSpieltagWriteResponse:
-    """
-    Clear `inactive_since`, restoring the matchday to reads that hide retired ones.
-
-    The span is re-checked on the way in, because the season's dates were free to move past a
-    retired matchday.
-    """
-
-    stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]})
-    rules = FLSaisonRules.model_validate(saison_raw["rules"])
-
-    refuse(
-        find_spieltag_span_refusal(
-            beginn=str(stored_raw["beginn"]),
-            ende=str(stored_raw["ende"]),
-            saison_start=str(saison_raw["start_date"]),
-            saison_end=str(saison_raw["end_date"]),
-            fixture_dates=[],
-        )
-    )
-
-    updated_raw = await set_inactive_since(collection=spieltage_collection, db_filter={"_id": spieltag_id}, when=None)
 
     return FLSpieltagWriteResponse(
         spieltag_id=spieltag_id,

@@ -46,6 +46,9 @@ def saison_document(saison_id: str, status: str) -> dict[str, Any]:
             "qualifiers_per_group": 2,
             "number_of_groups": 4,
             "teams_per_group": 4,
+            "tiebreak_order": "tordifferenz",
+            "max_kadergroesse": 18,
+            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
             "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
         },
     }
@@ -70,7 +73,7 @@ def spiel_document(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
         "schiedsrichter": None,
         "ergebnis": ergebnis,
         "elfmeterschiessen": None,
-        "is_canceled": False,
+        "sonderereignis": None,
         "notiz": None,
     }
 

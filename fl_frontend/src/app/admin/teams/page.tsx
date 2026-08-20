@@ -84,7 +84,7 @@ async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searc
       full_name: team.full_name,
       shorthand: team.shorthand,
       inactive_since: team.inactive_since,
-      selected: selected === null ? null : { gruppe: selected.gruppe, disqualifikation: selected.disqualifikation },
+      selected: selected === null ? null : { gruppe: selected.gruppe, austritt: selected.austritt },
       // Mirrors the write path's refusal (REQ-RETIRE-001): retiring is offered only while no running
       // or planned season holds the club.
       isRetireable: !team.memberships.some((membership) => {

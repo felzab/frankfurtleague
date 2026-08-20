@@ -1,4 +1,11 @@
-import type { FLCreateTeamFormPayload, FLDisqualifikation, FLGruppenNames, FLPatchSaisonTeamPayload, FLPostSaisonTeamPayload } from "./schemas";
+import type {
+  FLAustritt,
+  FLAustrittType,
+  FLCreateTeamFormPayload,
+  FLGruppenNames,
+  FLPatchSaisonTeamPayload,
+  FLPostSaisonTeamPayload,
+} from "./schemas";
 
 export type FLTeamsSortingOptions = "name";
 
@@ -17,7 +24,7 @@ export type FLTeamStatistikScope = "gruppenphase" | "gesamt";
 export type FLTeamsFilterParams = {
   saison_id?: string;
   gruppe?: string;
-  // A question about the junction, not a field on it: the row stores a `disqualifikation` record and
+  // A question about the junction, not a field on it: the row stores an `austritt` record and
   // no boolean.
   is_disqualified?: boolean;
   in_gruppen?: boolean;
@@ -49,9 +56,18 @@ export type SaisonTeamEnterDraft = Omit<FLPostSaisonTeamPayload, "gruppe"> & {
   gruppe: FLGruppenNames | null;
 };
 
-/** The junction editor's membership draft, widened the same way. */
-export type SaisonTeamMembershipDraft = Omit<FLPatchSaisonTeamPayload, "gruppe"> & {
+/**
+ * The record mid-edit, with the route widened to `null` so a freshly opened record accuses nobody
+ * until somebody chooses. The schema refuses the null the same way it refuses an unpicked group.
+ */
+export type AustrittDraft = Omit<FLAustritt, "type"> & {
+  type: FLAustrittType | null;
+};
+
+/** The junction editor's membership draft, widened the same way, record included. */
+export type SaisonTeamMembershipDraft = Omit<FLPatchSaisonTeamPayload, "gruppe" | "austritt"> & {
   gruppe: FLGruppenNames | null;
+  austritt: AustrittDraft | null;
 };
 
 /**
@@ -61,7 +77,7 @@ export type SaisonTeamMembershipDraft = Omit<FLPatchSaisonTeamPayload, "gruppe">
 export type TeamSaisonMembership = {
   saisonId: string;
   saisonStatus: "past" | "active" | "future";
-  membership: { gruppe: FLGruppenNames; disqualifikation: FLDisqualifikation | null } | null;
+  membership: { gruppe: FLGruppenNames; austritt: FLAustritt | null } | null;
 };
 
 /** The season the editor addresses — the sidemenu selector's, resolved by the page. */
@@ -95,7 +111,7 @@ export type AdminTeamRow = {
   shorthand: string;
   inactive_since: string | null;
   /** The selected season's junction data, or null when the club is not entered in it. */
-  selected: { gruppe: FLGruppenNames; disqualifikation: FLDisqualifikation | null } | null;
+  selected: { gruppe: FLGruppenNames; austritt: FLAustritt | null } | null;
   /**
    * No `active` or `future` season holds the club. Mirrors the write path's own refusal
    * (`REQ-RETIRE-001`), which stays authoritative.

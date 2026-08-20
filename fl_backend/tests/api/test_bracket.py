@@ -1,8 +1,8 @@
-from typing import Any, Callable
+from typing import Any, Callable, get_args
 
 import pytest
 
-from app.api.spiele.schemas import FLBracketFaultQuelle, FLSpielListAdapter
+from app.api.spiele.schemas import FLBracketFaultQuelle, FLSonderereignis, FLSpielListAdapter
 from app.api.spiele.services import resolve_bracket
 
 MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
@@ -251,11 +251,15 @@ class TestResolveBracket:
         assert advancement.team1 is not None
         assert advancement.team1.tore is None
 
-    def test_a_cancelled_match_with_a_result_still_advances_its_winner(self, fixture_at: FixtureFactory, side: SideFactory):
-        """A forfeit counts (I1a): consulting `is_canceled` would put advancement and the table at odds."""
+    @pytest.mark.parametrize("sonderereignis", get_args(FLSonderereignis))
+    def test_a_result_advances_its_winner_whatever_the_event_says(self, fixture_at: FixtureFactory, side: SideFactory, sonderereignis: str):
+        """A forfeit counts (I1a), and `_outcome_of` reads no event, so the bracket follows the `ergebnis` the table scores.
+
+        Only a hand edit reaches the two states barred from a result; this walk special-cases none.
+        """
 
         spiele = [
-            fixture_at(25, team1=side(1, 3), team2=side(2, 0), ergebnis="3:0", is_canceled=True),
+            fixture_at(25, team1=side(1, 3), team2=side(2, 0), ergebnis="3:0", sonderereignis=sonderereignis),
             fixture_at(29, quelle1=sieger(25)),
         ]
 
@@ -461,6 +465,29 @@ class TestNamingWhatWasVoided:
         assert advancement.voided_ergebnis == "2:2"
         assert advancement.voided_elfmeterschiessen is not None
         assert (advancement.voided_elfmeterschiessen.team1, advancement.voided_elfmeterschiessen.team2) == (4, 3)
+
+    @pytest.mark.parametrize(
+        ("stored_event", "voided"),
+        [
+            ("nichtantreten_team1", "nichtantreten_team1"),
+            ("nichtantreten_team2", "nichtantreten_team2"),
+            ("abgebrochen", None),
+            ("ausgefallen", None),
+            (None, None),
+        ],
+    )
+    def test_only_a_no_show_is_named_as_voided(
+        self, fixture_at: FixtureFactory, side: SideFactory, stored_event: str | None, voided: str | None
+    ):
+        """A no-show names a side, so a replaced occupant leaves it describing nobody; an event naming no side survives."""
+
+        spiele = [
+            fixture_at(25, team1=side(1, 1), team2=side(2, 3), ergebnis="1:3"),
+            fixture_at(29, team1=side(1, 0), team2=side(3, 3), ergebnis="0:3", quelle1=sieger(25), sonderereignis=stored_event),
+        ]
+        (advancement,) = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).advancements
+
+        assert advancement.voided_sonderereignis == voided
 
     def test_an_emptied_slot_still_names_what_it_held(self, fixture_at: FixtureFactory, side: SideFactory):
         spiele = [

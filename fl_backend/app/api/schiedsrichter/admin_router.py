@@ -12,6 +12,7 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterWriteResponse,
 )
 from app.api.schiedsrichter.services import find_referee_retire_refusal
+from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.core.config import API_VERSION
 from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, pull_many_from_db, refuse, set_inactive_since
 from app.core.dependencies import DBClient, SchiedsrichterCollection, SpieleCollection, get_german_date_str
@@ -95,7 +96,11 @@ async def delete_schiedsrichter(
     # `unplayed_spiel_nrs`'s definition, so the two rules agree about what is still to come.
     assigned = await pull_many_from_db(
         collection=spiele_collection,
-        db_filter={"schiedsrichter.schiedsrichter_id": schiedsrichter_id, "ergebnis": None, "is_canceled": False},
+        db_filter={
+            "schiedsrichter.schiedsrichter_id": schiedsrichter_id,
+            "ergebnis": None,
+            "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
+        },
         projection={"spiel_nr": 1},
     )
     refuse(find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned)))

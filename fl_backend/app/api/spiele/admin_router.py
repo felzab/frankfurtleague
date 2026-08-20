@@ -12,6 +12,8 @@ from app.api.spiele.crud import (
     release_spieltag_sides,
 )
 from app.api.spiele.schemas import (
+    SONDEREREIGNIS_KEEPING_ITS_SLOT,
+    SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
     FLSpiel,
@@ -30,6 +32,7 @@ from app.api.spiele.services import (
     find_eligibility_refusal,
     find_fixture_date_refusal,
     find_result_removal_refusal,
+    find_state_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
     stored_in_slice,
@@ -69,14 +72,14 @@ async def get_spiele_action_required(
     knockout side holding neither team nor `quelle`. Every season.
     """
 
-    # The joined pipeline, as the public reads use: the raw shape carries no `disqualifikation`, so
+    # The joined pipeline, as the public reads use: the raw shape carries no `austritt`, so
     # this list would silently omit a badge the grids show (`docs/backend/spec.md :: I32`).
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(
             db_filter={
                 "$or": [
-                    {"is_canceled": True},
+                    {"sonderereignis": {"$in": list(SONDEREREIGNIS_RECORDING_AN_ABSENCE)}},
                     {"datum": None},
                     {"uhrzeit": None},
                     {"ort": None},
@@ -134,10 +137,11 @@ async def patch_spiel_data(
     stored = FLSpiel.model_validate(stored_raw)
     saison_id = stored.saison_id
 
-    patched = apply_payload_to_spiel(stored, spiel_data)
-
-    # Read outside any transaction: no season document is written here.
+    # Read outside any transaction: no season document is written here. Ahead of the normalisation
+    # because a forfeit is awarded from these rather than typed.
     _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
+
+    patched = apply_payload_to_spiel(stored, spiel_data, saison_rules)
 
     async def judge(session: AsyncIOMotorClientSession | None) -> tuple[list[FLSpiel], list[SpieltagRelease]]:
         """The season as this request sees it, and the sides another fixture must give up.
@@ -159,9 +163,13 @@ async def patch_spiel_data(
 
         season = FLSpielListAdapter.validate_python(season_raw)
 
+        # First, and on the payload alone: the event the admin just chose is what the rest of this
+        # judgement is about, so a contradiction inside it should not be reported as a bracket fault.
+        refuse(find_state_refusal(spiel_data))
+
         refuse(find_wiring_refusal(spiel_id, spiel_data, season))
 
-        # Read through the session, so a disqualification committed by this transaction is visible.
+        # Read through the session, so an austritt committed by this transaction is visible.
         membership = await pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=saison_id, session=session)
         refuse(find_eligibility_refusal(spiel_id, spiel_data, season, membership))
 
@@ -212,7 +220,14 @@ async def patch_spiel_data(
                 # `fl_backend/app/api/spiele/schemas.py :: FLSpielBooking` states.
                 bookings = FLSpielBookingListAdapter.validate_python(
                     await spiele_collection.find(
-                        {field: chosen, "datum": spiel_data.datum, "uhrzeit": {"$ne": None}, "_id": {"$ne": spiel_id}, "is_canceled": False},
+                        {
+                            field: chosen,
+                            "datum": spiel_data.datum,
+                            "uhrzeit": {"$ne": None},
+                            "_id": {"$ne": spiel_id},
+                            # An abandoned match used the ground and the referee; the rest freed both.
+                            "sonderereignis": {"$in": list(SONDEREREIGNIS_KEEPING_ITS_SLOT)},
+                        },
                         {"spiel_nr": 1, "datum": 1, "uhrzeit": 1},
                         session=session,
                     ).to_list(length=None)

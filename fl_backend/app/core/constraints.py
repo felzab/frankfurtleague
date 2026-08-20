@@ -40,6 +40,11 @@ _INACTIVE_SINCE = {"bsonType": _STRING_OR_NULL}
 # Spelled out, not derived from the `Literal`s: this module would then depend on every API slice.
 _SAISON_PHASEN = ["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]
 _SAISON_STATUS = ["past", "active", "future"]
+_SONDEREREIGNISSE = ["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"]
+_TIEBREAK_ORDER = ["tordifferenz", "direkter_vergleich"]
+_AUSTRITT_ARTEN = ["disqualifikation", "rueckzug"]
+_EINWILLIGUNG_UMFANG = ["kader_oeffentlich", "intern"]
+_EINWILLIGUNG_QUELLEN = ["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
 _GRUPPEN = ["A", "B", "C", "D"]
 _QUELLE_TYPES = ["gruppe", "spiel"]
 _QUELLE_AUSGAENGE = ["sieger", "verlierer"]
@@ -98,10 +103,23 @@ _AKTION_REQUEST = _object(
     nullable=True,
 )
 
-_DISQUALIFIKATION = _object(
-    nullable=True,
-    required=("grund", "datum"),
+# Required TOGETHER: the four keys are always present, and a null `bestaetigt_am` is what says
+# the consent is UNCONFIRMED rather than absent.
+_EINWILLIGUNG = _object(
+    required=("umfang", "erteilt_von", "datum", "bestaetigt_am"),
     properties={
+        "umfang": {"bsonType": "string", "enum": _EINWILLIGUNG_UMFANG},
+        "erteilt_von": {"bsonType": "string", "enum": _EINWILLIGUNG_QUELLEN},
+        "datum": {"bsonType": _STRING_OR_NULL},
+        "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
+    },
+)
+
+_AUSTRITT = _object(
+    nullable=True,
+    required=("type", "grund", "datum"),
+    properties={
+        "type": {"bsonType": "string", "enum": _AUSTRITT_ARTEN},
         "grund": {"bsonType": "string"},
         "datum": {"bsonType": "string"},
     },
@@ -184,6 +202,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                         "qualifiers_per_group",
                         "number_of_groups",
                         "teams_per_group",
+                        "tiebreak_order",
+                        "max_kadergroesse",
+                        "forfeit_ergebnis",
                         "erlaubte_stufen",
                     ),
                     properties={
@@ -192,6 +213,12 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                         "qualifiers_per_group": {"bsonType": "int"},
                         "number_of_groups": {"bsonType": "int"},
                         "teams_per_group": {"bsonType": "int"},
+                        "tiebreak_order": {"bsonType": "string", "enum": _TIEBREAK_ORDER},
+                        "max_kadergroesse": {"bsonType": "int"},
+                        "forfeit_ergebnis": _object(
+                            required=("sieger_tore", "verlierer_tore"),
+                            properties={"sieger_tore": {"bsonType": "int"}, "verlierer_tore": {"bsonType": "int"}},
+                        ),
                         "erlaubte_stufen": {"bsonType": "array", "items": {"bsonType": "string", "enum": _STUFEN}},
                     },
                 ),
@@ -219,23 +246,24 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
         "$jsonSchema": _object(
             # Transcribed from the documents: this junction has no Pydantic model of the ROW, and no
             # `inactive_since` -- a team never leaves a season (`docs/backend/spec.md :: I19`).
-            required=("_id", "saison_id", "team_id", "gruppe", "disqualifikation"),
+            required=("_id", "saison_id", "team_id", "gruppe", "austritt"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "saison_id": {"bsonType": "string"},
                 "team_id": {"bsonType": "objectId"},
                 "gruppe": {"bsonType": "string", "enum": _GRUPPEN},
-                "disqualifikation": _DISQUALIFIKATION,
+                "austritt": _AUSTRITT,
             },
         )
     },
     Collection.SPIELER: {
         "$jsonSchema": _object(
-            required=("_id", "vorname", "nachname", "inactive_since"),
+            required=("_id", "vorname", "nachname", "einwilligung", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "vorname": {"bsonType": "string"},
                 "nachname": {"bsonType": _STRING_OR_NULL},
+                "einwilligung": _EINWILLIGUNG,
                 # The person has left the LEAGUE; leaving one squad retires the junction row below.
                 "inactive_since": _INACTIVE_SINCE,
             },
@@ -288,7 +316,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "elfmeterschiessen",
                 "spieltag_id",
                 "spiel_nr",
-                "is_canceled",
+                "sonderereignis",
                 "saison_phase",
                 "saison_id",
             ),
@@ -308,7 +336,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "elfmeterschiessen": _SPIEL_ELFMETERSCHIESSEN,
                 "spieltag_id": {"bsonType": "objectId"},
                 "spiel_nr": {"bsonType": "int"},
-                "is_canceled": {"bsonType": "bool"},
+                "sonderereignis": {"bsonType": _STRING_OR_NULL, "enum": [*_SONDEREREIGNISSE, None]},
                 "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
                 "saison_id": {"bsonType": "string"},
                 "notiz": {"bsonType": _STRING_OR_NULL},
@@ -317,14 +345,16 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.SPIELTAGE: {
         "$jsonSchema": _object(
-            required=("_id", "beginn", "ende", "saison_phase", "saison_id", "inactive_since"),
+            required=("_id", "beginn", "ende", "saison_phase", "saison_id", "position"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "beginn": {"bsonType": "string"},
                 "ende": {"bsonType": "string"},
                 "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
                 "saison_id": {"bsonType": "string"},
-                "inactive_since": _INACTIVE_SINCE,
+                # Stored rather than re-derived from `beginn`: that chain ends at `_id`, which orders by
+                # insertion time, and a generated season gives every matchday of a phase one date.
+                "position": {"bsonType": "int"},
             },
         )
     },
@@ -409,6 +439,14 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     UniqueIndex(Collection.SAISON_SPIELER, "uniq_spieler_id_saison_id", ("spieler_id", "saison_id"), "one junction row per player per season"),
     UniqueIndex(Collection.SPIELE, "uniq_saison_id_spiel_nr", ("saison_id", "spiel_nr"), "a spiel_nr identifies one match within a season"),
     UniqueIndex(Collection.TEAMS, "uniq_shorthand", ("shorthand",), "a shorthand identifies exactly one team"),
+    # The phase is a key, not a filter: positions restart at 1 in each phase, so a season legitimately
+    # holds several matchdays numbered 1.
+    UniqueIndex(
+        Collection.SPIELTAGE,
+        "uniq_saison_id_saison_phase_position",
+        ("saison_id", "saison_phase", "position"),
+        "one matchday per position within a phase of a season",
+    ),
 )
 
 

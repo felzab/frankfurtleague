@@ -11,6 +11,7 @@ export type FLSpieltagDraftFields = {
   beginn: string;
   ende: string;
   saison_phase: FLSaisonPhase | null;
+  position: number;
 };
 
 export type FLSpieltagFieldGroup = "Phase" | "Zeitraum";
@@ -27,6 +28,13 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSpieltagDraftFields, FLSpi
     label: "Phase",
     group: "Phase",
     read: (source) => (source.saison_phase === null ? null : PHASE_LABELS[source.saison_phase]),
+  },
+  {
+    path: "position",
+    label: "Position",
+    group: "Phase",
+    // Read as the ordinal it is rather than as a bare number, which reads as a count of something.
+    read: (source) => `${String(source.position)}.`,
   },
   {
     path: "beginn",

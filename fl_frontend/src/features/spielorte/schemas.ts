@@ -1,14 +1,14 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, FLAddressSchema } from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, FLAddressPayloadSchema, FLAddressSchema } from "@/shared/schemas";
 
 export const FLPostSpielortPayloadSchema = z.object({
   name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
   default_mietpreis: z
     .int({ error: "Bitte gib einen Standard-Mietpreis ein." })
     .nonnegative({ error: "Der Mietpreis darf nicht negativ sein." }),
-  address: FLAddressSchema,
+  address: FLAddressPayloadSchema,
 });
 export type FLPostSpielortPayload = z.infer<typeof FLPostSpielortPayloadSchema>;
 
@@ -18,7 +18,7 @@ export const FLPatchSpielortPayloadSchema = z.object({
   default_mietpreis: z
     .int({ error: "Bitte gib einen Standard-Mietpreis ein." })
     .nonnegative({ error: "Der Mietpreis darf nicht negativ sein." }),
-  address: FLAddressSchema,
+  address: FLAddressPayloadSchema,
 });
 export type FLPatchSpielortPayload = z.infer<typeof FLPatchSpielortPayloadSchema>;
 

@@ -7,6 +7,11 @@ stays at that field, and a derived one is never re-spelled as a literal.
 
 from typing import Final
 
+# The two free-text halves of an address; `hausnummer` and `plz` carry patterns instead. Stated by
+# the payload address alone, so a stored value over either ceiling still reads.
+ADDRESS_STRASSE_MAX_LENGTH: Final = 120
+ADDRESS_STADT_MAX_LENGTH: Final = 80
+
 TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 
 TEAM_SHORTHAND_LENGTH: Final = 2

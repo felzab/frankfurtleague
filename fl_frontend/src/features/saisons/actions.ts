@@ -42,9 +42,27 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
       };
     case "REQ-RULES-007":
       return { fieldErrors: { "rules.qualifiers_per_group": "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst." } };
+    // Only a step that introduces or worsens it is refused, and an equal count is allowed — so the
+    // message says "mehr" rather than promising a rule the server does not apply.
+    case "REQ-RULES-008":
+      return { fieldErrors: { "rules.draw_points": "Ein Unentschieden darf nicht mehr Punkte bringen als ein Sieg." } };
+    case "REQ-RULES-009":
+      return { fieldErrors: { "rules.max_kadergroesse": "Mindestens ein Kader hat schon mehr Spieler als dieses Maximum." } };
+    // On the winner's box, which is the one to raise, and only there: `<FieldError>` renders under
+    // the input whose `name` the key matches, and the pair's own row picks it up through
+    // `saisonDraftStatus`'s `errorPaths`.
+    case "REQ-RULES-010":
+      return {
+        fieldErrors: {
+          "rules.forfeit_ergebnis.sieger_tore":
+            "Diese Saison spielt eine KO-Runde, in der ein Unentschieden niemanden weiterbringt. Sieger und Verlierer brauchen unterschiedliche Tore.",
+        },
+      };
     case "REQ-RULES-005":
       return {
-        error: "Diese Saison ist abgeschlossen, deshalb sind Punkte und Qualifizierte festgeschrieben. Ändere nur noch den Zeitraum.",
+        error:
+          "Diese Saison ist abgeschlossen, deshalb sind Punkte, Qualifizierte und die Reihenfolge bei Punktgleichheit festgeschrieben. " +
+          "Die übrigen Regeln und der Zeitraum bleiben änderbar.",
       };
     case "REQ-RULES-006":
       return {
@@ -286,7 +304,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
           return {
             success: false,
             error:
-              "Durch den Tausch käme eine disqualifizierte Mannschaft auf Spiele, die nach ihrer Disqualifikation stattfinden können. Hebe die Disqualifikation auf, tausche die Gruppen und trage die Disqualifikation danach erneut ein.",
+              "Durch den Tausch käme eine ausgeschiedene Mannschaft auf Spiele, die nach ihrem Austritt stattfinden können. Hebe den Austritt auf, tausche die Gruppen und trage ihn danach erneut ein.",
           };
         }
       }

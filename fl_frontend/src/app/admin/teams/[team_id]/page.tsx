@@ -73,7 +73,7 @@ async function AdminTeamEditContent({
   const saison: TeamSaisonMembership = {
     saisonId: selectedSaison.id,
     saisonStatus: selectedSaison.status,
-    membership: membership === null ? null : { gruppe: membership.gruppe, disqualifikation: membership.disqualifikation },
+    membership: membership === null ? null : { gruppe: membership.gruppe, austritt: membership.austritt },
   };
 
   // The season's groups with their fill state, counted over the same memberships read: a club

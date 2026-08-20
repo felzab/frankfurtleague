@@ -4,11 +4,13 @@ import type { FormState } from "@/shared/types/types";
 
 /**
  * The exception to this module's generic messages: the only failures an admin can fix from the form in front of them.
- * Mirrors `fl_backend/app/api/spiele/services.py :: ELIGIBILITY_DISQUALIFIED` and its two siblings.
+ * Mirrors the refusals `fl_backend/app/api/spiele/services.py` raises over one fixture's own contents.
  */
 const OCCUPANT_REFUSALS: Record<string, string> = {
-  "REQ-ELIGIBILITY-001": "Diese Mannschaft ist für die Saison disqualifiziert und kann nicht aufgestellt werden.",
+  "REQ-ELIGIBILITY-001": "Diese Mannschaft ist aus der Saison ausgeschieden und kann nicht aufgestellt werden.",
   "REQ-ELIGIBILITY-002": "Diese Mannschaft nimmt nicht an dieser Saison teil.",
+  "REQ-STATE-002": "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
+  "REQ-STATE-003": "Ein Nichtantreten braucht beide Mannschaften. Dieses Spiel hat noch einen offenen Platz.",
   "REQ-SPIELTAG-001":
     "Diese Mannschaft spielt am selben Spieltag bereits in einem anderen Spiel, dessen Aufstellung das System pflegt. Ändere dort die Herkunft, um die Mannschaft freizugeben.",
 };

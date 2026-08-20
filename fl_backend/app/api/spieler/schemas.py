@@ -6,6 +6,10 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse
 
+# `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
+# does not, and the two ends must accept and refuse the same shirt.
+SQUAD_NUMMER_PATTERN = r"^[0-9]{1,4}$"
+
 FLSpielerSortOptions = Literal["vorname", "nachname", "stufe", "nummer", "position"]
 
 # In the order a squad sheet lists them. `sort_by="position"` sorts the STRING, so a public squad
@@ -15,6 +19,25 @@ FLSpielerPosition = Literal["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 # The Hessen Oberstufe, both phases. E2 is offered although no row holds it: a set stopping at what
 # a season contains would refuse an entry as the year turns.
 FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
+
+
+class FLEinwilligung(BaseModel):
+    """What this person agreed may be published about them.
+
+    Required TOGETHER, as `FLAustritt` is: a scope with no confirmation date is a claim that
+    somebody consented, and the surface reading this may not tell the two apart.
+    """
+
+    # Inline rather than a module-level alias, as the `spiele` quelle Literals are: each is used
+    # once, and `MIRRORED_ENUMS` reads its members off the field.
+    umfang: Literal["kader_oeffentlich", "intern"]
+    # `bestandsuebernahme` is what a BACKFILLED row carries, so a record carried over from before
+    # consent was collected stays distinguishable from one a person actually gave.
+    erteilt_von: Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
+    # The day consent was given, and `None` for a carry-over: nobody was asked, so no day exists.
+    datum: CustomOptionalDateString
+    # `None` means UNCONFIRMED, which is not the same as absent -- a public squad list reads this.
+    bestaetigt_am: CustomOptionalDateString
 
 
 class _SpielerPerson(BaseModel):
@@ -47,9 +70,34 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
     # player who left one squad has a retired junction row and is still a player.
     inactive_since: CustomOptionalDateString
+    # No default, unlike the two above: every stored row carries one after the backfill, and a
+    # default here would let a row with no consent read back as though it had been asked.
+    einwilligung: FLEinwilligung
 
 
 FLSpielerListAdapter = TypeAdapter(list[FLSpieler])
+
+
+class FLSaisonSpielerRow(BaseModel):
+    """The junction document as it is STORED -- the DECLARED SHAPE ONLY, validated against no read.
+
+    Every key is required, so a row missing `is_captain` would 500 the list;
+    `app/api/spieler/admin_router.py :: _as_junction` defaults it likewise.
+    """
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+
+    spieler_id: CustomObjectId
+    saison_id: str
+    team_id: CustomObjectId
+    is_nachgetragen: bool
+    is_captain: bool
+    stufe: FLSpielerStufe | None
+    position: FLSpielerPosition | None
+    # A STRING, never an int: squad numbers are worn, not counted, and "07" is a printed shirt.
+    nummer: str | None
+    # The day this SQUAD ROW was retired, which is not the day the person left the league.
+    inactive_since: CustomOptionalDateString
 
 
 class FLSpielerFilterParams(BaseModel):
@@ -86,7 +134,14 @@ class FLPatchSpielerPayload(BaseModel):
     nachname: str | None = Field(pattern=PERSON_NAME_PATTERN)
 
 
-class FLPostSaisonSpielerPayload(_SaisonSpielerWritable):
+# Private, so the create and the edit state the bound once and the layer publishes no OpenAPI component.
+class _SaisonSpielerPayload(_SaisonSpielerWritable):
+    # Tightened on the WRITE side alone: a read model refusing a stored number would answer 500 for
+    # the whole list over one row (`docs/backend/spec.md :: I36`).
+    nummer: str | None = Field(pattern=SQUAD_NUMMER_PATTERN)
+
+
+class FLPostSaisonSpielerPayload(_SaisonSpielerPayload):
     """One player's membership of one team's squad for one season.
 
     Every field is required, including those a squad often does not know: a caller states `null`
@@ -96,7 +151,7 @@ class FLPostSaisonSpielerPayload(_SaisonSpielerWritable):
     saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
-class FLPatchSaisonSpielerPayload(_SaisonSpielerWritable):
+class FLPatchSaisonSpielerPayload(_SaisonSpielerPayload):
     """Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default.
 
     `team_id` is editable here: a mid-season transfer is a change to the junction row.

@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends
 from motor.motor_asyncio import AsyncIOMotorClientSession
 
+from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
     FLPatchSpielortResponse,
@@ -111,7 +112,11 @@ async def delete_spielort(
     # `unplayed_spiel_nrs`'s definition, so the two rules agree about what is still to come.
     booked = await pull_many_from_db(
         collection=spiele_collection,
-        db_filter={"ort.spielort_id": spielort_id, "ergebnis": None, "is_canceled": False},
+        db_filter={
+            "ort.spielort_id": spielort_id,
+            "ergebnis": None,
+            "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
+        },
         projection={"spiel_nr": 1},
     )
     refuse(find_venue_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in booked)))

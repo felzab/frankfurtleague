@@ -13,7 +13,7 @@ export type ActionRequiredCategory =
   | "uhrzeit_missing"
   | "ort_missing"
   | "schiedsrichter_missing"
-  | "is_canceled";
+  | "abgesagt";
 
 export type FLSpieleSortingOptions = "datum" | "uhrzeit" | "spiel_nr" | "saison_phase";
 

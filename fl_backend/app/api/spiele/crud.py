@@ -19,7 +19,7 @@ from app.api.spiele.services import (
     SlotAdvancement,
     SpieltagRelease,
     build_spiele_pipeline,
-    find_disqualified_occupants,
+    find_departed_occupants,
     resolve_bracket,
 )
 from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
@@ -114,7 +114,7 @@ async def find_bracket_faults(
 
     # From the JOINED fixtures, not the resolution: this compares a fixture's date against a junction
     # record, so it sits beside the walk and covers group fixtures too.
-    occupant_faults = find_disqualified_occupants(spiele)
+    occupant_faults = find_departed_occupants(spiele)
     faults.extend(occupant_faults)
     faulted_ids.update(fault.spiel_id for fault in occupant_faults)
 
@@ -137,12 +137,12 @@ async def pull_saison_membership(
     rows = await pull_many_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
-        projection={"team_id": 1, "disqualifikation": 1},
+        projection={"team_id": 1, "austritt": 1},
         session=session,
     )
 
-    # The `.get` is for the null record: a present `disqualifikation` always carries a `datum`.
-    return {row["team_id"]: (row["disqualifikation"] or {}).get("datum") for row in rows}
+    # The `.get` is for the null record: a present `austritt` always carries a `datum`.
+    return {row["team_id"]: (row["austritt"] or {}).get("datum") for row in rows}
 
 
 async def preview_bracket_after_patch(
@@ -225,8 +225,8 @@ async def advance_bracket_winners(
     )
 
     for advancement in resolution.advancements:
-        # Both go with the occupant (`docs/backend/spec.md :: I25b`): what was scored here was scored
-        # by a team no longer in the fixture.
+        # The result goes with the occupant (`docs/backend/spec.md :: I25b`): what was scored here
+        # was scored by a team no longer in the fixture.
         await patch_one_in_db(
             collection=spiele_collection,
             db_filter={"_id": advancement.spiel_id},
@@ -236,6 +236,9 @@ async def advance_bracket_winners(
                     "team2": _stored_side(advancement.team2),
                     "ergebnis": None,
                     "elfmeterschiessen": None,
+                    # Conditional, so only a no-show goes: `ausgefallen`, `annulliert` and `abgebrochen`
+                    # name no side, so replacing an occupant leaves each of them true.
+                    **({"sonderereignis": None} if advancement.voided_sonderereignis is not None else {}),
                 }
             },
             session=session,
@@ -283,6 +286,9 @@ def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
             other: other_side.model_copy(update={"tore": None}) if other_side is not None else None,
             "ergebnis": None,
             "elfmeterschiessen": None,
+            # Conditional for the reason `advance_bracket_winners` states, and read off the release
+            # rather than off `spiel`, so the model and the `$set` cannot key on different facts.
+            **({"sonderereignis": None} if release.voided_sonderereignis is not None else {}),
         }
     )
 
@@ -310,6 +316,7 @@ async def release_spieltag_sides(
                     **({f"{'team2' if release.side == 'team1' else 'team1'}.tore": None} if release.other_side_present else {}),
                     "ergebnis": None,
                     "elfmeterschiessen": None,
+                    **({"sonderereignis": None} if release.voided_sonderereignis is not None else {}),
                 }
             },
             session=session,

@@ -237,8 +237,8 @@ Each fails **silently** — the gate stays green and the defect ships. Every oth
   ESLint all pass. Read and restate
   [the checklist](../docs/frontend/spec.md#111-adding-a-heroui-component) before writing the code.
 - **Change a model and its hand-written copy in `fl_backend/app/core/constraints.py` in the same
-  commit.** A default-tier test names the field if you forget. `saison_teams` and `saison_spieler`
-  have no model — verify those with `python -m app.core.constraints --check`.
+  commit.** A default-tier test names the field if you forget. `saison_teams` has no model — verify
+  it with `python -m app.core.constraints --check`.
 - **Grep for render props before deleting a `"use client"`.** A Server Component may not pass a
   function to a Client Component, and neither `tsc` nor the build catches it on a dynamic route.
 - **Add a matching `updateTag` in the same change as any granular cache tag.** A tag nothing
@@ -262,7 +262,7 @@ by surface; the order inside a group carries nothing.
 
 - Give `saison_id` a Pydantic field default
 - Add a second direct `MongoClient`
-- Store or cache team statistics; hardcode 3/1/0; score or sort on `is_canceled`
+- Store or cache team statistics; hardcode 3/1/0; score or sort on `sonderereignis`
 - Swallow a failed validator or index; widen one past types and enums
 - Treat `mietpreis` / `payment` as stale copies of the defaults; denormalise season-scoped state into `spiele`
 - Move the league table's default scope off `gruppenphase`
@@ -273,13 +273,14 @@ by surface; the order inside a group carries nothing.
 - Store the bracket's German label; flag an override beside `quelle`
 - Recurse the tiebreak chain; seed a placing the group can still change
 - Put the shoot-out in `ergebnis`; store its winner; let the table read it
+- Refuse a `sonderereignis` that would overwrite a stored result; keep it out of the dry run's report
 - Add a POST or a DELETE to `/spiele`
 - Give `app/api/spiele/services.py` an `await` or a collection
 - Offer in the form wiring the write path refuses
 - Refuse a manual pick as unqualified; field a team twice in a Spieltag
-- Add a disqualification boolean beside the record
-- Widen `position` or `stufe` past their `Literal`s; drop `E2`
-- Store a `Spieltag`'s position or name; serve its label from the API
+- Add an austritt boolean beside the record
+- Widen a squad row's `position` or `stufe` past their `Literal`s; drop `E2`
+- Derive a `Spieltag`'s position rather than reading it; move one outside its PATCH; store or serve its German label
 - Store `anzahl_spiele`; hardcode the qualifier cap
 - Import `app/core/domain.py` from `app/`; generate it; enforce it
 - Spell a collection name as a literal; enumerate the field names too

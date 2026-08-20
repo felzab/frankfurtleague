@@ -51,7 +51,7 @@ THE CHECKS, in priority order:
    `teams/services.py` against the season's real data: does a match land on exactly one side of
    exactly one team; is a team with no counting match served zeros rather than dropped; can a
    malformed `spiel` document break `GET /teams`, which the derivation makes depend on `spiele`; and
-   does the `$match` actually express the `ergebnis`-present rule, with `is_canceled` deliberately
+   does the `$match` actually express the `ergebnis`-present rule, with `sonderereignis` deliberately
    not consulted? Measuring it read-only against live data is the available evidence.
 
 5. **QUERY AND FILTER CONSTRUCTION.** Every `model_dump(include=…)` must name real _fields_, never
@@ -65,7 +65,7 @@ THE CHECKS, in priority order:
    Is it filtered consistently on every read path that should exclude retired entities?
    Can a retired Schiedsrichter or Spielort still be assigned to a match by id? What does a consumer
    see for a match whose embedded entity was retired after the match was written? Note that
-   `saisons`, `saison_teams` and `spiele` deliberately have no such field.
+   `saisons`, `saison_teams`, `spiele` and `spieltage` deliberately have no such field.
 
 7. **REFERENTIAL INTEGRITY AT THE BOUNDARIES.** For every id accepted by a write endpoint
    (`team_id`, `spielort_id`, `schiedsrichter_id`, …): is existence validated before the id is
@@ -87,9 +87,9 @@ ALREADY DECIDED — report against these, never re-litigate them. Most are `.cla
 what §7 does not spell out is here because an auditor reliably reads it as a defect:
 
 - **Statistics are derived from `spiele`**, never stored, and this is built rather than planned. A
-  match counts when it has an `ergebnis`; a cancelled match with a result is a forfeit and counts;
-  points come from the season's `rules`. Proposing a cache for the per-request recomputation reverses
-  a ratified decision.
+  match counts when it has an `ergebnis`; a no-show counts, its goals composed from
+  `rules.forfeit_ergebnis`; points come from the season's `rules`. Proposing a cache for the
+  per-request recomputation reverses a ratified decision.
 - **Store what was true then, derive what is true now** — the rule check 2 measures against. Embedded
   names are display copies owed a fan-out; `mietpreis` and `payment` are point-in-time records rather
   than stale copies of the defaults. Report a missing fan-out; never propose normalising these away.

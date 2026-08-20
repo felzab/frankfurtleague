@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `c90a98dc`, 2026-08-20\
+**Verified against:** `d0ad46a4`, 2026-08-20\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -135,8 +135,8 @@ carries.
 **What the reference model does.** Federation administration software treats a disciplinary action as
 a case with an audit trail, because a disqualification is a decision somebody has to be able to
 justify later, and because a sanction that nobody can trace is a sanction that gets disputed. Part of
-that is built — a disqualification carries a reason and a date — but a
-reason and a date on the current state is not a history: it says why the team is disqualified, never
+that is built — an `austritt` names the route out, the reason and the date — but a
+record of the current state is not a history: it says why the club is out, never
 what its standing was a week ago.
 
 **What I asked this to become (2026-08-06): an admin action-log page listing every edit and every add,
@@ -182,13 +182,13 @@ with no row fails, and a row naming no refusal fails.
 
 **Five gaps sit in neither list:**
 
-| The gap                                                                                                                                                                                                                                                                             | Where                                                                                                                              |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `REQ-CLASH-001` compares only fixtures sharing a calendar date, so two bookings of one venue at 23:30 and 00:30 are sixty minutes apart and both pass                                                                                                                               | `fl_backend/app/api/spiele/services.py :: find_clash_refusal`, whose loop skips a slot on `if slot.datum != datum`                 |
-| A fixture being **cancelled** is still judged against `REQ-CLASH-001`, so cancelling one that clashes is refused and the admin has to move it first. The opposite direction is already right — the booking read filters `is_canceled: False`, so a cancelled fixture frees its slot | `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`, where the clash block is entered on the payload's `datum` alone   |
-| `advance_bracket_winners` writes both sides of a fixture without consulting `REQ-SPIELTAG-001`, so the RESOLUTION can create a Spieltag fielding one club twice. The state itself is declared and tolerated; what neither list reaches is a write into it that consults no rule     | `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`; `judge_spieltag_occupancy` is reached from `patch_spiel_data` only |
-| `REQ-ENTER-003`'s count-then-insert is not transactional, so two concurrent entries can both pass a group's capacity check and take it over its cap                                                                                                                                 | `fl_backend/app/api/teams/admin_router.py :: post_saison_team`                                                                     |
-| `PATCH /spiele/{spiel_id}` writes the payload's side back wholesale, `name` and `shorthand` included, so a caller can store a display name that disagrees with the club `team_id` points at                                                                                         | `fl_backend/app/api/spiele/schemas.py :: FLSpielTeamField`                                                                         |
+| The gap                                                                                                                                                                                                                                                                                                                                                                             | Where                                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `REQ-CLASH-001` compares only fixtures sharing a calendar date, so two bookings of one venue at 23:30 and 00:30 are sixty minutes apart and both pass                                                                                                                                                                                                                               | `fl_backend/app/api/spiele/services.py :: find_clash_refusal`, whose loop skips a slot on `if slot.datum != datum`                 |
+| A fixture given a **`sonderereignis` that frees its slot** is still judged against `REQ-CLASH-001`, so recording one on a fixture that clashes is refused and the admin has to move it first. The opposite direction is already right — the booking read matches `SONDEREREIGNIS_KEEPING_ITS_SLOT`, so a fixture called off, forfeited or annulled frees the ground and the referee | `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`, where the clash block is entered on the payload's `datum` alone   |
+| `advance_bracket_winners` writes both sides of a fixture without consulting `REQ-SPIELTAG-001`, so the RESOLUTION can create a Spieltag fielding one club twice. The state itself is declared and tolerated; what neither list reaches is a write into it that consults no rule                                                                                                     | `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`; `judge_spieltag_occupancy` is reached from `patch_spiel_data` only |
+| `REQ-ENTER-003`'s count-then-insert is not transactional, so two concurrent entries can both pass a group's capacity check and take it over its cap                                                                                                                                                                                                                                 | `fl_backend/app/api/teams/admin_router.py :: post_saison_team`                                                                     |
+| `PATCH /spiele/{spiel_id}` writes the payload's side back wholesale, `name` and `shorthand` included, so a caller can store a display name that disagrees with the club `team_id` points at                                                                                                                                                                                         | `fl_backend/app/api/spiele/schemas.py :: FLSpielTeamField`                                                                         |
 
 The last row is about the two copied display fields alone. A fixture's `mietpreis` and `payment` are
 per-fixture values rather than stale copies of a default, and the same
@@ -326,7 +326,8 @@ where the outgoing season's unfinished fixtures are listed rather than counted.
 
 **The load-bearing question: a matchday row is created by hand, and whether it should be is open.**
 `/admin/spieltage` creates one at a time, and what a row supplies is its phase and its date span —
-its position, its name and its match count have each already left the document. My
+its name and its match count have each already left the document, and its position is chosen from the
+slots that phase leaves free rather than typed. My
 direction is that the rows should follow from the rules as well. **If they do, generating a season
 stops being a feature and becomes a consequence**, because building the structure is then only
 applying the rules — and the flow's generation half is a read of `schedule_for` rather than a writer
@@ -393,7 +394,7 @@ value is still being chosen.
   a link that leaves the group chat.
 - **Whether a self-registered entry is live on submission or waits to be admitted.** A squad list is a
   public page, so a public write that lands straight in one is public text written by an
-  unauthenticated stranger — the trust `teams.description` and a disqualification's `grund` already
+  unauthenticated stranger — the trust `teams.description` and an `austritt`'s `grund` already
   carry, extended to somebody the league has not authenticated.
 - **What the form may ask for, and where the notice saying so lives.** `stufe` is the Hessen
   Oberstufe, so the people
@@ -409,9 +410,10 @@ value is still being chosen.
   (`fl_frontend/src/core/auth.ts`, `fl_frontend/src/core/authEmail.ts`). A second sender is either a
   second call site against the same API or a reason to lift the transport out from under the provider.
 - **Whether the flow may enter a club it has just created.** A club never leaves a season once it is
-  entered: `saison_teams` has a POST and a PATCH and no DELETE, and the way out is disqualification.
-  A club entered by a misclick in a wizard is therefore disqualified rather than removed,
-  which is a heavy consequence for a step in a flow designed to be fast.
+  entered: `saison_teams` has a POST and a PATCH and no DELETE, and the way out is an `austritt`
+  record. A club entered by a misclick in a wizard therefore leaves as a `rueckzug` rather than being
+  removed — the honest of the two routes, and still a public record with a reason on it, which is a
+  heavy consequence for a step in a flow designed to be fast.
 - **What a rate limit for this surface should be.** The existing zones are sized for a person signing
   in and for a crashing browser; a whole squad filling a form in one break is a different shape of
   traffic on the same edge.
@@ -813,12 +815,12 @@ not grow while it waits.
 **`inactive_since` is a date rather than a flag so that a retired row can eventually be purged**, and
 nothing purges one.
 
-The field is carried by `teams`, `spieler`, `saison_spieler`, `spieltage`, `spielorte` and
+The field is carried by `teams`, `spieler`, `saison_spieler`, `spielorte` and
 `schiedsrichter`. A retired row stays forever, keeps its slot in whatever unique index covers it, and
 is filtered out of every default read.
 
 **Today that is fine and the numbers say so.** Nothing is retired anywhere: 0 rows across those
-collections, against 16 teams, 362 players, 362 squad rows, 6 matchdays, 6 venues and 7 referees
+collections, against 16 teams, 362 players, 362 squad rows, 6 venues and 7 referees
 (measured 2026-08-06). This is a prospective item: it exists so the field's purpose is recorded rather
 than rediscovered.
 
@@ -838,8 +840,8 @@ than rediscovered.
   and reaches nothing this could hang off, as FB-16 sets out — which makes the hand-run script the
   cheapest by a distance.
 
-`saisons` and `saison_teams` carry no such field and need none: neither has a delete at all, so
-neither can accumulate a row to purge.
+`saisons`, `saison_teams` and `spieltage` carry no such field and need none: none of them has a
+delete at all, so none can accumulate a row to purge.
 
 ### 15 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
 

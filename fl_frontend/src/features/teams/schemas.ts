@@ -1,7 +1,13 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, ExternalUrlSchema, FLAddressSchema } from "@/shared/schemas";
+import {
+  CustomDateStringSchema,
+  CustomObjectIdStringSchema,
+  ExternalUrlSchema,
+  FLAddressPayloadSchema,
+  FLAddressSchema,
+} from "@/shared/schemas";
 
 import { DESCRIPTION_MAX_LENGTH } from "./constants";
 
@@ -13,16 +19,20 @@ export const FLGruppenNamesSchema = z.enum(["A", "B", "C", "D"], { error: "Bitte
 export type FLGruppenNames = z.infer<typeof FLGruppenNamesSchema>;
 
 /**
- * Mirrors `FLDisqualifikation`. A team is disqualified exactly when `FLTeam.disqualifikation` is not
- * null — no boolean beside it on either side of the wire, so no reader has two answers.
+ * Mirrors `FLAustritt`. A team is out of a season exactly when `FLTeam.austritt` is not null — no
+ * boolean beside it on either side of the wire, so no reader has two answers.
  */
-export const FLDisqualifikationSchema = z.object({
+export const FLAustrittSchema = z.object({
+  // German error because the junction editor binds this schema to its inputs, and an untouched
+  // picker submits null.
+  type: z.enum(["disqualifikation", "rueckzug"], { error: "Bitte wähle, wie die Mannschaft ausgeschieden ist." }),
   // Free text written for publication: rendered as authored, never truncated to a label. German
   // because the junction editor binds this schema to its inputs.
   grund: z.string().nonempty({ error: "Bitte gib einen Grund an. Er wird öffentlich angezeigt." }),
   datum: CustomDateStringSchema,
 });
-export type FLDisqualifikation = z.infer<typeof FLDisqualifikationSchema>;
+export type FLAustritt = z.infer<typeof FLAustrittSchema>;
+export type FLAustrittType = FLAustritt["type"];
 
 export const FLTeamStatistikSchema = z.object({
   anzahl_gespielte_spiele: z.int().nonnegative(),
@@ -46,7 +56,7 @@ export const FLTeamSchema = z.object({
   statistik: FLTeamStatistikSchema,
 
   // Out of THIS season. Joined from the junction on every read, so it cannot go stale.
-  disqualifikation: FLDisqualifikationSchema.nullable(),
+  austritt: FLAustrittSchema.nullable(),
   shorthand: z.string().length(2),
   description: z.string().max(DESCRIPTION_MAX_LENGTH),
   full_name: z.string().nonempty(),
@@ -54,7 +64,7 @@ export const FLTeamSchema = z.object({
   website_url: ExternalUrlSchema,
   address: FLAddressSchema,
   // The day this CLUB left the league — not the same as leaving one season, which is
-  // `disqualifikation` on the junction.
+  // `austritt` on the junction.
   inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLTeam = z.infer<typeof FLTeamSchema>;
@@ -111,7 +121,7 @@ const teamPayloadFields = {
     .max(DESCRIPTION_MAX_LENGTH, { error: `Die Beschreibung darf höchstens ${String(DESCRIPTION_MAX_LENGTH)} Zeichen lang sein.` }),
   full_name: z.string().nonempty({ error: "Bitte gib den vollständigen Namen ein." }),
   website_url: ExternalUrlSchema,
-  address: FLAddressSchema,
+  address: FLAddressPayloadSchema,
 };
 
 export const FLPostTeamPayloadSchema = z.object(teamPayloadFields);
@@ -167,7 +177,7 @@ export type FLTeamRecord = z.infer<typeof FLTeamRecordSchema>;
 export const FLTeamMembershipSchema = z.object({
   saison_id: z.string(),
   gruppe: FLGruppenNamesSchema,
-  disqualifikation: FLDisqualifikationSchema.nullable(),
+  austritt: FLAustrittSchema.nullable(),
 });
 export type FLTeamMembership = z.infer<typeof FLTeamMembershipSchema>;
 
@@ -216,7 +226,7 @@ export const FLPatchSaisonTeamPayloadSchema = z.object({
   gruppe: FLGruppenNamesSchema,
   // The whole record, or `null` to lift one. REQUIRED with no default on either side: a form that
   // omits it gets a 422, never a team quietly reinstated.
-  disqualifikation: FLDisqualifikationSchema.nullable(),
+  austritt: FLAustrittSchema.nullable(),
 });
 export type FLPatchSaisonTeamPayload = z.infer<typeof FLPatchSaisonTeamPayloadSchema>;
 
@@ -225,6 +235,6 @@ export const FLSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
   team_id: CustomObjectIdStringSchema,
   gruppe: FLGruppenNamesSchema,
-  disqualifikation: FLDisqualifikationSchema.nullable(),
+  austritt: FLAustrittSchema.nullable(),
 });
 export type FLSaisonTeamResponse = z.infer<typeof FLSaisonTeamResponseSchema>;

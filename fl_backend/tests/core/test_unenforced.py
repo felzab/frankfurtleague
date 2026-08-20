@@ -21,11 +21,11 @@ from app.api.spiele.schemas import (
     FLSpielJoinedListAdapter,
     FLSpielListAdapter,
 )
-from app.api.spiele.services import find_disqualified_occupants, find_eligibility_refusal, resolve_bracket
+from app.api.spiele.services import find_departed_occupants, find_eligibility_refusal, resolve_bracket
 from app.api.spieler.admin_router import post_spieler
 from app.api.spieler.schemas import FLPostSpielerPayload
 from app.api.spieler.services import find_squad_refusal
-from app.api.spieltage.services import find_spieltag_phase_refusal, find_spieltag_retire_refusal
+from app.api.spieltage.services import find_spieltag_phase_refusal
 from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES
@@ -57,11 +57,11 @@ def _side(team_id: str, name: str, **overrides: Any) -> dict[str, Any]:
 
 
 def _joined_side(team_id: str, name: str, *, disqualified_from: str | None = None, **overrides: Any) -> dict[str, Any]:
-    """One side as a READ serves it: the whole disqualification record, which is what a fault names its effective day from."""
+    """One side as a READ serves it: the whole exit record, which is what a fault names its effective day from."""
 
-    record = None if disqualified_from is None else {"grund": "Nicht angetreten", "datum": disqualified_from}
+    record = None if disqualified_from is None else {"type": "disqualifikation", "grund": "Nicht angetreten", "datum": disqualified_from}
 
-    return _side(team_id, name, disqualifikation=record, **overrides)
+    return _side(team_id, name, austritt=record, **overrides)
 
 
 @pytest.fixture
@@ -120,7 +120,7 @@ def _resubmit(season_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPay
     return FLPatchSpielDataPayload.model_validate(
         {
             "spiel_id": stored["_id"],
-            "is_canceled": stored["is_canceled"],
+            "sonderereignis": stored["sonderereignis"],
             "team1": stored["team1"],
             "team2": stored["team2"],
             "team1_quelle": stored["team1_quelle"],
@@ -143,6 +143,9 @@ def _rules(**overrides: Any) -> FLSaisonRules:
             "qualifiers_per_group": 2,
             "number_of_groups": 4,
             "teams_per_group": 4,
+            "tiebreak_order": "tordifferenz",
+            "max_kadergroesse": 50,
+            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
             "erlaubte_stufen": ["E1", "E2", "Q1", "Q2"],
             **overrides,
         }
@@ -173,7 +176,7 @@ def _swap(**overrides: Any):
             "played_knockout_fixtures": 0,
             "played_gruppenphase_fixtures": 0,
             "clashing_spieltage": 0,
-            "disqualified_fixtures": 0,
+            "departed_fixtures": 0,
             **overrides,
         }
     )
@@ -355,21 +358,6 @@ class TestExactlyOneActiveSeason:
         assert _transactional_writes(activate_saison) == {("patch_many_in_db", True), ("patch_one_in_db", True)}
 
 
-class TestARetiredMatchdayKeepsItsUnplayedFixtures:
-    """That retirement is judged on played fixtures and on the phase's floor, and on nothing else the matchday holds."""
-
-    def test_retiring_a_matchday_holding_no_played_fixture_is_permitted(self):
-        assert find_spieltag_retire_refusal(played_count=0, live_in_phase=3, implied_in_phase=1) is None
-
-    def test_the_refusal_takes_no_count_of_the_unplayed_ones(self):
-        """The absence IS the permission here: a parameter for them is what a future refusal would need."""
-
-        assert set(inspect.signature(find_spieltag_retire_refusal).parameters) == {"played_count", "live_in_phase", "implied_in_phase"}
-
-    def test_a_played_fixture_is_what_refuses_it(self):
-        assert find_spieltag_retire_refusal(played_count=1, live_in_phase=3, implied_in_phase=1) is not None
-
-
 class TestAMatchdayOffItsImpliedCount:
     """That the mismatch is refused only as a MOVE that narrows the count, never as a state the matchday sits in."""
 
@@ -401,9 +389,9 @@ class TestABracketSlotHeldByADisqualifiedClub:
     def test_the_slot_is_reported_as_a_derived_fault(self, filled_bracket_slot):
         """The feeder was played before the exit and is clean, so the report names the slot alone."""
 
-        faults = find_disqualified_occupants(filled_bracket_slot)
+        faults = find_departed_occupants(filled_bracket_slot)
 
-        assert [(fault.spiel_nr, fault.side, fault.reason) for fault in faults] == [(SLOT_NR, "team1", "disqualified_occupant")]
+        assert [(fault.spiel_nr, fault.side, fault.reason) for fault in faults] == [(SLOT_NR, "team1", "departed_occupant")]
 
     def test_the_resolution_rewrites_nothing(self, filled_bracket_slot):
         """The same fixtures through the resolution, which reads the wiring the slot was filled from and reports nothing of its own."""

@@ -44,7 +44,7 @@ async def get_spiele(
     db_filter = build_spiele_filter(filters=filters, today=today)
     db_sort = build_spiele_sort(sort_by=filters.sort_by, order=filters.order)
 
-    # An aggregation, not a find: a plain `find` misses the joined `disqualifikation` and returns a
+    # An aggregation, not a find: a plain `find` misses the joined `austritt` and returns a
     # shape `FLSpielJoined` refuses.
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,

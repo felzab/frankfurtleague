@@ -49,15 +49,23 @@ function invalidateSpieler(): void {
 }
 
 /**
- * The squad refusal (`REQ-SQUAD-001`), or `null` when the 409 is something else.
+ * A squad refusal (`REQ-SQUAD-001`, `REQ-SQUAD-003`), or `null` when the 409 is something else.
  *
- * Lands on the field that caused it — the team picker — so it is one sentence about that value.
+ * The membership refusal lands on the field that caused it — the team picker. The cap belongs to no
+ * field: it is a fact about the season's rules, and the reactivate path renders no form at all.
  */
 function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   if (error.serverErrorCode === "REQ-SQUAD-001") {
     return { fieldErrors: { team_id: "Dieses Team ist in der gewählten Saison nicht dabei." } };
+  }
+  if (error.serverErrorCode === "REQ-SQUAD-003") {
+    return {
+      error:
+        "Der Kader dieses Teams ist für diese Saison voll. Erhöhe die maximale Kadergröße in den Saisonregeln " +
+        "oder trage zuerst einen anderen Spieler aus.",
+    };
   }
   return null;
 }
@@ -328,7 +336,16 @@ export async function reactivateSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const reactivateOperation = await reactivateSaisonSpieler(validated.data);
+    // Reviving a row takes a squad slot like any other write, so the cap refuses it too
+    // (`REQ-SQUAD-003`) — and the generic 409 would call that a duplicate entry.
+    let reactivateOperation;
+    try {
+      reactivateOperation = await reactivateSaisonSpieler(validated.data);
+    } catch (error) {
+      const refusal = mapSquadRefusal(error);
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      throw error;
+    }
 
     invalidateSpieler();
 

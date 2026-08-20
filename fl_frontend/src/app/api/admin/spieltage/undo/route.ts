@@ -13,6 +13,7 @@ const REPLAY_REFUSALS: Record<string, string> = {
     "In der ursprünglichen Phase sind inzwischen weniger Spiele vorgesehen, als der Spieltag enthält. Die Änderung steht weiterhin.",
   "REQ-DATE-002": "Der ursprüngliche Zeitraum liegt nicht mehr im Zeitraum der Saison. Die Änderung steht weiterhin.",
   "REQ-DATE-003": "Mindestens ein Spiel dieses Spieltags liegt außerhalb des ursprünglichen Zeitraums. Die Änderung steht weiterhin.",
+  "DB-COMMON-002": "Die ursprüngliche Position hält inzwischen ein anderer Spieltag. Die Änderung steht weiterhin.",
 };
 
 export async function POST(request: NextRequest) {

@@ -60,16 +60,16 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
     desc: "Spiele ohne eingetragenen Schiedsrichter",
     urgency: "details",
   },
-  is_canceled: {
+  abgesagt: {
     name: "Abgesagt",
     short: "Abgesagt",
-    desc: "Abgesagte Spiele. Nichts zu erledigen, sie stehen hier zum Nachschlagen",
+    desc: "Ausgefallene, annullierte und nicht angetretene Spiele. Nichts zu erledigen, sie stehen hier zum Nachschlagen",
     urgency: "none",
   },
 };
 
 /**
- * `is_canceled` is exclusive; the `*_missing` categories are not. `bracket_fault` is read, never
+ * `abgesagt` is exclusive; the `*_missing` categories are not. `bracket_fault` is read, never
  * derived — the backend computes it over whole seasons. Both dates are `YYYY-MM-DD`, so `<` is
  * lexicographic and strict.
  */
@@ -87,18 +87,26 @@ export function categorizeActionRequired<T extends FLSpielWithDraftFields>(
     uhrzeit_missing: [],
     ort_missing: [],
     schiedsrichter_missing: [],
-    is_canceled: [],
+    abgesagt: [],
   };
 
   const faultedSpielIds = new Set(bracketFaults.map((fault) => fault.spiel_id));
 
   for (const spiel of spiele) {
-    // Before the cancellation branch and not exclusive with it: broken wiring still feeds whatever
-    // sits below the fixture.
+    // Before the branch below and not exclusive with it: broken wiring still feeds whatever sits
+    // below the fixture.
     if (faultedSpielIds.has(spiel.id)) categorized.bracket_fault.push(spiel);
 
-    if (spiel.is_canceled) {
-      categorized.is_canceled.push(spiel);
+    // **This set is the triage list's alone**, and `abgebrochen` is deliberately absent: an
+    // abandoned fixture happened and may still owe a result, so it falls through and is chased like
+    // any other.
+    if (
+      spiel.sonderereignis === "ausgefallen" ||
+      spiel.sonderereignis === "nichtantreten_team1" ||
+      spiel.sonderereignis === "nichtantreten_team2" ||
+      spiel.sonderereignis === "annulliert"
+    ) {
+      categorized.abgesagt.push(spiel);
       continue;
     }
 

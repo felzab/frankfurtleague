@@ -35,6 +35,13 @@ export function SpielRail({
   const expectedRequired = expected.filter((field) => field.expectedSeverity === "required");
   const expectedRecommended = expected.filter((field) => field.expectedSeverity === "recommended");
 
+  // **This set is this line's alone**, and matches the triage list the line describes: `abgebrochen`
+  // is absent from it, because an abandoned fixture is still chased for what it is missing.
+  const nothingExpectedText =
+    previewSpiel.sonderereignis !== null && previewSpiel.sonderereignis !== "abgebrochen"
+      ? "Abgesagt. Es wird nichts angemahnt."
+      : "Alles ausgefüllt.";
+
   return (
     <div className="flex w-full flex-col gap-y-4">
       <RailHinweiseSection
@@ -90,7 +97,7 @@ export function SpielRail({
           </span>
         }>
         {expected.length === 0 ? (
-          <p className="muted-meta">{previewSpiel.is_canceled ? "Abgesagt. Es wird nichts angemahnt." : "Alles ausgefüllt."}</p>
+          <p className="muted-meta">{nothingExpectedText}</p>
         ) : (
           <ul className="flex w-full flex-col gap-y-1">
             {/* Required first: the list's order is its urgency. A fragment link rather than a

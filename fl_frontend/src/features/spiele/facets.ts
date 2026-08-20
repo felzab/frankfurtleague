@@ -1,5 +1,6 @@
 import { PHASE_LABELS } from "@/features/saisons/constants";
 
+import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS } from "./constants";
 import { computeSpielStatus } from "./utils";
 
 import type { Facet, FacetOption } from "@/shared/utils/facets";
@@ -13,6 +14,12 @@ const STATUS_OPTIONS: readonly FacetOption[] = [
   { value: "abgesagt", label: "Abgesagt" },
   { value: "unbekannt", label: "Ohne Datum" },
 ];
+
+/** No entry for an ordinary fixture: `null` is the absence of an event, not a sixth one to filter on. */
+const SONDEREREIGNIS_FACET_OPTIONS: readonly FacetOption[] = SONDEREREIGNIS_OPTIONS.map((event) => ({
+  value: event,
+  label: SONDEREREIGNIS_LABELS[event],
+}));
 
 /** Distinct values of one embedded reference, in the order the fixtures name them. */
 function distinct(spiele: readonly FLSpiel[], read: (spiel: FLSpiel) => { id: string; label: string } | null): FacetOption[] {
@@ -51,7 +58,7 @@ export function buildSpielFacets({
       param: "status",
       label: "Status",
       options: STATUS_OPTIONS,
-      read: (spiel) => [computeSpielStatus({ datum: spiel.datum, isCanceled: spiel.is_canceled, today })],
+      read: (spiel) => [computeSpielStatus({ datum: spiel.datum, sonderereignis: spiel.sonderereignis, today })],
     },
     {
       param: "phase",
@@ -113,6 +120,15 @@ export function buildSpielFacets({
     },
   };
 
+  // Admin-only: it names the stored vocabulary rather than the chip a visitor reads. Without it
+  // nothing finds an abandoned fixture, `status` letting `abgebrochen` through by date.
+  const sonderereignis: Facet<FLSpiel> = {
+    param: "sonderereignis",
+    label: "Sonderereignis",
+    options: SONDEREREIGNIS_FACET_OPTIONS,
+    read: (spiel) => (spiel.sonderereignis === null ? [] : [spiel.sonderereignis]),
+  };
+
   const schiedsrichter: Facet<FLSpiel> = {
     param: "schiedsrichter",
     label: "Schiedsrichter",
@@ -126,5 +142,5 @@ export function buildSpielFacets({
 
   // `ansetzung` follows `status` because nothing else in the app finds an incomplete fixture. The
   // tail carries no ranking.
-  return [status, ansetzung, team, phase, ort, ergebnis, schiedsrichter].filter((facet) => facet !== undefined);
+  return [status, ansetzung, team, phase, ort, ergebnis, sonderereignis, schiedsrichter].filter((facet) => facet !== undefined);
 }

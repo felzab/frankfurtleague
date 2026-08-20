@@ -6,10 +6,11 @@ from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
 from app.api.aktionen.schemas import FLAktion, FLAktionRequest, FLAktor
-from app.api.saisons.schemas import FLSaison, FLSaisonRules, FLSaisonStatus
+from app.api.saisons.schemas import FLSaison, FLSaisonForfeitErgebnis, FLSaisonRules, FLSaisonStatus
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import (
     FLSaisonPhase,
+    FLSonderereignis,
     FLSpiel,
     FLSpielElfmeterschiessen,
     FLSpielOrtField,
@@ -18,10 +19,10 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterField,
     FLSpielTeamField,
 )
-from app.api.spieler.schemas import FLSpieler, FLSpielerPosition, FLSpielerStufe
+from app.api.spieler.schemas import FLEinwilligung, FLSaisonSpielerRow, FLSpieler, FLSpielerPosition, FLSpielerStufe
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
-from app.api.teams.schemas import FLDisqualifikation, FLGruppenNames, FLTeam, FLTeamRecord
+from app.api.teams.schemas import FLAustritt, FLGruppenNames, FLTeam, FLTeamRecord
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES, diagnose_failure
 from app.shared.schemas.addresses import FLAddress
@@ -31,7 +32,7 @@ from app.shared.schemas.kontakt import FLKontakt
 EXPECTED_COLLECTIONS = {collection.value for collection in Collection}
 
 # Named here so giving one a model later fails this file rather than leaving its validator unmirrored.
-MODELLESS_COLLECTIONS = {Collection.SAISON_TEAMS, Collection.SAISON_SPIELER}
+MODELLESS_COLLECTIONS = {Collection.SAISON_TEAMS}
 
 # Ranges, formats and lengths stay Pydantic's: reaching for one of these widens the scope.
 OUT_OF_SCOPE_KEYWORDS = {
@@ -59,6 +60,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.AKTIONEN, ("request",), FLAktionRequest, frozenset()),
     (Collection.SAISONS, (), FLSaison, frozenset({"schedule"})),
     (Collection.SAISONS, ("rules",), FLSaisonRules, frozenset()),
+    (Collection.SAISONS, ("rules", "forfeit_ergebnis"), FLSaisonForfeitErgebnis, frozenset()),
     (Collection.SPIELE, (), FLSpiel, frozenset()),
     (Collection.SPIELE, ("team1",), FLSpielTeamField, frozenset()),
     (Collection.SPIELE, ("team2",), FLSpielTeamField, frozenset()),
@@ -75,15 +77,18 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SPIELORTE, ("address",), FLAddress, frozenset()),
     (Collection.SCHIEDSRICHTER, (), FLSchiedsrichter, frozenset()),
     (Collection.SCHIEDSRICHTER, ("kontakt",), FLKontakt, frozenset()),
-    # `gruppe` and `disqualifikation` join from `saison_teams`, `statistik` derives from `spiele`.
-    (Collection.TEAMS, (), FLTeam, frozenset({"gruppe", "disqualifikation", "statistik"})),
+    # `gruppe` and `austritt` join from `saison_teams`, `statistik` derives from `spiele`.
+    (Collection.TEAMS, (), FLTeam, frozenset({"gruppe", "austritt", "statistik"})),
     # Twice on purpose: `FLTeam` is the read shape; `FLTeamRecord` is the write echo and must match exactly.
     (Collection.TEAMS, (), FLTeamRecord, frozenset()),
     (Collection.TEAMS, ("address",), FLAddress, frozenset()),
     # Everything but the two names comes from the saison_spieler junction.
+    (Collection.SPIELER, ("einwilligung",), FLEinwilligung, frozenset()),
     (Collection.SPIELER, (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen", "is_captain"})),
     # The one sub-document of a modelless row with a model, so the drift check reaches it.
-    (Collection.SAISON_TEAMS, ("disqualifikation",), FLDisqualifikation, frozenset()),
+    (Collection.SAISON_TEAMS, ("austritt",), FLAustritt, frozenset()),
+    # The junction's declared shape; nothing validates a stored row through it.
+    (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
 ]
 
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
@@ -97,8 +102,13 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.SAISONS, (), "status", get_args(FLSaisonStatus), False),
     # An array: not itself a `Literal`, but its members are, which is what this row compares.
     (Collection.SAISONS, ("rules",), "erlaubte_stufen", get_args(FLSpielerStufe), False),
+    (Collection.SAISONS, ("rules",), "tiebreak_order", get_args(FLSaisonRules.model_fields["tiebreak_order"].annotation), False),
     (Collection.SAISON_TEAMS, (), "gruppe", get_args(FLGruppenNames), False),
+    (Collection.SAISON_TEAMS, ("austritt",), "type", get_args(FLAustritt.model_fields["type"].annotation), False),
+    (Collection.SPIELER, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
+    (Collection.SPIELER, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
     (Collection.SPIELE, (), "saison_phase", get_args(FLSaisonPhase), False),
+    (Collection.SPIELE, (), "sonderereignis", get_args(FLSonderereignis), True),
     (Collection.SPIELTAGE, (), "saison_phase", get_args(FLSaisonPhase), False),
     (
         Collection.SPIELE,
@@ -179,7 +189,7 @@ def test_every_collection_has_a_validator():
     assert set(COLLECTION_VALIDATORS) == EXPECTED_COLLECTIONS
 
 
-def test_only_the_two_junctions_are_unmirrored():
+def test_only_the_saison_teams_junction_is_unmirrored():
     """Root entries only: `saison_teams` has a mirrored sub-document and its row is still modelless."""
     mirrored_rows = {collection for collection, path, _, _ in MIRRORED_MODELS if not path}
     assert set(COLLECTION_VALIDATORS) - mirrored_rows == MODELLESS_COLLECTIONS

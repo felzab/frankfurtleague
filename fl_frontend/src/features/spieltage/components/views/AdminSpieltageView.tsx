@@ -1,7 +1,6 @@
 "use client";
 
 import { AdminSpieltageList } from "@/features/spieltage/components/collections/AdminSpieltageList";
-import { AdminDeleteSpieltagModal } from "@/features/spieltage/components/modals/AdminDeleteSpieltagModal";
 import { SPIELTAG_FACETS } from "@/features/spieltage/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
@@ -36,20 +35,12 @@ export function AdminSpieltageView({
       items={spieltage}
       searchKeys={SEARCH_KEYS}
       facets={SPIELTAG_FACETS}
-      renderTable={({ query, filteredItems, onDelete }) => (
+      renderTable={({ query, filteredItems }) => (
         <AdminSpieltageList
           spieltageQuery={query}
           filteredSpieltage={filteredItems}
           saisonId={saisonId}
           phaseProgress={phaseProgress}
-          onDelete={onDelete}
-        />
-      )}
-      renderDeleteModal={({ item, isOpen, onClose }) => (
-        <AdminDeleteSpieltagModal
-          spieltagData={item}
-          isOpen={isOpen}
-          onClose={onClose}
         />
       )}
     />

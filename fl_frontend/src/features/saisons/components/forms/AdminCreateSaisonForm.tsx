@@ -5,7 +5,7 @@ import { parseDate } from "@internationalized/date";
 import { FieldError, Input, Label, TextField } from "@heroui/react";
 
 import { postSaisonAction } from "@/features/saisons/actions";
-import { SaisonDateField, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
+import { SaisonDateField, SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
 import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
@@ -16,8 +16,9 @@ import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING
 import type { FLPostSaisonPayload } from "@/features/saisons/schemas";
 
 /**
- * **3/1/0 is a default here and nowhere else.** It is the starting value of an editable field the admin
- * sees before submitting; what is forbidden is a constant the reader cannot see.
+ * **Every value here is a default HERE and nowhere else.** Each is the starting value of an editable
+ * field the admin sees before submitting; what is forbidden is a constant the reader cannot see, which
+ * is why none of these fields carries a model default. They are the live season's values.
  */
 const EMPTY_DRAFT: FLPostSaisonPayload = {
   id: "",
@@ -29,6 +30,9 @@ const EMPTY_DRAFT: FLPostSaisonPayload = {
     qualifiers_per_group: 2,
     number_of_groups: 2,
     teams_per_group: 5,
+    tiebreak_order: "tordifferenz",
+    max_kadergroesse: 50,
+    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
     erlaubte_stufen: [...STUFE_OPTIONS],
   },
 };
@@ -109,6 +113,42 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
                 onChange={(draw_points) => setDraft((current) => ({ ...current, rules: { ...current.rules, draw_points } }))}
               />
             </div>
+            <SaisonTiebreakSelect
+              name="rules.tiebreak_order"
+              label={<Label className={FIELD_LABEL}>Bei Punktgleichheit entscheidet</Label>}
+              value={draft.rules.tiebreak_order}
+              onChange={(tiebreak_order) => setDraft((current) => ({ ...current, rules: { ...current.rules, tiebreak_order } }))}
+            />
+          </div>
+
+          <div className="flex w-full flex-col gap-y-3">
+            <h3 className={FORM_SECTION_HEADING}>Wertung bei Nichtantreten</h3>
+            <div className={FIELD_PAIR}>
+              <SaisonRuleNumberField
+                name="rules.forfeit_ergebnis.sieger_tore"
+                label={<Label className={FIELD_LABEL}>Tore für den Sieger</Label>}
+                minValue={0}
+                value={draft.rules.forfeit_ergebnis.sieger_tore}
+                onChange={(sieger_tore) =>
+                  setDraft((current) => ({
+                    ...current,
+                    rules: { ...current.rules, forfeit_ergebnis: { ...current.rules.forfeit_ergebnis, sieger_tore } },
+                  }))
+                }
+              />
+              <SaisonRuleNumberField
+                name="rules.forfeit_ergebnis.verlierer_tore"
+                label={<Label className={FIELD_LABEL}>Tore für den Verlierer</Label>}
+                minValue={0}
+                value={draft.rules.forfeit_ergebnis.verlierer_tore}
+                onChange={(verlierer_tore) =>
+                  setDraft((current) => ({
+                    ...current,
+                    rules: { ...current.rules, forfeit_ergebnis: { ...current.rules.forfeit_ergebnis, verlierer_tore } },
+                  }))
+                }
+              />
+            </div>
           </div>
 
           <div className="flex w-full flex-col gap-y-3">
@@ -126,7 +166,10 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
               <SaisonRuleNumberField
                 name="rules.teams_per_group"
                 label={<Label className={FIELD_LABEL}>Teams pro Gruppe</Label>}
-                minValue={1}
+                // Below 2 a group generates no fixture; above 16 a season-scoped read is truncated
+                // and the refusals over it cannot be trusted.
+                minValue={2}
+                maxValue={16}
                 value={draft.rules.teams_per_group}
                 onChange={(teams_per_group) => setDraft((current) => ({ ...current, rules: { ...current.rules, teams_per_group } }))}
               />
@@ -138,6 +181,17 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
                 onChange={(qualifiers_per_group) => setDraft((current) => ({ ...current, rules: { ...current.rules, qualifiers_per_group } }))}
               />
             </div>
+          </div>
+
+          <div className="flex w-full flex-col gap-y-3">
+            <h3 className={FORM_SECTION_HEADING}>Kader</h3>
+            <SaisonRuleNumberField
+              name="rules.max_kadergroesse"
+              label={<Label className={FIELD_LABEL}>Maximale Kadergröße</Label>}
+              minValue={1}
+              value={draft.rules.max_kadergroesse}
+              onChange={(max_kadergroesse) => setDraft((current) => ({ ...current, rules: { ...current.rules, max_kadergroesse } }))}
+            />
           </div>
 
           <div className="flex w-full flex-col gap-y-3">

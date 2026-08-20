@@ -7,6 +7,7 @@ export type SaisonBannerId =
   | "saison.end-before-start"
   | "saison.qualifiers-overflow"
   | "saison.points-changed"
+  | "saison.tiebreak-changed"
   | "saison.stufen-changed"
   | "saison.rollover-blocked";
 
@@ -20,6 +21,7 @@ export function buildSaisonBanners({
   qualifiersPerGroup,
   teamsPerGroup,
   isPointsChanged,
+  isTiebreakChanged,
   isStufenChanged,
   outgoingSaisonId,
   offeneSpieleCount,
@@ -29,6 +31,7 @@ export function buildSaisonBanners({
   qualifiersPerGroup: number;
   teamsPerGroup: number;
   isPointsChanged: boolean;
+  isTiebreakChanged: boolean;
   isStufenChanged: boolean;
   /** The season the rollover would close, or `null` when nothing holds `active`. */
   outgoingSaisonId: string | null;
@@ -88,6 +91,18 @@ export function buildSaisonBanners({
       severity: "warning",
       title: "Punkte wirken auf die ganze Saison",
       body: "Auch längst gespielte Spiele zählen dann nach den neuen Punkten.",
+      inline: null,
+    });
+  }
+
+  // The points banner's sibling, and separate from it: the table is re-sorted rather than re-scored,
+  // so every total stays put while the order under it moves.
+  if (isTiebreakChanged) {
+    banners.push({
+      id: "saison.tiebreak-changed",
+      severity: "warning",
+      title: "Die Tabellen werden neu sortiert",
+      body: "Punktgleiche Teams dieser Saison können danach in anderer Reihenfolge stehen, auch in längst gespielten Gruppen.",
       inline: null,
     });
   }

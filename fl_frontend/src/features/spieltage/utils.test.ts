@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { buildSpieltagPhaseProgress, orderRoundsByWiring } from "./utils.ts";
+import { buildSpieltagPhaseProgress, buildSpieltagPositionOffer, orderRoundsByWiring, spieltagLabels } from "./utils.ts";
 
 import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "../saisons/schemas.ts";
 import type { FLSpiel, FLSpielQuelle } from "../spiele/schemas.ts";
@@ -88,6 +88,98 @@ describe("orderRoundsByWiring", () => {
   });
 });
 
+// A matchday as `spieltagLabels` reads one: the label needs the phase and the served position, and
+// nothing else on the row.
+const labelled = (id: string, phase: FLSaisonPhase, position: number) => ({ id, saison_phase: phase, position });
+
+describe("spieltagLabels", () => {
+  it("numbers a Gruppenphase matchday by its stored position", () => {
+    const labels = spieltagLabels([labelled("a", "gruppenphase", 1), labelled("b", "gruppenphase", 2)]);
+
+    assert.equal(labels.get("a")?.label, "1. Spieltag");
+    assert.equal(labels.get("b")?.label, "2. Spieltag");
+  });
+
+  // THE POINT OF STORING IT: a number taken from arrival order would rename every matchday in a
+  // list handed over backwards.
+  it("reads the same label whichever order the list arrives in", () => {
+    const forwards = spieltagLabels([labelled("a", "gruppenphase", 1), labelled("b", "gruppenphase", 2)]);
+    const backwards = spieltagLabels([labelled("b", "gruppenphase", 2), labelled("a", "gruppenphase", 1)]);
+
+    assert.equal(backwards.get("a")?.label, forwards.get("a")?.label);
+    assert.equal(backwards.get("b")?.label, forwards.get("b")?.label);
+  });
+
+  // A gap is reachable: an admin may move a matchday off position 2 and leave nobody on it.
+  it("renders the stored number rather than the row's place in the list", () => {
+    const labels = spieltagLabels([labelled("a", "gruppenphase", 1), labelled("c", "gruppenphase", 3)]);
+
+    assert.equal(labels.get("c")?.label, "3. Spieltag");
+    assert.equal(labels.get("c")?.ordinal, 3);
+  });
+
+  // A knockout round is named by its phase, and only needs a number when the phase is split.
+  it("numbers a knockout round only where its phase holds more than one matchday", () => {
+    const alone = spieltagLabels([labelled("f", "finale", 1)]);
+    const split = spieltagLabels([labelled("v1", "viertelfinale", 1), labelled("v2", "viertelfinale", 2)]);
+
+    assert.equal(alone.get("f")?.label, "Finale");
+    assert.equal(split.get("v1")?.label, "Viertelfinale (1)");
+    assert.equal(split.get("v2")?.label, "Viertelfinale (2)");
+  });
+});
+
+describe("buildSpieltagPositionOffer", () => {
+  const season = [labelled("a", "gruppenphase", 1), labelled("b", "gruppenphase", 2), labelled("f", "finale", 1)];
+
+  it("marks the slots this phase's other matchdays hold, and leaves the row's own free", () => {
+    assert.deepEqual(buildSpieltagPositionOffer(season, { phase: "gruppenphase", exceptId: "b" }), [
+      { position: 1, isTaken: true },
+      { position: 2, isTaken: false },
+      { position: 3, isTaken: false },
+    ]);
+  });
+
+  // The one move a phase change needs: whatever the round already holds, there is a slot to land on.
+  it("always ends on a free append slot", () => {
+    const offer = buildSpieltagPositionOffer(season, { phase: "finale", exceptId: "b" });
+
+    assert.deepEqual(offer, [
+      { position: 1, isTaken: true },
+      { position: 2, isTaken: false },
+    ]);
+  });
+
+  it("offers the first slot alone for a phase holding nothing", () => {
+    assert.deepEqual(buildSpieltagPositionOffer(season, { phase: "halbfinale", exceptId: "b" }), [{ position: 1, isTaken: false }]);
+  });
+
+  // Moving out to the end is how a slot lower down is freed, so the row's own last place must not
+  // shorten the list it is offered.
+  it("keeps the append slot when the row itself holds the highest place", () => {
+    assert.deepEqual(buildSpieltagPositionOffer(season, { phase: "gruppenphase", exceptId: "b" }).at(-1), {
+      position: 3,
+      isTaken: false,
+    });
+  });
+
+  // A gap must not shorten the list, or the number above it becomes unreachable.
+  it("offers every slot up to the highest one held, gaps included", () => {
+    const withAGap = [labelled("a", "gruppenphase", 1), labelled("c", "gruppenphase", 3)];
+
+    assert.deepEqual(buildSpieltagPositionOffer(withAGap, { phase: "gruppenphase", exceptId: "x" }), [
+      { position: 1, isTaken: true },
+      { position: 2, isTaken: false },
+      { position: 3, isTaken: true },
+      { position: 4, isTaken: false },
+    ]);
+  });
+
+  it("offers nothing at all while no phase is picked", () => {
+    assert.deepEqual(buildSpieltagPositionOffer(season, { phase: null, exceptId: "b" }), []);
+  });
+});
+
 // The 2026 season's own shape: four groups of four give three group matchdays, and eight qualifiers
 // play the last three rounds — so `achtelfinale` is absent rather than present with a zero.
 const SCHEDULE_2026: FLSaisonPhaseSchedule[] = [
@@ -97,10 +189,7 @@ const SCHEDULE_2026: FLSaisonPhaseSchedule[] = [
   { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
 ];
 
-const makeSpieltag = (phase: FLSaisonPhase, inactiveSince: string | null = null) => ({
-  saison_phase: phase,
-  inactive_since: inactiveSince,
-});
+const makeSpieltag = (phase: FLSaisonPhase) => ({ saison_phase: phase });
 
 const held = (progress: readonly { phase: FLSaisonPhase; angelegt: number; erwartet: number }[], phase: FLSaisonPhase) =>
   progress.find((entry) => entry.phase === phase);
@@ -121,17 +210,6 @@ describe("buildSpieltagPhaseProgress", () => {
     const progress = buildSpieltagPhaseProgress(SCHEDULE_2026, [makeSpieltag("gruppenphase")]);
 
     assert.deepEqual(held(progress, "halbfinale"), { phase: "halbfinale", angelegt: 0, erwartet: 1 });
-  });
-
-  // `REQ-DATE-004` reads live matchdays alone, so a retired third matchday leaves the phase short.
-  it("does not count a retired matchday", () => {
-    const progress = buildSpieltagPhaseProgress(SCHEDULE_2026, [
-      makeSpieltag("gruppenphase"),
-      makeSpieltag("gruppenphase"),
-      makeSpieltag("gruppenphase", "2026-04-01"),
-    ]);
-
-    assert.deepEqual(held(progress, "gruppenphase"), { phase: "gruppenphase", angelegt: 2, erwartet: 3 });
   });
 
   // The endpoint accepts a matchday in a round this bracket does not reach, so the count describes one.

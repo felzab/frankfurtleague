@@ -29,7 +29,7 @@ export default function AdminSpieltagEditPage(props: NextPageProps<{ spieltag_id
 /**
  * Two rounds of reads, because the first answers which season to ask about: its span bounds the
  * date pickers (`REQ-DATE-002`), its schedule what the phase picker offers, and its matchday
- * list what the label and ordinal count over.
+ * list which positions each phase already holds.
  */
 async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ spieltag_id: string }>["params"] }) {
   await connection();
@@ -47,9 +47,7 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
 
   const [saisonsRes, siblingsRes, spieleRes] = await Promise.all([
     getSaisons(),
-    // Retired siblings INCLUDED, matching the list: excluding one would renumber this matchday
-    // relative to the list it was opened from.
-    getSpieltage({ saison_id: spieltag.saison_id, include_inactive: true }),
+    getSpieltage({ saison_id: spieltag.saison_id }),
     getSpiele({ saison_id: spieltag.saison_id }),
   ]);
 
@@ -60,29 +58,21 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
   }
 
   // One pass over the season rather than per row: the label needs the phase's total.
-  const derived = spieltagLabels(siblingsRes.spieltage).get(spieltag.id);
+  const label = spieltagLabels(siblingsRes.spieltage).get(spieltag.id)?.label ?? "";
 
-  // Everything attached and how much is played — the second is what `REQ-RETIRE-002` refuses a
-  // retirement over.
   const attached = spieleRes.spiele.filter((spiel) => spiel.spieltag_id === spieltag.id);
 
   const row: AdminSpieltagRow = {
     id: spieltag.id,
-    label: derived?.label ?? "",
+    label,
     beginn: spieltag.beginn,
     ende: spieltag.ende,
     anzahl_spiele: spieltag.anzahl_spiele,
     saison_phase: spieltag.saison_phase,
     saison_id: spieltag.saison_id,
-    inactive_since: spieltag.inactive_since,
     spieleAngelegt: attached.length,
-    spieleGespielt: attached.filter((spiel) => spiel.ergebnis !== null).length,
-    ordinal: derived?.ordinal ?? 1,
+    position: spieltag.position,
   };
-
-  const livePhaseCount = siblingsRes.spieltage.filter(
-    (candidate) => candidate.saison_phase === spieltag.saison_phase && candidate.inactive_since === null,
-  ).length;
 
   return (
     // Keyed by the state the draft mirrors, for the match editor's reason.
@@ -91,7 +81,9 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
       spieltag={row}
       saisonSpan={{ start: saison.start_date, end: saison.end_date }}
       saisonSchedule={saison.schedule}
-      livePhaseCount={livePhaseCount}
+      // Every matchday of the season, so the position picker can say which slots its phase already
+      // holds — including the phases this one could still be moved into.
+      siblings={siblingsRes.spieltage}
     />
   );
 }

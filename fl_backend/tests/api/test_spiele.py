@@ -1,8 +1,13 @@
+from typing import get_args
+
 import pytest
 from pydantic import ValidationError
 
 from app.api.spiele.schemas import (
+    SONDEREREIGNIS_KEEPING_ITS_SLOT,
+    SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     FLPatchSpielDataPayload,
+    FLSonderereignis,
     FLSpiel,
     FLSpielElfmeterschiessen,
     FLSpielQuelleGruppe,
@@ -64,6 +69,33 @@ def test_accepts_a_match_with_no_date_venue_or_referee(spiel):
     parsed = FLSpiel.model_validate(spiel(datum=None, uhrzeit=None, ort=None, schiedsrichter=None))
     assert parsed.datum is None
     assert parsed.ort is None
+
+
+def test_the_slot_partition_is_exhaustive():
+    """The two halves must stay complements, and nothing else in the suite compares them.
+
+    Whoever adds a sixth `FLSonderereignis` will put it in the tuple their own consumer reads and
+    never look at the other, leaving it claimed by both halves or by neither.
+    """
+
+    keeping = set(SONDEREREIGNIS_KEEPING_ITS_SLOT)
+    absence = set(SONDEREREIGNIS_RECORDING_AN_ABSENCE)
+    # `None` is a member of the universe, not the lack of one: an ordinary fixture keeps its slot.
+    universe = set(get_args(FLSonderereignis)) | {None}
+
+    assert keeping & absence == set()
+    assert keeping | absence == universe
+    assert keeping and absence
+
+
+def test_an_abandoned_fixture_keeps_its_slot_and_a_called_off_one_frees_it():
+    """The booking read's own question, which the partition above cannot answer: which half each member falls in.
+
+    An abandoned match used the ground and the referee; a match called off freed both.
+    """
+
+    assert "abgebrochen" in SONDEREREIGNIS_KEEPING_ITS_SLOT
+    assert "ausgefallen" in SONDEREREIGNIS_RECORDING_AN_ABSENCE
 
 
 class TestUnresolvedSides:
@@ -210,7 +242,7 @@ class TestPatchPayload:
         base = spiel_factory()
         return {
             "spiel_id": base["_id"],
-            "is_canceled": base["is_canceled"],
+            "sonderereignis": base["sonderereignis"],
             "team1": base["team1"],
             "team2": base["team2"],
             "team1_quelle": base["team1_quelle"],

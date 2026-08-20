@@ -2,8 +2,8 @@ from typing import Any, Callable
 
 import pytest
 
-from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import FLBracketFaultGruppe, FLSpielListAdapter
+from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
+from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLBracketFaultGruppe, FLSpielListAdapter
 from app.api.spiele.services import BracketResolution, resolve_bracket
 from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeam
@@ -15,10 +15,20 @@ MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 
-RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
+RULES = FLSaisonRules(
+    win_points=3,
+    draw_points=1,
+    qualifiers_per_group=2,
+    number_of_groups=4,
+    teams_per_group=4,
+    tiebreak_order="tordifferenz",
+    max_kadergroesse=18,
+    forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
+    erlaubte_stufen=STUFEN,
+)
 
 # The walk keys on the field being non-null, never on what it says, so one value serves every case.
-DISQUALIFIZIERT = {"grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
+AUSGETRETEN = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
 
 PayloadFactory = Callable[..., dict[str, Any]]
 TeamFactory = Callable[..., FLTeam]
@@ -56,22 +66,26 @@ def played(spiel: PayloadFactory, spiel_team_field: PayloadFactory) -> MatchFact
     return make
 
 
-def order(teams: list[FLTeam], documents: list[dict[str, Any]]) -> list[str]:
+# One field apart from `RULES`, so a case run under both differs by the rule and by nothing else.
+DIREKTER_VERGLEICH = RULES.model_copy(update={"tiebreak_order": "direkter_vergleich"})
+
+
+def order(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES) -> list[str]:
     """Group A's standing, as a list of names."""
 
-    gruppen = build_gruppen(teams, FLSpielListAdapter.validate_python(documents), RULES)
+    gruppen = build_gruppen(teams, FLSpielListAdapter.validate_python(documents), rules)
 
     return [team.name for team in gruppen.root["A"]]
 
 
-def standing(teams: list[FLTeam], documents: list[dict[str, Any]]):
+def standing(teams: list[FLTeam], documents: list[dict[str, Any]], rules: FLSaisonRules = RULES):
     """Group A's decided placings."""
 
-    return build_decided_standings(teams, FLSpielListAdapter.validate_python(documents), RULES)["A"]
+    return build_decided_standings(teams, FLSpielListAdapter.validate_python(documents), rules)["A"]
 
 
 class TestTheChain:
-    """Points, goal difference, goals scored, then the head-to-head table."""
+    """Points, then goal difference, goals scored and the head-to-head table, in `tordifferenz` order."""
 
     def test_ranks_on_points_first(self, a_team: TeamFactory):
         teams = [a_team(1, punkte=3), a_team(2, punkte=9), a_team(3, punkte=6)]
@@ -110,6 +124,24 @@ class TestTheChain:
         # Each won one and lost one, so the mini-table decides on goal difference: +2, level, -2.
         assert order(teams, matches) == ["Team 2", "Team 1", "Team 3"]
 
+    def test_a_subgroup_that_has_not_all_met_is_left_as_a_tie(self, a_team: TeamFactory, played: MatchFactory):
+        """Three level on points and on goals, where Team 3 has met neither of the others.
+
+        The mini-table cannot rank them: a team that played nobody in the subgroup would outrank one
+        that lost its meeting, off a comparison that never happened.
+        """
+
+        teams = [
+            a_team(1, punkte=6, geschossen=5, kassiert=5),
+            a_team(2, punkte=6, geschossen=5, kassiert=5),
+            a_team(3, punkte=6, geschossen=5, kassiert=5),
+        ]
+        one_meeting = [played(1, 1, 2, 1, 0)]
+
+        # The order a tie arrives in, and no placing: the group is played out and still answers nothing.
+        assert order(teams, one_meeting) == ["Team 1", "Team 2", "Team 3"]
+        assert standing(teams, one_meeting).by_platz == {}
+
     def test_an_unbreakable_tie_keeps_the_order_it_arrived_in(self, a_team: TeamFactory, played: MatchFactory):
         """The input order is the pipeline's sort by `name`, so an unbroken tie renders alphabetically rather than arbitrarily."""
 
@@ -120,20 +152,194 @@ class TestTheChain:
         assert standing(teams, drawn).by_platz == {}
 
 
+class TestDirekterVergleich:
+    """The other order: the head-to-head table leads, and only where the clubs that can place have met.
+
+    Several here pass with no guard at all, a band nobody has met scoring every team alike: those
+    characterise the branch rather than pin the guard.
+    """
+
+    def test_the_mini_table_outranks_a_better_goal_difference(self, a_team: TeamFactory, played: MatchFactory):
+        """What the season chose the rule for: the meeting decides, not a margin run up against somebody else."""
+
+        teams = [a_team(1, punkte=6, geschossen=3, kassiert=5), a_team(2, punkte=6, geschossen=9, kassiert=2)]
+        met = [played(1, 1, 2, 1, 0)]
+
+        assert order(teams, met, DIREKTER_VERGLEICH) == ["Team 1", "Team 2"]
+        assert order(teams, met, RULES) == ["Team 2", "Team 1"]
+
+    def test_a_cycle_the_mini_table_cannot_split_falls_back_to_the_goal_keys(self, a_team: TeamFactory, played: MatchFactory):
+        """Every pair met, so the mini-table leads; each won one and lost one, so the criterion it led past decides."""
+
+        teams = [
+            a_team(1, punkte=6, geschossen=6, kassiert=5),
+            a_team(2, punkte=6, geschossen=6, kassiert=6),
+            a_team(3, punkte=6, geschossen=6, kassiert=7),
+        ]
+        cycle = [played(1, 1, 2, 1, 0), played(2, 2, 3, 1, 0), played(3, 3, 1, 1, 0)]
+
+        assert order(teams, cycle, DIREKTER_VERGLEICH) == ["Team 1", "Team 2", "Team 3"]
+
+    def test_a_band_missing_a_meeting_ranks_on_the_goal_keys(self, a_team: TeamFactory, played: MatchFactory):
+        """Team 3 has met neither of the others, so no comparison exists to decide anything.
+
+        Its +9 stands, where a mini-table would read that silence as worse than the other two's draw.
+        """
+
+        teams = [
+            a_team(1, punkte=6, geschossen=2, kassiert=2),
+            a_team(2, punkte=6, geschossen=1, kassiert=2),
+            a_team(3, punkte=6, geschossen=10, kassiert=1),
+        ]
+        drawn = [played(1, 1, 2, 0, 0)]
+
+        assert order(teams, drawn, DIREKTER_VERGLEICH) == ["Team 3", "Team 1", "Team 2"]
+        assert order(teams, drawn, RULES) == ["Team 3", "Team 1", "Team 2"]
+        # A match between two other teams moved nobody: the whole defect was that it moved Team 3 to last.
+        assert order(teams, [], DIREKTER_VERGLEICH) == order(teams, drawn, DIREKTER_VERGLEICH)
+
+    def test_a_called_off_meeting_is_no_meeting(self, a_team: TeamFactory, played: MatchFactory):
+        """Team 3's two fixtures are on the list and were never played, so the comparison is as absent as if they were never drawn."""
+
+        teams = [
+            a_team(1, punkte=6, geschossen=2, kassiert=2),
+            a_team(2, punkte=6, geschossen=1, kassiert=2),
+            a_team(3, punkte=6, geschossen=10, kassiert=1),
+        ]
+        called_off = [played(1, 1, 2, 0, 0), played(2, 1, 3, sonderereignis="ausgefallen"), played(3, 2, 3, sonderereignis="ausgefallen")]
+
+        assert order(teams, called_off, DIREKTER_VERGLEICH) == ["Team 3", "Team 1", "Team 2"]
+
+    def test_a_band_of_one_ranks_the_same_under_both_orders(self, a_team: TeamFactory):
+        """Nobody to compare with, so neither criterion is reached and the two orders cannot disagree."""
+
+        teams = [a_team(1, punkte=9, geschossen=1, kassiert=0), a_team(2, punkte=6, geschossen=9, kassiert=0)]
+
+        assert order(teams, [], DIREKTER_VERGLEICH) == order(teams, [], RULES) == ["Team 1", "Team 2"]
+
+    def test_a_band_where_nobody_has_met_ranks_the_same_under_both_orders(self, a_team: TeamFactory):
+        """Every pair of the band still missing, so the goal keys lead under either rule."""
+
+        teams = [
+            a_team(1, punkte=6, geschossen=1, kassiert=3),
+            a_team(2, punkte=6, geschossen=5, kassiert=0),
+            a_team(3, punkte=6, geschossen=2, kassiert=2),
+        ]
+
+        assert order(teams, [], DIREKTER_VERGLEICH) == order(teams, [], RULES) == ["Team 2", "Team 3", "Team 1"]
+
+    def test_a_placing_the_missing_meeting_could_still_decide_is_not_pinned(self, a_team: TeamFactory, played: MatchFactory):
+        """The two are still to meet, so every table their result could produce has to agree before a slot seeds."""
+
+        teams = [
+            a_team(1, punkte=6, geschossen=2, kassiert=2, gespielt=2),
+            a_team(2, punkte=6, geschossen=1, kassiert=2, gespielt=2),
+            a_team(3, punkte=6, geschossen=10, kassiert=1),
+        ]
+        decided = standing(teams, [played(9, 1, 2)], DIREKTER_VERGLEICH)
+
+        assert not decided.is_complete
+        assert decided.by_platz == {}
+
+    def test_a_placing_no_meeting_can_reach_is_pinned_on_the_goal_keys(self, a_team: TeamFactory, played: MatchFactory):
+        """Nothing left to play, so the missing meeting never happens; the bracket seeds from the goal keys."""
+
+        teams = [
+            a_team(1, punkte=6, geschossen=2, kassiert=2),
+            a_team(2, punkte=6, geschossen=1, kassiert=2),
+            a_team(3, punkte=6, geschossen=10, kassiert=1),
+        ]
+        decided = standing(teams, [played(1, 1, 2, 0, 0)], DIREKTER_VERGLEICH)
+
+        assert decided.is_complete
+        assert [decided.by_platz[platz].name for platz in (1, 2, 3)] == ["Team 3", "Team 1", "Team 2"]
+
+    def test_the_fallback_leaves_a_subgroup_that_has_not_all_met_as_a_tie(self, a_team: TeamFactory, played: MatchFactory):
+        """The same subgroup as `TestTheChain`, reached the other way: the band is incomplete, so the goal keys lead into it."""
+
+        teams = [
+            a_team(1, punkte=6, geschossen=5, kassiert=5),
+            a_team(2, punkte=6, geschossen=5, kassiert=5),
+            a_team(3, punkte=6, geschossen=5, kassiert=5),
+        ]
+        one_meeting = [played(1, 1, 2, 1, 0)]
+
+        assert order(teams, one_meeting, DIREKTER_VERGLEICH) == order(teams, one_meeting, RULES)
+        assert standing(teams, one_meeting, DIREKTER_VERGLEICH).by_platz == {}
+
+    def test_the_fallback_still_ranks_a_subgroup_that_has_met(self, a_team: TeamFactory, played: MatchFactory):
+        """The guard refuses a missing comparison, never a real one: Teams 1 and 2 met, and their meeting still decides."""
+
+        teams = [
+            a_team(1, punkte=6, geschossen=5, kassiert=5),
+            a_team(2, punkte=6, geschossen=5, kassiert=5),
+            a_team(3, punkte=6, geschossen=10, kassiert=1),
+        ]
+        one_meeting = [played(1, 1, 2, 0, 1)]
+
+        assert order(teams, one_meeting, DIREKTER_VERGLEICH) == ["Team 3", "Team 2", "Team 1"]
+        decided = standing(teams, one_meeting, DIREKTER_VERGLEICH)
+
+        assert [decided.by_platz[platz].name for platz in (1, 2, 3)] == ["Team 3", "Team 2", "Team 1"]
+
+
+class TestADepartedClubInTheBand:
+    """A club that has left is ranked and displayed, and settles nothing for the clubs that can place.
+
+    `build_gruppen` ranks it and `build_decided_standings` never sees it, so a comparison judged over
+    whoever is present would split the two surfaces.
+    """
+
+    @pytest.mark.parametrize("rules", [RULES, DIREKTER_VERGLEICH], ids=["tordifferenz", "direkter_vergleich"])
+    def test_the_live_clubs_are_ranked_on_their_meeting(self, a_team: TeamFactory, played: MatchFactory, rules: FLSaisonRules):
+        """Three level on points and on goals, one of them departed and having met nobody.
+
+        Only the meeting separates Teams 1 and 2, so a comparison the departed club could disable
+        would leave them tied.
+        """
+
+        teams = [
+            a_team(1, punkte=6, geschossen=4, kassiert=4),
+            a_team(2, punkte=6, geschossen=4, kassiert=4),
+            a_team(3, punkte=6, geschossen=4, kassiert=4, austritt=AUSGETRETEN),
+        ]
+        met = [played(1, 1, 2, 2, 0)]
+
+        # Team 3 is ranked on its own vacuous mini-table row, which is what "still displayed" means.
+        assert order(teams, met, rules) == ["Team 1", "Team 3", "Team 2"]
+
+    @pytest.mark.parametrize("rules", [RULES, DIREKTER_VERGLEICH], ids=["tordifferenz", "direkter_vergleich"])
+    def test_the_table_and_the_bracket_order_the_placeable_clubs_alike(self, a_team: TeamFactory, played: MatchFactory, rules: FLSaisonRules):
+        """The property the two callers must share, asserted between them rather than inferred from either."""
+
+        teams = [
+            a_team(1, punkte=6, geschossen=4, kassiert=4),
+            a_team(2, punkte=6, geschossen=4, kassiert=4),
+            a_team(3, punkte=6, geschossen=4, kassiert=4, austritt=AUSGETRETEN),
+        ]
+        met = [played(1, 1, 2, 2, 0)]
+
+        displayed = [name for name in order(teams, met, rules) if name != "Team 3"]
+        decided = standing(teams, met, rules)
+
+        assert displayed == ["Team 1", "Team 2"]
+        assert [decided.by_platz[platz].name for platz in sorted(decided.by_platz)] == displayed
+
+
 class TestWhoMayHoldAPlatz:
     """A placing is walked past a team that cannot advance out of it, and the next team takes it."""
 
     def test_a_disqualified_team_keeps_its_row_in_the_table(self, a_team: TeamFactory):
-        """Disqualification is about advancing, not about the table."""
+        """Leaving the season is about advancing, not about the table."""
 
-        teams = [a_team(1, punkte=9, disqualifikation=DISQUALIFIZIERT), a_team(2, punkte=6)]
+        teams = [a_team(1, punkte=9, austritt=AUSGETRETEN), a_team(2, punkte=6)]
 
         assert order(teams, []) == ["Team 1", "Team 2"]
 
     def test_the_placings_walk_past_a_disqualified_team(self, a_team: TeamFactory):
         """The table and the bracket must agree, or the public page and the bracket name different qualifiers."""
 
-        teams = [a_team(1, punkte=9, disqualifikation=DISQUALIFIZIERT), a_team(2, punkte=6), a_team(3, punkte=3)]
+        teams = [a_team(1, punkte=9, austritt=AUSGETRETEN), a_team(2, punkte=6), a_team(3, punkte=3)]
         decided = standing(teams, [])
 
         assert decided.eligible == 2
@@ -195,14 +401,24 @@ class TestWhenAPlacingIsFinal:
 
         assert standing(teams, [played(9, 2, 3)]).by_platz == {}
 
-    def test_a_cancelled_match_with_no_result_is_never_coming(self, a_team: TeamFactory, played: MatchFactory):
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
+    def test_a_fixture_that_can_award_nothing_is_never_coming(self, a_team: TeamFactory, played: MatchFactory, sonderereignis: str):
         """Nothing recorded awards nobody, so it does not hold the group open; a forfeit is `test_bracket.py`'s."""
 
         teams = [a_team(1, punkte=9), a_team(2, punkte=6)]
-        decided = standing(teams, [played(9, 1, 2, is_canceled=True)])
+        decided = standing(teams, [played(9, 1, 2, sonderereignis=sonderereignis)])
 
         assert decided.is_complete
         assert decided.by_platz[1].name == "Team 1"
+
+    def test_an_abandoned_fixture_with_no_result_still_holds_the_group_open(self, a_team: TeamFactory, played: MatchFactory):
+        """The distinction the boolean hid: an abandonment may yet be replayed, so a point it could award is still to come."""
+
+        teams = [a_team(1, punkte=9), a_team(2, punkte=6)]
+        decided = standing(teams, [played(9, 1, 2, sonderereignis="abgebrochen")])
+
+        assert not decided.is_complete
+        assert decided.by_platz == {}
 
     def test_a_pending_fixture_with_no_sides_blocks_every_group(self, a_team: TeamFactory, spiel: PayloadFactory, played: MatchFactory):
         """It will award points inside some group and nothing can say which. Reachable only by hand: fixtures are created with their teams."""

@@ -1,8 +1,10 @@
+import inspect
 from typing import Literal
 
 import pytest
+from bson import ObjectId
 
-from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.saisons.services import SAISON_SPAN_BELOW_SCHEDULE, SAISON_SPAN_BELOW_SPIELTAGE, find_saison_span_refusal
 from app.api.schiedsrichter.services import REFEREE_STILL_ASSIGNED, find_referee_retire_refusal
 from app.api.spiele.services import (
@@ -14,7 +16,10 @@ from app.api.spiele.services import (
     find_fixture_date_refusal,
 )
 from app.api.spieler.services import (
+    SQUAD_FULL,
     SQUAD_TEAM_NOT_IN_SAISON,
+    build_live_squad_filter,
+    find_squad_capacity_refusal,
     find_squad_refusal,
     normalised_nummer,
 )
@@ -34,9 +39,16 @@ SAISON_RULES = FLSaisonRules(
     qualifiers_per_group=2,
     win_points=3,
     draw_points=1,
+    tiebreak_order="tordifferenz",
+    max_kadergroesse=18,
+    forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     erlaubte_stufen=["E1"],
 )
 IMPLIED_MATCHDAYS = 6
+
+# Fixed rather than generated: a failing squad-filter assertion points at the same value every run.
+TEAM_OID = ObjectId("6890a1b2c3d4e5f607182930")
+SPIELER_OID = ObjectId("6890a1b2c3d4e5f607182935")
 
 
 class TestAFixtureSitsInsideItsMatchday:
@@ -196,12 +208,16 @@ class TestASeasonIsLongEnoughForItsSchedule:
     def test_the_floor_follows_the_rules_rather_than_a_constant(self):
         """The same span is legal under one rules set and refused under a wider one; a hardcoded floor could not tell them apart."""
 
+        # `teams_per_group` alone differs from `SAISON_RULES`, which is the figure the floor turns on.
         wider = FLSaisonRules(
             number_of_groups=4,
             teams_per_group=6,
             qualifiers_per_group=2,
             win_points=3,
             draw_points=1,
+            tiebreak_order="tordifferenz",
+            max_kadergroesse=18,
+            forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
             erlaubte_stufen=["E1"],
         )
 
@@ -355,3 +371,62 @@ class TestASquadEntry:
         """`07` stays `07`: it is a printed shirt, and calling it the same as `7` is a judgement this rule declines."""
 
         assert normalised_nummer(raw) == expected
+
+
+class TestASquadCap:
+    """`max_kadergroesse` is a season's rule, so the same club may run a larger squad in the next one."""
+
+    def test_a_squad_below_the_cap_passes(self):
+        assert find_squad_capacity_refusal(squad_size=17, max_kadergroesse=18) is None
+
+    def test_a_squad_at_the_cap_is_refused(self):
+        """`>=`, not `>`: the row being written is the one that would take the place beyond it."""
+
+        refusal = find_squad_capacity_refusal(squad_size=18, max_kadergroesse=18)
+
+        assert refusal is not None
+        assert refusal.error_code == SQUAD_FULL
+
+    def test_a_squad_over_the_cap_is_refused(self):
+        """Reachable without a bug: narrowing a season's rules leaves the squads already entered under the old bound."""
+
+        refusal = find_squad_capacity_refusal(squad_size=25, max_kadergroesse=18)
+
+        assert refusal is not None
+        assert refusal.error_code == SQUAD_FULL
+
+    def test_the_message_names_both_figures(self):
+        """The admin's next action is either to retire a row or to raise the season's rule, and neither is choosable without both numbers."""
+
+        refusal = find_squad_capacity_refusal(squad_size=18, max_kadergroesse=18)
+
+        assert refusal is not None
+        assert "18/18" in refusal.message
+
+    def test_the_count_is_of_live_rows_only(self):
+        """A retired row is a place given back; the unique index still spans it, which answers a repeat entry rather than capacity."""
+
+        assert build_live_squad_filter(saison_id="2026", team_id=TEAM_OID, excluding_spieler_id=SPIELER_OID)["inactive_since"] is None
+
+    def test_the_count_excludes_the_player_being_written(self):
+        """What keeps the rule from over-reaching: an edit leaving `team_id` alone would otherwise be refused by the player's own place."""
+
+        squad_filter = build_live_squad_filter(saison_id="2026", team_id=TEAM_OID, excluding_spieler_id=SPIELER_OID)
+
+        assert squad_filter["spieler_id"] == {"$ne": SPIELER_OID}
+
+    def test_the_count_is_scoped_to_one_team_in_one_season(self):
+        """`max_kadergroesse` is a season's rule, so a club's squad in another season is a different squad."""
+
+        squad_filter = build_live_squad_filter(saison_id="2026", team_id=TEAM_OID, excluding_spieler_id=SPIELER_OID)
+
+        assert (squad_filter["saison_id"], squad_filter["team_id"]) == ("2026", TEAM_OID)
+
+    def test_the_club_question_stays_out_of_this_one(self):
+        """Two functions rather than two clauses.
+
+        `find_squad_refusal`'s signature is pinned exactly by
+        `tests/core/test_unenforced.py :: TestASharedSquadNumber`.
+        """
+
+        assert set(inspect.signature(find_squad_capacity_refusal).parameters) == {"squad_size", "max_kadergroesse"}

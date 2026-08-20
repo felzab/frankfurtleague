@@ -12,6 +12,7 @@ const build = (overrides: Partial<Parameters<typeof buildSaisonBanners>[0]> = {}
     qualifiersPerGroup: 2,
     teamsPerGroup: 4,
     isPointsChanged: false,
+    isTiebreakChanged: false,
     isStufenChanged: false,
     outgoingSaisonId: null,
     offeneSpieleCount: 0,
@@ -44,6 +45,14 @@ describe("buildSaisonBanners", () => {
     assert.ok(breaches.every((banner) => banner.severity === "danger"));
     // The overflow saves while it is not worsened, so promising otherwise would relatch what I44 opened.
     assert.match(breaches[1]?.body ?? "", /nicht weiter verschlechtert/);
+  });
+
+  it("warns about a moved tiebreak on its own entry, since re-sorting is not re-scoring", () => {
+    const both = build({ isPointsChanged: true, isTiebreakChanged: true });
+
+    assert.deepEqual(ids(both), ["saison.points-changed", "saison.tiebreak-changed"]);
+    // A warning, so the save confirms: neither effect is visible at the field that caused it.
+    assert.ok(both.every((banner) => banner.severity === "warning"));
   });
 
   it("counts the outgoing season's unfinished fixtures into the title, singular and plural", () => {

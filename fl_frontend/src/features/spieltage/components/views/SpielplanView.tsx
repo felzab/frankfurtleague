@@ -12,8 +12,8 @@ import { spieltagLabels } from "../../utils";
 import type { FLSpielplan } from "../../schemas";
 
 export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
-  // The list arrives in the backend's derived order, which is what the ordinal counts over — so
-  // nothing here may re-sort it.
+  // The list arrives in the backend's played order and nothing here may re-sort it: the tabs run
+  // left to right in the order the season is played.
   const labels = spieltagLabels(spielplanData.spieltage);
   // Without this the empty case renders a bordered, empty 44px tab bar and no panels.
   if (!spielplanData.spieltage.length) {

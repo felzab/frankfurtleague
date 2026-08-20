@@ -51,6 +51,9 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 "qualifiers_per_group": 2,
                 "number_of_groups": 4,
                 "teams_per_group": 4,
+                "tiebreak_order": "tordifferenz",
+                "max_kadergroesse": 18,
+                "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
                 # Which levels this season offers — a subset of the league's set.
                 "erlaubte_stufen": ["E1", "E2", "Q1", "Q2", "Q3", "Q4"],
             },
@@ -65,8 +68,19 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "address": dict(ADDRESS),
             "inactive_since": None,
         },
-        "saison_teams": {"saison_id": SAISON_ID, "team_id": TEAM_OID, "gruppe": "A", "disqualifikation": None},
-        "spieler": {"_id": SPIELER_OID, "vorname": "Max", "nachname": "Mustermann", "inactive_since": None},
+        "saison_teams": {"saison_id": SAISON_ID, "team_id": TEAM_OID, "gruppe": "A", "austritt": None},
+        "spieler": {
+            "_id": SPIELER_OID,
+            "vorname": "Max",
+            "nachname": "Mustermann",
+            "inactive_since": None,
+            "einwilligung": {
+                "umfang": "kader_oeffentlich",
+                "erteilt_von": "erziehungsberechtigt",
+                "datum": "2026-01-15",
+                "bestaetigt_am": "2026-01-20",
+            },
+        },
         "saison_spieler": {
             "spieler_id": SPIELER_OID,
             "saison_id": SAISON_ID,
@@ -91,7 +105,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "elfmeterschiessen": None,
             "spieltag_id": SPIELTAG_OID,
             "spiel_nr": 1,
-            "is_canceled": False,
+            "sonderereignis": None,
             "saison_phase": "gruppenphase",
             "saison_id": SAISON_ID,
         },
@@ -100,9 +114,9 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             # No `name` and no `anzahl_spiele`: one is composed by the reader, the other derived, and neither stored.
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
+            "position": 1,
             "saison_phase": "gruppenphase",
             "saison_id": SAISON_ID,
-            "inactive_since": None,
         },
         "spielorte": {
             "_id": SPIELORT_OID,
@@ -238,6 +252,7 @@ def test_an_absent_embedded_object_is_still_accepted(mongo_container: Any):
         ("saison_spieler", valid_documents()["saison_spieler"], valid_document("saison_spieler", nummer="11")),
         ("spiele", valid_documents()["spiele"], valid_document("spiele", ergebnis="0:0")),
         ("teams", valid_documents()["teams"], valid_document("teams", _id=SPIELER_OID, name="Lessing II")),
+        ("spieltage", valid_documents()["spieltage"], valid_document("spieltage", _id=SPIELORT_OID, ende="2026-03-22")),
     ],
     ids=[index.name for index in UNIQUE_INDEXES],
 )
@@ -261,6 +276,17 @@ def test_the_same_spiel_nr_in_another_season_is_fine(mongo_container: Any):
         await database.spiele.insert_one(valid_documents()["spiele"])
         await database.spiele.insert_one(valid_document("spiele", saison_id="2025"))
         return await database.spiele.count_documents({})
+
+    assert on_a_database(mongo_container, body) == 2
+
+
+def test_the_same_position_in_another_phase_is_fine(mongo_container: Any):
+    """`saison_phase` is a key for this reason: the positions restart per phase, so every phase of a season has a 1."""
+
+    async def body(database: AsyncIOMotorDatabase) -> int:
+        await database.spieltage.insert_one(valid_documents()["spieltage"])
+        await database.spieltage.insert_one(valid_document("spieltage", _id=SPIELORT_OID, saison_phase="finale"))
+        return await database.spieltage.count_documents({})
 
     assert on_a_database(mongo_container, body) == 2
 
