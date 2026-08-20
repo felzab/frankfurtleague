@@ -6,6 +6,7 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 from app.api.spieler.admin_router import (
+    delete_saison_spieler,
     patch_saison_spieler,
     patch_spieler,
     post_saison_spieler,
@@ -66,6 +67,16 @@ def squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | 
         "nummer": None,
         "inactive_since": inactive_since,
     }
+
+
+def legacy_squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]:
+    """A row as written before either flag existed: the keys are ABSENT rather than false, which no projection can supply."""
+
+    row = squad_row(spieler_id=spieler_id, team_id=team_id, inactive_since=inactive_since)
+    del row["is_nachgetragen"]
+    del row["is_captain"]
+
+    return row
 
 
 def on_a_database(container: Any, body: Body) -> Any:
@@ -304,3 +315,41 @@ class TestTheSquadCapOnEveryWritePath:
 
         assert response.inactive_since is None
         assert response.nummer == "9"
+
+
+class TestASquadRowPredatingTheTwoFlagsStillEchoes:
+    """`patch_saison_spieler` `$set`s both flags, so the paths naming neither are the only ones a legacy document reaches.
+
+    A subscript there answers 500 on a request that changed nothing, and `python -m app.core.constraints --check` is what finds the row.
+    """
+
+    def test_leaving_a_squad_answers_for_one(self, mongo_container: Any):
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            await database.saison_spieler.insert_one(legacy_squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID))
+
+            return await delete_saison_spieler(
+                spieler_id=spieler_id_for(90),
+                saison_id=SAISON_ID,
+                saison_spieler_collection=database.saison_spieler,
+                today=TODAY,
+            )
+
+        response = on_a_database(mongo_container, body)
+
+        assert (response.is_nachgetragen, response.is_captain) == (False, False)
+        assert response.inactive_since == TODAY
+
+    def test_returning_to_a_squad_answers_for_one_too(self, mongo_container: Any):
+        """The other write naming neither flag: the soft delete's case cannot speak for a revive that reads its own stored row."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            await database.saison_spieler.insert_one(
+                legacy_squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
+            )
+
+            return await revive(database, spieler_id_for(90))
+
+        response = on_a_database(mongo_container, body)
+
+        assert (response.is_nachgetragen, response.is_captain) == (False, False)
+        assert response.inactive_since is None

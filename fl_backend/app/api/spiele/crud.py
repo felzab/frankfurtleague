@@ -15,15 +15,19 @@ from app.api.spiele.schemas import (
     FLSpielTeamField,
 )
 from app.api.spiele.services import (
+    BookedReferee,
+    BookedVenue,
     BracketResolution,
+    SaisonMembership,
     SlotAdvancement,
     SpieltagRelease,
     build_spiele_pipeline,
     find_departed_occupants,
+    find_double_entries,
     resolve_bracket,
 )
 from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
-from app.api.teams.services import DecidedStanding, build_decided_standings, build_team_pipeline
+from app.api.teams.services import ZERO_STATISTIK, DecidedStanding, build_decided_standings, build_statistik_by_team, build_team_pipeline
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
@@ -48,22 +52,27 @@ async def _resolve_one_saison(
 
     standings: Mapping[FLGruppenNames, DecidedStanding] = {}
     if referenced_gruppen:
-        # The pipeline serving `GET /teams`, so the bracket seeds from the table the site shows.
+        # `GET /teams`' own pipeline, so the bracket ranks the clubs the site's table ranks, and
         # `include_inactive` stays default: a hidden club must not hold a placing the bracket honours.
+        # `rules=None` asks it for the ROWS alone.
         teams_raw = await aggregate_many_from_db(
             collection=teams_collection,
-            pipeline=build_team_pipeline(
-                filters=FLTeamsFilterParams(saison_id=saison_id, statistik_scope="gruppenphase"),
-                rules=rules,
-            ),
+            pipeline=build_team_pipeline(filters=FLTeamsFilterParams(saison_id=saison_id), rules=None),
             session=session,
         )
 
-        # The group phase alone, matching the statistics' scope: a head-to-head drawn from playoff
-        # matches would break a tie on results those points never saw.
+        # The group phase alone: a head-to-head drawn from playoff matches would break a tie on
+        # results those points never saw. It is also the scope the figures below are derived at.
+        gruppenphase = [spiel for spiel in spiele if spiel.saison_phase == "gruppenphase"]
+
+        # From the fixtures ARGUED, never re-read: the preview hands in a season this collection
+        # does not hold yet, so a table read back from it would rank the save's fixtures while the
+        # walk ranks the preview's (`docs/backend/spec.md :: I29`).
+        by_team = build_statistik_by_team(gruppenphase, rules)
+
         standings = build_decided_standings(
-            teams=FLTeamListAdapter.validate_python(teams_raw),
-            spiele=[spiel for spiel in spiele if spiel.saison_phase == "gruppenphase"],
+            teams=FLTeamListAdapter.validate_python([{**team, "statistik": by_team.get(team["_id"], ZERO_STATISTIK)} for team in teams_raw]),
+            spiele=gruppenphase,
             rules=rules,
             gruppen=referenced_gruppen,
         )
@@ -118,6 +127,12 @@ async def find_bracket_faults(
     faults.extend(occupant_faults)
     faulted_ids.update(fault.spiel_id for fault in occupant_faults)
 
+    # Beside the walk for the same reason, and over the whole archive rather than per season: what
+    # groups a clash is the `spieltag_id`, which one season alone holds.
+    double_entries = find_double_entries(spiele)
+    faults.extend(double_entries)
+    faulted_ids.update(fault.spiel_id for fault in double_entries)
+
     faulted_spiele = [spiel for spiel in spiele if spiel.id in faulted_ids]
 
     return faults, faulted_spiele
@@ -127,22 +142,67 @@ async def pull_saison_membership(
     saison_teams_collection: AsyncIOMotorCollection,
     saison_id: str,
     session: AsyncIOMotorClientSession | None = None,
-) -> dict[CustomObjectId, str | None]:
-    """Which teams hold a row for this season, and from which DAY each is out.
+) -> dict[CustomObjectId, SaisonMembership]:
+    """Which teams hold a row for this season, under which name, and from which DAY each is out.
 
-    Not through `build_team_pipeline`, which skips seasons a team has no matches in and filters
-    `inactive_since` -- both would drop a row this refusal must see.
+    Not `build_team_pipeline`, which filters `inactive_since` away -- a club that left the LEAGUE
+    still holds the row a refusal about this season must see.
     """
 
     rows = await pull_many_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
-        projection={"team_id": 1, "austritt": 1},
+        projection={"team_id": 1, "austritt": 1, "name": 1, "shorthand": 1},
         session=session,
     )
 
-    # The `.get` is for the null record: a present `austritt` always carries a `datum`.
-    return {row["team_id"]: (row["austritt"] or {}).get("datum") for row in rows}
+    return {
+        row["team_id"]: SaisonMembership(
+            name=row["name"],
+            shorthand=row["shorthand"],
+            # The `.get` is for the null record: a present `austritt` always carries a `datum`.
+            departed_from=(row["austritt"] or {}).get("datum"),
+        )
+        for row in rows
+    }
+
+
+async def pull_booked_venue(
+    spielorte_collection: AsyncIOMotorCollection,
+    spielort_id: CustomObjectId | None,
+    session: AsyncIOMotorClientSession | None = None,
+) -> BookedVenue | None:
+    """The venue this payload's reference names, or `None` for no reference and for one naming no row.
+
+    `find_one` rather than `pull_one_from_db`'s 404: an id the admin picked wrongly is a refusal
+    about the payload, not a missing fixture.
+    """
+
+    if spielort_id is None:
+        return None
+
+    row = await spielorte_collection.find_one({"_id": spielort_id}, {"name": 1, "maps_link": 1, "inactive_since": 1}, session=session)
+    if row is None:
+        return None
+
+    return BookedVenue(name=row["name"], maps_link=row["maps_link"], inactive_since=row["inactive_since"])
+
+
+async def pull_booked_referee(
+    schiedsrichter_collection: AsyncIOMotorCollection,
+    schiedsrichter_id: CustomObjectId | None,
+    session: AsyncIOMotorClientSession | None = None,
+) -> BookedReferee | None:
+    """The referee this payload's reference names, for the reason `pull_booked_venue` exists."""
+
+    if schiedsrichter_id is None:
+        return None
+
+    row = await schiedsrichter_collection.find_one({"_id": schiedsrichter_id}, {"name": 1, "inactive_since": 1}, session=session)
+    if row is None:
+        return None
+
+    return BookedReferee(name=row["name"], inactive_since=row["inactive_since"])
 
 
 async def preview_bracket_after_patch(
@@ -254,6 +314,7 @@ def report_advancement(advancement: SlotAdvancement) -> FLSpielAdvancement:
         spiel_nr=advancement.spiel_nr,
         voided_ergebnis=advancement.voided_ergebnis,
         voided_elfmeterschiessen=advancement.voided_elfmeterschiessen,
+        voided_sonderereignis=advancement.voided_sonderereignis,
     )
 
 
@@ -266,6 +327,7 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
         team_name=release.team_name,
         voided_ergebnis=release.voided_ergebnis,
         voided_elfmeterschiessen=release.voided_elfmeterschiessen,
+        voided_sonderereignis=release.voided_sonderereignis,
     )
 
 

@@ -278,7 +278,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten. A result can fill or empty the\nslots below it, each named in `advanced_to`. `dry_run=true` answers the same and writes nothing.",
+        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in\n`advanced_to`. `dry_run=true` answers the same and writes nothing.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -392,7 +392,7 @@
             }
           },
           {
-            "name": "is_disqualified",
+            "name": "has_austritt",
             "in": "query",
             "required": false,
             "schema": {
@@ -404,7 +404,27 @@
                   "type": "null"
                 }
               ],
-              "title": "Is Disqualified"
+              "title": "Has Austritt"
+            }
+          },
+          {
+            "name": "austritt_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "disqualifikation",
+                    "rueckzug"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Austritt Type"
             }
           },
           {
@@ -642,7 +662,7 @@
       },
       "patch": {
         "summary": "Update a team and fan the rename out",
-        "description": "Update a club, then rewrite the name and shorthand embedded in its matches.\n\nThe fan-out is not optional: matches carry a copy of both fields, so without it every match card\nshows a stale name indefinitely.",
+        "description": "Update a club, then rewrite the name and shorthand its unfinished seasons carry.\n\nThe fan-out is not optional: the junction and every match carry a copy of both fields, so\nwithout it a stale name stands indefinitely. A `past` season is left alone -- it is the record\nof the name the club was played under.",
         "operationId": "patch_team_api_v0_teams__team_id__patch",
         "security": [
           {
@@ -1551,7 +1571,7 @@
       },
       "patch": {
         "summary": "Update a Saison's dates and rules",
-        "description": "Update a season's dates and scoring rules. `status` is on no payload.\n\nEditing the points moves every league table on the NEXT READ, standings being derived. A `past`\nseason's are frozen, and a rule narrowed below what the season holds is refused.",
+        "description": "Update a season's dates and rules. `status` is on no payload.\n\nEditing the points moves every league table on the NEXT READ, standings being derived. What a\nfinished or drawn season has fixed is refused, as is a rule narrowed below what it holds.",
         "operationId": "patch_saison_api_v0_saisons__saison_id__patch",
         "security": [
           {
@@ -2178,6 +2198,51 @@
         ]
       }
     },
+    "/api/v0/spiele/{spiel_id}/admin": {
+      "get": {
+        "summary": "One Spiel for the admin editor",
+        "description": "Return one match in the joined shape `GET /spiele/{spiel_id}` serves, under the admin key.\n\nThe editor reads here rather than there because it round-trips `ort.mietpreis` and\n`schiedsrichter.payment`, which belong to the admin tier.",
+        "operationId": "get_spiel_for_admin_api_v0_spiele__spiel_id__admin_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spiel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpieleSingleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v0/teams/memberships": {
       "get": {
         "summary": "Every team with its season memberships",
@@ -2250,7 +2315,7 @@
     "/api/v0/teams/{team_id}/saisons": {
       "post": {
         "summary": "Enter a team into a season",
-        "description": "Enter a team into a season, in a group.\n\nA team with no row here is ABSENT from that season entirely: the join is strict. Refused unless\nthe season is `future` and the group it names has space.",
+        "description": "Enter a team into a season, in a group, under the name the club carries today.\n\nA team with no row here is ABSENT from that season entirely: the join is strict. Refused unless\nthe club is still in the league, the season is `future`, and the group it names has space.",
         "operationId": "post_saison_team_api_v0_teams__team_id__saisons_post",
         "security": [
           {
@@ -2663,7 +2728,7 @@
     "/api/v0/saisons/{saison_id}/activate": {
       "post": {
         "summary": "Make this the active Saison",
-        "description": "Make this the active season, moving whichever holds `active` to `past`.\n\nThe only path to `status: \"active\"`. One transaction, so the league is never briefly without an\nactive season nor with two. The outgoing season must be finished.",
+        "description": "Make this the active season, moving whichever holds `active` to `past`.\n\nThe only path to `status: \"active\"`. One transaction, so the league never briefly holds no\nactive season, nor two. The outgoing must be finished, and a `past` target refused.",
         "operationId": "activate_saison_api_v0_saisons__saison_id__activate_post",
         "security": [
           {
@@ -3101,6 +3166,7 @@
           },
           "hausnummer": {
             "type": "string",
+            "maxLength": 16,
             "pattern": "^([0-9\\-abcABC]+)?$",
             "title": "Hausnummer"
           },
@@ -3111,6 +3177,7 @@
           },
           "stadtteil": {
             "type": "string",
+            "maxLength": 80,
             "title": "Stadtteil"
           },
           "stadt": {
@@ -3462,7 +3529,7 @@
           "spiel_datum"
         ],
         "title": "FLBracketFaultOccupant",
-        "description": "One fixture fielding a team that left the season before the day it is played.\n\nA fixture's DATE against a junction record rather than a bracket fault, so it covers a group\nfixture too. Nothing is emptied: that is a competition decision."
+        "description": "One fixture fielding a team that left the season before the day it is played.\n\nDerived beside the bracket walk rather than inside it, from a fixture's DATE against a junction\nrecord, so no phase is out of its reach. Nothing is emptied: that is a competition decision."
       },
       "FLBracketFaultQuelle": {
         "properties": {
@@ -3524,6 +3591,57 @@
         ],
         "title": "FLBracketFaultSpiel",
         "description": "One fixture whose two references resolve to the SAME club.\n\nIt survives the write-path rule, which keys a source by identity, so two DIFFERENT sources\nnaming one club pass. The fixture keeps its stored sides."
+      },
+      "FLBracketFaultSpieltag": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "title": "Spiel Id"
+          },
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "reason": {
+            "type": "string",
+            "const": "fielded_twice",
+            "title": "Reason"
+          },
+          "spieltag_id": {
+            "type": "string",
+            "title": "Spieltag Id"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Side"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "spiel_nr",
+          "reason",
+          "spieltag_id",
+          "side",
+          "team_id",
+          "team_name"
+        ],
+        "title": "FLBracketFaultSpieltag",
+        "description": "A club standing more than once on one Spieltag.\n\nOne entry per APPEARANCE, the granularity `fl_backend/app/core/constraints.py :: report_relations`\ncounts in -- never deduplicated, because which to correct is a competition decision."
       },
       "FLEinwilligung": {
         "properties": {
@@ -3868,7 +3986,7 @@
           "team1": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielTeamField"
+                "$ref": "#/components/schemas/FLSpielTeamFieldPayload"
               },
               {
                 "type": "null"
@@ -3878,7 +3996,7 @@
           "team2": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielTeamField"
+                "$ref": "#/components/schemas/FLSpielTeamFieldPayload"
               },
               {
                 "type": "null"
@@ -3972,7 +4090,7 @@
           "ort": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielOrtField"
+                "$ref": "#/components/schemas/FLSpielOrtFieldPayload"
               },
               {
                 "type": "null"
@@ -3982,7 +4100,7 @@
           "schiedsrichter": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielSchiedsrichterField"
+                "$ref": "#/components/schemas/FLSpielSchiedsrichterFieldPayload"
               },
               {
                 "type": "null"
@@ -4056,12 +4174,16 @@
                 },
                 {
                   "$ref": "#/components/schemas/FLBracketFaultOccupant"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultSpieltag"
                 }
               ],
               "discriminator": {
                 "propertyName": "reason",
                 "mapping": {
                   "departed_occupant": "#/components/schemas/FLBracketFaultOccupant",
+                  "fielded_twice": "#/components/schemas/FLBracketFaultSpieltag",
                   "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
                   "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
                   "same_team": "#/components/schemas/FLBracketFaultSpiel",
@@ -4254,12 +4376,17 @@
           "fanned_out_to_spiele": {
             "type": "integer",
             "title": "Fanned Out To Spiele"
+          },
+          "fanned_out_to_saison_teams": {
+            "type": "integer",
+            "title": "Fanned Out To Saison Teams"
           }
         },
         "type": "object",
         "required": [
           "updated_document",
-          "fanned_out_to_spiele"
+          "fanned_out_to_spiele",
+          "fanned_out_to_saison_teams"
         ],
         "title": "FLPatchTeamResponse"
       },
@@ -4983,6 +5110,17 @@
                 "type": "null"
               }
             ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "shorthand": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Shorthand"
           }
         },
         "type": "object",
@@ -4990,7 +5128,9 @@
           "saison_id",
           "team_id",
           "gruppe",
-          "austritt"
+          "austritt",
+          "name",
+          "shorthand"
         ],
         "title": "FLSaisonTeamResponse",
         "description": "A junction row, which has no read model of its own -- so it is echoed as it was written."
@@ -5203,13 +5343,32 @@
                 "type": "null"
               }
             ]
+          },
+          "voided_sonderereignis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ausgefallen",
+                  "nichtantreten_team1",
+                  "nichtantreten_team2",
+                  "abgebrochen",
+                  "annulliert"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voided Sonderereignis"
           }
         },
         "type": "object",
         "required": [
           "spiel_nr",
           "voided_ergebnis",
-          "voided_elfmeterschiessen"
+          "voided_elfmeterschiessen",
+          "voided_sonderereignis"
         ],
         "title": "FLSpielAdvancement",
         "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\nBoth voided fields are `None` where a slot merely filled from empty, so \"was anything destroyed\"\nis a null check."
@@ -5461,6 +5620,11 @@
             "type": "string",
             "title": "Spielort Id"
           },
+          "mietpreis": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Mietpreis"
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -5470,6 +5634,22 @@
             "type": "string",
             "minLength": 1,
             "title": "Maps Link"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielort_id",
+          "mietpreis",
+          "name",
+          "maps_link"
+        ],
+        "title": "FLSpielOrtField"
+      },
+      "FLSpielOrtFieldPayload": {
+        "properties": {
+          "spielort_id": {
+            "type": "string",
+            "title": "Spielort Id"
           },
           "mietpreis": {
             "type": "integer",
@@ -5480,11 +5660,10 @@
         "type": "object",
         "required": [
           "spielort_id",
-          "name",
-          "maps_link",
           "mietpreis"
         ],
-        "title": "FLSpielOrtField"
+        "title": "FLSpielOrtFieldPayload",
+        "description": "The venue as the admin PATCH SUBMITS it: which ground, and what this fixture pays for it."
       },
       "FLSpielQuelleGruppe": {
         "properties": {
@@ -5577,6 +5756,24 @@
               }
             ]
           },
+          "voided_sonderereignis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ausgefallen",
+                  "nichtantreten_team1",
+                  "nichtantreten_team2",
+                  "abgebrochen",
+                  "annulliert"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voided Sonderereignis"
+          },
           "side": {
             "type": "string",
             "enum": [
@@ -5596,6 +5793,7 @@
           "spiel_nr",
           "voided_ergebnis",
           "voided_elfmeterschiessen",
+          "voided_sonderereignis",
           "side",
           "team_name"
         ],
@@ -5608,10 +5806,30 @@
             "type": "string",
             "title": "Schiedsrichter Id"
           },
+          "payment": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Payment"
+          },
           "name": {
             "type": "string",
             "minLength": 1,
             "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schiedsrichter_id",
+          "payment",
+          "name"
+        ],
+        "title": "FLSpielSchiedsrichterField"
+      },
+      "FLSpielSchiedsrichterFieldPayload": {
+        "properties": {
+          "schiedsrichter_id": {
+            "type": "string",
+            "title": "Schiedsrichter Id"
           },
           "payment": {
             "type": "integer",
@@ -5622,50 +5840,10 @@
         "type": "object",
         "required": [
           "schiedsrichter_id",
-          "name",
           "payment"
         ],
-        "title": "FLSpielSchiedsrichterField"
-      },
-      "FLSpielTeamField": {
-        "properties": {
-          "team_id": {
-            "type": "string",
-            "title": "Team Id"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Name"
-          },
-          "tore": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tore"
-          },
-          "shorthand": {
-            "type": "string",
-            "maxLength": 2,
-            "minLength": 2,
-            "title": "Shorthand"
-          }
-        },
-        "type": "object",
-        "required": [
-          "team_id",
-          "name",
-          "tore",
-          "shorthand"
-        ],
-        "title": "FLSpielTeamField",
-        "description": "One side of a fixture as the DOCUMENT stores it and the admin PATCH writes it back.\n\nNothing joined belongs here: the payload is written back wholesale, so a field added reaches the\ndocument on the next edit."
+        "title": "FLSpielSchiedsrichterFieldPayload",
+        "description": "The referee as the admin PATCH SUBMITS it; `payment` stays for `mietpreis`' reason."
       },
       "FLSpielTeamFieldJoined": {
         "properties": {
@@ -5673,11 +5851,6 @@
             "type": "string",
             "title": "Team Id"
           },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Name"
-          },
           "tore": {
             "anyOf": [
               {
@@ -5689,6 +5862,11 @@
               }
             ],
             "title": "Tore"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
           },
           "shorthand": {
             "type": "string",
@@ -5710,13 +5888,40 @@
         "type": "object",
         "required": [
           "team_id",
-          "name",
           "tore",
+          "name",
           "shorthand",
           "austritt"
         ],
         "title": "FLSpielTeamFieldJoined",
         "description": "One side as a READ serves it, produced only by `build_spiele_pipeline` and never by a write."
+      },
+      "FLSpielTeamFieldPayload": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "tore": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tore"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "tore"
+        ],
+        "title": "FLSpielTeamFieldPayload",
+        "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the season's `saison_teams` row is where a club's name lives, so a copy\na client typed could only disagree with it. The server composes them."
       },
       "FLSpieleActionRequiredResponse": {
         "properties": {
@@ -5750,12 +5955,16 @@
                 },
                 {
                   "$ref": "#/components/schemas/FLBracketFaultOccupant"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultSpieltag"
                 }
               ],
               "discriminator": {
                 "propertyName": "reason",
                 "mapping": {
                   "departed_occupant": "#/components/schemas/FLBracketFaultOccupant",
+                  "fielded_twice": "#/components/schemas/FLBracketFaultSpieltag",
                   "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
                   "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
                   "same_team": "#/components/schemas/FLBracketFaultSpiel",
@@ -6014,11 +6223,13 @@
           },
           "is_nachgetragen": {
             "type": "boolean",
-            "title": "Is Nachgetragen"
+            "title": "Is Nachgetragen",
+            "default": false
           },
           "is_captain": {
             "type": "boolean",
-            "title": "Is Captain"
+            "title": "Is Captain",
+            "default": false
           },
           "saison_id": {
             "type": "string",
@@ -6043,8 +6254,6 @@
           "nummer",
           "position",
           "stufe",
-          "is_nachgetragen",
-          "is_captain",
           "saison_id",
           "inactive_since"
         ],

@@ -30,10 +30,16 @@ RULES_MATCHDAY_OVER_ITS_PHASE = "REQ-RULES-006"
 RULES_DRAW_OUTVALUES_WIN = "REQ-RULES-008"
 RULES_KADER_BELOW_USE = "REQ-RULES-009"
 RULES_FORFEIT_DRAWS_A_KNOCKOUT = "REQ-RULES-010"
+RULES_SHAPE_AFTER_DRAW = "REQ-RULES-011"
 
 # `erlaubte_stufen` stays editable because it bounds what a form offers, never what a stored squad
 # row holds.
 FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers_per_group", "tiebreak_order")
+
+# The three the fixtures were drawn from. A RAISE is what nothing else refuses: `anzahl_spiele` is
+# derived per matchday, so every matchday would then expect matches nobody drew, and
+# `REQ-RULES-006` reads the narrowing direction alone.
+SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_groups", "teams_per_group", "qualifiers_per_group")
 
 
 def _forfeit_draws_a_knockout(rules: FLSaisonRules) -> bool:
@@ -55,6 +61,7 @@ def find_rules_refusal(
     highest_wired_platz: int,
     largest_squad: int = 0,
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
+    drawn_fixtures: int = 0,
 ) -> WriteRefusal | None:
     """Why these rules must be refused, or `None`.
 
@@ -70,6 +77,22 @@ def find_rules_refusal(
             return WriteRefusal(
                 error_code=RULES_SAISON_FINISHED,
                 message=f"season is past; {', '.join(changed)} cannot change because the league table is scored from rules on every read",
+            )
+
+    # Early for the reason the first freeze is: where a number cannot change at all, naming what it
+    # may not drop past sends an admin to the wrong repair. Compared by value, so a resubmission
+    # passes (`docs/backend/spec.md :: I44`).
+
+    # `REQ-RULES-004` and `REQ-RULES-006` stay unreachable through this route: both read a figure
+    # derived from fixtures, so whenever either could fire this has already refused the same field.
+    # Unreachable, not wrong.
+    if stored is not None and drawn_fixtures > 0:
+        redrawn = [field for field in SHAPE_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
+        if redrawn:
+            return WriteRefusal(
+                error_code=RULES_SHAPE_AFTER_DRAW,
+                message=f"the season's {drawn_fixtures} fixtures are already drawn from these rules; "
+                f"{', '.join(redrawn)} cannot change without drawing them again",
             )
 
     # Before the bracket rule, being narrower: it names two fields an admin can compare, where the
@@ -212,6 +235,11 @@ def find_saison_span_refusal(
 # Activating demotes the incumbent to `past`, whose rules then freeze (`REQ-RULES-005`).
 ACTIVATE_SAISON_UNFINISHED = "REQ-ACTIVATE-001"
 
+# No escape, and no demotion endpoint beside it: both keep the state reachable, and this is the one
+# operation that can reopen a finished season's points, groups and table. A season closed by mistake
+# is repaired at the database.
+ACTIVATE_TARGET_PAST = "REQ-ACTIVATE-002"
+
 # The refusal is also the log line, and a season's worth of numbers in it buries the message.
 _NAMED_UNPLAYED = 5
 
@@ -228,12 +256,22 @@ def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
     return sorted(spiel.spiel_nr for spiel in spiele if spiel.ergebnis is None and spiel.sonderereignis not in SONDEREREIGNIS_WITHOUT_A_RESULT)
 
 
-def find_activation_refusal(*, outgoing_unplayed: Sequence[int]) -> WriteRefusal | None:
+def find_activation_refusal(*, target_status: str, outgoing_unplayed: Sequence[int]) -> WriteRefusal | None:
     """Why this rollover must be refused, or `None`.
 
-    `outgoing_unplayed` is empty where there is no incumbent. The outgoing set excludes the target,
-    so a season is never blocked by its own fixtures.
+    `target_status` is the status of the season being promoted, and `outgoing_unplayed` is empty
+    where there is no incumbent. The outgoing set excludes the target, so a season is never blocked
+    by its own.
     """
+
+    # The target first: an incumbent an admin can go and finish is beside the point where the season
+    # they are promoting may not be promoted at all.
+    if target_status == "past":
+        return WriteRefusal(
+            error_code=ACTIVATE_TARGET_PAST,
+            message="the target season is past, and its points, its groups and the table derived from them are the "
+            "record of what happened; activating it would reopen all three",
+        )
 
     if not outgoing_unplayed:
         return None

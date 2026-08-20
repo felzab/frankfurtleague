@@ -1,14 +1,23 @@
 from pydantic import BaseModel, Field
 
-from app.shared.schemas.bounds import ADDRESS_STADT_MAX_LENGTH, ADDRESS_STRASSE_MAX_LENGTH
+from app.shared.schemas.bounds import (
+    ADDRESS_HAUSNUMMER_MAX_LENGTH,
+    ADDRESS_STADT_MAX_LENGTH,
+    ADDRESS_STADTTEIL_MAX_LENGTH,
+    ADDRESS_STRASSE_MAX_LENGTH,
+)
 from app.shared.schemas.custom import CustomNonEmptyString
+
+# Named because the payload below redeclares the field to add a ceiling: spelling the alphabet
+# twice would let the read and the write drift apart on which characters a house number may use.
+HAUSNUMMER_PATTERN = r"^([0-9\-abcABC]+)?$"
 
 
 # The SOURCE OF TRUTH; `fl_frontend/src/shared/schemas.ts :: FLAddressSchema` mirrors it by hand.
 class FLAddress(BaseModel):
     strasse: CustomNonEmptyString
     # Not every venue has one, so the pattern allows the empty string rather than being optional.
-    hausnummer: str = Field(pattern=r"^([0-9\-abcABC]+)?$")
+    hausnummer: str = Field(pattern=HAUSNUMMER_PATTERN)
     plz: str = Field(pattern=r"^[0-9]{5}$")
     stadtteil: str
     stadt: CustomNonEmptyString
@@ -25,3 +34,10 @@ class FLAddressPayload(FLAddress):
     # Redeclared, so the floor `CustomNonEmptyString` carries is restated beside the new ceiling.
     strasse: str = Field(min_length=1, max_length=ADDRESS_STRASSE_MAX_LENGTH)
     stadt: str = Field(min_length=1, max_length=ADDRESS_STADT_MAX_LENGTH)
+    # No floor: a district is the one part of an address a place can genuinely lack, so the read
+    # model leaves it free and the payload bounds only its length.
+    stadtteil: str = Field(max_length=ADDRESS_STADTTEIL_MAX_LENGTH)
+
+    # The pattern is restated for the same reason: a redeclaration replaces the field outright, and
+    # the alphabet alone bounds nothing -- a bare `+` admits a value no address line can hold.
+    hausnummer: str = Field(pattern=HAUSNUMMER_PATTERN, max_length=ADDRESS_HAUSNUMMER_MAX_LENGTH)

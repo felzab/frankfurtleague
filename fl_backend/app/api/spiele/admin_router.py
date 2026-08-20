@@ -8,6 +8,8 @@ from app.api.spiele.crud import (
     advance_bracket_winners,
     find_bracket_faults,
     preview_bracket_after_patch,
+    pull_booked_referee,
+    pull_booked_venue,
     pull_saison_membership,
     release_spieltag_sides,
 )
@@ -19,15 +21,18 @@ from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielBookingListAdapter,
     FLSpieleActionRequiredResponse,
+    FLSpieleSingleResponse,
     FLSpielJoined,
     FLSpielJoinedListAdapter,
     FLSpielListAdapter,
 )
 from app.api.spiele.services import (
     BookedSlot,
+    ResolvedReferences,
     SpieltagRelease,
     apply_payload_to_spiel,
     build_spiele_pipeline,
+    find_booking_refusal,
     find_clash_refusal,
     find_eligibility_refusal,
     find_fixture_date_refusal,
@@ -43,11 +48,14 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
+    SchiedsrichterCollection,
     SpieleCollection,
+    SpielorteCollection,
     SpieltageCollection,
     TeamsCollection,
     get_german_date_str,
 )
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -112,6 +120,28 @@ async def get_spiele_action_required(
     return FLSpieleActionRequiredResponse(spiele=list(by_id.values()), bracket_faults=bracket_faults)
 
 
+# A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this
+# same prefix, so whichever router registered first would answer both.
+@router.get(f"{by_id('spiel_id')}/admin", response_model=FLSpieleSingleResponse, summary="One Spiel for the admin editor")
+async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection) -> FLSpieleSingleResponse:
+    """
+    Return one match in the joined shape `GET /spiele/{spiel_id}` serves, under the admin key.
+
+    The editor reads here rather than there because it round-trips `ort.mietpreis` and
+    `schiedsrichter.payment`, which belong to the admin tier.
+    """
+
+    spiele_raw = await aggregate_many_from_db(
+        collection=spiele_collection,
+        pipeline=build_spiele_pipeline(db_filter={"_id": spiel_id}),
+        limit=1,
+    )
+    if not spiele_raw:
+        raise DocumentNotFoundException(filter={"_id": spiel_id}, error_code=DOCUMENT_NOT_FOUND)
+
+    return FLSpieleSingleResponse(spiel=FLSpielJoined.model_validate(spiele_raw[0]))
+
+
 @router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel")
 async def patch_spiel_data(
     spiel_id: CustomRouteObjectId,
@@ -122,31 +152,32 @@ async def patch_spiel_data(
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spieltage_collection: SpieltageCollection,
+    spielorte_collection: SpielorteCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
     dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
 ) -> FLPatchSpielDataResponse:
     """
     Update one Spiel and resolve the season's bracket.
 
-    The payload is written wholesale: an omitted field is overwritten. A result can fill or empty the
-    slots below it, each named in `advanced_to`. `dry_run=true` answers the same and writes nothing.
+    The payload is written wholesale: an omitted field is overwritten, and every name it carries is
+    composed by the server. A result can fill or empty the slots below it, each named in
+    `advanced_to`. `dry_run=true` answers the same and writes nothing.
     """
 
-    # In full, because the normalisation needs the fixture it applies to: `saison_phase` decides
-    # whether a shoot-out survives.
-    stored_raw = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id})
-    stored = FLSpiel.model_validate(stored_raw)
-    saison_id = stored.saison_id
+    # `saison_id` alone: everything the judgement and the normalisation read comes from the season
+    # slice below, and this read is what answers 404 for an id no fixture holds.
+    stored_raw = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id}, projection={"saison_id": 1})
+    saison_id = str(stored_raw["saison_id"])
 
     # Read outside any transaction: no season document is written here. Ahead of the normalisation
     # because a forfeit is awarded from these rather than typed.
     _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
 
-    patched = apply_payload_to_spiel(stored, spiel_data, saison_rules)
+    async def judge(session: AsyncIOMotorClientSession | None) -> tuple[list[FLSpiel], list[SpieltagRelease], FLSpiel]:
+        """The season as this request sees it, the sides another fixture must give up, and the fixture this payload composes to.
 
-    async def judge(session: AsyncIOMotorClientSession | None) -> tuple[list[FLSpiel], list[SpieltagRelease]]:
-        """The season as this request sees it, and the sides another fixture must give up.
-
-        Every refusal is raised here, so a preview can never succeed where the save is refused.
+        Every refusal is raised here, so a preview can never succeed where the save is refused, and
+        the normalisation follows them so it composes from rows they have already judged.
         """
 
         # One over the cap, so a truncated season is DETECTED rather than judged: a dropped fixture
@@ -200,6 +231,24 @@ async def patch_spiel_data(
                 )
             )
 
+        # Read whatever the payload names, unchanged reference included: these rows are where the
+        # saved names come FROM, so a copy that went stale is repaired by the next save either way.
+        resolved = ResolvedReferences(
+            teams=membership,
+            ort=await pull_booked_venue(
+                spielorte_collection=spielorte_collection,
+                spielort_id=spiel_data.ort.spielort_id if spiel_data.ort is not None else None,
+                session=session,
+            ),
+            schiedsrichter=await pull_booked_referee(
+                schiedsrichter_collection=schiedsrichter_collection,
+                schiedsrichter_id=spiel_data.schiedsrichter.schiedsrichter_id if spiel_data.schiedsrichter is not None else None,
+                session=session,
+            ),
+        )
+        # Before the clash: whether a ground exists at all is more basic than who else is on it.
+        refuse(find_booking_refusal(spiel_id, spiel_data, season, resolved))
+
         # No `saison_id` in the query below: a double booking crosses competitions.
         if spiel_data.datum is not None:
             claims: list[BookedSlot] = []
@@ -239,11 +288,11 @@ async def patch_spiel_data(
 
             refuse(find_clash_refusal(datum=spiel_data.datum, uhrzeit=spiel_data.uhrzeit, booked=claims))
 
-        return season, verdict.releases
+        return season, verdict.releases, apply_payload_to_spiel(stored, spiel_data, saison_rules, resolved)
 
     if dry_run:
         # No transaction: a preview that took a write lock would be paying for a question.
-        season, releases = await judge(session=None)
+        season, releases, patched = await judge(session=None)
         advanced_to, released_sides, bracket_faults = await preview_bracket_after_patch(
             teams_collection=teams_collection,
             saison_id=saison_id,
@@ -254,15 +303,15 @@ async def patch_spiel_data(
         )
         return FLPatchSpielDataResponse(advanced_to=advanced_to, released_sides=released_sides, bracket_faults=bracket_faults)
 
-    # From the NORMALISED fixture, with keys off the PAYLOAD's field set: keys off the fixture would
-    # put `saison_id`, `saison_phase`, `spiel_nr` and `spieltag_id` in the `$set`.
-    document = patched.model_dump(context={"keep_oid": True}, include={*FLPatchSpielDataPayload.model_fields, "ergebnis"})
-
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
     # write-conflict on the same advanced fixture, and the callback is safe to retry.
     async def write_result_and_resolve_bracket(session: AsyncIOMotorClientSession) -> FLPatchSpielDataResponse:
         # Inside the transaction, so a retry after a write conflict revalidates against fresh reads.
-        _, releases = await judge(session=session)
+        _, releases, patched = await judge(session=session)
+
+        # From the NORMALISED fixture, with keys off the PAYLOAD's field set: keys off the fixture
+        # would put `saison_id`, `saison_phase`, `spiel_nr` and `spieltag_id` in the `$set`.
+        document = patched.model_dump(context={"keep_oid": True}, include={*FLPatchSpielDataPayload.model_fields, "ergebnis"})
 
         await patch_one_in_db(
             collection=spiele_collection,

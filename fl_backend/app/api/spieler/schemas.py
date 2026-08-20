@@ -194,6 +194,11 @@ class FLSpielerMembership(_SaisonSpielerWritable):
     where a team never leaves a season at all.
     """
 
+    # Defaulted as `FLSpieler` is: this reads STORED rows, and the lookup projects a missing key
+    # away rather than as null, so one row predating either field would 500 the whole list.
+    is_nachgetragen: bool = False
+    is_captain: bool = False
+
     saison_id: str
     inactive_since: CustomOptionalDateString
 

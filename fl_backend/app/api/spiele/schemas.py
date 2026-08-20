@@ -79,16 +79,25 @@ MAX_QUALIFIERS: int = 2 ** len(KNOCKOUT_PHASES)
 
 # Declared BEFORE what references them: below, they resolve only through PEP 649 deferred
 # annotations, so touching the core schema before the first validation raises `PydanticUserError`.
-class FLSpielTeamField(BaseModel):
-    """One side of a fixture as the DOCUMENT stores it and the admin PATCH writes it back.
+class FLSpielTeamFieldPayload(BaseModel):
+    """One side of a fixture as the admin PATCH SUBMITS it.
+
+    No name and no shorthand: the season's `saison_teams` row is where a club's name lives, so a copy
+    a client typed could only disagree with it. The server composes them.
+    """
+
+    team_id: CustomObjectId
+    tore: Annotated[int, Field(ge=0)] | None
+
+
+class FLSpielTeamField(FLSpielTeamFieldPayload):
+    """One side of a fixture as the DOCUMENT stores it.
 
     Nothing joined belongs here: the payload is written back wholesale, so a field added reaches the
     document on the next edit.
     """
 
-    team_id: CustomObjectId
     name: str = Field(min_length=1)
-    tore: Annotated[int, Field(ge=0)] | None
     shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
 
 
@@ -100,20 +109,30 @@ class FLSpielTeamFieldJoined(FLSpielTeamField):
     austritt: FLAustritt | None
 
 
-class FLSpielOrtField(BaseModel):
+class FLSpielOrtFieldPayload(BaseModel):
+    """The venue as the admin PATCH SUBMITS it: which ground, and what this fixture pays for it."""
+
     spielort_id: CustomObjectId
-    name: str = Field(min_length=1)
-    # Free text rather than a URL, per `fl_backend/app/api/spielorte/schemas.py :: FLSpielort` (COR-2).
-    maps_link: str = Field(min_length=1)
-    # No default: the payload is written back wholesale, and one would overwrite a real rent with 0
-    # (`docs/backend/spec.md :: I6`).
+    # No default, and it stays on the payload where the name does not: this is THIS fixture's rent
+    # rather than a copy of the venue's current default (`docs/backend/spec.md :: I6`).
     mietpreis: int = Field(ge=0)
 
 
-class FLSpielSchiedsrichterField(BaseModel):
-    schiedsrichter_id: CustomObjectId
+class FLSpielOrtField(FLSpielOrtFieldPayload):
     name: str = Field(min_length=1)
+    # Free text rather than a URL, per `fl_backend/app/api/spielorte/schemas.py :: FLSpielort` (COR-2).
+    maps_link: str = Field(min_length=1)
+
+
+class FLSpielSchiedsrichterFieldPayload(BaseModel):
+    """The referee as the admin PATCH SUBMITS it; `payment` stays for `mietpreis`' reason."""
+
+    schiedsrichter_id: CustomObjectId
     payment: int = Field(ge=0)
+
+
+class FLSpielSchiedsrichterField(FLSpielSchiedsrichterFieldPayload):
+    name: str = Field(min_length=1)
 
 
 class FLSpielQuelleGruppe(BaseModel):
@@ -207,8 +226,8 @@ class FLBracketFaultSpiel(_BracketFault):
 class FLBracketFaultOccupant(_BracketFault):
     """One fixture fielding a team that left the season before the day it is played.
 
-    A fixture's DATE against a junction record rather than a bracket fault, so it covers a group
-    fixture too. Nothing is emptied: that is a competition decision.
+    Derived beside the bracket walk rather than inside it, from a fixture's DATE against a junction
+    record, so no phase is out of its reach. Nothing is emptied: that is a competition decision.
     """
 
     reason: Literal["departed_occupant"]
@@ -223,9 +242,25 @@ class FLBracketFaultOccupant(_BracketFault):
     spiel_datum: CustomOptionalDateString
 
 
+class FLBracketFaultSpieltag(_BracketFault):
+    """A club standing more than once on one Spieltag.
+
+    One entry per APPEARANCE, the granularity `fl_backend/app/core/constraints.py :: report_relations`
+    counts in -- never deduplicated, because which to correct is a competition decision.
+    """
+
+    reason: Literal["fielded_twice"]
+    # Carried because it is what GROUPS the entries: one clash is every appearance sharing this id
+    # and a club, and the entries reach a reader as one flat list.
+    spieltag_id: CustomObjectId
+    side: Literal["team1", "team2"]
+    team_id: CustomObjectId
+    team_name: str = Field(min_length=1)
+
+
 # Discriminated, not flattened: a flat model expresses a cycle carrying a `platz`.
 FLBracketFault = Annotated[
-    FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultOccupant,
+    FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultOccupant | FLBracketFaultSpieltag,
     Field(discriminator="reason"),
 ]
 
@@ -253,8 +288,8 @@ class FLPatchSpielDataPayload(BaseModel):
     # fixture -- so clearing the control and choosing nothing are one answer rather than two.
     sonderereignis: FLSonderereignis | None
 
-    team1: FLSpielTeamField | None
-    team2: FLSpielTeamField | None
+    team1: FLSpielTeamFieldPayload | None
+    team2: FLSpielTeamFieldPayload | None
 
     # Written wholesale with `$set`: a field the request omits is OVERWRITTEN, so leaving these off
     # would erase a bracket's wiring on the first edit of anything else.
@@ -266,8 +301,8 @@ class FLPatchSpielDataPayload(BaseModel):
 
     datum: CustomOptionalDateString
     uhrzeit: CustomOptionalTimeString
-    ort: FLSpielOrtField | None
-    schiedsrichter: FLSpielSchiedsrichterField | None
+    ort: FLSpielOrtFieldPayload | None
+    schiedsrichter: FLSpielSchiedsrichterFieldPayload | None
 
     # Here for the same `$set` reason. An emptied textarea arrives as "" and the validator below
     # turns it to None, which is how a note is removed.
@@ -370,6 +405,9 @@ class _VoidedResult(BaseModel):
     spiel_nr: CustomSpielNr
     voided_ergebnis: CustomErgebnisString | None
     voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
+    # Only ever a no-show: `ausgefallen`, `annulliert` and `abgebrochen` name no side, so a replaced
+    # occupant leaves each of them true and none of them is cleared.
+    voided_sonderereignis: FLSonderereignis | None
 
 
 class FLSpielAdvancement(_VoidedResult):

@@ -15,6 +15,7 @@ from app.api.saisons.services import (
     RULES_QUALIFIERS_ABOVE_GROUP,
     RULES_QUALIFIERS_BELOW_WIRING,
     RULES_SAISON_FINISHED,
+    RULES_SHAPE_AFTER_DRAW,
     find_rules_refusal,
 )
 from app.api.spiele.schemas import FLSaisonPhase
@@ -63,6 +64,7 @@ def judge(
     platz: int = 0,
     largest_squad: int = 0,
     attached: Mapping[FLSaisonPhase, int] | None = None,
+    drawn: int = 0,
 ) -> WriteRefusal | None:
     return find_rules_refusal(
         saison_status=status,
@@ -72,6 +74,7 @@ def judge(
         highest_wired_platz=platz,
         largest_squad=largest_squad,
         attached_by_phase=attached,
+        drawn_fixtures=drawn,
     )
 
 
@@ -454,6 +457,108 @@ class TestAFinishedSeasonFreezes:
             proposed=rules(groups=2, qualifiers=1),
             occupancy={"C": 4, "D": 4},
         )
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_SAISON_FINISHED
+
+
+# The season the class below patches, as its fixtures were drawn: 4 groups of 4 over 3 matchdays.
+DRAWN_FIXTURES = 24
+
+
+class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
+    """The three numbers a season's fixture list is generated from.
+
+    A RAISE is the case nothing else reaches: `REQ-RULES-006` refuses a narrowing alone, and a
+    wider group leaves every matchday under the count `anzahl_spiele` then implies.
+    """
+
+    @pytest.mark.parametrize(
+        ("label", "changed"),
+        [
+            ("number_of_groups", {"groups": 2, "qualifiers": 4}),
+            ("teams_per_group", {"per_group": 6}),
+            ("qualifiers_per_group", {"qualifiers": 4}),
+        ],
+        ids=["number_of_groups", "teams_per_group", "qualifiers_per_group"],
+    )
+    def test_a_change_to_any_of_them_is_refused(self, label: str, changed: dict[str, Any]):
+        """Each case leaves the bracket legal, so nothing but this rule can be answering."""
+
+        refusal = judge(stored=rules(), proposed=rules(**changed), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+        assert label in refusal.message
+
+    def test_widening_a_group_is_refused_though_no_bound_is_crossed(self):
+        """The hole this closes: `anzahl_spiele` is derived, so a wider group leaves every matchday short of matches nobody drew."""
+
+        refusal = judge(stored=rules(per_group=4), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+
+    @pytest.mark.parametrize(
+        ("label", "changed"),
+        [
+            ("win_points", {"win": 2}),
+            ("draw_points", {"draw": 0}),
+            ("tiebreak_order", {"tiebreak": "direkter_vergleich"}),
+            ("max_kadergroesse", {"kader": 25}),
+            ("forfeit_ergebnis", {"forfeit": (2, 0)}),
+        ],
+        ids=["win_points", "draw_points", "tiebreak_order", "max_kadergroesse", "forfeit_ergebnis"],
+    )
+    def test_the_rest_of_the_rules_stay_editable(self, label: str, changed: dict[str, Any]):
+        """None of them shaped the fixture list, and a typo in `win_points` found in week two stays correctable without losing the season."""
+
+        assert judge(stored=rules(), proposed=rules(**changed), drawn=DRAWN_FIXTURES) is None
+
+    def test_the_shape_is_editable_while_nothing_is_drawn(self):
+        """A season being set up: `REQ-RULES-002`, `REQ-RULES-003` and `REQ-RULES-004` are what bound it there."""
+
+        assert judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), drawn=0) is None
+
+    def test_permits_resubmitting_the_drawn_shape_unchanged(self):
+        """`rules` is required on the patch, so a dates-only edit resubmits all three unchanged (`docs/backend/spec.md :: I44`)."""
+
+        assert judge(stored=rules(), proposed=rules(), drawn=DRAWN_FIXTURES) is None
+
+    def test_a_create_holds_no_fixtures_to_have_been_drawn(self):
+        """`stored=None` is the create, and there is no earlier shape for a drawn fixture to have come out of."""
+
+        refusal = find_rules_refusal(
+            saison_status="future",
+            stored=None,
+            proposed=rules(groups=2, qualifiers=4),
+            occupancy_by_gruppe={},
+            highest_wired_platz=0,
+            drawn_fixtures=DRAWN_FIXTURES,
+        )
+
+        assert refusal is None
+
+    def test_the_refusal_names_how_many_fixtures_stand_on_the_shape(self):
+        """The message is the log line, and the count is what says whether a redraw is one matchday's work or the season's."""
+
+        refusal = judge(stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert str(DRAWN_FIXTURES) in refusal.message
+
+    def test_it_is_reported_before_a_bound_on_the_same_field(self):
+        """`REQ-RULES-004` would name a placing to raise the count back over; here the count may not move at all."""
+
+        refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=1), platz=2, drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+
+    def test_a_finished_season_is_reported_as_finished_first(self):
+        """Both freezes cover `qualifiers_per_group`, and `REQ-RULES-005` also explains why the points beside it will not move."""
+
+        refusal = judge(status="past", stored=rules(), proposed=rules(qualifiers=1), drawn=DRAWN_FIXTURES)
 
         assert refusal is not None
         assert refusal.error_code == RULES_SAISON_FINISHED

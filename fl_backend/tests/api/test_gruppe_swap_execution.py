@@ -51,7 +51,7 @@ def junction(team_id: ObjectId, gruppe: str) -> dict[str, Any]:
 
 
 def club(team_id: ObjectId) -> dict[str, Any]:
-    """Only the two fields the rewrite reads — sourcing a display copy anywhere else copies a copy."""
+    """Only what the rewrite projects: it composes a side's `name` and `shorthand` from `teams`, not from the season's junction row."""
 
     name, shorthand = NAMES[team_id]
 

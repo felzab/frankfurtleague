@@ -58,9 +58,10 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
         nummer=document.get("nummer"),
         position=document.get("position"),
         stufe=document.get("stufe"),
-        is_nachgetragen=document["is_nachgetragen"],
-        # `.get` with a default, not a subscript: a row missing the key would KeyError on a request
-        # that changed nothing. `python -m app.core.constraints --check` finds one.
+        # `.get` with a default on BOTH, not a subscript: a row missing either key would KeyError on
+        # a request that changed nothing, and the two arrived together.
+        # `python -m app.core.constraints --check` finds one.
+        is_nachgetragen=document.get("is_nachgetragen", False),
         is_captain=document.get("is_captain", False),
         inactive_since=document.get("inactive_since"),
     )

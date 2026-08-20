@@ -1,3 +1,4 @@
+from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Iterable, Literal, Mapping, Sequence
 
@@ -12,17 +13,23 @@ from app.api.spiele.schemas import (
     FLBracketFaultOccupant,
     FLBracketFaultQuelle,
     FLBracketFaultSpiel,
+    FLBracketFaultSpieltag,
     FLPatchSpielDataPayload,
     FLSonderereignis,
     FLSpiel,
     FLSpieleFilterParams,
     FLSpielElfmeterschiessen,
     FLSpielJoined,
+    FLSpielOrtField,
+    FLSpielOrtFieldPayload,
     FLSpielQuelle,
     FLSpielQuelleGruppe,
     FLSpielQuelleSpiel,
+    FLSpielSchiedsrichterField,
+    FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamField,
     FLSpielTeamFieldJoined,
+    FLSpielTeamFieldPayload,
 )
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
@@ -439,11 +446,121 @@ def resolve_bracket(spiele: Iterable[FLSpiel], standings: Mapping[FLGruppenNames
     return BracketResolution(advancements=advancements, bracket_faults=faults)
 
 
-def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> FLSpiel:
-    """Composed once, for the save and its `dry_run` preview alike (`docs/backend/spec.md :: I29`).
+@dataclass(frozen=True)
+class SaisonMembership:
+    """One club's `saison_teams` row: the name this SEASON is played under, and the day the club left it.
 
-    `rules` arrives as a VALUE, keeping this module synchronous and collection-free; a forfeit from
-    a constant could disagree with the season being played.
+    The season's name rather than the club's, so a finished season keeps what it was played under
+    while a rename reaches the ones still running.
+    """
+
+    name: str
+    shorthand: str
+    #: `None` while the club still competes.
+    departed_from: str | None
+
+
+@dataclass(frozen=True)
+class BookedVenue:
+    """The `spielorte` row a fixture's venue reference names."""
+
+    name: str
+    maps_link: str
+    inactive_since: str | None
+
+
+@dataclass(frozen=True)
+class BookedReferee:
+    """The `schiedsrichter` row a fixture's referee reference names."""
+
+    name: str
+    inactive_since: str | None
+
+
+@dataclass(frozen=True)
+class ResolvedReferences:
+    """Every row this payload's references name, read in the ROUTER to keep this module synchronous.
+
+    Names are composed from these rows, never taken from the client, so no fixture is saved under a
+    name nothing in the league answers to.
+    """
+
+    teams: Mapping[CustomObjectId, SaisonMembership]
+    #: `None` where the payload names none, and where the id names no row at all.
+    ort: BookedVenue | None = None
+    schiedsrichter: BookedReferee | None = None
+
+
+def _composed_side(
+    stored: FLSpielTeamField | None,
+    submitted: FLSpielTeamFieldPayload | None,
+    teams: Mapping[CustomObjectId, SaisonMembership],
+    tore: int | None,
+) -> FLSpielTeamField | None:
+    """One side as the DOCUMENT will hold it.
+
+    The junction first and the stored side second: `REQ-ELIGIBILITY-002` refuses a NEWLY fielded club
+    holding no junction row, so a side reaching the fallback is one already standing here.
+    """
+
+    if submitted is None:
+        return None
+
+    membership = teams.get(submitted.team_id)
+    if membership is not None:
+        return FLSpielTeamField(team_id=submitted.team_id, name=membership.name, shorthand=membership.shorthand, tore=tore)
+
+    if stored is None or stored.team_id != submitted.team_id:
+        raise ValueError(f"team {submitted.team_id} holds neither a saison_teams row nor this slot, so no name can be composed for it")
+
+    return stored.model_copy(update={"tore": tore})
+
+
+def _composed_ort(
+    stored: FLSpielOrtField | None, submitted: FLSpielOrtFieldPayload | None, booked: BookedVenue | None
+) -> FLSpielOrtField | None:
+    """The venue as the DOCUMENT will hold it.
+
+    `booked` is `None` only where the id resolves to no row, which `REQ-BOOKING-001` refuses for a
+    NEW reference -- so the fallback covers an unchanged reference alone, and keeps what it recorded.
+    """
+
+    if submitted is None:
+        return None
+
+    if booked is not None:
+        return FLSpielOrtField(spielort_id=submitted.spielort_id, name=booked.name, maps_link=booked.maps_link, mietpreis=submitted.mietpreis)
+
+    if stored is None or stored.spielort_id != submitted.spielort_id:
+        raise ValueError(f"spielort {submitted.spielort_id} resolves to no venue and to no stored booking, so no name can be composed for it")
+
+    return stored.model_copy(update={"mietpreis": submitted.mietpreis})
+
+
+def _composed_schiedsrichter(
+    stored: FLSpielSchiedsrichterField | None, submitted: FLSpielSchiedsrichterFieldPayload | None, booked: BookedReferee | None
+) -> FLSpielSchiedsrichterField | None:
+    """The referee as the DOCUMENT will hold it, for the reason `_composed_ort` states."""
+
+    if submitted is None:
+        return None
+
+    if booked is not None:
+        return FLSpielSchiedsrichterField(schiedsrichter_id=submitted.schiedsrichter_id, name=booked.name, payment=submitted.payment)
+
+    if stored is None or stored.schiedsrichter_id != submitted.schiedsrichter_id:
+        raise ValueError(
+            f"schiedsrichter {submitted.schiedsrichter_id} resolves to no referee and to no stored booking, so no name can be composed for it"
+        )
+
+    return stored.model_copy(update={"payment": submitted.payment})
+
+
+def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: FLSaisonRules, resolved: ResolvedReferences) -> FLSpiel:
+    """Composed once for the save and its `dry_run` preview (`docs/backend/spec.md :: I29`).
+
+    `rules` and `resolved` arrive as VALUES, keeping this module synchronous and collection-free: a
+    forfeit from a constant could disagree with the season in play.
     """
 
     # An unresolved slot has nobody to score, so an unresolved fixture carries NO goals rather than
@@ -475,10 +592,10 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, ru
         update={
             "datum": payload.datum,
             "uhrzeit": payload.uhrzeit,
-            "ort": payload.ort,
-            "schiedsrichter": payload.schiedsrichter,
-            "team1": payload.team1.model_copy(update={"tore": team1_tore}) if payload.team1 is not None else None,
-            "team2": payload.team2.model_copy(update={"tore": team2_tore}) if payload.team2 is not None else None,
+            "ort": _composed_ort(stored.ort, payload.ort, resolved.ort),
+            "schiedsrichter": _composed_schiedsrichter(stored.schiedsrichter, payload.schiedsrichter, resolved.schiedsrichter),
+            "team1": _composed_side(stored.team1, payload.team1, resolved.teams, team1_tore),
+            "team2": _composed_side(stored.team2, payload.team2, resolved.teams, team2_tore),
             "team1_quelle": payload.team1_quelle,
             "team2_quelle": payload.team2_quelle,
             "ergebnis": ergebnis,
@@ -548,21 +665,37 @@ def find_eligibility_refusal(
     spiel_id: CustomObjectId,
     payload: FLPatchSpielDataPayload,
     season: Sequence[FLSpiel],
-    membership: Mapping[CustomObjectId, str | None],
+    membership: Mapping[CustomObjectId, SaisonMembership],
 ) -> WriteRefusal | None:
     """Why this patch's OCCUPANTS must be refused. Keyed on the PAYLOAD's `datum`, so an UNDATED fixture is refused."""
 
     stored = stored_in_slice(spiel_id, season)
 
     for label, submitted, stored_side in (("team1", payload.team1, stored.team1), ("team2", payload.team2, stored.team2)):
-        if submitted is None or (stored_side is not None and stored_side.team_id == submitted.team_id):
+        if submitted is None:
             continue
 
-        if submitted.team_id not in membership:
+        stays = stored_side is not None and stored_side.team_id == submitted.team_id
+        member = membership.get(submitted.team_id)
+
+        # A NEWLY fielded club only: one already standing here without a row is a fault to correct on
+        # this very fixture, and refusing every save of it would trap that correction.
+        if not stays and member is None:
             return WriteRefusal(
                 error_code=ELIGIBILITY_NO_MEMBERSHIP,
-                message=f"{label}: {submitted.name} has no saison_teams row for season {stored.saison_id}",
+                # The id rather than a name: the payload carries none, and having no junction row is
+                # exactly why there is nowhere to read one from. A stored side names the club leaving.
+                message=f"{label}: team {submitted.team_id} has no saison_teams row for season {stored.saison_id}",
             )
+
+        # Every input the predicate reads, not just the side: the date and the event both decide its
+        # answer, so clearing the carve-out is judged as a re-dating is. On the side alone, the escape
+        # this refusal names would be a one-way door.
+        if stays and payload.datum == stored.datum and payload.sonderereignis == stored.sonderereignis:
+            continue
+
+        if member is None or member.departed_from is None:
+            continue
 
         # A GROUP fixture that awards nothing carries a departed club on either side legitimately. A
         # knockout slot still has to say who advances, and an ABANDONED fixture is one that happened
@@ -573,24 +706,44 @@ def find_eligibility_refusal(
         # turned up would credit a departed club the forfeit and put it back in the standings.
         stayed_away = SONDEREREIGNIS_NO_SHOW.get(payload.sonderereignis or "") == label
 
-        records_an_absence = (awards_nothing or stayed_away) and stored.saison_phase == "gruppenphase"
+        in_the_gruppenphase = stored.saison_phase == "gruppenphase"
 
-        departed_from = membership[submitted.team_id]
-        if departed_from is not None and not records_an_absence and not (payload.datum is not None and payload.datum < departed_from):
-            played_on = payload.datum or "no date"
+        # Only `awards_nothing` takes the phase gate: a cancelled knockout advances nobody, where a
+        # no-show names the absent side and composes a result advancing the other -- which rests on
+        # `REQ-RULES-010` barring a level forfeit here.
+        records_an_absence = stayed_away or (awards_nothing and in_the_gruppenphase)
 
-            return WriteRefusal(
-                error_code=ELIGIBILITY_DISQUALIFIED,
-                message=(
-                    f"{label}: {submitted.name} left season {stored.saison_id} as of {departed_from} and this fixture is dated {played_on}"
-                ),
-            )
+        if records_an_absence or (payload.datum is not None and payload.datum < member.departed_from):
+            continue
+
+        played_on = payload.datum or "no date"
+
+        # Named because no admin finds the carve-out unprompted, and the knockout half names its
+        # precondition: `REQ-STATE-003` refuses a no-show while a slot is unresolved, so an admin
+        # told only to record one would be sent into a second refusal.
+        escape = (
+            "; cancel it or record the walkover first"
+            if in_the_gruppenphase
+            else "; record the walkover first, which needs both sides resolved"
+        )
+
+        return WriteRefusal(
+            error_code=ELIGIBILITY_DISQUALIFIED,
+            message=(
+                f"{label}: {member.name} left season {stored.saison_id} as of {member.departed_from} "
+                f"and this fixture is dated {played_on}{escape}"
+            ),
+        )
 
     return None
 
 
 FIXTURE_OUTSIDE_SPIELTAG = "REQ-DATE-001"
 FIXTURE_DOUBLE_BOOKED = "REQ-CLASH-001"
+
+# Judged on a NEWLY assigned reference alone: `REQ-RETIRE-003` deliberately lets a venue retire while
+# only played fixtures hold it, so refusing an unrelated edit of one of those would be a false refusal.
+BOOKING_UNKNOWN_RESOURCE = "REQ-BOOKING-001"
 
 # A match plus its overrun, the changeover and the travel: the league plays several matches at one
 # ground, so this spaces them rather than banning the pairing.
@@ -618,6 +771,48 @@ def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str, spielt
             "move the fixture inside that span or widen the matchday"
         ),
     )
+
+
+def find_booking_refusal(
+    spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel], resolved: ResolvedReferences
+) -> WriteRefusal | None:
+    """Why this patch's VENUE or REFEREE must be refused, or `None`. Only a reference this payload MOVES is judged."""
+
+    stored = stored_in_slice(spiel_id, season)
+
+    # Annotated rather than inferred, for the reason `patch_spiel_data`'s own resource tuple is.
+    references: tuple[tuple[str, CustomObjectId | None, CustomObjectId | None, BookedVenue | BookedReferee | None], ...] = (
+        (
+            "Spielort",
+            payload.ort.spielort_id if payload.ort is not None else None,
+            stored.ort.spielort_id if stored.ort is not None else None,
+            resolved.ort,
+        ),
+        (
+            "Schiedsrichter",
+            payload.schiedsrichter.schiedsrichter_id if payload.schiedsrichter is not None else None,
+            stored.schiedsrichter.schiedsrichter_id if stored.schiedsrichter is not None else None,
+            resolved.schiedsrichter,
+        ),
+    )
+
+    for resource, chosen, held, row in references:
+        if chosen is None or chosen == held:
+            continue
+
+        if row is None:
+            return WriteRefusal(
+                error_code=BOOKING_UNKNOWN_RESOURCE,
+                message=f"{resource} {chosen} is not in the league's records; pick one the list offers",
+            )
+
+        if row.inactive_since is not None:
+            return WriteRefusal(
+                error_code=BOOKING_UNKNOWN_RESOURCE,
+                message=f"{resource} {row.name} retired on {row.inactive_since} and takes no new fixtures; reactivate it or pick another",
+            )
+
+    return None
 
 
 @dataclass(frozen=True)
@@ -705,6 +900,43 @@ def find_departed_occupants(spiele: Sequence[FLSpielJoined]) -> list[FLBracketFa
     return faults
 
 
+def find_double_entries(spiele: Sequence[FLSpiel]) -> list[FLBracketFaultSpieltag]:
+    """`REQ-SPIELTAG-001`'s state, wherever a double entry got stored.
+
+    Grouped by matchday, never by season: nothing ties a fixture's `saison_id` to its matchday's.
+    Sides rather than matches, so both sides of ONE fixture clash too.
+    """
+
+    keyed: list[tuple[tuple[CustomObjectId, CustomObjectId], FLBracketFaultSpieltag]] = []
+
+    for spiel in sorted(spiele, key=lambda entry: (entry.saison_id, entry.spiel_nr)):
+        for side in ("team1", "team2"):
+            occupant: FLSpielTeamField | None = getattr(spiel, side)
+            if occupant is None:
+                continue
+
+            keyed.append(
+                (
+                    (spiel.spieltag_id, occupant.team_id),
+                    FLBracketFaultSpieltag(
+                        reason="fielded_twice",
+                        spiel_id=spiel.id,
+                        spiel_nr=spiel.spiel_nr,
+                        spieltag_id=spiel.spieltag_id,
+                        side=side,
+                        team_id=occupant.team_id,
+                        team_name=occupant.name,
+                    ),
+                )
+            )
+
+    # Built for every side and kept only where the club appears twice, so the report stays in fixture
+    # order: each appearance is a place the correction could be made, and the choice is the admin's.
+    appearances = Counter(key for key, _ in keyed)
+
+    return [fault for key, fault in keyed if appearances[key] > 1]
+
+
 @dataclass(frozen=True)
 class SpieltagRelease:
     """One side emptied so a team can be fielded here. Carries what that fixture loses, or a deleted scoreline reads as an emptied slot."""
@@ -737,7 +969,7 @@ def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielData
         return SpieltagVerdict(
             refusal=WriteRefusal(
                 error_code=SPIELTAG_OCCUPIED,
-                message=f"{payload.team1.name} is fielded on both sides of Spiel {stored.spiel_nr}",
+                message=f"one club is fielded on both sides of Spiel {stored.spiel_nr}",
             ),
             releases=[],
         )

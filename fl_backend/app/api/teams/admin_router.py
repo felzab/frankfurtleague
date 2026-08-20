@@ -19,6 +19,7 @@ from app.api.teams.schemas import (
 )
 from app.api.teams.services import (
     build_team_memberships_pipeline,
+    find_club_entry_refusal,
     find_entry_refusal,
     find_gruppe_move_refusal,
     find_retire_refusal,
@@ -89,13 +90,16 @@ async def patch_team(
     team_data: Annotated[FLPatchTeamPayload, Body()],
     teams_collection: TeamsCollection,
     spiele_collection: SpieleCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
     db: DBClient,
 ) -> FLPatchTeamResponse:
     """
-    Update a club, then rewrite the name and shorthand embedded in its matches.
+    Update a club, then rewrite the name and shorthand its unfinished seasons carry.
 
-    The fan-out is not optional: matches carry a copy of both fields, so without it every match card
-    shows a stale name indefinitely.
+    The fan-out is not optional: the junction and every match carry a copy of both fields, so
+    without it a stale name stands indefinitely. A `past` season is left alone -- it is the record
+    of the name the club was played under.
     """
 
     async def rename_and_fan_out(session: AsyncIOMotorClientSession) -> FLPatchTeamResponse:
@@ -106,22 +110,43 @@ async def patch_team(
             session=session,
         )
 
+        # Read through the session, so a season closed by a concurrent write cannot leave the
+        # junction rewritten and its fixtures not, or the reverse.
+        open_saisons = await pull_many_from_db(
+            collection=saisons_collection,
+            db_filter={"status": {"$ne": "past"}},
+            projection=["_id"],
+            session=session,
+        )
+        # One season per year against a 1024-row read: the list cannot truncate this century.
+        open_saison_ids = [row["_id"] for row in open_saisons]
+
+        junction = await patch_many_in_db(
+            collection=saison_teams_collection,
+            db_filter={"team_id": team_id, "saison_id": {"$in": open_saison_ids}},
+            update={"$set": {"name": team_data.name, "shorthand": team_data.shorthand}},
+            session=session,
+        )
+
         # Two passes: one `update_many` cannot write a different path per document.
         fanned_out = 0
         for slot in ("team1", "team2"):
             result = await patch_many_in_db(
                 collection=spiele_collection,
-                db_filter={f"{slot}.team_id": team_id},
+                db_filter={f"{slot}.team_id": team_id, "saison_id": {"$in": open_saison_ids}},
                 update={"$set": {f"{slot}.name": team_data.name, f"{slot}.shorthand": team_data.shorthand}},
                 session=session,
             )
             fanned_out += result.modified_count
 
-        return FLPatchTeamResponse(updated_document=FLTeamRecord.model_validate(updated_raw), fanned_out_to_spiele=fanned_out)
+        return FLPatchTeamResponse(
+            updated_document=FLTeamRecord.model_validate(updated_raw),
+            fanned_out_to_spiele=fanned_out,
+            fanned_out_to_saison_teams=junction.modified_count,
+        )
 
-    # One transaction over the three writes: a club renamed on `team1` and not on `team2` leaves
-    # one fixture disagreeing with itself. `with_transaction` over a bare `start_transaction` --
-    # every write derives from the payload, so a retry is safe.
+    # One transaction over every write here: a rename reaching some and not the rest leaves a season
+    # disagreeing with itself. `with_transaction` is safe to retry, every write deriving from the payload.
     async with await db.start_session() as session:
         return await session.with_transaction(rename_and_fan_out)
 
@@ -177,17 +202,31 @@ async def reactivate_team(
 async def post_saison_team(
     team_id: CustomRouteObjectId,
     saison_team_data: Annotated[FLPostSaisonTeamPayload, Body()],
+    teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
 ) -> FLSaisonTeamResponse:
     """
-    Enter a team into a season, in a group.
+    Enter a team into a season, in a group, under the name the club carries today.
 
     A team with no row here is ABSENT from that season entirely: the join is strict. Refused unless
-    the season is `future` and the group it names has space.
+    the club is still in the league, the season is `future`, and the group it names has space.
     """
 
+    # The one read of the club, and it earns its place twice over: an id naming nothing 404s here
+    # rather than inserting a row pointing at no club, and the season's own copy of the name and
+    # shorthand is seeded from it.
+    team_raw = await pull_one_from_db(
+        collection=teams_collection,
+        db_filter={"_id": team_id},
+        projection=["name", "shorthand", "inactive_since"],
+    )
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_team_data.saison_id})
+
+    # Before the count: the club's standing in the LEAGUE cannot be repaired by picking another
+    # group, so nobody should be handed a capacity figure to act on first.
+    refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
+
     # Count-then-insert, not transactional: losing the race costs one team over a planning bound
     # rather than corrupt data, on a single-admin surface.
     occupied_rows = await pull_many_from_db(
@@ -215,6 +254,11 @@ async def post_saison_team(
             "gruppe": saison_team_data.gruppe,
             # Required by the validator and by `FLTeam`, so a row without it is unreadable.
             "austritt": None,
+            # Copied rather than joined on read (`docs/backend/spec.md :: I11`): once the season is
+            # `past` this is the name it was played under, which makes the copy in its fixtures true
+            # rather than merely old.
+            "name": team_raw["name"],
+            "shorthand": team_raw["shorthand"],
         },
     )
 
@@ -223,6 +267,8 @@ async def post_saison_team(
         team_id=team_id,
         gruppe=saison_team_data.gruppe,
         austritt=None,
+        name=team_raw["name"],
+        shorthand=team_raw["shorthand"],
     )
 
 
@@ -247,10 +293,12 @@ async def patch_saison_team(
     reinstated.
     """
 
+    # The identity comes back with the group because this endpoint echoes the whole row and writes
+    # neither field: a group change and an austritt both leave the season's name where it was.
     existing_raw = await pull_one_from_db(
         collection=saison_teams_collection,
         db_filter={"team_id": team_id, "saison_id": saison_id},
-        projection=["gruppe"],
+        projection=["gruppe", "name", "shorthand"],
     )
     # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone.
     if saison_team_data.gruppe != existing_raw["gruppe"]:
@@ -289,4 +337,6 @@ async def patch_saison_team(
         team_id=team_id,
         gruppe=saison_team_data.gruppe,
         austritt=saison_team_data.austritt,
+        name=existing_raw["name"],
+        shorthand=existing_raw["shorthand"],
     )

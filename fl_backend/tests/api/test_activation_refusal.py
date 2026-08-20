@@ -1,6 +1,6 @@
 import pytest
 
-from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, find_activation_refusal, unplayed_spiel_nrs
+from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_TARGET_PAST, find_activation_refusal, unplayed_spiel_nrs
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielListAdapter
 
 
@@ -73,10 +73,10 @@ class TestTheOutgoingSeasonMustBeFinished:
     def test_a_finished_season_rolls_over(self):
         """A fresh database has no incumbent at all, and the caller passes the same empty list for that case as for this one."""
 
-        assert find_activation_refusal(outgoing_unplayed=[]) is None
+        assert find_activation_refusal(target_status="future", outgoing_unplayed=[]) is None
 
     def test_an_unfinished_season_is_refused(self):
-        refusal = find_activation_refusal(outgoing_unplayed=[3])
+        refusal = find_activation_refusal(target_status="future", outgoing_unplayed=[3])
 
         assert refusal is not None
         assert refusal.error_code == ACTIVATE_SAISON_UNFINISHED
@@ -84,7 +84,7 @@ class TestTheOutgoingSeasonMustBeFinished:
     def test_the_refusal_names_the_fixtures(self):
         """`spiel_nr` is how an admin finds a fixture in the Spielsuche, so naming them saves a second lookup."""
 
-        refusal = find_activation_refusal(outgoing_unplayed=[3, 7])
+        refusal = find_activation_refusal(target_status="future", outgoing_unplayed=[3, 7])
 
         assert refusal is not None
         assert "3, 7" in refusal.message
@@ -92,8 +92,44 @@ class TestTheOutgoingSeasonMustBeFinished:
     def test_a_long_list_is_summarised_rather_than_printed(self):
         """This detail is the log line: a season's worth of numbers buries the sentence saying what to do."""
 
-        refusal = find_activation_refusal(outgoing_unplayed=list(range(1, 12)))
+        refusal = find_activation_refusal(target_status="future", outgoing_unplayed=list(range(1, 12)))
 
         assert refusal is not None
         assert "1, 2, 3, 4, 5 and 6 more" in refusal.message
         assert "11 unplayed fixtures" in refusal.message
+
+
+class TestAFinishedSeasonIsNeverPromotedBack:
+    """A `past` season is the record of what happened, and this is the one operation that could reopen it.
+
+    Its points and groups are frozen there (`REQ-RULES-005`, `REQ-SWAP-003`), so this has no escape:
+    a season closed early is repaired at the database.
+    """
+
+    @pytest.mark.parametrize("target_status", ["future", "active"])
+    def test_a_season_still_running_is_promoted(self, target_status):
+        """`active` too, because re-activating the incumbent is what a season that was closed one step early would otherwise need."""
+
+        assert find_activation_refusal(target_status=target_status, outgoing_unplayed=[]) is None
+
+    def test_a_finished_season_is_refused(self):
+        refusal = find_activation_refusal(target_status="past", outgoing_unplayed=[])
+
+        assert refusal is not None
+        assert refusal.error_code == ACTIVATE_TARGET_PAST
+
+    def test_the_refusal_names_what_activating_would_reopen(self):
+        """The message is the log line, and the reason has to be in it: nothing about this request is malformed."""
+
+        refusal = find_activation_refusal(target_status="past", outgoing_unplayed=[])
+
+        assert refusal is not None
+        assert "past" in refusal.message
+
+    def test_the_target_is_judged_before_the_outgoing_season(self):
+        """Otherwise: told to go and finish the running season, doing it, and only then told the target was never promotable."""
+
+        refusal = find_activation_refusal(target_status="past", outgoing_unplayed=[3, 7])
+
+        assert refusal is not None
+        assert refusal.error_code == ACTIVATE_TARGET_PAST

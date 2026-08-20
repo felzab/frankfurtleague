@@ -1,4 +1,4 @@
-from typing import Any, Iterator, Mapping
+from typing import Any, Iterator, Mapping, get_args
 
 import pytest
 from bson import ObjectId
@@ -6,7 +6,7 @@ from bson import ObjectId
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_ABSAGE, FLSpiel
 from app.api.spieler.schemas import FLSpielerStufe
-from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
+from app.api.teams.schemas import FLAustrittType, FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 from app.api.teams.services import (
     ABSAGE_AS_NAME,
     ABSAGE_COUNT_NAME,
@@ -67,9 +67,10 @@ def build(
     saison_id: str = "2026",
     scope: FLTeamStatistikScope | None = None,
     team_id: Any | None = None,
-    is_disqualified: bool | None = None,
+    has_austritt: bool | None = None,
+    austritt_type: FLAustrittType | None = None,
 ) -> Pipeline:
-    filters = FLTeamsFilterParams(saison_id=saison_id, is_disqualified=is_disqualified)
+    filters = FLTeamsFilterParams(saison_id=saison_id, has_austritt=has_austritt, austritt_type=austritt_type)
     if scope is not None:
         filters.statistik_scope = scope
 
@@ -244,19 +245,36 @@ def test_reads_statistik_from_no_stored_copy():
     assert projected["austritt"] == "$saison_data.austritt"
 
 
-class TestTheDisqualifiedFilterIsTranslated:
+class TestTheAustrittFilterIsTranslated:
     """The junction stores no boolean, so a dumped `True` would match nothing — silently, as an empty group rather than an error."""
 
     def test_true_selects_the_rows_holding_a_record(self):
-        assert junction_match(build(is_disqualified=True)) == {"saison_id": "2026", "austritt": {"$ne": None}}
+        assert junction_match(build(has_austritt=True)) == {"saison_id": "2026", "austritt": {"$ne": None}}
 
     def test_false_selects_the_rows_holding_none(self):
         """An explicit null, which also excludes a row missing the key — the state the seed removes."""
-        assert junction_match(build(is_disqualified=False)) == {"saison_id": "2026", "austritt": None}
+        assert junction_match(build(has_austritt=False)) == {"saison_id": "2026", "austritt": None}
 
-    def test_an_omitted_filter_asks_nothing_about_disqualification(self):
-        """A disqualified team stays in the table, so the default read must not narrow on the field."""
+    def test_an_omitted_filter_asks_nothing_about_leaving(self):
+        """A team that has left stays in the table, so the default read must not narrow on the field."""
         assert junction_match(build()) == {"saison_id": "2026"}
+
+    @pytest.mark.parametrize("austritt_type", get_args(FLAustrittType))
+    def test_a_type_selects_the_route_out_and_not_merely_having_left(self, austritt_type: FLAustrittType):
+        """The question `has_austritt` cannot ask: a withdrawal is not a sanction (`docs/backend/spec.md :: I31`)."""
+        assert junction_match(build(austritt_type=austritt_type)) == {"saison_id": "2026", "austritt.type": austritt_type}
+
+    def test_the_two_terms_compose_rather_than_one_implying_the_other(self):
+        """Both asked together, so a caller narrowing to one route out does not lose the presence test it also stated."""
+        both = junction_match(build(has_austritt=True, austritt_type="rueckzug"))
+
+        assert both == {"saison_id": "2026", "austritt": {"$ne": None}, "austritt.type": "rueckzug"}
+
+    def test_a_type_beside_a_false_presence_selects_nothing_rather_than_dropping_a_term(self):
+        """The contradiction is answered by the database, not resolved here: dropping either term would answer a question nobody asked."""
+        contradictory = junction_match(build(has_austritt=False, austritt_type="disqualifikation"))
+
+        assert contradictory == {"saison_id": "2026", "austritt": None, "austritt.type": "disqualifikation"}
 
 
 def test_there_is_exactly_one_team_shape():

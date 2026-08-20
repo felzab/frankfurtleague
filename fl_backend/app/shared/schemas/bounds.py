@@ -7,10 +7,17 @@ stays at that field, and a derived one is never re-spelled as a literal.
 
 from typing import Final
 
-# The two free-text halves of an address; `hausnummer` and `plz` carry patterns instead. Stated by
-# the payload address alone, so a stored value over either ceiling still reads.
+# The address ceilings, stated by the payload address alone so a stored value over one still reads.
+# `plz` carries none: its own pattern already fixes the width exactly.
 ADDRESS_STRASSE_MAX_LENGTH: Final = 120
 ADDRESS_STADT_MAX_LENGTH: Final = 80
+# Its own constant rather than `stadt`'s, though the numbers agree: a district and a city are bounded
+# for the same reason and by separate judgements, so raising one must not silently raise the other.
+ADDRESS_STADTTEIL_MAX_LENGTH: Final = 80
+
+# Wide enough for a hyphenated range carrying a letter suffix, the longest thing the field's
+# alphabet of digits, a hyphen and a/b/c can spell as a real address. Anything longer is not one.
+ADDRESS_HAUSNUMMER_MAX_LENGTH: Final = 16
 
 TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 

@@ -213,6 +213,39 @@ def test_the_junction_supplies_gruppe_and_disqualification(league: SeededLeague)
     assert by_name["Helmholtz"]["austritt"] is None
 
 
+class TestTheSeasonsOwnIdentity:
+    """`name` and `shorthand` come from the junction, so a rename after the season leaves its table alone.
+
+    Helmholtz's club document carries the later name; every other assertion in this file keys on the
+    row's, which is what makes them evidence at all.
+    """
+
+    def test_the_name_is_the_rows_and_not_the_clubs(self, league: SeededLeague):
+        club = league.database.teams.find_one({"_id": league.team_oids["Helmholtz"]})
+
+        assert club is not None and club["name"] == "Helmholtz-Gymnasium"
+        assert "Helmholtz" in table(league)
+        assert "Helmholtz-Gymnasium" not in table(league)
+
+    def test_the_shorthand_comes_from_the_same_row(self, league: SeededLeague):
+        """Both halves of the identity or neither: a card showing the season's name under today's shorthand is the same defect twice."""
+
+        club = league.database.teams.find_one({"_id": league.team_oids["Helmholtz"]})
+        projected = {row["name"]: row for row in rows(league)}
+
+        assert club is not None and club["shorthand"] == "HG"
+        assert projected["Helmholtz"]["shorthand"] == "HE"
+
+    def test_a_club_never_renamed_reads_the_same_either_way(self, league: SeededLeague):
+        """So the two assertions above cannot be passing because the projection lost the field entirely."""
+
+        club = league.database.teams.find_one({"_id": league.team_oids["Bock"]})
+        projected = {row["name"]: row for row in rows(league)}
+
+        assert club is not None and (club["name"], club["shorthand"]) == ("Bock", "BO")
+        assert projected["Bock"]["shorthand"] == "BO"
+
+
 def test_a_stored_statistik_on_the_junction_is_ignored(league: SeededLeague):
     """Helmholtz's junction row carries a `statistik` of 99s, so a read of the stored copy shows those."""
     assert table(league)["Helmholtz"]["punkte"] == 4

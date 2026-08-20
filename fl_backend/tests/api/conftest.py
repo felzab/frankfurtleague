@@ -11,7 +11,9 @@ PRIOR_SAISON = "2025"
 # Fixed rather than generated, so a failure names the same team. Each row is deliberate; several are
 # impossible in production and none may be cleaned up.
 TEAM_OIDS = {
-    # The scope: the only team whose two tables differ; its junction row carries a stale `statistik`.
+    # The scope: the only team whose two tables differ; its junction row carries a stale `statistik`,
+    # and its club document a name the club took AFTER this season, so only the row can say what the
+    # season was played under.
     "Helmholtz": ObjectId("6890a1b2c3d4e5f607190001"),
     # The forfeit rule: a no-show carrying the result it was awarded, plus a match with no `ergebnis`.
     "Bock": ObjectId("6890a1b2c3d4e5f607190002"),
@@ -35,9 +37,13 @@ class SeededLeague:
     team_oids: dict[str, ObjectId]
 
 
-def _team(name: str, shorthand: str) -> dict[str, Any]:
+def _team(key: str, shorthand: str, name: str | None = None) -> dict[str, Any]:
+    """`name` defaults to the key; passing one is how a club comes to disagree with its own junction row."""
+
+    name = name or key
+
     return {
-        "_id": TEAM_OIDS[name],
+        "_id": TEAM_OIDS[key],
         "name": name,
         "shorthand": shorthand,
         "description": "",
@@ -53,6 +59,20 @@ def _team(name: str, shorthand: str) -> dict[str, Any]:
         # Present rather than omitted: Mongo matches a missing field against `None`, so it would pass the
         # base filter and fail response validation.
         "inactive_since": None,
+    }
+
+
+def _junction(key: str, shorthand: str, gruppe: str, **overrides: Any) -> dict[str, Any]:
+    """The row `post_saison_team` writes: the club's identity COPIED in at entry, never joined on read."""
+
+    return {
+        "saison_id": SAISON,
+        "team_id": TEAM_OIDS[key],
+        "gruppe": gruppe,
+        "austritt": None,
+        "name": key,
+        "shorthand": shorthand,
+        **overrides,
     }
 
 
@@ -87,7 +107,7 @@ def league(mongo_database: Database) -> SeededLeague:
 
     mongo_database.teams.insert_many(
         [
-            _team("Helmholtz", "HE"),
+            _team("Helmholtz", "HG", name="Helmholtz-Gymnasium"),
             _team("Bock", "BO"),
             _team("Lessing", "LE"),
             _team("Ohne", "OH"),
@@ -99,12 +119,11 @@ def league(mongo_database: Database) -> SeededLeague:
     mongo_database.saison_teams.insert_many(
         [
             # Figures matching nothing the matches below produce, so any read of a stored copy fails.
-            {
-                "saison_id": SAISON,
-                "team_id": TEAM_OIDS["Helmholtz"],
-                "gruppe": "A",
-                "austritt": None,
-                "statistik": {
+            _junction(
+                "Helmholtz",
+                "HE",
+                "A",
+                statistik={
                     "anzahl_gespielte_spiele": 99,
                     "siege": 99,
                     "niederlagen": 99,
@@ -113,11 +132,11 @@ def league(mongo_database: Database) -> SeededLeague:
                     "tore_kassiert": 99,
                     "punkte": 99,
                 },
-            },
-            {"saison_id": SAISON, "team_id": TEAM_OIDS["Bock"], "gruppe": "A", "austritt": None},
-            {"saison_id": SAISON, "team_id": TEAM_OIDS["Lessing"], "gruppe": "A", "austritt": dict(AUSTRITT)},
-            {"saison_id": SAISON, "team_id": TEAM_OIDS["Ohne"], "gruppe": "B", "austritt": None},
-            {"saison_id": SAISON, "team_id": TEAM_OIDS["Komplett"], "gruppe": "B", "austritt": None},
+            ),
+            _junction("Bock", "BO", "A"),
+            _junction("Lessing", "LE", "A", austritt=dict(AUSTRITT)),
+            _junction("Ohne", "OH", "B"),
+            _junction("Komplett", "KO", "B"),
             # No row for Fremd, and none for Helmholtz in 2025 — both are asserted on.
         ]
     )

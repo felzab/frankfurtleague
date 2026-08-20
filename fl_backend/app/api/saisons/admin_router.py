@@ -113,8 +113,9 @@ async def _rewrite_gruppenphase_sides(
     identities = await pull_many_from_db(
         collection=teams_collection,
         db_filter={"_id": {"$in": list(team_ids)}},
-        # From `teams`, where the rename fan-out writes from, never another fixture's embedded copy.
-        # Spelled out rather than sliced off `SWAPPED_SIDE_KEYS`, whose order would then matter.
+        # `teams`, while `app/api/spiele/services.py :: _composed_side` reads the season's
+        # `saison_teams` row: they differ only in a `past` season, which `REQ-SWAP-003` refuses.
+        # Spelled out, not sliced off `SWAPPED_SIDE_KEYS`, whose order would then matter.
         projection=["name", "shorthand"],
         session=session,
     )
@@ -208,10 +209,10 @@ async def patch_saison(
     saison_spieler_collection: SaisonSpielerCollection,
 ) -> FLPatchSaisonResponse:
     """
-    Update a season's dates and scoring rules. `status` is on no payload.
+    Update a season's dates and rules. `status` is on no payload.
 
-    Editing the points moves every league table on the NEXT READ, standings being derived. A `past`
-    season's are frozen, and a rule narrowed below what the season holds is refused.
+    Editing the points moves every league table on the NEXT READ, standings being derived. What a
+    finished or drawn season has fixed is refused, as is a rule narrowed below what it holds.
     """
 
     stored_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
@@ -244,6 +245,11 @@ async def patch_saison(
     per_spieltag: dict[Any, int] = {}
     async for spiel in spiele_collection.find({"saison_id": saison_id}, {"spieltag_id": 1}):
         per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
+
+    # Every fixture of the season, whichever matchday it hangs on: what `REQ-RULES-011` freezes is the
+    # draw, and a fixture pointing at another season's matchday came out of this season's rules too.
+    drawn_fixtures = sum(per_spieltag.values())
+
     for spieltag_id, attached in per_spieltag.items():
         phase = phase_of_spieltag.get(spieltag_id)
         # A fixture pointing at another season's matchday, or at none, exceeds no count here.
@@ -271,6 +277,7 @@ async def patch_saison(
             highest_wired_platz=highest_platz,
             largest_squad=largest_squad,
             attached_by_phase=attached_by_phase,
+            drawn_fixtures=drawn_fixtures,
         )
     )
 
@@ -309,12 +316,13 @@ async def activate_saison(
     """
     Make this the active season, moving whichever holds `active` to `past`.
 
-    The only path to `status: "active"`. One transaction, so the league is never briefly without an
-    active season nor with two. The outgoing season must be finished.
+    The only path to `status: "active"`. One transaction, so the league never briefly holds no
+    active season, nor two. The outgoing must be finished, and a `past` target refused.
     """
 
-    # A read first, so a bad id is a 404 rather than a rollover that promotes nothing.
-    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
+    # A read first, so a bad id is a 404 rather than a rollover that promotes nothing. Its `status`
+    # with it, that being what `REQ-ACTIVATE-002` judges the target on.
+    target = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1})
 
     # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
     outgoing = await pull_many_from_db(
@@ -323,13 +331,18 @@ async def activate_saison(
         projection={"_id": 1},
     )
     outgoing_ids = [row["_id"] for row in outgoing]
+
+    # Empty where nothing BUT the target holds `active` -- a fresh league, or a re-activation.
+    unplayed: list[int] = []
     if outgoing_ids:
         unplayed = unplayed_spiel_nrs(
             FLSpielListAdapter.validate_python(
                 await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}})
             )
         )
-        refuse(find_activation_refusal(outgoing_unplayed=unplayed))
+
+    # One call, so which of the two refusals an admin is shown stays the service's decision.
+    refuse(find_activation_refusal(target_status=str(target["status"]), outgoing_unplayed=unplayed))
 
     async with await db.start_session() as session:
         async with session.start_transaction():
