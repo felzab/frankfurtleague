@@ -44,8 +44,9 @@ def find_rules_refusal(
 ) -> WriteRefusal | None:
     """Why these rules must be refused, or `None`.
 
-    `stored` is `None` on a create, where only the rules reading the payload alone apply.
-    `attached_by_phase` is the LARGEST count any single matchday of a phase holds, not the sum.
+    `stored` is `None` on a create, whose whole rules object is the step
+    (`docs/backend/spec.md :: I44`). `attached_by_phase` is the LARGEST count any single matchday of
+    a phase holds, not the sum.
     """
 
     # The freeze first: no point naming a bound when the whole edit is refused anyway.
@@ -59,16 +60,23 @@ def find_rules_refusal(
 
     # Before the bracket rule, being narrower: it names two fields an admin can compare, where the
     # bracket's answer is a property of their product.
-    if proposed.qualifiers_per_group > proposed.teams_per_group:
+    excess = proposed.qualifiers_per_group - proposed.teams_per_group
+    # The EXCESS, against the stored one: `rules` is required on the patch, so a dates-only edit
+    # resubmits a stored violation unchanged, and shrinking an excess repairs it
+    # (`docs/backend/spec.md :: I44`).
+    if excess > 0 and (stored is None or excess > stored.qualifiers_per_group - stored.teams_per_group):
         return WriteRefusal(
             error_code=RULES_QUALIFIERS_ABOVE_GROUP,
             message=f"{proposed.qualifiers_per_group} qualifier(s) per group from groups of {proposed.teams_per_group}; "
             "a group cannot send more teams into the bracket than it holds",
         )
 
-    # The bracket next: a property of the proposed rules alone, needing no stored data.
     qualifiers = proposed.number_of_groups * proposed.qualifiers_per_group
-    if not knockout_phases_for(qualifiers):
+    stored_qualifiers = None if stored is None else stored.number_of_groups * stored.qualifiers_per_group
+    # Against the stored product: an unchanged product carries an unchanged verdict, so equality
+    # alone lets the dates-only edit through, `rules` being required on the patch
+    # (`docs/backend/spec.md :: I44`).
+    if not knockout_phases_for(qualifiers) and qualifiers != stored_qualifiers:
         return WriteRefusal(
             error_code=RULES_BRACKET_IMPOSSIBLE,
             message=f"{proposed.number_of_groups} group(s) x {proposed.qualifiers_per_group} qualifier(s) is {qualifiers}, "
@@ -95,7 +103,10 @@ def find_rules_refusal(
                 message=f"a group already holds {fullest} teams; teams_per_group cannot drop below the fullest group",
             )
 
-    if proposed.qualifiers_per_group < highest_wired_platz:
+    # Only where the patch LOWERS it: `rules` is required, so a dates-only edit resubmits a count
+    # already under the wiring, and refusing that would leave the season unpatchable
+    # (`docs/backend/spec.md :: I44`).
+    if proposed.qualifiers_per_group < highest_wired_platz and proposed.qualifiers_per_group < stored.qualifiers_per_group:
         return WriteRefusal(
             error_code=RULES_QUALIFIERS_BELOW_WIRING,
             message=f"a bracket slot names platz {highest_wired_platz}; qualifiers_per_group cannot drop below a placing already wired",
@@ -105,7 +116,9 @@ def find_rules_refusal(
     # count shortens the ladder, so an unreached phase expects 0 while its matchdays keep fixtures.
     for phase, attached in sorted((attached_by_phase or {}).items()):
         expected = expected_matches(proposed, phase)
-        if attached > expected:
+        # Only where the step NARROWS the phase: a count nothing changed is not this edit's doing,
+        # and refusing it would leave the season unpatchable (`docs/backend/spec.md :: I44`).
+        if attached > expected and expected < expected_matches(stored, phase):
             return WriteRefusal(
                 error_code=RULES_MATCHDAY_OVER_ITS_PHASE,
                 message=f"a {phase} matchday holds {attached} fixtures and these rules account for {expected}; "

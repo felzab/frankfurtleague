@@ -73,8 +73,23 @@ class TestTheBracketMustHaveAShape:
         assert refusal is not None
         assert refusal.error_code == RULES_BRACKET_IMPOSSIBLE
 
+    def test_permits_resubmitting_an_illegal_product_unchanged(self):
+        """`rules` is required on the patch, so a season stored with 4 x 3 would otherwise be unpatchable, dates included."""
+
+        illegal = rules(groups=4, qualifiers=3, per_group=8)
+
+        assert judge(stored=illegal, proposed=illegal) is None
+
+    def test_refuses_moving_from_one_illegal_product_to_another(self):
+        """Legality is boolean, so the permission above reaches an identical product alone: 12 to 20 is still a step."""
+
+        refusal = judge(stored=rules(groups=4, qualifiers=3, per_group=8), proposed=rules(groups=4, qualifiers=5, per_group=8))
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_BRACKET_IMPOSSIBLE
+
     def test_applies_on_a_create_where_there_is_nothing_to_strand(self):
-        """`stored=None` is the create. The bracket rule is a property of the proposed rules alone."""
+        """`stored=None` is the create: with no earlier product to match, an illegal one is always this step's doing."""
 
         refusal = find_rules_refusal(
             saison_status="future",
@@ -168,6 +183,16 @@ class TestNarrowingTheQualifiers:
 
         assert judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=1), platz=0) is None
 
+    def test_permits_resubmitting_a_count_already_below_the_wiring(self):
+        """`rules` is required on the patch, and a dates-only edit is not the step that put the wiring above the count."""
+
+        assert judge(stored=rules(groups=4, qualifiers=1), proposed=rules(groups=4, qualifiers=1), platz=2) is None
+
+    def test_permits_raising_a_count_that_is_still_below_the_wiring(self):
+        """Half a repair is still a repair, and refusing it would make the only way out one jump to the wired placing."""
+
+        assert judge(stored=rules(groups=4, qualifiers=1), proposed=rules(groups=4, qualifiers=2), platz=3) is None
+
 
 class TestAFinishedSeasonFreezes:
     @pytest.mark.parametrize(
@@ -247,6 +272,11 @@ class TestNarrowingBelowAMatchdaysFixtures:
 
         assert judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={}) is None
 
+    def test_permits_resubmitting_rules_a_matchday_already_overruns(self):
+        """A matchday over its count got there by fixtures added, never by rules a dates-only edit resubmits unchanged."""
+
+        assert judge(stored=rules(groups=2, qualifiers=4), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8}) is None
+
     def test_the_refusal_names_the_phase_and_both_counts(self):
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8})
 
@@ -282,6 +312,26 @@ class TestAGroupCannotQualifyMoreThanItHolds:
 
     def test_more_qualifiers_than_teams_is_refused(self):
         refusal = judge(proposed=rules(qualifiers=8, per_group=4))
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_QUALIFIERS_ABOVE_GROUP
+
+    def test_permits_resubmitting_an_existing_excess_unchanged(self):
+        """`rules` is required on the patch, so a stored excess comes back with a dates-only edit and must not refuse it."""
+
+        excessive = rules(groups=2, qualifiers=8, per_group=4)
+
+        assert judge(stored=excessive, proposed=excessive) is None
+
+    def test_permits_reducing_an_excess_that_still_violates(self):
+        """The badness is the excess, so a step towards legality is a repair even where it does not arrive."""
+
+        assert judge(stored=rules(groups=2, qualifiers=8, per_group=2), proposed=rules(groups=2, qualifiers=4, per_group=2)) is None
+
+    def test_refuses_widening_an_excess_that_already_exists(self):
+        """Worsening one is as much a step as introducing it, which is what stops the permission above covering both."""
+
+        refusal = judge(stored=rules(groups=2, qualifiers=4, per_group=2), proposed=rules(groups=2, qualifiers=8, per_group=2))
 
         assert refusal is not None
         assert refusal.error_code == RULES_QUALIFIERS_ABOVE_GROUP

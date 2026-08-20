@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `77078f34`, 2026-08-20\
+**Verified against:** `c90a98dc`, 2026-08-20\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
@@ -35,6 +35,10 @@ Every domain refusal is a 409, for one reason: nothing about the payload is malf
 would have succeeded against a different state of the database
 (`fl_backend/app/core/exceptions.py :: DocumentConflictException`).
 
+**A rules refusal names a step, never a state**: `REQ-RULES-001`, `REQ-RULES-004`, `REQ-RULES-006` and
+`REQ-RULES-007` arrive on the edit that introduces or worsens the violation and let a resubmission of the stored
+values through, because a season patch replaces `rules` wholesale (`docs/backend/spec.md :: I44`).
+
 | Code                  | Status | Meaning                                                                                                                             |
 | --------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `REQ-AUTH-001`        | 401    | No bearer credentials presented                                                                                                     |
@@ -44,13 +48,13 @@ would have succeeded against a different state of the database
 | `REQ-AUTH-005`        | 401    | No usable `X-FL-Actor` header on an admin-tier write                                                                                |
 | `REQ-VAL-001`         | 422    | Request payload or parameters failed validation                                                                                     |
 | `REQ-OID-001`         | 400    | A malformed ObjectId reached a handler — the net behind the path convertor and the query models, unreachable through routed traffic |
-| `REQ-RULES-001`       | 409    | `number_of_groups` × `qualifiers_per_group` is not a power of two the phase set holds                                               |
+| `REQ-RULES-001`       | 409    | A step made `number_of_groups` × `qualifiers_per_group` a product no phase set holds                                                |
 | `REQ-RULES-002`       | 409    | `number_of_groups` would drop below a group that still holds teams                                                                  |
 | `REQ-RULES-003`       | 409    | `teams_per_group` would drop below the fullest group's occupancy                                                                    |
 | `REQ-RULES-004`       | 409    | `qualifiers_per_group` would drop below a placing a bracket slot already names                                                      |
 | `REQ-RULES-005`       | 409    | A finished season's points and qualifier count are frozen, because the table derives from them                                      |
 | `REQ-RULES-006`       | 409    | A narrowing would leave a matchday holding more fixtures than its phase accounts for                                                |
-| `REQ-RULES-007`       | 409    | `qualifiers_per_group` exceeds `teams_per_group`                                                                                    |
+| `REQ-RULES-007`       | 409    | A step put `qualifiers_per_group` over `teams_per_group`, or widened an excess already there                                        |
 | `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures that are neither played nor cancelled                                                      |
 | `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                                               |
 | `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                                                        |
@@ -65,8 +69,8 @@ would have succeeded against a different state of the database
 | `REQ-SWAP-002`        | 409    | A group swap reached a season with a knockout fixture already played, called off or holding a goal count                            |
 | `REQ-SWAP-003`        | 409    | A group swap reached a `past` season, whose table is derived from the groups it would exchange                                      |
 | `REQ-SWAP-004`        | 409    | A group swap named a club whose Gruppenphase fixture was played, called off or given a goal count                                   |
-| `REQ-SWAP-005`        | 409    | A group swap would have left a club standing in two matches of one Spieltag                                                         |
-| `REQ-SWAP-006`        | 409    | A group swap would move a disqualified club onto fixtures dated after its disqualification                                          |
+| `REQ-SWAP-005`        | 409    | A group swap would have BROKEN a Spieltag, leaving a club in two of its matches                                                     |
+| `REQ-SWAP-006`        | 409    | A group swap would field a disqualified club on a fixture dated on or after its exit, or on an undated one                          |
 | `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                                                                |
 | `REQ-RETIRE-002`      | 409    | A matchday holding a played match was asked to retire, which would unpublish that result                                            |
 | `REQ-RETIRE-003`      | 409    | A venue still booked for an unplayed fixture was asked to retire                                                                    |

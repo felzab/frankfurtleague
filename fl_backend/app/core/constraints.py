@@ -109,8 +109,8 @@ _DISQUALIFIKATION = _object(
 
 _SPIEL_QUELLE = _object(
     nullable=True,
-    # `type` alone: the other keys belong to one variant each, and `$jsonSchema` cannot require a
-    # field only when a sibling holds a value. What stays catchable here is a `platz` stored as "2".
+    # `type` alone: `oneOf` could require each variant's own keys, but a ratified decision holds these
+    # validators to types, required fields and enums. What stays catchable here is a `platz` stored as "2".
     required=("type",),
     properties={
         "type": {"bsonType": "string", "enum": _QUELLE_TYPES},

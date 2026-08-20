@@ -1,14 +1,16 @@
 # The domain model
 
-**Verified against:** `77078f34`, 2026-08-20
+**Verified against:** `c90a98dc`, 2026-08-20
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
 
 **The authority is `fl_backend/app/core/domain.py`, not this page.** It states the model as data — the
 aggregates, the references, the field policies, the refusal rules and the deliberate absences — and
-`fl_backend/tests/core/test_domain.py` resolves every symbol it names against the code on every test run.
-This page carries only what a table cannot: the readings that catch people out.
+`fl_backend/tests/core/test_domain.py` checks it against the code on every test run. Where a declaration
+names a symbol the test resolves it, and where a declaration makes a claim about that symbol the test holds
+the claim rather than the address — [Keeping this true](#keeping-this-true) is which is which. This page
+carries only what a table cannot: the readings that catch people out.
 
 **If you read one section, read [Aggregates](#aggregates).** Several of those boundaries are
 counter-intuitive and every one of the mistakes is expensive.
@@ -70,10 +72,28 @@ resolves, and the document it names may be edited or retired afterwards with not
 
 ## What depends on what
 
-`domain.py :: REFERENCES` carries every cross-collection reference with a **referential action** for a target
-that changes, one for a target that goes away, and the reason for each. The vocabulary is SQL's because
-**MongoDB enforces none of it** — naming the intended behaviour is the only way the intention is written down
-at all.
+`domain.py :: REFERENCES` carries every cross-collection reference with the **referential actions** it is held
+to, and the reason for each. The vocabulary is SQL's because **MongoDB enforces none of it** — naming the
+intended behaviour is the only way the intention is written down at all.
+
+**The constraint and the triggered actions are separate columns**, because SQL packs into one `FOREIGN KEY`
+what has to be written down separately here. `Reference.on_reference_created` is the constraint — whether the
+write refuses a target it cannot resolve — and `on_target_change` and `on_target_removed` are the actions
+riding on it. Model only the triggered actions and there is no slot for the constraint itself, which is how
+half a referential check gets written and the other half never noticed.
+
+**A `NO_ACTION` on the creating direction is a statement that nothing looks at the target**, and it covers
+situations the notes keep apart. **Nothing reads the target at all**: a `saison_teams` row may name a club
+`teams` does not hold and a `saison_spieler` row a person `spieler` does not, the path parameter naming each
+and no handler resolving it. **Nothing can create the reference**: `spiele.spieltag_id` is on no payload and
+`/spiele` has no POST. **Or something is checked and it is not the target** — a fixture's side and a squad row
+are both held to the season's `saison_teams` entrants rather than to `teams`, and since entry into that
+junction is itself unchecked the entrants are not a subset, so either can carry a `team_id` no club document
+holds.
+
+That last case is the one most easily misread as a constraint, and it is why those rows carry `NO_ACTION`
+with the check they _do_ perform named in the note. A `RESTRICT` there would say the write resolves the club,
+which nothing does.
 
 **`aktionen` appears in `REFERENCES` in neither direction, on purpose** — its `document_id` is a copy of an id
 rather than a reference anything maintains, and [Aggregates](#aggregates) carries the reading.
@@ -122,10 +142,11 @@ every read and nothing records what they said before; some may never narrow belo
 because the data below would be stranded. `erlaubte_stufen` narrows freely even on a finished season, because
 it bounds what a **form offers** rather than what a stored squad row holds.
 
-**The freeze compares values, not the endpoint**, so a date-only edit resubmits the whole `rules` object
-unchanged and passes — which is what keeps the dates repairable. `start_date` and `end_date` sit on the
-season document rather than inside `rules` and stay editable on a finished season, correcting a mistyped
-date changing nothing anybody competed for.
+**Every one of these checks judges the step, not the endpoint and not the state it arrives in**, so a
+date-only edit resubmits the whole `rules` object and passes whatever the stored values already say — which
+is what keeps the dates repairable, and `docs/backend/spec.md :: I44` is the general form of it. `start_date`
+and `end_date` sit on the season document rather than inside `rules` and stay editable on a finished season,
+correcting a mistyped date changing nothing anybody competed for.
 
 ---
 
@@ -171,6 +192,21 @@ on its way to being complete.
 Where a state is reported, the report is a page and never a stored flag. Where an entry names no surface,
 nothing reports the state.
 
+### An entry has to earn its place, and then prove it
+
+A reason a reader nods at is not evidence, so `domain.py :: Unenforced` carries the fields a check can act
+on and `test_domain.py` acts on each:
+
+- **`near`** is the entry bar. It names the refusal codes a reader would expect to cover this state and does
+  not find, and an entry that can name none is not surprising anybody — the observation belongs as a comment
+  at the line it concerns. Each code it names must be one the application actually defines.
+- **`proven_by`** names a class of `fl_backend/tests/core/test_unenforced.py`, and the pairing is exact in
+  **both** directions: an entry nothing executes fails, and a test class no entry claims fails with it. That
+  is what keeps a declaration from decaying into the oversight it exists to be distinguishable from.
+- **`surfaced_by`** is an address rather than a description — an `/admin` route or a repo path to the
+  component — and it is resolved against the frontend tree, so an entry cannot go on claiming a person can
+  see the state after the page showing it has gone. What that surface shows is `reason`'s to say.
+
 ---
 
 ## Where each layer enforces what
@@ -184,21 +220,39 @@ nothing reports the state.
 
 The line between the validators and the models is itself tested:
 `fl_backend/tests/core/test_constraints.py :: test_no_validator_constrains_a_range_or_a_format` fails a
-validator that reaches past it. And **the pages narrow the offer; they never replace the refusal** — the
-season editor disables a narrowing it can see is illegal, and `find_rules_refusal` still runs, because a
-stale form and a direct request each reach the endpoint.
+validator that reaches past it. And **the pages narrow the offer and name what they cannot narrow; they
+never replace the refusal** — the entry form disables a group it can see is full, the season editor raises an
+illegal ratio beside the field that holds it
+(`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/banners.ts :: buildSaisonBanners`),
+and `find_rules_refusal` still runs either way, because a stale form and a direct request each reach the
+endpoint.
 
 ---
 
 ## Keeping this true
 
-| If you                                   | You must also                                                        | Caught by                                                                                  |
-| ---------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Add a `REQ-*` refusal under `app/api/`   | Add its row to `RULES`, with a real `implemented_by` and `tested_by` | `test_domain.py`                                                                           |
-| Add a collection                         | Place it in exactly one aggregate                                    | `test_domain.py`                                                                           |
-| Rename a refusal or a test class         | Repoint the citation that names it                                   | `test_domain.py`                                                                           |
-| Add a field that is not plainly editable | Add its `FieldPolicy`                                                | Nothing — the test resolves the policies that are declared and cannot see one nobody wrote |
-| Decide _not_ to enforce something        | Add it to `UNENFORCED` with the reason                               | Nothing, for the same reason                                                               |
+| If you                                                | You must also                                                                                                                        | Caught by                                                                                  |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Add a `REQ-*` refusal under `app/api/`                | Add its row to `RULES`, with an `implemented_by` that reaches the code and a `tested_by` that asserts on it                          | `test_domain.py`                                                                           |
+| Move a refusal out from under the row that claims it  | Repoint `implemented_by`, or move the code with it                                                                                   | `test_domain.py`                                                                           |
+| Rewrite a test class to assert on the message instead | Leave the code in it, or repoint `tested_by` at a class that asserts on the code                                                     | `test_domain.py`                                                                           |
+| Add a collection                                      | Place it in exactly one aggregate                                                                                                    | `test_domain.py`                                                                           |
+| Give a collection an `inactive_since`                 | Declare when that field may be written                                                                                               | `test_domain.py`                                                                           |
+| Add any other field that is not plainly editable      | Add its `FieldPolicy`                                                                                                                | Nothing — the test resolves the policies that are declared and cannot see one nobody wrote |
+| Decide _not_ to enforce something                     | Add it to `UNENFORCED` with its reason, its `near` codes, its `proven_by` class and, where a page shows the state, its `surfaced_by` | Every field of the entry, once the entry exists; nothing catches a state nobody declared   |
+
+**What the test holds is the claim, never the address.** A callable at `implemented_by` is not enough: it has
+to reach the constant holding that rule's code, same-module helpers followed, so a refusal that moved out
+from under its row fails instead of passing on the strength of the function still being there. `tested_by` is
+held the same way — the class it names must reach a name **imported** from the application that holds the
+code. A string literal is refused on purpose, every code being bound to a named constant, so a test asserting
+on the literal carries a second copy of it; and a class asserting on message substrings alone proves the
+wording rather than the contract a client maps.
+
+**`FIELD_POLICIES` is closed in its other direction at the one place that is mechanical**: every collection
+whose validator declares `inactive_since` must say when that field may be written, and none of them can be
+forgotten. Nothing can do the same where the editability is a judgement, which is why a field whose policy is
+a judgement is the one row above with no check against it.
 
 `fl_backend/tests/core/test_domain.py` runs in the default tier, so the rows it covers hold without anybody
 remembering. It also enforces the invariant that keeps this a declaration — **no module under `app/` may

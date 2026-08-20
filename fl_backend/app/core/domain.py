@@ -72,6 +72,9 @@ class Reference:
     #: Every field path carrying this reference. Real paths, so the conformance test resolves them.
     fields: tuple[str, ...]
     target: Collection
+    #: THE CONSTRAINT: `RESTRICT` where the write refuses a target it cannot resolve, `NO_ACTION`
+    #: where nothing looks. `on_target_change` and `on_target_removed` are the actions it carries.
+    on_reference_created: Action
     on_target_change: Action
     on_target_removed: Action
     #: WHAT THE CODE DOES, then what it deliberately does not -- the action in the present tense,
@@ -124,7 +127,14 @@ class Unenforced:
     #: WHY REFUSING WOULD BE WRONG, then what happens instead -- the cost of the rule first, because
     #: that is the argument.
     reason: str
-    #: The surface reporting the state, or "" where nothing does and nothing needs to.
+    #: THE ENTRY BAR: the codes a reader would expect to cover this state and does not find. A state
+    #: sitting near no rule surprises nobody, and belongs at the line it concerns instead.
+    near: tuple[str, ...]
+    #: `<test path>::<class>` proving the claim, paired one-to-one with this tuple. An entry nothing
+    #: executes decays into the oversight it exists to be distinguishable from.
+    proven_by: str
+    #: An `/admin` route or a repo path to the component showing the state. Empty only where nothing
+    #: shows it, which `reason` then has to answer for.
     surfaced_by: str = ""
 
 
@@ -202,9 +212,13 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SPIELE,
         fields=("team1.team_id", "team2.team_id"),
         target=Collection.TEAMS,
+        on_reference_created=Action.NO_ACTION,
         on_target_change=Action.CASCADE,
         on_target_removed=Action.NO_ACTION,
         note=(
+            "`REQ-ELIGIBILITY-002` holds a newly fielded side to the season's `saison_teams` entrants and nothing reads "
+            "`teams`; entry into that junction is itself unchecked, so the entrants are not a subset and a side can carry "
+            "a `team_id` no club document holds. "
             "A rename fans out into every match's embedded `name` and `shorthand` "
             "(`app/api/teams/admin_router.py :: patch_team`). Retirement is soft and touches no match: "
             "the embedded copy is what a played fixture said at the time."
@@ -214,9 +228,11 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SPIELE,
         fields=("ort.spielort_id",),
         target=Collection.SPIELORTE,
+        on_reference_created=Action.NO_ACTION,
         on_target_change=Action.CASCADE,
         on_target_removed=Action.NO_ACTION,
         note=(
+            "Nothing reads the venue at the write, so a fixture may name one no `spielorte` row holds. "
             "The name and the maps link fan out; `mietpreis` deliberately does not. It "
             "records what this fixture cost, so rewriting it would rewrite history."
         ),
@@ -225,17 +241,21 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SPIELE,
         fields=("schiedsrichter.schiedsrichter_id",),
         target=Collection.SCHIEDSRICHTER,
+        on_reference_created=Action.NO_ACTION,
         on_target_change=Action.CASCADE,
         on_target_removed=Action.NO_ACTION,
-        note="The name fans out; `payment` does not, for the reason `mietpreis` does not.",
+        note=("Unchecked at the write, as the venue beside it is. The name fans out; `payment` does not, for the reason `mietpreis` does not."),
     ),
     Reference(
         source=Collection.SPIELE,
         fields=("spieltag_id",),
         target=Collection.SPIELTAGE,
+        on_reference_created=Action.NO_ACTION,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.NO_ACTION,
         note=(
+            "No request creates this reference at all: the field is on no payload and `/spiele` has no POST, "
+            "so whatever writes a fixture carries the check itself. "
             "Nothing is embedded, so a renamed or re-dated matchday is picked up on the next read. "
             "Retiring a matchday leaves its matches fully readable, which is why that delete is soft."
         ),
@@ -244,17 +264,23 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SPIELE,
         fields=("saison_id",),
         target=Collection.SAISONS,
+        on_reference_created=Action.NO_ACTION,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.RESTRICT,
-        note=("There is no `DELETE /saisons/{saison_id}` at all: removing a season would orphan this and every other reference to it."),
+        note=(
+            "Unreachable in the creating direction for the reason `spieltag_id` above is. "
+            "There is no `DELETE /saisons/{saison_id}` at all: removing a season would orphan this and every other reference to it."
+        ),
     ),
     Reference(
         source=Collection.SPIELE,
         fields=("team1_quelle.spiel_nr", "team2_quelle.spiel_nr"),
         target=Collection.SPIELE,
+        on_reference_created=Action.RESTRICT,
         on_target_change=Action.CASCADE,
         on_target_removed=Action.NO_ACTION,
         note=(
+            "A source naming a `spiel_nr` this season has no match for is refused where it is set (`REQ-WIRING-001`). "
             "Entering a result re-resolves every slot that match feeds. A `spiel_nr` the season "
             "has no match for LEAVES the slot alone and is reported as a bracket fault -- "
             "'nothing to look up' never empties a slot."
@@ -264,17 +290,23 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SPIELTAGE,
         fields=("saison_id",),
         target=Collection.SAISONS,
+        on_reference_created=Action.RESTRICT,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.RESTRICT,
-        note="No season delete exists, and `saison_id` is absent from the matchday patch payload, so a matchday cannot change seasons either.",
+        note=(
+            "`post_spieltag` reads the season it names, so a matchday cannot be created into one that does not exist. "
+            "No season delete exists, and `saison_id` is absent from the matchday patch payload, so a matchday cannot change seasons either."
+        ),
     ),
     Reference(
         source=Collection.SAISON_TEAMS,
         fields=("team_id",),
         target=Collection.TEAMS,
+        on_reference_created=Action.NO_ACTION,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.RESTRICT,
         note=(
+            "The path names the club and nothing reads it, so a row here can name a club `teams` does not hold. "
             "Retiring a club is refused while a running or planned season holds it (`REQ-RETIRE-001`). A "
             "past season's rows survive the retirement, because those seasons still happened."
         ),
@@ -283,9 +315,11 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SAISON_TEAMS,
         fields=("saison_id",),
         target=Collection.SAISONS,
+        on_reference_created=Action.RESTRICT,
         on_target_change=Action.RESTRICT,
         on_target_removed=Action.RESTRICT,
         note=(
+            "`post_saison_team` reads the season for its status and its capacity, so entry into one that does not exist is a 404. "
             "The season's `rules` bound these rows, so narrowing `number_of_groups` or `teams_per_group` "
             "below what they occupy is refused (`REQ-RULES-002`, `REQ-RULES-003`). There is no row delete "
             "either: a team leaves a season only by disqualification."
@@ -295,9 +329,11 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SAISON_SPIELER,
         fields=("saison_id",),
         target=Collection.SAISONS,
+        on_reference_created=Action.RESTRICT,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.RESTRICT,
         note=(
+            "`REQ-SQUAD-001` wants a junction row for this season, and a season nothing holds has none. "
             "`erlaubte_stufen` bounds what the squad FORM offers and not what a row holds, so narrowing it "
             "strands nothing. No season delete exists."
         ),
@@ -306,10 +342,13 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SAISON_SPIELER,
         fields=("team_id",),
         target=Collection.TEAMS,
+        on_reference_created=Action.NO_ACTION,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.NO_ACTION,
         note=(
-            "Nothing is embedded and nothing is refused: a squad row pointing at a retired club still "
+            "`REQ-SQUAD-001` counts a `saison_teams` row for the season and reads `teams` nowhere, so this inherits the "
+            "junction's own unchecked entry: a squad row can name a club no `teams` document holds. "
+            "Nothing is embedded and nothing is refused afterwards: a squad row pointing at a retired club still "
             "resolves, and the admin list renders it rather than hiding it."
         ),
     ),
@@ -317,9 +356,13 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SAISON_SPIELER,
         fields=("spieler_id",),
         target=Collection.SPIELER,
+        on_reference_created=Action.NO_ACTION,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.NO_ACTION,
-        note="Retiring the person leaves every squad row intact -- the seasons they played still happened.",
+        note=(
+            "The path names the person and nothing reads it, so a squad row can name a `spieler` document nobody created. "
+            "Retiring the person leaves every squad row intact -- the seasons they played still happened."
+        ),
     ),
 )
 
@@ -534,6 +577,41 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "for the reason `team1_quelle` is",
         "app.api.spiele.services.find_wiring_refusal",
     ),
+    FieldPolicy(
+        Collection.SPIELORTE,
+        "maps_link",
+        Editability.COMPOSED,
+        "composed from `name` and `address` on both writes and on no payload, so a submitted one is overwritten rather "
+        "than stored and a venue cannot be searchable for one place and bookable at another",
+        "app.api.spielorte.admin_router._maps_link",
+    ),
+    FieldPolicy(
+        Collection.SPIELORTE,
+        "default_mietpreis",
+        Editability.EDITABLE,
+        "editable at any time, and a change reaches NO stored fixture: `spiele.ort.mietpreis` records what that "
+        "fixture cost rather than tracking this number",
+    ),
+    FieldPolicy(
+        Collection.SPIELORTE,
+        "inactive_since",
+        Editability.CONTROL_ONLY,
+        "`DELETE` stamps it and `POST /reactivate` clears it, and the retirement is refused while an unplayed fixture is still booked here",
+        "app.api.spielorte.services.find_venue_retire_refusal",
+    ),
+    FieldPolicy(
+        Collection.SCHIEDSRICHTER,
+        "default_payment",
+        Editability.EDITABLE,
+        "editable at any time, and a change reaches no stored fixture, for the reason a venue's `default_mietpreis` does not",
+    ),
+    FieldPolicy(
+        Collection.SCHIEDSRICHTER,
+        "inactive_since",
+        Editability.CONTROL_ONLY,
+        "`DELETE` stamps it and `POST /reactivate` clears it, and the retirement is refused while an unplayed fixture still names this referee",
+        "app.api.schiedsrichter.services.find_referee_retire_refusal",
+    ),
 )
 
 
@@ -631,6 +709,7 @@ RULES: tuple[Rule, ...] = (
         summary="a team enters a season only while that season is `future`",
         implemented_by="app.api.teams.services.find_entry_refusal",
         tested_by="tests/api/test_team_entry_refusal.py::TestEnteringASeason",
+        multi_document=True,
     ),
     Rule(
         code="REQ-ENTER-002",
@@ -639,12 +718,13 @@ RULES: tuple[Rule, ...] = (
         summary="the group must be one the season runs",
         implemented_by="app.api.teams.services.find_entry_refusal",
         tested_by="tests/api/test_team_entry_refusal.py::TestEnteringASeason",
+        multi_document=True,
     ),
     Rule(
         code="REQ-ENTER-003",
         operation="POST /teams/{team_id}/saisons · PATCH /teams/{team_id}/saisons/{saison_id}",
         aggregate="Saison",
-        summary="the group must have space, and a disqualified team still holds its place",
+        summary="the group must have space; the caller counts a disqualified club's row in, a team never leaving a season",
         implemented_by="app.api.teams.services.find_entry_refusal",
         tested_by="tests/api/test_team_entry_refusal.py::TestEnteringASeason",
         multi_document=True,
@@ -698,16 +778,16 @@ RULES: tuple[Rule, ...] = (
         code="REQ-SWAP-005",
         operation="POST /saisons/{saison_id}/gruppen/swap",
         aggregate="Saison",
-        summary="no group swap that would leave a club standing in two matches of one Spieltag",
+        summary="no group swap that would BREAK a Spieltag, leaving a club in two of its matches; one already broken is left alone",
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
         tested_by="tests/api/test_gruppe_swap_refusal.py::TestASpieltagNeverHoldsAClubTwice",
         multi_document=True,
     ),
     Rule(
         code="REQ-SWAP-006",
-        operation="POST /saisons/{saison_id}/swap_gruppen",
+        operation="POST /saisons/{saison_id}/gruppen/swap",
         aggregate="Saison",
-        summary="a swap moving a disqualified club onto fixtures dated after its disqualification is refused",
+        summary="no group swap moving a disqualified club onto a fixture dated on or after its exit, an UNDATED one included",
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
         tested_by="tests/api/test_gruppe_swap_refusal.py::TestASwapNeverFieldsADisqualifiedClub",
         multi_document=True,
@@ -815,7 +895,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-CLASH-001",
         operation="PATCH /spiele/{spiel_id}",
         aggregate="Saison-Spielplan",
-        summary="a venue and a referee need four hours between two fixtures they both serve",
+        summary="a venue OR a referee needs four hours between two fixtures it serves; either alone refuses the write",
         implemented_by="app.api.spiele.services.find_clash_refusal",
         tested_by="tests/api/test_containment_refusals.py::TestOneVenueAndOneRefereeAtATime",
         multi_document=True,
@@ -829,7 +909,7 @@ RULES: tuple[Rule, ...] = (
             "later feeder, no outcome feeding two slots, no hand-set team on a maintained side"
         ),
         implemented_by="app.api.spiele.services.find_wiring_refusal",
-        tested_by="tests/api/test_wiring_refusal.py::TestPhaseRules",
+        tested_by="tests/api/test_wiring_refusal.py::TestEveryRefusalCarriesItsCode",
         multi_document=True,
     ),
     Rule(
@@ -902,27 +982,39 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="exactly one season holds `status: active`",
         reason=(
-            "No validator sees two documents, and a unique index on `status` would also permit exactly one "
-            "`past` season. It holds because `activate_saison` is the only writer and does both "
-            "halves in one transaction."
+            "No validator sees two documents, and the index that comes closest -- a partial unique one on "
+            "`status: active` -- delivers at-most-one rather than exactly-one, so a league with no active "
+            "season would still satisfy it, and it would make the activation's write order load-bearing: "
+            "demote the incumbent first or the index refuses the promotion. It holds instead because "
+            "`activate_saison` is the only path that can write `active` -- `post_saison` writes the create's "
+            "`future` and nothing else touches the field -- and it demotes and promotes in one transaction."
         ),
+        near=("REQ-ACTIVATE-001",),
+        proven_by="tests/core/test_unenforced.py::TestExactlyOneActiveSeason",
     ),
     Unenforced(
         subject="a matchday retired while it still holds UNPLAYED fixtures",
         reason=(
             "Those fixtures leave the public Spielplan with their container, but stay fully readable and "
             "`spiele.spieltag_id` keeps resolving -- and a matchday created by mistake is exactly the one "
-            "somebody needs to retire. A played one is refused instead (`REQ-RETIRE-002`)."
+            "somebody needs to retire. A played one is refused instead (`REQ-RETIRE-002`). The dialog names "
+            "how many fixtures leave the Spielplan with it."
         ),
-        surfaced_by="the retire dialog, which names how many fixtures leave the Spielplan with it",
+        near=("REQ-RETIRE-002",),
+        proven_by="tests/core/test_unenforced.py::TestARetiredMatchdayKeepsItsUnplayedFixtures",
+        surfaced_by="fl_frontend/src/features/spieltage/components/modals/AdminDeleteSpieltagModal.tsx",
     ),
     Unenforced(
         subject="a matchday whose attached fixtures differ from the count its phase implies",
         reason=(
             "A season being set up passes through that state on the way to being complete, so refusing it "
-            "would block the setup rather than a mistake."
+            "would block the setup rather than a mistake -- and every fixture in this database was placed by hand, "
+            "so the state is the ordinary one rather than an edge. The list shows attached over expected and tints "
+            "a mismatch."
         ),
-        surfaced_by="`/admin/spieltage`, which shows attached over expected and tints a mismatch",
+        near=("REQ-SPIELTAG-002", "REQ-RETIRE-005"),
+        proven_by="tests/core/test_unenforced.py::TestAMatchdayOffItsImpliedCount",
+        surfaced_by="/admin/spieltage",
     ),
     Unenforced(
         subject="two players in one team and one season wearing the same squad number",
@@ -930,9 +1022,13 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "A shirt number is worn rather than assigned, and the league already fields four goalkeepers "
             "in one squad all wearing 1 -- so refusing the state would make live rows uneditable and, once "
             "one was retired, unreactivatable. Refusing it on the create and the patch while the reactivate "
-            "consulted no rule at all was the same rule answering three ways (decided 2026-08-13)."
+            "consulted no rule at all was the same rule answering three ways (decided 2026-08-13). The editor's rail "
+            "warns before a save introduces one and saves anyway; the warning carries no inline spot, so it is the "
+            "rail rather than the squad section that shows it."
         ),
-        surfaced_by="the squad editor's Hinweise, which warn before a save introduces one and save anyway",
+        near=("REQ-SQUAD-001",),
+        proven_by="tests/core/test_unenforced.py::TestASharedSquadNumber",
+        surfaced_by="fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx",
     ),
     Unenforced(
         subject="a bracket slot the resolution filled with a team later disqualified",
@@ -941,15 +1037,80 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "a since-disqualified team is reported as a derived fault and never rewritten -- only a person "
             "chooses between a forfeit and a replacement."
         ),
-        surfaced_by="`/admin/action_required`, as a derived fault",
+        near=("REQ-ELIGIBILITY-001",),
+        proven_by="tests/core/test_unenforced.py::TestABracketSlotHeldByADisqualifiedClub",
+        surfaced_by="/admin/action_required",
     ),
     Unenforced(
         subject="a stored bracket fault",
         reason=("Every fault is derived on each admin read and none is stored. Reporting a shape is never licence to act on it."),
-        surfaced_by="`/admin/action_required`",
+        near=("REQ-WIRING-001",),
+        proven_by="tests/core/test_unenforced.py::TestNoBracketFaultIsStored",
+        surfaced_by="/admin/action_required",
     ),
     Unenforced(
         subject="a retired row's eventual purge",
         reason="`inactive_since` is a date so a purge can select on it; the purge itself is not built (roadmap BE-12).",
+        near=("REQ-RETIRE-001",),
+        proven_by="tests/core/test_unenforced.py::TestNoPurgeReachesARetiredRow",
+    ),
+    Unenforced(
+        subject="a group phase in which every club qualifies",
+        reason=(
+            "A seeding-only group stage is a real format, so a floor under `qualifiers_per_group` would invent "
+            "a rule this competition does not have. `REQ-RULES-007` bounds the field from above alone. The season's "
+            "derived `schedule` is what makes the state visible, as the phases these numbers imply -- and the rules "
+            "form itself shows only the numbers, so the admin sees the consequence on the matchday list rather than "
+            "where the rule is typed."
+        ),
+        near=("REQ-RULES-007",),
+        proven_by="tests/core/test_unenforced.py::TestAGroupPhaseEveryClubLeaves",
+        surfaced_by="/admin/spieltage",
+    ),
+    Unenforced(
+        subject="a Spieltag on which a club already stands twice",
+        reason=(
+            "The swap refuses only the Spieltag it BREAKS, never one already broken, because refusing over an "
+            "existing fault would block the repair. `REQ-SPIELTAG-001` holds the same line one fixture at a time. "
+            "The refusal message names what the exchange would break."
+        ),
+        near=("REQ-SWAP-005", "REQ-SPIELTAG-001"),
+        proven_by="tests/core/test_unenforced.py::TestASpieltagAlreadyHoldingAClubTwice",
+        surfaced_by="fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx",
+    ),
+    Unenforced(
+        subject="a person holding no squad row at all",
+        reason=(
+            "A person is registered before they are placed, and `REQ-SQUAD-001` governs the row rather than its "
+            "absence. `GET /spieler/memberships` returns them with an empty membership list, so the read that "
+            "would report the state already is the surface that repairs it."
+        ),
+        near=("REQ-SQUAD-001",),
+        proven_by="tests/core/test_unenforced.py::TestAPersonWithNoSquadRow",
+        surfaced_by="/admin/spieler",
+    ),
+    Unenforced(
+        subject="a disqualified club holding drawn fixtures",
+        reason=(
+            "A disqualified club keeps its group place, and its opponents need a fixture to record the walkover on, "
+            "so clearing them would leave a full group with nothing to play. The fixtures it can no longer stand on "
+            "are refused where they are edited (`REQ-ELIGIBILITY-001`) rather than removed."
+        ),
+        near=("REQ-ELIGIBILITY-001",),
+        proven_by="tests/core/test_unenforced.py::TestADisqualifiedClubKeepsItsFixtures",
+        surfaced_by="/admin/action_required",
+    ),
+    Unenforced(
+        subject="a stored pre-image no current model accepts",
+        reason=(
+            "`FLAktion.before` is typed `dict[str, Any] | None` on purpose: an image is what a document looked like "
+            "when it was written, so validating it against today's models would make every row taken before a "
+            "migration unreadable -- which is the one thing the log exists to prevent. NOTHING SHOWS THE IMAGE: "
+            "`/admin/aktionen` reports whether one was recorded and drops it before the row reaches the browser, "
+            "because carrying it would serialise a document out of any collection to render one badge. So a person "
+            "cannot see this state, and the restore that would read an image is BE-15's unbuilt half."
+        ),
+        near=("REQ-VAL-001",),
+        proven_by="tests/core/test_unenforced.py::TestAStoredPreImageIsNeverRevalidated",
     ),
 )

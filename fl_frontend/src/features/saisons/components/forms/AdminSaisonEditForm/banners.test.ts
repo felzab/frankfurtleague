@@ -37,11 +37,13 @@ describe("buildSaisonBanners", () => {
     assert.match(banner?.body ?? "", /längst gespielte Spiele/);
   });
 
-  it("grades both save-blocking rule breaches as danger", () => {
-    const blocking = [...build({ isEndBeforeStart: true }), ...build({ qualifiersPerGroup: 5 })];
+  it("grades both rule breaches as danger, and only the span one claims the save is barred", () => {
+    const breaches = [...build({ isEndBeforeStart: true }), ...build({ qualifiersPerGroup: 5 })];
 
-    assert.deepEqual(ids(blocking), ["saison.end-before-start", "saison.qualifiers-overflow"]);
-    assert.ok(blocking.every((banner) => banner.severity === "danger"));
+    assert.deepEqual(ids(breaches), ["saison.end-before-start", "saison.qualifiers-overflow"]);
+    assert.ok(breaches.every((banner) => banner.severity === "danger"));
+    // The overflow saves while it is not worsened, so promising otherwise would relatch what I44 opened.
+    assert.match(breaches[1]?.body ?? "", /nicht weiter verschlechtert/);
   });
 
   it("counts the outgoing season's unfinished fixtures into the title, singular and plural", () => {

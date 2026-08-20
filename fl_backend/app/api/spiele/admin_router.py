@@ -32,6 +32,7 @@ from app.api.spiele.services import (
     find_result_removal_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
+    stored_in_slice,
 )
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
@@ -46,6 +47,7 @@ from app.core.dependencies import (
 )
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 
 router = APIRouter(
@@ -143,7 +145,18 @@ async def patch_spiel_data(
         Every refusal is raised here, so a preview can never succeed where the save is refused.
         """
 
-        season_raw = await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
+        # One over the cap, so a truncated season is DETECTED rather than judged: a dropped fixture
+        # leaves `find_wiring_refusal` reporting a live `spiel_nr` as no such match, and
+        # `judge_spieltag_occupancy` blind to a release it owes.
+        season_raw = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": saison_id},
+            limit=LIST_LIMIT_DEFAULT + 1,
+            session=session,
+        )
+        if len(season_raw) > LIST_LIMIT_DEFAULT:
+            raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can judge")
+
         season = FLSpielListAdapter.validate_python(season_raw)
 
         refuse(find_wiring_refusal(spiel_id, spiel_data, season))
@@ -159,23 +172,25 @@ async def patch_spiel_data(
         verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
         refuse(verdict.refusal)
 
-        stored = next((entry for entry in season if entry.id == spiel_id), None)
-        if stored is not None:
-            # `find_one` directly, because `pull_one_from_db` takes no session, and the session is
-            # what makes a matchday widened by a concurrent write visible.
-            spieltag_raw = await spieltage_collection.find_one(
-                {"_id": stored.spieltag_id},
-                {"beginn": 1, "ende": 1},
-                session=session,
-            )
-            if spieltag_raw is not None:
-                refuse(
-                    find_fixture_date_refusal(
-                        datum=spiel_data.datum,
-                        spieltag_beginn=str(spieltag_raw["beginn"]),
-                        spieltag_ende=str(spieltag_raw["ende"]),
-                    )
+        # The same slice the refusals above judged (`docs/backend/spec.md :: I45`), so this read
+        # cannot quietly skip the date rule over a fixture they already stood on.
+        stored = stored_in_slice(spiel_id, season)
+
+        # `find_one` directly, because `pull_one_from_db` takes no session, and the session is
+        # what makes a matchday widened by a concurrent write visible.
+        spieltag_raw = await spieltage_collection.find_one(
+            {"_id": stored.spieltag_id},
+            {"beginn": 1, "ende": 1},
+            session=session,
+        )
+        if spieltag_raw is not None:
+            refuse(
+                find_fixture_date_refusal(
+                    datum=spiel_data.datum,
+                    spieltag_beginn=str(spieltag_raw["beginn"]),
+                    spieltag_ende=str(spieltag_raw["ende"]),
                 )
+            )
 
         # No `saison_id` in the query below: a double booking crosses competitions.
         if spiel_data.datum is not None:

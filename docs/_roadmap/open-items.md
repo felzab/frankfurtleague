@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `19dd2c1c`, 2026-08-20\
+**Verified against:** `c90a98dc`, 2026-08-20\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -54,7 +54,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | #   | ID    | Item                                                       | Surfaces        | Effort | Status   | Depends on |
 | --- | ----- | ---------------------------------------------------------- | --------------- | ------ | -------- | ---------- |
 | 1   | BE-15 | The recording exists; the restore over it does not         | FE, BE, DB      | M      | Open     | —          |
-| 2   | BE-18 | Five permitted states the domain declaration does not name | BE              | M      | Open     | —          |
+| 2   | BE-18 | Five gaps the domain declaration does not reach            | BE              | M      | Open     | —          |
 | 3   | FB-16 | Nothing announces that a season rollover is due            | BE, Ops         | M      | Open     | —          |
 | 4   | FB-17 | Season setup is hand-run, and only an admin enters a squad | FE, BE, DB, Ops | XL     | Open     | —          |
 | 5   | BE-17 | Every server-ordered name list sorts in byte order         | BE, FE          | M      | Open     | —          |
@@ -166,7 +166,7 @@ day has passed. What is left carries no such clock — an unrestorable write is 
 the row that recorded it, slowly, which is a different order of problem from one nobody can
 reconstruct at all.
 
-### 2 · BE-18 — Five states the code permits are named by neither half of the domain declaration
+### 2 · BE-18 — Five gaps the domain declaration does not reach
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -180,13 +180,13 @@ it; `UNENFORCED` names every state the application permits **and has decided to 
 the reason. `fl_backend/tests/core/test_domain.py` resolves `RULES` in both directions — a refusal
 with no row fails, and a row naming no refusal fails.
 
-**Five states are in neither list:**
+**Five gaps sit in neither list:**
 
-| The state                                                                                                                                                                                                                                                                           | Where                                                                                                                              |
+| The gap                                                                                                                                                                                                                                                                             | Where                                                                                                                              |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `REQ-CLASH-001` compares only fixtures sharing a calendar date, so two bookings of one venue at 23:30 and 00:30 are sixty minutes apart and both pass                                                                                                                               | `fl_backend/app/api/spiele/services.py :: find_clash_refusal`, whose loop skips a slot on `if slot.datum != datum`                 |
 | A fixture being **cancelled** is still judged against `REQ-CLASH-001`, so cancelling one that clashes is refused and the admin has to move it first. The opposite direction is already right — the booking read filters `is_canceled: False`, so a cancelled fixture frees its slot | `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`, where the clash block is entered on the payload's `datum` alone   |
-| `advance_bracket_winners` writes both sides of a fixture without consulting `REQ-SPIELTAG-001`, so the resolution can field one club twice on a Spieltag — the state that rule exists to refuse on the request path                                                                 | `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`; `judge_spieltag_occupancy` is reached from `patch_spiel_data` only |
+| `advance_bracket_winners` writes both sides of a fixture without consulting `REQ-SPIELTAG-001`, so the RESOLUTION can create a Spieltag fielding one club twice. The state itself is declared and tolerated; what neither list reaches is a write into it that consults no rule     | `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`; `judge_spieltag_occupancy` is reached from `patch_spiel_data` only |
 | `REQ-ENTER-003`'s count-then-insert is not transactional, so two concurrent entries can both pass a group's capacity check and take it over its cap                                                                                                                                 | `fl_backend/app/api/teams/admin_router.py :: post_saison_team`                                                                     |
 | `PATCH /spiele/{spiel_id}` writes the payload's side back wholesale, `name` and `shorthand` included, so a caller can store a display name that disagrees with the club `team_id` points at                                                                                         | `fl_backend/app/api/spiele/schemas.py :: FLSpielTeamField`                                                                         |
 
@@ -203,22 +203,17 @@ year, confirmed 2026-08-12. When that lands the justification is gone and only t
 nothing joins the two: the concession lives at the call site rather than in `UNENFORCED`, where a
 reader looking for what this system tolerates would find it.
 
-**The same file's third list is short in a direction as well.** `FIELD_POLICIES` declares when each
-field may be written, and it is resolved one way only:
-`fl_backend/tests/core/test_domain.py :: test_every_field_policy_names_a_real_field` proves every
-declared policy names a real field, and nothing proves a real non-editable field carries a policy.
-`FIELD_POLICIES` names no field of `spielorte` or `schiedsrichter` at all, and no check reports that.
+**The declaration's own machinery is not what is left.** An entry in `UNENFORCED` is checked in full
+from the day it is written — the refusal codes it sits near, the test that executes the state it
+claims, and the surface it says a person can see it on, all resolved against the code and the
+frontend tree ([`docs/domain.md`](../domain.md)). What no check can reach is the decision nobody
+took, and that is the whole of this entry: a state permitted because somebody weighed it and a state
+permitted because nobody looked still read identically until one of them is written down.
 
 **Each state is one of two answers: refuse it, or write it into `UNENFORCED` with the reason.** Both
 are cheap, and choosing is the work — which is why they are one entry rather than five. The
 precedent is set: the duplicate squad number in one team and season was answered by declaring it,
 because the live data already holds the state and refusing it would make those rows uneditable.
-
-**What makes this more than five edits is that nothing would have caught them.** An `Unenforced`
-entry is asserted only to carry a non-empty reason, so a state that is real, permitted and
-undeclared reads exactly like one somebody considered — and the whole value of the declaration is
-that those two are distinguishable. Making each half resolvable against the code, the way `RULES`
-already is, closes the class rather than the instances.
 
 ### 3 · FB-16 — Nothing announces that a season rollover is due
 

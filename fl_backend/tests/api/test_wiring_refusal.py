@@ -114,27 +114,6 @@ class TestLegalEdits:
         occupied = [doc if doc["spiel_nr"] != 29 else {**doc, "team1": spiel_team_field()} for doc in season]
         assert refusal_for(occupied, 29, team1=spiel_team_field(), team1_quelle=verlierer(26)) is None
 
-    def test_an_unknown_fixture_is_not_a_wiring_problem(self, season, fixture_at):
-        """A `spiel_id` the season does not hold is the write's 404, never a wiring message."""
-        foreign = fixture_at(99, "halbfinale")
-        payload = FLPatchSpielDataPayload.model_validate(
-            {
-                "spiel_id": foreign["_id"],
-                "is_canceled": False,
-                "team1": None,
-                "team2": None,
-                "team1_quelle": sieger(1),
-                "team2_quelle": None,
-                "elfmeterschiessen": None,
-                "datum": None,
-                "uhrzeit": None,
-                "ort": None,
-                "schiedsrichter": None,
-                "notiz": None,
-            }
-        )
-        assert find_wiring_refusal(ObjectId(foreign["_id"]), payload, FLSpielListAdapter.validate_python(season)) is None
-
 
 class TestPhaseRules:
     """Where a source may point: a knockout match of a strictly earlier round, and nowhere else."""

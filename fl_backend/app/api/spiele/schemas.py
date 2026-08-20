@@ -96,8 +96,8 @@ FLSpielQuelle = Annotated[FLSpielQuelleGruppe | FLSpielQuelleSpiel, Field(discri
 class FLSpielElfmeterschiessen(BaseModel):
     """The penalty shoot-out that settled a knockout fixture whose goals finished level.
 
-    No `sieger`: a second statement of the same fact could contradict the counts, and no validator
-    could express that it must not (`docs/backend/spec.md :: I25`).
+    No `sieger`: a stored one could contradict the counts, and the `$expr` barring it is outside the
+    database validators' ratified scope (`docs/backend/spec.md :: I25`).
     """
 
     team1: int = Field(ge=0)
@@ -107,8 +107,8 @@ class FLSpielElfmeterschiessen(BaseModel):
     def a_shootout_names_a_winner(self) -> "FLSpielElfmeterschiessen":
         """Refuse a level shoot-out: the one value this field could hold and still name nobody.
 
-        It fails on READ as well as on write, which is what catches a hand edit the database
-        validator cannot (`docs/backend/spec.md :: I16`).
+        It fails on READ as well as on write, which is what catches a hand edit;
+        `docs/backend/spec.md :: I16` leaves this to the model, not the database validator.
         """
 
         if self.team1 == self.team2:

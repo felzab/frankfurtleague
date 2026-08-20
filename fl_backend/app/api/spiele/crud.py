@@ -25,6 +25,7 @@ from app.api.spiele.services import (
 from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
 from app.api.teams.services import DecidedStanding, build_decided_standings, build_team_pipeline
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -77,14 +78,16 @@ async def find_bracket_faults(
 ) -> tuple[list[FLBracketFault], list[FLSpielJoined]]:
     """Every derived fault in every season, and the fixtures they name.
 
-    The read's cap is a ceiling on the WHOLE archive, and exceeding it fails silently: an unread
-    fixture makes references to it read as dangling.
+    The season read asks one over the cap, so an archive too large for one pass is DETECTED
+    rather than served as one whose unread seasons hold no faults (`docs/backend/spec.md :: I45`).
     """
 
     spiele = FLSpielJoinedListAdapter.validate_python(
         await aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={}))
     )
-    saisons_raw = await pull_many_from_db(collection=saisons_collection, db_filter={}, projection={"rules": 1})
+    saisons_raw = await pull_many_from_db(collection=saisons_collection, db_filter={}, projection={"rules": 1}, limit=LIST_LIMIT_DEFAULT + 1)
+    if len(saisons_raw) > LIST_LIMIT_DEFAULT:
+        raise ValueError(f"the archive holds more than {LIST_LIMIT_DEFAULT} seasons, which is more than one read can report on")
 
     by_saison: dict[str, list[FLSpiel]] = {}
     for spiel in spiele:
@@ -199,12 +202,18 @@ async def advance_bracket_winners(
     edit triggered it and a second run writes nothing.
     """
 
-    # The helper's document cap fails silently if exceeded, leaving a slot quietly alone.
+    # One over the cap, so a truncated season is DETECTED rather than resolved: a dropped fixture
+    # reads as a dangling source, and the bracket written back would be resolved from a season
+    # with a hole in it.
     spiele_raw = await pull_many_from_db(
         collection=spiele_collection,
         db_filter={"saison_id": saison_id},
+        limit=LIST_LIMIT_DEFAULT + 1,
         session=session,
     )
+    if len(spiele_raw) > LIST_LIMIT_DEFAULT:
+        raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can resolve")
+
     spiele = FLSpielListAdapter.validate_python(spiele_raw)
 
     resolution = await _resolve_one_saison(
