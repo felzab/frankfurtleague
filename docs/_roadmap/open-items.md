@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `cf911568`, 2026-08-20\
+**Verified against:** `30a8b1ef`, 2026-08-20\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |

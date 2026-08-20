@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `4393dba3`, 2026-08-19\
+**Verified against:** `30a8b1ef`, 2026-08-20\
 **Scope:** `fl_backend/`
 
 | Section                                                                        | Answers                                                         |

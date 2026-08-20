@@ -1,6 +1,6 @@
 # Logging — spec
 
-**Verified against:** `cf911568`, 2026-08-20\
+**Verified against:** `30a8b1ef`, 2026-08-20\
 **Scope:** the correlation id, the log stream on all three surfaces, the browser-crash path, and
 the development formats.
 
