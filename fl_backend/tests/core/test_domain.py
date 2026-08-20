@@ -341,6 +341,8 @@ def test_every_rule_is_tested_where_it_says(rule):
     assert _test_class_asserts_code(rule.tested_by, rule.code), f"{rule.tested_by} never asserts on {rule.code}"
 
 
+# No separate check that a `RULES` row claims no `UNENFORCED` subject: the pairing below executes
+# each entry, so a rule that starts refusing a declared state fails that entry's own test.
 @pytest.mark.parametrize("entry", UNENFORCED, ids=lambda entry: entry.subject)
 def test_every_unenforced_entry_names_the_rule_a_reader_would_expect(entry):
     """D76's entry bar, as a check: a state sitting near no rule surprises nobody, so it is a comment rather than a row."""
