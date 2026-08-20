@@ -21,7 +21,7 @@ import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielDataAction } from "../../../actions";
-import { applyDraftToSpiel, deriveSpielDraftStatus, isLevelKnockout } from "../../../draftStatus";
+import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { buildUndoPayloads, collectKnockoutTeamIds, collectSpieltagTeamOccupancy, listDependentSpiele, toStoredSide } from "../../../utils";
 import { buildSpielBanners } from "./banners";
@@ -175,9 +175,11 @@ export function AdminEditSpielDataForm({
       }),
   });
 
-  // Derived rather than handled: a shoot-out describes a knockout that finished level and nothing
-  // else, so every route out of that shape drops it here, where no later handler can forget to.
-  const elfmeterschiessenInDraft = isLevelKnockout(spielData.saison_phase, team1Payload, team2Payload) ? elfmeterschiessen : null;
+  // Derived rather than handled: `admitsShootOut` names every fixture a record belongs to, so every
+  // route out of one drops it here, where no later handler can forget to.
+  const elfmeterschiessenInDraft = admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, sonderereignis)
+    ? elfmeterschiessen
+    : null;
 
   const draft: FLSpielDraftFields = {
     datum: datum?.toString() ?? null,
@@ -277,6 +279,15 @@ export function AdminEditSpielDataForm({
   // replay — the one combination on this page a rule cannot settle, hence the warning.
   const hasDecidedErgebnis = tore1 !== null && tore2 !== null && !Number.isNaN(tore1) && !Number.isNaN(tore2) && tore1 !== tore2;
 
+  // Counts entered rather than a record merely switched on: an empty one is nothing to lose.
+  const hasEnteredShootOut = elfmeterschiessen !== null && (elfmeterschiessen.team1 !== null || elfmeterschiessen.team2 !== null);
+
+  // **The EVENT's doing, asked by giving the same condition no event**: an unlevelled score retracts
+  // a record silently by design and the counts come back with the goals, so only this route — where
+  // the save discards them — is worth announcing.
+  const dropsShootOut =
+    hasEnteredShootOut && elfmeterschiessenInDraft === null && admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, null);
+
   // The void and release entries name fixtures the dry run actually voided, never possibilities —
   // so a `null` preview means "no answer yet" and contributes nothing, not "nothing would be lost".
   const banners = buildSpielBanners({
@@ -294,6 +305,7 @@ export function AdminEditSpielDataForm({
     dependentSpielNummern: dependentSpiele.map((spiel) => spiel.spiel_nr),
     hasAnyTore,
     hasDecidedErgebnis,
+    dropsShootOut,
     voidedSpielNummern: voidPreview?.voided ?? [],
     releasedSpielNummern: voidPreview?.released ?? [],
   });
@@ -577,6 +589,7 @@ export function AdminEditSpielDataForm({
               onTeam2Change={setTeam2Payload}
               team1Quelle={team1Quelle}
               team2Quelle={team2Quelle}
+              sonderereignis={sonderereignis}
               elfmeterschiessen={elfmeterschiessenInDraft}
               onElfmeterschiessenChange={setElfmeterschiessen}
               ergebnisCanBeEdited={ergebnisCanBeEdited}

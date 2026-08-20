@@ -75,6 +75,7 @@ export function buildSpielBanners({
   dependentSpielNummern,
   hasAnyTore,
   hasDecidedErgebnis,
+  dropsShootOut,
   voidedSpielNummern,
   releasedSpielNummern,
 }: {
@@ -93,6 +94,8 @@ export function buildSpielBanners({
   /** Any goal count typed at all — `REQ-STATE-002`'s subject, which is not the decided-result one. */
   hasAnyTore: boolean;
   hasDecidedErgebnis: boolean;
+  /** An entered shoot-out this save discards. Work of the admin's, so it is named rather than dropped. */
+  dropsShootOut: boolean;
   /** Fixtures the dry run says this save takes a stored result from, never ones that merely could. */
   voidedSpielNummern: readonly number[];
   releasedSpielNummern: readonly number[];
@@ -168,14 +171,22 @@ export function buildSpielBanners({
   }
 
   // The forfeit is composed on the server from the season's rules, so the numbers are stated nowhere
-  // on this page. Typed goals raise it to a warning, which is what makes the save confirm: those
-  // goals are somebody's work and the award replaces them.
+  // on this page. Entered goals or a shoot-out raise it to a warning, which is what makes the save
+  // confirm: both are somebody's work that the award replaces.
   if (sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2") {
     banners.push({
       id: "spiel.forfeit-awarded",
-      severity: hasAnyTore ? "warning" : "info",
-      title: hasAnyTore ? "Die eingetragenen Tore werden durch die Wertung ersetzt" : "Das Ergebnis wird beim Speichern gewertet",
-      body: "Ein Nichtantreten wird nach den Regeln der Saison für die angetretene Mannschaft gewertet; die Tore trägt der Server ein.",
+      severity: hasAnyTore || dropsShootOut ? "warning" : "info",
+      title: dropsShootOut
+        ? "Die Wertung ersetzt das Ergebnis und verwirft das Elfmeterschießen"
+        : hasAnyTore
+          ? "Die eingetragenen Tore werden durch die Wertung ersetzt"
+          : "Das Ergebnis wird beim Speichern gewertet",
+      // Appended rather than a second whole sentence-pair, so the award's own wording has one home.
+      // What it adds is the record the save discards without replacing anything.
+      body: `Ein Nichtantreten wird nach den Regeln der Saison für die angetretene Mannschaft gewertet; die Tore trägt der Server ein.${
+        dropsShootOut ? " Das eingetragene Elfmeterschießen wird nicht gespeichert." : ""
+      }`,
       inline: "sonderereignis-wertung",
       supersedes: ["spiel.sonderereignis-standing"],
     });

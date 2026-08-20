@@ -164,9 +164,9 @@ AGGREGATES: tuple[Aggregate, ...] = (
         root=Collection.SPIELTAGE,
         members=(),
         boundary=(
-            "A matchday alone. Nothing holds a matchday and its fixtures true together: its `position` is "
-            "checked against the other matchdays of its phase, and its expected match count is derived from "
-            "the season's rules. Neither is a fact about the fixtures it holds."
+            "A matchday alone: its fixtures are `Saison-Spielplan`'s, so they are READ to judge a matchday "
+            "-- its span, its attached count, its phase boundary -- and never written with it. Its `position` "
+            "is checked against the other matchdays of its phase and its match count comes from the season."
         ),
     ),
     Aggregate(
@@ -650,6 +650,14 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_rules_refusal.py::TestADrawIsNeverWorthMoreThanAWin",
     ),
     Rule(
+        code="REQ-RULES-010",
+        operation="POST /saisons · PATCH /saisons/{saison_id}",
+        aggregate="Saison",
+        summary="a season whose rules produce a knockout round may not award a no-show a draw",
+        implemented_by="app.api.saisons.services.find_rules_refusal",
+        tested_by="tests/api/test_rules_refusal.py::TestADrawnForfeitCannotDecideAKnockout",
+    ),
+    Rule(
         code="REQ-RULES-009",
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
@@ -849,7 +857,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-DATE-002",
         operation="POST /spieltage · PATCH /spieltage/{spieltag_id}",
         aggregate="Spieltag",
-        summary="a matchday's span must fall inside its season's, on the way in and on the way back in",
+        summary="a matchday's span must fall inside its season's, on the create and on every edit",
         implemented_by="app.api.spieltage.services.find_spieltag_span_refusal",
         tested_by="tests/api/test_containment_refusals.py::TestAMatchdaySitsInsideItsSeason",
         multi_document=True,
@@ -922,7 +930,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-STATE-002",
-        operation="PATCH /spiele/{spiel_id}/data",
+        operation="PATCH /spiele/{spiel_id}",
         aggregate="Saison-Spielplan",
         summary="a fixture whose event awards nothing may not carry goals",
         implemented_by="app.api.spiele.services.find_state_refusal",
@@ -930,7 +938,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-STATE-003",
-        operation="PATCH /spiele/{spiel_id}/data",
+        operation="PATCH /spiele/{spiel_id}",
         aggregate="Saison-Spielplan",
         summary="a no-show may not be recorded on a fixture with an unresolved side",
         implemented_by="app.api.spiele.services.find_state_refusal",
@@ -940,7 +948,10 @@ RULES: tuple[Rule, ...] = (
         code="REQ-ELIGIBILITY-001",
         operation="PATCH /spiele/{spiel_id}",
         aggregate="Saison-Spielplan",
-        summary="a team that left the season may not be NEWLY fielded on or after its exit, unless the fixture records an absence",
+        summary=(
+            "a team that left the season may not be NEWLY fielded on or after its exit, unless a Gruppenphase "
+            "fixture's event awards nothing or names that side as the one that stayed away"
+        ),
         implemented_by="app.api.spiele.services.find_eligibility_refusal",
         tested_by="tests/api/test_occupant_refusal.py::TestEligibility",
         multi_document=True,
@@ -1117,8 +1128,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
         subject="a departed club holding drawn fixtures",
         reason=(
             "A departed club keeps its group place, and its opponents need a fixture to record the walkover on, "
-            "so clearing them would leave a full group with nothing to play. The fixtures it can no longer stand on "
-            "are refused where they are edited (`REQ-ELIGIBILITY-001`) rather than removed."
+            "so clearing them would leave a full group with nothing to play. It keeps the fixtures it already "
+            "stands on; `REQ-ELIGIBILITY-001` refuses only fielding it somewhere NEW."
         ),
         near=("REQ-ELIGIBILITY-001",),
         proven_by="tests/core/test_unenforced.py::TestADisqualifiedClubKeepsItsFixtures",

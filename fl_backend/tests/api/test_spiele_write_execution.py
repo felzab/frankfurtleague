@@ -170,18 +170,35 @@ def bracket_season() -> list[dict[str, Any]]:
     ]
 
 
-def one_spieltag(*, opponent: ObjectId | None, ergebnis: str | None, tore: tuple[int | None, int | None]) -> list[dict[str, Any]]:
+def a_semi_final_recorded_as(sonderereignis: str) -> list[dict[str, Any]]:
+    """The same bracket, with the semi-final settled by `sonderereignis` rather than by play — Gamma awarded 0:3 over Beta."""
+
+    quarter, semi = bracket_season()
+    settled = {"team1": side(BETA, 0), "team2": side(GAMMA, 3), "ergebnis": "0:3", "elfmeterschiessen": None}
+
+    return [quarter, {**semi, **settled, "sonderereignis": sonderereignis}]
+
+
+def one_spieltag(
+    *,
+    opponent: ObjectId | None,
+    ergebnis: str | None,
+    tore: tuple[int | None, int | None],
+    sonderereignis: str | None = None,
+) -> list[dict[str, Any]]:
     """Two group fixtures on ONE matchday: Alpha stands in the first, and the second is about to field it."""
 
+    held = spiel_document(
+        spiel_id=GRUPPE_HELD,
+        spiel_nr=GRUPPE_HELD_NR,
+        spieltag_id=SPIELTAG_GRUPPE,
+        team1=side(ALPHA, tore[0]),
+        team2=None if opponent is None else side(opponent, tore[1]),
+        ergebnis=ergebnis,
+    )
+
     return [
-        spiel_document(
-            spiel_id=GRUPPE_HELD,
-            spiel_nr=GRUPPE_HELD_NR,
-            spieltag_id=SPIELTAG_GRUPPE,
-            team1=side(ALPHA, tore[0]),
-            team2=None if opponent is None else side(opponent, tore[1]),
-            ergebnis=ergebnis,
-        ),
+        {**held, "sonderereignis": sonderereignis},
         spiel_document(
             spiel_id=GRUPPE_FILLING,
             spiel_nr=GRUPPE_FILLING_NR,
@@ -354,6 +371,32 @@ class TestASavedResultCarriesThroughTheBracket:
         assert advancement.spiel_nr == HALBFINALE_NR
         assert (advancement.voided_ergebnis, advancement.voided_elfmeterschiessen) == ("2:2", FLSpielElfmeterschiessen(team1=4, team2=3))
 
+    @pytest.mark.parametrize(
+        ("stored_event", "after_the_advancement"),
+        [
+            pytest.param("nichtantreten_team1", None, id="the no-show names the slot that was refilled"),
+            pytest.param("nichtantreten_team2", None, id="the no-show names the slot that stayed"),
+            pytest.param("abgebrochen", "abgebrochen", id="an abandonment names no side and survives"),
+        ],
+    )
+    def test_a_refilled_slot_takes_the_no_show_it_was_holding_with_it(
+        self, mongo_replica_set_url: str, stored_event: str, after_the_advancement: str | None
+    ):
+        """A no-show naming a club the bracket replaced describes nobody, and `REQ-STATE-003` then refuses every later save of it."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
+            await call_patch(database, client, VIERTELFINALE, spiel_data)
+
+            return await spiele_now(database)
+
+        spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_semi_final_recorded_as(stored_event))
+
+        # The advancement itself, so the event assertion below cannot pass on a fixture nothing moved.
+        assert spiele[HALBFINALE_NR]["team1"]["team_id"] == ALPHA
+        assert spiele[HALBFINALE_NR]["ergebnis"] is None
+        assert spiele[HALBFINALE_NR]["sonderereignis"] == after_the_advancement
+
     def test_a_save_changing_nothing_advances_nobody(self, mongo_replica_set_url: str):
         """The control for the test above: the seeded season already agrees with its wiring, so that advancement is the save's doing."""
 
@@ -413,10 +456,13 @@ class ReleaseRun:
 
 class TestAReleaseWritesWhatThePureModelPredicts:
     @pytest.mark.parametrize(
-        ("opponent", "ergebnis", "tore"),
+        ("opponent", "ergebnis", "tore", "sonderereignis"),
         [
-            pytest.param(BETA, "2:1", (2, 1), id="a played fixture whose other side must lose its goals"),
-            pytest.param(None, None, (None, None), id="a fixture with no other side to strip"),
+            pytest.param(BETA, "2:1", (2, 1), None, id="a played fixture whose other side must lose its goals"),
+            pytest.param(None, None, (None, None), None, id="a fixture with no other side to strip"),
+            pytest.param(BETA, "0:3", (0, 3), "nichtantreten_team1", id="a no-show naming the side being emptied"),
+            pytest.param(BETA, "3:0", (3, 0), "nichtantreten_team2", id="a no-show naming the side that stays"),
+            pytest.param(BETA, "2:1", (2, 1), "abgebrochen", id="an abandonment, which names no side"),
         ],
     )
     def test_the_stored_fixture_is_what_apply_release_to_spiel_predicts(
@@ -425,6 +471,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         opponent: ObjectId | None,
         ergebnis: str | None,
         tore: tuple[int | None, int | None],
+        sonderereignis: str | None,
     ):
         """`release_spieltag_sides` writes a hand-built `$set` where the preview applies the model; nothing else holds the two to one answer."""
 
@@ -454,7 +501,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         run = on_a_seeded_season(
             mongo_replica_set_url,
             body,
-            spiele=one_spieltag(opponent=opponent, ergebnis=ergebnis, tore=tore),
+            spiele=one_spieltag(opponent=opponent, ergebnis=ergebnis, tore=tore, sonderereignis=sonderereignis),
         )
 
         assert run.after_save == run.predicted
@@ -464,3 +511,9 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         (released,) = run.saved.released_sides
         assert (released.spiel_nr, released.side, released.team_name) == (GRUPPE_HELD_NR, "team1", "Alpha")
         assert released.voided_ergebnis == ergebnis
+
+        # Asserted on both, so a seed that never landed cannot pass as an event correctly cleared.
+        assert run.before.sonderereignis == sonderereignis
+        # `REQ-STATE-003` refuses a no-show beside an unresolved slot, so one outliving this release
+        # would leave a fixture the admin's next save is refused over.
+        assert run.after_save.sonderereignis == (None if sonderereignis in ("nichtantreten_team1", "nichtantreten_team2") else sonderereignis)

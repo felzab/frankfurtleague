@@ -58,8 +58,8 @@ async def get_teams(
     if not filters.in_gruppen:
         return FLTeamsListResponse(teams=teams)
 
-    # The chain's last criterion is a head-to-head table, so a standing needs the matches, filtered
-    # to the same set the statistics counted.
+    # The chain weighs a head-to-head table, leading on it where the season says so, so a standing
+    # needs the matches, filtered to the same set the statistics counted.
     spiele_filter: dict[str, Any] = {"saison_id": filters.saison_id}
     if filters.statistik_scope == "gruppenphase":
         spiele_filter["saison_phase"] = "gruppenphase"

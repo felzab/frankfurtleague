@@ -6,12 +6,12 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import { isLevelKnockout } from "../../../draftStatus";
+import { admitsShootOut } from "../../../draftStatus";
 import { formatQuelle } from "../../../utils";
 import { ExpectedMarker } from "./ExpectedMarker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLSpiel, FLSpielElfmeterschiessenDraft, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
+import type { FLSonderereignis, FLSpiel, FLSpielElfmeterschiessenDraft, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 
 /** The goal fields' paths, refreshed together because the outcome is a pair. */
 const TORE_PATHS = ["team1.tore", "team2.tore"] as const;
@@ -23,7 +23,7 @@ const ELFMETER_PATHS = ["elfmeterschiessen.team1", "elfmeterschiessen.team2"] as
  * **`NaN` is an empty goal in the UI, `null` one in the payload**: either conversion wrong turns an
  * unplayed match into a 0:0 the backend counts as a real draw.
  *
- * The shoot-out appears only on a KNOCKOUT that finished level.
+ * The shoot-out control appears exactly where `admitsShootOut` allows a record.
  */
 export function FormErgebnisSection({
   spielData,
@@ -33,6 +33,7 @@ export function FormErgebnisSection({
   onTeam2Change,
   team1Quelle,
   team2Quelle,
+  sonderereignis,
   elfmeterschiessen,
   onElfmeterschiessenChange,
   ergebnisCanBeEdited,
@@ -46,6 +47,8 @@ export function FormErgebnisSection({
   onTeam2Change: (payload: FLSpielTeamField | null) => void;
   team1Quelle: FLSpielQuelle | null;
   team2Quelle: FLSpielQuelle | null;
+  /** Read by the shoot-out's condition: an event the server composes the result for carries none. */
+  sonderereignis: FLSonderereignis | null;
   elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;
   onElfmeterschiessenChange: (value: FLSpielElfmeterschiessenDraft | null) => void;
   /** Lifted to the form, so the panel's open/closed state survives nothing being remounted under it. */
@@ -66,7 +69,7 @@ export function FormErgebnisSection({
       if (team1Payload) onTeam1Change({ ...team1Payload, tore: spielData.team1?.tore ?? null });
       if (team2Payload) onTeam2Change({ ...team2Payload, tore: spielData.team2?.tore ?? null });
 
-      // The one route out `isLevelKnockout` cannot see: restoring level goals leaves it true while
+      // The one route out `admitsShootOut` cannot see: restoring level goals leaves it true while
       // the inputs unmount, so a half-entered record would go on blocking the save.
       onElfmeterschiessenChange(spielData.elfmeterschiessen);
     }
@@ -79,9 +82,9 @@ export function FormErgebnisSection({
     if (payload) onChange({ ...payload, tore: isNaN(val) ? null : val });
   };
 
-  // `isLevelKnockout`'s shape, shared with the draft that retracts the record, so the panel and
-  // the form cannot disagree about whether one is held.
-  const offersElfmeterschiessen = ergebnisIsEditable && isLevelKnockout(spielData.saison_phase, team1Payload, team2Payload);
+  // The draft's own condition, whole: with any term of it left out here, the form would offer a
+  // record the panel does not show and the write path throws away.
+  const offersElfmeterschiessen = ergebnisIsEditable && admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, sonderereignis);
 
   const handleElfmeterschiessenToggle = (isSelected: boolean) => {
     // `null` out, both counts empty in: switching off is a retraction, not a blank form.
@@ -125,6 +128,9 @@ export function FormErgebnisSection({
               <li>
                 Endet ein KO-Spiel <strong>unentschieden</strong>, entscheidet ein Elfmeterschießen: der Sieger rückt im Turnierbaum weiter, für
                 die Tabelle bleibt es ein Unentschieden.
+              </li>
+              <li>
+                Bei einem <strong>Nichtantreten</strong> gibt es kein Elfmeterschießen: gewertet wird nach den Regeln der Saison.
               </li>
             </ul>
           </InfoHint>

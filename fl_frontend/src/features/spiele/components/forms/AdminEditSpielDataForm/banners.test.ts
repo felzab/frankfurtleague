@@ -27,6 +27,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
     dependentSpielNummern: [],
     hasAnyTore: false,
     hasDecidedErgebnis: false,
+    dropsShootOut: false,
     voidedSpielNummern: [],
     releasedSpielNummern: [],
     ...overrides,
@@ -149,6 +150,24 @@ describe("buildSpielBanners", () => {
 
     assert.equal(bare.find((banner) => banner.id === "spiel.forfeit-awarded")?.severity, "info");
     assert.equal(withGoals.find((banner) => banner.id === "spiel.forfeit-awarded")?.severity, "warning");
+  });
+
+  // The record is entered work like the goals are, and the award replaces nothing of it -- so the
+  // note that speaks for the forfeit is the one place the discard can be read.
+  it("names the shoot-out the award discards, and confirms the save over it", () => {
+    const built = build({ sonderereignis: "nichtantreten_team1", hasAnyTore: true, dropsShootOut: true });
+    const forfeit = built.find((banner) => banner.id === "spiel.forfeit-awarded");
+
+    assert.equal(forfeit?.severity, "warning");
+    assert.match(forfeit?.title ?? "", /Elfmeterschießen/);
+    assert.match(forfeit?.body ?? "", /Elfmeterschießen wird nicht gespeichert/);
+  });
+
+  it("says nothing about a shoot-out where none is being discarded", () => {
+    const forfeit = build({ sonderereignis: "nichtantreten_team1", hasAnyTore: true }).find((banner) => banner.id === "spiel.forfeit-awarded");
+
+    assert.doesNotMatch(forfeit?.title ?? "", /Elfmeterschießen/);
+    assert.doesNotMatch(forfeit?.body ?? "", /Elfmeterschießen/);
   });
 
   // The one member for which the surviving warning text still reads correctly.

@@ -17,7 +17,7 @@ TEAM_OIDS = {
     "Bock": ObjectId("6890a1b2c3d4e5f607190002"),
     # The hand-edited shape — `ergebnis` set while `tore` is null — and the only team out of the season.
     "Lessing": ObjectId("6890a1b2c3d4e5f607190003"),
-    # The zeroed fallback: a junction row, no counting match, and the annulment that reaches neither figure.
+    # The zeroed fallback: a junction row, no counting match, and an absage from a called-off fixture and an annulled one both.
     "Ohne": ObjectId("6890a1b2c3d4e5f607190004"),
     # The strict join: no junction row, so it drops entirely though it plays a match.
     "Fremd": ObjectId("6890a1b2c3d4e5f607190005"),
@@ -145,7 +145,7 @@ def league(mongo_database: Database) -> SeededLeague:
             _spiel(11, "halbfinale", "Helmholtz", "Bock", None, None, ergebnis=None, sonderereignis="ausgefallen"),
             # Its opponent holds no junction row, so Komplett gains a counting match without moving anyone else.
             _spiel(12, "gruppenphase", "Komplett", "Fremd", 2, 0, ergebnis="2:0"),
-            # Struck from the record, so Ohne stays on zero played AND on the one absage its Spiel 10 earns.
+            # Struck from the record, so Ohne stays on zero played and takes a second absage beside its Spiel 10.
             _spiel(13, "gruppenphase", "Ohne", "Fremd", None, None, ergebnis=None, sonderereignis="annulliert"),
             # Abandoned with the score that stood: Komplett's second counting match, and still no absage.
             _spiel(14, "gruppenphase", "Komplett", "Fremd", 4, 1, ergebnis="4:1", sonderereignis="abgebrochen"),

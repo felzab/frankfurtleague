@@ -35,14 +35,26 @@ export type FLSpielDraftFields = {
 };
 
 /**
- * **The single statement of the condition.** Two copies would let the form keep a record the panel
- * does not show, submitting a shoot-out no rendered input can carry a message about.
+ * **The single statement of the condition**, read by the panel that offers the control, the draft
+ * that carries the record and the preview that shows it. Two copies would let the form keep a record
+ * the panel does not show, submitting a shoot-out no rendered input can carry a message about.
  */
-export function isLevelKnockout(saisonPhase: FLSpiel["saison_phase"], team1: FLSpielTeamField | null, team2: FLSpielTeamField | null): boolean {
+export function admitsShootOut(
+  saisonPhase: FLSpiel["saison_phase"],
+  team1: FLSpielTeamField | null,
+  team2: FLSpielTeamField | null,
+  sonderereignis: FLSonderereignis | null,
+): boolean {
   const tore1 = team1?.tore ?? null;
   const tore2 = team2?.tore ?? null;
 
   if (saisonPhase === "gruppenphase") return false;
+
+  // A no-show's award is COMPOSED from the season's `forfeit_ergebnis`, and `REQ-RULES-010` refuses a
+  // level one only as a STEP -- so a grandfathered season composes one, and a kept shoot-out would
+  // advance the club that never appeared.
+  if (sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2") return false;
+
   if (tore1 === null || tore2 === null || Number.isNaN(tore1) || Number.isNaN(tore2)) return false;
 
   return tore1 === tore2;
@@ -64,11 +76,9 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
 
   const shootOut = draft.elfmeterschiessen;
   // Narrowed field by field, not through a compound flag: TypeScript carries the knowledge that
-  // both counts are present only when the checks are in the branch itself. An awarded forfeit is
-  // never level, so a no-show drops the record exactly as the write path does.
+  // both counts are present only when the checks are in the branch itself.
   const storableShootOut =
-    !isNoShow &&
-    isLevelKnockout(stored.saison_phase, draft.team1, draft.team2) &&
+    admitsShootOut(stored.saison_phase, draft.team1, draft.team2, draft.sonderereignis) &&
     shootOut !== null &&
     shootOut.team1 !== null &&
     shootOut.team2 !== null

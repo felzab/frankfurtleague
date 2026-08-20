@@ -6,7 +6,6 @@ from bson import ObjectId
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.crud import apply_release_to_spiel
 from app.api.spiele.schemas import (
-    SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLPatchSpielDataPayload,
     FLSpiel,
@@ -277,6 +276,23 @@ class TestComposingAForfeit:
 
         assert patched.ergebnis == "1:0"
 
+    def test_a_composed_forfeit_discards_a_shoot_out_it_lands_level_with(self, season):
+        """`FLSaisonForfeitErgebnis` permits 0:0, and a shoot-out surviving one would advance the club that never turned up."""
+
+        goalless = RULES.model_copy(update={"forfeit_ergebnis": FLSaisonForfeitErgebnis(sieger_tore=0, verlierer_tore=0)})
+        patched = patched_spiel(
+            season,
+            29,
+            rules=goalless,
+            sonderereignis="nichtantreten_team2",
+            team1=team(ADLER, "Adler"),
+            team2=team(BIEBER, "Bieber"),
+            elfmeterschiessen={"team1": 4, "team2": 3},
+        )
+
+        assert patched.ergebnis == "0:0"
+        assert patched.elfmeterschiessen is None
+
     def test_the_event_itself_reaches_the_fixture(self, season):
         """A composition that awarded the goals and dropped the event would leave a scoreline nothing explains."""
 
@@ -316,7 +332,7 @@ class TestEligibility:
             == ELIGIBILITY_DISQUALIFIED
         )
 
-    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_RECORDING_AN_ABSENCE)
+    @pytest.mark.parametrize("sonderereignis", [*SONDEREREIGNIS_WITHOUT_A_RESULT, "nichtantreten_team1"])
     def test_a_group_fixture_recording_an_absence_may_hold_a_disqualified_team(self, season, sonderereignis):
         """The carve-out: the entry records that the match did not happen, so refusing would refuse the very document of the absence."""
 
@@ -329,6 +345,39 @@ class TestEligibility:
                 sonderereignis=sonderereignis,
             )
             is None
+        )
+
+    def test_the_no_show_carve_out_reaches_team2_as_well(self, season):
+        """Not redundant with the case above: a carve-out reading one label only would pass that one and refuse this."""
+
+        assert (
+            eligibility_for(
+                season,
+                1,
+                {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE},
+                team2=team(CRONBERG, "Cronberg"),
+                sonderereignis="nichtantreten_team2",
+            )
+            is None
+        )
+
+    @pytest.mark.parametrize(
+        ("fielded_on", "sonderereignis"),
+        [("team1", "nichtantreten_team2"), ("team2", "nichtantreten_team1")],
+        ids=["awarded-as-team1", "awarded-as-team2"],
+    )
+    def test_a_no_show_exempts_only_the_side_that_stayed_away(self, season, fielded_on, sonderereignis):
+        """Where the carve-out is DIRECTIONAL: a no-show composes a real result, so exempting the side that turned up awards it the forfeit."""
+
+        assert (
+            eligibility_for(
+                season,
+                1,
+                {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE},
+                sonderereignis=sonderereignis,
+                **{fielded_on: team(CRONBERG, "Cronberg")},
+            )
+            == ELIGIBILITY_DISQUALIFIED
         )
 
     def test_an_abandoned_group_fixture_is_still_refused(self, season):
@@ -447,6 +496,15 @@ class TestSpieltagOccupancy:
         assert verdict.refusal is not None and verdict.releases == []
 
 
+def released_fixture(season_docs: list[dict[str, Any]], **overrides: Any) -> FLSpiel:
+    """Spiel 2 as the release leaves it, after Cronberg is fielded on Spiel 1; `overrides` re-seed Spiel 2 first."""
+
+    seeded = [{**doc, **overrides} if doc["spiel_nr"] == 2 else doc for doc in season_docs]
+    (release,) = occupancy_for(seeded, 1, team1=team(CRONBERG, "Cronberg")).releases
+
+    return apply_release_to_spiel(FLSpiel.model_validate(stored_spiel(seeded, release.spiel_nr)), release)
+
+
 class TestApplyingARelease:
     """The emptying itself. The preview and the save share it, so neither can model a release the other would not."""
 
@@ -482,6 +540,29 @@ class TestApplyingARelease:
         assert release.voided_elfmeterschiessen is not None
         assert released.elfmeterschiessen is None
         assert released.team2 is not None and released.team2.tore is None
+
+    @pytest.mark.parametrize(
+        ("stored_event", "after_the_release"),
+        [
+            ("nichtantreten_team1", None),
+            ("nichtantreten_team2", None),
+            ("abgebrochen", "abgebrochen"),
+            ("ausgefallen", "ausgefallen"),
+        ],
+        ids=["the-emptied-side-stayed-away", "the-side-that-stays-stayed-away", "an-abandonment-survives", "a-called-off-match-survives"],
+    )
+    def test_a_no_show_goes_with_the_slot_it_needs(self, season, stored_event, after_the_release):
+        """`REQ-STATE-003` refuses a no-show beside an unresolved slot — either slot — so one left behind is a fixture no save can repair."""
+
+        released = released_fixture(
+            season,
+            sonderereignis=stored_event,
+            team1=team(CRONBERG, "Cronberg"),
+            team2=team(DORNBUSCH, "Dornbusch"),
+            ergebnis=None,
+        )
+
+        assert released.sonderereignis == after_the_release
 
 
 def joined(*, nr: int, datum: str | None, side_disqualified_from: str | None, side: str = "team1") -> dict[str, Any]:

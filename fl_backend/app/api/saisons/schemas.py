@@ -18,8 +18,8 @@ FLSaisonsSortOptions = Literal["_id", "start_date", "end_date"]
 class FLSaisonForfeitErgebnis(BaseModel):
     """What a fixture is awarded when one side does not appear.
 
-    Both sides' goals rather than a margin, so a season can regulate 3:0, 2:0 or 0:0 as its own
-    competition requires (`app/api/spiele/services.py :: apply_payload_to_spiel`).
+    Both sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.
+    A LEVEL award needs a season with no knockout round (`REQ-RULES-010`).
     """
 
     sieger_tore: int = Field(ge=0)

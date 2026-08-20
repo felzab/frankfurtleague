@@ -103,7 +103,8 @@ _AKTION_REQUEST = _object(
     nullable=True,
 )
 
-# Required TOGETHER: a scope with no confirmation is a claim nobody made.
+# Required TOGETHER: the four keys are always present, and a null `bestaetigt_am` is what says
+# the consent is UNCONFIRMED rather than absent.
 _EINWILLIGUNG = _object(
     required=("umfang", "erteilt_von", "datum", "bestaetigt_am"),
     properties={

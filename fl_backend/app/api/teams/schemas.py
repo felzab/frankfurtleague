@@ -91,7 +91,7 @@ class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLTeam]]]):
     """The four groups, always all four, in standing order.
 
     Built by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak
-    chain, whose last criterion reads the season's matches.
+    chain, whose head-to-head criterion reads the season's matches.
     """
 
 

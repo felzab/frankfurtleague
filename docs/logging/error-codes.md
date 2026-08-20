@@ -36,8 +36,8 @@ would have succeeded against a different state of the database
 (`fl_backend/app/core/exceptions.py :: DocumentConflictException`).
 
 **A rules refusal names a step, never a state**: `REQ-RULES-001`, `REQ-RULES-004`, `REQ-RULES-006`,
-`REQ-RULES-007` and `REQ-RULES-008` arrive on the edit that introduces or worsens the violation and let a
-resubmission of the stored values through, because a season patch replaces `rules` wholesale
+`REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009` and `REQ-RULES-010` arrive on the edit that introduces or worsens the
+violation and let a resubmission of the stored values through, because a season patch replaces `rules` wholesale
 (`docs/backend/spec.md :: I44`).
 
 | Code                  | Status | Meaning                                                                                                                             |
@@ -58,6 +58,7 @@ resubmission of the stored values through, because a season patch replaces `rule
 | `REQ-RULES-007`       | 409    | A step put `qualifiers_per_group` over `teams_per_group`, or widened an excess already there                                        |
 | `REQ-RULES-008`       | 409    | A step put `draw_points` over `win_points`, or widened an excess already there                                                      |
 | `REQ-RULES-009`       | 409    | `max_kadergroesse` would drop below the largest squad the season already holds                                                      |
+| `REQ-RULES-010`       | 409    | A step paired a level `forfeit_ergebnis` with rules that produce a knockout round                                                   |
 | `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures with no result and no `sonderereignis` that awards none                                    |
 | `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                                               |
 | `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                                                        |

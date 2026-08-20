@@ -96,7 +96,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 ### `Elfmeterschießen` — penalty shoot-out
 
-**Is:** `elfmeterschiessen` on a match — the shoot-out's own scoreline, null on every match that did not finish level.\
+**Is:** `elfmeterschiessen` on a match — the shoot-out's own scoreline, null on every match that did not finish level and on every no-show, whose award is composed rather than played.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielElfmeterschiessen`, mirrored by `fl_frontend/src/features/spiele/schemas.ts :: FLSpielSchema`.\
 **Trap:** its two readers disagree on purpose — the bracket takes a winner from the counts so a level knockout advances a side, while the league table never consults them and scores the fixture as the draw it was; a level shoot-out is refused, and a record stored against a group match or a decided one is discarded.\
 **See:** backend spec I25 and I25a.
@@ -133,7 +133,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 **Is:** `ausgefallen` · `nichtantreten_team1` · `nichtantreten_team2` · `abgebrochen` · `annulliert`, or `null` where there is nothing to say.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSonderereignis`, with one named member set per consumer beside it.\
-**Trap:** it is not a delete — the match keeps its row, its `spiel_nr` and its bracket slot — and no member of it reaches the figures the table is scored and sorted on; a no-show counts because its goals are composed from `rules.forfeit_ergebnis`, while `ausgefallen` and `annulliert` may carry no result at all. The one figure the field decides is `anzahl_abgesagte_spiele`, which covers `ausgefallen` and the two no-shows and neither of the others.\
+**Trap:** it is not a delete — the match keeps its row, its `spiel_nr` and its bracket slot — and no member of it reaches the figures the table is scored and sorted on; a no-show counts because its goals are composed from `rules.forfeit_ergebnis`, while `ausgefallen` and `annulliert` may carry no result at all. The one figure the field decides is `anzahl_abgesagte_spiele`, which counts the fixtures that did not take place — every member but `abgebrochen`.\
 **See:** backend spec I1a for what the table ignores, I1d for the cancellation count, I3a for the composed forfeit.
 
 ### `Quelle` — where a side of a fixture comes from

@@ -8,6 +8,7 @@ from app.api.saisons.services import (
     RULES_BRACKET_IMPOSSIBLE,
     RULES_CAPACITY_BELOW_USE,
     RULES_DRAW_OUTVALUES_WIN,
+    RULES_FORFEIT_DRAWS_A_KNOCKOUT,
     RULES_GROUPS_IN_USE,
     RULES_KADER_BELOW_USE,
     RULES_MATCHDAY_OVER_ITS_PHASE,
@@ -205,6 +206,77 @@ class TestADrawIsNeverWorthMoreThanAWin:
 
         assert refusal is not None
         assert refusal.error_code == RULES_DRAW_OUTVALUES_WIN
+
+
+class TestADrawnForfeitCannotDecideAKnockout:
+    """A knockout round has to produce a winner, and a level award composes a draw the bracket cannot advance out of.
+
+    A composed forfeit discards any shoot-out (`app/api/spiele/services.py :: apply_payload_to_spiel`), so nothing breaks that tie.
+    """
+
+    def test_a_decided_award_is_accepted(self):
+        """The season the rest of this file uses: 4 x 2 qualifiers, awarded 3:0."""
+
+        assert judge(proposed=rules(forfeit=(3, 0))) is None
+
+    def test_a_level_award_is_refused_where_the_rules_play_a_knockout(self):
+        """4 x 2 is 8 qualifiers, which is a quarter-final, a semi-final and a final."""
+
+        refusal = judge(proposed=rules(forfeit=(0, 0)))
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_FORFEIT_DRAWS_A_KNOCKOUT
+
+    def test_the_refusal_names_the_award(self):
+        """Any level pair, not 0:0 alone: what strands the bracket is the two numbers matching."""
+
+        refusal = judge(proposed=rules(forfeit=(2, 2)))
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_FORFEIT_DRAWS_A_KNOCKOUT
+        assert "2:2" in refusal.message
+
+    def test_a_season_playing_no_knockout_round_may_regulate_a_level_award(self):
+        """3 x 1 reaches no bracket, so no round is left without a winner; `REQ-RULES-001` passes the product because it did not change."""
+
+        assert judge(stored=rules(groups=3, qualifiers=1), proposed=rules(groups=3, qualifiers=1, forfeit=(0, 0))) is None
+
+    def test_drawing_a_bracket_over_a_level_award_is_the_step(self):
+        """The PAIRING is refused, so whichever half arrives last carries it -- here the bracket, over an award the season already held."""
+
+        refusal = judge(stored=rules(groups=3, qualifiers=1, forfeit=(0, 0)), proposed=rules(groups=4, qualifiers=2, forfeit=(0, 0)))
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_FORFEIT_DRAWS_A_KNOCKOUT
+
+    def test_permits_resubmitting_a_stored_pairing_unchanged(self):
+        """`rules` is required on the patch, so refusing this would leave a season stored that way unpatchable (`docs/backend/spec.md :: I44`).
+
+        The one arm this rule cannot judge by the proposal: `_forfeit_draws_a_knockout` is read on both sides for it.
+        """
+
+        drawn = rules(forfeit=(0, 0))
+
+        assert judge(stored=drawn, proposed=drawn) is None
+
+    def test_permits_separating_the_award(self):
+        """The repair, and the only one a season with a bracket has: the pairing is broken by the award, never by the rounds."""
+
+        assert judge(stored=rules(forfeit=(0, 0)), proposed=rules(forfeit=(3, 0))) is None
+
+    def test_it_applies_on_a_create(self):
+        """`stored=None` is the create: with nothing stored to compare against, the pairing is always this step's doing."""
+
+        refusal = find_rules_refusal(
+            saison_status="future",
+            stored=None,
+            proposed=rules(forfeit=(0, 0)),
+            occupancy_by_gruppe={},
+            highest_wired_platz=0,
+        )
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_FORFEIT_DRAWS_A_KNOCKOUT
 
 
 class TestNarrowingTheGroupCount:

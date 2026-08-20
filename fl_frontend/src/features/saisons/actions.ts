@@ -48,6 +48,16 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
       return { fieldErrors: { "rules.draw_points": "Ein Unentschieden darf nicht mehr Punkte bringen als ein Sieg." } };
     case "REQ-RULES-009":
       return { fieldErrors: { "rules.max_kadergroesse": "Mindestens ein Kader hat schon mehr Spieler als dieses Maximum." } };
+    // On the winner's box, which is the one to raise, and only there: `<FieldError>` renders under
+    // the input whose `name` the key matches, and the pair's own row picks it up through
+    // `saisonDraftStatus`'s `errorPaths`.
+    case "REQ-RULES-010":
+      return {
+        fieldErrors: {
+          "rules.forfeit_ergebnis.sieger_tore":
+            "Diese Saison spielt eine KO-Runde, in der ein Unentschieden niemanden weiterbringt. Sieger und Verlierer brauchen unterschiedliche Tore.",
+        },
+      };
     case "REQ-RULES-005":
       return {
         error:

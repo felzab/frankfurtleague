@@ -173,12 +173,12 @@ class TestTheAbsageLookup:
         assert match_stage["sonderereignis"] == {"$in": list(SONDEREREIGNIS_COUNTED_AS_ABSAGE)}
         assert "ergebnis" not in match_stage
 
-    def test_it_counts_a_no_show_and_neither_an_abandonment_nor_an_annulment(self):
-        """This figure's own question, which no other consumer asks: a club that never appeared was called off, and the other two were not."""
+    def test_it_counts_every_fixture_that_did_not_take_place_and_no_abandonment(self):
+        """In literals, never against the absence set it happens to equal: a shared answer is not a shared question."""
         selected = set(SONDEREREIGNIS_COUNTED_AS_ABSAGE)
 
-        assert {"ausgefallen", "nichtantreten_team1", "nichtantreten_team2"} <= selected
-        assert selected.isdisjoint({"abgebrochen", "annulliert"})
+        assert {"ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "annulliert"} <= selected
+        assert selected.isdisjoint({"abgebrochen"})
 
     def test_it_is_the_only_stage_reading_the_event(self):
         """A second reader would bring `sonderereignis` into the scoring."""

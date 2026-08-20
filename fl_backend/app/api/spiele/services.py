@@ -13,6 +13,7 @@ from app.api.spiele.schemas import (
     FLBracketFaultQuelle,
     FLBracketFaultSpiel,
     FLPatchSpielDataPayload,
+    FLSonderereignis,
     FLSpiel,
     FLSpieleFilterParams,
     FLSpielElfmeterschiessen,
@@ -156,6 +157,16 @@ def build_spiele_pipeline(
 ResolvedSides = tuple[FLSpielTeamField | None, FLSpielTeamField | None, bool]
 
 
+def voided_no_show(sonderereignis: FLSonderereignis | None) -> FLSonderereignis | None:
+    """The event a write that rewrites a side destroys, or `None`.
+
+    A no-show alone names a side and composes its result, and `REQ-STATE-003` refuses one left
+    beside an emptied slot -- so a fixture keeping it is one no later save can repair.
+    """
+
+    return sonderereignis if sonderereignis in SONDEREREIGNIS_NO_SHOW else None
+
+
 @dataclass(frozen=True)
 class SlotAdvancement:
     """One fixture whose slots resolve to something other than what it stores; goals go with the occupant that left."""
@@ -166,6 +177,8 @@ class SlotAdvancement:
     team2: FLSpielTeamField | None
     voided_ergebnis: str | None
     voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
+    # Null unless this rewrite destroys the event too, so the write path decides with a null check.
+    voided_sonderereignis: FLSonderereignis | None
 
 
 def _source_spiel_nr(quelle: FLSpielQuelle | None) -> int | None:
@@ -416,6 +429,7 @@ def resolve_bracket(spiele: Iterable[FLSpiel], standings: Mapping[FLGruppenNames
                 team2=team2.model_copy(update={"tore": None}) if team2 is not None else None,
                 voided_ergebnis=spiel.ergebnis,
                 voided_elfmeterschiessen=spiel.elfmeterschiessen,
+                voided_sonderereignis=voided_no_show(spiel.sonderereignis),
             )
         )
 
@@ -452,7 +466,10 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, ru
     ergebnis = f"{team1_tore}:{team2_tore}" if team1_tore is not None and team2_tore is not None else None
 
     is_knockout = stored.saison_phase != "gruppenphase"
-    keeps_shoot_out = is_knockout and ergebnis is not None and team1_tore == team2_tore
+    # `absent_side` too: a composed forfeit never went to penalties, and a season regulating 0:0
+    # composes a level one -- which would keep a submitted shoot-out and advance the club that
+    # never appeared (`_outcome_of`).
+    keeps_shoot_out = is_knockout and ergebnis is not None and team1_tore == team2_tore and absent_side is None
 
     return stored.model_copy(
         update={
@@ -547,10 +564,16 @@ def find_eligibility_refusal(
                 message=f"{label}: {submitted.name} has no saison_teams row for season {stored.saison_id}",
             )
 
-        # A GROUP fixture recording a match that did not happen carries a departed club
-        # legitimately. A knockout slot still has to say who advances, and an ABANDONED fixture is
-        # one that happened -- a departed club standing on it is the fault this rule catches.
-        records_an_absence = payload.sonderereignis in SONDEREREIGNIS_RECORDING_AN_ABSENCE and stored.saison_phase == "gruppenphase"
+        # A GROUP fixture that awards nothing carries a departed club on either side legitimately. A
+        # knockout slot still has to say who advances, and an ABANDONED fixture is one that happened
+        # -- a departed club standing on it is the fault this rule catches.
+        awards_nothing = payload.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT
+
+        # Directional, because a no-show COMPOSES a result the table scores: exempting the side that
+        # turned up would credit a departed club the forfeit and put it back in the standings.
+        stayed_away = SONDEREREIGNIS_NO_SHOW.get(payload.sonderereignis or "") == label
+
+        records_an_absence = (awards_nothing or stayed_away) and stored.saison_phase == "gruppenphase"
 
         departed_from = membership[submitted.team_id]
         if departed_from is not None and not records_an_absence and not (payload.datum is not None and payload.datum < departed_from):
@@ -693,6 +716,8 @@ class SpieltagRelease:
     other_side_present: bool
     voided_ergebnis: str | None
     voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
+    # Carried for `other_side_present`'s reason: the `$set` cannot read the fixture it empties.
+    voided_sonderereignis: FLSonderereignis | None
 
 
 @dataclass(frozen=True)
@@ -756,6 +781,7 @@ def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielData
                     other_side_present=(other.team2 if label == "team1" else other.team1) is not None,
                     voided_ergebnis=other.ergebnis,
                     voided_elfmeterschiessen=other.elfmeterschiessen,
+                    voided_sonderereignis=voided_no_show(other.sonderereignis),
                 )
             )
 

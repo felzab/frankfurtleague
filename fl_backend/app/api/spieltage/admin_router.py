@@ -63,7 +63,7 @@ async def post_spieltag(
         )
     )
 
-    # A new matchday has no fixtures, so the second half of `REQ-DATE-002` has nothing to check yet.
+    # A new matchday has no fixtures, so `REQ-DATE-003` has nothing to check yet.
     refuse(
         find_spieltag_span_refusal(
             beginn=spieltag_data.beginn,

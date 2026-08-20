@@ -50,12 +50,14 @@ SONDEREREIGNIS_PRODUCING_A_RECORD: tuple[FLSonderereignis, ...] = (
     "nichtantreten_team2",
 )
 
-# `anzahl_abgesagte_spiele` counts a forfeit, because a club that did not appear was called off in
-# the only sense a fixture list records. An abandonment happened and an annulment never existed.
+# `anzahl_abgesagte_spiele` counts fixtures that did not take place, so an annulment is in it and
+# only an abandonment -- played until it stopped -- is out. Equal to the absence half above by
+# accident, never by derivation: the questions differ.
 SONDEREREIGNIS_COUNTED_AS_ABSAGE: tuple[FLSonderereignis, ...] = (
     "ausgefallen",
     "nichtantreten_team1",
     "nichtantreten_team2",
+    "annulliert",
 )
 
 # The side that failed to appear, so the award goes the other way.

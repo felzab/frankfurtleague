@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Any, Iterable, Mapping, Sequence
 
-from app.api.saisons.schedule import expected_matches, knockout_phases_for, schedule_for
+from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import MAX_QUALIFIERS, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSaisonPhase, FLSpiel
 from app.api.teams.schemas import FLGruppenNames
@@ -29,10 +29,21 @@ RULES_QUALIFIERS_ABOVE_GROUP = "REQ-RULES-007"
 RULES_MATCHDAY_OVER_ITS_PHASE = "REQ-RULES-006"
 RULES_DRAW_OUTVALUES_WIN = "REQ-RULES-008"
 RULES_KADER_BELOW_USE = "REQ-RULES-009"
+RULES_FORFEIT_DRAWS_A_KNOCKOUT = "REQ-RULES-010"
 
 # `erlaubte_stufen` stays editable because it bounds what a form offers, never what a stored squad
 # row holds.
 FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers_per_group", "tiebreak_order")
+
+
+def _forfeit_draws_a_knockout(rules: FLSaisonRules) -> bool:
+    """Whether these rules compose a knockout no-show as a level result.
+
+    `knockout_phases_for` again rather than a second reading of the product, so this and
+    `REQ-RULES-001` cannot disagree about whether the season has a bracket.
+    """
+
+    return bool(knockout_phases_for(qualifier_count(rules))) and rules.forfeit_ergebnis.sieger_tore == rules.forfeit_ergebnis.verlierer_tore
 
 
 def find_rules_refusal(
@@ -94,6 +105,16 @@ def find_rules_refusal(
             error_code=RULES_BRACKET_IMPOSSIBLE,
             message=f"{proposed.number_of_groups} group(s) x {proposed.qualifiers_per_group} qualifier(s) is {qualifiers}, "
             f"which is not a power of two between 2 and {MAX_QUALIFIERS}; a knockout bracket has no shape for it",
+        )
+
+    # No shoot-out can break it: a composed forfeit discards one, so a level award leaves
+    # `app/api/spiele/services.py :: _outcome_of` advancing nobody. Only the step that pairs the two
+    # is refused (`docs/backend/spec.md :: I44`).
+    if _forfeit_draws_a_knockout(proposed) and (stored is None or not _forfeit_draws_a_knockout(stored)):
+        return WriteRefusal(
+            error_code=RULES_FORFEIT_DRAWS_A_KNOCKOUT,
+            message=f"a no-show would be awarded {proposed.forfeit_ergebnis.sieger_tore}:{proposed.forfeit_ergebnis.verlierer_tore} "
+            "and this season plays a knockout round; a drawn forfeit leaves that round with nobody to advance",
         )
 
     if stored is None:

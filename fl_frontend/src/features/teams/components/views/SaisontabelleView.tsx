@@ -31,12 +31,13 @@ function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
         <strong>Abgesagte Spiele</strong>
       </p>
       <p>{anzahl === 1 ? "Ein Spiel dieses Teams wurde abgesagt." : `${anzahl} Spiele dieses Teams wurden abgesagt.`}</p>
-      {/* Exactly the two cases the count covers — ausgefallen plus die beiden Nichtantreten. Without
-          the first a forfeit on a full match count reads as a fault, without the second the number
-          invites a subtraction. */}
+      {/* Every member the count covers is named, and the abandonment named as excluded: the badge sits
+          beside the match tally, so a reader who cannot tell which figure holds a fixture will add
+          it to one or subtract it from the other. */}
       <p>
-        Ein ausgefallenes Spiel zählt nirgends mit, auch nicht als Niederlage. Ist eine Mannschaft dagegen nicht angetreten, wird das Spiel
-        gewertet und zählt in dieser Tabelle ganz normal mit.
+        Ein ausgefallenes oder annulliertes Spiel zählt nirgends mit, auch nicht als Niederlage. Ist eine Mannschaft dagegen nicht angetreten,
+        wird das Spiel gewertet und zählt in dieser Tabelle ganz normal mit. Ein abgebrochenes Spiel hat stattgefunden und steht nicht in dieser
+        Zahl.
       </p>
     </InfoHint>
   );

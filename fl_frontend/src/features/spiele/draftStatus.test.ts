@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 // Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { applyDraftToSpiel, deriveSpielDraftStatus, isLevelKnockout } from "./draftStatus.ts";
+import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "./draftStatus.ts";
 
 import type { FLSpielDraftFields } from "./draftStatus.ts";
 import type { FLSpiel, FLSpielTeamFieldJoined } from "./schemas.ts";
@@ -296,31 +296,46 @@ describe("deriveSpielDraftStatus · the table itself", () => {
   });
 });
 
-describe("isLevelKnockout · the shape a shoot-out describes", () => {
+describe("admitsShootOut · the fixture a shoot-out belongs to", () => {
   const level = (tore: number | null) => side(TEAM_1, "Team A", "TA", tore);
   const other = (tore: number | null) => side(TEAM_2, "Team B", "TB", tore);
 
   it("holds for a knockout fixture whose goals finished level", () => {
-    assert.equal(isLevelKnockout("achtelfinale", level(2), other(2)), true);
+    assert.equal(admitsShootOut("achtelfinale", level(2), other(2), null), true);
   });
 
   // Each is a route out of the shape the editor's own handlers do NOT cover.
   it("does not hold once a goal edit unlevels the fixture", () => {
-    assert.equal(isLevelKnockout("achtelfinale", level(3), other(2)), false);
+    assert.equal(admitsShootOut("achtelfinale", level(3), other(2), null), false);
   });
 
   it("does not hold once a side is cleared", () => {
-    assert.equal(isLevelKnockout("achtelfinale", null, other(2)), false);
+    assert.equal(admitsShootOut("achtelfinale", null, other(2), null), false);
   });
 
   it("does not hold while a count is empty or mid-entry", () => {
-    assert.equal(isLevelKnockout("achtelfinale", level(null), other(2)), false);
-    assert.equal(isLevelKnockout("achtelfinale", level(NaN), other(NaN)), false);
+    assert.equal(admitsShootOut("achtelfinale", level(null), other(2), null), false);
+    assert.equal(admitsShootOut("achtelfinale", level(NaN), other(NaN), null), false);
   });
 
   // A group-phase draw is a final result worth a point to each side, whatever the goals are.
   it("never holds in the group phase", () => {
-    assert.equal(isLevelKnockout("gruppenphase", level(2), other(2)), false);
+    assert.equal(admitsShootOut("gruppenphase", level(2), other(2), null), false);
+  });
+
+  // The typed goals are NOT the result under a no-show: the server composes it from the season's
+  // `forfeit_ergebnis`, which a grandfathered season may regulate as a draw.
+  it("never holds beside a Nichtantreten, however level the typed goals are", () => {
+    for (const sonderereignis of ["nichtantreten_team1", "nichtantreten_team2"] as const) {
+      assert.equal(admitsShootOut("achtelfinale", level(2), other(2), sonderereignis), false, sonderereignis);
+    }
+  });
+
+  // The three that leave the goals alone: the result is the typed one, so the fixture keeps its tie.
+  it("still holds under an event the server scores from the typed goals", () => {
+    for (const sonderereignis of ["ausgefallen", "abgebrochen", "annulliert"] as const) {
+      assert.equal(admitsShootOut("achtelfinale", level(2), other(2), sonderereignis), true, sonderereignis);
+    }
   });
 });
 
@@ -353,12 +368,14 @@ describe("applyDraftToSpiel · an orphaned shoot-out", () => {
     assert.equal(applyDraftToSpiel(stored, draftOf(stored, { elfmeterschiessen: { team1: 5, team2: null } })).elfmeterschiessen, null);
   });
 
-  // An awarded forfeit is never level, so the write path discards the record; a preview keeping it
-  // would promise what that save throws away.
+  // The award is composed from the season's rules and may itself be level, so the write path
+  // discards the record on the EVENT; a preview keeping it would promise what that save throws away.
   it("drops the record under a Nichtantreten, however level the typed goals are", () => {
     const stored = knockout();
 
-    assert.equal(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis: "nichtantreten_team1" })).elfmeterschiessen, null);
+    for (const sonderereignis of ["nichtantreten_team1", "nichtantreten_team2"] as const) {
+      assert.equal(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis })).elfmeterschiessen, null, sonderereignis);
+    }
   });
 });
 
@@ -399,10 +416,24 @@ describe("applyDraftToSpiel · what a Sonderereignis does to the result", () => 
  * shoot-out would reach the payload after its inputs had unmounted.
  */
 describe("the match editor's draft", () => {
-  const editor = readFileSync(path.resolve(import.meta.dirname, "components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx"), "utf8");
+  const from = (file: string) => readFileSync(path.resolve(import.meta.dirname, "components/forms/AdminEditSpielDataForm", file), "utf8");
+  const editor = from("AdminEditSpielDataForm.tsx");
+  const ergebnisPanel = from("FormErgebnisSection.tsx");
 
-  it("gates its shoot-out through isLevelKnockout rather than passing the atom straight in", () => {
-    assert.ok(editor.includes("isLevelKnockout(spielData.saison_phase"), "the editor does not gate its shoot-out on isLevelKnockout");
+  it("gates its shoot-out through admitsShootOut rather than passing the atom straight in", () => {
+    assert.ok(
+      editor.includes("admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, sonderereignis)"),
+      "the editor does not gate its shoot-out on the whole condition",
+    );
     assert.ok(!/\n {4}elfmeterschiessen,\n/.test(editor), "the editor feeds the raw shoot-out atom into its draft");
+  });
+
+  // The defect this pair is here to prevent: a form offering the control on part of the condition
+  // submits counts the panel never showed and the write path throws away.
+  it("offers the control on the same condition the draft retracts by, event included", () => {
+    assert.ok(
+      ergebnisPanel.includes("admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, sonderereignis)"),
+      "the Ergebnis panel does not offer its shoot-out on the whole condition",
+    );
   });
 });

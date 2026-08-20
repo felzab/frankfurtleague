@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from itertools import product
+from itertools import combinations, product
 from typing import AbstractSet, Any, Callable, Iterable, Mapping, Sequence, get_args
 
 from app.api.saisons.schemas import FLSaisonRules
@@ -121,8 +121,6 @@ def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Ma
                         **_fixtures_of_this_team(saison_id, scope),
                         # The flag is the whole rule: `ergebnis: None` beside it would drop the
                         # forfeits, which are nearly every cancellation here.
-                        # A club that never appeared was called off in the only sense a fixture
-                        # list records; an abandonment happened and an annulment never existed.
                         "sonderereignis": {"$in": list(SONDEREREIGNIS_COUNTED_AS_ABSAGE)},
                     }
                 },
@@ -245,11 +243,27 @@ def _goal_key(team: FLTeam) -> tuple[int, int]:
     return (team.statistik.tore_geschossen - team.statistik.tore_kassiert, team.statistik.tore_geschossen)
 
 
-def _head_to_head_keys(
+@dataclass(frozen=True)
+class _MiniTable:
+    """The mini-table over one set of teams, and whether it can rank the ones that can place.
+
+    A vacuous (0, 0, 0) -- a team that met none of the others -- is indistinguishable from a real
+    one inside the keys, so the caller is told separately.
+    """
+
+    keys: Mapping[CustomObjectId, tuple[int, int, int]]
+    every_pair_met: bool
+
+    def key_of(self, team: FLTeam) -> tuple[int, ...]:
+        return self.keys[team.id]
+
+
+def _head_to_head_table(
     teams: Sequence[FLTeam],
     spiele: Iterable[FLSpiel],
     rules: FLSaisonRules,
-) -> Mapping[CustomObjectId, tuple[int, int, int]]:
+    placeable: AbstractSet[CustomObjectId],
+) -> _MiniTable:
     """The mini-table over the matches `teams` played against EACH OTHER.
 
     Over the whole tied set, never pair by pair: with three level, "who beat whom" is not
@@ -260,6 +274,7 @@ def _head_to_head_keys(
     punkte = dict.fromkeys(ids, 0)
     geschossen = dict.fromkeys(ids, 0)
     kassiert = dict.fromkeys(ids, 0)
+    met: set[frozenset[CustomObjectId]] = set()
 
     for spiel in spiele:
         counted = _counted_goals(spiel)
@@ -270,6 +285,7 @@ def _head_to_head_keys(
         if team1_id not in ids or team2_id not in ids:
             continue
 
+        met.add(frozenset((team1_id, team2_id)))
         geschossen[team1_id] += tore1
         kassiert[team1_id] += tore2
         geschossen[team2_id] += tore2
@@ -281,7 +297,13 @@ def _head_to_head_keys(
         else:
             punkte[team1_id if tore1 > tore2 else team2_id] += rules.win_points
 
-    return {team_id: (punkte[team_id], geschossen[team_id] - kassiert[team_id], geschossen[team_id]) for team_id in ids}
+    return _MiniTable(
+        keys={team_id: (punkte[team_id], geschossen[team_id] - kassiert[team_id], geschossen[team_id]) for team_id in ids},
+        # Asked of the clubs that can hold a placing, pair by pair rather than counted: a club that
+        # has left the season is ranked here but can place nowhere, so the meetings it never played
+        # decide nothing for the ones that can.
+        every_pair_met=all(frozenset(pair) in met for pair in combinations(ids & placeable, 2)),
+    )
 
 
 def _grouped(band: Sequence[FLTeam], key_of: Callable[[FLTeam], tuple[int, ...]]) -> list[list[FLTeam]]:
@@ -294,32 +316,44 @@ def _grouped(band: Sequence[FLTeam], key_of: Callable[[FLTeam], tuple[int, ...]]
     return [grouped[key] for key in sorted(grouped, reverse=True)]
 
 
-def _break_tie(band: Sequence[FLTeam], spiele: Iterable[FLSpiel], rules: FLSaisonRules) -> list[list[FLTeam]]:
-    """Teams level on points, split by the season's `tiebreak_order` and then by the criterion it did not lead with.
+def _break_tie(
+    band: Sequence[FLTeam],
+    spiele: Sequence[FLSpiel],
+    rules: FLSaisonRules,
+    placeable: AbstractSet[CustomObjectId],
+) -> list[list[FLTeam]]:
+    """Teams level on points, split by one criterion then the other; `tiebreak_order` picks which leads, where it can.
 
     Every member's figures must already be final -- the caller checks: a team with a match left has
     an unbounded goal difference.
     """
 
-    def head_to_head_key(teams: Sequence[FLTeam]) -> Callable[[FLTeam], tuple[int, ...]]:
-        """Recomputed per group: the mini-table is over the matches THESE teams played each other."""
-
-        keys = _head_to_head_keys(teams, spiele, rules)
-        return lambda team: keys[team.id]
+    lead_table = _head_to_head_table(band, spiele, rules, placeable) if rules.tiebreak_order == "direkter_vergleich" else None
+    if lead_table is not None and not lead_table.every_pair_met:
+        # A team that has met none of the others scores a vacuous 0:0, above everyone who lost, so a
+        # comparison missing a pair cannot rank the band: it takes the goal keys, and the mini-table
+        # follows as it does under `tordifferenz`.
+        lead_table = None
 
     tiers: list[list[FLTeam]] = []
-    leads_on_goals = rules.tiebreak_order == "tordifferenz"
-    outer = _grouped(band, _goal_key) if leads_on_goals else _grouped(band, head_to_head_key(band))
+    outer = _grouped(band, lead_table.key_of) if lead_table is not None else _grouped(band, _goal_key)
 
+    # One pass, never a recursion back up the chain: a set the second criterion cannot separate is a
+    # genuine tie, reported as one.
     for still_level in outer:
         if len(still_level) == 1:
             tiers.append(still_level)
             continue
 
-        inner = head_to_head_key(still_level) if leads_on_goals else _goal_key
-        # One pass, never a recursion back up the chain: a set the second criterion cannot separate
-        # is a genuine tie, reported as one.
-        tiers.extend(_grouped(still_level, inner))
+        if lead_table is not None:
+            tiers.extend(_grouped(still_level, _goal_key))
+            continue
+
+        # Recomputed over THESE teams and refused where they have not all met: a table that cannot
+        # rank them ranks nobody, wherever it sits in the chain, and the criterion that led is
+        # already level across them -- so what is left is a genuine tie.
+        inner_table = _head_to_head_table(still_level, spiele, rules, placeable)
+        tiers.extend(_grouped(still_level, inner_table.key_of) if inner_table.every_pair_met else [still_level])
 
     return tiers
 
@@ -328,7 +362,7 @@ def _tiers(
     teams: Sequence[FLTeam],
     punkte: Mapping[CustomObjectId, int],
     settled: AbstractSet[CustomObjectId],
-    spiele: Iterable[FLSpiel],
+    spiele: Sequence[FLSpiel],
     rules: FLSaisonRules,
 ) -> list[list[FLTeam]]:
     """`teams` in descending bands; a band of one is a decided position.
@@ -341,6 +375,12 @@ def _tiers(
     for team in teams:
         by_punkte.setdefault(punkte[team.id], []).append(team)
 
+    # Derived here so both callers ask one question: `build_gruppen` ranks a club that has left and
+    # `build_decided_standings` never sees one, so completeness judged over whoever is present
+    # splits the two surfaces (`docs/backend/spec.md :: I24`).
+    still_to_play = _still_to_play(spiele)
+    placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0)))
+
     tiers: list[list[FLTeam]] = []
     for score in sorted(by_punkte, reverse=True):
         band = by_punkte[score]
@@ -350,7 +390,7 @@ def _tiers(
             tiers.append(band)
             continue
 
-        tiers.extend(_break_tie(band, spiele, rules))
+        tiers.extend(_break_tie(band, spiele, rules, placeable))
 
     return tiers
 
@@ -490,7 +530,7 @@ def _placings(
     teams: Sequence[FLTeam],
     punkte: Mapping[CustomObjectId, int],
     settled: AbstractSet[CustomObjectId],
-    spiele: Iterable[FLSpiel],
+    spiele: Sequence[FLSpiel],
     rules: FLSaisonRules,
 ) -> Mapping[int, FLTeam]:
     """The placings one points table pins down. A band holding several teams pins none of them."""

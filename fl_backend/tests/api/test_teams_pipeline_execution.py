@@ -121,11 +121,11 @@ class TestACalledOffFixture:
     """The two counts are deliberately not a partition: a forfeit is in this figure and in `anzahl_gespielte_spiele` both."""
 
     def test_it_is_counted_for_both_teams(self, league: SeededLeague):
-        """The `$expr` reaches either side: a slot-one-only match would show 1 and 0."""
+        """The `$expr` reaches either side: Ohne holds slot two of Spiel 10 and slot one of Spiel 13, so a one-slot match leaves it on 1."""
         figures = table(league)
 
         assert figures["Helmholtz"]["anzahl_abgesagte_spiele"] == 1
-        assert figures["Ohne"]["anzahl_abgesagte_spiele"] == 1
+        assert figures["Ohne"]["anzahl_abgesagte_spiele"] == 2
 
     def test_an_abandoned_fixture_is_counted_as_played_and_not_as_an_absage(self, league: SeededLeague):
         """The distinction one flag could not draw: Spiel 14 was abandoned with a score, so it reaches one figure and not the other."""
@@ -135,12 +135,12 @@ class TestACalledOffFixture:
         assert komplett["siege"] == 2
         assert komplett["anzahl_abgesagte_spiele"] == 0
 
-    def test_an_annulled_fixture_reaches_neither_figure(self, league: SeededLeague):
-        """Spiel 13 never existed, so it neither joins the one absage Ohne's Spiel 10 earns nor becomes a match played."""
+    def test_an_annulled_fixture_is_an_absage_and_never_a_match_played(self, league: SeededLeague):
+        """Spiel 13 did not take place, so it joins the absage Ohne's Spiel 10 earns while the played figure stays where it was."""
         ohne = table(league)["Ohne"]
 
         assert ohne["anzahl_gespielte_spiele"] == 0
-        assert ohne["anzahl_abgesagte_spiele"] == 1
+        assert ohne["anzahl_abgesagte_spiele"] == 2
 
     def test_it_moves_none_of_the_figures_the_table_is_built_from(self, league: SeededLeague):
         """An accumulator admitting a cancellation lands it in `unentschieden`, since `$eq: [null, null]` is true."""
