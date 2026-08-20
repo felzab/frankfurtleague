@@ -2,7 +2,7 @@ import { deriveDraftStatus } from "@/shared/utils/draftStatus";
 import { formatEuro } from "@/shared/utils/format";
 
 import type { FLAddress } from "@/shared/schemas";
-import type { FLDraftStatus, FLFieldDescriptor, FLFieldStatus } from "@/shared/utils/draftStatus";
+import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /** The fields the venue editor owns, widened to what a draft holds mid-edit. */
@@ -13,8 +13,6 @@ export type FLSpielortDraftFields = {
 };
 
 export type FLSpielortFieldGroup = "Spielort" | "Adresse" | "Miete";
-
-export type FLSpielortFieldStatus = FLFieldStatus<FLSpielortFieldGroup>;
 
 export type FLSpielortDraftStatus = FLDraftStatus<FLSpielortFieldGroup>;
 

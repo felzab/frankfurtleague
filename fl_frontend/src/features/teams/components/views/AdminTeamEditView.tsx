@@ -97,7 +97,7 @@ export function AdminTeamEditView({
                   </Button>
                 )}
               </div>
-              <p className="fluid-sm text-foreground-muted font-medium">Änderungen gelten erst, wenn Du speicherst.</p>
+              <p className="muted-hint">Änderungen gelten erst, wenn Du speicherst.</p>
             </header>
           </>
         }

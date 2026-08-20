@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `4393dba3`, 2026-08-19\
+**Verified against:** `cf911568`, 2026-08-20\
 **Scope:** `fl_frontend/`
 
 A Next.js application on the App Router, with React, HeroUI and Tailwind. It is both the website and, in
@@ -55,7 +55,7 @@ its data would fail the image build rather than merely render slowly ([`spec.md`
 ## Styling
 
 `fl_frontend/src/app/globals.css` is the style entry point for every route — the token layer, the `@theme`
-mapping, the focus exceptions and the HeroUI import block.
+mapping, the utility recipes, the focus exceptions and the HeroUI import block.
 **`fl_frontend/src/app/admin/admin.css` is a second, smaller one**, imported by the admin layout and
 therefore loaded only under `/admin`, holding the component stylesheets no public route can reach.
 

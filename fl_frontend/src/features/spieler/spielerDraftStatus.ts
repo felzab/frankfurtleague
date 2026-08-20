@@ -1,6 +1,6 @@
 import { deriveDraftStatus } from "@/shared/utils/draftStatus";
 
-import type { FLDraftStatus, FLFieldDescriptor, FLFieldStatus } from "@/shared/utils/draftStatus";
+import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLSpielerPosition, FLSpielerStufe } from "./schemas";
 import type { SpielerTeamOption } from "./types";
@@ -23,8 +23,6 @@ export type FLSpielerDraftFields = {
 };
 
 export type FLSpielerFieldGroup = "Person" | "Kader";
-
-export type FLSpielerFieldStatus = FLFieldStatus<FLSpielerFieldGroup>;
 
 export type FLSpielerDraftStatus = FLDraftStatus<FLSpielerFieldGroup>;
 

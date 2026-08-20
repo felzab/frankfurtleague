@@ -1,13 +1,11 @@
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { deriveDraftStatus } from "@/shared/utils/draftStatus";
 
-import type { FLDraftStatus, FLFieldDescriptor, FLFieldStatus } from "@/shared/utils/draftStatus";
+import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SaisonDraftFields } from "./types";
 
 export type FLSaisonFieldGroup = "Zeitraum" | "Regeln";
-
-export type FLSaisonFieldStatus = FLFieldStatus<FLSaisonFieldGroup>;
 
 export type FLSaisonDraftStatus = FLDraftStatus<FLSaisonFieldGroup>;
 

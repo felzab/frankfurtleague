@@ -10,6 +10,10 @@ import { FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/sc
 import { deriveSchiedsrichterDraftStatus } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
+import { DraftRail } from "@/shared/components/ui/DraftRail";
+import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
+import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -20,9 +24,6 @@ import { buildSchiedsrichterBanners } from "./banners";
 import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
 import { FormPersonSection } from "./FormPersonSection";
-import { SchiedsrichterActionBar } from "./SchiedsrichterActionBar";
-import { SchiedsrichterDraftStatusProvider } from "./SchiedsrichterDraftStatusContext";
-import { SchiedsrichterRail } from "./SchiedsrichterRail";
 
 import type { FLPatchSchiedsrichterPayload } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterDraftFields } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
@@ -283,49 +284,44 @@ export function AdminSchiedsrichterEditForm({
   };
 
   return (
-    <SchiedsrichterDraftStatusProvider status={status}>
+    <DraftStatusProvider status={status}>
       <Form
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={runOnSubmit(requestSave)}>
-        <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
-          <div className="max-w-page mx-auto flex w-full flex-col">
-            {pageHeader}
+        <EditFormLayout
+          header={pageHeader}
+          rail={
+            <DraftRail
+              banners={banners}
+              nomen="Schiedsrichter"
+            />
+          }>
+          <FormPersonSection
+            name={name}
+            onNameChange={setName}
+            schule={schule}
+            onSchuleChange={setSchule}
+            onFieldLeft={validateFields}
+          />
 
-            <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_380px] 2xl:gap-8">
-              <div className="w-full xl:sticky xl:top-6 xl:col-start-2 xl:row-start-1 xl:self-start">
-                <SchiedsrichterRail banners={banners} />
-              </div>
+          <FormKontaktSection
+            kontakt={kontakt}
+            onChange={setKontakt}
+            onFieldLeft={validateFields}
+            banners={banners}
+          />
 
-              <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:col-start-1 xl:row-start-1 xl:mx-0 xl:max-w-none">
-                <FormPersonSection
-                  name={name}
-                  onNameChange={setName}
-                  schule={schule}
-                  onSchuleChange={setSchule}
-                  onFieldLeft={validateFields}
-                />
+          <FormHonorarSection
+            defaultPayment={defaultPayment}
+            onChange={setDefaultPayment}
+            onFieldChanged={validatePicked}
+            banners={banners}
+          />
+        </EditFormLayout>
 
-                <FormKontaktSection
-                  kontakt={kontakt}
-                  onChange={setKontakt}
-                  onFieldLeft={validateFields}
-                  banners={banners}
-                />
-
-                <FormHonorarSection
-                  defaultPayment={defaultPayment}
-                  onChange={setDefaultPayment}
-                  onFieldChanged={validatePicked}
-                  banners={banners}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <SchiedsrichterActionBar
+        <FormActionBar
           isPending={isPending}
           onCancel={requestLeave}
         />
@@ -350,6 +346,6 @@ export function AdminSchiedsrichterEditForm({
           handleFormSubmit();
         }}
       />
-    </SchiedsrichterDraftStatusProvider>
+    </DraftStatusProvider>
   );
 }

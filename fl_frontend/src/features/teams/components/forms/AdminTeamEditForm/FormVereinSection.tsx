@@ -8,11 +8,10 @@ import { FieldError, Input, TextField } from "@heroui/react";
 
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import { DescriptionEditModal } from "@/features/teams/components/modals/DescriptionEditModal";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
-
-import { TeamFieldLabel } from "./TeamFieldLabel";
 
 import type { FLPostTeamPayload } from "@/features/teams/schemas";
 
@@ -60,7 +59,7 @@ export function FormVereinSection({
             value={draft.name}
             onChange={(next) => onChange({ ...draft, name: next })}
             onBlur={() => onFieldLeft(["name"])}>
-            <TeamFieldLabel path="name">Name</TeamFieldLabel>
+            <FieldLabel path="name">Name</FieldLabel>
             <Input className={FIELD_INPUT} />
             <FieldError className={FIELD_ERROR} />
           </TextField>
@@ -72,7 +71,7 @@ export function FormVereinSection({
             onChange={(next) => onChange({ ...draft, shorthand: next.toUpperCase() })}
             onBlur={() => onFieldLeft(["shorthand"])}
             maxLength={2}>
-            <TeamFieldLabel path="shorthand">Kürzel</TeamFieldLabel>
+            <FieldLabel path="shorthand">Kürzel</FieldLabel>
             <Input className={`${FIELD_INPUT} font-extrabold tracking-widest uppercase`} />
             <FieldError className={FIELD_ERROR} />
           </TextField>
@@ -84,7 +83,7 @@ export function FormVereinSection({
           value={draft.full_name}
           onChange={(next) => onChange({ ...draft, full_name: next })}
           onBlur={() => onFieldLeft(["full_name"])}>
-          <TeamFieldLabel path="full_name">Vollständiger Name</TeamFieldLabel>
+          <FieldLabel path="full_name">Vollständiger Name</FieldLabel>
           <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR} />
         </TextField>
@@ -93,11 +92,11 @@ export function FormVereinSection({
           value={draft.website_url}
           onChange={(nextUrl) => onChange({ ...draft, website_url: nextUrl })}
           onFieldLeft={() => onFieldLeft(["website_url"])}
-          labelSlot={<TeamFieldLabel path="website_url">Website</TeamFieldLabel>}
+          labelSlot={<FieldLabel path="website_url">Website</FieldLabel>}
         />
 
         <div className="flex w-full flex-col gap-y-1">
-          <TeamFieldLabel path="description">Beschreibung</TeamFieldLabel>
+          <FieldLabel path="description">Beschreibung</FieldLabel>
           {/* A preview, deliberately not an input: a description is a paragraph. Pressing it opens
               the modal, as the pencil does, so the block is one target for one action. */}
           <button
@@ -106,7 +105,7 @@ export function FormVereinSection({
             aria-label="Beschreibung bearbeiten"
             className="border-border bg-surface hover:border-brand/40 hover:bg-hover group flex w-full cursor-pointer flex-row items-start justify-between gap-x-3 rounded-lg border px-3 py-2.5 text-left transition-colors">
             {draft.description.trim() === "" ? (
-              <span className="fluid-sm text-foreground-muted font-medium">Keine Beschreibung. Hier klicken zum Verfassen.</span>
+              <span className="muted-hint">Keine Beschreibung. Hier klicken zum Verfassen.</span>
             ) : (
               <span className="fluid-sm text-foreground line-clamp-3 min-w-0 leading-relaxed font-medium">{draft.description}</span>
             )}

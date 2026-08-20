@@ -7,11 +7,12 @@ import { Plus } from "@gravity-ui/icons";
 import { Autocomplete, Button, ListBox, SearchField, useFilter } from "@heroui/react";
 
 import { dismissControl } from "@/core/dismissControl";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
-import { FieldLabel } from "./FieldLabel";
+import { ExpectedMarker } from "./ExpectedMarker";
 
 import type { Key } from "@heroui/react";
 import type { ReactNode } from "react";
@@ -89,7 +90,11 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
         isOpen={isOpen}
         onOpenChange={setIsOpen}
         onChange={(key: Key | null) => onSelect(key ? (options.find((item) => item.id === key) ?? null) : null)}>
-        <FieldLabel path={fieldPath}>{label}</FieldLabel>
+        <FieldLabel
+          path={fieldPath}
+          extraMarker={<ExpectedMarker path={fieldPath} />}>
+          {label}
+        </FieldLabel>
         <Autocomplete.Trigger className={FIELD_TRIGGER}>
           <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
           {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a

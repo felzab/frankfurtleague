@@ -42,20 +42,20 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
   const renderZeitraum = (saison: AdminSaisonRow) => (
     <span className="flex flex-row items-baseline gap-x-1.5 tabular-nums">
       <span className="fluid-sm text-foreground font-bold">{formatSpielDatum(saison.start_date)}</span>
-      <span className="fluid-xs text-foreground-muted font-medium">–</span>
+      <span className="muted-meta">–</span>
       <span className="fluid-sm text-foreground font-bold">{formatSpielDatum(saison.end_date)}</span>
     </span>
   );
 
   const renderAufbau = (saison: AdminSaisonRow) => (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <span className="fluid-xs text-foreground-muted font-medium">
+      <span className="muted-meta">
         <span className="text-foreground font-bold">{saison.rules.number_of_groups}</span> Gruppen
       </span>
-      <span className="fluid-xs text-foreground-muted font-medium">
+      <span className="muted-meta">
         <span className="text-foreground font-bold">{saison.teamsCount}</span> Teams
       </span>
-      <span className="fluid-xs text-foreground-muted font-medium">
+      <span className="muted-meta">
         <span className="text-foreground font-bold">{saison.spieltageCount}</span> Spieltage
       </span>
     </div>
@@ -98,9 +98,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="fluid-sm text-foreground-muted font-medium">
-        {saisonsQuery ? "Keine Saisons für diese Suche gefunden." : "Es wurden noch keine Saisons angelegt."}
-      </p>
+      <p className="muted-hint">{saisonsQuery ? "Keine Saisons für diese Suche gefunden." : "Es wurden noch keine Saisons angelegt."}</p>
     </div>
   );
 

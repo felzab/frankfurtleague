@@ -35,7 +35,7 @@ export function TeamSelect({
    * a caller with no `<Form>`, and for the entry control whose write is not the form's.
    */
   error?: string;
-  /** Off for the caller whose label is a marker-carrying `SpielerFieldLabel` rendered outside. */
+  /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
   /**
    * Refuse an empty pick, and let the BROWSER say so — react-aria runs native constraint validation

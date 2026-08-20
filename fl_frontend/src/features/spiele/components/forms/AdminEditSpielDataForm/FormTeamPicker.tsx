@@ -6,12 +6,13 @@ import { dismissControl } from "@/core/dismissControl";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { formatQuelle, isDirectlyPrecedingRound, listFeederSpiele, quelleKey, toStoredSide } from "@/features/spiele/utils";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import { FieldLabel } from "./FieldLabel";
+import { ExpectedMarker } from "./ExpectedMarker";
 
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
@@ -243,7 +244,11 @@ export function FormTeamPicker({
       value={teamPayload?.team_id ?? null}
       onChange={handleTeamSelection}
       disabledKeys={disabledTeamKeys}>
-      <FieldLabel path={`${fieldName}.team_id`}>{isKnockout ? `${label}: Mannschaft` : label}</FieldLabel>
+      <FieldLabel
+        path={`${fieldName}.team_id`}
+        extraMarker={<ExpectedMarker path={`${fieldName}.team_id`} />}>
+        {isKnockout ? `${label}: Mannschaft` : label}
+      </FieldLabel>
       <Autocomplete.Trigger className={FIELD_TRIGGER}>
         {/* The name from the prop, never `Autocomplete.Value`, and `flex-1` as
             `.autocomplete__value` carries on every sibling trigger (`docs/frontend/spec.md` I30). */}
@@ -340,7 +345,11 @@ export function FormTeamPicker({
         selectionMode="single"
         value={choice}
         onChange={handleChoiceSelection}>
-        <FieldLabel path={`${fieldName}_quelle`}>{label}: Herkunft</FieldLabel>
+        <FieldLabel
+          path={`${fieldName}_quelle`}
+          extraMarker={<ExpectedMarker path={`${fieldName}_quelle`} />}>
+          {label}: Herkunft
+        </FieldLabel>
         <Autocomplete.Trigger className={FIELD_TRIGGER}>
           {/* From `choice`, NOT the collection: `Autocomplete.Value` renders the selected item's
               children verbatim and drops its className, so the chip would reappear here as unstyled
@@ -376,7 +385,7 @@ export function FormTeamPicker({
 
       {/* Rendered per variant, so no box belongs to a shape the source is not in. */}
       {quelle?.type === "gruppe" && (
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className={FIELD_PAIR}>
           <Autocomplete
             name={`${fieldName}_quelle.gruppe`}
             className="w-full"

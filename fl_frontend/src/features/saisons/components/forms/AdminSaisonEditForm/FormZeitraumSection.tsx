@@ -3,11 +3,11 @@
 import { parseDate } from "@internationalized/date";
 
 import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormControls";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
+import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-
-import { SaisonFieldLabel } from "./SaisonFieldLabel";
 
 import type { CalendarDate } from "@internationalized/date";
 import type { SaisonBanner } from "./banners";
@@ -68,12 +68,12 @@ export function FormZeitraumSection({
       </div>
 
       <div className={panel.body()}>
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className={FIELD_PAIR}>
           <SaisonDateField
             isRequired
             name="start_date"
             ariaLabel="Beginn auswählen"
-            label={<SaisonFieldLabel path="start_date">Beginn</SaisonFieldLabel>}
+            label={<FieldLabel path="start_date">Beginn</FieldLabel>}
             value={startDate}
             onChange={onStartDateChange}
             onBlur={() => onFieldLeft(["start_date"])}
@@ -83,7 +83,7 @@ export function FormZeitraumSection({
             isRequired
             name="end_date"
             ariaLabel="Ende auswählen"
-            label={<SaisonFieldLabel path="end_date">Ende</SaisonFieldLabel>}
+            label={<FieldLabel path="end_date">Ende</FieldLabel>}
             value={endDate}
             onChange={onEndDateChange}
             onBlur={() => onFieldLeft(["end_date"])}

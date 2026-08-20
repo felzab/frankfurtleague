@@ -2,11 +2,10 @@
 
 import { FieldError, Input, TextField } from "@heroui/react";
 
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
-
-import { SpielortFieldLabel } from "./SpielortFieldLabel";
 
 /**
  * The name fans out: the patch rewrites the embedded `ort.name` on every Spiel at this venue, and
@@ -46,7 +45,7 @@ export function FormSpielortSection({
           value={name}
           onChange={onNameChange}
           onBlur={() => onFieldLeft(["name"])}>
-          <SpielortFieldLabel path="name">Name</SpielortFieldLabel>
+          <FieldLabel path="name">Name</FieldLabel>
           <Input
             placeholder="z.B. Sportpark Nord"
             className={FIELD_INPUT}

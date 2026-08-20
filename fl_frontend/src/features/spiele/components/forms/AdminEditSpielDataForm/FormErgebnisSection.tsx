@@ -1,13 +1,14 @@
 import { FieldError, NumberField, Separator, Switch } from "@heroui/react";
 
-import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
+import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { isLevelKnockout } from "../../../draftStatus";
 import { formatQuelle } from "../../../utils";
-import { FieldLabel } from "./FieldLabel";
+import { ExpectedMarker } from "./ExpectedMarker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSpiel, FLSpielElfmeterschiessenDraft, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
@@ -159,7 +160,7 @@ export function FormErgebnisSection({
 
         {/* Side by side from `sm`: the counts are one answer, but two steppers in a phone row
             leave neither wide enough to hit. */}
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className={FIELD_PAIR}>
           {(
             [
               { slot: "team1" as const, name: team1Name, value: team1Tore },
@@ -176,7 +177,11 @@ export function FormErgebnisSection({
               onBlur={() => onValidateFields(TORE_PATHS)}
               className={ergebnisIsEditable ? "" : "opacity-50"}>
               {/* The team's name alone: the panel title already says these are goals. */}
-              <FieldLabel path={`${slot}.tore`}>{name}</FieldLabel>
+              <FieldLabel
+                path={`${slot}.tore`}
+                extraMarker={<ExpectedMarker path={`${slot}.tore`} />}>
+                {name}
+              </FieldLabel>
               <NumberField.Group className={FIELD_GROUP}>
                 <NumberField.DecrementButton />
                 <NumberField.Input className={FIELD_COUNT_INPUT} />
@@ -203,7 +208,7 @@ export function FormErgebnisSection({
             </Switch>
 
             {elfmeterschiessen !== null && (
-              <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className={FIELD_PAIR}>
                 {(
                   [
                     { slot: "team1" as const, name: team1Name, value: elfmeterschiessen.team1 },
@@ -217,7 +222,11 @@ export function FormErgebnisSection({
                     value={value ?? NaN}
                     onChange={handleElfmeterChange(slot)}
                     onBlur={() => onValidateFields(ELFMETER_PATHS)}>
-                    <FieldLabel path={`elfmeterschiessen.${slot}`}>{name}: Treffer</FieldLabel>
+                    <FieldLabel
+                      path={`elfmeterschiessen.${slot}`}
+                      extraMarker={<ExpectedMarker path={`elfmeterschiessen.${slot}`} />}>
+                      {name}: Treffer
+                    </FieldLabel>
                     <NumberField.Group className={FIELD_GROUP}>
                       <NumberField.DecrementButton />
                       <NumberField.Input className={FIELD_COUNT_INPUT} />
@@ -238,7 +247,7 @@ export function FormErgebnisSection({
           aria-live="polite"
           className="flex w-full justify-center">
           {isNaN(team1Tore) || isNaN(team2Tore) ? (
-            <p className="fluid-xs text-foreground-muted font-medium italic">Noch kein Ergebnis</p>
+            <p className="muted-meta italic">Noch kein Ergebnis</p>
           ) : (
             <p className="fluid-sm text-brand font-extrabold tracking-wide">
               {team1Tore === team2Tore &&

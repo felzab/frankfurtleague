@@ -1,11 +1,10 @@
 "use client";
 
 import { AddressFields } from "@/shared/components/ui/AddressFields";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-
-import { SpielortFieldLabel } from "./SpielortFieldLabel";
 
 import type { FLAddress } from "@/shared/schemas";
 import type { SpielortBanner } from "./banners";
@@ -55,7 +54,7 @@ export function FormAdresseSection({
           value={address}
           onChange={onChange}
           onFieldLeft={onFieldLeft}
-          renderLabel={(path, text) => <SpielortFieldLabel path={path}>{text}</SpielortFieldLabel>}
+          renderLabel={(path, text) => <FieldLabel path={path}>{text}</FieldLabel>}
         />
       </div>
     </section>

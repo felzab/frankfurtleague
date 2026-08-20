@@ -5,6 +5,7 @@ import { Card } from "@heroui/react";
 import { card } from "@/shared/components/ui/card";
 
 import { formatSpielDisplay } from "../../utils";
+import { SpielScore } from "./SpielScore";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
 import type { FLSpiel } from "../../schemas";
@@ -38,7 +39,7 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
 
         <div className="flex h-full w-fit flex-col items-start">
           <span className="fluid-sm text-foreground font-bold">{spielDatum}</span>
-          <span className="fluid-xs text-foreground-muted font-medium">{spielUhrzeit}</span>
+          <span className="muted-meta">{spielUhrzeit}</span>
         </div>
 
         {/* `min-w-0` is what makes the `truncate` below reachable: as a flex item this pill
@@ -55,15 +56,15 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
             />
           </span>
 
-          {/* The shoot-out line names how a level knockout was settled WITHOUT changing the score.
-              Inside the `auto` track, so the two `1fr` team tracks keep their widths. */}
-          <span
+          {/* Inside the `auto` track, so the shoot-out's second line leaves the two `1fr` team
+              tracks their widths. */}
+          <SpielScore
+            ergebnis={spielErgebnis}
+            elfmeterschiessen={spielElfmeterschiessen}
             className={`fluid-xs flex flex-col items-center rounded-md px-1.5 py-0.5 text-center font-extrabold ${
               spielData.ergebnis !== null ? "bg-success/15 text-success-strong" : "bg-danger/15 text-danger-strong"
-            }`}>
-            {spielErgebnis}
-            {spielElfmeterschiessen !== null && <span className="fluid-xxs font-semibold whitespace-nowrap">{spielElfmeterschiessen}</span>}
-          </span>
+            }`}
+          />
 
           <span className={`${slotLift(spielData.team2 !== null)} justify-start`}>
             <SpielTeamSlot

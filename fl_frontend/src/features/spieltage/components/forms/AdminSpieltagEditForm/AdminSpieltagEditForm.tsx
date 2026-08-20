@@ -11,6 +11,10 @@ import { deriveSpieltagDraftStatus } from "@/features/spieltage/spieltagDraftSta
 import { buildSpieltagPhaseOffer } from "@/features/spieltage/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
+import { DraftRail } from "@/shared/components/ui/DraftRail";
+import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
+import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -21,9 +25,6 @@ import { buildSpieltagBanners, standsAtThePhaseFloor } from "./banners";
 import { FormPhaseSection } from "./FormPhaseSection";
 import { FormStilllegenSection } from "./FormStilllegenSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
-import { SpieltagActionBar } from "./SpieltagActionBar";
-import { SpieltagDraftStatusProvider } from "./SpieltagDraftStatusContext";
-import { SpieltagRail } from "./SpieltagRail";
 
 import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
 import type { FLPatchSpieltagPayload } from "@/features/spieltage/schemas";
@@ -292,63 +293,58 @@ export function AdminSpieltagEditForm({
   };
 
   return (
-    <SpieltagDraftStatusProvider status={status}>
+    <DraftStatusProvider status={status}>
       <Form
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={runOnSubmit(requestSave)}>
-        <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
-          <div className="max-w-page mx-auto flex w-full flex-col">
-            {pageHeader}
+        <EditFormLayout
+          header={pageHeader}
+          rail={
+            <DraftRail
+              banners={banners}
+              nomen="Spieltag"
+            />
+          }>
+          <FormPhaseSection
+            phase={phase}
+            onChange={(next) => {
+              setPhase(next);
+              validatePicked(["saison_phase"], { saison_phase: next });
+            }}
+            phaseOffer={phaseOffer}
+            banners={banners}
+          />
 
-            <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_380px] 2xl:gap-8">
-              <div className="w-full xl:sticky xl:top-6 xl:col-start-2 xl:row-start-1 xl:self-start">
-                <SpieltagRail banners={banners} />
-              </div>
+          <FormZeitraumSection
+            beginn={beginn}
+            ende={ende}
+            onBeginnChange={(next) => {
+              setBeginn(next);
+              // Both paths, because the span refinement reports on `ende` whichever date moved.
+              validatePicked(["beginn", "ende"], { beginn: next });
+            }}
+            onEndeChange={(next) => {
+              setEnde(next);
+              validatePicked(["beginn", "ende"], { ende: next });
+            }}
+            saisonSpan={saisonSpan}
+            banners={banners}
+          />
 
-              <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:col-start-1 xl:row-start-1 xl:mx-0 xl:max-w-none">
-                <FormPhaseSection
-                  phase={phase}
-                  onChange={(next) => {
-                    setPhase(next);
-                    validatePicked(["saison_phase"], { saison_phase: next });
-                  }}
-                  phaseOffer={phaseOffer}
-                  banners={banners}
-                />
+          {/* Last on the page and in the danger tone, the position the squad editor's Austragen
+              panel holds. */}
+          <FormStilllegenSection
+            spieltagId={spieltag.id}
+            label={spieltag.label}
+            inactiveSince={spieltag.inactive_since}
+            isRetireable={isRetireable}
+            banners={banners}
+          />
+        </EditFormLayout>
 
-                <FormZeitraumSection
-                  beginn={beginn}
-                  ende={ende}
-                  onBeginnChange={(next) => {
-                    setBeginn(next);
-                    // Both paths, because the span refinement reports on `ende` whichever date moved.
-                    validatePicked(["beginn", "ende"], { beginn: next });
-                  }}
-                  onEndeChange={(next) => {
-                    setEnde(next);
-                    validatePicked(["beginn", "ende"], { ende: next });
-                  }}
-                  saisonSpan={saisonSpan}
-                  banners={banners}
-                />
-
-                {/* Last on the page and in the danger tone, the position the squad editor's Austragen
-                    panel holds. */}
-                <FormStilllegenSection
-                  spieltagId={spieltag.id}
-                  label={spieltag.label}
-                  inactiveSince={spieltag.inactive_since}
-                  isRetireable={isRetireable}
-                  banners={banners}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <SpieltagActionBar
+        <FormActionBar
           isPending={isPending}
           onCancel={requestLeave}
         />
@@ -373,6 +369,6 @@ export function AdminSpieltagEditForm({
           handleFormSubmit();
         }}
       />
-    </SpieltagDraftStatusProvider>
+    </DraftStatusProvider>
   );
 }

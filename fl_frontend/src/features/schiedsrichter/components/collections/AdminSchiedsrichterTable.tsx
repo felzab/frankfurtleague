@@ -133,7 +133,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="fluid-sm text-foreground-muted font-medium">
+      <p className="muted-hint">
         {schiedsrichterQuery ? "Keine Schiedsrichter für diese Suche gefunden." : "Es wurden noch keine Schiedsrichter angelegt."}
       </p>
     </div>

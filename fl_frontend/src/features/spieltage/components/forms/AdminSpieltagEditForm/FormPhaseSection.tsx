@@ -3,13 +3,12 @@
 import { FieldError, ListBox, Select } from "@heroui/react";
 
 import { PHASE_LABELS } from "@/features/saisons/constants";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
-
-import { SpieltagFieldLabel } from "./SpieltagFieldLabel";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { SpieltagPhaseOffer } from "@/features/spieltage/utils";
@@ -69,7 +68,7 @@ export function FormPhaseSection({
             onChange(key.toString() as FLSaisonPhase);
           }}
           className="w-full sm:max-w-sm">
-          <SpieltagFieldLabel path="saison_phase">Phase</SpieltagFieldLabel>
+          <FieldLabel path="saison_phase">Phase</FieldLabel>
           <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
             {/* From the prop, not `Select.Value` — the collection can lag a render behind and would
                 show HeroUI's English placeholder. Same reasoning as `ClosedSetSelect`'s trigger. */}

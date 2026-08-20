@@ -33,7 +33,7 @@ export default function LandingPage() {
                 Die Saison läuft! Wer holt sich den <span className="text-brand">Titel</span>?
               </h1>
 
-              <p className="fluid-sm text-foreground-muted max-w-xl font-medium">
+              <p className="muted-hint max-w-xl">
                 Sehe alle wichtigen Daten der Frankfurt-League ein, verfolge Spieltage, Ergebnisse, Tabellen und mehr...
               </p>
             </div>

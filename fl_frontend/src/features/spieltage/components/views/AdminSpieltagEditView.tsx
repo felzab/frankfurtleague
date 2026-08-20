@@ -68,10 +68,10 @@ export function AdminSpieltagEditView({
                   </span>
                 )}
               </div>
-              <p className="fluid-sm text-foreground-muted font-medium">
+              <p className="muted-hint">
                 Saison {spieltag.saison_id} · {formatSpielDatum(spieltag.beginn)} – {formatSpielDatum(spieltag.ende)}
               </p>
-              <p className="fluid-sm text-foreground-muted font-medium">Änderungen gelten erst, wenn Du speicherst.</p>
+              <p className="muted-hint">Änderungen gelten erst, wenn Du speicherst.</p>
             </header>
           </>
         }

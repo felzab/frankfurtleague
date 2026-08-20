@@ -5,16 +5,18 @@ import { Xmark } from "@gravity-ui/icons";
 import { Calendar, DateField, DatePicker, FieldError, TimeField } from "@heroui/react";
 
 import { dismissControl } from "@/core/dismissControl";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
   DATE_PICKER_CALENDAR,
   DATE_PICKER_PLACEMENT,
   DATE_PICKER_POPOVER,
   FIELD_ERROR,
   FIELD_GROUP,
+  FIELD_PAIR,
 } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
-import { FieldLabel } from "./FieldLabel";
+import { ExpectedMarker } from "./ExpectedMarker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { CalendarDate, Time } from "@internationalized/date";
@@ -71,7 +73,7 @@ export function FormDateTimeSection({
 
   return (
     <div
-      className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2"
+      className={FIELD_PAIR}
       onKeyDownCapture={suppressEnterSubmit}>
       <DatePicker
         value={datum}
@@ -79,7 +81,11 @@ export function FormDateTimeSection({
         onBlur={() => onValidateFields(["datum"])}
         name="datum"
         className="w-full">
-        <FieldLabel path="datum">Spieldatum</FieldLabel>
+        <FieldLabel
+          path="datum"
+          extraMarker={<ExpectedMarker path="datum" />}>
+          Spieldatum
+        </FieldLabel>
         <DateField.Group
           ref={datumGroupRef}
           tabIndex={-1}
@@ -141,7 +147,11 @@ export function FormDateTimeSection({
         value={uhrzeit}
         onChange={onUhrzeitChange}
         onBlur={() => onValidateFields(["uhrzeit"])}>
-        <FieldLabel path="uhrzeit">Anpfiff</FieldLabel>
+        <FieldLabel
+          path="uhrzeit"
+          extraMarker={<ExpectedMarker path="uhrzeit" />}>
+          Anpfiff
+        </FieldLabel>
         <TimeField.Group
           ref={uhrzeitGroupRef}
           tabIndex={-1}

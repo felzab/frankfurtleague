@@ -93,26 +93,40 @@ export type FLExpectedSeverity = "required" | "recommended";
 const severityFor = (category: ActionRequiredCategory): FLExpectedSeverity =>
   category === "ort_missing" || category === "schiedsrichter_missing" ? "recommended" : "required";
 
-export type FLSpielFieldStatus = {
+/**
+ * The whole of what a waited-on field hands `SpielExpectedContext.tsx` — no draft status beside it,
+ * because the shared `DraftStatusContext.tsx` already carries that for every editor alike.
+ */
+export type FLSpielExpectedField = {
+  path: string;
+  label: string;
+  expectedSeverity: FLExpectedSeverity;
+};
+
+type FLSpielFieldStatus = {
   /** Dotted payload path; also the input's `name`, the `FieldErrors` key and the anchor id. */
   path: string;
   /** German, sentence case. Used in the change list and the open-items list, not as the field's label. */
   label: string;
   group: FLSpielFieldGroup;
   isChanged: boolean;
-  /** Empty, and an action-required category says somebody is waiting on it. */
-  isExpected: boolean;
+  /** Set exactly when the field is empty and an action-required category says somebody is waiting on it. */
   expectedSeverity: FLExpectedSeverity | null;
   error: string | null;
   storedText: string | null;
   draftText: string | null;
 };
 
+/**
+ * Assignable to `FLDraftStatus<string>`, which the shared rail sections, action bar and field labels
+ * read. `expected` is the one part no other editor has; `AdminEditSpielDataForm` proves the fit by
+ * handing this to `DraftStatusProvider`.
+ */
 export type FLSpielDraftStatus = {
   fields: readonly FLSpielFieldStatus[];
   byPath: ReadonlyMap<string, FLSpielFieldStatus>;
   changed: readonly FLSpielFieldStatus[];
-  expected: readonly FLSpielFieldStatus[];
+  expected: readonly FLSpielExpectedField[];
   invalid: readonly FLSpielFieldStatus[];
   isDirty: boolean;
 };
@@ -377,7 +391,6 @@ export function deriveSpielDraftStatus({
       label: descriptor.label,
       group: descriptor.group,
       isChanged: descriptor.hasChanged(stored, draft),
-      isExpected,
       expectedSeverity: isExpected && descriptor.expectedWhen !== null ? severityFor(descriptor.expectedWhen) : null,
       error,
       storedText: descriptor.format(stored),
@@ -391,7 +404,9 @@ export function deriveSpielDraftStatus({
     fields,
     byPath: new Map(fields.map((field) => [field.path, field])),
     changed,
-    expected: fields.filter((field) => field.isExpected),
+    // The severity is set exactly when a field is waited on, so one test both selects the rows and
+    // narrows them to the three keys the marker and the open-items card read.
+    expected: fields.filter((field): field is FLSpielFieldStatus & FLSpielExpectedField => field.expectedSeverity !== null),
     invalid: fields.filter((field) => field.error !== null),
     isDirty: changed.length > 0,
   };

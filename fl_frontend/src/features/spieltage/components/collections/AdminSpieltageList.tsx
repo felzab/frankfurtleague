@@ -86,11 +86,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     if (progress === undefined) {
       // Defensive, not a state this page reaches: `Map.get` needs narrowing, and a resolved season's
       // schedule always holds the group phase.
-      return (
-        <span className="fluid-xs text-foreground-muted font-medium">
-          {shownCount === 1 ? "1 Spieltag" : `${String(shownCount)} Spieltage`}
-        </span>
-      );
+      return <span className="muted-meta">{shownCount === 1 ? "1 Spieltag" : `${String(shownCount)} Spieltage`}</span>;
     }
 
     // The noun agrees with the EXPECTED count, the number it belongs to: „1 von 1 Spieltag“.
@@ -164,7 +160,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   if (filteredSpieltage.length === 0) {
     return (
       <div className={`${card()} flex w-full flex-col items-center justify-center gap-3 py-16 text-center`}>
-        <p className="fluid-sm text-foreground-muted font-medium">
+        <p className="muted-hint">
           {spieltageQuery ? "Keine Spieltage für diese Suche gefunden." : "Für diese Saison wurden noch keine Spieltage angelegt."}
         </p>
       </div>
@@ -239,9 +235,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       {phasesWithout.length > 0 && (
         // „aktiven“ is load-bearing: `angelegt` counts live matchdays alone, so a phase whose
         // only matchday is retired is named here.
-        <p className="fluid-xs text-foreground-muted font-medium">
-          Ohne aktiven Spieltag: {phasesWithout.map((phase) => PHASE_LABELS[phase]).join(", ")}.
-        </p>
+        <p className="muted-meta">Ohne aktiven Spieltag: {phasesWithout.map((phase) => PHASE_LABELS[phase]).join(", ")}.</p>
       )}
 
       {/* One link out, at the foot: the same matchdays as a visitor sees them, which is the check that the

@@ -4,12 +4,13 @@ import { Xmark } from "@gravity-ui/icons";
 
 import { FieldError, TextArea, TextField } from "@heroui/react";
 
+import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
-import { useFieldStatus } from "./DraftStatusContext";
-import { FieldLabel } from "./FieldLabel";
+import { ExpectedMarker } from "./ExpectedMarker";
 
 /**
  * **Its own panel, outside Ergebnis**, whose fields arm behind a deliberate unlock flip: a note is
@@ -59,7 +60,11 @@ export function FormNotizSection({
           onChange={(next) => onNotizChange(next === "" ? null : next)}
           onBlur={() => onValidateFields(["notiz"])}
           isInvalid={status?.error ? true : undefined}>
-          <FieldLabel path="notiz">Notiz zum Spiel</FieldLabel>
+          <FieldLabel
+            path="notiz"
+            extraMarker={<ExpectedMarker path="notiz" />}>
+            Notiz zum Spiel
+          </FieldLabel>
           <TextArea
             ref={notizRef}
             fullWidth
@@ -70,7 +75,8 @@ export function FormNotizSection({
 
           {/* The row is reserved whether the button is in it or not: `hasNotiz` flips on the first
               character typed, and a control arriving then would push the panels below down the page
-              — the shift `FieldLabel`'s own `min-h-5` reserve exists to stop. */}
+              — the shift `fl_frontend/src/shared/components/ui/FieldLabel.tsx :: FieldLabel`'s own `min-h-5` reserve
+              exists to stop. */}
           <div className="flex min-h-7 w-full flex-row items-center">
             {/* No confirmation: nothing is written until Speichern, so this is an ordinary draft edit
                 — the same call `FormDateTimeSection.tsx :: ClearFieldButton` makes, and a plain button

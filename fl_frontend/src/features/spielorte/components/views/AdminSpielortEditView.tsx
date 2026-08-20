@@ -77,8 +77,8 @@ export function AdminSpielortEditView({
                   </Button>
                 )}
               </div>
-              <p className="fluid-sm text-foreground-muted font-medium">{formatAddressFull(spielort.address)}</p>
-              <p className="fluid-sm text-foreground-muted font-medium">Änderungen gelten erst, wenn Du speicherst.</p>
+              <p className="muted-hint">{formatAddressFull(spielort.address)}</p>
+              <p className="muted-hint">Änderungen gelten erst, wenn Du speicherst.</p>
             </header>
           </>
         }

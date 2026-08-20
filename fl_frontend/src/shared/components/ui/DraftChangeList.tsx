@@ -5,7 +5,7 @@ import { Pencil, Plus, Xmark } from "@gravity-ui/icons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
-/** The structural slice a field status must satisfy, which is what lets one list serve both editors without importing a feature. */
+/** The structural slice a field status must satisfy, which is what lets one list serve every editor without importing a feature. */
 export type DraftChangeRow = {
   path: string;
   label: string;
@@ -32,7 +32,7 @@ const OPERATION_PRESENTATION: Record<DraftOperation, { icon: typeof Plus; cls: s
  */
 export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[] }) {
   if (changed.length === 0) {
-    return <p className="fluid-xs text-foreground-muted font-medium">Noch keine Änderungen.</p>;
+    return <p className="muted-meta">Noch keine Änderungen.</p>;
   }
 
   // Insertion order follows `changed`, which follows the descriptor table — the panels' own order.

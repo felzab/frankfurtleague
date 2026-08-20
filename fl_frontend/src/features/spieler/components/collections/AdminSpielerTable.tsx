@@ -149,9 +149,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="fluid-sm text-foreground-muted font-medium">
-        {spielerQuery ? "Keine Spieler für diese Suche gefunden." : "Es wurden noch keine Spieler angelegt."}
-      </p>
+      <p className="muted-hint">{spielerQuery ? "Keine Spieler für diese Suche gefunden." : "Es wurden noch keine Spieler angelegt."}</p>
     </div>
   );
 

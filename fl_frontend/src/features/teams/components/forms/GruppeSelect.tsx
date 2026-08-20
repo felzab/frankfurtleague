@@ -34,7 +34,7 @@ export function GruppeSelect({
    * a caller with no `<Form>`, and for the entry control whose write is not the form's.
    */
   error?: string;
-  /** Off for the caller whose label is a marker-carrying `TeamFieldLabel` rendered outside. */
+  /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
 }) {
   const handleChange = (key: Key | null) => {

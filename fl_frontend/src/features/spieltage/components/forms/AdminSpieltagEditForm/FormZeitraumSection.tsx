@@ -3,11 +3,11 @@
 import { parseDate } from "@internationalized/date";
 
 import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormControls";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
+import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-
-import { SpieltagFieldLabel } from "./SpieltagFieldLabel";
 
 import type { SpieltagBanner } from "./banners";
 
@@ -65,14 +65,14 @@ export function FormZeitraumSection({
           spot="zeitraum"
         />
 
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className={FIELD_PAIR}>
           <SaisonDateField
             isRequired
             name="beginn"
             minValue={spanStart}
             maxValue={spanEnd}
             ariaLabel="Beginn auswählen"
-            label={<SpieltagFieldLabel path="beginn">Beginn</SpieltagFieldLabel>}
+            label={<FieldLabel path="beginn">Beginn</FieldLabel>}
             value={asCalendarDate(beginn)}
             onChange={(next) => onBeginnChange(next?.toString() ?? "")}
           />
@@ -82,7 +82,7 @@ export function FormZeitraumSection({
             minValue={spanStart}
             maxValue={spanEnd}
             ariaLabel="Ende auswählen"
-            label={<SpieltagFieldLabel path="ende">Ende</SpieltagFieldLabel>}
+            label={<FieldLabel path="ende">Ende</FieldLabel>}
             value={asCalendarDate(ende)}
             onChange={(next) => onEndeChange(next?.toString() ?? "")}
           />

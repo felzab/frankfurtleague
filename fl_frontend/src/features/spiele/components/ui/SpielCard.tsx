@@ -11,6 +11,7 @@ import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
 import { computeSpielStatus, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
+import { SpielScore } from "./SpielScore";
 import { SpielStatusChip } from "./SpielStatusChip";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
@@ -57,7 +58,7 @@ export function SpielCard({
       <div className="flex w-full flex-row items-center justify-between">
         <div className="flex flex-col">
           <span className="fluid-sm text-foreground font-bold">{spielDatum}</span>
-          <span className="fluid-xs text-foreground-muted font-medium">{spielUhrzeit}</span>
+          <span className="muted-meta">{spielUhrzeit}</span>
         </div>
 
         <div className="flex w-full items-center justify-end gap-x-2">
@@ -108,11 +109,11 @@ export function SpielCard({
         {/* `-strong`, not the plain accents: the tokens' rule is plain for fills, `-strong` for
             text on a tint, and this sits on `bg-muted`. The shoot-out is a SECOND LINE in the same
             cell, so the two 1fr team tracks are unaffected. */}
-        <span
-          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
-          {spielErgebnis}
-          {spielElfmeterschiessen !== null && <span className="fluid-xxs font-semibold whitespace-nowrap">{spielElfmeterschiessen}</span>}
-        </span>
+        <SpielScore
+          ergebnis={spielErgebnis}
+          elfmeterschiessen={spielElfmeterschiessen}
+          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}
+        />
 
         <span className="flex min-w-0 justify-start">
           <SpielTeamSlot

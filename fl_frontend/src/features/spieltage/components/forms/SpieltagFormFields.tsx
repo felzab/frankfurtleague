@@ -7,38 +7,29 @@ import { FieldError, Label, ListBox, Select } from "@heroui/react";
 import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { Callout } from "@/shared/components/ui/Callout";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
+import type { SpieltagCreateDraft } from "@/features/spieltage/types";
 import type { SpieltagPhaseOffer } from "@/features/spieltage/utils";
 import type { Key } from "@heroui/react";
-
-/**
- * The three fields a matchday carries, shared by the create and edit dialogs. **The date control is
- * the season slice's**, imported rather than rewritten — the cross-feature import is legal because
- * that lint is scoped to `core` and `shared`.
- */
-
-/** What both dialogs hold while editing, before either adds its own id or season. */
-export type SpieltagFormDraft = {
-  beginn: string;
-  ende: string;
-  saison_phase: FLSaisonPhase | null;
-};
 
 /** The draft holds the payload's own strings and the picker wants a `CalendarDate` — see the season form. */
 const asCalendarDate = (value: string) => (value === "" ? null : parseDate(value));
 
-export function SpieltagFormFields<T extends SpieltagFormDraft>({
+/**
+ * `AdminCreateSpieltagForm`'s fields. **The date control is the season slice's**, imported rather than
+ * rewritten — the cross-feature import is legal because that lint is scoped to `core` and `shared`.
+ */
+export function SpieltagFormFields({
   draft,
   onChange,
-  errors,
   saisonSpan,
   phaseOffer,
 }: {
-  draft: T;
-  onChange: (updatedDraft: T) => void;
+  draft: SpieltagCreateDraft;
+  onChange: (updatedDraft: SpieltagCreateDraft) => void;
   /**
    * Every phase with this season's expected match count, and whether the attached fixtures still fit
    * (`REQ-SPIELTAG-002`). The counts are the SERVED schedule, not arithmetic repeated here.
@@ -49,11 +40,6 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
    * means the admin never picks one the endpoint would refuse.
    */
   saisonSpan?: { start: string; end: string };
-  /**
-   * Server messages keyed by payload path, for a caller outside a `<Form>` context. Left undefined by
-   * the `EntityForm` callers, where the context supplies the same messages.
-   */
-  errors?: Record<string, string | undefined>;
 }) {
   const isEndBeforeStart = draft.beginn !== "" && draft.ende !== "" && draft.ende < draft.beginn;
 
@@ -73,7 +59,6 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
           if (!key) return;
           onChange({ ...draft, saison_phase: key.toString() as FLSaisonPhase });
         }}
-        isInvalid={errors?.["saison_phase"] ? true : undefined}
         className="w-full">
         <Label className={FIELD_LABEL}>Phase</Label>
         <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
@@ -84,7 +69,7 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
           </span>
           <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
         </Select.Trigger>
-        <FieldError className={FIELD_ERROR}>{errors?.["saison_phase"]}</FieldError>
+        <FieldError className={FIELD_ERROR} />
         <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
           <ListBox aria-label="Phasen">
             {phaseOffer.map(({ phase, expected, fits }) => (
@@ -108,7 +93,7 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
 
       <div className="flex w-full flex-col gap-y-3">
         <h3 className={FORM_SECTION_HEADING}>Zeitraum</h3>
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className={FIELD_PAIR}>
           <SaisonDateField
             isRequired
             name="beginn"

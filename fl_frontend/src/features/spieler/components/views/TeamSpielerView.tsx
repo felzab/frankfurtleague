@@ -62,7 +62,7 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
             <Table.Body
               renderEmptyState={() => (
                 <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                  <p className="fluid-sm text-foreground-muted font-medium">Für dieses Team ist noch kein Kader eingetragen.</p>
+                  <p className="muted-hint">Für dieses Team ist noch kein Kader eingetragen.</p>
                 </div>
               )}>
               {teamSpieler.map((spielerData) => (
@@ -87,13 +87,9 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
                     </div>
                   </Table.Cell>
 
-                  <Table.Cell className="fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-mono font-medium lg:px-4">
-                    {spielerData.nummer || "-"}
-                  </Table.Cell>
+                  <Table.Cell className="muted-meta w-1 px-1 py-4 text-center font-mono lg:px-4">{spielerData.nummer || "-"}</Table.Cell>
 
-                  <Table.Cell className="fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-medium lg:px-4">
-                    {spielerData.stufe || "-"}
-                  </Table.Cell>
+                  <Table.Cell className="muted-meta w-1 px-1 py-4 text-center lg:px-4">{spielerData.stufe || "-"}</Table.Cell>
 
                   <Table.Cell className="w-1 px-1 py-4 whitespace-nowrap lg:px-4">
                     <div className="flex justify-end">

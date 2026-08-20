@@ -11,7 +11,7 @@ import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLPostSaisonPayload } from "@/features/saisons/schemas";
 
@@ -72,7 +72,7 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
             Jedes Spiel und jeder Spieltag der Saison verweist auf sie. Vier Zeichen, üblich sind die beiden Jahreszahlen.
           </Callout>
 
-          <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className={FIELD_PAIR}>
             <SaisonDateField
               isRequired
               name="start_date"
@@ -93,7 +93,7 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
 
           <div className="flex w-full flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING}>Punkte</h3>
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className={FIELD_PAIR}>
               <SaisonRuleNumberField
                 name="rules.win_points"
                 label={<Label className={FIELD_LABEL}>Sieg</Label>}

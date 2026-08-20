@@ -436,6 +436,24 @@ html:has([data-app-shell]) {
   line-height: var(--fl-type-3xl--leading);
 }
 
+/* Two muted-text recipes: `hint` explains a control, `meta` captions or counts. NEVER name one
+   `text-*` — tailwind-merge reads that prefix as a colour and drops the whole recipe when one is
+   combined with it, where the spelled-out form loses only the colour. */
+@utility muted-hint {
+  @apply fluid-sm text-foreground-muted font-medium;
+}
+
+@utility muted-meta {
+  @apply fluid-xs text-foreground-muted font-medium;
+}
+
+/* A rail card's badge cluster, decorative so the fold button behind it takes the click. Here rather
+   than in `admin.css`, which alone loads under `/admin`: an `@utility` emits nothing from a
+   `@reference`-only sheet, and ESLint resolves class names against this file. */
+@utility rail-marker {
+  @apply pointer-events-none flex flex-row items-center gap-x-1;
+}
+
 /* Only for a NARROW, CENTRED scroll container. On the 72px collapsed sidemenu
    rail, a ~15px reservation on one edge alone put the icons ~7px left of the
    rail's true centre. */
