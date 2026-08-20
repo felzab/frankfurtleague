@@ -1,18 +1,25 @@
 import asyncio
-from typing import Any, Awaitable, Callable, Mapping
+from typing import Any, Awaitable, Callable, Iterable, Mapping
 
 import pytest
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo.errors import OperationFailure
 
 from app.api.schiedsrichter.admin_router import patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPatchSchiedsrichterResponse
 from app.api.spielorte.admin_router import patch_spielort
 from app.api.spielorte.schemas import FLPatchSpielortPayload, FLPatchSpielortResponse
+from app.api.teams.admin_router import patch_team
+from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse
+from app.core.collections import Collection
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = "fl_reference_fanout_test"
+
+# Named rather than caught broadly: another failure must not read as the rollback this suite proves.
+DOCUMENT_VALIDATION_FAILED = 121
 
 # Fixed rather than generated, so a failure names the same row every run.
 SPIELORT_OID = ObjectId("6890a1b2c3d4e5f607400001")
@@ -22,6 +29,10 @@ UNUSED_SPIELORT_OID = ObjectId("6890a1b2c3d4e5f607400003")
 SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607400011")
 OTHER_SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607400012")
 UNUSED_SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607400013")
+
+TEAM_OID = ObjectId("6890a1b2c3d4e5f607400021")
+OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607400022")
+THIRD_TEAM_OID = ObjectId("6890a1b2c3d4e5f607400023")
 
 VENUE_NAMES = {
     SPIELORT_OID: "Sportplatz Ost",
@@ -36,9 +47,18 @@ REFEREE_NAMES = {
     UNUSED_SCHIEDSRICHTER_OID: "Clara Roth",
 }
 
+CLUB_NAMES = {
+    TEAM_OID: ("Carl-Schurz", "CS"),
+    OTHER_TEAM_OID: ("Lessing", "LE"),
+    THIRD_TEAM_OID: ("Wöhler", "WÖ"),
+}
+
 RENAMED_VENUE = "Sportplatz Nord"
 # An umlaut, so the value travelling the fan-out is one an ASCII-only name rule would have refused.
 RENAMED_REFEREE = "Anna Körner"
+RENAMED_CLUB = "Carl-Schurz-Gymnasium"
+# Both writable copies change, so a pass writing one field and not the other shows on the fixtures.
+RENAMED_SHORTHAND = "CG"
 
 ADDRESS = {
     "strasse": "Hanauer Landstraße",
@@ -49,6 +69,8 @@ ADDRESS = {
 }
 
 KONTAKT = {"telefon": "+49 69 1234567", "email": "kontakt@example.com"}
+
+WEBSITE_URL = "https://example.com"
 
 SEEDED_DEFAULT_MIETPREIS = 80
 SEEDED_DEFAULT_PAYMENT = 20
@@ -64,14 +86,29 @@ FIXTURES: dict[int, tuple[ObjectId, int, ObjectId, int]] = {
     2: (SPIELORT_OID, 95, SCHIEDSRICHTER_OID, 25),
     3: (SPIELORT_OID, 110, OTHER_SCHIEDSRICHTER_OID, 30),
     4: (OTHER_SPIELORT_OID, 120, OTHER_SCHIEDSRICHTER_OID, 35),
+    5: (OTHER_SPIELORT_OID, 130, OTHER_SCHIEDSRICHTER_OID, 40),
 }
 
-# Deliberately different counts: neither endpoint's tally can be right by borrowing the other's.
+# spiel_nr -> (home club, the goals it scored, away club, the goals it scored). The renamed club
+# stands on both sides, which is what makes the second `update_many` pass reachable.
+SIDES: dict[int, tuple[ObjectId, int, ObjectId, int]] = {
+    1: (TEAM_OID, 2, OTHER_TEAM_OID, 1),
+    2: (OTHER_TEAM_OID, 3, TEAM_OID, 0),
+    3: (TEAM_OID, 4, THIRD_TEAM_OID, 2),
+    4: (THIRD_TEAM_OID, 1, TEAM_OID, 5),
+    5: (OTHER_TEAM_OID, 0, THIRD_TEAM_OID, 6),
+}
+
+# Deliberately different counts: no endpoint's tally can be right by borrowing another's.
 AT_THE_VENUE = (1, 2, 3)
 WITH_THE_REFEREE = (1, 2)
+ON_TEAM1 = (1, 3)
+ON_TEAM2 = (2, 4)
 
-# The one fixture belonging to neither, so both filters are proved to exclude something.
+# A fixture belonging to neither the venue nor the referee, so both filters are proved to exclude something.
 ELSEWHERE = 4
+# And one the renamed club stands in on neither side, which is the same proof for the club filter.
+WITHOUT_THE_CLUB = 5
 
 
 def seeded_maps_link(name: str) -> str:
@@ -102,13 +139,41 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
     }
 
 
+def club_document(team_id: ObjectId) -> dict[str, Any]:
+    """Every field `FLTeamRecord` reads: the endpoint validates the document it wrote before echoing it."""
+
+    name, shorthand = CLUB_NAMES[team_id]
+
+    return {
+        "_id": team_id,
+        "name": name,
+        "shorthand": shorthand,
+        "description": "",
+        "full_name": f"{name}-Schule",
+        "website_url": WEBSITE_URL,
+        "address": dict(ADDRESS),
+        "inactive_since": None,
+    }
+
+
+def side(team_id: ObjectId, tore: int) -> dict[str, Any]:
+    """`tore` is the club side's equivalent of an agreed rent: the field beside the copies that must survive a rename."""
+
+    name, shorthand = CLUB_NAMES[team_id]
+
+    return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": tore}
+
+
 def fixture_document(spiel_nr: int) -> dict[str, Any]:
-    """Only the two embedded copies and the number naming the row: no other field takes part in a fan-out."""
+    """Only the embedded copies and the number naming the row: no other field takes part in a fan-out."""
 
     spielort_id, mietpreis, schiedsrichter_id, payment = FIXTURES[spiel_nr]
+    home, home_tore, away, away_tore = SIDES[spiel_nr]
 
     return {
         "spiel_nr": spiel_nr,
+        "team1": side(home, home_tore),
+        "team2": side(away, away_tore),
         "ort": {
             "spielort_id": spielort_id,
             "name": VENUE_NAMES[spielort_id],
@@ -123,21 +188,26 @@ def fixture_document(spiel_nr: int) -> dict[str, Any]:
     }
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
 
 
-def on_a_database(container: Any, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first runs on."""
+def on_a_database(url: str, body: Body) -> Any:
+    """A replica set, not the standalone: every endpoint here writes in a transaction.
+
+    One client and event loop per call: Motor binds to the loop it first runs on. Seeding runs outside
+    it, because a transaction cannot create a collection.
+    """
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(container.get_connection_url())
+        client = AsyncIOMotorClient(url)
         try:
             await client.drop_database(DATABASE_NAME)
             database = client[DATABASE_NAME]
-            await database.spielorte.insert_many([venue_document(oid) for oid in VENUE_NAMES])
-            await database.schiedsrichter.insert_many([referee_document(oid) for oid in REFEREE_NAMES])
-            await database.spiele.insert_many([fixture_document(spiel_nr) for spiel_nr in FIXTURES])
-            return await body(database)
+            await database[Collection.SPIELORTE].insert_many([venue_document(oid) for oid in VENUE_NAMES])
+            await database[Collection.SCHIEDSRICHTER].insert_many([referee_document(oid) for oid in REFEREE_NAMES])
+            await database[Collection.TEAMS].insert_many([club_document(oid) for oid in CLUB_NAMES])
+            await database[Collection.SPIELE].insert_many([fixture_document(spiel_nr) for spiel_nr in FIXTURES])
+            return await body(database, client)
         finally:
             await client.drop_database(DATABASE_NAME)
             client.close()
@@ -147,6 +217,7 @@ def on_a_database(container: Any, body: Body) -> Any:
 
 async def rename_the_venue(
     database: AsyncIOMotorDatabase,
+    client: AsyncIOMotorClient,
     spielort_id: ObjectId = SPIELORT_OID,
     name: str = RENAMED_VENUE,
 ) -> FLPatchSpielortResponse:
@@ -157,13 +228,15 @@ async def rename_the_venue(
         spielort_data=FLPatchSpielortPayload.model_validate(
             {"name": name, "address": dict(ADDRESS), "default_mietpreis": RENAMED_DEFAULT_MIETPREIS}
         ),
-        spielorte_collection=database.spielorte,
-        spiele_collection=database.spiele,
+        spielorte_collection=database[Collection.SPIELORTE],
+        spiele_collection=database[Collection.SPIELE],
+        db=client,
     )
 
 
 async def rename_the_referee(
     database: AsyncIOMotorDatabase,
+    client: AsyncIOMotorClient,
     schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID,
     name: str = RENAMED_REFEREE,
 ) -> FLPatchSchiedsrichterResponse:
@@ -174,67 +247,121 @@ async def rename_the_referee(
         schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(
             {"name": name, "schule": None, "kontakt": dict(KONTAKT), "default_payment": RENAMED_DEFAULT_PAYMENT}
         ),
-        schiedsrichter_collection=database.schiedsrichter,
-        spiele_collection=database.spiele,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spiele_collection=database[Collection.SPIELE],
+        db=client,
+    )
+
+
+async def rename_the_club(
+    database: AsyncIOMotorDatabase,
+    client: AsyncIOMotorClient,
+    team_id: ObjectId = TEAM_OID,
+    name: str = RENAMED_CLUB,
+) -> FLPatchTeamResponse:
+    """The shorthand moves with the name, because a match card shows whichever of the two fits."""
+
+    return await patch_team(
+        team_id=team_id,
+        team_data=FLPatchTeamPayload.model_validate(
+            {
+                "name": name,
+                "shorthand": RENAMED_SHORTHAND,
+                "description": "",
+                "full_name": f"{name}-Schule",
+                "website_url": WEBSITE_URL,
+                "address": dict(ADDRESS),
+            }
+        ),
+        teams_collection=database[Collection.TEAMS],
+        spiele_collection=database[Collection.SPIELE],
+        db=client,
     )
 
 
 async def stored_fixtures(database: AsyncIOMotorDatabase) -> dict[int, Mapping[str, Any]]:
     """Keyed by `spiel_nr`, so a failing assertion names the fixture rather than a list position."""
 
-    return {row["spiel_nr"]: row for row in await database.spiele.find().to_list(length=None)}
+    return {row["spiel_nr"]: row for row in await database[Collection.SPIELE].find().to_list(length=None)}
 
 
-def after_renaming_the_venue(container: Any, **overrides: Any) -> tuple[FLPatchSpielortResponse, dict[int, Mapping[str, Any]]]:
+async def stored_entities(database: AsyncIOMotorDatabase, collection: Collection) -> dict[Any, Mapping[str, Any]]:
+    """Keyed by `_id`, for the same reason the fixtures are keyed by their number."""
+
+    return {row["_id"]: row for row in await database[collection].find().to_list(length=None)}
+
+
+def only_these_names(path: str, allowed: Iterable[str]) -> dict[str, Any]:
+    """A `$jsonSchema` refusing any other value at `<path>.name`, which is how this repo forces a failure mid-transaction."""
+
+    return {"bsonType": "object", "properties": {path: {"bsonType": "object", "properties": {"name": {"enum": sorted(allowed)}}}}}
+
+
+async def refuse_writes_to_spiele(database: AsyncIOMotorDatabase, jsonschema: Mapping[str, Any]) -> None:
+    """Installed after the seeding, so it constrains only what a fan-out is about to write."""
+
+    await database.command("collMod", Collection.SPIELE.value, validator={"$jsonSchema": jsonschema}, validationLevel="strict")
+
+
+def after_renaming_the_venue(url: str, **overrides: Any) -> tuple[FLPatchSpielortResponse, dict[int, Mapping[str, Any]]]:
     """The response and the whole collection together: one seeded database serves the echo and the stored copies both."""
 
-    async def body(database: AsyncIOMotorDatabase) -> tuple[FLPatchSpielortResponse, dict[int, Mapping[str, Any]]]:
-        response = await rename_the_venue(database, **overrides)
+    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        response = await rename_the_venue(database, client, **overrides)
 
         return response, await stored_fixtures(database)
 
-    return on_a_database(container, body)
+    return on_a_database(url, body)
 
 
-def after_renaming_the_referee(container: Any, **overrides: Any) -> tuple[FLPatchSchiedsrichterResponse, dict[int, Mapping[str, Any]]]:
-    async def body(database: AsyncIOMotorDatabase) -> tuple[FLPatchSchiedsrichterResponse, dict[int, Mapping[str, Any]]]:
-        response = await rename_the_referee(database, **overrides)
+def after_renaming_the_referee(url: str, **overrides: Any) -> tuple[FLPatchSchiedsrichterResponse, dict[int, Mapping[str, Any]]]:
+    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        response = await rename_the_referee(database, client, **overrides)
 
         return response, await stored_fixtures(database)
 
-    return on_a_database(container, body)
+    return on_a_database(url, body)
+
+
+def after_renaming_the_club(url: str, **overrides: Any) -> tuple[FLPatchTeamResponse, dict[int, Mapping[str, Any]]]:
+    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        response = await rename_the_club(database, client, **overrides)
+
+        return response, await stored_fixtures(database)
+
+    return on_a_database(url, body)
 
 
 class TestAVenueRenameReachesTheFixturesThatEmbedIt:
     """`docs/backend/spec.md :: I13` against a real mongod: the fan-out is an `update_many` no response shape can prove."""
 
-    def test_the_name_is_rewritten_on_every_fixture_at_the_venue(self, mongo_container: Any):
-        _, fixtures = after_renaming_the_venue(mongo_container)
+    def test_the_name_is_rewritten_on_every_fixture_at_the_venue(self, mongo_replica_set_url: str):
+        _, fixtures = after_renaming_the_venue(mongo_replica_set_url)
 
         for spiel_nr in AT_THE_VENUE:
             assert fixtures[spiel_nr]["ort"]["name"] == RENAMED_VENUE
 
-    def test_the_maps_link_is_rewritten_alongside_the_name(self, mongo_container: Any):
+    def test_the_maps_link_is_rewritten_alongside_the_name(self, mongo_replica_set_url: str):
         """A stale link carries the old search string, which finds the wrong place rather than nothing."""
 
-        response, fixtures = after_renaming_the_venue(mongo_container)
+        response, fixtures = after_renaming_the_venue(mongo_replica_set_url)
 
         for spiel_nr in AT_THE_VENUE:
             assert fixtures[spiel_nr]["ort"]["maps_link"] == response.updated_document.maps_link
             assert fixtures[spiel_nr]["ort"]["maps_link"] != seeded_maps_link(VENUE_NAMES[SPIELORT_OID])
 
-    def test_each_fixture_keeps_the_rent_agreed_for_it(self, mongo_container: Any):
+    def test_each_fixture_keeps_the_rent_agreed_for_it(self, mongo_replica_set_url: str):
         """The rent on a match is what was agreed for that match. One word more in the `$set` rewrites every historical figure."""
 
-        _, fixtures = after_renaming_the_venue(mongo_container)
+        _, fixtures = after_renaming_the_venue(mongo_replica_set_url)
 
         for spiel_nr in AT_THE_VENUE:
             assert fixtures[spiel_nr]["ort"]["mietpreis"] == FIXTURES[spiel_nr][1]
 
-    def test_a_fixture_at_another_venue_keeps_its_whole_copy(self, mongo_container: Any):
+    def test_a_fixture_at_another_venue_keeps_its_whole_copy(self, mongo_replica_set_url: str):
         """Without this the cases above pass for a fan-out that ignores its filter and rewrites the collection."""
 
-        _, fixtures = after_renaming_the_venue(mongo_container)
+        _, fixtures = after_renaming_the_venue(mongo_replica_set_url)
         other = fixtures[ELSEWHERE]["ort"]
 
         assert other["name"] == VENUE_NAMES[OTHER_SPIELORT_OID]
@@ -243,83 +370,195 @@ class TestAVenueRenameReachesTheFixturesThatEmbedIt:
 
 
 class TestTheVenueFanOutReportsWhatItRewrote:
-    def test_the_count_is_the_number_of_fixtures_rewritten(self, mongo_container: Any):
-        response, _ = after_renaming_the_venue(mongo_container)
+    def test_the_count_is_the_number_of_fixtures_rewritten(self, mongo_replica_set_url: str):
+        response, _ = after_renaming_the_venue(mongo_replica_set_url)
 
         assert response.fanned_out_to_spiele == len(AT_THE_VENUE)
 
-    def test_a_venue_no_fixture_embeds_reports_none(self, mongo_container: Any):
+    def test_a_venue_no_fixture_embeds_reports_none(self, mongo_replica_set_url: str):
         """The venue itself is asserted on too, or the zero would also be what a patch that reached nothing reports."""
 
-        response, fixtures = after_renaming_the_venue(mongo_container, spielort_id=UNUSED_SPIELORT_OID)
+        response, fixtures = after_renaming_the_venue(mongo_replica_set_url, spielort_id=UNUSED_SPIELORT_OID)
 
         assert response.updated_document.name == RENAMED_VENUE
         assert response.fanned_out_to_spiele == 0
         assert fixtures[AT_THE_VENUE[0]]["ort"]["name"] == VENUE_NAMES[SPIELORT_OID]
 
-    def test_a_repeated_rename_reports_none(self, mongo_container: Any):
+    def test_a_repeated_rename_reports_none(self, mongo_replica_set_url: str):
         """`modified_count`, not `matched_count`: the fixtures still match the filter, and none of them changed."""
 
-        async def body(database: AsyncIOMotorDatabase) -> int:
-            await rename_the_venue(database)
-            repeated = await rename_the_venue(database)
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> int:
+            await rename_the_venue(database, client)
+            repeated = await rename_the_venue(database, client)
 
             return repeated.fanned_out_to_spiele
 
-        assert on_a_database(mongo_container, body) == 0
+        assert on_a_database(mongo_replica_set_url, body) == 0
 
 
 class TestARefereeRenameReachesTheFixturesThatEmbedThem:
-    def test_the_name_is_rewritten_on_every_fixture_they_officiate(self, mongo_container: Any):
-        _, fixtures = after_renaming_the_referee(mongo_container)
+    def test_the_name_is_rewritten_on_every_fixture_they_officiate(self, mongo_replica_set_url: str):
+        _, fixtures = after_renaming_the_referee(mongo_replica_set_url)
 
         for spiel_nr in WITH_THE_REFEREE:
             assert fixtures[spiel_nr]["schiedsrichter"]["name"] == RENAMED_REFEREE
 
-    def test_each_fixture_keeps_the_fee_agreed_for_it(self, mongo_container: Any):
+    def test_each_fixture_keeps_the_fee_agreed_for_it(self, mongo_replica_set_url: str):
         """The fee on a match is what was agreed for that match, exactly as a venue's rent is."""
 
-        _, fixtures = after_renaming_the_referee(mongo_container)
+        _, fixtures = after_renaming_the_referee(mongo_replica_set_url)
 
         for spiel_nr in WITH_THE_REFEREE:
             assert fixtures[spiel_nr]["schiedsrichter"]["payment"] == FIXTURES[spiel_nr][3]
 
-    def test_a_fixture_with_another_referee_keeps_its_whole_copy(self, mongo_container: Any):
-        _, fixtures = after_renaming_the_referee(mongo_container)
+    def test_a_fixture_with_another_referee_keeps_its_whole_copy(self, mongo_replica_set_url: str):
+        _, fixtures = after_renaming_the_referee(mongo_replica_set_url)
         other = fixtures[ELSEWHERE]["schiedsrichter"]
 
         assert other["name"] == REFEREE_NAMES[OTHER_SCHIEDSRICHTER_OID]
         assert other["payment"] == FIXTURES[ELSEWHERE][3]
 
-    def test_the_venue_copy_is_left_alone(self, mongo_container: Any):
+    def test_the_venue_copy_is_left_alone(self, mongo_replica_set_url: str):
         """Both fan-outs run `update_many` over one collection, so a `$set` naming the wrong path would still report a plausible count."""
 
-        _, fixtures = after_renaming_the_referee(mongo_container)
+        _, fixtures = after_renaming_the_referee(mongo_replica_set_url)
 
         for spiel_nr in WITH_THE_REFEREE:
             assert fixtures[spiel_nr]["ort"]["name"] == VENUE_NAMES[FIXTURES[spiel_nr][0]]
 
 
 class TestTheRefereeFanOutReportsWhatItRewrote:
-    def test_the_count_is_the_number_of_fixtures_rewritten(self, mongo_container: Any):
-        response, _ = after_renaming_the_referee(mongo_container)
+    def test_the_count_is_the_number_of_fixtures_rewritten(self, mongo_replica_set_url: str):
+        response, _ = after_renaming_the_referee(mongo_replica_set_url)
 
         assert response.fanned_out_to_spiele == len(WITH_THE_REFEREE)
 
-    def test_a_referee_no_fixture_embeds_reports_none(self, mongo_container: Any):
-        response, fixtures = after_renaming_the_referee(mongo_container, schiedsrichter_id=UNUSED_SCHIEDSRICHTER_OID)
+    def test_a_referee_no_fixture_embeds_reports_none(self, mongo_replica_set_url: str):
+        response, fixtures = after_renaming_the_referee(mongo_replica_set_url, schiedsrichter_id=UNUSED_SCHIEDSRICHTER_OID)
 
         assert response.updated_document.name == RENAMED_REFEREE
         assert response.fanned_out_to_spiele == 0
         assert fixtures[WITH_THE_REFEREE[0]]["schiedsrichter"]["name"] == REFEREE_NAMES[SCHIEDSRICHTER_OID]
 
-    def test_a_repeated_rename_reports_none(self, mongo_container: Any):
+    def test_a_repeated_rename_reports_none(self, mongo_replica_set_url: str):
         """`modified_count`, not `matched_count`: the fixtures still match the filter, and none of them changed."""
 
-        async def body(database: AsyncIOMotorDatabase) -> int:
-            await rename_the_referee(database)
-            repeated = await rename_the_referee(database)
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> int:
+            await rename_the_referee(database, client)
+            repeated = await rename_the_referee(database, client)
 
             return repeated.fanned_out_to_spiele
 
-        assert on_a_database(mongo_container, body) == 0
+        assert on_a_database(mongo_replica_set_url, body) == 0
+
+
+class TestAClubRenameReachesBothSidesOfItsFixtures:
+    def test_both_copies_are_rewritten_wherever_the_club_stands(self, mongo_replica_set_url: str):
+        """One `update_many` per slot: a fan-out running only the first leaves every away side stale."""
+
+        _, fixtures = after_renaming_the_club(mongo_replica_set_url)
+        renamed = (RENAMED_CLUB, RENAMED_SHORTHAND)
+
+        for spiel_nr in ON_TEAM1:
+            assert (fixtures[spiel_nr]["team1"]["name"], fixtures[spiel_nr]["team1"]["shorthand"]) == renamed
+        for spiel_nr in ON_TEAM2:
+            assert (fixtures[spiel_nr]["team2"]["name"], fixtures[spiel_nr]["team2"]["shorthand"]) == renamed
+
+    def test_each_side_keeps_the_goals_it_scored(self, mongo_replica_set_url: str):
+        """A result is not a display copy: one word more in the `$set` erases every score the club ever played to."""
+
+        _, fixtures = after_renaming_the_club(mongo_replica_set_url)
+
+        for spiel_nr in (*ON_TEAM1, *ON_TEAM2):
+            home_tore, away_tore = SIDES[spiel_nr][1], SIDES[spiel_nr][3]
+            assert (fixtures[spiel_nr]["team1"]["tore"], fixtures[spiel_nr]["team2"]["tore"]) == (home_tore, away_tore)
+
+    def test_a_fixture_the_club_stands_in_on_neither_side_is_untouched(self, mongo_replica_set_url: str):
+        """Without this the cases above pass for a pair of passes that ignore their filters."""
+
+        _, fixtures = after_renaming_the_club(mongo_replica_set_url)
+        home, _, away, _ = SIDES[WITHOUT_THE_CLUB]
+
+        assert fixtures[WITHOUT_THE_CLUB]["team1"]["name"] == CLUB_NAMES[home][0]
+        assert fixtures[WITHOUT_THE_CLUB]["team2"]["name"] == CLUB_NAMES[away][0]
+
+
+class TestTheClubFanOutReportsWhatItRewrote:
+    def test_the_count_sums_both_passes(self, mongo_replica_set_url: str):
+        """A club never plays itself, so no fixture is counted by both passes and the sum is a count of fixtures."""
+
+        response, _ = after_renaming_the_club(mongo_replica_set_url)
+
+        assert response.updated_document.name == RENAMED_CLUB
+        assert response.fanned_out_to_spiele == len(ON_TEAM1) + len(ON_TEAM2)
+
+
+class TestAMidFlightFailureTakesTheWholeRenameBack:
+    """The entity write and its fan-out are one transaction, so a refusal in the later write takes the earlier one back."""
+
+    def test_neither_the_venue_nor_its_fixtures_keep_the_new_name(self, mongo_replica_set_url: str):
+        """A validator admitting only the seeded venue names refuses the fan-out, once the venue document itself has been renamed."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await refuse_writes_to_spiele(database, only_these_names("ort", VENUE_NAMES.values()))
+
+            with pytest.raises(OperationFailure) as failure:
+                await rename_the_venue(database, client)
+
+            return failure.value.code, await stored_entities(database, Collection.SPIELORTE), await stored_fixtures(database)
+
+        code, venues, fixtures = on_a_database(mongo_replica_set_url, body)
+        venue = venues[SPIELORT_OID]
+
+        # Asserted on the code, so this cannot pass because something failed before the first write.
+        assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the fan-out, got code {code}"
+        # The validator constrains `spiele` alone, so the venue reading its seeded name can only mean the first write was taken back.
+        assert venue["name"] == VENUE_NAMES[SPIELORT_OID], "the venue kept a rename none of its fixtures got"
+        assert venue["default_mietpreis"] == SEEDED_DEFAULT_MIETPREIS
+        for spiel_nr in AT_THE_VENUE:
+            assert fixtures[spiel_nr]["ort"]["name"] == VENUE_NAMES[SPIELORT_OID]
+
+    def test_neither_the_referee_nor_their_fixtures_keep_the_new_name(self, mongo_replica_set_url: str):
+        """The same shape as the venue's, against the endpoint whose fan-out writes one field."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await refuse_writes_to_spiele(database, only_these_names("schiedsrichter", REFEREE_NAMES.values()))
+
+            with pytest.raises(OperationFailure) as failure:
+                await rename_the_referee(database, client)
+
+            return failure.value.code, await stored_entities(database, Collection.SCHIEDSRICHTER), await stored_fixtures(database)
+
+        code, referees, fixtures = on_a_database(mongo_replica_set_url, body)
+        referee = referees[SCHIEDSRICHTER_OID]
+
+        assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the fan-out, got code {code}"
+        assert referee["name"] == REFEREE_NAMES[SCHIEDSRICHTER_OID], "the referee kept a rename none of their fixtures got"
+        assert referee["default_payment"] == SEEDED_DEFAULT_PAYMENT
+        for spiel_nr in WITH_THE_REFEREE:
+            assert fixtures[spiel_nr]["schiedsrichter"]["name"] == REFEREE_NAMES[SCHIEDSRICHTER_OID]
+
+    def test_neither_slot_keeps_a_rename_the_other_could_not_take(self, mongo_replica_set_url: str):
+        """The validator constrains `team2` alone, so the club document and every `team1` copy have landed when the second pass is refused."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            allowed = [name for name, _ in CLUB_NAMES.values()]
+            await refuse_writes_to_spiele(database, only_these_names("team2", allowed))
+
+            with pytest.raises(OperationFailure) as failure:
+                await rename_the_club(database, client)
+
+            return failure.value.code, await stored_entities(database, Collection.TEAMS), await stored_fixtures(database)
+
+        code, clubs, fixtures = on_a_database(mongo_replica_set_url, body)
+        club = clubs[TEAM_OID]
+        seeded_name, seeded_shorthand = CLUB_NAMES[TEAM_OID]
+
+        assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the second pass, got code {code}"
+        # The first pass first: it is the write with something behind it, and the club document below would mask it.
+        for spiel_nr in ON_TEAM1:
+            assert fixtures[spiel_nr]["team1"]["name"] == seeded_name, "the first pass outlived a rolled-back rename"
+            assert fixtures[spiel_nr]["team1"]["shorthand"] == seeded_shorthand
+        for spiel_nr in ON_TEAM2:
+            assert fixtures[spiel_nr]["team2"]["name"] == seeded_name
+        assert (club["name"], club["shorthand"]) == (seeded_name, seeded_shorthand), "the club kept a rename none of its fixtures got"

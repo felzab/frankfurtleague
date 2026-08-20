@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
+from motor.motor_asyncio import AsyncIOMotorClientSession
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.schemas import (
@@ -35,6 +36,7 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
+    DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
     SpieleCollection,
@@ -87,6 +89,7 @@ async def patch_team(
     team_data: Annotated[FLPatchTeamPayload, Body()],
     teams_collection: TeamsCollection,
     spiele_collection: SpieleCollection,
+    db: DBClient,
 ) -> FLPatchTeamResponse:
     """
     Update a club, then rewrite the name and shorthand embedded in its matches.
@@ -95,23 +98,32 @@ async def patch_team(
     shows a stale name indefinitely.
     """
 
-    updated_raw = await patch_one_in_db(
-        collection=teams_collection,
-        db_filter={"_id": team_id},
-        update={"$set": team_data.model_dump(mode="json")},
-    )
-
-    # Two passes: one `update_many` cannot write a different path per document.
-    fanned_out = 0
-    for slot in ("team1", "team2"):
-        result = await patch_many_in_db(
-            collection=spiele_collection,
-            db_filter={f"{slot}.team_id": team_id},
-            update={"$set": {f"{slot}.name": team_data.name, f"{slot}.shorthand": team_data.shorthand}},
+    async def rename_and_fan_out(session: AsyncIOMotorClientSession) -> FLPatchTeamResponse:
+        updated_raw = await patch_one_in_db(
+            collection=teams_collection,
+            db_filter={"_id": team_id},
+            update={"$set": team_data.model_dump(mode="json")},
+            session=session,
         )
-        fanned_out += result.modified_count
 
-    return FLPatchTeamResponse(updated_document=FLTeamRecord.model_validate(updated_raw), fanned_out_to_spiele=fanned_out)
+        # Two passes: one `update_many` cannot write a different path per document.
+        fanned_out = 0
+        for slot in ("team1", "team2"):
+            result = await patch_many_in_db(
+                collection=spiele_collection,
+                db_filter={f"{slot}.team_id": team_id},
+                update={"$set": {f"{slot}.name": team_data.name, f"{slot}.shorthand": team_data.shorthand}},
+                session=session,
+            )
+            fanned_out += result.modified_count
+
+        return FLPatchTeamResponse(updated_document=FLTeamRecord.model_validate(updated_raw), fanned_out_to_spiele=fanned_out)
+
+    # One transaction over the three writes: a club renamed on `team1` and not on `team2` leaves
+    # one fixture disagreeing with itself. `with_transaction` over a bare `start_transaction` --
+    # every write derives from the payload, so a retry is safe.
+    async with await db.start_session() as session:
+        return await session.with_transaction(rename_and_fan_out)
 
 
 @router.delete(by_id("team_id"), response_model=FLTeamWriteResponse, summary="Retire a team (soft delete)")

@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
+from motor.motor_asyncio import AsyncIOMotorClientSession
 
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
@@ -13,7 +14,7 @@ from app.api.schiedsrichter.schemas import (
 from app.api.schiedsrichter.services import find_referee_retire_refusal
 from app.core.config import API_VERSION
 from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, pull_many_from_db, refuse, set_inactive_since
-from app.core.dependencies import SchiedsrichterCollection, SpieleCollection, get_german_date_str
+from app.core.dependencies import DBClient, SchiedsrichterCollection, SpieleCollection, get_german_date_str
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -49,6 +50,7 @@ async def patch_schiedsrichter(
     schiedsrichter_data: Annotated[FLPatchSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
+    db: DBClient,
 ) -> FLPatchSchiedsrichterResponse:
     """
     Update a referee, then update the embedded name on every Spiel that uses them.
@@ -56,20 +58,29 @@ async def patch_schiedsrichter(
     Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
     """
 
-    updated_document_raw = await patch_one_in_db(
-        collection=schiedsrichter_collection,
-        db_filter={"_id": schiedsrichter_id},
-        update={"$set": schiedsrichter_data.model_dump(mode="json")},
-    )
-    updated_document = FLSchiedsrichter(**updated_document_raw)
+    async def rename_and_fan_out(session: AsyncIOMotorClientSession) -> FLPatchSchiedsrichterResponse:
+        updated_document_raw = await patch_one_in_db(
+            collection=schiedsrichter_collection,
+            db_filter={"_id": schiedsrichter_id},
+            update={"$set": schiedsrichter_data.model_dump(mode="json")},
+            session=session,
+        )
+        updated_document = FLSchiedsrichter(**updated_document_raw)
 
-    fan_out = await patch_many_in_db(
-        collection=spiele_collection,
-        db_filter={"schiedsrichter.schiedsrichter_id": updated_document.id},
-        update={"$set": {"schiedsrichter.name": updated_document.name}},
-    )
+        fan_out = await patch_many_in_db(
+            collection=spiele_collection,
+            db_filter={"schiedsrichter.schiedsrichter_id": updated_document.id},
+            update={"$set": {"schiedsrichter.name": updated_document.name}},
+            session=session,
+        )
 
-    return FLPatchSchiedsrichterResponse(updated_document=updated_document, fanned_out_to_spiele=fan_out.modified_count)
+        return FLPatchSchiedsrichterResponse(updated_document=updated_document, fanned_out_to_spiele=fan_out.modified_count)
+
+    # One transaction: a rename landing on the referee and not on their fixtures is the stale copy
+    # the fan-out exists to prevent. `with_transaction` over a bare `start_transaction` -- the
+    # callback derives both writes from the payload, so a retry is safe.
+    async with await db.start_session() as session:
+        return await session.with_transaction(rename_and_fan_out)
 
 
 @router.delete(by_id("schiedsrichter_id"), response_model=FLSchiedsrichterWriteResponse, summary="Deactivate a Schiedsrichter (soft delete)")

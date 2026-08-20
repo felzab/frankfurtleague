@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
+from motor.motor_asyncio import AsyncIOMotorClientSession
 
 from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
@@ -13,7 +14,7 @@ from app.api.spielorte.schemas import (
 from app.api.spielorte.services import find_venue_retire_refusal
 from app.core.config import API_VERSION
 from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, pull_many_from_db, refuse, set_inactive_since
-from app.core.dependencies import SpieleCollection, SpielorteCollection, get_german_date_str
+from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollection, get_german_date_str
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.addresses import FLAddress
@@ -57,6 +58,7 @@ async def patch_spielort(
     spielort_data: Annotated[FLPatchSpielortPayload, Body()],
     spielorte_collection: SpielorteCollection,
     spiele_collection: SpieleCollection,
+    db: DBClient,
 ) -> FLPatchSpielortResponse:
     """
     Update a venue, then update every Spiel that embeds it.
@@ -67,20 +69,29 @@ async def patch_spielort(
 
     maps_link = _maps_link(spielort_data.name, spielort_data.address)
 
-    updated_document_raw = await patch_one_in_db(
-        collection=spielorte_collection,
-        db_filter={"_id": spielort_id},
-        update={"$set": {**spielort_data.model_dump(mode="json"), "maps_link": maps_link}},
-    )
-    updated_document = FLSpielort(**updated_document_raw)
+    async def rename_and_fan_out(session: AsyncIOMotorClientSession) -> FLPatchSpielortResponse:
+        updated_document_raw = await patch_one_in_db(
+            collection=spielorte_collection,
+            db_filter={"_id": spielort_id},
+            update={"$set": {**spielort_data.model_dump(mode="json"), "maps_link": maps_link}},
+            session=session,
+        )
+        updated_document = FLSpielort(**updated_document_raw)
 
-    fan_out = await patch_many_in_db(
-        collection=spiele_collection,
-        db_filter={"ort.spielort_id": updated_document.id},
-        update={"$set": {"ort.maps_link": updated_document.maps_link, "ort.name": updated_document.name}},
-    )
+        fan_out = await patch_many_in_db(
+            collection=spiele_collection,
+            db_filter={"ort.spielort_id": updated_document.id},
+            update={"$set": {"ort.maps_link": updated_document.maps_link, "ort.name": updated_document.name}},
+            session=session,
+        )
 
-    return FLPatchSpielortResponse(updated_document=updated_document, fanned_out_to_spiele=fan_out.modified_count)
+        return FLPatchSpielortResponse(updated_document=updated_document, fanned_out_to_spiele=fan_out.modified_count)
+
+    # One transaction: a rename landing on the venue and not on its fixtures is the stale copy the
+    # fan-out exists to prevent. `with_transaction` over a bare `start_transaction` -- the callback
+    # derives both writes from the payload, so a retry is safe.
+    async with await db.start_session() as session:
+        return await session.with_transaction(rename_and_fan_out)
 
 
 @router.delete(by_id("spielort_id"), response_model=FLSpielortWriteResponse, summary="Deactivate a Spielort (soft delete)")
