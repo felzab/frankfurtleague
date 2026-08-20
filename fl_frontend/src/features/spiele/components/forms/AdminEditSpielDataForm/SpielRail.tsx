@@ -15,9 +15,8 @@ import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
 import type { SpielBanner } from "./banners";
 
 /**
- * The shared rail's two sections with this editor's own two between them, rather than the whole
- * `DraftRail`: **cards are ordered by what it costs to miss them**, which puts Offene Angaben — the
- * reason most admins are on this page — above the change list rather than after it.
+ * The shared sections with this editor's own two between them, not the whole `DraftRail`: cards are
+ * ordered by what it costs to miss them, which puts Offene Angaben above the change list.
  */
 export function SpielRail({
   previewSpiel,
