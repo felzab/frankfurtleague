@@ -20,9 +20,9 @@ from app.api.saisons.services import find_activation_refusal, find_rules_refusal
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.services import find_gruppe_swap_refusal, fixtures_newly_fielding_a_disqualified_club
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SaisonTeamsCollection, SpieleCollection, SpieltageCollection, TeamsCollection
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.security import verify_access_admin
 
 router = APIRouter(
@@ -130,7 +130,7 @@ async def _rewrite_gruppenphase_sides(
         identity = identity_of[target]
         await patch_many_in_db(
             collection=spiele_collection,
-            filter={"_id": {"$in": spiel_ids}},
+            db_filter={"_id": {"$in": spiel_ids}},
             update={"$set": {f"{slot}.{key}": (target if key == "team_id" else identity[key]) for key in SWAPPED_SIDE_KEYS}},
             session=session,
         )
@@ -152,25 +152,25 @@ async def post_saison(
     references, so reusing one comes back 409. Making the season live is a separate step.
     """
 
-    refusal = find_rules_refusal(
-        saison_status="future",
-        stored=None,
-        proposed=saison_data.rules,
-        occupancy_by_gruppe={},
-        highest_wired_platz=0,
+    refuse(
+        find_rules_refusal(
+            saison_status="future",
+            stored=None,
+            proposed=saison_data.rules,
+            occupancy_by_gruppe={},
+            highest_wired_platz=0,
+        )
     )
-    if refusal is not None:
-        raise DocumentConflictException.from_refusal(refusal)
 
     # After the rules: an impossible bracket makes the implied matchday count meaningless.
-    span_refusal = find_saison_span_refusal(
-        start_date=saison_data.start_date,
-        end_date=saison_data.end_date,
-        rules=saison_data.rules,
-        spieltag_spans=[],
+    refuse(
+        find_saison_span_refusal(
+            start_date=saison_data.start_date,
+            end_date=saison_data.end_date,
+            rules=saison_data.rules,
+            spieltag_spans=[],
+        )
     )
-    if span_refusal is not None:
-        raise DocumentConflictException.from_refusal(span_refusal)
 
     post_operation = await post_one_to_db(
         collection=saisons_collection,
@@ -239,18 +239,18 @@ async def patch_saison(
         if phase is not None:
             attached_by_phase[phase] = max(attached_by_phase.get(phase, 0), attached)
 
-    refusal = find_rules_refusal(
-        saison_status=str(stored_raw["status"]),
-        # Validated, not read raw: a season missing a rules key fails here rather than comparing
-        # against a default nobody chose.
-        stored=FLSaisonRules.model_validate(stored_raw["rules"]),
-        proposed=saison_data.rules,
-        occupancy_by_gruppe=occupancy,
-        highest_wired_platz=highest_platz,
-        attached_by_phase=attached_by_phase,
+    refuse(
+        find_rules_refusal(
+            saison_status=str(stored_raw["status"]),
+            # Validated, not read raw: a season missing a rules key fails here rather than comparing
+            # against a default nobody chose.
+            stored=FLSaisonRules.model_validate(stored_raw["rules"]),
+            proposed=saison_data.rules,
+            occupancy_by_gruppe=occupancy,
+            highest_wired_platz=highest_platz,
+            attached_by_phase=attached_by_phase,
+        )
     )
-    if refusal is not None:
-        raise DocumentConflictException.from_refusal(refusal)
 
     # Retired matchdays excluded: retiring is how a mis-dated one leaves, so it must not block the
     # repair of the dates it was retired over.
@@ -258,23 +258,21 @@ async def patch_saison(
         (str(row["beginn"]), str(row["ende"]))
         async for row in spieltage_collection.find({"saison_id": saison_id, "inactive_since": None}, {"beginn": 1, "ende": 1})
     ]
-    span_refusal = find_saison_span_refusal(
-        start_date=saison_data.start_date,
-        end_date=saison_data.end_date,
-        rules=saison_data.rules,
-        spieltag_spans=spieltag_spans,
+    refuse(
+        find_saison_span_refusal(
+            start_date=saison_data.start_date,
+            end_date=saison_data.end_date,
+            rules=saison_data.rules,
+            spieltag_spans=spieltag_spans,
+        )
     )
-    if span_refusal is not None:
-        raise DocumentConflictException.from_refusal(span_refusal)
 
     updated_document_raw = await patch_one_in_db(
         collection=saisons_collection,
-        filter={"_id": saison_id},
+        db_filter={"_id": saison_id},
         update={"$set": saison_data.model_dump(mode="json")},
         return_document=ReturnDocument.AFTER,
     )
-    if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
     # After the write lands: the cached copy now describes rules or dates the database has not.
     invalidate_saison_cache()
@@ -297,7 +295,7 @@ async def activate_saison(
     """
 
     # A read first, so a bad id is a 404 rather than a rollover that promotes nothing.
-    target_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
+    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
 
     # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
     outgoing = await pull_many_from_db(
@@ -312,23 +310,21 @@ async def activate_saison(
                 await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}})
             )
         )
-        refusal = find_activation_refusal(outgoing_unplayed=unplayed)
-        if refusal is not None:
-            raise DocumentConflictException.from_refusal(refusal)
+        refuse(find_activation_refusal(outgoing_unplayed=unplayed))
 
     async with await db.start_session() as session:
         async with session.start_transaction():
             # `update_many`: a database holding two active seasons is repaired, not half-preserved.
             demoted = await patch_many_in_db(
                 collection=saisons_collection,
-                filter={"status": "active", "_id": {"$ne": saison_id}},
+                db_filter={"status": "active", "_id": {"$ne": saison_id}},
                 update={"$set": {"status": "past"}},
                 session=session,
             )
 
             activated_raw = await patch_one_in_db(
                 collection=saisons_collection,
-                filter={"_id": saison_id},
+                db_filter={"_id": saison_id},
                 update={"$set": {"status": "active"}},
                 session=session,
                 return_document=ReturnDocument.AFTER,
@@ -337,8 +333,7 @@ async def activate_saison(
     # Outside the transaction: an aborted rollover leaves the cache nothing to unlearn.
     invalidate_saison_cache()
 
-    # The read above proved the row exists, so this narrows a type rather than branching.
-    activated = FLSaison.model_validate(with_schedule(activated_raw if activated_raw is not None else target_raw))
+    activated = FLSaison.model_validate(with_schedule(activated_raw))
 
     return FLActivateSaisonResponse(updated_document=activated, deactivated=demoted.modified_count)
 
@@ -382,10 +377,9 @@ async def swap_gruppen(
         disqualified_since = {row["team_id"]: (row.get("disqualifikation") or {}).get("datum") for row in rows}
 
         # Again in-session, because `activate_saison` moves `status` in a transaction of its own.
-        # `find_one` directly, since `pull_one_from_db` takes no session.
-        saison_raw = await saisons_collection.find_one({"_id": saison_id}, {"status": 1}, session=session)
-        if saison_raw is None:
-            raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
+        saison_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=session
+        )
 
         # LISTED rather than counted: one read answers `REQ-SWAP-004` and supplies what the rewrite
         # moves, so the two cannot disagree.
@@ -409,27 +403,27 @@ async def swap_gruppen(
             session=session,
         )
 
-        refusal = find_gruppe_swap_refusal(
-            is_same_team=swap_data.team1_id == swap_data.team2_id,
-            team1_gruppe=gruppe_of.get(swap_data.team1_id),
-            team2_gruppe=gruppe_of.get(swap_data.team2_id),
-            saison_status=str(saison_raw["status"]),
-            played_knockout_fixtures=sum(1 for spiel in knockout_spiele if _has_taken_place(spiel)),
-            played_gruppenphase_fixtures=sum(1 for spiel in gruppenphase_spiele if _has_taken_place(spiel)),
-            clashing_spieltage=_spieltag_clashes(
-                team_ids=both_ids,
-                gruppenphase_spiele=gruppenphase_spiele,
-                knockout_spiele=knockout_spiele,
-            ),
-            disqualified_fixtures=fixtures_newly_fielding_a_disqualified_club(
-                team1_id=swap_data.team1_id,
-                team2_id=swap_data.team2_id,
-                disqualified_since=disqualified_since,
-                gruppenphase_spiele=gruppenphase_spiele,
-            ),
+        refuse(
+            find_gruppe_swap_refusal(
+                is_same_team=swap_data.team1_id == swap_data.team2_id,
+                team1_gruppe=gruppe_of.get(swap_data.team1_id),
+                team2_gruppe=gruppe_of.get(swap_data.team2_id),
+                saison_status=str(saison_raw["status"]),
+                played_knockout_fixtures=sum(1 for spiel in knockout_spiele if _has_taken_place(spiel)),
+                played_gruppenphase_fixtures=sum(1 for spiel in gruppenphase_spiele if _has_taken_place(spiel)),
+                clashing_spieltage=_spieltag_clashes(
+                    team_ids=both_ids,
+                    gruppenphase_spiele=gruppenphase_spiele,
+                    knockout_spiele=knockout_spiele,
+                ),
+                disqualified_fixtures=fixtures_newly_fielding_a_disqualified_club(
+                    team1_id=swap_data.team1_id,
+                    team2_id=swap_data.team2_id,
+                    disqualified_since=disqualified_since,
+                    gruppenphase_spiele=gruppenphase_spiele,
+                ),
+            )
         )
-        if refusal is not None:
-            raise DocumentConflictException.from_refusal(refusal)
 
         rewritten = await _rewrite_gruppenphase_sides(
             spiele=gruppenphase_spiele,
@@ -451,16 +445,14 @@ async def swap_gruppen(
         )
 
         for team_id, target_gruppe in ((swapped.team1_id, swapped.team1_gruppe), (swapped.team2_id, swapped.team2_gruppe)):
-            written = await patch_one_in_db(
+            # A row nothing matches raises, and that aborts the transaction: it takes the first
+            # write back rather than leaving one group a club short.
+            await patch_one_in_db(
                 collection=saison_teams_collection,
-                filter={"saison_id": saison_id, "team_id": team_id},
+                db_filter={"saison_id": saison_id, "team_id": team_id},
                 update={"$set": {"gruppe": target_gruppe}},
                 session=session,
             )
-            # `None` only when nothing matched. Raising aborts the transaction, taking the first
-            # write back rather than leaving one group a club short.
-            if written is None:
-                raise DocumentNotFoundException(filter={"saison_id": saison_id, "team_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
 
         return swapped
 

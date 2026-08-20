@@ -2,6 +2,7 @@ from typing import Any, Mapping
 
 from app.api.spieler.schemas import FLSpielerFilterParams
 from app.core.collections import Collection
+from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
 
 AS_NAME = "saison_data"
@@ -11,13 +12,10 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
 
     pipeline: list[Mapping[str, Any]] = []
 
-    # `include_inactive` is excluded: a switch whose False means "add a filter", so dumping it by
-    # value would write it into the query as a field to match on.
-    active_filters = filters.model_dump(
-        exclude_none=True,
-        exclude={"limit", "sort_by", "order", "include_inactive"},
-        context={"keep_oid": True},
-    )
+    # Terms are NAMED, never excluded: a field added to the filter model would otherwise reach the
+    # junction `$match` unreviewed. `include_inactive` stays out because it becomes two matches
+    # below -- a person and a squad row retire separately.
+    active_filters = build_query(filters, terms={"team_id", "saison_id", "is_nachgetragen", "stufe"})
 
     # Retired PEOPLE, filtered on the base collection before the join.
     if not filters.include_inactive:
@@ -79,18 +77,11 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
     )
 
     # After the projection, so a bare field name reaches the root copy rather than the nested one.
-    pipeline.append(
-        {
-            "$sort": {
-                filters.sort_by: 1 if filters.order == "asc" else -1,
-                "vorname": 1,
-                "nachname": 1,
-            }
-        }
-    )
+    # Through `build_sort` because a name literal repeating `sort_by` would collapse in the dict and
+    # silently reverse the direction that was asked for.
+    pipeline.append({"$sort": dict(build_sort(sort_by=filters.sort_by, order=filters.order, chain=(("vorname", 1), ("nachname", 1))))})
 
-    if getattr(filters, "limit", None) is not None:
-        pipeline.append({"$limit": filters.limit})
+    pipeline.append({"$limit": filters.limit})
 
     return pipeline
 

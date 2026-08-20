@@ -1,5 +1,5 @@
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
-import { deriveDraftStatus } from "@/shared/utils/draftStatus";
+import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -8,8 +8,6 @@ import type { SaisonDraftFields } from "./types";
 export type FLSaisonFieldGroup = "Zeitraum" | "Regeln";
 
 export type FLSaisonDraftStatus = FLDraftStatus<FLSaisonFieldGroup>;
-
-const emptyAsNull = (value: string): string | null => (value.trim() === "" ? null : value.trim());
 
 /** Every field the season editor can change, in the order the change list reads them. */
 const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonFieldGroup>[] = [

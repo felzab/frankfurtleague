@@ -1,4 +1,5 @@
 import ast
+import functools
 import importlib
 from pathlib import Path
 from typing import Any, Mapping
@@ -80,6 +81,19 @@ def _resolves_in_model(collection: Collection, path: str) -> bool:
 
 def _resolves(collection: Collection, path: str) -> bool:
     return _resolves_in_validator(collection, path) or _resolves_in_model(collection, path)
+
+
+@functools.cache
+def _declared_classes(file: Path) -> frozenset[str]:
+    """Every class the file declares, at any nesting depth.
+
+    Walked rather than read off `tree.body`, because a case class nested inside another would
+    otherwise report as missing. Cached across the rules citing the same file.
+    """
+
+    tree = ast.parse(file.read_text(encoding="utf-8"))
+
+    return frozenset(node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef))
 
 
 def _import_symbol(dotted: str) -> Any:
@@ -223,8 +237,7 @@ def test_every_rule_names_a_test_that_exists(rule):
 
     assert file.is_file(), f"{rule.code} cites {path}, which does not exist"
 
-    tree = ast.parse(file.read_text(encoding="utf-8"))
-    declared = {node.name for node in tree.body if isinstance(node, ast.ClassDef)}
+    declared = _declared_classes(file)
 
     assert class_name in declared, f"{rule.code} cites {rule.tested_by}, and that file declares {sorted(declared)}"
 

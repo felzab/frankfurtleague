@@ -27,7 +27,8 @@ export function useDraftStatus(): FLDraftStatus<string> {
 
 /**
  * `undefined` rather than a throw for a path with no descriptor: a missing marker is a smaller
- * failure than a page that will not render. Nothing reports a mistyped path, so it is a real cost.
+ * failure than a page that will not render. Nothing reports a mistyped path at runtime, so
+ * `fieldLabelPaths.test.ts` sweeps every path a label is given.
  */
 export function useFieldStatus(path: string): FLFieldStatus<string> | undefined {
   return useDraftStatus().byPath.get(path);

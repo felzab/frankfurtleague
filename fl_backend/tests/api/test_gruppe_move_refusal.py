@@ -28,7 +28,10 @@ class TestTheWindowForAGroupChange:
     def test_one_fixture_is_enough(self):
         """No threshold to tune: the first fixture makes the group a fact about the schedule rather than a label."""
 
-        assert find_gruppe_move_refusal(saison_status="active", fixtures_drawn=1) is not None
+        refusal = find_gruppe_move_refusal(saison_status="active", fixtures_drawn=1)
+
+        assert refusal is not None
+        assert refusal.error_code == ENTRY_GRUPPE_LOCKED
 
     def test_the_refusal_names_the_status_and_the_count(self):
         refusal = find_gruppe_move_refusal(saison_status="active", fixtures_drawn=6)

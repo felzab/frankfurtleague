@@ -1,4 +1,7 @@
+import ast
 import asyncio
+import inspect
+import textwrap
 from typing import Any, cast
 
 import pytest
@@ -13,7 +16,9 @@ from app.api.saisons.cache import (
     store_cached_saison,
 )
 from app.api.saisons.crud import pull_current_saison, pull_saison_id_and_rules
+from app.core import crud
 from app.core.exceptions import DocumentNotFoundException
+from app.main import WRITE_ROUTERS
 
 RULES = {
     "win_points": 3,
@@ -32,7 +37,9 @@ class CountingCollection:
         self.document = document
         self.find_one_calls = 0
 
-    async def find_one(self, filter: dict[str, Any], projection: dict[str, Any]) -> dict[str, Any] | None:
+    # `session` is accepted and ignored: `pull_one_from_db` forwards it on every read, so a fake
+    # without it raises a TypeError that names the fake rather than the behaviour under test.
+    async def find_one(self, filter: dict[str, Any], projection: dict[str, Any], session: Any = None) -> dict[str, Any] | None:
         self.find_one_calls += 1
         return None if self.document is None else dict(self.document)
 
@@ -154,3 +161,94 @@ class TestTheResolversUseIt:
         asyncio.run(_run())
 
         assert stub.find_one_calls == 2
+
+
+WRITE_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})
+
+# The injected parameter's name, which is what a call site spells and therefore what an AST sees.
+SAISONS_COLLECTION_PARAM = "saisons_collection"
+
+# `app/core/crud.py`'s writing half, checked against that module below: a rename there would
+# otherwise leave this sweep matching nothing and passing.
+CRUD_WRITERS = ("patch_one_in_db", "patch_many_in_db", "post_one_to_db", "set_inactive_since", "insert_live")
+
+# A handler reaching past those helpers writes through the driver itself.
+DRIVER_WRITERS = frozenset(
+    {
+        "bulk_write",
+        "delete_many",
+        "delete_one",
+        "find_one_and_replace",
+        "find_one_and_update",
+        "insert_many",
+        "insert_one",
+        "replace_one",
+        "update_many",
+        "update_one",
+    }
+)
+
+UNKNOWN_WRITERS = [name for name in CRUD_WRITERS if not hasattr(crud, name)]
+assert not UNKNOWN_WRITERS, f"{UNKNOWN_WRITERS} are no longer in app/core/crud.py, so this sweep would see no write"
+
+
+def _writes_the_season(tree: ast.AST) -> bool:
+    """Whether a handler's body writes a `saisons` document, through a crud helper or the driver."""
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+
+        called = node.func
+        if isinstance(called, ast.Name) and called.id in CRUD_WRITERS:
+            targets = (keyword for keyword in node.keywords if keyword.arg == "collection")
+            if any(isinstance(target.value, ast.Name) and target.value.id == SAISONS_COLLECTION_PARAM for target in targets):
+                return True
+
+        if isinstance(called, ast.Attribute) and called.attr in DRIVER_WRITERS:
+            if isinstance(called.value, ast.Name) and called.value.id == SAISONS_COLLECTION_PARAM:
+                return True
+
+    return False
+
+
+def _drops_the_cache(tree: ast.AST) -> bool:
+    dropped = invalidate_saison_cache.__name__
+
+    return any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == dropped for node in ast.walk(tree))
+
+
+def _season_write_handlers() -> dict[str, ast.AST]:
+    """Every write endpoint across the admin routers whose body writes a season, by function name.
+
+    Scoped to the writers, not to every write endpoint: a handler touching only the junction rows or
+    the fixtures changes nothing the cached projection carries.
+    """
+
+    handlers: dict[str, ast.AST] = {}
+    for router in WRITE_ROUTERS:
+        for route in router.routes:
+            endpoint = getattr(route, "endpoint", None)
+            if endpoint is None or not getattr(route, "methods", set()) & WRITE_METHODS:
+                continue
+            # Dedented, so a handler that is not at column zero still parses.
+            tree = ast.parse(textwrap.dedent(inspect.getsource(endpoint)))
+            if _writes_the_season(tree):
+                handlers[endpoint.__name__] = tree
+
+    return handlers
+
+
+SEASON_WRITE_HANDLERS = _season_write_handlers()
+
+# `empty_parameter_set_mark` defaults to skip, so a sweep that recognised nothing would pass in silence.
+assert SEASON_WRITE_HANDLERS, "no admin endpoint was seen writing a season; did the dependency or the crud helpers get renamed?"
+
+
+class TestEverySeasonWriteDropsIt:
+    @pytest.mark.parametrize("handler", sorted(SEASON_WRITE_HANDLERS))
+    def test_a_handler_writing_a_season_calls_the_invalidation(self, handler: str):
+        """A source sweep, because the call leaves no trace on the wire: an execution test could only observe it through a stale read."""
+        assert _drops_the_cache(SEASON_WRITE_HANDLERS[handler]), (
+            f"{handler} writes a season without calling {invalidate_saison_cache.__name__}(), so the cache serves the old one"
+        )

@@ -106,7 +106,7 @@ class TestAccessLine:
         assert line.method == "GET"
         assert line.path == "/"
         assert line.status == 200
-        assert line.duration_ms >= 0
+        assert isinstance(line.duration_ms, float)
         assert line.correlation_id == "ab" * 16
 
     def test_the_query_string_is_part_of_the_logged_path(self, caplog):

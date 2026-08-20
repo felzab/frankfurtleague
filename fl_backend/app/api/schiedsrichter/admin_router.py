@@ -1,7 +1,6 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
-from pymongo import ReturnDocument
 
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
@@ -13,9 +12,8 @@ from app.api.schiedsrichter.schemas import (
 )
 from app.api.schiedsrichter.services import find_referee_retire_refusal
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db
+from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, pull_many_from_db, refuse, set_inactive_since
 from app.core.dependencies import SchiedsrichterCollection, SpieleCollection, get_german_date_str
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -33,10 +31,7 @@ async def post_schiedsrichter(
 ) -> FLPostSchiedsrichterResponse:
     """Create a referee. `inactive_since` is set to null here and is not part of the payload."""
 
-    post_operation = await post_one_to_db(
-        collection=schiedsrichter_collection,
-        document={**schiedsrichter_data.model_dump(mode="json"), "inactive_since": None},
-    )
+    post_operation = await insert_live(collection=schiedsrichter_collection, document=schiedsrichter_data.model_dump(mode="json"))
 
     return FLPostSchiedsrichterResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
@@ -63,21 +58,18 @@ async def patch_schiedsrichter(
 
     updated_document_raw = await patch_one_in_db(
         collection=schiedsrichter_collection,
-        filter={"_id": schiedsrichter_id},
+        db_filter={"_id": schiedsrichter_id},
         update={"$set": schiedsrichter_data.model_dump(mode="json")},
-        return_document=ReturnDocument.AFTER,
     )
-    if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": schiedsrichter_id}, error_code=DOCUMENT_NOT_FOUND)
     updated_document = FLSchiedsrichter(**updated_document_raw)
 
-    await patch_many_in_db(
+    fan_out = await patch_many_in_db(
         collection=spiele_collection,
-        filter={"schiedsrichter.schiedsrichter_id": updated_document.id},
+        db_filter={"schiedsrichter.schiedsrichter_id": updated_document.id},
         update={"$set": {"schiedsrichter.name": updated_document.name}},
     )
 
-    return FLPatchSchiedsrichterResponse(updated_document=updated_document)
+    return FLPatchSchiedsrichterResponse(updated_document=updated_document, fanned_out_to_spiele=fan_out.modified_count)
 
 
 @router.delete(by_id("schiedsrichter_id"), response_model=FLSchiedsrichterWriteResponse, summary="Deactivate a Schiedsrichter (soft delete)")
@@ -95,18 +87,9 @@ async def delete_schiedsrichter(
         db_filter={"schiedsrichter.schiedsrichter_id": schiedsrichter_id, "ergebnis": None, "is_canceled": False},
         projection={"spiel_nr": 1},
     )
-    refusal = find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned))
-    if refusal is not None:
-        raise DocumentConflictException.from_refusal(refusal)
+    refuse(find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned)))
 
-    updated_document_raw = await patch_one_in_db(
-        collection=schiedsrichter_collection,
-        filter={"_id": schiedsrichter_id},
-        update={"$set": {"inactive_since": today}},
-        return_document=ReturnDocument.AFTER,
-    )
-    if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": schiedsrichter_id}, error_code=DOCUMENT_NOT_FOUND)
+    updated_document_raw = await set_inactive_since(collection=schiedsrichter_collection, db_filter={"_id": schiedsrichter_id}, when=today)
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
 
@@ -122,13 +105,6 @@ async def reactivate_schiedsrichter(
 ) -> FLSchiedsrichterWriteResponse:
     """Clear `inactive_since`, putting the referee back into the picker and every default read."""
 
-    updated_document_raw = await patch_one_in_db(
-        collection=schiedsrichter_collection,
-        filter={"_id": schiedsrichter_id},
-        update={"$set": {"inactive_since": None}},
-        return_document=ReturnDocument.AFTER,
-    )
-    if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": schiedsrichter_id}, error_code=DOCUMENT_NOT_FOUND)
+    updated_document_raw = await set_inactive_since(collection=schiedsrichter_collection, db_filter={"_id": schiedsrichter_id}, when=None)
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))

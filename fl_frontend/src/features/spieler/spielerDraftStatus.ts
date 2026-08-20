@@ -1,4 +1,4 @@
-import { deriveDraftStatus } from "@/shared/utils/draftStatus";
+import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -25,8 +25,6 @@ export type FLSpielerDraftFields = {
 export type FLSpielerFieldGroup = "Person" | "Kader";
 
 export type FLSpielerDraftStatus = FLDraftStatus<FLSpielerFieldGroup>;
-
-const emptyAsNull = (value: string): string | null => (value.trim() === "" ? null : value.trim());
 
 const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSpielerDraftFields, FLSpielerFieldGroup>[] = [
   { path: "vorname", label: "Vorname", group: "Person", read: (source) => emptyAsNull(source.vorname) },

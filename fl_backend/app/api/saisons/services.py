@@ -2,7 +2,7 @@ from datetime import date
 from typing import Any, Iterable, Mapping, Sequence
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, schedule_for
-from app.api.saisons.schemas import FLSaisonRules, FLSaisonsFilterOptions
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import MAX_QUALIFIERS, FLSaisonPhase, FLSpiel
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
@@ -17,18 +17,6 @@ def with_schedule(saison_raw: Mapping[str, Any]) -> dict[str, Any]:
     """
 
     return {**saison_raw, "schedule": [entry.__dict__ for entry in schedule_for(FLSaisonRules.model_validate(saison_raw["rules"]))]}
-
-
-def build_saisons_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
-    direction = 1 if order == "asc" else -1
-
-    return [(sort_by, direction)]
-
-
-def build_saisons_filter(filters: FLSaisonsFilterOptions) -> dict[str, Any]:
-    query = filters.model_dump(include={"status"}, exclude_none=True, by_alias=True)
-
-    return query
 
 
 # What each code below refuses is `docs/logging/error-codes.md`.

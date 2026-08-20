@@ -7,7 +7,7 @@ from app.api.spiele.schemas import FLBracketFaultGruppe, FLSpielListAdapter
 from app.api.spiele.services import BracketResolution, resolve_bracket
 from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeam
-from app.api.teams.services import build_decided_standings, build_gruppen
+from app.api.teams.services import CERTAINTY_FIXTURE_LIMIT, build_decided_standings, build_gruppen
 
 TEAM_ID = "6890a1b2c3d4e5f60719{:04d}"
 MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
@@ -213,20 +213,16 @@ class TestWhenAPlacingIsFinal:
         assert standing(teams, [played(1, 1, 2, 2, 0), unentered]).by_platz == {}
 
     def test_the_walk_at_the_cap_stays_inside_its_budget(self, a_team: TeamFactory, played: MatchFactory):
-        """First place must survive every outcome; the loose budget catches the constant regressing, not the runtime."""
-
-        import time
+        """First place must survive every outcome; the constant is pinned rather than timed, since raising it triples the walk per fixture."""
 
         teams = [a_team(1, punkte=15, gespielt=5), *(a_team(seed, punkte=0, gespielt=1) for seed in range(2, 7))]
         pairs = [(home, away) for index, home in enumerate(range(2, 7)) for away in range(2, 7)[index + 1 :]]
         open_fixtures = [played(number + 1, home, away) for number, (home, away) in enumerate(pairs)]
 
-        start = time.perf_counter()
-        decided = standing(teams, open_fixtures)
-        elapsed = time.perf_counter() - start
+        assert CERTAINTY_FIXTURE_LIMIT == 10
+        assert len(open_fixtures) == CERTAINTY_FIXTURE_LIMIT
 
-        assert decided.by_platz[1].name == "Team 1"
-        assert elapsed < 10, f"the certainty walk took {elapsed:.1f}s at the cap; the 3^10 constant has regressed"
+        assert standing(teams, open_fixtures).by_platz[1].name == "Team 1"
 
 
 def gruppe_faults(resolution: BracketResolution) -> list[tuple[int, str, int, str]]:

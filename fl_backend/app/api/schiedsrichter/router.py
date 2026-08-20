@@ -7,12 +7,8 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterListResponse,
     FLSchiedsrichterSingleResponse,
 )
-from app.api.schiedsrichter.services import (
-    build_schiedsrichter_filter,
-    build_schiedsrichter_sort,
-)
 from app.core.config import API_VERSION
-from app.core.crud import pull_many_from_db, pull_one_from_db
+from app.core.crud import build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SchiedsrichterCollection
 from app.core.routing import by_id
 from app.core.security import verify_access_base
@@ -31,14 +27,11 @@ async def get_schiedsrichter(
 ) -> FLSchiedsrichterListResponse:
     """List referees; deactivated ones are soft-deleted rather than removed, so historical matches stay resolvable."""
 
-    db_filter = build_schiedsrichter_filter(filters=filters)
-    db_sort = build_schiedsrichter_sort(sort_by=filters.sort_by, order=filters.order)
-
     schiedsrichter_raw = await pull_many_from_db(
         collection=schiedsrichter_collection,
-        db_filter=db_filter,
+        db_filter=build_query(filters, terms={"default_payment"}, include_inactive=filters.include_inactive),
         limit=filters.limit,
-        sort_by=db_sort,
+        sort_by=build_sort(sort_by=filters.sort_by, order=filters.order),
     )
     schiedsrichter = FLSchiedsrichterListAdapter.validate_python(schiedsrichter_raw)
 

@@ -1,3 +1,5 @@
+from typing import Mapping
+
 import pytest
 
 from app.api.saisons.schemas import FLSaisonRules
@@ -11,6 +13,8 @@ from app.api.saisons.services import (
     RULES_SAISON_FINISHED,
     find_rules_refusal,
 )
+from app.api.spiele.schemas import FLSaisonPhase
+from app.api.teams.schemas import FLGruppenNames
 from app.core.exceptions import WriteRefusal
 
 
@@ -32,17 +36,17 @@ def judge(
     status: str = "active",
     stored: FLSaisonRules | None = None,
     proposed: FLSaisonRules | None = None,
-    occupancy: dict[str, int] | None = None,
+    occupancy: dict[FLGruppenNames, int] | None = None,
     platz: int = 0,
-    attached: dict[str, int] | None = None,
+    attached: Mapping[FLSaisonPhase, int] | None = None,
 ) -> WriteRefusal | None:
     return find_rules_refusal(
         saison_status=status,
         stored=rules() if stored is None else stored,
         proposed=rules() if proposed is None else proposed,
-        occupancy_by_gruppe=occupancy or {},  # type: ignore[arg-type]
+        occupancy_by_gruppe=occupancy or {},
         highest_wired_platz=platz,
-        attached_by_phase=attached,  # type: ignore[arg-type]
+        attached_by_phase=attached,
     )
 
 

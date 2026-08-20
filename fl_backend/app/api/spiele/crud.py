@@ -220,7 +220,7 @@ async def advance_bracket_winners(
         # by a team no longer in the fixture.
         await patch_one_in_db(
             collection=spiele_collection,
-            filter={"_id": advancement.spiel_id},
+            db_filter={"_id": advancement.spiel_id},
             update={
                 "$set": {
                     "team1": _stored_side(advancement.team1),
@@ -260,8 +260,9 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
 def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
     """One fixture with the released side emptied.
 
-    Shared by preview and write, so the two cannot model a release differently. The side left behind
-    loses its goals too: they were scored against the team being removed.
+    The PREVIEW's model; the write spells the same rule as a `$set`, held to it by
+    `tests/api/test_spiele_write_execution.py`. The side left behind loses its goals too, scored
+    against the team being removed.
     """
 
     other = "team2" if release.side == "team1" else "team1"
@@ -291,13 +292,13 @@ async def release_spieltag_sides(
     for release in releases:
         await patch_one_in_db(
             collection=spiele_collection,
-            filter={"_id": release.spiel_id},
+            db_filter={"_id": release.spiel_id},
             update={
                 "$set": {
                     release.side: None,
                     # Named, not re-read: this transaction has already read the season, and reading
                     # a fixture again to strip one number would be a second answer.
-                    **({f"{'team2' if release.side == 'team1' else 'team1'}.tore": None} if release.other_side_tore else {}),
+                    **({f"{'team2' if release.side == 'team1' else 'team1'}.tore": None} if release.other_side_present else {}),
                     "ergebnis": None,
                     "elfmeterschiessen": None,
                 }

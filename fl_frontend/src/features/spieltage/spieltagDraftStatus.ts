@@ -1,5 +1,5 @@
 import { PHASE_LABELS } from "@/features/saisons/constants";
-import { deriveDraftStatus } from "@/shared/utils/draftStatus";
+import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
@@ -16,8 +16,6 @@ export type FLSpieltagDraftFields = {
 export type FLSpieltagFieldGroup = "Phase" | "Zeitraum";
 
 export type FLSpieltagDraftStatus = FLDraftStatus<FLSpieltagFieldGroup>;
-
-const emptyAsNull = (value: string): string | null => (value.trim() === "" ? null : value.trim());
 
 /**
  * Every field the matchday editor can change. **`ende` carries the span refinement's message**, which

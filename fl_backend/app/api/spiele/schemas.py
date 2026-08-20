@@ -1,10 +1,19 @@
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
 from app.api.teams.schemas import FLDisqualifikation, FLGruppenNames
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalDateString, CustomOptionalTimeString, CustomTimeString
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH, TEAM_SHORTHAND_LENGTH
+from app.shared.schemas.custom import (
+    CustomDateString,
+    CustomErgebnisString,
+    CustomObjectId,
+    CustomOptionalDateString,
+    CustomOptionalTimeString,
+    CustomSpielNr,
+    CustomTimeString,
+)
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLSaisonPhase = Literal["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]
@@ -33,7 +42,7 @@ class FLSpielTeamField(BaseModel):
     team_id: CustomObjectId
     name: str = Field(min_length=1)
     tore: Annotated[int, Field(ge=0)] | None
-    shorthand: str = Field(min_length=2, max_length=2)
+    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
 
 
 class FLSpielTeamFieldJoined(FLSpielTeamField):
@@ -47,7 +56,7 @@ class FLSpielTeamFieldJoined(FLSpielTeamField):
 class FLSpielOrtField(BaseModel):
     spielort_id: CustomObjectId
     name: str = Field(min_length=1)
-    # Free text searched on Google Maps, not a URL, so there is no scheme to check.
+    # Free text rather than a URL, per `fl_backend/app/api/spielorte/schemas.py :: FLSpielort` (COR-2).
     maps_link: str = Field(min_length=1)
     # No default: the payload is written back wholesale, and one would overwrite a real rent with 0
     # (`docs/backend/spec.md :: I6`).
@@ -75,7 +84,7 @@ class FLSpielQuelleSpiel(BaseModel):
 
     type: Literal["spiel"]
     # A `spiel_nr`, never an ObjectId: an id would make the draw depend on which documents exist.
-    spiel_nr: int = Field(gt=0)
+    spiel_nr: CustomSpielNr
     # `verlierer` is what a third-place play-off is fed by: the two losing semi-finals.
     ausgang: Literal["sieger", "verlierer"]
 
@@ -108,7 +117,14 @@ class FLSpielElfmeterschiessen(BaseModel):
         return self
 
 
-class FLBracketFaultGruppe(BaseModel):
+# Private, so the variants name the faulted fixture once: a base no endpoint names publishes no
+# OpenAPI component.
+class _BracketFault(BaseModel):
+    spiel_id: CustomObjectId
+    spiel_nr: CustomSpielNr
+
+
+class FLBracketFaultGruppe(_BracketFault):
     """One bracket slot whose `gruppe` reference names a placing no standing will hand it.
 
     `gruppe_too_small` is a typo and the slot is left alone; `tie_unresolved` is a played-out group
@@ -116,13 +132,11 @@ class FLBracketFaultGruppe(BaseModel):
     """
 
     reason: Literal["gruppe_too_small", "tie_unresolved"]
-    spiel_id: CustomObjectId
-    spiel_nr: int = Field(gt=0)
     gruppe: FLGruppenNames
     platz: int = Field(gt=0)
 
 
-class FLBracketFaultQuelle(BaseModel):
+class FLBracketFaultQuelle(_BracketFault):
     """One bracket slot whose `spiel` reference names a match that cannot state an outcome.
 
     Both leave the slot as it stands, and neither is reachable through the write path. A cycle is
@@ -130,12 +144,10 @@ class FLBracketFaultQuelle(BaseModel):
     """
 
     reason: Literal["spiel_missing", "reference_cycle"]
-    spiel_id: CustomObjectId
-    spiel_nr: int = Field(gt=0)
-    quelle_spiel_nr: int = Field(gt=0)
+    quelle_spiel_nr: CustomSpielNr
 
 
-class FLBracketFaultSpiel(BaseModel):
+class FLBracketFaultSpiel(_BracketFault):
     """One fixture whose two references resolve to the SAME club.
 
     It survives the write-path rule, which keys a source by identity, so two DIFFERENT sources
@@ -143,11 +155,9 @@ class FLBracketFaultSpiel(BaseModel):
     """
 
     reason: Literal["same_team"]
-    spiel_id: CustomObjectId
-    spiel_nr: int = Field(gt=0)
 
 
-class FLBracketFaultOccupant(BaseModel):
+class FLBracketFaultOccupant(_BracketFault):
     """One fixture fielding a team the season disqualified before the day it is played.
 
     A fixture's DATE against a junction record rather than a bracket fault, so it covers a group
@@ -155,8 +165,6 @@ class FLBracketFaultOccupant(BaseModel):
     """
 
     reason: Literal["disqualified_occupant"]
-    spiel_id: CustomObjectId
-    spiel_nr: int = Field(gt=0)
     side: Literal["team1", "team2"]
     team_id: CustomObjectId
     team_name: str = Field(min_length=1)
@@ -179,7 +187,7 @@ class FLSpielBooking(BaseModel):
     read every field of every match to compare two times.
     """
 
-    spiel_nr: int = Field(gt=0)
+    spiel_nr: CustomSpielNr
     datum: CustomDateString
     # Validated, not raw: `find_clash_refusal` SPLITS this, so a hand-edited `18:00` would raise on
     # a legitimate edit and answer 500.
@@ -244,19 +252,17 @@ class FLSpiel(BaseModel):
     ort: FLSpielOrtField | None
     schiedsrichter: FLSpielSchiedsrichterField | None
 
-    # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
-    # does not, and both ends parse this string for win/draw/loss.
-    ergebnis: Annotated[str, StringConstraints(pattern=r"^[0-9]+:[0-9]+$")] | None
+    ergebnis: CustomErgebnisString | None
 
     # Kept out of `ergebnis`: a third number in that string reads as malformed on every card.
     elfmeterschiessen: FLSpielElfmeterschiessen | None
 
     spieltag_id: CustomObjectId
-    spiel_nr: int = Field(gt=0)
+    spiel_nr: CustomSpielNr
 
     is_canceled: bool
     saison_phase: FLSaisonPhase
-    saison_id: str = Field(min_length=4, max_length=4)
+    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
     # DEFAULTED, unlike `elfmeterschiessen`: nothing tells a missing key from a stored null.
     notiz: str | None = None
@@ -283,7 +289,7 @@ class FLSpieleFilterParams(BaseModel):
     spiel_status: FLSpielStatus | None = None
     team_id: CustomObjectId | None = None
 
-    limit: int = Field(default=1024, ge=1, le=1024)
+    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: Literal["datum", "uhrzeit", "spiel_nr", "saison_phase"] = Field(default="datum")
     order: Literal["asc", "desc"] = Field(default="asc")
 
@@ -307,31 +313,31 @@ class FLSpieleActionRequiredResponse(BaseAPIResponse):
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)
 
 
-class FLSpielAdvancement(BaseModel):
+# Private for `_BracketFault`'s reason: the reports state the destroyed result once.
+class _VoidedResult(BaseModel):
+    spiel_nr: CustomSpielNr
+    voided_ergebnis: CustomErgebnisString | None
+    voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
+
+
+class FLSpielAdvancement(_VoidedResult):
     """One fixture the bracket resolution rewrote, and the result that rewrite destroyed.
 
     Both voided fields are `None` where a slot merely filled from empty, so "was anything destroyed"
     is a null check.
     """
 
-    spiel_nr: int = Field(gt=0)
-    voided_ergebnis: Annotated[str, StringConstraints(pattern=r"^[0-9]+:[0-9]+$")] | None
-    voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
 
-
-class FLSpielReleasedSide(BaseModel):
+class FLSpielReleasedSide(_VoidedResult):
     """One side another fixture gave up so a team can play this Spieltag.
 
     `team_name` rather than an id: the message quoting this has no `spiele` list to join against,
     and the rename fan-out keeps the copy it reads fresh.
     """
 
-    spiel_nr: int = Field(gt=0)
     # English, like `type` on a quelle: it names a document field.
     side: Literal["team1", "team2"]
     team_name: str = Field(min_length=1)
-    voided_ergebnis: Annotated[str, StringConstraints(pattern=r"^[0-9]+:[0-9]+$")] | None
-    voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
 
 
 class FLPatchSpielDataResponse(BaseAPIResponse):

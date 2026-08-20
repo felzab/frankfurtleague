@@ -1,4 +1,4 @@
-import { deriveDraftStatus } from "@/shared/utils/draftStatus";
+import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatEuro } from "@/shared/utils/format";
 
 import type { FLAddress } from "@/shared/schemas";
@@ -15,8 +15,6 @@ export type FLSpielortDraftFields = {
 export type FLSpielortFieldGroup = "Spielort" | "Adresse" | "Miete";
 
 export type FLSpielortDraftStatus = FLDraftStatus<FLSpielortFieldGroup>;
-
-const emptyAsNull = (value: string): string | null => (value.trim() === "" ? null : value.trim());
 
 /** `maps_link` has no row: the backend derives it and no payload carries it. */
 const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSpielortDraftFields, FLSpielortFieldGroup>[] = [

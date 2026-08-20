@@ -4,6 +4,7 @@ from app.api.saisons.schedule import expected_matches
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import PHASE_RANK, FLSaisonPhase
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
+from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
 
 
@@ -14,13 +15,15 @@ def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
     their final positions, so `limit` keeps the right prefix.
     """
 
-    direction = 1 if order == "asc" else -1
-
     if sort_by == "natural":
-        return [("beginn", direction), ("_id", direction)]
+        # The chain follows `order` only here, this sort being a prefix SELECTOR: on a `beginn` tie
+        # straddling `limit`, a descending page needs the descending end of that tie.
+        direction = 1 if order == "asc" else -1
+
+        return build_sort(sort_by="beginn", order=order, chain=(("_id", direction),))
 
     # Tie-broken by the two fields that make any ordering here reproducible.
-    return [(sort_by, direction), ("beginn", 1), ("_id", 1)]
+    return build_sort(sort_by=sort_by, order=order, chain=(("beginn", 1), ("_id", 1)))
 
 
 def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
@@ -34,16 +37,13 @@ def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
 
 
 def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
-    query = filters.model_dump(include={"saison_id", "saison_phase"}, exclude_none=True)
-
-    if filters.saison_phase == "playoffs":
-        query["saison_phase"] = {"$ne": "gruppenphase"}
-
     # Retiring hides the matchday, never its matches: `GET /spiele` joins no `spieltage` row.
-    if not filters.include_inactive:
-        query["inactive_since"] = None
-
-    return query
+    return build_query(
+        filters,
+        terms={"saison_id", "saison_phase"},
+        include_inactive=filters.include_inactive,
+        compiled={"saison_phase": {"$ne": "gruppenphase"}} if filters.saison_phase == "playoffs" else None,
+    )
 
 
 def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules) -> dict[str, Any]:

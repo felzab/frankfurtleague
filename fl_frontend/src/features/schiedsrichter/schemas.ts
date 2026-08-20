@@ -53,6 +53,8 @@ export type FLPostSchiedsrichterResponse = z.infer<typeof FLPostSchiedsrichterRe
 
 export const FLPatchSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend({
   updated_document: FLSchiedsrichterSchema,
+  // How many fixtures the rename reached. Reported because the fan-out fails silently (`docs/backend/spec.md :: I13`).
+  fanned_out_to_spiele: z.int().nonnegative(),
 });
 export type FLPatchSchiedsrichterResponse = z.infer<typeof FLPatchSchiedsrichterResponseSchema>;
 

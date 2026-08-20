@@ -274,6 +274,7 @@ by surface; the order inside a group carries nothing.
 - Recurse the tiebreak chain; seed a placing the group can still change
 - Put the shoot-out in `ergebnis`; store its winner; let the table read it
 - Add a POST or a DELETE to `/spiele`
+- Give `app/api/spiele/services.py` an `await` or a collection
 - Offer in the form wiring the write path refuses
 - Refuse a manual pick as unqualified; field a team twice in a Spieltag
 - Add a disqualification boolean beside the record

@@ -147,16 +147,17 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 
 ## 2. Invariants
 
-| #   | Invariant                                                                              | Enforced by                                                                                                     |
-| --- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| L1  | One JSON document per line per service in the `json` format                            | `fl_backend/tests/core/test_logging.py`; `fl_frontend/src/core/logFormat.test.ts`                               |
-| L2  | The JSON field set matches across surfaces                                             | the same two suites, asserting names and shapes                                                                 |
-| L3  | An id is honoured only when well-formed, and minted otherwise                          | `fl_backend/tests/core/test_logging.py :: TestResolveCorrelationId`; `fl_frontend/src/core/correlation.test.ts` |
-| L4  | Every failure response is `{error_code, correlation_id}`, the code the exception's own | `fl_backend/tests/api/test_error_responses.py`                                                                  |
-| L5  | Every request gets exactly one backend access line, id and duration on it              | `fl_backend/tests/api/test_error_responses.py :: TestAccessLine`                                                |
-| L6  | A thrown API error never escapes a server action                                       | `fl_frontend/src/shared/utils/actionError.test.ts`                                                              |
-| L7  | The `X-Correlation-ID` a visitor sends is discarded at the edge                        | `nginx/prod.conf :: proxy_set_header X-Correlation-ID` (unconditional)                                          |
-| L8  | Every uncached admin-authed read runs inside `runWithIncomingCorrelationId`            | review — the set is listed in [`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) §1.2               |
+| #   | Invariant                                                                              | Enforced by                                                                                                              |
+| --- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| L1  | One JSON document per line per service in the `json` format                            | `fl_backend/tests/core/test_logging.py`; `fl_frontend/src/core/logFormat.test.ts`                                        |
+| L2  | The JSON field set matches across surfaces                                             | the same two suites, asserting names and shapes                                                                          |
+| L3  | An id is honoured only when well-formed, and minted otherwise                          | `fl_backend/tests/core/test_logging.py :: TestResolveCorrelationId`; `fl_frontend/src/core/correlation.test.ts`          |
+| L4  | Every failure response is `{error_code, correlation_id}`, the code the exception's own | `fl_backend/tests/api/test_error_responses.py`                                                                           |
+| L5  | Every request gets exactly one backend access line, id and duration on it              | `fl_backend/tests/api/test_error_responses.py :: TestAccessLine`                                                         |
+| L6  | A thrown API error never escapes a server action                                       | `fl_frontend/src/shared/utils/actionError.test.ts`                                                                       |
+| L7  | The `X-Correlation-ID` a visitor sends is discarded at the edge                        | `nginx/prod.conf :: proxy_set_header X-Correlation-ID` (unconditional)                                                   |
+| L8  | Every uncached admin-authed read runs inside `runWithIncomingCorrelationId`            | review — the set is listed in [`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) §1.2                        |
+| L9  | A log line names a REJECTED FIELD, never the value submitted for it                    | review — `fl_backend/app/core/logging.py :: STRUCTURED_EXTRAS` bounds what travels as a field; message text is unchecked |
 
 ## 3. Violation → remedy
 
@@ -168,6 +169,7 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | Log lines vanish after a deploy                       | `up -d --force-recreate` replaces the container and its log file                  | Copy the stream off the host before deploying (1.2)                                       |
 | One digest matches many unrelated incidents           | A digest names an error class, not an incident — Next derives it from the message | Search on digest plus time plus route, then follow the `FE-RSC-001` line's id             |
 | Non-JSON lines appear in a stream                     | nginx's error log and both services' boot lines are outside the contract          | Working as intended (1.2, section 4). A parser skips non-`{` lines                        |
+| A log line carries personal data                      | A handler logged a rejected value rather than the field that carried it           | Log the field NAME; the value belongs in neither the message nor an extra (L9)            |
 
 ## 4. Known-open
 

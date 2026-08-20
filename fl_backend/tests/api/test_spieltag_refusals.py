@@ -22,6 +22,12 @@ ABOVE_THE_FLOOR = {"live_in_phase": 4, "implied_in_phase": 3}
 # A phase the rules produce, so `REQ-SPIELTAG-004` cannot be what refuses.
 A_PLAYED_PHASE = {"implied_in_phase": 3, "saison_phase": "gruppenphase"}
 
+# Annotated rather than inferred: a bare tuple of `str` would widen past `FLSaisonPhase`.
+BOTH_WAYS_ACROSS_THE_BOUNDARY: tuple[tuple[FLSaisonPhase, FLSaisonPhase], ...] = (
+    ("gruppenphase", "viertelfinale"),
+    ("viertelfinale", "gruppenphase"),
+)
+
 
 class TestRetiringAMatchday:
     def test_an_unplayed_matchday_retires_freely(self):
@@ -217,24 +223,19 @@ class TestWhichPhaseChangesAreLegitimate:
             is None
         )
 
-    def test_a_matchday_holding_both_kinds_is_left_alone_in_either_direction(self):
+    @pytest.mark.parametrize(("stored", "proposed"), BOTH_WAYS_ACROSS_THE_BOUNDARY)
+    def test_a_matchday_holding_both_kinds_is_left_alone_in_either_direction(self, stored, proposed):
         """Every move strands something; refusing would freeze the phase over a state no edit here produced."""
 
-        # Annotated rather than inferred: a bare tuple of `str` would widen past `FLSaisonPhase`.
-        both_ways: tuple[tuple[FLSaisonPhase, FLSaisonPhase], ...] = (
-            ("gruppenphase", "viertelfinale"),
-            ("viertelfinale", "gruppenphase"),
-        )
-        for stored, proposed in both_ways:
-            assert (
-                find_spieltag_boundary_refusal(
-                    stored_phase=stored,
-                    proposed_phase=proposed,
-                    fixtures_on_stored_side=3,
-                    fixtures_on_proposed_side=2,
-                )
-                is None
+        assert (
+            find_spieltag_boundary_refusal(
+                stored_phase=stored,
+                proposed_phase=proposed,
+                fixtures_on_stored_side=3,
+                fixtures_on_proposed_side=2,
             )
+            is None
+        )
 
     def test_relabelling_one_knockout_round_as_another_stays_open(self):
         assert (

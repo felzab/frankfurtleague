@@ -3,7 +3,8 @@ from typing import Annotated, Literal, Mapping, Union
 from pydantic import BaseModel, Field, RootModel, TypeAdapter
 
 from app.shared.schemas.addresses import FLAddress
-from app.shared.schemas.custom import CustomDateString, CustomExternalUrl, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH, TEAM_DESCRIPTION_MAX_LENGTH, TEAM_SHORTHAND_LENGTH
+from app.shared.schemas.custom import CustomDateString, CustomExternalUrl, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLGruppenNames = Literal["A", "B", "C", "D"]
@@ -20,7 +21,7 @@ class FLDisqualifikation(BaseModel):
     disciplinary code an enum could cite.
     """
 
-    grund: str = Field(min_length=1)
+    grund: CustomNonEmptyString
     # The day the disqualification took effect, not the day somebody typed it in.
     datum: CustomDateString
 
@@ -40,23 +41,28 @@ class FLTeamStatistik(BaseModel):
     anzahl_abgesagte_spiele: int = Field(default=0, ge=0)
 
 
-class FLTeam(BaseModel):
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-
-    name: str = Field(min_length=1)
-    gruppe: FLGruppenNames
-    statistik: FLTeamStatistik
-    # Joined from the junction on every read, and copied into no match document.
-    disqualifikation: FLDisqualifikation | None
-    shorthand: str = Field(min_length=2, max_length=2)
+# Private, so the payloads, the stored record and the read model state these fields once, and the
+# base itself publishes no OpenAPI component.
+class _TeamWritable(BaseModel):
+    name: CustomNonEmptyString
+    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
     # Capped so the public page and the editor's textarea agree on what fits; the bound stays out of
     # the database validator (`docs/backend/spec.md :: I16`).
-    description: str = Field(max_length=4096)
-    full_name: str = Field(min_length=1)
+    description: str = Field(max_length=TEAM_DESCRIPTION_MAX_LENGTH)
+    full_name: CustomNonEmptyString
     # Rendered straight into an href on a public page, so the scheme is constrained here as well as
     # in the frontend (`fl_backend/app/shared/schemas/custom.py :: validate_external_url`).
     website_url: CustomExternalUrl
     address: FLAddress
+
+
+class FLTeam(_TeamWritable):
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+
+    gruppe: FLGruppenNames
+    statistik: FLTeamStatistik
+    # Joined from the junction on every read, and copied into no match document.
+    disqualifikation: FLDisqualifikation | None
     # The day this CLUB left the league. Leaving one season is `disqualifikation` above.
     inactive_since: CustomOptionalDateString
 
@@ -64,7 +70,7 @@ class FLTeam(BaseModel):
 FLTeamListAdapter = TypeAdapter(list[FLTeam])
 
 
-class FLTeamRecord(BaseModel):
+class FLTeamRecord(_TeamWritable):
     """The club document as it is STORED, and what the write endpoints echo.
 
     The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
@@ -72,13 +78,6 @@ class FLTeamRecord(BaseModel):
     """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-
-    name: str = Field(min_length=1)
-    shorthand: str = Field(min_length=2, max_length=2)
-    description: str = Field(max_length=4096)
-    full_name: str = Field(min_length=1)
-    website_url: CustomExternalUrl
-    address: FLAddress
     inactive_since: CustomOptionalDateString
 
 
@@ -108,34 +107,29 @@ class FLTeamWithMemberships(FLTeamRecord):
     memberships: list[FLTeamMembership]
 
 
+FLTeamWithMembershipsListAdapter = TypeAdapter(list[FLTeamWithMemberships])
+
+
 class FLTeamsMembershipsResponse(BaseAPIResponse):
     """Every club, retired ones included, each with its memberships. Sorted by name."""
 
     teams: list[FLTeamWithMemberships]
 
 
-class FLPostTeamPayload(BaseModel):
-    name: str = Field(min_length=1)
-    shorthand: str = Field(min_length=2, max_length=2)
-    description: str = Field(max_length=4096)
-    full_name: str = Field(min_length=1)
-    website_url: CustomExternalUrl
-    address: FLAddress
+# Two names for one shape rather than an alias: the create and the edit are free to diverge, and an
+# alias would carry a change to either one into the other.
+class FLPostTeamPayload(_TeamWritable):
+    pass
 
 
-class FLPatchTeamPayload(BaseModel):
-    name: str = Field(min_length=1)
-    shorthand: str = Field(min_length=2, max_length=2)
-    description: str = Field(max_length=4096)
-    full_name: str = Field(min_length=1)
-    website_url: CustomExternalUrl
-    address: FLAddress
+class FLPatchTeamPayload(_TeamWritable):
+    pass
 
 
 class FLPostSaisonTeamPayload(BaseModel):
     """One team's membership of one season. `team_id` comes from the path, `saison_id` from here."""
 
-    saison_id: str = Field(min_length=4, max_length=4)
+    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
     gruppe: FLGruppenNames
 
 
@@ -159,7 +153,7 @@ class FLTeamsFilterParams(BaseModel):
     # playoff-polluted one.
     statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
 
-    limit: int = Field(default=1024, ge=1, le=1024)
+    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: Literal["name"] = Field(default="name")
     order: Literal["asc", "desc"] = Field(default="asc")
 
@@ -168,6 +162,8 @@ class FLTeamSingleFilterParams(BaseModel):
     """What `GET /teams/{team_id}` accepts: only what chooses WHICH SEASON'S figures to derive."""
 
     saison_id: str | None = None
+    # Spelled again rather than shared with `FLTeamsFilterParams`: a base holding this default would
+    # put a ratified one behind an inheritance edit made for some unrelated field.
     statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
 
 
@@ -204,7 +200,7 @@ class FLPostTeamResponse(BaseAPIResponse):
 
 class FLPatchTeamResponse(BaseAPIResponse):
     updated_document: FLTeamRecord
-    # Reported rather than assumed: the fan-out is the half of this endpoint that fails silently.
+    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently (`docs/backend/spec.md :: I13`).
     fanned_out_to_spiele: int
 
 

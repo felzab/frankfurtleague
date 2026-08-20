@@ -1,4 +1,4 @@
-import { deriveDraftStatus } from "@/shared/utils/draftStatus";
+import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatEuro } from "@/shared/utils/format";
 
 import type { FLKontakt } from "@/shared/schemas";
@@ -16,8 +16,6 @@ export type FLSchiedsrichterDraftFields = {
 export type FLSchiedsrichterFieldGroup = "Person" | "Kontakt" | "Honorar";
 
 export type FLSchiedsrichterDraftStatus = FLDraftStatus<FLSchiedsrichterFieldGroup>;
-
-const emptyAsNull = (value: string | null): string | null => (value === null || value.trim() === "" ? null : value.trim());
 
 /** `default_payment` formats to euros, so a change row reads as money rather than as a bare number. */
 const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSchiedsrichterDraftFields, FLSchiedsrichterFieldGroup>[] = [
