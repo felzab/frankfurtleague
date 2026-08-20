@@ -3,6 +3,7 @@ from typing import Any, Callable
 import pytest
 from bson import ObjectId
 
+from app.api.spiele.crud import apply_release_to_spiel
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoinedListAdapter, FLSpielListAdapter
 from app.api.spiele.services import (
     ELIGIBILITY_DISQUALIFIED,
@@ -65,10 +66,14 @@ def season(fixture_at: Callable[..., dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def stored_spiel(season_docs: list[dict[str, Any]], nr: int) -> dict[str, Any]:
+    return next(doc for doc in season_docs if doc["spiel_nr"] == nr)
+
+
 def payload_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> FLPatchSpielDataPayload:
     """Everything as stored plus `overrides`, so the default is the no-op edit every occupant rule turns on."""
 
-    stored = next(doc for doc in season_docs if doc["spiel_nr"] == nr)
+    stored = stored_spiel(season_docs, nr)
 
     return FLPatchSpielDataPayload.model_validate(
         {
@@ -92,7 +97,7 @@ def payload_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) ->
 def eligibility_for(season_docs: list[dict[str, Any]], nr: int, membership: dict[str, str | None], **overrides: Any) -> str | None:
     """`membership` maps a club to the day it is disqualified from, or `None` while it competes — `pull_saison_membership`'s shape."""
 
-    stored = next(doc for doc in season_docs if doc["spiel_nr"] == nr)
+    stored = stored_spiel(season_docs, nr)
     refusal = find_eligibility_refusal(
         ObjectId(stored["_id"]),
         payload_for(season_docs, nr, **overrides),
@@ -104,7 +109,7 @@ def eligibility_for(season_docs: list[dict[str, Any]], nr: int, membership: dict
 
 
 def occupancy_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any):
-    stored = next(doc for doc in season_docs if doc["spiel_nr"] == nr)
+    stored = stored_spiel(season_docs, nr)
 
     return judge_spieltag_occupancy(
         ObjectId(stored["_id"]),
@@ -321,8 +326,6 @@ class TestSpieltagOccupancy:
         (release,) = occupancy_for(season, 1, team1=team(CRONBERG, "Cronberg")).releases
 
         assert release.voided_ergebnis == "3:1"
-        # The side left behind still holds goals, and they go with the result they were scored in.
-        assert release.other_side_tore is True
 
     def test_a_maintained_side_is_refused_rather_than_released(self, season):
         """Emptying a side that carries a `quelle` is undone by the next resolution, so it is refused instead."""
@@ -346,6 +349,43 @@ class TestSpieltagOccupancy:
         verdict = occupancy_for(occupied, 30, team1=team(CRONBERG, "Cronberg"))
 
         assert verdict.refusal is not None and verdict.releases == []
+
+
+class TestApplyingARelease:
+    """The emptying itself. The preview and the save share it, so neither can model a release the other would not."""
+
+    def test_the_side_left_behind_loses_its_goals(self, season):
+        """Those goals were scored against the team being removed, so the result they add up to cannot stand either."""
+
+        (release,) = occupancy_for(season, 1, team1=team(CRONBERG, "Cronberg")).releases
+        released = apply_release_to_spiel(FLSpiel.model_validate(stored_spiel(season, release.spiel_nr)), release)
+
+        assert released.team1 is None
+        assert released.team2 is not None and released.team2.tore is None
+        assert released.ergebnis is None and released.elfmeterschiessen is None
+
+    def test_a_shoot_out_goes_with_the_goals_it_settled(self, season):
+        """It exists to break a level score, so nothing is left for it to decide once that score is gone."""
+
+        settled = [
+            doc
+            if doc["spiel_nr"] != 29
+            else {
+                **doc,
+                "team1": team(ADLER, "Adler", tore=2),
+                "team2": team(BIEBER, "Bieber", tore=2),
+                "ergebnis": "2:2",
+                "elfmeterschiessen": {"team1": 4, "team2": 3},
+            }
+            for doc in season
+        ]
+
+        (release,) = occupancy_for(settled, 30, team1=team(ADLER, "Adler")).releases
+        released = apply_release_to_spiel(FLSpiel.model_validate(stored_spiel(settled, release.spiel_nr)), release)
+
+        assert release.voided_elfmeterschiessen is not None
+        assert released.elfmeterschiessen is None
+        assert released.team2 is not None and released.team2.tore is None
 
 
 def joined(*, nr: int, datum: str | None, side_disqualified_from: str | None, side: str = "team1") -> dict[str, Any]:
@@ -453,7 +493,7 @@ class TestRemovingATeamFromAPlayedFixture:
     """`tore` lives inside the side, so emptying it takes the goals and the result collapses; switching keeps them."""
 
     def removal(self, season_docs, nr, **overrides):
-        stored = next(doc for doc in season_docs if doc["spiel_nr"] == nr)
+        stored = stored_spiel(season_docs, nr)
         refusal = find_result_removal_refusal(
             ObjectId(stored["_id"]),
             payload_for(season_docs, nr, **overrides),

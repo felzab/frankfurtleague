@@ -2,6 +2,7 @@ from typing import Any, Mapping, get_args
 
 import pytest
 from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.schemas import FLSaison, FLSaisonRules, FLSaisonStatus
@@ -127,6 +128,18 @@ def document_keys(models: type[BaseModel] | tuple[type[BaseModel], ...]) -> set[
     return keys
 
 
+def stored_fields(models: type[BaseModel] | tuple[type[BaseModel], ...]) -> dict[str, list[tuple[str, FieldInfo]]]:
+    """`document_keys` in mapping form; a union key lists one entry per variant, since the validator requires it of whichever is stored."""
+    fields: dict[str, list[tuple[str, FieldInfo]]] = {}
+
+    for model in models if isinstance(models, tuple) else (models,):
+        for field_name, field in model.model_fields.items():
+            alias = field.validation_alias
+            fields.setdefault(alias if isinstance(alias, str) else field_name, []).append((model.__name__, field))
+
+    return fields
+
+
 def properties_at(collection: Collection, path: tuple[str, ...]) -> Mapping[str, Any]:
     schema: Mapping[str, Any] = COLLECTION_VALIDATORS[collection]["$jsonSchema"]
 
@@ -134,6 +147,16 @@ def properties_at(collection: Collection, path: tuple[str, ...]) -> Mapping[str,
         schema = schema["properties"][step]
 
     return schema["properties"]
+
+
+def required_at(collection: Collection, path: tuple[str, ...]) -> list[str]:
+    """`properties_at`'s sibling: `required` is a key beside `properties` rather than one inside it."""
+    schema: Mapping[str, Any] = COLLECTION_VALIDATORS[collection]["$jsonSchema"]
+
+    for step in path:
+        schema = schema["properties"][step]
+
+    return list(schema.get("required", []))
 
 
 def walk_schemas(schema: Mapping[str, Any]):
@@ -171,6 +194,29 @@ def test_every_mirrored_model_matches_its_validator(
         f"Only in the model: {sorted(expected - declared)}. Only in the validator: {sorted(declared - expected)}. "
         f"Update app/core/constraints.py in the same commit as the model."
     )
+
+
+@pytest.mark.parametrize(("collection", "path", "model"), [(collection, path, model) for collection, path, model, _ in MIRRORED_MODELS])
+def test_every_required_field_is_required_on_its_model(
+    collection: Collection,
+    path: tuple[str, ...],
+    model: type[BaseModel] | tuple[type[BaseModel], ...],
+):
+    """A defaulted field still mirrors by name, and the model then accepts a row the validator would refuse to store."""
+
+    fields = stored_fields(model)
+    where = ".".join((collection, *path))
+
+    for key in required_at(collection, path):
+        declaring = fields.get(key, [])
+        assert declaring, f"{where} requires {key!r}, which no model in MIRRORED_MODELS declares"
+
+        optional_on = sorted(name for name, field in declaring if not field.is_required())
+        assert not optional_on, (
+            f"{where}.{key} is required by the validator and optional on {optional_on}. "
+            f"A positional `Field(0, ge=0)` is a default to Pydantic while Pyright still reads the field as required. "
+            f"Drop it, or drop {key!r} from `required` in app/core/constraints.py in the same commit."
+        )
 
 
 @pytest.mark.parametrize(("collection", "path", "field", "members", "nullable"), MIRRORED_ENUMS)

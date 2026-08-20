@@ -34,7 +34,7 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
 )
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -44,7 +44,6 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
@@ -147,25 +146,18 @@ async def patch_spiel_data(
         season_raw = await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
         season = FLSpielListAdapter.validate_python(season_raw)
 
-        wiring_refusal = find_wiring_refusal(spiel_id, spiel_data, season)
-        if wiring_refusal is not None:
-            raise DocumentConflictException.from_refusal(wiring_refusal)
+        refuse(find_wiring_refusal(spiel_id, spiel_data, season))
 
         # Read through the session, so a disqualification committed by this transaction is visible.
         membership = await pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=saison_id, session=session)
-        eligibility_refusal = find_eligibility_refusal(spiel_id, spiel_data, season, membership)
-        if eligibility_refusal is not None:
-            raise DocumentConflictException.from_refusal(eligibility_refusal)
+        refuse(find_eligibility_refusal(spiel_id, spiel_data, season, membership))
 
         # Before the occupancy judgement: a side that cannot be emptied is a fact about this
         # fixture, where a clash is a fact about its neighbours.
-        removal_refusal = find_result_removal_refusal(spiel_id, spiel_data, season)
-        if removal_refusal is not None:
-            raise DocumentConflictException.from_refusal(removal_refusal)
+        refuse(find_result_removal_refusal(spiel_id, spiel_data, season))
 
         verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
-        if verdict.refusal is not None:
-            raise DocumentConflictException.from_refusal(verdict.refusal)
+        refuse(verdict.refusal)
 
         stored = next((entry for entry in season if entry.id == spiel_id), None)
         if stored is not None:
@@ -177,13 +169,13 @@ async def patch_spiel_data(
                 session=session,
             )
             if spieltag_raw is not None:
-                date_refusal = find_fixture_date_refusal(
-                    datum=spiel_data.datum,
-                    spieltag_beginn=str(spieltag_raw["beginn"]),
-                    spieltag_ende=str(spieltag_raw["ende"]),
+                refuse(
+                    find_fixture_date_refusal(
+                        datum=spiel_data.datum,
+                        spieltag_beginn=str(spieltag_raw["beginn"]),
+                        spieltag_ende=str(spieltag_raw["ende"]),
+                    )
                 )
-                if date_refusal is not None:
-                    raise DocumentConflictException.from_refusal(date_refusal)
 
         # No `saison_id` in the query below: a double booking crosses competitions.
         if spiel_data.datum is not None:
@@ -215,9 +207,7 @@ async def patch_spiel_data(
                     for booking in bookings
                 )
 
-            clash_refusal = find_clash_refusal(datum=spiel_data.datum, uhrzeit=spiel_data.uhrzeit, booked=claims)
-            if clash_refusal is not None:
-                raise DocumentConflictException.from_refusal(clash_refusal)
+            refuse(find_clash_refusal(datum=spiel_data.datum, uhrzeit=spiel_data.uhrzeit, booked=claims))
 
         return season, verdict.releases
 
@@ -244,18 +234,12 @@ async def patch_spiel_data(
         # Inside the transaction, so a retry after a write conflict revalidates against fresh reads.
         _, releases = await judge(session=session)
 
-        patched_spiel_raw = await patch_one_in_db(
+        await patch_one_in_db(
             collection=spiele_collection,
-            filter={"_id": spiel_id},
+            db_filter={"_id": spiel_id},
             update={"$set": document},
             session=session,
         )
-        # `None` only when nothing matched, so this is the 404 branch, not an error check.
-        if patched_spiel_raw is None:
-            raise DocumentNotFoundException(
-                filter={"_id": spiel_id},
-                error_code=DOCUMENT_NOT_FOUND,
-            )
 
         # Before the resolution: a slot this release opens can be refilled by that same resolution,
         # and the reverse order would leave the season one pass behind.

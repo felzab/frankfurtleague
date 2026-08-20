@@ -3,14 +3,14 @@ from fastapi import APIRouter, Depends
 from app.api.saisons.crud import pull_current_saison
 from app.api.saisons.schemas import (
     FLSaison,
-    FLSaisonsFilterOptions,
-    FLSaisonsListAdapter,
+    FLSaisonListAdapter,
+    FLSaisonsFilterParams,
     FLSaisonsListResponse,
     FLSaisonsSingleResponse,
 )
-from app.api.saisons.services import build_saisons_filter, build_saisons_sort, with_schedule
+from app.api.saisons.services import with_schedule
 from app.core.config import API_VERSION
-from app.core.crud import pull_many_from_db, pull_one_from_db
+from app.core.crud import build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection
 from app.core.security import verify_access_base
 
@@ -21,15 +21,15 @@ router = APIRouter(
 
 
 @router.get("", response_model=FLSaisonsListResponse, summary="List Saisons")
-async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsFilterOptions = Depends()) -> FLSaisonsListResponse:
+async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsFilterParams = Depends()) -> FLSaisonsListResponse:
     """
     List seasons, optionally filtered by status (`past`, `active`, `future`).
 
     Unlike the other resources, this does NOT default to the current season.
     """
 
-    db_filter = build_saisons_filter(filters=filters)
-    db_sort = build_saisons_sort(sort_by=filters.sort_by, order=filters.order)
+    db_filter = build_query(filters, terms={"status"})
+    db_sort = build_sort(sort_by=filters.sort_by, order=filters.order)
 
     saisons_raw = await pull_many_from_db(
         collection=saisons_collection,
@@ -37,7 +37,7 @@ async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsF
         limit=filters.limit,
         sort_by=db_sort,
     )
-    saisons = FLSaisonsListAdapter.validate_python([with_schedule(raw) for raw in saisons_raw])
+    saisons = FLSaisonListAdapter.validate_python([with_schedule(raw) for raw in saisons_raw])
 
     return FLSaisonsListResponse(saisons=saisons)
 

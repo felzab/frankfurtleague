@@ -1,24 +1,6 @@
-from typing import Any, Sequence
+from typing import Sequence
 
-from app.api.spielorte.schemas import FLSpielorteFilterParams
 from app.core.exceptions import WriteRefusal
-
-
-def build_spielorte_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
-    direction = 1 if order == "asc" else -1
-
-    return [(sort_by, direction)]
-
-
-def build_spielorte_filter(filters: FLSpielorteFilterParams) -> dict[str, Any]:
-    query: dict[str, Any] = {}
-
-    # `inactive_since` is required and carries null while the venue is live, so this is equality.
-    if not filters.include_inactive:
-        query["inactive_since"] = None
-
-    return query
-
 
 # A played fixture never blocks: its `ort` is an embedded record.
 VENUE_STILL_BOOKED = "REQ-RETIRE-003"

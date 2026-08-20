@@ -2,7 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
 
-from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
+from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLSpielerSortOptions = Literal["vorname", "nachname", "stufe", "nummer", "position"]
@@ -15,23 +16,34 @@ FLSpielerPosition = Literal["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 # a season contains would refuse an entry as the year turns.
 FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 
-# Unicode letters and the separators a real name uses, because an ASCII rule would refuse `Körner`.
-# On the WRITE payloads only: a read model refusing a stored name 500s the response for one bad row.
-PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 
+class _SpielerPerson(BaseModel):
+    """The person's own two fields, shared so a read of one player and a read of their memberships cannot drift apart."""
 
-class FLSpieler(BaseModel):
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-
-    vorname: str = Field(min_length=1)
+    vorname: CustomNonEmptyString
     nachname: str | None
-    stufe: FLSpielerStufe | None
+
+
+class _SaisonSpielerWritable(BaseModel):
+    """The squad-row block every junction payload and echo repeats, beyond the ids and the retirement date each states itself."""
+
+    team_id: CustomObjectId
     nummer: str | None
     position: FLSpielerPosition | None
-    is_nachgetragen: bool = False
+    stufe: FLSpielerStufe | None
+    # True when the player joined a season already under way; the form derives it from the status.
+    is_nachgetragen: bool
     # On the JUNCTION, not the person: captaincy is a role within one team for one season.
+    is_captain: bool
+
+
+class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+
+    # Re-declared with defaults where the junction requires them: a squad row written before either
+    # field existed still has to read back, and a read model that 422s makes that row unreachable.
+    is_nachgetragen: bool = False
     is_captain: bool = False
-    team_id: CustomObjectId
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
     # player who left one squad has a retired junction row and is still a player.
     inactive_since: CustomOptionalDateString
@@ -49,7 +61,7 @@ class FLSpielerFilterParams(BaseModel):
     stufe: FLSpielerStufe | None = None
     include_inactive: bool = False
 
-    limit: int = Field(default=1024, ge=1, le=1024)
+    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: FLSpielerSortOptions = Field(default="position")
     order: Literal["asc", "desc"] = Field(default="asc")
 
@@ -74,33 +86,21 @@ class FLPatchSpielerPayload(BaseModel):
     nachname: str | None = Field(pattern=PERSON_NAME_PATTERN)
 
 
-class FLPostSaisonSpielerPayload(BaseModel):
+class FLPostSaisonSpielerPayload(_SaisonSpielerWritable):
     """One player's membership of one team's squad for one season.
 
     Every field is required, including those a squad often does not know: a caller states `null`
     rather than omitting, so the answer is theirs and not a default nobody chose.
     """
 
-    saison_id: str = Field(min_length=4, max_length=4)
-    team_id: CustomObjectId
-    nummer: str | None
-    position: FLSpielerPosition | None
-    stufe: FLSpielerStufe | None
-    # True when the player joined a season already under way; the form derives it from the status.
-    is_nachgetragen: bool
-    is_captain: bool
+    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
-class FLPatchSaisonSpielerPayload(BaseModel):
-    """Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default."""
+class FLPatchSaisonSpielerPayload(_SaisonSpielerWritable):
+    """Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default.
 
-    # `team_id` is editable here: a mid-season transfer is a change to the junction row.
-    team_id: CustomObjectId
-    nummer: str | None
-    position: FLSpielerPosition | None
-    stufe: FLSpielerStufe | None
-    is_nachgetragen: bool
-    is_captain: bool
+    `team_id` is editable here: a mid-season transfer is a change to the junction row.
+    """
 
 
 class FLSpielerListResponse(BaseAPIResponse):
@@ -124,21 +124,15 @@ class FLSpielerWriteResponse(BaseAPIResponse):
     spieler_id: CustomObjectId
 
 
-class FLSaisonSpielerResponse(BaseAPIResponse):
+class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
     """A junction row, which has no read model of its own -- so it is echoed as it was written."""
 
     spieler_id: CustomObjectId
     saison_id: str
-    team_id: CustomObjectId
-    nummer: str | None
-    position: FLSpielerPosition | None
-    stufe: FLSpielerStufe | None
-    is_nachgetragen: bool
-    is_captain: bool
     inactive_since: str | None
 
 
-class FLSpielerMembership(BaseModel):
+class FLSpielerMembership(_SaisonSpielerWritable):
     """One squad row as seen from its player.
 
     Carries `inactive_since`, which the team junction does not: a player leaves a squad mid-season,
@@ -146,16 +140,10 @@ class FLSpielerMembership(BaseModel):
     """
 
     saison_id: str
-    team_id: CustomObjectId
-    nummer: str | None
-    position: FLSpielerPosition | None
-    stufe: FLSpielerStufe | None
-    is_nachgetragen: bool
-    is_captain: bool
     inactive_since: CustomOptionalDateString
 
 
-class FLSpielerWithMemberships(BaseModel):
+class FLSpielerWithMemberships(_SpielerPerson):
     """The person as stored, plus every squad row they hold.
 
     A DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one
@@ -164,8 +152,6 @@ class FLSpielerWithMemberships(BaseModel):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
-    vorname: str = Field(min_length=1)
-    nachname: str | None
     # The day the PERSON left the league; a squad row retires independently, on the membership above.
     inactive_since: CustomOptionalDateString
     memberships: list[FLSpielerMembership]

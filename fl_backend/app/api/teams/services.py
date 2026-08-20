@@ -6,6 +6,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpiel
 from app.api.teams.schemas import FLGruppen, FLGruppenNames, FLTeam, FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 from app.core.collections import Collection
+from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.custom import CustomObjectId
 
@@ -150,15 +151,12 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
     if base_match:
         pipeline.append({"$match": base_match})
 
-    lookup_filters = filters.model_dump(
-        include={"saison_id", "gruppe"},
-        exclude_none=True,
-        context={"keep_oid": True},
+    lookup_filters = build_query(
+        filters,
+        terms={"saison_id", "gruppe"},
+        # Translated, not dumped: the row stores a record, never a boolean (`docs/backend/spec.md :: I31`).
+        compiled=None if filters.is_disqualified is None else {"disqualifikation": {"$ne": None} if filters.is_disqualified else None},
     )
-
-    # Translated, not dumped: the row stores a record, never a boolean (`docs/backend/spec.md :: I31`).
-    if filters.is_disqualified is not None:
-        lookup_filters["disqualifikation"] = {"$ne": None} if filters.is_disqualified else None
 
     lookup_pipeline: list[Mapping[str, Any]] = [{"$match": {"$expr": {"$eq": ["$team_id", "$$base_team_id"]}}}]
 

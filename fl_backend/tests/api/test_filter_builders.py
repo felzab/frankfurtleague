@@ -1,39 +1,11 @@
 from bson import ObjectId
 
-from app.api.saisons.schemas import FLSaisonsFilterOptions
-from app.api.saisons.services import build_saisons_filter
 from app.api.spiele.schemas import FLSpieleFilterParams
 from app.api.spiele.services import build_spiele_filter
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
 from app.api.spieltage.services import build_spieltage_filter, order_spieltage
 
 TODAY = "2026-07-31"
-
-
-class TestSaisonsFilter:
-    def test_every_included_name_is_a_real_field(self):
-        """A name no field carries is dropped silently and the endpoint answers unfiltered, which every value-level case below still passes."""
-        included = {"status"}
-
-        assert included <= set(FLSaisonsFilterOptions.model_fields)
-
-    def test_filters_by_status(self):
-        """`status` needs no alias — it is the same name on the model and in Mongo."""
-        filters = FLSaisonsFilterOptions.model_validate({"status": "active"})
-
-        assert build_saisons_filter(filters=filters) == {"status": "active"}
-
-    def test_a_season_id_is_not_a_filter_term(self):
-        """One season by its id is an identity served by `GET /saisons/{saison_id}`, never a list filter."""
-        filters = FLSaisonsFilterOptions.model_validate({"saison_id": "2526", "status": "past"})
-
-        assert build_saisons_filter(filters=filters) == {"status": "past"}
-
-    def test_omits_unset_terms_and_never_leaks_paging(self):
-        """Paging and sorting are not filter terms and must not leak into the query document."""
-        filters = FLSaisonsFilterOptions.model_validate({})
-
-        assert build_saisons_filter(filters=filters) == {}
 
 
 class TestSpieleFilter:

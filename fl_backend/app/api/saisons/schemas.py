@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Self
 
 from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, TypeAdapter, model_validator
 from app.api.spiele.schemas import FLSaisonPhase
 from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLGruppenNames
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -42,61 +43,60 @@ class FLSaisonPhaseSchedule(BaseModel):
     matches_per_matchday: int = Field(ge=0)
 
 
-class FLSaison(BaseModel):
-    # Exactly 4 characters, as every `saison_id` referencing this one demands: without it, an id
-    # like "2026/27" validates here and every document pointing at it fails on read.
-    id: str = Field(validation_alias="_id", serialization_alias="id", min_length=4, max_length=4)
-
+# Private, so the read model and both payloads state these fields once, and the base itself
+# publishes no OpenAPI component.
+class _SaisonWritable(BaseModel):
+    # No span check at this level: `refuse_reversed_span` is payload-only, and a read refusing a
+    # stored reversal would hide the row from the edit that repairs it.
     start_date: CustomDateString
     end_date: CustomDateString
-    status: FLSaisonStatus
     rules: FLSaisonRules
+
+
+class _SaisonPayload(_SaisonWritable):
+    @model_validator(mode="after")
+    def the_season_ends_after_it_starts(self) -> Self:
+        """The rule a `past` season's edit can still fail: its dates stay editable so a mistyped one can be repaired."""
+
+        refuse_reversed_span(start=self.start_date, end=self.end_date, start_label="dem Startdatum", end_label="Das Enddatum")
+
+        return self
+
+
+class FLSaison(_SaisonWritable):
+    # Exactly 4 characters, as every `saison_id` referencing this one demands: without it, an id
+    # like "2026/27" validates here and every document pointing at it fails on read.
+    id: str = Field(validation_alias="_id", serialization_alias="id", min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+
+    status: FLSaisonStatus
 
     # DERIVED, and on no document. Injected before validation, because a computed field would close
     # an import cycle.
     schedule: tuple[FLSaisonPhaseSchedule, ...]
 
 
-FLSaisonsListAdapter = TypeAdapter(list[FLSaison])
+FLSaisonListAdapter = TypeAdapter(list[FLSaison])
 
 
-class FLSaisonsFilterOptions(BaseModel):
+class FLSaisonsFilterParams(BaseModel):
     # No `saison_id`: this narrows a list, where `GET /saisons/{saison_id}` names one.
     status: FLSaisonStatus | None = None
 
-    limit: int = Field(default=1024, ge=1, le=1024)
+    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: FLSaisonsSortOptions = Field(default="_id")
     order: Literal["asc", "desc"] = Field(default="asc")
 
 
-class FLPostSaisonPayload(BaseModel):
+class FLPostSaisonPayload(_SaisonPayload):
     # CHOSEN, not generated: `saisons._id` is the string every `saison_id` in the database
     # references, so this is the one create payload carrying an id.
-    id: str = Field(min_length=4, max_length=4)
-
-    start_date: CustomDateString
-    end_date: CustomDateString
-    rules: FLSaisonRules
-
-    @model_validator(mode="after")
-    def the_season_ends_after_it_starts(self) -> "FLPostSaisonPayload":
-        refuse_reversed_span(start=self.start_date, end=self.end_date, start_label="dem Startdatum", end_label="Das Enddatum")
-
-        return self
+    id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
-class FLPatchSaisonPayload(BaseModel):
-    start_date: CustomDateString
-    end_date: CustomDateString
-    rules: FLSaisonRules
-
-    @model_validator(mode="after")
-    def the_season_ends_after_it_starts(self) -> "FLPatchSaisonPayload":
-        """The rule a `past` season's edit can still fail: its dates stay editable so a mistyped one can be repaired."""
-
-        refuse_reversed_span(start=self.start_date, end=self.end_date, start_label="dem Startdatum", end_label="Das Enddatum")
-
-        return self
+# The patch shape IS `_SaisonPayload`, and stays a name of its own: a private base publishes no
+# OpenAPI component, and `fl_frontend/src/core/apiContract.test.ts` pairs the mirror by name.
+class FLPatchSaisonPayload(_SaisonPayload):
+    pass
 
 
 class FLSwapGruppenPayload(BaseModel):

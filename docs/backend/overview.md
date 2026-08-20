@@ -1,6 +1,6 @@
 # Backend — overview
 
-**Verified against:** `889c31dd`, 2026-08-19\
+**Verified against:** `30a8b1ef`, 2026-08-20\
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB, with a read router and a write router per resource plus `system`. The
@@ -58,9 +58,15 @@ which keeps the rules where a hand edit lands: `saison_teams` and `saison_spiele
 stored-document model, and Compass is reachable whatever the API offers. What holds the copy to its model is
 [`spec.md`](spec.md) I17; the database user's `collMod` requirement is §4.
 
-**Shared database access goes through the helpers in `core/crud.py`**; a handler needing a session-scoped or
-projected read calls Motor directly. The one helper carrying a trap is `patch_one_in_db`, whose
-`return_document` defaults to `ReturnDocument.BEFORE` — [`spec.md`](spec.md) I2 states what depends on that.
+**Shared database access goes through the helpers in `core/crud.py`**, a module in sections. The driver
+helpers are keyword-only and take a session, which is what lets a read inside a transaction see that
+transaction's own writes. The query and sort builders behind a list read are pure, so no resource
+translates a filter term or a tie-break chain its own way. The rest is what a write does beyond the driver
+call: a refusal turned into the 409 it means, a retirement written as a date on `inactive_since`, a create
+stamped live. A handler reaches for Motor directly only to iterate a cursor, to sort a single-document
+read, to count without reading the documents, or where absence is a meaningful answer rather than a 404.
+One contract governs the module: a `*_one_*` helper raises on a miss and never returns `None` —
+[`spec.md`](spec.md) I2.
 
 ## Time
 

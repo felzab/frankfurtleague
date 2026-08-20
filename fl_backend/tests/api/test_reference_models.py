@@ -1,3 +1,5 @@
+from typing import get_args
+
 import pytest
 from pydantic import ValidationError
 
@@ -7,6 +9,7 @@ from app.api.spiele.schemas import FLSpielBooking
 from app.api.spieler.schemas import FLSpieler
 from app.api.spielorte.schemas import FLPostSpielortPayload, FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
+from app.api.teams.schemas import FLGruppenNames
 
 
 class TestSpielort:
@@ -216,12 +219,18 @@ class TestSaison:
         with pytest.raises(ValidationError):
             FLSaison.model_validate(saison(rules=rules))
 
-    def test_rejects_more_groups_than_the_closed_set_holds(self, saison):
-        """`FLGruppenNames` is the closed A-D set, so a season cannot run a fifth group."""
-        rules = {"win_points": 3, "draw_points": 1, "qualifiers_per_group": 2, "number_of_groups": 5, "teams_per_group": 4}
+    def test_the_group_cap_is_the_size_of_the_closed_set(self, saison):
+        """The bound and `offered_gruppen`'s cap are two spellings of one number.
+
+        `number_of_groups` carries a literal and `offered_gruppen` reads `get_args(FLGruppenNames)`,
+        so a fifth group name would refuse the season the entry path would then serve.
+        """
+        cap = len(get_args(FLGruppenNames))
+
+        assert FLSaison.model_validate(saison(rules={**saison()["rules"], "number_of_groups": cap})).rules.number_of_groups == cap
 
         with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules=rules))
+            FLSaison.model_validate(saison(rules={**saison()["rules"], "number_of_groups": cap + 1}))
 
     @pytest.mark.parametrize("field", ["start_date", "end_date"])
     def test_rejects_a_date_that_does_not_exist(self, saison, field):

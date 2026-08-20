@@ -3,37 +3,39 @@ from typing import Literal
 from pydantic import BaseModel, Field, TypeAdapter
 
 from app.shared.schemas.addresses import FLAddress
-from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse
 
 
-# No `id` on any payload: the path names the venue, the body describes the change (RFC 5789).
-class FLPatchSpielortPayload(BaseModel):
+# Private, so the payloads and the read model state these fields once: a base no endpoint names
+# publishes no OpenAPI component.
+class _SpielortWritable(BaseModel):
     address: FLAddress
-    name: str = Field(min_length=1)
+    name: CustomNonEmptyString
     # No default: the patch writes the payload back wholesale, so one would overwrite a real rent
     # with 0.
     default_mietpreis: int = Field(ge=0)
 
 
-class FLPostSpielortPayload(BaseModel):
-    address: FLAddress
-    name: str = Field(min_length=1)
-    default_mietpreis: int = Field(ge=0)
+# No `id` on any payload: the path names the venue, the body describes the change (RFC 5789).
+class FLPatchSpielortPayload(_SpielortWritable):
+    pass
 
 
-class FLSpielort(BaseModel):
+class FLPostSpielortPayload(_SpielortWritable):
+    pass
+
+
+class FLSpielort(_SpielortWritable):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    address: FLAddress
-    name: str = Field(min_length=1)
     # Free text searched on Google Maps, not a URL, so there is no scheme to check.
-    maps_link: str = Field(min_length=1)
-    default_mietpreis: int = Field(ge=0)
+    maps_link: CustomNonEmptyString
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
 
 
-FLSpielorteListAdapter = TypeAdapter(list[FLSpielort])
+FLSpielortListAdapter = TypeAdapter(list[FLSpielort])
 
 
 class FLSpielorteFilterParams(BaseModel):
@@ -41,7 +43,7 @@ class FLSpielorteFilterParams(BaseModel):
     # the live ones.
     include_inactive: bool = False
 
-    limit: int = Field(default=1024, ge=1, le=1024)
+    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: Literal["name",] = Field(default="name")
     order: Literal["asc", "desc"] = Field(default="asc")
 
@@ -56,6 +58,8 @@ class FLPostSpielortResponse(BaseAPIResponse):
 
 class FLPatchSpielortResponse(BaseAPIResponse):
     updated_document: FLSpielort
+    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently (`docs/backend/spec.md :: I13`).
+    fanned_out_to_spiele: int
 
 
 class FLSpielortWriteResponse(BaseAPIResponse):

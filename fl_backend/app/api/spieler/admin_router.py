@@ -1,7 +1,6 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
-from pymongo import ReturnDocument
 
 from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
@@ -16,9 +15,8 @@ from app.api.spieler.schemas import (
 )
 from app.api.spieler.services import build_spieler_memberships_pipeline, find_squad_refusal
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, post_one_to_db
+from app.core.crud import aggregate_many_from_db, insert_live, patch_one_in_db, post_one_to_db, refuse, set_inactive_since
 from app.core.dependencies import SaisonSpielerCollection, SaisonTeamsCollection, SpielerCollection, get_german_date_str
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -81,10 +79,7 @@ async def post_spieler(
     They belong to no team until they have a junction row, and no uniqueness rule applies to a name.
     """
 
-    post_operation = await post_one_to_db(
-        collection=spieler_collection,
-        document={**spieler_data.model_dump(mode="json"), "inactive_since": None},
-    )
+    post_operation = await insert_live(collection=spieler_collection, document=spieler_data.model_dump(mode="json"))
 
     return FLSpielerWriteResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
@@ -102,12 +97,9 @@ async def patch_spieler(
 
     updated_raw = await patch_one_in_db(
         collection=spieler_collection,
-        filter={"_id": spieler_id},
+        db_filter={"_id": spieler_id},
         update={"$set": spieler_data.model_dump(mode="json")},
-        return_document=ReturnDocument.AFTER,
     )
-    if updated_raw is None:
-        raise DocumentNotFoundException(filter={"_id": spieler_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return _as_single(updated_raw)
 
@@ -120,14 +112,7 @@ async def delete_spieler(
 ) -> FLSpielerSingleResponse:
     """Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE."""
 
-    updated_raw = await patch_one_in_db(
-        collection=spieler_collection,
-        filter={"_id": spieler_id},
-        update={"$set": {"inactive_since": today}},
-        return_document=ReturnDocument.AFTER,
-    )
-    if updated_raw is None:
-        raise DocumentNotFoundException(filter={"_id": spieler_id}, error_code=DOCUMENT_NOT_FOUND)
+    updated_raw = await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=today)
 
     return _as_single(updated_raw)
 
@@ -139,14 +124,7 @@ async def reactivate_spieler(
 ) -> FLSpielerSingleResponse:
     """Clear `inactive_since`, putting the player back into every read that hides retired ones."""
 
-    updated_raw = await patch_one_in_db(
-        collection=spieler_collection,
-        filter={"_id": spieler_id},
-        update={"$set": {"inactive_since": None}},
-        return_document=ReturnDocument.AFTER,
-    )
-    if updated_raw is None:
-        raise DocumentNotFoundException(filter={"_id": spieler_id}, error_code=DOCUMENT_NOT_FOUND)
+    updated_raw = await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=None)
 
     return _as_single(updated_raw)
 
@@ -171,10 +149,10 @@ async def post_saison_spieler(
             {"saison_id": saison_spieler_data.saison_id, "team_id": saison_spieler_data.team_id}, limit=1
         )
     ) > 0
-    squad_refusal = find_squad_refusal(team_in_saison=team_in_saison)
-    if squad_refusal is not None:
-        raise DocumentConflictException.from_refusal(squad_refusal)
+    refuse(find_squad_refusal(team_in_saison=team_in_saison))
 
+    # Stated here rather than through `insert_live`: the echo below reads THIS dict and not the
+    # driver's result, so a field the helper added would be missing from the answer.
     document = {
         "spieler_id": spieler_id,
         **saison_spieler_data.model_dump(mode="json", exclude={"team_id"}),
@@ -205,23 +183,18 @@ async def patch_saison_spieler(
     team_in_saison = (
         await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": saison_spieler_data.team_id}, limit=1)
     ) > 0
-    squad_refusal = find_squad_refusal(team_in_saison=team_in_saison)
-    if squad_refusal is not None:
-        raise DocumentConflictException.from_refusal(squad_refusal)
+    refuse(find_squad_refusal(team_in_saison=team_in_saison))
 
     updated_raw = await patch_one_in_db(
         collection=saison_spieler_collection,
-        filter={"spieler_id": spieler_id, "saison_id": saison_id},
+        db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
         update={
             "$set": {
                 **saison_spieler_data.model_dump(mode="json", exclude={"team_id"}),
                 "team_id": saison_spieler_data.team_id,
             }
         },
-        return_document=ReturnDocument.AFTER,
     )
-    if updated_raw is None:
-        raise DocumentNotFoundException(filter={"spieler_id": spieler_id, "saison_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return _as_junction(updated_raw)
 
@@ -240,14 +213,11 @@ async def delete_saison_spieler(
     leave. `include_inactive=true` is how an admin list gets it back.
     """
 
-    updated_raw = await patch_one_in_db(
+    updated_raw = await set_inactive_since(
         collection=saison_spieler_collection,
-        filter={"spieler_id": spieler_id, "saison_id": saison_id},
-        update={"$set": {"inactive_since": today}},
-        return_document=ReturnDocument.AFTER,
+        db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
+        when=today,
     )
-    if updated_raw is None:
-        raise DocumentNotFoundException(filter={"spieler_id": spieler_id, "saison_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return _as_junction(updated_raw)
 
@@ -265,16 +235,14 @@ async def reactivate_saison_spieler(
     """
     Clear a squad row's `inactive_since`, with the number and position it had.
 
-    Where a repeat create is redirected: the retired row still holds the unique key.
+    Where a repeat create is redirected: the row still holds the unique key, and a create reviving
+    it would overwrite the number and position it carries.
     """
 
-    updated_raw = await patch_one_in_db(
+    updated_raw = await set_inactive_since(
         collection=saison_spieler_collection,
-        filter={"spieler_id": spieler_id, "saison_id": saison_id},
-        update={"$set": {"inactive_since": None}},
-        return_document=ReturnDocument.AFTER,
+        db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
+        when=None,
     )
-    if updated_raw is None:
-        raise DocumentNotFoundException(filter={"spieler_id": spieler_id, "saison_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return _as_junction(updated_raw)

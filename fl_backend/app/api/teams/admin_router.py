@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
-from pymongo import ReturnDocument
+from motor.motor_asyncio import AsyncIOMotorClientSession
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.schemas import (
@@ -14,7 +14,7 @@ from app.api.teams.schemas import (
     FLSaisonTeamResponse,
     FLTeamRecord,
     FLTeamsMembershipsResponse,
-    FLTeamWithMemberships,
+    FLTeamWithMembershipsListAdapter,
     FLTeamWriteResponse,
 )
 from app.api.teams.services import (
@@ -24,15 +24,25 @@ from app.api.teams.services import (
     find_retire_refusal,
 )
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import (
+    aggregate_many_from_db,
+    insert_live,
+    patch_many_in_db,
+    patch_one_in_db,
+    post_one_to_db,
+    pull_many_from_db,
+    pull_one_from_db,
+    refuse,
+    set_inactive_since,
+)
 from app.core.dependencies import (
+    DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
     SpieleCollection,
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -55,7 +65,7 @@ async def get_team_memberships(teams_collection: TeamsCollection) -> FLTeamsMemb
 
     teams_raw = await aggregate_many_from_db(collection=teams_collection, pipeline=build_team_memberships_pipeline())
 
-    return FLTeamsMembershipsResponse(teams=[FLTeamWithMemberships.model_validate(team) for team in teams_raw])
+    return FLTeamsMembershipsResponse(teams=FLTeamWithMembershipsListAdapter.validate_python(teams_raw))
 
 
 @router.post("", response_model=FLPostTeamResponse, status_code=201, summary="Create a team")
@@ -65,10 +75,7 @@ async def post_team(
 ) -> FLPostTeamResponse:
     """Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409."""
 
-    post_operation = await post_one_to_db(
-        collection=teams_collection,
-        document={**team_data.model_dump(mode="json"), "inactive_since": None},
-    )
+    post_operation = await insert_live(collection=teams_collection, document=team_data.model_dump(mode="json"))
 
     return FLPostTeamResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
@@ -82,6 +89,7 @@ async def patch_team(
     team_data: Annotated[FLPatchTeamPayload, Body()],
     teams_collection: TeamsCollection,
     spiele_collection: SpieleCollection,
+    db: DBClient,
 ) -> FLPatchTeamResponse:
     """
     Update a club, then rewrite the name and shorthand embedded in its matches.
@@ -90,26 +98,32 @@ async def patch_team(
     shows a stale name indefinitely.
     """
 
-    updated_raw = await patch_one_in_db(
-        collection=teams_collection,
-        filter={"_id": team_id},
-        update={"$set": team_data.model_dump(mode="json")},
-        return_document=ReturnDocument.AFTER,
-    )
-    if updated_raw is None:
-        raise DocumentNotFoundException(filter={"_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
-
-    # Two passes: one `update_many` cannot write a different path per document.
-    fanned_out = 0
-    for slot in ("team1", "team2"):
-        result = await patch_many_in_db(
-            collection=spiele_collection,
-            filter={f"{slot}.team_id": team_id},
-            update={"$set": {f"{slot}.name": team_data.name, f"{slot}.shorthand": team_data.shorthand}},
+    async def rename_and_fan_out(session: AsyncIOMotorClientSession) -> FLPatchTeamResponse:
+        updated_raw = await patch_one_in_db(
+            collection=teams_collection,
+            db_filter={"_id": team_id},
+            update={"$set": team_data.model_dump(mode="json")},
+            session=session,
         )
-        fanned_out += result.modified_count
 
-    return FLPatchTeamResponse(updated_document=FLTeamRecord.model_validate(updated_raw), fanned_out_to_spiele=fanned_out)
+        # Two passes: one `update_many` cannot write a different path per document.
+        fanned_out = 0
+        for slot in ("team1", "team2"):
+            result = await patch_many_in_db(
+                collection=spiele_collection,
+                db_filter={f"{slot}.team_id": team_id},
+                update={"$set": {f"{slot}.name": team_data.name, f"{slot}.shorthand": team_data.shorthand}},
+                session=session,
+            )
+            fanned_out += result.modified_count
+
+        return FLPatchTeamResponse(updated_document=FLTeamRecord.model_validate(updated_raw), fanned_out_to_spiele=fanned_out)
+
+    # One transaction over the three writes: a club renamed on `team1` and not on `team2` leaves
+    # one fixture disagreeing with itself. `with_transaction` over a bare `start_transaction` --
+    # every write derives from the payload, so a retry is safe.
+    async with await db.start_session() as session:
+        return await session.with_transaction(rename_and_fan_out)
 
 
 @router.delete(by_id("team_id"), response_model=FLTeamWriteResponse, summary="Retire a team (soft delete)")
@@ -140,18 +154,9 @@ async def delete_team(
         projection=["status"],
     )
 
-    refusal = find_retire_refusal(str(row["status"]) for row in saison_rows)
-    if refusal is not None:
-        raise DocumentConflictException.from_refusal(refusal)
+    refuse(find_retire_refusal(str(row["status"]) for row in saison_rows))
 
-    updated_raw = await patch_one_in_db(
-        collection=teams_collection,
-        filter={"_id": team_id},
-        update={"$set": {"inactive_since": today}},
-        return_document=ReturnDocument.AFTER,
-    )
-    if updated_raw is None:
-        raise DocumentNotFoundException(filter={"_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
+    updated_raw = await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=today)
 
     return FLTeamWriteResponse(updated_document=FLTeamRecord.model_validate(updated_raw))
 
@@ -163,14 +168,7 @@ async def reactivate_team(
 ) -> FLTeamWriteResponse:
     """Clear `inactive_since`, restoring a retired club to reads that hide retired ones."""
 
-    updated_raw = await patch_one_in_db(
-        collection=teams_collection,
-        filter={"_id": team_id},
-        update={"$set": {"inactive_since": None}},
-        return_document=ReturnDocument.AFTER,
-    )
-    if updated_raw is None:
-        raise DocumentNotFoundException(filter={"_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
+    updated_raw = await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=None)
 
     return FLTeamWriteResponse(updated_document=FLTeamRecord.model_validate(updated_raw))
 
@@ -198,16 +196,16 @@ async def post_saison_team(
         projection=["_id"],
     )
 
-    refusal = find_entry_refusal(
-        saison_status=str(saison_raw["status"]),
-        gruppe=saison_team_data.gruppe,
-        # Validated, not read raw: a season missing the capacity keys fails here rather than
-        # admitting a team against a bound nobody chose.
-        rules=FLSaisonRules.model_validate(saison_raw["rules"]),
-        occupied=len(occupied_rows),
+    refuse(
+        find_entry_refusal(
+            saison_status=str(saison_raw["status"]),
+            gruppe=saison_team_data.gruppe,
+            # Validated, not read raw: a season missing the capacity keys fails here rather than
+            # admitting a team against a bound nobody chose.
+            rules=FLSaisonRules.model_validate(saison_raw["rules"]),
+            occupied=len(occupied_rows),
+        )
     )
-    if refusal is not None:
-        raise DocumentConflictException.from_refusal(refusal)
 
     await post_one_to_db(
         collection=saison_teams_collection,
@@ -261,34 +259,29 @@ async def patch_saison_team(
         fixtures_drawn = await spiele_collection.count_documents(
             {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}
         )
-        move_refusal = find_gruppe_move_refusal(saison_status=str(saison_raw["status"]), fixtures_drawn=fixtures_drawn)
-        if move_refusal is not None:
-            raise DocumentConflictException.from_refusal(move_refusal)
+        refuse(find_gruppe_move_refusal(saison_status=str(saison_raw["status"]), fixtures_drawn=fixtures_drawn))
 
         occupied_rows = await pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "gruppe": saison_team_data.gruppe},
             projection=["_id"],
         )
-        refusal = find_entry_refusal(
-            # `find_gruppe_move_refusal` above holds the status gate a MOVE has, so this is fed the
-            # one status the entry gate accepts.
-            saison_status="future",
-            gruppe=saison_team_data.gruppe,
-            rules=FLSaisonRules.model_validate(saison_raw["rules"]),
-            occupied=len(occupied_rows),
+        refuse(
+            find_entry_refusal(
+                # `find_gruppe_move_refusal` above holds the status gate a MOVE has, so this is fed
+                # the one status the entry gate accepts.
+                saison_status="future",
+                gruppe=saison_team_data.gruppe,
+                rules=FLSaisonRules.model_validate(saison_raw["rules"]),
+                occupied=len(occupied_rows),
+            )
         )
-        if refusal is not None:
-            raise DocumentConflictException.from_refusal(refusal)
 
-    updated_raw = await patch_one_in_db(
+    await patch_one_in_db(
         collection=saison_teams_collection,
-        filter={"team_id": team_id, "saison_id": saison_id},
+        db_filter={"team_id": team_id, "saison_id": saison_id},
         update={"$set": saison_team_data.model_dump(mode="json")},
-        return_document=ReturnDocument.AFTER,
     )
-    if updated_raw is None:
-        raise DocumentNotFoundException(filter={"team_id": team_id, "saison_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return FLSaisonTeamResponse(
         saison_id=saison_id,

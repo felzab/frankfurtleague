@@ -1,12 +1,20 @@
-from typing import Any, Mapping
+from typing import Any, Iterator, Mapping
 
 import pytest
 from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spiele.schemas import FLSpiel
 from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
-from app.api.teams.services import ABSAGE_AS_NAME, ABSAGE_COUNT_NAME, AS_NAME, STATISTIK_AS_NAME, build_team_pipeline
+from app.api.teams.services import (
+    ABSAGE_AS_NAME,
+    ABSAGE_COUNT_NAME,
+    AS_NAME,
+    STATISTIK_AS_NAME,
+    _counted_goals,
+    build_team_pipeline,
+)
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
@@ -16,6 +24,32 @@ STANDARD_RULES = FLSaisonRules(
 )
 
 Pipeline = list[Mapping[str, Any]]
+
+
+def _paths(node: Any) -> Iterator[tuple[str, ...]]:
+    """Every key and string value in a pipeline fragment, split on `.` with a field path's `$` prefix dropped."""
+
+    if isinstance(node, Mapping):
+        for key, value in node.items():
+            yield tuple(key.split("."))
+            yield from _paths(value)
+    elif isinstance(node, (list, tuple)):
+        for item in node:
+            yield from _paths(item)
+    elif isinstance(node, str):
+        yield tuple(node.lstrip("$").split("."))
+
+
+def reads(node: Any, *path: str) -> bool:
+    """Whether a fragment names `path`, as a match key or as part of a field path.
+
+    Walked rather than matched against a `repr`, which turns on key insertion order, on quoting, and
+    on any unrelated identifier that merely spells the name.
+    """
+
+    width = len(path)
+
+    return any(candidate[index : index + width] == path for candidate in _paths(node) for index in range(len(candidate) - width + 1))
 
 
 # Keyword rather than `**kwargs`: a typo becomes a type error. `scope` is undefaulted, or the model's default could drift.
@@ -90,8 +124,35 @@ def test_the_scope_narrows_the_matches_and_nothing_else():
 
 
 def test_the_counting_lookup_never_consults_is_canceled():
-    """The forfeit rule: adding an `is_canceled` filter looks like a correction, so the assertion is over the whole serialised lookup."""
-    assert "is_canceled" not in repr(statistik_stage(build()))
+    """The forfeit rule: adding an `is_canceled` filter looks like a correction, so the assertion is over the whole lookup."""
+    assert not reads(statistik_stage(build()), "is_canceled")
+
+
+def test_no_stage_reads_the_shoot_out():
+    """A shoot-out decides the bracket and never the table, so a stage able to see it would part the two on every knockout tie."""
+    assert not reads(build(), "elfmeterschiessen")
+
+
+def test_a_shoot_out_leaves_the_goals_it_was_played_over_alone(spiel, spiel_team_field):
+    """The same rule restated in Python.
+
+    `_counted_goals` is imported private because the standings are handed the group phase alone, so
+    no public entry point reaches a knockout tie.
+    """
+    level = FLSpiel.model_validate(
+        spiel(saison_phase="halbfinale", team1=spiel_team_field(tore=1), ergebnis="1:1", elfmeterschiessen={"team1": 4, "team2": 3})
+    )
+
+    counted = _counted_goals(level)
+
+    assert counted is not None
+    _, tore1, _, tore2 = counted
+
+    assert (tore1, tore2) == (1, 1)
+
+
+# Annotated rather than inferred: a bare tuple of `str` would widen past `FLTeamStatistikScope`.
+SCOPE_PHASES: list[tuple[FLTeamStatistikScope, str | None]] = [("gruppenphase", "gruppenphase"), ("gesamt", None)]
 
 
 class TestTheAbsageLookup:
@@ -106,24 +167,24 @@ class TestTheAbsageLookup:
 
     def test_it_is_the_only_stage_reading_the_flag(self):
         """A second reader would bring `is_canceled` into the scoring."""
-        assert repr(build()).count("is_canceled") == 1
+        readers = [stage for stage in build() if reads(stage, "is_canceled")]
+
+        assert [stage.get("$lookup", {}).get("as") for stage in readers] == [ABSAGE_AS_NAME]
 
     def test_it_counts_rather_than_carrying_the_documents_back(self):
         """A `$count` and not a `$size` over projected rows: the figure is the whole answer this lookup owes."""
         assert absage_stage(build())["pipeline"][-1] == {"$count": ABSAGE_COUNT_NAME}
 
-    def test_it_selects_the_same_matches_the_figures_are_derived_from(self):
+    @pytest.mark.parametrize(("scope", "expected"), SCOPE_PHASES)
+    def test_it_selects_the_same_matches_the_figures_are_derived_from(self, scope, expected):
         """Cancellations over every phase beside a match count over one would badge games the table never counted."""
-        cases: list[tuple[FLTeamStatistikScope, str | None]] = [("gruppenphase", "gruppenphase"), ("gesamt", None)]
+        counting = statistik_stage(build(scope=scope))["pipeline"][0]["$match"]
+        absage = absage_stage(build(scope=scope))["pipeline"][0]["$match"]
 
-        for scope, expected in cases:
-            counting = statistik_stage(build(scope=scope))["pipeline"][0]["$match"]
-            absage = absage_stage(build(scope=scope))["pipeline"][0]["$match"]
-
-            assert counting.get("saison_phase") == expected
-            assert absage.get("saison_phase") == expected
-            assert absage["saison_id"] == counting["saison_id"]
-            assert absage["$expr"] == counting["$expr"]
+        assert counting.get("saison_phase") == expected
+        assert absage.get("saison_phase") == expected
+        assert absage["saison_id"] == counting["saison_id"]
+        assert absage["$expr"] == counting["$expr"]
 
 
 def test_scores_with_the_seasons_own_points_rather_than_a_constant():
@@ -163,7 +224,7 @@ def test_reads_statistik_from_no_stored_copy():
     assert projected["statistik"]["$mergeObjects"][0] == {
         "$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, {field: 0 for field in FLTeamStatistik.model_fields}]
     }
-    assert "$saison_data.statistik" not in repr(projected)
+    assert not reads(projected, AS_NAME, "statistik")
     assert projected["gruppe"] == "$saison_data.gruppe"
     assert projected["disqualifikation"] == "$saison_data.disqualifikation"
 

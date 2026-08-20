@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
-from pymongo import ReturnDocument
+from motor.motor_asyncio import AsyncIOMotorClientSession
 
 from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
@@ -13,11 +13,11 @@ from app.api.spielorte.schemas import (
 )
 from app.api.spielorte.services import find_venue_retire_refusal
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db
-from app.core.dependencies import SpieleCollection, SpielorteCollection, get_german_date_str
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
+from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, pull_many_from_db, refuse, set_inactive_since
+from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollection, get_german_date_str
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
+from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -26,7 +26,7 @@ router = APIRouter(
 )
 
 
-def _maps_link(name: str, address) -> str:
+def _maps_link(name: str, address: FLAddress) -> str:
     """The Google Maps SEARCH STRING, not a URL. Derived here so a client can never supply one."""
     return f"{name}, {address.to_string}, Deutschland"
 
@@ -38,12 +38,11 @@ async def post_spielort(
 ) -> FLPostSpielortResponse:
     """Create a venue. `maps_link` is built server-side from the name and address and must not be submitted."""
 
-    post_operation = await post_one_to_db(
+    post_operation = await insert_live(
         collection=spielorte_collection,
         document={
             **spielort_data.model_dump(mode="json"),
             "maps_link": _maps_link(spielort_data.name, spielort_data.address),
-            "inactive_since": None,
         },
     )
 
@@ -59,6 +58,7 @@ async def patch_spielort(
     spielort_data: Annotated[FLPatchSpielortPayload, Body()],
     spielorte_collection: SpielorteCollection,
     spiele_collection: SpieleCollection,
+    db: DBClient,
 ) -> FLPatchSpielortResponse:
     """
     Update a venue, then update every Spiel that embeds it.
@@ -69,23 +69,29 @@ async def patch_spielort(
 
     maps_link = _maps_link(spielort_data.name, spielort_data.address)
 
-    updated_document_raw = await patch_one_in_db(
-        collection=spielorte_collection,
-        filter={"_id": spielort_id},
-        update={"$set": {**spielort_data.model_dump(mode="json"), "maps_link": maps_link}},
-        return_document=ReturnDocument.AFTER,
-    )
-    if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": spielort_id}, error_code=DOCUMENT_NOT_FOUND)
-    updated_document = FLSpielort(**updated_document_raw)
+    async def rename_and_fan_out(session: AsyncIOMotorClientSession) -> FLPatchSpielortResponse:
+        updated_document_raw = await patch_one_in_db(
+            collection=spielorte_collection,
+            db_filter={"_id": spielort_id},
+            update={"$set": {**spielort_data.model_dump(mode="json"), "maps_link": maps_link}},
+            session=session,
+        )
+        updated_document = FLSpielort(**updated_document_raw)
 
-    await patch_many_in_db(
-        collection=spiele_collection,
-        filter={"ort.spielort_id": updated_document.id},
-        update={"$set": {"ort.maps_link": updated_document.maps_link, "ort.name": updated_document.name}},
-    )
+        fan_out = await patch_many_in_db(
+            collection=spiele_collection,
+            db_filter={"ort.spielort_id": updated_document.id},
+            update={"$set": {"ort.maps_link": updated_document.maps_link, "ort.name": updated_document.name}},
+            session=session,
+        )
 
-    return FLPatchSpielortResponse(updated_document=updated_document)
+        return FLPatchSpielortResponse(updated_document=updated_document, fanned_out_to_spiele=fan_out.modified_count)
+
+    # One transaction: a rename landing on the venue and not on its fixtures is the stale copy the
+    # fan-out exists to prevent. `with_transaction` over a bare `start_transaction` -- the callback
+    # derives both writes from the payload, so a retry is safe.
+    async with await db.start_session() as session:
+        return await session.with_transaction(rename_and_fan_out)
 
 
 @router.delete(by_id("spielort_id"), response_model=FLSpielortWriteResponse, summary="Deactivate a Spielort (soft delete)")
@@ -108,18 +114,13 @@ async def delete_spielort(
         db_filter={"ort.spielort_id": spielort_id, "ergebnis": None, "is_canceled": False},
         projection={"spiel_nr": 1},
     )
-    refusal = find_venue_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in booked))
-    if refusal is not None:
-        raise DocumentConflictException.from_refusal(refusal)
+    refuse(find_venue_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in booked)))
 
-    updated_document_raw = await patch_one_in_db(
+    updated_document_raw = await set_inactive_since(
         collection=spielorte_collection,
-        filter={"_id": spielort_id},
-        update={"$set": {"inactive_since": today}},
-        return_document=ReturnDocument.AFTER,
+        db_filter={"_id": spielort_id},
+        when=today,
     )
-    if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": spielort_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return FLSpielortWriteResponse(updated_document=FLSpielort(**updated_document_raw))
 
@@ -131,13 +132,10 @@ async def reactivate_spielort(
 ) -> FLSpielortWriteResponse:
     """Clear `inactive_since`, putting the venue back into the picker and every default read."""
 
-    updated_document_raw = await patch_one_in_db(
+    updated_document_raw = await set_inactive_since(
         collection=spielorte_collection,
-        filter={"_id": spielort_id},
-        update={"$set": {"inactive_since": None}},
-        return_document=ReturnDocument.AFTER,
+        db_filter={"_id": spielort_id},
+        when=None,
     )
-    if updated_document_raw is None:
-        raise DocumentNotFoundException(filter={"_id": spielort_id}, error_code=DOCUMENT_NOT_FOUND)
 
     return FLSpielortWriteResponse(updated_document=FLSpielort(**updated_document_raw))

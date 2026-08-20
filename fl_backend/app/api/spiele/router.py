@@ -49,7 +49,7 @@ async def get_spiele(
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(db_filter=db_filter, sort_by=db_sort, limit=filters.limit),
-        length=filters.limit,
+        limit=filters.limit,
     )
     spiele = FLSpielJoinedListAdapter.validate_python(spiele_raw)
 
@@ -69,7 +69,7 @@ async def get_spiel(spiel_id: CustomRouteObjectId, spiele_collection: SpieleColl
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(db_filter={"_id": spiel_id}),
-        length=1,
+        limit=1,
     )
     if not spiele_raw:
         raise DocumentNotFoundException(filter={"_id": spiel_id}, error_code=DOCUMENT_NOT_FOUND)

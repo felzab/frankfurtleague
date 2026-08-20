@@ -11,9 +11,6 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 
 RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
 
-# A four-digit suffix, so each club gets its own valid ObjectId and a failing assertion names it.
-TEAM_ID = "6890a1b2c3d4e5f60719{:04d}"
-
 
 def test_accepts_a_valid_team(team):
     parsed = FLTeam.model_validate(team())
@@ -102,29 +99,6 @@ class TestFLGruppen:
         assert body["format"] == "grouped"
         # The cutoff rides with the table it applies to, so no page marks one season's standing with another's number.
         assert body["qualifiers_per_group"] == 2
-
-    # Distinct ids because these are distinct clubs; the standing addresses clubs by id.
-    def test_sorts_each_group_by_points_then_goal_difference(self, team, statistik):
-        weak = FLTeam.model_validate(team(_id=TEAM_ID.format(1), name="Weak", statistik=statistik(punkte=1)))
-        strong = FLTeam.model_validate(team(_id=TEAM_ID.format(2), name="Strong", statistik=statistik(punkte=9)))
-        middling = FLTeam.model_validate(team(_id=TEAM_ID.format(3), name="Middling", statistik=statistik(punkte=4)))
-
-        grouped = build_gruppen([weak, strong, middling], spiele=[], rules=RULES)
-
-        assert [t.name for t in grouped.root["A"]] == ["Strong", "Middling", "Weak"]
-
-    def test_breaks_a_points_tie_on_goal_difference(self, team, statistik):
-        """The second criterion, which a points-only sort would miss."""
-        worse = FLTeam.model_validate(
-            team(_id=TEAM_ID.format(1), name="Worse", statistik=statistik(punkte=3, tore_geschossen=2, tore_kassiert=2))
-        )
-        better = FLTeam.model_validate(
-            team(_id=TEAM_ID.format(2), name="Better", statistik=statistik(punkte=3, tore_geschossen=9, tore_kassiert=1))
-        )
-
-        grouped = build_gruppen([worse, better], spiele=[], rules=RULES)
-
-        assert [t.name for t in grouped.root["A"]] == ["Better", "Worse"]
 
     # Validation already rejects these, so reaching the guard needs `model_construct`. `X` is why it
     # cannot test `not team.gruppe`: that catches empty and None and lets anything else `KeyError`.

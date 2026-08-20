@@ -1,4 +1,4 @@
-import { deriveDraftStatus } from "@/shared/utils/draftStatus";
+import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLAddress } from "@/shared/schemas";
@@ -26,8 +26,6 @@ export type FLTeamDraftFields = {
 export type FLTeamFieldGroup = "Team" | "Adresse" | "Saison";
 
 export type FLTeamDraftStatus = FLDraftStatus<FLTeamFieldGroup>;
-
-const emptyAsNull = (value: string): string | null => (value.trim() === "" ? null : value);
 
 const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLTeamDraftFields, FLTeamFieldGroup>[] = [
   { path: "name", label: "Name", group: "Team", read: (source) => emptyAsNull(source.name) },

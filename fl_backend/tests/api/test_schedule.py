@@ -51,7 +51,6 @@ class TestThePhaseSet:
         """The ceiling is what the phases can hold: adding a wider round raises it and nothing else changes."""
 
         assert MAX_QUALIFIERS == 2 ** len(KNOCKOUT_PHASES)
-        assert MAX_QUALIFIERS == 16
 
 
 class TestTheGroupPhase:

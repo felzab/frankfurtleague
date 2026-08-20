@@ -36,6 +36,12 @@ export type FLDraftStatus<TGroup extends string> = {
 };
 
 /**
+ * Empty becomes null; anything else is returned AS TYPED. Nothing trims before the save -- not the
+ * Zod schemas, not the backend -- so trimming here would report a whitespace-only edit as unchanged.
+ */
+export const emptyAsNull = (value: string | null): string | null => (value === null || value.trim() === "" ? null : value);
+
+/**
  * The fold every editor's change list shares. A slice contributes only what is its own — its group
  * union, its descriptors and their `read` functions — which is also what lets this live in `shared`
  * without importing a feature.

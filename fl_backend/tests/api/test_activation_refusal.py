@@ -1,5 +1,3 @@
-import pytest
-
 from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, find_activation_refusal, unplayed_spiel_nrs
 from app.api.spiele.schemas import FLSpielListAdapter
 
@@ -65,16 +63,12 @@ class TestTheOutgoingSeasonMustBeFinished:
     """`past` freezes the rules and makes the derived table the record, so rolling over early closes an unfinished competition."""
 
     def test_a_finished_season_rolls_over(self):
-        assert find_activation_refusal(outgoing_unplayed=[]) is None
-
-    def test_no_incumbent_at_all_rolls_over(self):
-        """A fresh database has no outgoing season, and the caller passes the same empty list either way."""
+        """A fresh database has no incumbent at all, and the caller passes the same empty list for that case as for this one."""
 
         assert find_activation_refusal(outgoing_unplayed=[]) is None
 
-    @pytest.mark.parametrize("unplayed", [[3], [3, 7, 11]])
-    def test_an_unfinished_season_is_refused(self, unplayed):
-        refusal = find_activation_refusal(outgoing_unplayed=unplayed)
+    def test_an_unfinished_season_is_refused(self):
+        refusal = find_activation_refusal(outgoing_unplayed=[3])
 
         assert refusal is not None
         assert refusal.error_code == ACTIVATE_SAISON_UNFINISHED

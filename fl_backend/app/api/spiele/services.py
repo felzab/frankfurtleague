@@ -22,44 +22,46 @@ from app.api.spiele.schemas import (
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
 from app.core.collections import Collection
+from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.custom import CustomObjectId
 
 
 def build_spiele_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
-    direction = 1 if order == "asc" else -1
-
     if sort_by == "datum":
-        return [("datum", direction), ("spiel_nr", 1)]
-    elif sort_by == "spiel_nr":
-        return [("spiel_nr", direction), ("datum", 1)]
-    else:
-        return [(sort_by, direction), ("datum", direction), ("spiel_nr", 1)]
+        return build_sort(sort_by=sort_by, order=order, chain=(("spiel_nr", 1),))
+    if sort_by == "spiel_nr":
+        return build_sort(sort_by=sort_by, order=order, chain=(("datum", 1),))
+
+    # `datum` follows the request while `spiel_nr` stays ascending: this code is what defines the
+    # order (PRE-1), and moving the asymmetry is its own change rather than a side effect of one.
+    direction = 1 if order == "asc" else -1
+    return build_sort(sort_by=sort_by, order=order, chain=(("datum", direction), ("spiel_nr", 1)))
 
 
 def build_spiele_filter(filters: FLSpieleFilterParams, today: str) -> dict[str, Any]:
-    query = filters.model_dump(include={"saison_id", "saison_phase"}, exclude_none=True)
+    compiled: dict[str, Any] = {}
 
     if filters.saison_phase == "playoffs":
-        query["saison_phase"] = {"$ne": "gruppenphase"}
+        compiled["saison_phase"] = {"$ne": "gruppenphase"}
 
     match filters.spiel_status:
         case "heute":
-            query["datum"] = today
+            compiled["datum"] = today
         case "vergangen":
-            query["datum"] = {"$lt": today}
+            compiled["datum"] = {"$lt": today}
         case "ausstehend":
-            query["datum"] = {"$gte": today}
+            compiled["datum"] = {"$gte": today}
         case "abgesagt":
-            query["is_canceled"] = True
+            compiled["is_canceled"] = True
 
     if filters.team_id is not None:
-        query["$or"] = [
+        compiled["$or"] = [
             {"team1.team_id": filters.team_id},
             {"team2.team_id": filters.team_id},
         ]
 
-    return query
+    return build_query(filters, terms={"saison_id", "saison_phase"}, compiled=compiled)
 
 
 SAISON_TEAMS_AS_NAME = "saison_teams_rows"
@@ -623,7 +625,7 @@ class SpieltagRelease:
     spiel_nr: int
     side: Literal["team1", "team2"]
     team_name: str
-    other_side_tore: bool
+    other_side_present: bool
     voided_ergebnis: str | None
     voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
 
@@ -686,9 +688,9 @@ def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielData
                     spiel_nr=other.spiel_nr,
                     side=label,
                     team_name=occupant.name,
-                    # The side left behind loses its goals too: they were scored against the team
-                    # being removed. False where there is no such side to clear.
-                    other_side_tore=(other.team2 if label == "team1" else other.team1) is not None,
+                    # The write path strips the other side's goals -- scored against the team being
+                    # removed -- so it has to know whether a side is there to strip.
+                    other_side_present=(other.team2 if label == "team1" else other.team1) is not None,
                     voided_ergebnis=other.ergebnis,
                     voided_elfmeterschiessen=other.elfmeterschiessen,
                 )

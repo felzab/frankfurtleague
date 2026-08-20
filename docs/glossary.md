@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `4393dba3`, 2026-08-19\
+**Verified against:** `30a8b1ef`, 2026-08-20\
 **Purpose:** the German domain vocabulary — what each term is, where it lives, and what catches people.
 
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs. Translating
@@ -24,7 +24,7 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 **Is:** the year everything else hangs off, carrying the `rules` that configure the scoring, the groups, the qualifiers and the eligible school levels.\
 **In code:** `fl_backend/app/api/saisons/schemas.py :: FLSaison`; the schedule its rules imply is `fl_backend/app/api/saisons/schedule.py :: knockout_phases_for`.\
-**Trap:** the id is a four-character string rather than an ObjectId, and every `saison_id` is held to exactly that length — a longer one validates on the season and then makes every match and matchday pointing at it fail to read.\
+**Trap:** the id is a short fixed-length string rather than an ObjectId (`fl_backend/app/shared/schemas/bounds.py :: SAISON_ID_LENGTH`), and every model that ACCEPTS one holds it to that length — but a junction row echoing a stored id does not, deliberately, because a read model refusing one stored row would answer 500 for the whole list it appears in. So an id of the wrong length that reaches the database by a route holding it to nothing is echoed back without complaint, while every match and matchday carrying it fails to read.\
 **See:** backend spec I5 for the length, I18 for the single path to `status`.
 
 ### `Spiel` — one match
@@ -168,7 +168,7 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 **Is:** captaincy within one team for one season, held on the `saison_spieler` junction rather than on the person.\
 **In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpieler`.\
-**Trap:** no rule the database enforces makes it unique — a co-captaincy is a real arrangement — and `fl_backend/app/api/spieler/schemas.py :: PERSON_NAME_PATTERN` on the write payloads is what stops a captaincy marker being typed inside a name instead.\
+**Trap:** no rule the database enforces makes it unique — a co-captaincy is a real arrangement — and `fl_backend/app/shared/schemas/custom.py :: PERSON_NAME_PATTERN` on the write payloads is what stops a captaincy marker being typed inside a name instead.\
 **See:** backend spec I36 for the write-payload name pattern.
 
 ### `inactive_since` — the day something left

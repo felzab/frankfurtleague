@@ -284,7 +284,10 @@ class TestOneVenueAndOneRefereeAtATime:
     def test_it_works_in_both_directions(self):
         """A booking earlier and a booking later are the same clash — the comparison is absolute."""
 
-        assert find_clash_refusal(datum="2026-03-07", uhrzeit="16:00:00", booked=[self.slot("18:00:00")]) is not None
+        refusal = find_clash_refusal(datum="2026-03-07", uhrzeit="16:00:00", booked=[self.slot("18:00:00")])
+
+        assert refusal is not None
+        assert refusal.error_code == FIXTURE_DOUBLE_BOOKED
 
     def test_another_day_never_clashes(self):
         assert find_clash_refusal(datum="2026-03-08", uhrzeit="18:00:00", booked=[self.slot("18:00:00")]) is None

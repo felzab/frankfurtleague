@@ -17,6 +17,10 @@ from functools import cache
 from pathlib import Path, PurePosixPath
 from typing import Final, Literal
 
+# From the shared kernel rather than a second copy: a checker taking git from its own drifts
+# into its own behaviour, the principle `checker_kernel.py`'s own docstring states.
+from checker_kernel import git
+
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
 
 # docs/audit is a running programme's gitignored working documents, absent from any clone;
@@ -194,28 +198,6 @@ def strip_fences(text: str) -> str:
             continue
         out.append("" if in_fence else raw)
     return "\n".join(out)
-
-
-def git(*args: str) -> str | None:
-    """Run git and return stdout, or None if the command failed. Never raises.
-
-    UTF-8 is forced rather than left to the platform default: `git show` returns file CONTENT, and
-    on a Windows codepage that decode raises on the first em dash.
-    """
-    try:
-        done = subprocess.run(
-            ("git", *args),
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-        )
-    except OSError:
-        return None
-    # Only the trailing newline: `strip` would eat a leading space, which is data in a `-z` listing.
-    return done.stdout.rstrip() if done.returncode == 0 else None
 
 
 def git_status(*args: str) -> int | None:

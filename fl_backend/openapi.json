@@ -2707,7 +2707,7 @@
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
       "post": {
         "summary": "Put a Spieler back in a squad they left",
-        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected: the retired row still holds the unique key.",
+        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected: the row still holds the unique key, and a create reviving\nit would overwrite the number and position it carries.",
         "operationId": "reactivate_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__reactivate_post",
         "security": [
           {
@@ -3076,14 +3076,6 @@
       },
       "FLBracketFaultGruppe": {
         "properties": {
-          "reason": {
-            "type": "string",
-            "enum": [
-              "gruppe_too_small",
-              "tie_unresolved"
-            ],
-            "title": "Reason"
-          },
           "spiel_id": {
             "type": "string",
             "title": "Spiel Id"
@@ -3092,6 +3084,14 @@
             "type": "integer",
             "exclusiveMinimum": 0.0,
             "title": "Spiel Nr"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "gruppe_too_small",
+              "tie_unresolved"
+            ],
+            "title": "Reason"
           },
           "gruppe": {
             "type": "string",
@@ -3111,9 +3111,9 @@
         },
         "type": "object",
         "required": [
-          "reason",
           "spiel_id",
           "spiel_nr",
+          "reason",
           "gruppe",
           "platz"
         ],
@@ -3122,11 +3122,6 @@
       },
       "FLBracketFaultOccupant": {
         "properties": {
-          "reason": {
-            "type": "string",
-            "const": "disqualified_occupant",
-            "title": "Reason"
-          },
           "spiel_id": {
             "type": "string",
             "title": "Spiel Id"
@@ -3135,6 +3130,11 @@
             "type": "integer",
             "exclusiveMinimum": 0.0,
             "title": "Spiel Nr"
+          },
+          "reason": {
+            "type": "string",
+            "const": "disqualified_occupant",
+            "title": "Reason"
           },
           "side": {
             "type": "string",
@@ -3173,9 +3173,9 @@
         },
         "type": "object",
         "required": [
-          "reason",
           "spiel_id",
           "spiel_nr",
+          "reason",
           "side",
           "team_id",
           "team_name",
@@ -3187,14 +3187,6 @@
       },
       "FLBracketFaultQuelle": {
         "properties": {
-          "reason": {
-            "type": "string",
-            "enum": [
-              "spiel_missing",
-              "reference_cycle"
-            ],
-            "title": "Reason"
-          },
           "spiel_id": {
             "type": "string",
             "title": "Spiel Id"
@@ -3203,6 +3195,14 @@
             "type": "integer",
             "exclusiveMinimum": 0.0,
             "title": "Spiel Nr"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "spiel_missing",
+              "reference_cycle"
+            ],
+            "title": "Reason"
           },
           "quelle_spiel_nr": {
             "type": "integer",
@@ -3212,9 +3212,9 @@
         },
         "type": "object",
         "required": [
-          "reason",
           "spiel_id",
           "spiel_nr",
+          "reason",
           "quelle_spiel_nr"
         ],
         "title": "FLBracketFaultQuelle",
@@ -3222,11 +3222,6 @@
       },
       "FLBracketFaultSpiel": {
         "properties": {
-          "reason": {
-            "type": "string",
-            "const": "same_team",
-            "title": "Reason"
-          },
           "spiel_id": {
             "type": "string",
             "title": "Spiel Id"
@@ -3235,13 +3230,18 @@
             "type": "integer",
             "exclusiveMinimum": 0.0,
             "title": "Spiel Nr"
+          },
+          "reason": {
+            "type": "string",
+            "const": "same_team",
+            "title": "Reason"
           }
         },
         "type": "object",
         "required": [
-          "reason",
           "spiel_id",
-          "spiel_nr"
+          "spiel_nr",
+          "reason"
         ],
         "title": "FLBracketFaultSpiel",
         "description": "One fixture whose two references resolve to the SAME club.\n\nIt survives the write-path rule, which keys a source by identity, so two DIFFERENT sources\nnaming one club pass. The fixture keeps its stored sides."
@@ -3437,7 +3437,7 @@
           "is_captain"
         ],
         "title": "FLPatchSaisonSpielerPayload",
-        "description": "Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default."
+        "description": "Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default.\n\n`team_id` is editable here: a mid-season transfer is a change to the junction row."
       },
       "FLPatchSaisonTeamPayload": {
         "properties": {
@@ -3519,11 +3519,16 @@
           },
           "updated_document": {
             "$ref": "#/components/schemas/FLSchiedsrichter"
+          },
+          "fanned_out_to_spiele": {
+            "type": "integer",
+            "title": "Fanned Out To Spiele"
           }
         },
         "type": "object",
         "required": [
-          "updated_document"
+          "updated_document",
+          "fanned_out_to_spiele"
         ],
         "title": "FLPatchSchiedsrichterResponse"
       },
@@ -3812,11 +3817,16 @@
           },
           "updated_document": {
             "$ref": "#/components/schemas/FLSpielort"
+          },
+          "fanned_out_to_spiele": {
+            "type": "integer",
+            "title": "Fanned Out To Spiele"
           }
         },
         "type": "object",
         "required": [
-          "updated_document"
+          "updated_document",
+          "fanned_out_to_spiele"
         ],
         "title": "FLPatchSpielortResponse"
       },
@@ -3922,12 +3932,6 @@
       },
       "FLPostSaisonPayload": {
         "properties": {
-          "id": {
-            "type": "string",
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Id"
-          },
           "start_date": {
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3940,14 +3944,20 @@
           },
           "rules": {
             "$ref": "#/components/schemas/FLSaisonRules"
+          },
+          "id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Id"
           }
         },
         "type": "object",
         "required": [
-          "id",
           "start_date",
           "end_date",
-          "rules"
+          "rules",
+          "id"
         ],
         "title": "FLPostSaisonPayload"
       },
@@ -3975,12 +3985,6 @@
       },
       "FLPostSaisonSpielerPayload": {
         "properties": {
-          "saison_id": {
-            "type": "string",
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Saison Id"
-          },
           "team_id": {
             "type": "string",
             "title": "Team Id"
@@ -4039,17 +4043,23 @@
           "is_captain": {
             "type": "boolean",
             "title": "Is Captain"
+          },
+          "saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id"
           }
         },
         "type": "object",
         "required": [
-          "saison_id",
           "team_id",
           "nummer",
           "position",
           "stufe",
           "is_nachgetragen",
-          "is_captain"
+          "is_captain",
+          "saison_id"
         ],
         "title": "FLPostSaisonSpielerPayload",
         "description": "One player's membership of one team's squad for one season.\n\nEvery field is required, including those a squad often does not know: a caller states `null`\nrather than omitting, so the answer is theirs and not a default nobody chose."
@@ -4319,12 +4329,6 @@
       },
       "FLSaison": {
         "properties": {
-          "id": {
-            "type": "string",
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Id"
-          },
           "start_date": {
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -4335,6 +4339,15 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "End Date"
           },
+          "rules": {
+            "$ref": "#/components/schemas/FLSaisonRules"
+          },
+          "id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Id"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -4343,9 +4356,6 @@
               "future"
             ],
             "title": "Status"
-          },
-          "rules": {
-            "$ref": "#/components/schemas/FLSaisonRules"
           },
           "schedule": {
             "items": {
@@ -4357,11 +4367,11 @@
         },
         "type": "object",
         "required": [
-          "id",
           "start_date",
           "end_date",
-          "status",
           "rules",
+          "id",
+          "status",
           "schedule"
         ],
         "title": "FLSaison"
@@ -4466,14 +4476,6 @@
             "title": "Acknowledged",
             "default": 1
           },
-          "spieler_id": {
-            "type": "string",
-            "title": "Spieler Id"
-          },
-          "saison_id": {
-            "type": "string",
-            "title": "Saison Id"
-          },
           "team_id": {
             "type": "string",
             "title": "Team Id"
@@ -4533,6 +4535,14 @@
             "type": "boolean",
             "title": "Is Captain"
           },
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
           "inactive_since": {
             "anyOf": [
               {
@@ -4547,14 +4557,14 @@
         },
         "type": "object",
         "required": [
-          "spieler_id",
-          "saison_id",
           "team_id",
           "nummer",
           "position",
           "stufe",
           "is_nachgetragen",
           "is_captain",
+          "spieler_id",
+          "saison_id",
           "inactive_since"
         ],
         "title": "FLSaisonSpielerResponse",
@@ -4670,9 +4680,8 @@
       },
       "FLSchiedsrichter": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
+          "kontakt": {
+            "$ref": "#/components/schemas/FLKontakt"
           },
           "name": {
             "type": "string",
@@ -4695,8 +4704,9 @@
             "minimum": 0.0,
             "title": "Default Payment"
           },
-          "kontakt": {
-            "$ref": "#/components/schemas/FLKontakt"
+          "id": {
+            "type": "string",
+            "title": "Id"
           },
           "inactive_since": {
             "anyOf": [
@@ -4713,11 +4723,11 @@
         },
         "type": "object",
         "required": [
-          "id",
+          "kontakt",
           "name",
           "schule",
           "default_payment",
-          "kontakt",
+          "id",
           "inactive_since"
         ],
         "title": "FLSchiedsrichter"
@@ -5156,19 +5166,6 @@
             "exclusiveMinimum": 0.0,
             "title": "Spiel Nr"
           },
-          "side": {
-            "type": "string",
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Side"
-          },
-          "team_name": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Team Name"
-          },
           "voided_ergebnis": {
             "anyOf": [
               {
@@ -5190,15 +5187,28 @@
                 "type": "null"
               }
             ]
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Side"
+          },
+          "team_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team Name"
           }
         },
         "type": "object",
         "required": [
           "spiel_nr",
-          "side",
-          "team_name",
           "voided_ergebnis",
-          "voided_elfmeterschiessen"
+          "voided_elfmeterschiessen",
+          "side",
+          "team_name"
         ],
         "title": "FLSpielReleasedSide",
         "description": "One side another fixture gave up so a team can play this Spieltag.\n\n`team_name` rather than an id: the message quoting this has no `spiele` list to join against,\nand the rename fan-out keeps the copy it reads fresh."
@@ -5424,44 +5434,9 @@
       },
       "FLSpieler": {
         "properties": {
-          "id": {
+          "team_id": {
             "type": "string",
-            "title": "Id"
-          },
-          "vorname": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Vorname"
-          },
-          "nachname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nachname"
-          },
-          "stufe": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stufe"
+            "title": "Team Id"
           },
           "nummer": {
             "anyOf": [
@@ -5491,6 +5466,25 @@
             ],
             "title": "Position"
           },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
           "is_nachgetragen": {
             "type": "boolean",
             "title": "Is Nachgetragen",
@@ -5501,9 +5495,25 @@
             "title": "Is Captain",
             "default": false
           },
-          "team_id": {
+          "vorname": {
             "type": "string",
-            "title": "Team Id"
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
           },
           "inactive_since": {
             "anyOf": [
@@ -5520,13 +5530,13 @@
         },
         "type": "object",
         "required": [
-          "id",
-          "vorname",
-          "nachname",
-          "stufe",
+          "team_id",
           "nummer",
           "position",
-          "team_id",
+          "stufe",
+          "vorname",
+          "nachname",
+          "id",
           "inactive_since"
         ],
         "title": "FLSpieler"
@@ -5558,10 +5568,6 @@
       },
       "FLSpielerMembership": {
         "properties": {
-          "saison_id": {
-            "type": "string",
-            "title": "Saison Id"
-          },
           "team_id": {
             "type": "string",
             "title": "Team Id"
@@ -5621,6 +5627,10 @@
             "type": "boolean",
             "title": "Is Captain"
           },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
           "inactive_since": {
             "anyOf": [
               {
@@ -5636,13 +5646,13 @@
         },
         "type": "object",
         "required": [
-          "saison_id",
           "team_id",
           "nummer",
           "position",
           "stufe",
           "is_nachgetragen",
           "is_captain",
+          "saison_id",
           "inactive_since"
         ],
         "title": "FLSpielerMembership",
@@ -5728,10 +5738,6 @@
       },
       "FLSpielerWithMemberships": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
           "vorname": {
             "type": "string",
             "minLength": 1,
@@ -5747,6 +5753,10 @@
               }
             ],
             "title": "Nachname"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
           },
           "inactive_since": {
             "anyOf": [
@@ -5770,9 +5780,9 @@
         },
         "type": "object",
         "required": [
-          "id",
           "vorname",
           "nachname",
+          "id",
           "inactive_since",
           "memberships"
         ],
@@ -5803,10 +5813,6 @@
       },
       "FLSpielort": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
           "address": {
             "$ref": "#/components/schemas/FLAddress"
           },
@@ -5815,15 +5821,19 @@
             "minLength": 1,
             "title": "Name"
           },
-          "maps_link": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Maps Link"
-          },
           "default_mietpreis": {
             "type": "integer",
             "minimum": 0.0,
             "title": "Default Mietpreis"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "maps_link": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Maps Link"
           },
           "inactive_since": {
             "anyOf": [
@@ -5840,11 +5850,11 @@
         },
         "type": "object",
         "required": [
-          "id",
           "address",
           "name",
-          "maps_link",
           "default_mietpreis",
+          "id",
+          "maps_link",
           "inactive_since"
         ],
         "title": "FLSpielort"
@@ -5919,10 +5929,6 @@
       },
       "FLSpieltag": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
           "beginn": {
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -5932,6 +5938,10 @@
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Ende"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
           },
           "anzahl_spiele": {
             "type": "integer",
@@ -5970,9 +5980,9 @@
         },
         "type": "object",
         "required": [
-          "id",
           "beginn",
           "ende",
+          "id",
           "anzahl_spiele",
           "saison_phase",
           "saison_id",
@@ -6139,37 +6149,10 @@
       },
       "FLTeam": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
           "name": {
             "type": "string",
             "minLength": 1,
             "title": "Name"
-          },
-          "gruppe": {
-            "type": "string",
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D"
-            ],
-            "title": "Gruppe"
-          },
-          "statistik": {
-            "$ref": "#/components/schemas/FLTeamStatistik"
-          },
-          "disqualifikation": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLDisqualifikation"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "shorthand": {
             "type": "string",
@@ -6194,6 +6177,33 @@
           "address": {
             "$ref": "#/components/schemas/FLAddress"
           },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "gruppe": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Gruppe"
+          },
+          "statistik": {
+            "$ref": "#/components/schemas/FLTeamStatistik"
+          },
+          "disqualifikation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLDisqualifikation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "inactive_since": {
             "anyOf": [
               {
@@ -6209,16 +6219,16 @@
         },
         "type": "object",
         "required": [
-          "id",
           "name",
-          "gruppe",
-          "statistik",
-          "disqualifikation",
           "shorthand",
           "description",
           "full_name",
           "website_url",
           "address",
+          "id",
+          "gruppe",
+          "statistik",
+          "disqualifikation",
           "inactive_since"
         ],
         "title": "FLTeam"
@@ -6261,10 +6271,6 @@
       },
       "FLTeamRecord": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -6293,6 +6299,10 @@
           "address": {
             "$ref": "#/components/schemas/FLAddress"
           },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
           "inactive_since": {
             "anyOf": [
               {
@@ -6308,13 +6318,13 @@
         },
         "type": "object",
         "required": [
-          "id",
           "name",
           "shorthand",
           "description",
           "full_name",
           "website_url",
           "address",
+          "id",
           "inactive_since"
         ],
         "title": "FLTeamRecord",
@@ -6376,10 +6386,6 @@
       },
       "FLTeamWithMemberships": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -6408,6 +6414,10 @@
           "address": {
             "$ref": "#/components/schemas/FLAddress"
           },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
           "inactive_since": {
             "anyOf": [
               {
@@ -6430,13 +6440,13 @@
         },
         "type": "object",
         "required": [
-          "id",
           "name",
           "shorthand",
           "description",
           "full_name",
           "website_url",
           "address",
+          "id",
           "inactive_since",
           "memberships"
         ],

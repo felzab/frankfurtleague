@@ -54,6 +54,10 @@ PUBLISHED_OPERATIONS = sorted(
 
 MUTATIONS = [(path, method) for path, method in PUBLISHED_OPERATIONS if method != "get"]
 
+# A floor rather than the exact count: an endpoint added is covered by the parametrisation below
+# without editing this file, so pinning the number would ask for a bump and prove nothing.
+MINIMUM_EXPECTED_MUTATIONS = 25
+
 
 def guards_of(route: APIRoute) -> set[Callable[..., Any]]:
     """`set[Callable]` rather than `set[object]`: `set` is invariant, so the narrower element type is not assignable."""
@@ -84,6 +88,9 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
     assert len(guards) == 1, f"{method.upper()} {path} carries {len(guards)} guards: {guards}"
 
 
-def test_the_mutation_inventory_is_the_size_the_write_path_built():
-    """A guard-coverage suite finding no mutations passes vacuously; the inventory shrinking is as interesting as its growing."""
-    assert len(MUTATIONS) == 31
+def test_the_mutation_inventory_clears_its_floor():
+    """`empty_parameter_set_mark` defaults to skip, so an inventory that found nothing would turn the coverage above into one silent skip."""
+    assert len(MUTATIONS) >= MINIMUM_EXPECTED_MUTATIONS, (
+        f"discovered only {len(MUTATIONS)} mutations across {len(PUBLISHED_OPERATIONS)} published operations; "
+        f"expected at least {MINIMUM_EXPECTED_MUTATIONS}. Did a router stop being included?"
+    )

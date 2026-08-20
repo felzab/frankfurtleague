@@ -8,6 +8,7 @@ from bson.errors import InvalidId
 from pydantic import (
     AfterValidator,
     BeforeValidator,
+    Field,
     GetCoreSchemaHandler,
     GetJsonSchemaHandler,
     SerializationInfo,
@@ -82,10 +83,17 @@ def parse_empty_string_to_none(value: Any) -> Any:
 
 CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_to_none)]
 
+# An alias rather than a repeated `Field`, so a field cannot be added with the bound left off.
+CustomNonEmptyString = Annotated[str, StringConstraints(min_length=1)]
+
 
 # A LITERAL SPACE, never `\s`: the class sits INSIDE the anchors, so `\s` there would let the value
 # carry the newlines and tabs they exclude.
 PHONE_REGEX = r"^([+]?[ 0-9\-().]{3,20})$"
+
+# Unicode letters and the separators a real name uses, because an ASCII rule would refuse `Körner`.
+# On the WRITE payloads only: a read model refusing a stored name 500s the response for one bad row.
+PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 
 # Byte-for-byte the regex zod uses for `z.regexes.domain`, because `ExternalUrlSchema` tests the
 # parsed hostname against exactly this and both ends must accept or reject a value alike.
@@ -179,3 +187,9 @@ def validate_external_url(value: str) -> str:
 
 
 CustomExternalUrl = Annotated[str, AfterValidator(validate_external_url)]
+
+CustomSpielNr = Annotated[int, Field(gt=0)]
+
+# `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
+# does not, and both ends parse this string for win/draw/loss.
+CustomErgebnisString = Annotated[str, StringConstraints(pattern=r"^[0-9]+:[0-9]+$")]
