@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `77078f34`, 2026-08-20\
+**Verified against:** `19dd2c1c`, 2026-08-20\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -88,7 +88,9 @@ own `Path` line.
 
 **What is built.** Every write funnels through `fl_backend/app/core/crud.py`, so the log records there
 and is complete by construction rather than by discipline — a router that forgets to record cannot
-exist, because none reaches the driver. A row carries the actor, the request, the collection, the
+exist, because no write reaches the driver outside that module. Several routers do reach it for
+reads, so the property is about writes rather than about access, and a write added in that shape
+would escape. A row carries the actor, the request, the collection, the
 document and the image the write replaced (`fl_backend/app/core/recording.py`), and `/admin/aktionen`
 lists them. The actor travels as a header the frontend composes from its own session, and an admin
 write carrying none is refused rather than attributed to nobody (`docs/backend/spec.md :: I41`).
