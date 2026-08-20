@@ -1,6 +1,6 @@
 # Backend — overview
 
-**Verified against:** `c90a98dc`, 2026-08-20\
+**Verified against:** `d0ad46a4`, 2026-08-20\
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB, with a read router and a write router per resource. The
@@ -62,8 +62,8 @@ index on every boot ([`spec.md`](spec.md) I9 and I15) — so the cluster cannot 
 not describe, and a constraint survives a restore. The same pass builds the action log's read indexes, which
 constrain nothing and are declared apart from the unique ones for exactly that reason
 (`fl_backend/app/core/constraints.py :: SupportIndex`). Those validators are a hand-written copy of the schema,
-which keeps the rules where a hand edit lands: `saison_teams` and `saison_spieler` have write payloads but no
-stored-document model, and Compass is reachable whatever the API offers. What holds the copy to its model is
+which keeps the rules where a hand edit lands: `saison_teams` has write payloads but no stored-document
+model, and Compass is reachable whatever the API offers. What holds the copy to its model is
 [`spec.md`](spec.md) I17; the database user's `collMod` requirement is §4.
 
 **Shared database access goes through the helpers in `core/crud.py`**, a module in sections. The driver

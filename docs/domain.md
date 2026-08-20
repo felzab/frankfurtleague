@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `c90a98dc`, 2026-08-20
+**Verified against:** `d0ad46a4`, 2026-08-20
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
@@ -54,12 +54,12 @@ _every fixture in that season_ — `PATCH /spiele/{spiel_id}` looks like a singl
 one.
 
 **`teams` is NOT inside `Saison`.** The practical test: a club's name, address and website are on `teams`;
-its group and its disqualification are on `saison_teams`; its league table is on neither, being derived from
+its group and its `austritt` are on `saison_teams`; its league table is on neither, being derived from
 the matches.
 
-**`spieltage` is its own aggregate even though `spiele` points at it.** Its position and its expected match
-count are each derived from elsewhere, and retiring one leaves its matches untouched. A reference is not a
-boundary.
+**`spieltage` is its own aggregate even though `spiele` points at it.** Its `position` is checked against the
+other matchdays of its phase and its expected match count comes from the season's rules, so no invariant
+holds a matchday and its fixtures true together. A reference is not a boundary.
 
 **`aktionen` is in a boundary with nothing, and that is the decision rather than an oversight.** It is its own
 aggregate in `domain.py :: AGGREGATES` with no members, because no invariant holds a log row and any other
@@ -106,21 +106,22 @@ point:
 
 - a venue's **`mietpreis`** and a referee's **`payment`** do not fan out. They record what _this fixture_
   cost, so rewriting them would rewrite history.
-- a **disqualification** is not embedded at all. It is joined from the junction on every read, so entering
+- an **`austritt`** is not embedded at all. It is joined from the junction on every read, so recording
   one reaches every surface at once instead of needing a fan-out.
 
 ### Retirement never cascades
 
-Retiring a club, a person, a squad row or a matchday touches nothing that points at it: a played fixture's
+Retiring a club, a person or a squad row touches nothing that points at it: a played fixture's
 embedded team name is what that fixture said at the time. Retirement is _refused_ only where it would take
 something live down with it, and the `REQ-RETIRE-*` rows of `domain.py :: RULES` are every such refusal there
 is.
 
 ### There is no delete
 
-No endpoint removes a `saisons`, `saison_teams` or `spiele` document, and each absence is its own decision:
-removing a season orphans every `saison_id` in the database, a team leaves a season only by disqualification,
-and a season's fixtures are created once, then cancelled or moved.
+No endpoint removes a `saisons`, `saison_teams`, `spiele` or `spieltage` document, and each absence is its
+own decision: removing a season orphans every `saison_id` in the database, a team leaves a season only by an
+`austritt` record, a season's fixtures are created once and then recorded or moved, and `spieltage` carries no
+`inactive_since`, so a matchday has no field a soft delete could stamp.
 
 ---
 
@@ -139,8 +140,10 @@ against the `$jsonSchema` validators.
 
 Some fields of `rules` freeze once the season is `past`, because the league table is scored from them on
 every read and nothing records what they said before; some may never narrow below what already exists,
-because the data below would be stranded. `erlaubte_stufen` narrows freely even on a finished season, because
-it bounds what a **form offers** rather than what a stored squad row holds.
+because the data below would be stranded. What separates the two is what the field bounds:
+`max_kadergroesse` caps stored squad rows and so may not drop below the largest squad a season holds, while
+`erlaubte_stufen` narrows freely even on a finished season, bounding what a **form offers** rather than what
+a stored squad row holds.
 
 **Every one of these checks judges the step, not the endpoint and not the state it arrives in**, so a
 date-only edit resubmits the whole `rules` object and passes whatever the stored values already say — which

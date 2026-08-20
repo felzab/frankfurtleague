@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `c90a98dc`, 2026-08-20\
+**Verified against:** `d0ad46a4`, 2026-08-20\
 **Purpose:** the German domain vocabulary — what each term is, where it lives, and what catches people.
 
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs. Translating
@@ -13,7 +13,7 @@ it in your head is fine; translating it in code is not.
 | Terms that are not domain vocabulary | What a word that only looks like one actually is |
 
 **The ones that most often cost an hour:** `Spieltag` is not `Spiel` · a `Team` document is
-season-independent · `"playoffs"` is not a stored value · a cancelled match with a result still counts
+season-independent · `"playoffs"` is not a stored value · a no-show still counts in the table
 · `inactive_since` is a date, never a boolean.
 
 ---
@@ -22,7 +22,7 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 ### `Saison` — the competition year
 
-**Is:** the year everything else hangs off, carrying the `rules` that configure the scoring, the groups, the qualifiers and the eligible school levels.\
+**Is:** the year everything else hangs off, carrying the `rules` that configure the scoring, the groups, the qualifiers, the squad cap, the award a no-show hands over and the eligible school levels.\
 **In code:** `fl_backend/app/api/saisons/schemas.py :: FLSaison`; the schedule its rules imply is `fl_backend/app/api/saisons/schedule.py :: knockout_phases_for`.\
 **Trap:** the id is a short fixed-length string rather than an ObjectId (`fl_backend/app/shared/schemas/bounds.py :: SAISON_ID_LENGTH`), and every model that ACCEPTS one holds it to that length — but a junction row echoing a stored id does not, deliberately, because a read model refusing one stored row would answer 500 for the whole list it appears in. So an id of the wrong length that reaches the database by a route holding it to nothing is echoed back without complaint, while every match and matchday carrying it fails to read.\
 **See:** backend spec I5 for the length, I18 for the single path to `status`.
@@ -38,12 +38,12 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 **Is:** a block of matches inside a season, with a date range and a phase.\
 **In code:** `fl_backend/app/api/spieltage/schemas.py :: FLSpieltag`, ordered by `fl_backend/app/api/spieltage/services.py :: order_spieltage`, labelled by `fl_frontend/src/features/spieltage/utils.ts :: spieltagLabel`.\
-**Trap:** it carries no position, no name and no match count — all three are derived, so moving one means editing its phase or its `beginn`, and `anzahl_spiele` cannot be sorted on.\
-**See:** [backend spec §1.1](backend/spec.md#11-endpoint-inventory) for the payloads that carry none of the three.
+**Trap:** `position` is STORED and orders matchdays within one PHASE, so the numbers restart at 1 in every round and `uniq_saison_id_saison_phase_position` is what keeps two matchdays off one slot; the name and the match count carry no field at all, the label being composed by the reader and `anzahl_spiele` derived from the season's rules, which is why neither can be sorted on.\
+**See:** [backend spec §1.1](backend/spec.md#11-endpoint-inventory) for the payload that carries `position` and the create that appends instead.
 
 ### `Team` — club
 
-**Is:** a club, **season-independent**: its group, its disqualification and its table are assembled at read time from a junction row and from the matches.\
+**Is:** a club, **season-independent**: its group, its `austritt` and its table are assembled at read time from a junction row and from the matches.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTeam`, flattened by `fl_backend/app/api/teams/services.py :: build_team_pipeline`.\
 **Trap:** with a `saison_id` in play the junction join is strict, so a team with no `saison_teams` row for that season disappears from the results entirely rather than appearing with an empty table.\
 **See:** backend spec I11, and [`domain.md`](domain.md) for the aggregate.
@@ -126,15 +126,15 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 **Is:** `ausstehend` · `vergangen` · `heute` · `abgesagt` · `unbekannt`, derived on both ends and stored nowhere.\
 **In code:** `fl_backend/app/api/spiele/services.py :: build_spiele_filter` compiles the filter; `fl_frontend/src/features/spiele/utils.ts :: computeSpielStatus` derives the label.\
-**Trap:** the two definitions differ on purpose — the server's `ausstehend` is `datum >= today` and **includes** today, the client's is `datum > today` and **excludes** it, because a filter selects while a label partitions; and `unbekannt` as a filter returns everything, no branch matching it.\
+**Trap:** the two definitions differ on purpose — the server's `ausstehend` is `datum >= today` and **includes** today, the client's is `datum > today` and **excludes** it, because a filter selects while a label partitions; `unbekannt` as a filter returns everything, no branch matching it; and `abgesagt` is not the whole of `sonderereignis` — an abandoned fixture took place, so it reads by its date like any other.\
 **See:** [backend spec §1.2](backend/spec.md#12-get-spiele-parameters) for the filter each value compiles to.
 
-### `is_canceled` / `abgesagt` — called off, and still countable
+### `sonderereignis` — what happened to a fixture beyond being played
 
-**Is:** a boolean on the match saying the fixture was called off.\
-**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpiel`.\
-**Trap:** it is not a delete — the match keeps its row, its `spiel_nr` and its bracket slot — and a cancelled match carrying a result still counts in the table, because the figures the table is scored and sorted on do not consult this field; the one figure it decides is `anzahl_abgesagte_spiele`, so a forfeit lands in that count and in the match tally both.\
-**See:** backend spec I1a for what the table ignores, I1d for the cancellation count.
+**Is:** `ausgefallen` · `nichtantreten_team1` · `nichtantreten_team2` · `abgebrochen` · `annulliert`, or `null` where there is nothing to say.\
+**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSonderereignis`, with one named member set per consumer beside it.\
+**Trap:** it is not a delete — the match keeps its row, its `spiel_nr` and its bracket slot — and no member of it reaches the figures the table is scored and sorted on; a no-show counts because its goals are composed from `rules.forfeit_ergebnis`, while `ausgefallen` and `annulliert` may carry no result at all. The one figure the field decides is `anzahl_abgesagte_spiele`, which covers `ausgefallen` and the two no-shows and neither of the others.\
+**See:** backend spec I1a for what the table ignores, I1d for the cancellation count, I3a for the composed forfeit.
 
 ### `Quelle` — where a side of a fixture comes from
 
@@ -147,7 +147,7 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 **Is:** `platz` inside a `gruppe` reference — `1` the group winner, `2` the runner-up; an `int` with `gt=0` and no upper bound.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielQuelle`.\
-**Trap:** it counts only teams that can hold a placing, so a disqualified team keeps its table row while the place falls to the team below, and a team with no match that counts or still could holds no placing at all; a `platz` the group can never produce is reported rather than refused.\
+**Trap:** it counts only teams that can hold a placing, so a team that has left the season keeps its table row while the place falls to the team below, and a team with no match that counts or still could holds no placing at all; a `platz` the group can never produce is reported rather than refused.\
 **See:** backend spec I24b.
 
 ### `Ausgang` — which side of a match a reference names
@@ -157,11 +157,11 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 **Trap:** `verlierer` exists because a third-place play-off is fed by two losing semi-finals, and nothing writes it in this season's bracket; a level match with no shoot-out has neither outcome, so a reference to either resolves to nobody and the slot stays empty.\
 **See:** backend spec I23.
 
-### `disqualifikation` — out of one season, with the reason
+### `austritt` — out of one season, by which route and from when
 
-**Is:** a record on the `saison_teams` junction carrying `grund` and `datum`, so a team is disqualified for a season rather than permanently.\
-**In code:** `fl_backend/app/api/teams/schemas.py :: FLTeam`, joined from the junction.\
-**Trap:** its absence is the null and no boolean records the same fact anywhere; `grund` is public and rendered as authored; and `GET /teams?is_disqualified=` is turned into a null test rather than reading a field.\
+**Is:** a record on the `saison_teams` junction carrying `type`, `grund` and `datum`, so a team is out of one season rather than out of the league, and the record says which of the two routes out it took — `disqualifikation` or `rueckzug`.\
+**In code:** `fl_backend/app/api/teams/schemas.py :: FLAustritt`, joined from the junction; the German for each route is `fl_frontend/src/features/teams/constants.ts :: AUSTRITT_OPTIONS`, which every surface reads rather than writing its own.\
+**Trap:** its absence is the null and no boolean records the same fact anywhere; every rule keyed on a club having left reads `datum` and never `type`, so a withdrawal keeps a club off a later fixture exactly as a sanction does; `grund` is public and rendered as authored; and `GET /teams?is_disqualified=` is turned into a null test on the whole record, so it selects on having left by either route.\
 **See:** backend spec I31.
 
 ### `is_nachgetragen` — entered later, retrospectively added
@@ -180,9 +180,9 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 ### `inactive_since` — the day something left
 
-**Is:** a nullable `YYYY-MM-DD` string on `teams`, `spieler`, `saison_spieler`, `spieltage`, `spielorte` and `schiedsrichter`, where null means current.\
+**Is:** a nullable `YYYY-MM-DD` string on `teams`, `spieler`, `saison_spieler`, `spielorte` and `schiedsrichter`, where null means current.\
 **In code:** `fl_backend/app/core/constraints.py`, which requires the field in each of those validators.\
-**Trap:** a date and never a boolean, and on no payload — `DELETE` stamps it, `reactivate` clears it — so creating never revives a retired row and a natural-key collision comes back 409; leaving one season is a `disqualifikation`, a different thing.\
+**Trap:** a date and never a boolean, and on no payload — `DELETE` stamps it, `reactivate` clears it — so creating never revives a retired row and a natural-key collision comes back 409; leaving one season is an `austritt`, a different thing.\
 **See:** backend spec I12 for the shape, I20 for the create that never revives.
 
 ### `Statistik` — the derived league-table figures
@@ -210,7 +210,7 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 **Is:** two collections with no model of their own, joined at read time and never returned directly — which is what makes "a team" and "a player" season-scoped at all.\
 **In code:** `fl_backend/app/core/collections.py :: Collection`.\
-**Trap:** they differ on the way out — `saison_spieler` carries `inactive_since` because a player leaves a squad, while `saison_teams` has no DELETE and disqualification is the only way out of a season. A junction row is addressed under its entity at `/teams/{team_id}/saisons/{saison_id}`, where `saisons` names the junction row rather than a season — except the group swap, which writes two rows at once and so is addressed on the season.\
+**Trap:** they differ on the way out — `saison_spieler` carries `inactive_since` because a player leaves a squad, while `saison_teams` has no DELETE and an `austritt` record is the only way out of a season. A junction row is addressed under its entity at `/teams/{team_id}/saisons/{saison_id}`, where `saisons` names the junction row rather than a season — except the group swap, which writes two rows at once and so is addressed on the season.\
 **See:** backend spec I19 for the missing DELETE, I7 for the routers, I38 for the swap.
 
 ---
