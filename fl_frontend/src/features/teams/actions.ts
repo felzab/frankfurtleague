@@ -271,7 +271,7 @@ export async function postSaisonTeamAction(
       throw error;
     }
 
-    // The `teams` pair only: the row is seeded with `disqualifikation: null` and the match join reads
+    // The `teams` pair only: the row is seeded with `austritt: null` and the match join reads
     // nothing else from it (backend spec I32), so no match changes.
     invalidateSeasonScoped("teams", validated.data.saison_id);
 
@@ -310,8 +310,8 @@ export async function patchSaisonTeamAction(
       throw error;
     }
 
-    // BOTH pairs: every match side joins this row's `disqualifikation` at read time (backend spec
-    // I32), so `teams` alone leaves a card showing a badge the league table has stopped showing.
+    // BOTH pairs: every match side joins this row's `austritt` at read time (backend spec I32),
+    // so `teams` alone leaves a card showing a badge the league table has stopped showing.
     invalidateSeasonScoped("teams", validated.data.saison_id);
     invalidateSeasonScoped("spiele", validated.data.saison_id);
 

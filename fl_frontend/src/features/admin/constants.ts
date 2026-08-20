@@ -72,7 +72,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             { term: "Ergebnis", detail: "Tabelle und Setzung warten darauf." },
             { term: "Datum, Uhrzeit, Ort, Schiedsrichter", detail: "Pflege, die nichts weiter aufhält." },
           ],
-          note: "Abgesagte Spiele stehen nur zum Nachschlagen dort, sie sind keine Aufgabe.",
+          note: "Ausgefallene, annullierte und nicht angetretene Spiele stehen nur zum Nachschlagen dort. Ein abgebrochenes Spiel wartet weiter auf sein Ergebnis.",
         },
       },
       {
@@ -94,9 +94,8 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         hint: {
           lead: "Die Spieltage der im Seitenmenü gewählten Saison, nach Phase und in der Reihenfolge, in der sie gespielt werden.",
           points: [
-            { term: "Name und Position", detail: "ergeben sich aus Phase und Beginn. Um einen Spieltag zu verschieben, ändere sein Datum." },
+            { term: "Name", detail: "ergibt sich aus Phase und Position. Um einen Spieltag zu verschieben, ändere seine Position." },
             { term: "Spiele", detail: "die angelegte Zahl neben der erwarteten. Weichen sie ab, fehlt etwas." },
-            { term: "Stilllegen", detail: "nimmt den Spieltag aus den Listen. Nur möglich, solange keines seiner Spiele ein Ergebnis hat." },
           ],
           note: "Sobald die KO-Runde begonnen hat, lassen sich keine Spieltage mehr anlegen.",
         },
@@ -156,7 +155,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
               detail: "nur möglich, solange das Team in keiner laufenden oder geplanten Saison spielt. Sein Kürzel bleibt reserviert.",
             },
           ],
-          note: "Eine Disqualifikation gilt für eine Saison und wird auf der Teamseite eingetragen. Aus einer Saison entfernt wird nie.",
+          note: "Ein Austritt — Disqualifikation oder Rückzug — gilt für eine Saison und wird auf der Teamseite eingetragen. Aus einer Saison entfernt wird nie.",
         },
       },
       {

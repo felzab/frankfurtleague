@@ -8,6 +8,7 @@ import { parseDate } from "@internationalized/date";
 import { Form } from "@heroui/react";
 
 import { patchSaisonTeamAction, patchTeamAction } from "@/features/teams/actions";
+import { austrittZustand } from "@/features/teams/constants";
 import { FLPatchSaisonTeamPayloadSchema, FLPatchTeamPayloadSchema } from "@/features/teams/schemas";
 import { deriveTeamDraftStatus } from "@/features/teams/teamDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
@@ -24,12 +25,19 @@ import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 
 import { buildTeamBanners } from "./banners";
 import { FormAdresseSection } from "./FormAdresseSection";
-import { FormDisqualifikationSection } from "./FormDisqualifikationSection";
+import { FormAustrittSection } from "./FormAustrittSection";
 import { FormSaisonSection } from "./FormSaisonSection";
 import { FormVereinSection } from "./FormVereinSection";
 
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
-import type { FLGruppenNames, FLPatchSaisonTeamPayload, FLPatchTeamPayload, FLPostTeamPayload, FLTeamRecord } from "@/features/teams/schemas";
+import type {
+  FLAustrittType,
+  FLGruppenNames,
+  FLPatchSaisonTeamPayload,
+  FLPatchTeamPayload,
+  FLPostTeamPayload,
+  FLTeamRecord,
+} from "@/features/teams/schemas";
 import type { FLTeamDraftFields } from "@/features/teams/teamDraftStatus";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
@@ -114,10 +122,12 @@ export function AdminTeamEditForm({
   });
 
   const [gruppe, setGruppe] = useState<FLGruppenNames | null>(storedMembership?.gruppe ?? null);
-  const [isDisqualified, setIsDisqualified] = useState(storedMembership?.disqualifikation != null);
-  const [grund, setGrund] = useState(storedMembership?.disqualifikation?.grund ?? "");
+  const [hasAustritt, setHasAustritt] = useState(storedMembership?.austritt != null);
+  // Null until a route is chosen, so a new record accuses nobody; the schema refuses the null.
+  const [art, setArt] = useState<FLAustrittType | null>(storedMembership?.austritt?.type ?? null);
+  const [grund, setGrund] = useState(storedMembership?.austritt?.grund ?? "");
   const [datum, setDatum] = useState<CalendarDate | null>(() => {
-    const storedDatum = storedMembership?.disqualifikation?.datum;
+    const storedDatum = storedMembership?.austritt?.datum;
     return storedDatum ? parseDate(storedDatum) : null;
   });
 
@@ -136,7 +146,7 @@ export function AdminTeamEditForm({
 
   // The record as the draft would save it. `""` for a cleared date is what the schema rejects with
   // its own German message, so a half-entered record is a field error rather than a silent skip.
-  const draftDisqualifikation = isDisqualified ? { grund, datum: datum?.toString() ?? "" } : null;
+  const draftAustritt = hasAustritt ? { type: art, grund, datum: datum?.toString() ?? "" } : null;
 
   // The ids ride in the request path, so neither is a field an input renders or a refusal can name.
   const buildClubPayload = () => ({ id: team.id, ...clubDraft });
@@ -144,12 +154,12 @@ export function AdminTeamEditForm({
     team_id: team.id,
     saison_id: saison.saisonId,
     gruppe,
-    disqualifikation: draftDisqualifikation,
+    austritt: draftAustritt,
   });
 
   const draftFields: FLTeamDraftFields = {
     ...clubDraft,
-    membership: storedMembership === null ? null : { gruppe, disqualifikation: draftDisqualifikation },
+    membership: storedMembership === null ? null : { gruppe, austritt: draftAustritt },
   };
   const storedFields: FLTeamDraftFields = {
     name: team.name,
@@ -202,8 +212,8 @@ export function AdminTeamEditForm({
     saisonId: saison.saisonId,
     saisonStatus: saison.saisonStatus,
     isMember: storedMembership !== null,
-    storedDisqualifikation: storedMembership?.disqualifikation ?? null,
-    isDisqualified,
+    storedAustritt: storedMembership?.austritt ?? null,
+    hasAustritt,
     isGruppeLocked: gruppeLocked,
     isGruppeChanged: isChanged("gruppe"),
   });
@@ -239,9 +249,10 @@ export function AdminTeamEditForm({
       address: team.address,
     });
     setGruppe(storedMembership?.gruppe ?? null);
-    setIsDisqualified(storedMembership?.disqualifikation != null);
-    setGrund(storedMembership?.disqualifikation?.grund ?? "");
-    setDatum(storedMembership?.disqualifikation?.datum ? parseDate(storedMembership.disqualifikation.datum) : null);
+    setHasAustritt(storedMembership?.austritt != null);
+    setArt(storedMembership?.austritt?.type ?? null);
+    setGrund(storedMembership?.austritt?.grund ?? "");
+    setDatum(storedMembership?.austritt?.datum ? parseDate(storedMembership.austritt.datum) : null);
 
     setSubmitFieldErrors({}, {});
   };
@@ -273,7 +284,7 @@ export function AdminTeamEditForm({
       // Only what the admin cannot see from the form earns a sentence: the fan-out when the name or
       // Kürzel moved, the disqualification when the record changed.
       const renameTouched = isChanged("name") || isChanged("shorthand");
-      const disqualifikationTouched = isChanged("disqualifikation");
+      const austrittTouched = isChanged("austritt");
       const consequenceNotes: string[] = [];
       const savedParts: string[] = [];
       const failedNotes: string[] = [];
@@ -294,12 +305,11 @@ export function AdminTeamEditForm({
         const res = await patchSaisonTeamAction(saisonPayload);
         if (res.success) {
           savedParts.push("Saison gespeichert.");
-          if (disqualifikationTouched) {
-            consequenceNotes.push(
-              res.saison_team?.disqualifikation != null
-                ? "Die Disqualifikation ist sofort überall sichtbar."
-                : "Die Disqualifikation ist aufgehoben.",
-            );
+          if (austrittTouched) {
+            // The echoed record names the route, so the sentence says which one landed rather than
+            // reaching for a word that fits only one of the two.
+            const saved = res.saison_team?.austritt ?? null;
+            consequenceNotes.push(saved === null ? "Der Austritt ist aufgehoben." : `${austrittZustand(saved.type)}: sofort überall sichtbar.`);
           }
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
@@ -341,14 +351,14 @@ export function AdminTeamEditForm({
                 team_id: team.id,
                 saison_id: saison.saisonId,
                 gruppe: storedMembership.gruppe,
-                disqualifikation: storedMembership.disqualifikation,
+                austritt: storedMembership.austritt,
               },
             }
           : {}),
       };
       // A lifted disqualification is the one thing this save can destroy that nothing else copies,
       // so that grade is a warning; an ordinary save is a reversible success.
-      const destroyedSomething = disqualifikationTouched && draftDisqualifikation === null && storedMembership?.disqualifikation != null;
+      const destroyedSomething = austrittTouched && draftAustritt === null && storedMembership?.austritt != null;
       offerUndo(undoPayloads, consequenceNotes.join(" ") || undefined, destroyedSomething);
 
       // AFTER the undo payloads are built: leaving with typed values still in state is what let a
@@ -447,15 +457,18 @@ export function AdminTeamEditForm({
           />
 
           {storedMembership !== null && (
-            <FormDisqualifikationSection
-              isDisqualified={isDisqualified}
-              onIsDisqualifiedChange={(next) => {
-                setIsDisqualified(next);
+            <FormAustrittSection
+              hasAustritt={hasAustritt}
+              onHasAustrittChange={(next) => {
+                setHasAustritt(next);
                 // Seeded with today, the common case for "took effect"; the lift stays a draft
-                // until the save sends the explicit null.
+                // until the save sends the explicit null. `art` is NOT seeded -- which route it was
+                // is the one thing here nobody can guess for the admin.
                 if (next && datum === null) setDatum(parseDate(today));
               }}
               banners={banners}
+              art={art}
+              onArtChange={setArt}
               grund={grund}
               onGrundChange={setGrund}
               datum={datum}

@@ -155,6 +155,7 @@ export function AdminSaisonEditForm({
     qualifiersPerGroup: rules.qualifiers_per_group,
     teamsPerGroup: rules.teams_per_group,
     isPointsChanged: isChanged("rules.win_points") || isChanged("rules.draw_points"),
+    isTiebreakChanged: isChanged("rules.tiebreak_order"),
     isStufenChanged: isChanged("rules.erlaubte_stufen"),
     outgoingSaisonId: rollover.outgoingSaisonId,
     offeneSpieleCount: rollover.offeneSpiele.length,
@@ -257,17 +258,23 @@ export function AdminSaisonEditForm({
 
   /**
    * The toast outlives this component, so the press runs detached — `AdminEditSpielDataForm` has the
-   * pitfalls. **A warning and not a success where the points moved**: every standing was rescored,
-   * and a table reading differently is what nobody notices.
+   * pitfalls. **A warning and not a success wherever the table moved**: it is scored and ordered from
+   * `rules` on every read, and a table reading differently is what nobody notices.
    */
   const offerUndo = (payload: FLPatchSaisonPayload) => {
     const pointsMoved = payload.rules.win_points !== rules.win_points || payload.rules.draw_points !== rules.draw_points;
+    const tiebreakMoved = payload.rules.tiebreak_order !== rules.tiebreak_order;
 
-    const report = pointsMoved ? appToast.warning : appToast.success;
+    // The points first where both moved: a rescore subsumes a re-sort, and one toast holds one sentence.
+    const description = pointsMoved
+      ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
+      : tiebreakMoved
+        ? "Punktgleiche Teams stehen ab sofort in einer anderen Reihenfolge, auch in längst gespielten Gruppen."
+        : "Die Saisondaten wurden aktualisiert.";
+
+    const report = pointsMoved || tiebreakMoved ? appToast.warning : appToast.success;
     report("Änderung gespeichert", {
-      description: pointsMoved
-        ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
-        : "Die Saisondaten wurden aktualisiert.",
+      description,
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",
@@ -351,7 +358,7 @@ export function AdminSaisonEditForm({
             isFinishedSaison={saison.status === "past"}
           />
 
-          {/* Last on the page, the position the club editor's Disqualifikation panel holds: the one
+          {/* Last on the page, the position the club editor's Austritt panel holds: the one
               control here that no later edit reverses on its own. It writes on press, so it never
               joins the save bar — one row cannot hold two promises about when. */}
           <FormRolloverSection

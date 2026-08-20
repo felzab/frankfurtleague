@@ -3,7 +3,15 @@ import { describe, it } from "node:test";
 
 import { z } from "zod";
 
-import { CustomTimeStringSchema, ExternalUrlSchema, FLAddressSchema, FLKontaktSchema } from "./schemas.ts";
+import {
+  ADDRESS_STADT_MAX_LENGTH,
+  ADDRESS_STRASSE_MAX_LENGTH,
+  CustomTimeStringSchema,
+  ExternalUrlSchema,
+  FLAddressPayloadSchema,
+  FLAddressSchema,
+  FLKontaktSchema,
+} from "./schemas.ts";
 
 const validAddress = {
   strasse: "Hanauer Landstraße",
@@ -41,6 +49,34 @@ describe("FLAddressSchema", () => {
     assert.equal(FLAddressSchema.safeParse({ ...validAddress, strasse: "" }).success, false);
     assert.equal(FLAddressSchema.safeParse({ ...validAddress, stadt: "" }).success, false);
     assert.equal(FLAddressSchema.safeParse({ ...validAddress, stadtteil: "" }).success, true);
+  });
+});
+
+describe("FLAddressPayloadSchema", () => {
+  const capped = [
+    { field: "strasse", cap: ADDRESS_STRASSE_MAX_LENGTH },
+    { field: "stadt", cap: ADDRESS_STADT_MAX_LENGTH },
+  ] as const;
+
+  it("accepts a value exactly at the cap and refuses the next character", () => {
+    for (const { field, cap } of capped) {
+      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "x".repeat(cap) }).success, true, `${field} at the cap`);
+      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "x".repeat(cap + 1) }).success, false, `${field} over it`);
+    }
+  });
+
+  it("keeps refusing an empty value, which redeclaring the field could have dropped", () => {
+    for (const { field } of capped) {
+      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "" }).success, false, `${field} empty`);
+    }
+  });
+
+  // The load-bearing half: the read schema parses whatever is stored, so one over-long row cannot
+  // fail the list it appears in.
+  it("leaves the read schema accepting a stored value the payload refuses", () => {
+    for (const { field, cap } of capped) {
+      assert.equal(FLAddressSchema.safeParse({ ...validAddress, [field]: "x".repeat(cap + 1) }).success, true, `${field} over the cap`);
+    }
   });
 });
 

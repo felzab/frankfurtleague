@@ -15,13 +15,13 @@ const TEAM_2 = "6890a1b2c3d4e5f607182933";
 const ORT = "6890a1b2c3d4e5f607182940";
 const SCHIRI = "6890a1b2c3d4e5f607182950";
 
-/** `disqualifikation` rides along because an endpoint joins it; nothing here asserts on it. */
+/** `austritt` rides along because an endpoint joins it; nothing here asserts on it. */
 const side = (team_id: string, name: string, shorthand: string, tore: number | null): FLSpielTeamFieldJoined => ({
   team_id,
   name,
   shorthand,
   tore,
-  disqualifikation: null,
+  austritt: null,
 });
 
 /** Fully populated, so every descriptor has something to compare against. */
@@ -32,7 +32,7 @@ function makeStored(overrides: Partial<FLSpiel> = {}): FLSpiel {
     spiel_nr: 12,
     saison_id: "2026",
     saison_phase: "gruppenphase",
-    is_canceled: false,
+    sonderereignis: null,
     datum: "2026-08-12",
     uhrzeit: "18:30:00",
     ort: { spielort_id: ORT, name: "Sportpark Nord", maps_link: "Sportpark Nord", mietpreis: 120 },
@@ -60,7 +60,7 @@ function draftOf(stored: FLSpiel, overrides: Partial<FLSpielDraftFields> = {}): 
     team1_quelle: stored.team1_quelle,
     team2_quelle: stored.team2_quelle,
     elfmeterschiessen: stored.elfmeterschiessen,
-    is_canceled: stored.is_canceled,
+    sonderereignis: stored.sonderereignis,
     notiz: stored.notiz,
     ...overrides,
   };
@@ -127,15 +127,32 @@ describe("deriveSpielDraftStatus · dirtiness", () => {
     assert.equal(derive(stored, draftOf(stored, { team1_quelle: { type: "gruppe", gruppe: "A", platz: 1 } })).isDirty, true);
   });
 
-  it("reads a cancellation in both directions, each state with its own word", () => {
+  it("gives every Sonderereignis its own word, the ordinary fixture included", () => {
     const going = makeStored();
-    const called = makeStored({ is_canceled: true });
 
-    assert.equal(derive(going, draftOf(going, { is_canceled: true })).byPath.get("is_canceled")?.draftText, "Abgesagt");
-    // "Angesetzt", never `null`: a null draft value renders as an emptied field in the danger
-    // grade, and putting a fixture back on is not an emptying.
-    assert.equal(derive(called, draftOf(called, { is_canceled: false })).byPath.get("is_canceled")?.draftText, "Angesetzt");
-    assert.equal(derive(called, draftOf(called, { is_canceled: false })).byPath.get("is_canceled")?.storedText, "Abgesagt");
+    for (const [sonderereignis, label] of [
+      ["ausgefallen", "Ausgefallen"],
+      ["nichtantreten_team1", "Nichtantreten Team 1"],
+      ["nichtantreten_team2", "Nichtantreten Team 2"],
+      ["abgebrochen", "Abgebrochen"],
+      ["annulliert", "Annulliert"],
+    ] as const) {
+      assert.equal(derive(going, draftOf(going, { sonderereignis })).byPath.get("sonderereignis")?.draftText, label);
+    }
+
+    // "Regulär", never `null`: a null draft value renders as an emptied field in the danger grade,
+    // and putting a fixture back on is not an emptying.
+    const called = makeStored({ sonderereignis: "ausgefallen" });
+    assert.equal(derive(called, draftOf(called, { sonderereignis: null })).byPath.get("sonderereignis")?.draftText, "Regulär");
+    assert.equal(derive(called, draftOf(called, { sonderereignis: null })).byPath.get("sonderereignis")?.storedText, "Ausgefallen");
+  });
+
+  // Swapping one member for another is an edit, and the boolean this replaced could not express it.
+  it("reports a change from one Sonderereignis to another", () => {
+    const called = makeStored({ sonderereignis: "ausgefallen" });
+
+    assert.equal(derive(called, draftOf(called, { sonderereignis: "annulliert" })).isDirty, true);
+    assert.equal(derive(called, draftOf(called, { sonderereignis: "ausgefallen" })).isDirty, false);
   });
 
   // NaN is what a NumberField reports while a cleared box is being retyped, and NaN !== NaN.
@@ -265,7 +282,7 @@ describe("deriveSpielDraftStatus · the table itself", () => {
       "team2.tore",
       "elfmeterschiessen.team1",
       "elfmeterschiessen.team2",
-      "is_canceled",
+      "sonderereignis",
     ]) {
       assert.ok(paths.has(expectedPath), `no descriptor for ${expectedPath}`);
     }
@@ -334,6 +351,45 @@ describe("applyDraftToSpiel · an orphaned shoot-out", () => {
     const stored = knockout();
 
     assert.equal(applyDraftToSpiel(stored, draftOf(stored, { elfmeterschiessen: { team1: 5, team2: null } })).elfmeterschiessen, null);
+  });
+
+  // An awarded forfeit is never level, so the write path discards the record; a preview keeping it
+  // would promise what that save throws away.
+  it("drops the record under a Nichtantreten, however level the typed goals are", () => {
+    const stored = knockout();
+
+    assert.equal(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis: "nichtantreten_team1" })).elfmeterschiessen, null);
+  });
+});
+
+/**
+ * **The preview mirrors `fl_backend/app/api/spiele/services.py :: apply_payload_to_spiel`**, and the
+ * one place it cannot is the forfeit: those goals are composed there from the season's rules, which
+ * this page never loads.
+ */
+describe("applyDraftToSpiel · what a Sonderereignis does to the result", () => {
+  it("states no result under a Nichtantreten rather than the typed one the save replaces", () => {
+    const stored = makeStored();
+
+    for (const sonderereignis of ["nichtantreten_team1", "nichtantreten_team2"] as const) {
+      assert.equal(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis })).ergebnis, null, sonderereignis);
+    }
+  });
+
+  // NOT emptied here: `find_state_refusal` answers `REQ-STATE-002` and REFUSES the save, so a preview
+  // that quietly cleared the goals would hide the very contradiction the banner reports.
+  it("leaves the typed result standing under an event that cannot carry one", () => {
+    const stored = makeStored();
+
+    for (const sonderereignis of ["ausgefallen", "annulliert"] as const) {
+      assert.equal(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis })).ergebnis, "3:1", sonderereignis);
+    }
+  });
+
+  it("leaves an abandoned fixture's result exactly as entered", () => {
+    const stored = makeStored();
+
+    assert.equal(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis: "abgebrochen" })).ergebnis, "3:1");
   });
 });
 

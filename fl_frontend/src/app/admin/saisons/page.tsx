@@ -32,11 +32,7 @@ export default function AdminSaisonsPage() {
   );
 }
 
-/**
- * EVERY season, each row carrying whether it has teams and a schedule yet. The matchday count
- * includes RETIRED matchdays: they still hold matches, so a season is not empty because somebody
- * retired its schedule.
- */
+/** EVERY season, each row carrying whether it has teams and a schedule yet. */
 async function SaisonsTable() {
   await connection();
 
@@ -47,7 +43,7 @@ async function SaisonsTable() {
   // means the current one.
   const spieltageBySaison = await Promise.all(
     saisons.map(async (saison) => {
-      const res = await getSpieltage({ saison_id: saison.id, include_inactive: true });
+      const res = await getSpieltage({ saison_id: saison.id });
       return [saison.id, res.spieltage.length] as const;
     }),
   );

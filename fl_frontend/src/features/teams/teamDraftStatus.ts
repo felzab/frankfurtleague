@@ -1,10 +1,13 @@
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import { AUSTRITT_OPTIONS } from "./constants";
+
 import type { FLAddress } from "@/shared/schemas";
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLDisqualifikation, FLGruppenNames } from "./schemas";
+import type { FLGruppenNames } from "./schemas";
+import type { AustrittDraft } from "./types";
 
 /**
  * Widened to what a draft holds mid-edit: `gruppe` is null while the enter-a-season picker is
@@ -19,7 +22,7 @@ export type FLTeamDraftFields = {
   address: FLAddress;
   membership: {
     gruppe: FLGruppenNames | null;
-    disqualifikation: FLDisqualifikation | null;
+    austritt: AustrittDraft | null;
   } | null;
 };
 
@@ -46,17 +49,21 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLTeamDraftFields, FLTeamFie
     read: (source) => (source.membership?.gruppe ? `Gruppe ${source.membership.gruppe}` : null),
   },
   {
-    path: "disqualifikation",
-    label: "Disqualifikation",
+    path: "austritt",
+    label: "Austritt",
     group: "Saison",
     appliesTo: (source) => source.membership !== null,
     read: (source) => {
-      const record = source.membership?.disqualifikation ?? null;
+      const record = source.membership?.austritt ?? null;
       if (record === null) return null;
-      // An empty grund still renders a row — the mid-edit state the schema rejects on save.
-      return `${record.grund || "Kein Grund"} (ab ${formatSpielDatum(record.datum)})`;
+      // The route is IN the rendered value: switching a stored Disqualifikation to a Rückzug changes
+      // nothing else, and a line that ignored it would leave the save button disabled on a real edit.
+      const art = AUSTRITT_OPTIONS.find((option) => option.value === record.type)?.label ?? "Art offen";
+      // Both fallbacks render a row rather than hiding one: they are the mid-edit states the schema
+      // rejects on save, and the change list is where the admin sees what is still missing.
+      return `${art}: ${record.grund || "Kein Grund"} (ab ${formatSpielDatum(record.datum)})`;
     },
-    errorPaths: ["disqualifikation", "disqualifikation.grund", "disqualifikation.datum"],
+    errorPaths: ["austritt", "austritt.type", "austritt.grund", "austritt.datum"],
   },
 ];
 

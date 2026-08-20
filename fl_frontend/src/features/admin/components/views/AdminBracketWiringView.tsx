@@ -75,8 +75,8 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
  * refuses a `quelle` there.
  */
 export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiele[] }) {
-  // Deliberately not `orderRoundsByWiring`: on played order the ordinal counts the matchday's place
-  // in its phase, which is the number an admin is checking against.
+  // The number an admin checks against is the matchday's own `position`, which the label reads
+  // straight off each row rather than counting over this list.
   const labels = spieltagLabels(rounds);
 
   if (rounds.length === 0) {

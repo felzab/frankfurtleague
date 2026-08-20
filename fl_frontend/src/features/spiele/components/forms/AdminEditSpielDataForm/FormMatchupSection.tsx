@@ -94,7 +94,7 @@ export function FormMatchupSection({
                 <p>Welche beiden Mannschaften aufeinandertreffen.</p>
                 <ul>
                   <li>
-                    <strong>Disqualifizierte</strong> Teams bleiben sichtbar, sind aber gesperrt.
+                    <strong>Ausgeschiedene</strong> Teams bleiben sichtbar, sind aber gesperrt.
                   </li>
                   <li>
                     Ein Team spielt <strong>einmal pro Spieltag</strong>. Steht es schon in einem anderen Spiel, ist es hier gesperrt.

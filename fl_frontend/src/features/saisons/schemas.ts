@@ -23,6 +23,17 @@ export const MAX_QUALIFIERS = 2 ** (FLSaisonPhaseSchema.options.length - 1);
 export type FLSaisonPhase = z.infer<typeof FLSaisonPhaseSchema>;
 
 /**
+ * **Both sides' goals rather than a margin**, so a season can regulate 3:0, 2:0 or 0:0 as its own
+ * competition requires — `fl_backend/app/api/spiele/services.py :: apply_payload_to_spiel` composes
+ * the fixture from exactly these two numbers.
+ */
+export const FLSaisonForfeitErgebnisSchema = z.object({
+  sieger_tore: z.int().nonnegative({ error: "Der Sieger bekommt 0 oder mehr Tore." }),
+  verlierer_tore: z.int().nonnegative({ error: "Der Verlierer bekommt 0 oder mehr Tore." }),
+});
+export type FLSaisonForfeitErgebnis = z.infer<typeof FLSaisonForfeitErgebnisSchema>;
+
+/**
  * German messages: the season editor binds this schema directly and the browser renders whichever
  * bound fails. The apiContract suite compares the wire shape and deliberately not the messages.
  */
@@ -34,12 +45,24 @@ export const FLSaisonRulesSchema = z.object({
   qualifiers_per_group: z.int().positive({ error: "Mindestens 1 Team pro Gruppe muss weiterkommen." }),
   // The season runs the first `number_of_groups` of the closed A-D set, hence the `.max(4)`.
   number_of_groups: z.int().positive({ error: "Eine Saison braucht mindestens 1 Gruppe." }).max(4, { error: "Es gibt höchstens 4 Gruppen." }),
-  teams_per_group: z.int().positive({ error: "Eine Gruppe nimmt mindestens 1 Team auf." }),
+  // The floor stops a group phase that generates no fixture at all; the ceiling keeps the largest
+  // legal season inside the list read's cap, past which a season-scoped read is truncated.
+  teams_per_group: z
+    .int()
+    .min(2, { error: "Eine Gruppe braucht mindestens 2 Teams, sonst entsteht kein Spiel." })
+    .max(16, { error: "Eine Gruppe fasst höchstens 16 Teams." }),
+  // German because the season editor binds this schema to its picker. Frozen once the season is
+  // `past`: the table is ordered from the rules on every read, so a later change rewrites a record.
+  tiebreak_order: z.enum(["tordifferenz", "direkter_vergleich"], { error: "Bitte wähle, was bei Punktgleichheit zuerst entscheidet." }),
+  // Enforced at the squad write rather than here: this bounds a season, not this payload.
+  max_kadergroesse: z.int().positive({ error: "Ein Kader fasst mindestens 1 Spieler." }),
+  forfeit_ergebnis: FLSaisonForfeitErgebnisSchema,
   // A subset of the league's closed level set, never empty: no level makes every squad entry
   // unfillable.
   erlaubte_stufen: z.array(FLSpielerStufeSchema).min(1, { error: "Wähle mindestens eine Stufe aus." }),
 });
 export type FLSaisonRules = z.infer<typeof FLSaisonRulesSchema>;
+export type FLSaisonTiebreakOrder = FLSaisonRules["tiebreak_order"];
 
 /**
  * **Mirrored rather than recomputed**: an odd group needs an extra round because one team sits out,

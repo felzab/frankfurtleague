@@ -11,15 +11,6 @@ export const SPIELTAG_FACETS: readonly Facet<AdminSpieltagRow>[] = [
     read: (spieltag) => [spieltag.saison_phase],
   },
   {
-    param: "status",
-    label: "Status",
-    options: [
-      { value: "aktiv", label: "Aktiv" },
-      { value: "stillgelegt", label: "Stillgelegt" },
-    ],
-    read: (spieltag) => [spieltag.inactive_since === null ? "aktiv" : "stillgelegt"],
-  },
-  {
     param: "besetzung",
     label: "Spiele",
     options: [

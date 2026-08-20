@@ -9,11 +9,13 @@ const stored: FLSpieltagDraftFields = {
   beginn: "2026-03-14",
   ende: "2026-03-15",
   saison_phase: "gruppenphase",
+  position: 2,
 };
 
 // One row per descriptor: the path it must report, and a draft differing in that field alone.
 const oneFieldChanged: readonly (readonly [string, FLSpieltagDraftFields])[] = [
   ["saison_phase", { ...stored, saison_phase: "viertelfinale" }],
+  ["position", { ...stored, position: 3 }],
   ["beginn", { ...stored, beginn: "2026-03-21" }],
   ["ende", { ...stored, ende: "2026-03-22" }],
 ];
@@ -24,8 +26,8 @@ describe("deriveSpieltagDraftStatus", () => {
 
     assert.equal(status.isDirty, false);
     assert.equal(status.changed.length, 0);
-    // The name and the position are derived, never drafted, so neither is a row.
-    assert.equal(status.fields.length, 3);
+    // The name is composed from the two fields above and is not itself a row.
+    assert.equal(status.fields.length, 4);
   });
 
   it("reports each field under its own descriptor path, so a mistyped path cannot pass unnoticed", () => {

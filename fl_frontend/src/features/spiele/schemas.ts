@@ -1,13 +1,23 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-import { FLDisqualifikationSchema, FLGruppenNamesSchema } from "@/features/teams/schemas";
+import { FLAustrittSchema, FLGruppenNamesSchema } from "@/features/teams/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema } from "@/shared/schemas";
 
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
 
 export const FLSpielStatusSchema = z.enum(["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"], { error: "FLSpielStatus is invalid" });
 export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;
+
+/**
+ * What happened to a fixture beyond being played, mirroring
+ * `fl_backend/app/api/spiele/schemas.py :: FLSonderereignis`. Distinct in kind from `FLSpielStatus`,
+ * which is derived, total and about time.
+ */
+export const FLSonderereignisSchema = z.enum(["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"], {
+  error: "FLSonderereignis is invalid",
+});
+export type FLSonderereignis = z.infer<typeof FLSonderereignisSchema>;
 
 /**
  * Nothing joined belongs here: the backend writes this payload back wholesale, so a field added to
@@ -22,11 +32,12 @@ export const FLSpielTeamFieldSchema = z.object({
 export type FLSpielTeamField = z.infer<typeof FLSpielTeamFieldSchema>;
 
 /**
- * Joined per request from `saison_teams`, so no copy of a disqualification can go stale. The whole
- * record rather than a boolean: `null` also covers a team with no junction row for the season.
+ * Joined per request from `saison_teams`, so no copy of a club's exit can go stale. The whole record
+ * rather than a boolean: it says WHICH way the club left, and `null` also covers a team with no
+ * junction row for the season.
  */
 export const FLSpielTeamFieldJoinedSchema = FLSpielTeamFieldSchema.extend({
-  disqualifikation: FLDisqualifikationSchema.nullable(),
+  austritt: FLAustrittSchema.nullable(),
 });
 export type FLSpielTeamFieldJoined = z.infer<typeof FLSpielTeamFieldJoinedSchema>;
 
@@ -130,7 +141,9 @@ export const FLSpielSchema = z.object({
   elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
 
   spiel_nr: z.int().positive(),
-  is_canceled: z.boolean(),
+
+  // `null` is the ordinary fixture, played or not yet, so no read site has to spell one out.
+  sonderereignis: FLSonderereignisSchema.nullable(),
   saison_phase: FLSaisonPhaseSchema,
   // Declared because zod's default strip mode discards an undeclared field silently, which is how
   // the patch action once lost the season id its granular cache tag needs.
@@ -143,9 +156,9 @@ export const FLSpielSchema = z.object({
 export type FLSpiel = z.infer<typeof FLSpielSchema>;
 
 /**
- * No schema, because nothing parses this. Use it wherever a joined `disqualifikation` is neither
- * read nor available: asking for it there makes a caller invent one, and an invented one is a wrong
- * answer rather than a missing one.
+ * No schema, because nothing parses this. Use it wherever a joined `austritt` is neither read nor
+ * available: asking for it there makes a caller invent one, and an invented one is a wrong answer
+ * rather than a missing one.
  */
 export type FLSpielWithStoredSides = Omit<FLSpiel, "team1" | "team2"> & {
   team1: FLSpielTeamField | null;
@@ -188,7 +201,7 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   schiedsrichter: FLSpielSchiedsrichterFieldSchema.nullable(),
 
   // The stored side, never the joined one: this payload is written back wholesale, so sending a
-  // per-request `disqualifikation` would persist it onto the match document.
+  // per-request `austritt` would persist it onto the match document.
   team1: FLSpielTeamFieldSchema.nullable(),
   team2: FLSpielTeamFieldSchema.nullable(),
 
@@ -204,7 +217,10 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   notiz: z.string().nullable(),
 
   spiel_id: CustomObjectIdStringSchema,
-  is_canceled: z.boolean(),
+
+  // The same `$set` reason, and nullable rather than optional: dropping the event is how a fixture
+  // goes back on, so "no event" has to travel as a value.
+  sonderereignis: FLSonderereignisSchema.nullable(),
 });
 
 export type FLPatchSpielDataPayload = z.infer<typeof FLPatchSpielDataPayloadSchema>;
@@ -260,13 +276,16 @@ export type FLBracketFaultSpiel = z.infer<typeof FLBracketFaultSpielSchema>;
  * Nothing is emptied — the remedy is a competition call.
  */
 export const FLBracketFaultOccupantSchema = z.object({
-  reason: z.literal("disqualified_occupant"),
+  reason: z.literal("departed_occupant"),
   spiel_id: CustomObjectIdStringSchema,
   spiel_nr: z.int().positive(),
   side: z.enum(["team1", "team2"]),
   team_id: CustomObjectIdStringSchema,
   team_name: z.string().nonempty(),
-  disqualifiziert_seit: CustomDateStringSchema,
+  // Carried although nothing here decides on it: it is what lets the copy name the route out, a
+  // withdrawal reported as a disqualification being the untruth the neutral record prevents.
+  austritt_type: FLAustrittSchema.shape.type,
+  ausgeschieden_seit: CustomDateStringSchema,
   spiel_datum: CustomDateStringSchema.nullable(),
 });
 export type FLBracketFaultOccupant = z.infer<typeof FLBracketFaultOccupantSchema>;

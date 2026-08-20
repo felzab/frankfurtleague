@@ -3,6 +3,7 @@
 import { FieldError, Input, Label, TextField } from "@heroui/react";
 
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { ADDRESS_STADT_MAX_LENGTH, ADDRESS_STRASSE_MAX_LENGTH } from "@/shared/schemas";
 
 import type { FLAddress } from "@/shared/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -47,6 +48,7 @@ export function AddressFields({
           value={value.strasse}
           onChange={(next) => updateField("strasse", next)}
           onBlur={() => onFieldLeft?.([`${namePrefix}.strasse`])}
+          maxLength={ADDRESS_STRASSE_MAX_LENGTH}
           isInvalid={errors?.[`${namePrefix}.strasse`] ? true : undefined}
           className="w-2/3">
           {renderLabel ? renderLabel(`${namePrefix}.strasse`, "Straße") : <Label className={FIELD_LABEL}>Straße</Label>}
@@ -86,6 +88,7 @@ export function AddressFields({
           value={value.stadt}
           onChange={(next) => updateField("stadt", next)}
           onBlur={() => onFieldLeft?.([`${namePrefix}.stadt`])}
+          maxLength={ADDRESS_STADT_MAX_LENGTH}
           isInvalid={errors?.[`${namePrefix}.stadt`] ? true : undefined}
           className="w-2/3">
           {renderLabel ? renderLabel(`${namePrefix}.stadt`, "Stadt") : <Label className={FIELD_LABEL}>Stadt</Label>}

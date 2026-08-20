@@ -28,11 +28,11 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], mem
 };
 
 /**
- * The backend's `_may_hold_a_platz`: a disqualified team keeps its row but cannot advance out of it,
- * and a team with no counting match holds no placing. Both derivations below apply it, so the marker
- * and the ordinal cannot disagree.
+ * The backend's `_may_hold_a_platz`: a team that has left the season keeps its row but cannot
+ * advance out of it, and a team with no counting match holds no placing. Both derivations below
+ * apply it, so the marker and the ordinal cannot disagree.
  */
-const mayHoldAPlatz = (team: FLTeam): boolean => team.disqualifikation === null && team.statistik.anzahl_gespielte_spiele > 0;
+const mayHoldAPlatz = (team: FLTeam): boolean => team.austritt === null && team.statistik.anzahl_gespielte_spiele > 0;
 
 /**
  * "Currently" is the whole claim: this reads the table as it stands and says nothing about whether
@@ -104,8 +104,9 @@ export type SaisonPhaseVerlauf = {
 export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSpiel[]; teamId: string }): SaisonPhaseVerlauf[] => {
   const byPhase = new Map<FLSaisonPhase, FLSpiel[]>();
 
-  // `is_canceled` is deliberately not read: a cancellation carrying a result is a forfeit and decided
-  // its round, and one carrying none leaves its round as open as an unplayed one.
+  // `sonderereignis` is deliberately not read: a round is come through exactly when a fixture carries
+  // an `ergebnis`, and the two members awarding nothing — `ausgefallen`, `annulliert` — carry none by
+  // construction.
   for (const spiel of spiele) {
     // Not redundant with the fetch: `GET /spiele?team_id=` matches both sides, but nothing types
     // that promise.

@@ -15,7 +15,12 @@ import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
  */
 export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpiel: FLSpielWithDraftFields; today: string; isDirty: boolean }) {
   const { datum, uhrzeit, ergebnis, elfmeterschiessen } = formatSpielDisplay(previewSpiel);
-  const spielStatus = computeSpielStatus({ datum: previewSpiel.datum, isCanceled: previewSpiel.is_canceled, today });
+  const spielStatus = computeSpielStatus({ datum: previewSpiel.datum, sonderereignis: previewSpiel.sonderereignis, today });
+
+  // The award is composed on the server from the season's forfeit rule, which this page never loads.
+  // So the score reads as unknown and this names why, rather than the preview inventing figures the
+  // save would replace.
+  const isAwaitingForfeit = previewSpiel.sonderereignis === "nichtantreten_team1" || previewSpiel.sonderereignis === "nichtantreten_team2";
 
   // The fall-through every card uses, so this names a side exactly as the bracket will.
   const team1Name = previewSpiel.team1?.name || formatQuelle(previewSpiel.team1_quelle) || PLACEHOLDER.slot;
@@ -50,6 +55,8 @@ export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpi
         />
         <span className="fluid-xs text-foreground min-w-0 truncate text-left font-bold">{team2Name}</span>
       </div>
+
+      {isAwaitingForfeit && <p className="muted-meta text-center">Wird beim Speichern nach den Regeln der Saison gewertet.</p>}
 
       <dl className="flex w-full flex-col gap-y-1">
         <div className="flex flex-row items-baseline justify-between gap-x-3">

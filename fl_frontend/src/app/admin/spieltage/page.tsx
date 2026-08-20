@@ -72,9 +72,7 @@ async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextP
   const saison = await resolveSelectedSaison(searchParams);
   const saisonId = saison?.id ?? null;
 
-  // Retired INCLUDED, matching the endpoint: hiding a retired knockout matchday does not un-start
-  // the phase it was scheduled to open.
-  const spieltageRes = saisonId === null ? null : await getSpieltage({ saison_id: saisonId, include_inactive: true });
+  const spieltageRes = saisonId === null ? null : await getSpieltage({ saison_id: saisonId });
   const knockoutBeginn = (spieltageRes?.spieltage ?? [])
     .filter((spieltag) => spieltag.saison_phase !== "gruppenphase")
     .map((spieltag) => spieltag.beginn)
@@ -93,9 +91,9 @@ async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextP
 }
 
 /**
- * Every matchday of the season, retired included, in the API's order, which this page does not
- * reorder. The `ordinal` and phase counts are assigned HERE: they are facts about the season, not
- * about the rows a filter left on screen.
+ * Every matchday of the season, in the API's order, which this page does not reorder. The labels are
+ * built HERE, over the whole season: what a knockout round's label needs is how many matchdays its
+ * phase holds, which is a fact about the season and not about the rows a filter left on screen.
  */
 async function SpieltageList({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
@@ -111,42 +109,27 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     );
   }
 
-  const [spieltageRes, spieleRes] = await Promise.all([
-    getSpieltage({ saison_id: saisonId, include_inactive: true }),
-    getSpiele({ saison_id: saisonId }),
-  ]);
+  const [spieltageRes, spieleRes] = await Promise.all([getSpieltage({ saison_id: saisonId }), getSpiele({ saison_id: saisonId })]);
 
-  // Everything attached and how much is played — the second is what `REQ-RETIRE-002` refuses a
-  // retirement over, so the list can withhold a control whose answer it knows.
   const spieleBySpieltag = new Map<string, number>();
-  const gespieltBySpieltag = new Map<string, number>();
   for (const spiel of spieleRes.spiele) {
     spieleBySpieltag.set(spiel.spieltag_id, (spieleBySpieltag.get(spiel.spieltag_id) ?? 0) + 1);
-    if (spiel.ergebnis !== null) {
-      gespieltBySpieltag.set(spiel.spieltag_id, (gespieltBySpieltag.get(spiel.spieltag_id) ?? 0) + 1);
-    }
   }
 
   // One pass rather than per row: the label needs how many matchdays the phase holds.
   const labels = spieltagLabels(spieltageRes.spieltage);
 
-  const rows: AdminSpieltagRow[] = spieltageRes.spieltage.map((spieltag) => {
-    const derived = labels.get(spieltag.id);
-
-    return {
-      id: spieltag.id,
-      label: derived?.label ?? "",
-      beginn: spieltag.beginn,
-      ende: spieltag.ende,
-      anzahl_spiele: spieltag.anzahl_spiele,
-      saison_phase: spieltag.saison_phase,
-      saison_id: spieltag.saison_id,
-      inactive_since: spieltag.inactive_since,
-      spieleAngelegt: spieleBySpieltag.get(spieltag.id) ?? 0,
-      spieleGespielt: gespieltBySpieltag.get(spieltag.id) ?? 0,
-      ordinal: derived?.ordinal ?? 1,
-    };
-  });
+  const rows: AdminSpieltagRow[] = spieltageRes.spieltage.map((spieltag) => ({
+    id: spieltag.id,
+    label: labels.get(spieltag.id)?.label ?? "",
+    beginn: spieltag.beginn,
+    ende: spieltag.ende,
+    anzahl_spiele: spieltag.anzahl_spiele,
+    saison_phase: spieltag.saison_phase,
+    saison_id: spieltag.saison_id,
+    spieleAngelegt: spieleBySpieltag.get(spieltag.id) ?? 0,
+    position: spieltag.position,
+  }));
 
   return (
     <AdminSpieltageView

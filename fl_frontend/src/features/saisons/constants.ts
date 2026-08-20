@@ -1,4 +1,4 @@
-import type { FLSaisonPhase } from "./schemas";
+import type { FLSaisonPhase, FLSaisonTiebreakOrder } from "./schemas";
 
 export const SAISONS_CRUD_COPY = {
   searchLabel: "Saison suchen",
@@ -36,6 +36,45 @@ export const PHASE_TINTS: Record<FLSaisonPhase, string> = {
   halbfinale: "bg-phase-halbfinale/10 text-phase-halbfinale",
   finale: "bg-phase-finale/10 text-phase-finale",
 };
+
+type TiebreakOption = {
+  readonly value: FLSaisonTiebreakOrder;
+  /** Names the CRITERION, for the picker's trigger and the change list. */
+  readonly label: string;
+  /** What it does, mirroring `fl_backend/app/api/teams/services.py :: _break_tie`: it leads on this criterion and applies the other after. */
+  readonly hint: string;
+};
+
+/**
+ * The two ways a season separates clubs level on points, in the picker's order. Both wordings live
+ * here as one fact: a surface writing its own German would describe the same rule differently.
+ */
+export const TIEBREAK_ORDER_OPTIONS: readonly TiebreakOption[] = [
+  {
+    value: "tordifferenz",
+    label: "Tordifferenz",
+    hint: "Erst Tordifferenz und Tore aus allen Spielen, dann die Spiele der punktgleichen Teams untereinander.",
+  },
+  {
+    value: "direkter_vergleich",
+    label: "Direkter Vergleich",
+    hint: "Erst die Spiele der punktgleichen Teams untereinander, dann Tordifferenz und Tore aus allen Spielen.",
+  },
+];
+
+// The find cannot miss: the parse refuses anything outside the closed set before a render sees it.
+const tiebreakOption = (value: FLSaisonTiebreakOrder): TiebreakOption | undefined =>
+  TIEBREAK_ORDER_OPTIONS.find((option) => option.value === value);
+
+/** The criterion's name — `Tordifferenz`, `Direkter Vergleich`. */
+export function tiebreakLabel(value: FLSaisonTiebreakOrder): string {
+  return tiebreakOption(value)?.label ?? "";
+}
+
+/** The sentence under the picker, and beside each row it offers. */
+export function tiebreakHint(value: FLSaisonTiebreakOrder): string {
+  return tiebreakOption(value)?.hint ?? "";
+}
 
 /**
  * `saisons._id` is the string every `saison_id` references, and `FLSpiel` and `FLSpieltag` require

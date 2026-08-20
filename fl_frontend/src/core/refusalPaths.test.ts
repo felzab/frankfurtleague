@@ -186,7 +186,6 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLReactivateTeamPayloadSchema: { id: NO_FORM_AT_ALL },
   FLSchiedsrichterKeyPayloadSchema: { id: NO_FORM_AT_ALL },
   FLSpielortKeyPayloadSchema: { id: NO_FORM_AT_ALL },
-  FLSpieltagKeyPayloadSchema: { id: NO_FORM_AT_ALL },
   FLSaisonSpielerKeyPayloadSchema: { spieler_id: NO_FORM_AT_ALL, saison_id: NO_FORM_AT_ALL },
 
   FLPatchSaisonPayloadSchema: { id: IN_THE_PATH },
@@ -205,7 +204,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   },
 
   FLPostSaisonTeamPayloadSchema: { team_id: IN_THE_PATH, saison_id: THE_PAGE_SEASON },
-  FLPatchSaisonTeamPayloadSchema: { team_id: IN_THE_PATH, saison_id: IN_THE_PATH, disqualifikation: RECORD_ITSELF },
+  FLPatchSaisonTeamPayloadSchema: { team_id: IN_THE_PATH, saison_id: IN_THE_PATH, austritt: RECORD_ITSELF },
 
   FLPostSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,

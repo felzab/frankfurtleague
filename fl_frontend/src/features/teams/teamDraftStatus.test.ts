@@ -12,7 +12,7 @@ const stored: FLTeamDraftFields = {
   website_url: "https://www.helmholtzschule.de",
   description: "Eine Schule.",
   address: { strasse: "Habsburgerallee", hausnummer: "57", plz: "60385", stadtteil: "Ostend", stadt: "Frankfurt am Main" },
-  membership: { gruppe: "A", disqualifikation: null },
+  membership: { gruppe: "A", austritt: null },
 };
 
 const draftFrom = (overrides: Partial<FLTeamDraftFields>): FLTeamDraftFields => ({ ...stored, ...overrides });
@@ -51,17 +51,28 @@ describe("deriveTeamDraftStatus", () => {
     assert.equal(row.storedText, "Ostend");
   });
 
-  it("formats an entered disqualification with its reason and formatted date", () => {
+  it("formats an entered austritt with its route, reason and formatted date", () => {
     const status = deriveTeamDraftStatus({
       stored,
-      draft: draftFrom({ membership: { gruppe: "A", disqualifikation: { grund: "Rückzug", datum: "2026-03-14" } } }),
+      draft: draftFrom({ membership: { gruppe: "A", austritt: { type: "rueckzug", grund: "Schule aufgelöst", datum: "2026-03-14" } } }),
       fieldErrors: {},
     });
 
-    const row = status.byPath.get("disqualifikation");
+    const row = status.byPath.get("austritt");
     assert.ok(row?.isChanged);
     assert.equal(row.storedText, null);
-    assert.match(row.draftText ?? "", /^Rückzug \(ab 14\./);
+    assert.match(row.draftText ?? "", /^Rückzug: Schule aufgelöst \(ab 14\./);
+  });
+
+  it("sees a route swapped on an otherwise identical record as a change", () => {
+    const record = { grund: "Nicht angetreten", datum: "2026-03-14" } as const;
+    const status = deriveTeamDraftStatus({
+      stored: { ...stored, membership: { gruppe: "A", austritt: { type: "disqualifikation", ...record } } },
+      draft: draftFrom({ membership: { gruppe: "A", austritt: { type: "rueckzug", ...record } } }),
+      fieldErrors: {},
+    });
+
+    assert.equal(status.byPath.get("austritt")?.isChanged, true);
   });
 
   it("drops both membership rows while the club is not in the selected season", () => {
@@ -70,21 +81,33 @@ describe("deriveTeamDraftStatus", () => {
 
     assert.equal(status.fields.length, 10);
     assert.equal(status.byPath.has("gruppe"), false);
-    assert.equal(status.byPath.has("disqualifikation"), false);
+    assert.equal(status.byPath.has("austritt"), false);
   });
 
-  it("finds a disqualification error under any of the record's three paths", () => {
+  it("finds an austritt error under any of the record's four paths", () => {
     const status = deriveTeamDraftStatus({
       stored,
-      draft: draftFrom({ membership: { gruppe: "A", disqualifikation: { grund: "", datum: "2026-03-14" } } }),
-      fieldErrors: { "disqualifikation.grund": "Bitte gib einen Grund an. Er wird öffentlich angezeigt." },
+      draft: draftFrom({ membership: { gruppe: "A", austritt: { type: "disqualifikation", grund: "", datum: "2026-03-14" } } }),
+      fieldErrors: { "austritt.grund": "Bitte gib einen Grund an. Er wird öffentlich angezeigt." },
     });
 
-    const row = status.byPath.get("disqualifikation");
+    const row = status.byPath.get("austritt");
     assert.equal(row?.error, "Bitte gib einen Grund an. Er wird öffentlich angezeigt.");
     assert.deepEqual(
       status.invalid.map((field) => field.path),
-      ["disqualifikation"],
+      ["austritt"],
     );
+  });
+
+  it("finds the unpicked route under its own path, and renders the record as still open", () => {
+    const status = deriveTeamDraftStatus({
+      stored,
+      draft: draftFrom({ membership: { gruppe: "A", austritt: { type: null, grund: "Nicht angetreten", datum: "2026-03-14" } } }),
+      fieldErrors: { "austritt.type": "Bitte wähle, wie die Mannschaft ausgeschieden ist." },
+    });
+
+    const row = status.byPath.get("austritt");
+    assert.equal(row?.error, "Bitte wähle, wie die Mannschaft ausgeschieden ist.");
+    assert.match(row?.draftText ?? "", /^Art offen: /);
   });
 });

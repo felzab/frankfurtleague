@@ -14,6 +14,9 @@ const stored: SaisonDraftFields = {
     qualifiers_per_group: 2,
     number_of_groups: 2,
     teams_per_group: 5,
+    tiebreak_order: "tordifferenz",
+    max_kadergroesse: 50,
+    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
     erlaubte_stufen: ["E1", "E2", "Q1", "Q2"],
   },
 };
@@ -31,7 +34,44 @@ describe("deriveSaisonDraftStatus", () => {
     assert.equal(status.isDirty, false);
     assert.equal(status.changed.length, 0);
     // `status` is deliberately not a field: the rollover is a control, never a draft the bar counts.
-    assert.equal(status.fields.length, 8);
+    assert.equal(status.fields.length, 11);
+  });
+
+  it("reads the tiebreak as its German name, so the change list and the picker agree", () => {
+    const status = deriveSaisonDraftStatus({
+      stored,
+      draft: draftFrom(rules({ tiebreak_order: "direkter_vergleich" })),
+      fieldErrors: {},
+    });
+
+    const row = status.byPath.get("rules.tiebreak_order");
+    assert.ok(row?.isChanged);
+    assert.equal(row.storedText, "Tordifferenz");
+    assert.equal(row.draftText, "Direkter Vergleich");
+  });
+
+  it("reports the forfeit result as one row over both sides, not one per number", () => {
+    const status = deriveSaisonDraftStatus({
+      stored,
+      draft: draftFrom(rules({ forfeit_ergebnis: { sieger_tore: 2, verlierer_tore: 0 } })),
+      fieldErrors: {},
+    });
+
+    assert.equal(status.changed.length, 1);
+    assert.deepEqual(
+      status.changed.map((field) => [field.path, field.storedText, field.draftText]),
+      [["rules.forfeit_ergebnis", "3:0", "2:0"]],
+    );
+  });
+
+  it("lands a forfeit field's own error on the pair's single row, which is the only row rendering it", () => {
+    const status = deriveSaisonDraftStatus({
+      stored,
+      draft: draftFrom({}),
+      fieldErrors: { "rules.forfeit_ergebnis.verlierer_tore": "Der Verlierer bekommt 0 oder mehr Tore." },
+    });
+
+    assert.equal(status.byPath.get("rules.forfeit_ergebnis")?.error, "Der Verlierer bekommt 0 oder mehr Tore.");
   });
 
   it("never offers a row for status or id, whatever the draft holds", () => {

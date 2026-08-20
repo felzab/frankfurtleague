@@ -9,6 +9,9 @@ const rules = {
   qualifiers_per_group: 2,
   number_of_groups: 4,
   teams_per_group: 4,
+  tiebreak_order: "tordifferenz",
+  max_kadergroesse: 50,
+  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
   erlaubte_stufen: ["E1", "E2", "Q1", "Q2"],
 };
 
@@ -46,6 +49,25 @@ describe("FLPostSaisonPayloadSchema", () => {
     assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, create({ number_of_groups: 3, qualifiers_per_group: 1, teams_per_group: 4 })), [
       "rules.qualifiers_per_group",
     ]);
+  });
+
+  it("refuses a group too small to generate a fixture, and one past the list read's cap", () => {
+    // A qualifier each, so a group of one reaches the size bound alone rather than the over-qualify rule.
+    assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, create({ qualifiers_per_group: 1, teams_per_group: 1 })), [
+      "rules.teams_per_group",
+    ]);
+    assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, create({ teams_per_group: 17 })), ["rules.teams_per_group"]);
+  });
+
+  it("names each side of the forfeit result on its own path, so the message lands under its own box", () => {
+    assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, create({ forfeit_ergebnis: { sieger_tore: -1, verlierer_tore: -1 } })), [
+      "rules.forfeit_ergebnis.sieger_tore",
+      "rules.forfeit_ergebnis.verlierer_tore",
+    ]);
+  });
+
+  it("refuses a tiebreak outside the closed set the backend spells as a Literal", () => {
+    assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, create({ tiebreak_order: "losentscheid" })), ["rules.tiebreak_order"]);
   });
 
   it("refuses an end date before its start", () => {

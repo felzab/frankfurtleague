@@ -43,10 +43,9 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const outgoing = saisonsRes.saisons.find((candidate) => candidate.status === "active") ?? null;
   const outgoingSaisonId = outgoing === null || outgoing.id === saison.id ? null : outgoing.id;
 
-  // Retired matchdays included, so this page's cache key equals the one `/admin/saisons` warms.
-  // The filter below drops them: only live matchdays bound the dates.
+  // The argument matches the one `/admin/saisons` warms, so both pages share a `"use cache"` entry.
   const [spieltageRes, outgoingSpieleRes, teamsRes, playoffSpieleRes, gruppenSpieleRes] = await Promise.all([
-    getSpieltage({ saison_id: saison.id, include_inactive: true }),
+    getSpieltage({ saison_id: saison.id }),
     // Only where there is something to warn about: an active season has no rollover to present, and
     // one with no incumbent no outgoing fixtures to check.
     outgoingSaisonId === null || saison.status === "active" ? Promise.resolve(null) : getSpiele({ saison_id: outgoingSaisonId }),
@@ -66,7 +65,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
    * wide blocks one that would work.
    */
   const offeneSpiele: SaisonOffeneSpiel[] = (outgoingSpieleRes?.spiele ?? [])
-    .filter((spiel) => spiel.ergebnis === null && !spiel.is_canceled)
+    .filter((spiel) => spiel.ergebnis === null && spiel.sonderereignis !== "ausgefallen" && spiel.sonderereignis !== "annulliert")
     .map((spiel) => ({
       id: spiel.id,
       spielNr: spiel.spiel_nr,
@@ -89,19 +88,17 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     playoffSpiele: playoffSpieleRes.spiele,
   });
 
-  // The inner bound on the season's dates (`REQ-DATE-004`): the start may not pass the first live
+  // The inner bound on the season's dates (`REQ-DATE-004`): the start may not pass the first
   // matchday's beginn, nor the end precede the last one's ende.
-
-  // Retired matchdays do not bind — retiring is how a mis-dated one leaves the schedule.
-  const liveBeginne = spieltageRes.spieltage.filter((spieltag) => spieltag.inactive_since === null).map((spieltag) => spieltag.beginn);
-  const liveEnden = spieltageRes.spieltage.filter((spieltag) => spieltag.inactive_since === null).map((spieltag) => spieltag.ende);
+  const beginne = spieltageRes.spieltage.map((spieltag) => spieltag.beginn);
+  const enden = spieltageRes.spieltage.map((spieltag) => spieltag.ende);
   const spieltagBound =
-    liveBeginne.length === 0
+    beginne.length === 0
       ? undefined
       : {
           // Lexicographic min/max is date order on YYYY-MM-DD.
-          startMax: [...liveBeginne].sort()[0] ?? "",
-          endMin: [...liveEnden].sort().at(-1) ?? "",
+          startMax: [...beginne].sort()[0] ?? "",
+          endMin: [...enden].sort().at(-1) ?? "",
         };
 
   return (

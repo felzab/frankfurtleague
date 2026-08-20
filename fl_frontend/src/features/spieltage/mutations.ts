@@ -2,7 +2,7 @@ import { apiClient } from "@/core/api";
 
 import { FLSpieltagWriteResponseSchema } from "./schemas";
 
-import type { FLPatchSpieltagPayload, FLPostSpieltagPayload, FLSpieltagKeyPayload, FLSpieltagWriteResponse } from "./schemas";
+import type { FLPatchSpieltagPayload, FLPostSpieltagPayload, FLSpieltagWriteResponse } from "./schemas";
 
 export async function postSpieltag(payload: FLPostSpieltagPayload): Promise<FLSpieltagWriteResponse> {
   return apiClient<FLSpieltagWriteResponse>("/spieltage", FLSpieltagWriteResponseSchema, {
@@ -19,21 +19,5 @@ export async function patchSpieltag({ id, ...fields }: FLPatchSpieltagPayload): 
     method: "PATCH",
     authType: "admin",
     body: JSON.stringify(fields),
-  });
-}
-
-// Soft: the backend stamps `inactive_since` and the document stays. Its matches stay readable —
-// `GET /spiele` never joins `spieltage`, which is exactly why this is not a delete.
-export async function deleteSpieltag({ id }: FLSpieltagKeyPayload): Promise<FLSpieltagWriteResponse> {
-  return apiClient<FLSpieltagWriteResponse>(`/spieltage/${id}`, FLSpieltagWriteResponseSchema, {
-    method: "DELETE",
-    authType: "admin",
-  });
-}
-
-export async function reactivateSpieltag({ id }: FLSpieltagKeyPayload): Promise<FLSpieltagWriteResponse> {
-  return apiClient<FLSpieltagWriteResponse>(`/spieltage/${id}/reactivate`, FLSpieltagWriteResponseSchema, {
-    method: "POST",
-    authType: "admin",
   });
 }

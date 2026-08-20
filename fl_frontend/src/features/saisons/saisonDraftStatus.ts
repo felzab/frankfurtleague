@@ -1,6 +1,8 @@
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 
+import { tiebreakLabel } from "./constants";
+
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SaisonDraftFields } from "./types";
@@ -26,6 +28,21 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonF
     read: (source) => String(source.rules.draw_points),
   },
   {
+    path: "rules.tiebreak_order",
+    label: "Bei Punktgleichheit",
+    group: "Regeln",
+    read: (source) => tiebreakLabel(source.rules.tiebreak_order),
+  },
+  {
+    path: "rules.forfeit_ergebnis",
+    label: "Wertung bei Nichtantreten",
+    group: "Regeln",
+    // One row over both sides: the season regulates them together, so a row per number would report
+    // half a decision. `errorPaths` is what still lands each field's own message on it.
+    read: (source) => `${String(source.rules.forfeit_ergebnis.sieger_tore)}:${String(source.rules.forfeit_ergebnis.verlierer_tore)}`,
+    errorPaths: ["rules.forfeit_ergebnis", "rules.forfeit_ergebnis.sieger_tore", "rules.forfeit_ergebnis.verlierer_tore"],
+  },
+  {
     path: "rules.number_of_groups",
     label: "Gruppen",
     group: "Regeln",
@@ -42,6 +59,12 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonF
     label: "Qualifikanten pro Gruppe",
     group: "Regeln",
     read: (source) => String(source.rules.qualifiers_per_group),
+  },
+  {
+    path: "rules.max_kadergroesse",
+    label: "Maximale Kadergröße",
+    group: "Regeln",
+    read: (source) => String(source.rules.max_kadergroesse),
   },
   {
     path: "rules.erlaubte_stufen",

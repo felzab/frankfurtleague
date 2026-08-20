@@ -26,9 +26,15 @@ export function searchWithoutSaisonId(searchParams: Awaited<NextPageProps["searc
  * the endpoint refuses on its answer and the swap surfaces offer on the same one.
  */
 function hasTakenPlace(spiel: FLSpiel): boolean {
+  // **This set is the swap's alone.** An abandonment and a no-show each leave a record the exchange
+  // would rewrite; `ausgefallen` and `annulliert` leave none, so neither belongs here however much
+  // they read like the others.
+  const leftARecord =
+    spiel.sonderereignis === "abgebrochen" || spiel.sonderereignis === "nichtantreten_team1" || spiel.sonderereignis === "nichtantreten_team2";
+
   // The goal counts are the clause a reader would not predict: a fixture with two clubs and one count
   // entered is stored holding goals and no `ergebnis`. `?? null` keeps an absent side out of that.
-  return spiel.ergebnis !== null || spiel.is_canceled || (spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null;
+  return spiel.ergebnis !== null || leftARecord || (spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null;
 }
 
 /**

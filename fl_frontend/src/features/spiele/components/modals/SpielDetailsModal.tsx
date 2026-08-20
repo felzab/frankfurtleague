@@ -39,7 +39,7 @@ function TeamNameLine({
     <TeamPopoverMenu
       teamName={team.name}
       teamId={team.team_id}
-      teamIsDisqualified={team.disqualifikation !== null}
+      teamAustritt={team.austritt?.type ?? null}
       placement="top"
       onNavigate={onNavigate}>
       <strong className="fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-200">{team.name}</strong>
@@ -104,7 +104,9 @@ export function SpielDetailsModal({
                 </div>
                 <div className="flex h-fit w-full flex-row items-center justify-start gap-x-2">
                   {/* Computed inside the guard, so narrowing flows and no cast is needed. */}
-                  <SpielStatusChip spielStatus={computeSpielStatus({ datum: spielData.datum, isCanceled: spielData.is_canceled, today })} />
+                  <SpielStatusChip
+                    spielStatus={computeSpielStatus({ datum: spielData.datum, sonderereignis: spielData.sonderereignis, today })}
+                  />
                   <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
                 </div>
               </Modal.Header>

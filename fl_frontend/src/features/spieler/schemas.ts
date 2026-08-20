@@ -14,12 +14,27 @@ export type FLSpielerPosition = z.infer<typeof FLSpielerPositionSchema>;
 export const FLSpielerStufeSchema = z.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"], { error: "Bitte wähle eine Stufe." });
 export type FLSpielerStufe = z.infer<typeof FLSpielerStufeSchema>;
 
+/**
+ * Mirrors `FLEinwilligung` — what may be published about this person.
+ *
+ * `bestandsuebernahme` marks a backfilled record, which must stay distinguishable from consent
+ * somebody actually gave. A null `bestaetigt_am` is UNCONFIRMED.
+ */
+export const FLEinwilligungSchema = z.object({
+  umfang: z.enum(["kader_oeffentlich", "intern"]),
+  erteilt_von: z.enum(["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]),
+  datum: CustomDateStringSchema.nullable(),
+  bestaetigt_am: CustomDateStringSchema.nullable(),
+});
+export type FLEinwilligung = z.infer<typeof FLEinwilligungSchema>;
+
 // Mirrors the backend `FLSpieler`, and must be exactly as nullable as it is: a null on a field
 // declared non-nullable throws `APIMalformedDataError` on an otherwise valid response.
 export const FLSpielerSchema = z.object({
   id: CustomObjectIdStringSchema,
   vorname: z.string(),
   nachname: z.string().nullable(),
+  einwilligung: FLEinwilligungSchema,
   stufe: FLSpielerStufeSchema.nullable(),
   nummer: z.string().nullable(),
   position: FLSpielerPositionSchema.nullable(),

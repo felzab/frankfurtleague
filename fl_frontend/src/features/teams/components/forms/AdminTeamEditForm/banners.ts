@@ -1,6 +1,7 @@
+import { austrittZustand } from "@/features/teams/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLDisqualifikation } from "@/features/teams/schemas";
+import type { FLAustritt } from "@/features/teams/schemas";
 import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
@@ -8,12 +9,12 @@ export type TeamBannerId =
   | "team.retired"
   | "team.not-in-saison-future"
   | "team.not-in-saison-closed"
-  | "team.dq-entering"
-  | "team.dq-lifting"
-  | "team.dq-standing"
+  | "team.austritt-entering"
+  | "team.austritt-lifting"
+  | "team.austritt-standing"
   | "team.gruppe-changed";
 
-export type TeamBannerSpot = "gruppe" | "saison-eintritt" | "saison-gesperrt" | "dq-eintrag" | "dq-aufhebung";
+export type TeamBannerSpot = "gruppe" | "saison-eintritt" | "saison-gesperrt" | "austritt-eintrag" | "austritt-aufhebung";
 
 export type TeamBanner = RailBanner<TeamBannerId> & { inline: TeamBannerSpot | null };
 
@@ -26,8 +27,8 @@ export function buildTeamBanners({
   saisonId,
   saisonStatus,
   isMember,
-  storedDisqualifikation,
-  isDisqualified,
+  storedAustritt,
+  hasAustritt,
   isGruppeLocked,
   isGruppeChanged,
 }: {
@@ -36,8 +37,8 @@ export function buildTeamBanners({
   saisonStatus: TeamSaisonMembership["saisonStatus"];
   isMember: boolean;
   /** The junction row's stored record — `null` both without a record and without a membership. */
-  storedDisqualifikation: FLDisqualifikation | null;
-  isDisqualified: boolean;
+  storedAustritt: FLAustritt | null;
+  hasAustritt: boolean;
   isGruppeLocked: boolean;
   isGruppeChanged: boolean;
 }): readonly TeamBanner[] {
@@ -78,34 +79,34 @@ export function buildTeamBanners({
     }
   }
 
-  if (isDisqualified && storedDisqualifikation === null) {
+  if (hasAustritt && storedAustritt === null) {
     banners.push({
-      id: "team.dq-entering",
+      id: "team.austritt-entering",
       severity: "danger",
       title: "Der Grund wird veröffentlicht",
       body: "Sobald Du speicherst, erscheint er als eingegebener Text auf der Teamseite und als Hinweis an jedem Spiel der Mannschaft.",
-      inline: "dq-eintrag",
+      inline: "austritt-eintrag",
     });
   }
 
-  if (!isDisqualified && storedDisqualifikation !== null) {
+  if (!hasAustritt && storedAustritt !== null) {
     banners.push({
-      id: "team.dq-lifting",
+      id: "team.austritt-lifting",
       severity: "warning",
       title: "Aufheben entfernt den Eintrag ersatzlos",
       body: "Der gespeicherte Grund und das Datum sind danach nicht wiederherstellbar. Es gibt keinen Verlauf, der sie aufbewahrt.",
-      inline: "dq-aufhebung",
+      inline: "austritt-aufhebung",
     });
   }
 
-  if (isDisqualified && storedDisqualifikation !== null) {
+  if (hasAustritt && storedAustritt !== null) {
     // The stored `grund` verbatim: reshaping it would put words in their mouth on a page that
     // publishes those words.
     banners.push({
-      id: "team.dq-standing",
+      id: "team.austritt-standing",
       severity: "info",
-      title: `Disqualifiziert seit ${formatSpielDatum(storedDisqualifikation.datum)}`,
-      body: storedDisqualifikation.grund,
+      title: `${austrittZustand(storedAustritt.type)} seit ${formatSpielDatum(storedAustritt.datum)}`,
+      body: storedAustritt.grund,
       inline: null,
     });
   }

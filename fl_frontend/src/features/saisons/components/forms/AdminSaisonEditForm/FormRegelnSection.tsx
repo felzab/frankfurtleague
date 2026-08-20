@@ -1,9 +1,11 @@
 "use client";
 
-import { SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
+import { Label } from "@heroui/react";
+
+import { SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
 import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -31,7 +33,7 @@ export function FormRegelnSection({
   /** Separate from `onRulesChange`, because a picked control is judged on change. */
   onStufenChange: (next: FLSpielerStufe[]) => void;
   /**
-   * Whether this season is over, which freezes the three fields the league table is scored from
+   * Whether this season is over, which freezes the four fields the league table is scored from
    * (`REQ-RULES-005`). The endpoint refuses a change to any of them; this stops the page offering one.
    */
   isFinishedSaison: boolean;
@@ -51,10 +53,19 @@ export function FormRegelnSection({
                 <strong>Punkte</strong> gelten rückwirkend, auch für längst gespielte Spiele.
               </li>
               <li>
+                <strong>Bei Punktgleichheit</strong> legst Du fest, welche Zahl zwei gleichauf liegende Teams zuerst trennt.
+              </li>
+              <li>
+                <strong>Nichtantreten</strong> ist das Ergebnis, mit dem ein Spiel gewertet wird, zu dem ein Team nicht erscheint.
+              </li>
+              <li>
                 <strong>Gruppen und Teams pro Gruppe</strong> begrenzen, wohin ein Team aufgenommen werden kann.
               </li>
               <li>
                 <strong>Qualifikanten</strong> ist die Zahl pro Gruppe, die die KO-Runde erreicht.
+              </li>
+              <li>
+                <strong>Maximale Kadergröße</strong> begrenzt, wie viele Spieler ein Team in dieser Saison aufbieten darf.
               </li>
               <li>
                 <strong>Stufen</strong> begrenzen nur, was Du künftig auswählen kannst. Bestehende Kadereinträge bleiben, wie sie sind.
@@ -87,6 +98,38 @@ export function FormRegelnSection({
               onBlur={() => onFieldLeft(["rules.draw_points"])}
             />
           </div>
+          <SaisonTiebreakSelect
+            name="rules.tiebreak_order"
+            isDisabled={isFinishedSaison}
+            label={<FieldLabel path="rules.tiebreak_order">Bei Punktgleichheit entscheidet</FieldLabel>}
+            value={rules.tiebreak_order}
+            onChange={(tiebreak_order) => onRulesChange({ ...rules, tiebreak_order })}
+          />
+        </div>
+
+        <div className="flex w-full flex-col gap-y-3">
+          <h3 className={FORM_SECTION_HEADING}>Wertung bei Nichtantreten</h3>
+          {/* One label over the pair, mirroring its one row in the change list: the season regulates
+              both sides' goals together, so neither number is a decision on its own. */}
+          <FieldLabel path="rules.forfeit_ergebnis">Ergebnis eines Spiels, zu dem ein Team nicht antritt</FieldLabel>
+          <div className={FIELD_PAIR}>
+            <SaisonRuleNumberField
+              name="rules.forfeit_ergebnis.sieger_tore"
+              label={<Label className={FIELD_LABEL}>Tore für den Sieger</Label>}
+              minValue={0}
+              value={rules.forfeit_ergebnis.sieger_tore}
+              onChange={(sieger_tore) => onRulesChange({ ...rules, forfeit_ergebnis: { ...rules.forfeit_ergebnis, sieger_tore } })}
+              onBlur={() => onFieldLeft(["rules.forfeit_ergebnis.sieger_tore"])}
+            />
+            <SaisonRuleNumberField
+              name="rules.forfeit_ergebnis.verlierer_tore"
+              label={<Label className={FIELD_LABEL}>Tore für den Verlierer</Label>}
+              minValue={0}
+              value={rules.forfeit_ergebnis.verlierer_tore}
+              onChange={(verlierer_tore) => onRulesChange({ ...rules, forfeit_ergebnis: { ...rules.forfeit_ergebnis, verlierer_tore } })}
+              onBlur={() => onFieldLeft(["rules.forfeit_ergebnis.verlierer_tore"])}
+            />
+          </div>
         </div>
 
         <div className="flex w-full flex-col gap-y-3">
@@ -105,7 +148,10 @@ export function FormRegelnSection({
             <SaisonRuleNumberField
               name="rules.teams_per_group"
               label={<FieldLabel path="rules.teams_per_group">Teams pro Gruppe</FieldLabel>}
-              minValue={1}
+              // Below 2 a group generates no fixture; above 16 a season-scoped read is truncated and
+              // the refusals over it cannot be trusted.
+              minValue={2}
+              maxValue={16}
               value={rules.teams_per_group}
               onChange={(teams_per_group) => onRulesChange({ ...rules, teams_per_group })}
               onBlur={() => onFieldLeft(["rules.teams_per_group"])}
@@ -131,6 +177,18 @@ export function FormRegelnSection({
         </div>
 
         <div className="flex w-full flex-col gap-y-3">
+          <h3 className={FORM_SECTION_HEADING}>Kader</h3>
+          <SaisonRuleNumberField
+            name="rules.max_kadergroesse"
+            label={<FieldLabel path="rules.max_kadergroesse">Maximale Kadergröße</FieldLabel>}
+            minValue={1}
+            value={rules.max_kadergroesse}
+            onChange={(max_kadergroesse) => onRulesChange({ ...rules, max_kadergroesse })}
+            onBlur={() => onFieldLeft(["rules.max_kadergroesse"])}
+          />
+        </div>
+
+        <div className="flex w-full flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING}>Erlaubte Stufen</h3>
           <FieldLabel path="rules.erlaubte_stufen">Welche Stufen diese Saison spielen</FieldLabel>
           <StufenPicker
@@ -152,7 +210,8 @@ export function FormRegelnSection({
             `REQ-RULES-005` refuses the change. */}
         {isFinishedSaison && (
           <p className="fluid-xxs text-foreground-muted font-medium">
-            Punkte und Qualifikanten sind festgeschrieben. Gruppen, Teams pro Gruppe, Stufen und der Zeitraum bleiben änderbar.
+            Punkte, die Reihenfolge bei Punktgleichheit und die Qualifikanten sind festgeschrieben. Gruppen, Teams pro Gruppe, Nichtantreten,
+            Kadergröße, Stufen und der Zeitraum bleiben änderbar.
           </p>
         )}
       </div>

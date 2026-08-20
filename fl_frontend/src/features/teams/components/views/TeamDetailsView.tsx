@@ -1,7 +1,7 @@
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 
+import { TeamAustrittNote } from "../ui/TeamAustrittNote";
 import { TeamDetailsBackButton } from "../ui/TeamDetailsBackButton";
-import { TeamDisqualifikationNote } from "../ui/TeamDisqualifikationNote";
 import { TeamIdentityCard } from "../ui/TeamIdentityCard";
 import { TeamSaisonSpieleTimeline } from "../ui/TeamSaisonSpieleTimeline";
 import { TeamSaisonStatistik } from "../ui/TeamSaisonStatistik";
@@ -21,7 +21,7 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
 
       <TeamIdentityCard teamData={teamData} />
 
-      <TeamDisqualifikationNote disqualifikation={teamData.disqualifikation} />
+      <TeamAustrittNote austritt={teamData.austritt} />
 
       <TeamSaisonStatistik statistik={teamData.statistik} />
 

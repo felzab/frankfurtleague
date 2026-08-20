@@ -32,15 +32,16 @@ export const TEAM_FACETS: readonly Facet<AdminTeamRow>[] = [
     label: "Status",
     options: [
       { value: "aktiv", label: "Aktiv" },
-      { value: "disqualifiziert", label: "Disqualifiziert" },
+      { value: "ausgeschieden", label: "Ausgeschieden" },
       { value: "stillgelegt", label: "Stillgelegt" },
     ],
-    // Not mutually exclusive: a retired club can also carry a disqualification from a season it
-    // played, and `aktiv` is the absence of both.
+    // Not mutually exclusive: a retired club can also have left a season it played, and `aktiv`
+    // is the absence of both. One option for both routes out: the row records which it was, and a
+    // reader asking after this club is asking whether it still competes.
     read: (team) => {
       const held: string[] = [];
       if (team.inactive_since !== null) held.push("stillgelegt");
-      if (team.selected?.disqualifikation != null) held.push("disqualifiziert");
+      if (team.selected?.austritt != null) held.push("ausgeschieden");
       if (held.length === 0) held.push("aktiv");
       return held;
     },

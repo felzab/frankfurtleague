@@ -8,16 +8,13 @@ import type { SpieltagBanner } from "./banners.ts";
 const build = (overrides: Partial<Parameters<typeof buildSpieltagBanners>[0]> = {}): readonly SpieltagBanner[] =>
   buildSpieltagBanners({
     label: "2. Spieltag",
-    inactiveSince: null,
     storedPhase: "gruppenphase",
     draftPhase: "gruppenphase",
+    isPositionChanged: false,
     isZeitraumChanged: false,
     isEndeVorBeginn: false,
     spieleAngelegt: 4,
     anzahlSpiele: 4,
-    spieleGespielt: 0,
-    livePhaseCount: 4,
-    impliedPhaseCount: 3,
     ...overrides,
   });
 
@@ -41,6 +38,19 @@ describe("buildSpieltagBanners", () => {
     assert.equal(spanChange?.severity, "warning");
   });
 
+  it("reports a moved position, which renames the matchday and reorders the Spielplan", () => {
+    const banner = build({ isPositionChanged: true }).find((entry) => entry.id === "spieltag.position-changed");
+
+    assert.equal(banner?.severity, "warning");
+    assert.equal(banner?.inline, "phase");
+  });
+
+  // The phase banner already says the matchday took the round's first free slot, so a second banner
+  // would report the same move twice.
+  it("leaves the position banner off when the phase moved as well", () => {
+    assert.ok(!ids(build({ isPositionChanged: true, draftPhase: "finale" })).includes("spieltag.position-changed"));
+  });
+
   it("grades a reversed span as the one danger this editor can raise", () => {
     const banner = build({ isEndeVorBeginn: true }).find((entry) => entry.id === "spieltag.ende-vor-beginn");
 
@@ -58,43 +68,5 @@ describe("buildSpieltagBanners", () => {
     const banner = build({ spieleAngelegt: 2 }).find((entry) => entry.id === "spieltag.anzahl-offen");
 
     assert.equal(banner?.severity, "info");
-  });
-
-  it("names a played fixture as the reason a retirement cannot succeed (REQ-RETIRE-002)", () => {
-    assert.ok(ids(build({ spieleGespielt: 1 })).includes("spieltag.retire-blockiert-ergebnis"));
-    assert.ok(!ids(build({ spieleGespielt: 0 })).includes("spieltag.retire-blockiert-ergebnis"));
-  });
-
-  it("mirrors the phase floor exactly as the endpoint computes it (REQ-RETIRE-005)", () => {
-    // The backend refuses the STEP across the floor, this matchday included.
-    assert.ok(!ids(build({ livePhaseCount: 4, impliedPhaseCount: 3 })).includes("spieltag.retire-blockiert-untergrenze"));
-    assert.ok(ids(build({ livePhaseCount: 3, impliedPhaseCount: 3 })).includes("spieltag.retire-blockiert-untergrenze"));
-    assert.ok(!ids(build({ livePhaseCount: 1, impliedPhaseCount: 3 })).includes("spieltag.retire-blockiert-untergrenze"));
-  });
-
-  it("lets a phase the season never plays retire down to nothing, which is the floor of zero", () => {
-    assert.ok(!ids(build({ livePhaseCount: 1, impliedPhaseCount: 0 })).includes("spieltag.retire-blockiert-untergrenze"));
-  });
-
-  it("states only the blocking reason that applies, never both at once", () => {
-    // A played fixture is the earlier refusal at the endpoint too, so the floor is not also reported.
-    const both = ids(build({ spieleGespielt: 2, livePhaseCount: 3, impliedPhaseCount: 3 }));
-
-    assert.ok(both.includes("spieltag.retire-blockiert-ergebnis"));
-    assert.ok(!both.includes("spieltag.retire-blockiert-untergrenze"));
-  });
-
-  it("says nothing about retiring one that is already retired", () => {
-    const retired = ids(build({ inactiveSince: "2026-04-02", spieleGespielt: 2, livePhaseCount: 3, impliedPhaseCount: 3 }));
-
-    assert.ok(!retired.includes("spieltag.retire-blockiert-ergebnis"));
-    assert.ok(!retired.includes("spieltag.retire-blockiert-untergrenze"));
-  });
-
-  it("dates the retirement in its title, which is the fact an admin checks the state against", () => {
-    const built = build({ inactiveSince: "2026-04-02" });
-
-    assert.ok(ids(built).includes("spieltag.retired-since"));
-    assert.ok(built.some((banner) => /02\.04\.2026/.test(banner.title)));
   });
 });

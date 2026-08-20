@@ -55,36 +55,72 @@ export function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaiso
 }
 
 /**
- * Every matchday's label and per-phase ordinal, keyed by id. Built in one pass because the label needs
- * `countInPhase`, which is only knowable once the whole phase has been seen. The input must be in the
- * API's order and nothing here re-sorts it.
+ * Every matchday's label, keyed by id. **The ordinal is the served `position` and is never counted
+ * from the arrival order**, so a filtered or reordered list labels each matchday the same way. Still
+ * one pass, because `countInPhase` is only knowable once the whole phase has been seen.
  */
 export function spieltagLabels(
-  spieltage: readonly { id: string; saison_phase: FLSaisonPhase }[],
+  spieltage: readonly { id: string; saison_phase: FLSaisonPhase; position: number }[],
 ): Map<string, { label: string; ordinal: number }> {
   const countByPhase = new Map<FLSaisonPhase, number>();
   for (const spieltag of spieltage) {
     countByPhase.set(spieltag.saison_phase, (countByPhase.get(spieltag.saison_phase) ?? 0) + 1);
   }
 
-  const seenInPhase = new Map<FLSaisonPhase, number>();
   const labels = new Map<string, { label: string; ordinal: number }>();
   for (const spieltag of spieltage) {
-    const ordinal = (seenInPhase.get(spieltag.saison_phase) ?? 0) + 1;
-    seenInPhase.set(spieltag.saison_phase, ordinal);
     labels.set(spieltag.id, {
-      ordinal,
-      label: spieltagLabel({ phase: spieltag.saison_phase, ordinal, countInPhase: countByPhase.get(spieltag.saison_phase) ?? 1 }),
+      ordinal: spieltag.position,
+      label: spieltagLabel({
+        phase: spieltag.saison_phase,
+        ordinal: spieltag.position,
+        countInPhase: countByPhase.get(spieltag.saison_phase) ?? 1,
+      }),
     });
   }
 
   return labels;
 }
 
+/** One slot the matchday editor may offer, and whether another matchday of that phase already holds it. */
+export type SpieltagPositionOffer = {
+  position: number;
+  isTaken: boolean;
+};
+
+/**
+ * Positions 1..n+1 for `phase`, taken slots marked.
+ *
+ * **The append slot is always last and always free**, which is the one move a phase change needs; a
+ * taken slot is offered and disabled rather than hidden, as the phase picker does.
+ */
+export function buildSpieltagPositionOffer(
+  siblings: readonly { id: string; saison_phase: FLSaisonPhase; position: number }[],
+  { phase, exceptId }: { phase: FLSaisonPhase | null; exceptId: string },
+): readonly SpieltagPositionOffer[] {
+  if (phase === null) return [];
+
+  const inPhase = siblings.filter((sibling) => sibling.saison_phase === phase);
+  const taken = new Set(inPhase.filter((sibling) => sibling.id !== exceptId).map((sibling) => sibling.position));
+  // The highest slot ANYONE holds, this matchday included, so the append slot survives when it is
+  // itself the last one — moving out to the end is how a slot lower down is freed for another.
+  const highest = Math.max(0, ...inPhase.map((sibling) => sibling.position));
+
+  return Array.from({ length: highest + 1 }, (_, index) => ({ position: index + 1, isTaken: taken.has(index + 1) }));
+}
+
+/**
+ * The lowest slot the offer leaves free, which is what a matchday arriving in another phase takes.
+ * Never `undefined` in practice — the offer's last entry is the append slot — and 1 for an empty phase.
+ */
+export function firstFreeSpieltagPosition(offer: readonly SpieltagPositionOffer[]): number {
+  return offer.find((slot) => !slot.isTaken)?.position ?? 1;
+}
+
 /** One phase of a season, with the matchdays it holds against the number its rules imply. */
 export type SpieltagPhaseProgress = {
   phase: FLSaisonPhase;
-  /** Live matchdays the season holds in this phase. A retired one does not count. */
+  /** Matchdays the season holds in this phase. */
   angelegt: number;
   /** How many the season's rules imply. Zero for a phase this season's bracket does not reach. */
   erwartet: number;
@@ -97,16 +133,13 @@ export type SpieltagPhaseProgress = {
  */
 export function buildSpieltagPhaseProgress(
   schedule: readonly FLSaisonPhaseSchedule[],
-  spieltage: readonly { saison_phase: FLSaisonPhase; inactive_since: string | null }[],
+  spieltage: readonly { saison_phase: FLSaisonPhase }[],
 ): readonly SpieltagPhaseProgress[] {
   if (schedule.length === 0) return [];
 
-  const liveByPhase = new Map<FLSaisonPhase, number>();
+  const heldByPhase = new Map<FLSaisonPhase, number>();
   for (const spieltag of spieltage) {
-    // Not counted: retiring one is how a mis-dated matchday leaves the schedule, which is why
-    // `REQ-DATE-004` reads live matchdays alone.
-    if (spieltag.inactive_since !== null) continue;
-    liveByPhase.set(spieltag.saison_phase, (liveByPhase.get(spieltag.saison_phase) ?? 0) + 1);
+    heldByPhase.set(spieltag.saison_phase, (heldByPhase.get(spieltag.saison_phase) ?? 0) + 1);
   }
 
   // A phase absent from the schedule expects 0, the same answer `expected_matches` gives: a matchday
@@ -115,7 +148,7 @@ export function buildSpieltagPhaseProgress(
 
   return SAISON_PHASE_OPTIONS.map((phase) => ({
     phase,
-    angelegt: liveByPhase.get(phase) ?? 0,
+    angelegt: heldByPhase.get(phase) ?? 0,
     erwartet: expectedByPhase.get(phase) ?? 0,
   }));
 }

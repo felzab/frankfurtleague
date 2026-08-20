@@ -23,7 +23,7 @@ function makeSpiel(overrides: Partial<FLSpiel> = {}): FLSpiel {
     schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182935", name: "Ref", payment: 20 },
     ergebnis: "2:1",
     spiel_nr: 1,
-    is_canceled: false,
+    sonderereignis: null,
     saison_phase: "gruppenphase",
     ...overrides,
   } as FLSpiel;
@@ -69,17 +69,32 @@ describe("categorizeActionRequired", () => {
     assert.equal(result.ort_missing.length, 1);
   });
 
-  it("reports a cancelled match only as cancelled, however incomplete it is", () => {
+  it("reports a fixture that did not happen only as abgesagt, however incomplete it is", () => {
+    for (const sonderereignis of ["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "annulliert"] as const) {
+      const result = categorizeActionRequired(
+        [makeSpiel({ sonderereignis, datum: null, uhrzeit: null, ort: null, schiedsrichter: null })],
+        TODAY,
+      );
+
+      assert.equal(result.abgesagt.length, 1, sonderereignis);
+      assert.deepEqual(result.datum_missing, [], sonderereignis);
+      assert.deepEqual(result.uhrzeit_missing, [], sonderereignis);
+      assert.deepEqual(result.ort_missing, [], sonderereignis);
+      assert.deepEqual(result.schiedsrichter_missing, [], sonderereignis);
+    }
+  });
+
+  // The one member that does NOT short-circuit: an abandoned fixture happened and may still owe a
+  // result, so it stays in the queue. Folding it in is the accidental agreement the boolean forced.
+  it("keeps chasing an abandoned fixture rather than filing it under abgesagt", () => {
     const result = categorizeActionRequired(
-      [makeSpiel({ is_canceled: true, datum: null, uhrzeit: null, ort: null, schiedsrichter: null })],
+      [makeSpiel({ sonderereignis: "abgebrochen", datum: "2026-07-29", ergebnis: null, ort: null })],
       TODAY,
     );
 
-    assert.equal(result.is_canceled.length, 1);
-    assert.deepEqual(result.datum_missing, []);
-    assert.deepEqual(result.uhrzeit_missing, []);
-    assert.deepEqual(result.ort_missing, []);
-    assert.deepEqual(result.schiedsrichter_missing, []);
+    assert.deepEqual(result.abgesagt, []);
+    assert.equal(result.ergebnis_pending.length, 1);
+    assert.equal(result.ort_missing.length, 1);
   });
 
   it("does not flag a match with no date as ergebnis_pending", () => {
@@ -139,11 +154,11 @@ describe("categorizeActionRequired", () => {
   });
 
   it("flags a cancelled match's bracket fault as well as the cancellation", () => {
-    const result = categorizeActionRequired([makeSpiel({ is_canceled: true })], TODAY, [
+    const result = categorizeActionRequired([makeSpiel({ sonderereignis: "ausgefallen" })], TODAY, [
       { reason: "same_team", spiel_id: makeSpiel().id, spiel_nr: 1 },
     ]);
 
-    assert.equal(result.is_canceled.length, 1);
+    assert.equal(result.abgesagt.length, 1);
     assert.equal(result.bracket_fault.length, 1);
   });
 
@@ -173,7 +188,7 @@ describe("buildActionRequiredSections", () => {
     const order = Object.keys(ACTION_REQUIRED_LABELS);
 
     assert.deepEqual(order.slice(0, 3), ["bracket_fault", "besetzung_missing", "ergebnis_pending"]);
-    assert.equal(order.at(-1), "is_canceled");
+    assert.equal(order.at(-1), "abgesagt");
   });
 
   it("returns an empty section rather than omitting it", () => {

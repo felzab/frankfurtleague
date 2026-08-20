@@ -10,6 +10,7 @@ import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
+import { austrittKuerzel, austrittZustand } from "../../constants";
 import { computePlatzByTeamId, computeQualifyingTeamIds } from "../../utils";
 import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 
@@ -30,12 +31,12 @@ function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
         <strong>Abgesagte Spiele</strong>
       </p>
       <p>{anzahl === 1 ? "Ein Spiel dieses Teams wurde abgesagt." : `${anzahl} Spiele dieses Teams wurden abgesagt.`}</p>
-      {/* Both directions of the forfeit rule, in the one place a reader meets it: without the first
-          a cancellation on a full match count reads as a fault, without the second the number
+      {/* Exactly the two cases the count covers — ausgefallen plus die beiden Nichtantreten. Without
+          the first a forfeit on a full match count reads as a fault, without the second the number
           invites a subtraction. */}
       <p>
-        Ein abgesagtes Spiel kann trotzdem gewertet worden sein. Dann zählt es in dieser Tabelle ganz normal mit. Ohne Wertung zählt es nirgends
-        mit, auch nicht als Niederlage.
+        Ein ausgefallenes Spiel zählt nirgends mit, auch nicht als Niederlage. Ist eine Mannschaft dagegen nicht angetreten, wird das Spiel
+        gewertet und zählt in dieser Tabelle ganz normal mit.
       </p>
     </InfoHint>
   );
@@ -134,25 +135,27 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         {(teamData.statistik.anzahl_gespielte_spiele === 0 ? undefined : platzByTeamId.get(teamData.id)) ?? "N/A"}
                       </Table.Cell>
 
-                      {/* `overflow-visible` stays — the DQ badge is translated outside this cell on
-                          purpose, so truncation has to live on the span below rather than here. */}
+                      {/* `overflow-visible` stays — the Austritt badge is translated outside this
+                          cell on purpose, so truncation has to live on the span below rather than
+                          here. */}
                       <Table.Cell className="fluid-xs overflow-visible px-1 py-4 lg:min-w-[200px] lg:px-4">
                         <TeamPopoverMenu
                           teamName={teamData.name}
                           teamId={teamData.id}
-                          teamIsDisqualified={teamData.disqualifikation !== null}>
+                          teamAustritt={teamData.austritt?.type ?? null}>
                           <span className="fluid-xs text-foreground hover:text-brand hidden max-w-full min-w-0 truncate font-medium transition-colors lg:block">
                             {`${teamData.name} (${teamData.shorthand})`}
                           </span>
                           <span className="fluid-sm text-foreground hover:text-brand block font-medium transition-colors lg:hidden">
                             {teamData.shorthand}
                           </span>
-                          {teamData.disqualifikation !== null && (
+                          {teamData.austritt !== null && (
                             <Badge
                               size="sm"
                               placement="top-right"
+                              aria-label={austrittZustand(teamData.austritt.type)}
                               className="fluid-xxs! bg-danger/10 text-danger-strong translate-x-5 -translate-y-2 rounded-md border-none p-1 font-extrabold uppercase lg:translate-x-6">
-                              DQ
+                              {austrittKuerzel(teamData.austritt.type)}
                             </Badge>
                           )}
                         </TeamPopoverMenu>

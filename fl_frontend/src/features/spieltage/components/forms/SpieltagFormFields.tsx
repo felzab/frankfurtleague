@@ -127,15 +127,15 @@ export function SpieltagFormFields({
         )}
       </div>
 
-      {/* Neither the position nor the expected match count is a field, so the form names what decides
-          each of them instead. Without this the reader has no way to know the
+      {/* This form is the CREATE, where neither the position nor the expected match count is a field,
+          so it names what decides each of them instead. Without this the reader has no way to know the
           list's order is not arbitrary, or where the `x / y` count on each row comes from. */}
       <Callout
         severity="info"
         title="Name, Position und erwartete Spiele ergeben sich von selbst">
         Der Spieltag heißt nach seiner Phase und seiner Position darin. In der Gruppenphase sind das „1. Spieltag“, „2. Spieltag“, danach ist es
-        der Name der Runde. Einsortiert wird nach Phase und Beginn, also verschiebst Du ihn über sein Datum. Und wie viele Spiele er umfasst,
-        folgt aus den Regeln der Saison: bei einer einfachen Hin-Runde pro Gruppe steht die Zahl fest.
+        der Name der Runde. Er wird an seine Phase hinten angehängt; verschieben lässt er sich später über seine Position. Und wie viele Spiele
+        er umfasst, folgt aus den Regeln der Saison: bei einer einfachen Hin-Runde pro Gruppe steht die Zahl fest.
       </Callout>
     </>
   );

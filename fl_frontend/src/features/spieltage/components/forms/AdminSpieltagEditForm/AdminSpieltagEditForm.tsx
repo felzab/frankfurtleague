@@ -8,7 +8,7 @@ import { Form } from "@heroui/react";
 import { patchSpieltagAction } from "@/features/spieltage/actions";
 import { FLPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";
 import { deriveSpieltagDraftStatus } from "@/features/spieltage/spieltagDraftStatus";
-import { buildSpieltagPhaseOffer } from "@/features/spieltage/utils";
+import { buildSpieltagPhaseOffer, buildSpieltagPositionOffer, firstFreeSpieltagPosition } from "@/features/spieltage/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
@@ -21,13 +21,12 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 
-import { buildSpieltagBanners, standsAtThePhaseFloor } from "./banners";
+import { buildSpieltagBanners } from "./banners";
 import { FormPhaseSection } from "./FormPhaseSection";
-import { FormStilllegenSection } from "./FormStilllegenSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
 
 import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
-import type { FLPatchSpieltagPayload } from "@/features/spieltage/schemas";
+import type { FLPatchSpieltagPayload, FLSpieltag } from "@/features/spieltage/schemas";
 import type { FLSpieltagDraftFields } from "@/features/spieltage/spieltagDraftStatus";
 import type { AdminSpieltagRow, SpieltagEditDraft } from "@/features/spieltage/types";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
@@ -54,15 +53,15 @@ async function postSpieltagUndo(payload: FLPatchSpieltagPayload): Promise<{ succ
 }
 
 /**
- * The matchday editor's form. **Three fields on a page is deliberate**: what earns the page is what
- * the form has to SAY, and six backend refusals stand behind the three controls it holds. The rail
- * is where all of that goes.
+ * The matchday editor's form. **Four fields on a page is deliberate**: what earns the page is what
+ * the form has to SAY, the backend refusals standing behind those controls. The rail is where all of
+ * that goes.
  */
 export function AdminSpieltagEditForm({
   spieltag,
   saisonSpan,
   saisonSchedule,
-  livePhaseCount,
+  siblings,
   registerRequestLeave,
   pageHeader,
 }: {
@@ -71,8 +70,8 @@ export function AdminSpieltagEditForm({
   saisonSpan?: { start: string; end: string };
   /** The season's derived per-phase counts, which decide what the phase picker may offer. */
   saisonSchedule?: readonly FLSaisonPhaseSchedule[];
-  /** Live matchdays the STORED phase holds, this one included — half of `REQ-RETIRE-005`. */
-  livePhaseCount: number;
+  /** Every matchday of the season, from which the position picker reads the slots each phase holds. */
+  siblings?: readonly FLSpieltag[];
   registerRequestLeave?: (requestLeave: () => void) => void;
   pageHeader?: ReactNode;
 }) {
@@ -80,6 +79,7 @@ export function AdminSpieltagEditForm({
   const [isPending, startTransition] = useTransition();
 
   const [phase, setPhase] = useState<FLSaisonPhase | null>(spieltag.saison_phase);
+  const [position, setPosition] = useState(spieltag.position);
   const [beginn, setBeginn] = useState(spieltag.beginn);
   const [ende, setEnde] = useState(spieltag.ende);
 
@@ -97,13 +97,14 @@ export function AdminSpieltagEditForm({
   });
 
   // `id` is the loaded record's own and the wire carries it in the path, so no refusal can name it.
-  const buildPayload = (): SpieltagEditDraft => ({ id: spieltag.id, beginn, ende, saison_phase: phase });
+  const buildPayload = (): SpieltagEditDraft => ({ id: spieltag.id, beginn, ende, saison_phase: phase, position });
 
-  const draftFields: FLSpieltagDraftFields = { beginn, ende, saison_phase: phase };
+  const draftFields: FLSpieltagDraftFields = { beginn, ende, saison_phase: phase, position };
   const storedFields: FLSpieltagDraftFields = {
     beginn: spieltag.beginn,
     ende: spieltag.ende,
     saison_phase: spieltag.saison_phase,
+    position: spieltag.position,
   };
 
   const status = deriveSpieltagDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
@@ -142,25 +143,21 @@ export function AdminSpieltagEditForm({
   // The browser's half of `REQ-SPIELTAG-002`: a phase accounting for fewer matches than this
   // matchday holds would leave the rest with nowhere to be played.
   const phaseOffer = buildSpieltagPhaseOffer(saisonSchedule ?? [], spieltag.spieleAngelegt);
-  const impliedPhaseCount = (saisonSchedule ?? []).find((entry) => entry.phase === spieltag.saison_phase)?.matchdays ?? 0;
+
+  // Read against the DRAFT phase: picking another round is what changes which slots are free, and the
+  // unique index is what refuses a taken one.
+  const positionOffer = buildSpieltagPositionOffer(siblings ?? [], { phase, exceptId: spieltag.id });
 
   const banners = buildSpieltagBanners({
     label: spieltag.label,
-    inactiveSince: spieltag.inactive_since,
     storedPhase: spieltag.saison_phase,
     draftPhase: phase,
+    isPositionChanged: position !== spieltag.position,
     isZeitraumChanged,
     isEndeVorBeginn: beginn !== "" && ende !== "" && ende < beginn,
     spieleAngelegt: spieltag.spieleAngelegt,
     anzahlSpiele: spieltag.anzahl_spiele,
-    spieleGespielt: spieltag.spieleGespielt,
-    livePhaseCount,
-    impliedPhaseCount,
   });
-
-  // The two facts `REQ-RETIRE-002` and `REQ-RETIRE-005` turn on, answered from what the page holds.
-  // The endpoint stays the authority: a fixture scored in another tab reaches it.
-  const isRetireable = spieltag.spieleGespielt === 0 && !standsAtThePhaseFloor(livePhaseCount, impliedPhaseCount);
 
   const leavePage = () => {
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
@@ -185,6 +182,7 @@ export function AdminSpieltagEditForm({
 
   const resetDraftToStored = () => {
     setPhase(spieltag.saison_phase);
+    setPosition(spieltag.position);
     setBeginn(spieltag.beginn);
     setEnde(spieltag.ende);
 
@@ -218,10 +216,11 @@ export function AdminSpieltagEditForm({
         beginn: spieltag.beginn,
         ende: spieltag.ende,
         saison_phase: spieltag.saison_phase,
+        position: spieltag.position,
       };
-      // Only what the admin cannot see from the form earns a sentence: where the matchday now sits in
-      // the season, which is decided by the two fields above and shown on another page.
-      const positionTouched = isZeitraumChanged || phase !== spieltag.saison_phase;
+      // Only what the admin cannot see from the form earns a sentence: the matchday's NAME, which is
+      // composed from the two fields below and shown on another page.
+      const nameTouched = position !== spieltag.position || phase !== spieltag.saison_phase;
 
       const payload = buildPayload();
       const res = await patchSpieltagAction(payload);
@@ -234,7 +233,7 @@ export function AdminSpieltagEditForm({
       setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
-      offerUndo(undoPayload, positionTouched ? "Name und Position des Spieltags ergeben sich neu aus Phase und Beginn." : undefined);
+      offerUndo(undoPayload, nameTouched ? "Der Spieltag heißt damit anders: sein Name folgt aus Phase und Position." : undefined);
 
       // AFTER the undo payload is built, which reads the props rather than these atoms: typed values
       // left in state let a save-then-undo reopen on values the matchday no longer holds.
@@ -308,9 +307,22 @@ export function AdminSpieltagEditForm({
             phase={phase}
             onChange={(next) => {
               setPhase(next);
-              validatePicked(["saison_phase"], { saison_phase: next });
+              // The slot follows the round: the number the matchday holds now may be another
+              // matchday's in the phase it is moving to, and the index would refuse the save.
+              const nextPosition =
+                next === spieltag.saison_phase
+                  ? spieltag.position
+                  : firstFreeSpieltagPosition(buildSpieltagPositionOffer(siblings ?? [], { phase: next, exceptId: spieltag.id }));
+              setPosition(nextPosition);
+              validatePicked(["saison_phase", "position"], { saison_phase: next, position: nextPosition });
             }}
             phaseOffer={phaseOffer}
+            position={position}
+            onPositionChange={(next) => {
+              setPosition(next);
+              validatePicked(["position"], { position: next });
+            }}
+            positionOffer={positionOffer}
             banners={banners}
           />
 
@@ -327,16 +339,6 @@ export function AdminSpieltagEditForm({
               validatePicked(["beginn", "ende"], { ende: next });
             }}
             saisonSpan={saisonSpan}
-            banners={banners}
-          />
-
-          {/* Last on the page and in the danger tone, the position the squad editor's Austragen
-              panel holds. */}
-          <FormStilllegenSection
-            spieltagId={spieltag.id}
-            label={spieltag.label}
-            inactiveSince={spieltag.inactive_since}
-            isRetireable={isRetireable}
             banners={banners}
           />
         </EditFormLayout>

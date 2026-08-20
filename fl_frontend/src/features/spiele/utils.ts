@@ -1,11 +1,13 @@
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
+import { austrittZustand } from "@/features/teams/constants";
 import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
-import type { FLGruppenNames } from "@/features/teams/schemas";
+import type { FLAustrittType, FLGruppenNames } from "@/features/teams/schemas";
 import type {
   FLBracketFault,
   FLPatchSpielDataPayload,
+  FLSonderereignis,
   FLSpiel,
   FLSpielAdvancement,
   FLSpielQuelle,
@@ -16,19 +18,30 @@ import type {
 } from "./schemas";
 
 /**
- * A label, not the server's filter: cancellation outranks the date and today is its own status.
- * The two definitions are `docs/glossary.md` — spiel_status.
+ * A label, not the server's filter: a fixture that did not happen outranks the date and today is its
+ * own status. The two definitions are `docs/glossary.md` — spiel_status.
  */
 export const computeSpielStatus = ({
   datum,
-  isCanceled,
+  sonderereignis,
   today,
 }: {
   datum: string | null;
-  isCanceled: boolean;
+  sonderereignis: FLSonderereignis | null;
   today: string;
 }): FLSpielStatus => {
-  if (isCanceled) return "abgesagt";
+  // **This set is this chip's alone** and is written here rather than shared: the four members below
+  // are the ones a reader should see as off. `abgebrochen` falls THROUGH — the match happened, so it
+  // reads by date like any other fixture.
+  if (
+    sonderereignis === "ausgefallen" ||
+    sonderereignis === "nichtantreten_team1" ||
+    sonderereignis === "nichtantreten_team2" ||
+    sonderereignis === "annulliert"
+  ) {
+    return "abgesagt";
+  }
+
   if (datum === null) return "unbekannt";
   if (datum > today) return "ausstehend";
   if (datum === today) return "heute";
@@ -221,7 +234,7 @@ export const toPatchPayload = (spiel: FLSpiel): FLPatchSpielDataPayload => ({
   // No `ergebnis`: the backend derives it from the goals and refuses to accept one
   // (`docs/backend/spec.md` I3).
   spiel_id: spiel.id,
-  is_canceled: spiel.is_canceled,
+  sonderereignis: spiel.sonderereignis,
   team1: toStoredSide(spiel.team1),
   team2: toStoredSide(spiel.team2),
   team1_quelle: spiel.team1_quelle,
@@ -341,6 +354,12 @@ const joinSpiele = (advancements: readonly { spiel_nr: number }[]): string =>
   new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(advancements.map((entry) => String(entry.spiel_nr)));
 
 /**
+ * The teams slice's own word for the route out, lowercased for mid-sentence. **Never a second
+ * wording table**: the two slices must not call one exit two things.
+ */
+const zustandMidSentence = (austrittType: FLAustrittType): string => austrittZustand(austrittType).toLocaleLowerCase("de-DE");
+
+/**
  * For the save's toast, which arrives with no fixture in sight — so every sentence names its match
  * number. Only states no further result can fix reach here. Beside a card, use
  * `describeBracketFaultOnCard`.
@@ -359,10 +378,10 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
       return `In Spiel ${fault.spiel_nr} führen beide Seiten zur selben Mannschaft`;
     // Not a bracket fault: what makes it one is the order of the two dates, and the fixture's own
     // may be missing — so the sentence names both rather than a reference.
-    case "disqualified_occupant":
+    case "departed_occupant":
       return fault.spiel_datum === null
-        ? `In Spiel ${fault.spiel_nr} steht ${fault.team_name}, disqualifiziert seit ${formatSpielDatum(fault.disqualifiziert_seit)}. Das Spiel hat kein Datum, also ist nicht belegt, dass es vorher stattfand`
-        : `Spiel ${fault.spiel_nr} am ${formatSpielDatum(fault.spiel_datum)} führt ${fault.team_name}, disqualifiziert seit ${formatSpielDatum(fault.disqualifiziert_seit)}`;
+        ? `In Spiel ${fault.spiel_nr} steht ${fault.team_name}, ${zustandMidSentence(fault.austritt_type)} seit ${formatSpielDatum(fault.ausgeschieden_seit)}. Das Spiel hat kein Datum, also ist nicht belegt, dass es vorher stattfand`
+        : `Spiel ${fault.spiel_nr} am ${formatSpielDatum(fault.spiel_datum)} führt ${fault.team_name}, ${zustandMidSentence(fault.austritt_type)} seit ${formatSpielDatum(fault.ausgeschieden_seit)}`;
   }
 };
 
@@ -382,10 +401,10 @@ export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
       return `Der Verweis über Spiel ${fault.quelle_spiel_nr} führt im Kreis und kann nie ein Ergebnis liefern.`;
     case "same_team":
       return "Beide Seiten führen zur selben Mannschaft.";
-    case "disqualified_occupant":
+    case "departed_occupant":
       return fault.spiel_datum === null
-        ? `${fault.team_name} ist seit dem ${formatSpielDatum(fault.disqualifiziert_seit)} disqualifiziert. Ohne Spieldatum ist nicht belegt, dass vorher gespielt wurde.`
-        : `${fault.team_name} ist seit dem ${formatSpielDatum(fault.disqualifiziert_seit)} disqualifiziert, steht aber noch in diesem Spiel.`;
+        ? `${fault.team_name} ist seit dem ${formatSpielDatum(fault.ausgeschieden_seit)} ${zustandMidSentence(fault.austritt_type)}. Ohne Spieldatum ist nicht belegt, dass vorher gespielt wurde.`
+        : `${fault.team_name} ist seit dem ${formatSpielDatum(fault.ausgeschieden_seit)} ${zustandMidSentence(fault.austritt_type)}, steht aber noch in diesem Spiel.`;
   }
 };
 

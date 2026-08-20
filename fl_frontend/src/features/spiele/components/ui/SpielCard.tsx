@@ -47,7 +47,7 @@ export function SpielCard({
 
   const spielStatus = computeSpielStatus({
     datum: spielData.datum,
-    isCanceled: spielData.is_canceled,
+    sonderereignis: spielData.sonderereignis,
     today,
   });
 
