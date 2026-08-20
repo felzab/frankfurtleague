@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `d0ad46a4`, 2026-08-20\
+**Verified against:** `a8e389c5`, 2026-08-20\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 | Section                                                | Answers                                                              |
@@ -353,11 +353,11 @@ is testable rather than held by discipline, and a declared delta matching no rea
 finding too: the list stays honest in both directions. A compose construct outside the reader's parsed
 subset is a refusal rather than a verdict (§1.7).
 
-**One path selects two scopes on purpose.** `fl_backend/openapi.json` maps to **backend and frontend**
-both, because the frontend scope holds the test comparing the Zod mirror against that document — and
-everything else under `fl_backend/` selects the backend scope alone, so without this arm a Pydantic
-model change would never run the check that exists to catch it (the arm itself is in
-`scripts/ci_scopes.sh`).
+**One path reaches across the boundary on purpose.** `fl_backend/openapi.json` selects the **frontend**
+scope alongside the backend ones, because the frontend scope holds the test comparing the Zod mirror
+against that document — everything else under `fl_backend/` stays within the backend's own scopes, so
+without this arm a Pydantic model change would never run the check that exists to catch it (the arm
+itself is in `scripts/ci_scopes.sh`).
 
 **In CI the images scope caches layers through the Actions cache service**, which
 `VERIFY_IMAGES_CACHE=gha` selects. buildx authenticates

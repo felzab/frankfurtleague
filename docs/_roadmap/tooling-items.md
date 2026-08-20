@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `d0ad46a4`, 2026-08-20\
+**Verified against:** `a8e389c5`, 2026-08-20\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -466,8 +466,18 @@ accepting a value the API answers with a 422 that nothing in the interface can e
 a bad value being stored — and it survived a review, a commit body asserting the two were identical,
 and a contract test that does not look at patterns. **What makes it worth an entry is that the same
 divergence can reappear the next time either side is edited, silently and in the same direction.**
-Blast radius is currently nil, since no referee holds a phone number at all, which is exactly what
-would make a recurrence invisible.
+The phone pair's blast radius is nil, since no referee holds a phone number at all, which is exactly
+what would make a recurrence invisible.
+
+**`hausnummer` is a second hand-mirrored pair, and it does not share that mercy.**
+`fl_backend/app/shared/schemas/addresses.py :: HAUSNUMMER_PATTERN` and
+`fl_frontend/src/shared/schemas.ts :: HAUSNUMMER_REGEX` are the two ends, each named on its own side
+so the read model and the payload cannot drift within a side — and nothing compares them across the
+wire, exactly as with the phone pair. The alphabets agree today, `\d` inside a JavaScript class being
+`[0-9]`, but every club, venue and referee form carries a house number, so a divergence here is
+visible to an admin on the first address they type. The prose record is weaker here than for the
+phone pair: the mirroring comment names `custom.py`, where these two ends live in `addresses.py`, so
+a reader following that comment never arrives at them.
 
 **Three answers, and they are not equivalent.**
 

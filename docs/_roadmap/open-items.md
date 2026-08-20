@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `d0ad46a4`, 2026-08-20\
+**Verified against:** `a8e389c5`, 2026-08-20\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -54,7 +54,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | #   | ID    | Item                                                       | Surfaces        | Effort | Status   | Depends on |
 | --- | ----- | ---------------------------------------------------------- | --------------- | ------ | -------- | ---------- |
 | 1   | BE-15 | The recording exists; the restore over it does not         | FE, BE, DB      | M      | Open     | —          |
-| 2   | BE-18 | Five gaps the domain declaration does not reach            | BE              | M      | Open     | —          |
+| 2   | BE-18 | Four gaps the domain declaration does not reach            | BE              | M      | Open     | —          |
 | 3   | FB-16 | Nothing announces that a season rollover is due            | BE, Ops         | M      | Open     | —          |
 | 4   | FB-17 | Season setup is hand-run, and only an admin enters a squad | FE, BE, DB, Ops | XL     | Open     | —          |
 | 5   | BE-17 | Every server-ordered name list sorts in byte order         | BE, FE          | M      | Open     | —          |
@@ -126,9 +126,10 @@ log exists" has to mean the tree those writes run against.
 
 **An admin write still overwrites in place; what changed is that the log keeps what it replaced.** A
 result is `$set` over its predecessor, and the write that destroys the most is one nobody asked for —
-applying a bracket advancement clears the advanced fixture's `ergebnis` and `elfmeterschiessen`
-(`fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`), so correcting a quarter-final
-silently deletes a semi-final scoreline that a person had entered. That destruction is now recorded
+applying a bracket advancement clears the advanced fixture's `ergebnis`, its `elfmeterschiessen` and a
+no-show recorded on it (`fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`), so correcting
+a quarter-final deletes a semi-final scoreline that a person had entered, as a consequence of an edit
+somewhere else. That destruction is now recorded
 and attributable. Making it **recoverable** past the fifteen-second undo is what this entry still
 carries.
 
@@ -166,7 +167,7 @@ day has passed. What is left carries no such clock — an unrestorable write is 
 the row that recorded it, slowly, which is a different order of problem from one nobody can
 reconstruct at all.
 
-### 2 · BE-18 — Five gaps the domain declaration does not reach
+### 2 · BE-18 — Four gaps the domain declaration does not reach
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -180,21 +181,16 @@ it; `UNENFORCED` names every state the application permits **and has decided to 
 the reason. `fl_backend/tests/core/test_domain.py` resolves `RULES` in both directions — a refusal
 with no row fails, and a row naming no refusal fails.
 
-**Five gaps sit in neither list:**
+**Four gaps sit in neither list:**
 
 | The gap                                                                                                                                                                                                                                                                                                                                                                             | Where                                                                                                                              |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `REQ-CLASH-001` compares only fixtures sharing a calendar date, so two bookings of one venue at 23:30 and 00:30 are sixty minutes apart and both pass                                                                                                                                                                                                                               | `fl_backend/app/api/spiele/services.py :: find_clash_refusal`, whose loop skips a slot on `if slot.datum != datum`                 |
 | A fixture given a **`sonderereignis` that frees its slot** is still judged against `REQ-CLASH-001`, so recording one on a fixture that clashes is refused and the admin has to move it first. The opposite direction is already right — the booking read matches `SONDEREREIGNIS_KEEPING_ITS_SLOT`, so a fixture called off, forfeited or annulled frees the ground and the referee | `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`, where the clash block is entered on the payload's `datum` alone   |
-| `advance_bracket_winners` writes both sides of a fixture without consulting `REQ-SPIELTAG-001`, so the RESOLUTION can create a Spieltag fielding one club twice. The state itself is declared and tolerated; what neither list reaches is a write into it that consults no rule                                                                                                     | `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`; `judge_spieltag_occupancy` is reached from `patch_spiel_data` only |
+| `advance_bracket_winners` writes both sides of a fixture without consulting `REQ-SPIELTAG-001`, so the RESOLUTION can create a Spieltag fielding one club twice. The state itself is declared, and every appearance of it is reported on `/admin/action_required` as a `fielded_twice` fault; what neither list reaches is the write that creates it, which consults no rule        | `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`; `judge_spieltag_occupancy` is reached from `patch_spiel_data` only |
 | `REQ-ENTER-003`'s count-then-insert is not transactional, so two concurrent entries can both pass a group's capacity check and take it over its cap                                                                                                                                                                                                                                 | `fl_backend/app/api/teams/admin_router.py :: post_saison_team`                                                                     |
-| `PATCH /spiele/{spiel_id}` writes the payload's side back wholesale, `name` and `shorthand` included, so a caller can store a display name that disagrees with the club `team_id` points at                                                                                                                                                                                         | `fl_backend/app/api/spiele/schemas.py :: FLSpielTeamField`                                                                         |
 
-The last row is about the two copied display fields alone. A fixture's `mietpreis` and `payment` are
-per-fixture values rather than stale copies of a default, and the same
-`$set` is what makes them work.
-
-**One of the five has a date on it, and the date is this year.**
+**One of them has a date on it, and the date is this year.**
 `fl_backend/app/api/teams/admin_router.py :: post_saison_team` accepts its race in a comment at the
 count it reads: the single-admin surface makes the race a non-concern, and losing it costs one team
 over a planning bound rather than corrupt data. That reasoning is sound and it rests entirely on
@@ -211,7 +207,7 @@ took, and that is the whole of this entry: a state permitted because somebody we
 permitted because nobody looked still read identically until one of them is written down.
 
 **Each state is one of two answers: refuse it, or write it into `UNENFORCED` with the reason.** Both
-are cheap, and choosing is the work — which is why they are one entry rather than five. The
+are cheap, and choosing is the work — which is why they are one entry rather than one apiece. The
 precedent is set: the duplicate squad number in one team and season was answered by declaring it,
 because the live data already holds the state and refusing it would make those rows uneditable.
 
@@ -433,7 +429,7 @@ measurement, and it returns nothing.
 
 The sorts that decide what a reader sees: `fl_backend/app/api/teams/services.py ::
 build_team_pipeline` orders on the requested field and breaks ties on `name`;
-`:: build_team_memberships_pipeline` orders a season's clubs on `name`; and
+`:: build_team_memberships_pipeline` orders every club on `name`; and
 `fl_backend/app/api/spieler/services.py :: build_spieler_pipeline` breaks its own ties on `vorname`
 and `nachname`, which `:: build_spieler_memberships_pipeline` sorts a squad by outright.
 
@@ -478,10 +474,10 @@ of the write helpers in `fl_backend/app/core/crud.py` — `:: patch_one_in_db`, 
 and `:: post_one_to_db` — together with the helpers layered over them, and every direct driver call
 under `fl_backend/app/`.
 
-**What the sweep leaves out on purpose.** The venue, referee and club patch endpoints are the change
-this branch carries, so an entry describing them would describe work already in hand. What the sweep
-asks is whether the same shape survives anywhere else: a write that lands, followed by a further
-write nothing can take back.
+**What the sweep leaves out on purpose.** The venue, referee and club patch endpoints each wrap their
+rename and its fan-out in `with_transaction` and argue that choice at the line, so they are not the
+shape being looked for. What the sweep asks is whether that shape survives anywhere else: a write
+that lands, followed by a further write nothing can take back.
 
 **It does not, and each surviving multi-write path argues itself at the line.**
 

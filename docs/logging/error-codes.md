@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `d0ad46a4`, 2026-08-20\
+**Verified against:** `a8e389c5`, 2026-08-20\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
@@ -36,9 +36,13 @@ would have succeeded against a different state of the database
 (`fl_backend/app/core/exceptions.py :: DocumentConflictException`).
 
 **A rules refusal names a step, never a state**: `REQ-RULES-001`, `REQ-RULES-004`, `REQ-RULES-006`,
-`REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009` and `REQ-RULES-010` arrive on the edit that introduces or worsens the
-violation and let a resubmission of the stored values through, because a season patch replaces `rules` wholesale
-(`docs/backend/spec.md :: I44`).
+`REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010` and `REQ-RULES-011` arrive on the edit that
+introduces or worsens the violation and let a resubmission of the stored values through, because a season patch
+replaces `rules` wholesale (`docs/backend/spec.md :: I44`).
+
+**The draw freezes a season's SHAPE alone**: `REQ-RULES-011` names `number_of_groups`, `teams_per_group` and
+`qualifiers_per_group`, the rules the fixtures were drawn from. What a season scores by stays editable until the
+season turns `past`, where `REQ-RULES-005` freezes it.
 
 | Code                  | Status | Meaning                                                                                                                             |
 | --------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -59,7 +63,9 @@ violation and let a resubmission of the stored values through, because a season 
 | `REQ-RULES-008`       | 409    | A step put `draw_points` over `win_points`, or widened an excess already there                                                      |
 | `REQ-RULES-009`       | 409    | `max_kadergroesse` would drop below the largest squad the season already holds                                                      |
 | `REQ-RULES-010`       | 409    | A step paired a level `forfeit_ergebnis` with rules that produce a knockout round                                                   |
+| `REQ-RULES-011`       | 409    | A drawn season changed one of the SHAPE rules its fixtures were drawn from                                                          |
 | `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures with no result and no `sonderereignis` that awards none                                    |
+| `REQ-ACTIVATE-002`    | 409    | A `past` season was activated — refused unconditionally, since it would reopen the points and groups its table derives from         |
 | `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                                               |
 | `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                                                        |
 | `REQ-DATE-003`        | 409    | A matchday's span would shrink below a date one of its own fixtures holds                                                           |
@@ -69,6 +75,7 @@ violation and let a resubmission of the stored values through, because a season 
 | `REQ-ENTER-002`       | 409    | A team was entered into, or moved to, a group the season does not run                                                               |
 | `REQ-ENTER-003`       | 409    | A team was entered into, or moved to, a group already holding `teams_per_group` rows                                                |
 | `REQ-ENTER-004`       | 409    | A group change reached a team whose fixtures the started season has already drawn                                                   |
+| `REQ-ENTER-005`       | 409    | A club that has left the LEAGUE was entered into a season, rather than reactivated first                                            |
 | `REQ-SWAP-001`        | 409    | A group swap named something other than two clubs of that season standing in different groups                                       |
 | `REQ-SWAP-002`        | 409    | A group swap reached a season with a knockout fixture already played, abandoned, forfeited or holding a goal count                  |
 | `REQ-SWAP-003`        | 409    | A group swap reached a `past` season, whose table is derived from the groups it would exchange                                      |
@@ -84,9 +91,10 @@ violation and let a resubmission of the stored values through, because a season 
 | `REQ-SPIELTAG-004`    | 409    | A matchday was created in a phase the season's rules never produce                                                                  |
 | `REQ-SPIELTAG-005`    | 409    | A matchday was moved into a round the season's rules never produce                                                                  |
 | `REQ-SPIELTAG-006`    | 409    | A matchday carrying fixtures was moved across the gruppenphase/knockout boundary, away from them                                    |
+| `REQ-BOOKING-001`     | 409    | A venue or a referee NEWLY assigned to a fixture is unknown or retired — one already stored survives its target's retirement        |
 | `REQ-CLASH-001`       | 409    | A venue or a referee would serve two fixtures less than four hours apart                                                            |
 | `REQ-WIRING-001`      | 409    | Bracket wiring the season cannot hold reached the match write path                                                                  |
-| `REQ-ELIGIBILITY-001` | 409    | A team that has left the season was newly fielded on a match                                                                        |
+| `REQ-ELIGIBILITY-001` | 409    | A team that has left the season stands on a match dated on or after its exit, and the save changed an input the rule reads          |
 | `REQ-ELIGIBILITY-002` | 409    | A newly fielded team holds no `saison_teams` row for the fixture's season                                                           |
 | `REQ-RESULT-001`      | 409    | A side carrying goals on a played fixture was emptied rather than switched                                                          |
 | `REQ-STATE-002`       | 409    | A fixture whose `sonderereignis` awards nothing was submitted carrying goals                                                        |
