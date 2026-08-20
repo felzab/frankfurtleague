@@ -115,6 +115,12 @@ async def get_saison_teams_collection(
     return db[Collection.SAISON_TEAMS]
 
 
+async def get_aktionen_collection(
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> AsyncIOMotorCollection:
+    return db[Collection.AKTIONEN]
+
+
 async def get_saison_spieler_collection(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> AsyncIOMotorCollection:

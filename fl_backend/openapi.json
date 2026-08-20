@@ -2948,6 +2948,121 @@
         }
       }
     },
+    "/api/v0/aktionen": {
+      "get": {
+        "summary": "List recorded admin actions",
+        "description": "List what administrators changed, newest first.\n\nAdmin-tier for the obvious reason and one less obvious: a row carries the document a write\nreplaced, so this read answers with data from every collection at once, public or not.",
+        "operationId": "get_aktionen_api_v0_aktionen_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Collection"
+            }
+          },
+          {
+            "name": "operation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "insert",
+                    "patch_one",
+                    "patch_many"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation"
+            }
+          },
+          {
+            "name": "correlation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Correlation Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "desc",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLAktionenListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -3073,6 +3188,190 @@
           "stadt"
         ],
         "title": "FLAddress"
+      },
+      "FLAktion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/FLAktor"
+          },
+          "correlation_id": {
+            "type": "string",
+            "title": "Correlation Id"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAktionRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "collection": {
+            "type": "string",
+            "title": "Collection"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "insert",
+              "patch_one",
+              "patch_many"
+            ],
+            "title": "Operation"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "db_filter": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Db Filter"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "modified_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modified Count"
+          },
+          "redacted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redacted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "at",
+          "actor",
+          "correlation_id",
+          "request",
+          "collection",
+          "operation",
+          "document_id",
+          "db_filter",
+          "before",
+          "modified_count",
+          "redacted_at"
+        ],
+        "title": "FLAktion",
+        "description": "One recorded write.\n\nA read model, so nothing here refuses a stored value (`docs/backend/spec.md :: I36`): this\ncollection holds copies of documents from every other one, and a row it cannot serve is a row\nnobody can see was recorded."
+      },
+      "FLAktionRequest": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "method",
+          "path"
+        ],
+        "title": "FLAktionRequest"
+      },
+      "FLAktionenListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "aktionen": {
+            "items": {
+              "$ref": "#/components/schemas/FLAktion"
+            },
+            "type": "array",
+            "title": "Aktionen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "aktionen"
+        ],
+        "title": "FLAktionenListResponse"
+      },
+      "FLAktor": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "admin_session",
+              "system"
+            ],
+            "title": "Kind"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "email"
+        ],
+        "title": "FLAktor",
+        "description": "Who a write was attributed to. Mirrors `app/core/recording.py :: Actor`."
       },
       "FLBracketFaultGruppe": {
         "properties": {

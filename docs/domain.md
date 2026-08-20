@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `30a8b1ef`, 2026-08-20
+**Verified against:** `77078f34`, 2026-08-20
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
@@ -59,6 +59,13 @@ the matches.
 count are each derived from elsewhere, and retiring one leaves its matches untouched. A reference is not a
 boundary.
 
+**`aktionen` is in a boundary with nothing, and that is the decision rather than an oversight.** It is its own
+aggregate in `domain.py :: AGGREGATES` with no members, because no invariant holds a log row and any other
+document true together: what binds a row to the write it records is the **transaction they share**, not a
+reference. It carries no reference out and nothing points at it, so `domain.py :: REFERENCES` holds no row for it
+in either direction — `aktionen.document_id` is a copy of the id a write touched rather than a pointer this system
+resolves, and the document it names may be edited or retired afterwards with nothing rewriting the row to match.
+
 ---
 
 ## What depends on what
@@ -67,6 +74,9 @@ boundary.
 that changes, one for a target that goes away, and the reason for each. The vocabulary is SQL's because
 **MongoDB enforces none of it** — naming the intended behaviour is the only way the intention is written down
 at all.
+
+**`aktionen` appears in `REFERENCES` in neither direction, on purpose** — its `document_id` is a copy of an id
+rather than a reference anything maintains, and [Aggregates](#aggregates) carries the reading.
 
 ### The fan-outs, and what they deliberately leave alone
 

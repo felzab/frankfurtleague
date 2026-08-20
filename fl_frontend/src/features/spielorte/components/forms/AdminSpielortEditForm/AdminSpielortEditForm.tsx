@@ -18,7 +18,7 @@ import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
-import { appToast } from "@/shared/utils/appToast";
+import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 
 import { buildSpielortBanners } from "./banners";
 import { FormAdresseSection } from "./FormAdresseSection";
@@ -30,8 +30,6 @@ import type { FLSpielortDraftFields } from "@/features/spielorte/spielortDraftSt
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FLAddress } from "@/shared/schemas";
 import type { ReactNode } from "react";
-
-const UNDO_TIMEOUT_MS = 15000;
 
 /**
  * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted,
@@ -236,7 +234,6 @@ export function AdminSpielortEditForm({
   const offerUndo = (payload: FLPatchSpielortPayload, message?: string) => {
     appToast.success("Änderung gespeichert", {
       description: message ?? "Die Spielortdaten wurden aktualisiert.",
-      // A decision window, not a reading time: the one case where text length does not set duration.
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",

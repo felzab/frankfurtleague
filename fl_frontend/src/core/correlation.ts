@@ -1,5 +1,9 @@
 export const CORRELATION_HEADER = "X-Correlation-ID";
 
+// Cleared at the edge by `nginx/prod.conf`: `location /api` reaches FastAPI directly, so an
+// unstripped client-supplied one would let a visitor forge the admin a write is attributed to.
+export const ACTOR_HEADER = "X-FL-Actor";
+
 // Wider than the 32 hex nginx mints, so other well-formed ids pass without admitting arbitrary
 // strings into log lines. Mirrors `fl_backend/app/core/middlewares.py :: WELL_FORMED_ID`.
 const WELL_FORMED_ID = /^[a-f0-9]{8,64}$/;

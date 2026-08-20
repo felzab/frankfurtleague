@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `30a8b1ef`, 2026-08-20\
+**Verified against:** `77078f34`, 2026-08-20\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
@@ -41,6 +41,7 @@ would have succeeded against a different state of the database
 | `REQ-AUTH-002`        | 401    | `base` key invalid                                                                                                                  |
 | `REQ-AUTH-003`        | 401    | `system` key invalid                                                                                                                |
 | `REQ-AUTH-004`        | 401    | `admin` key invalid                                                                                                                 |
+| `REQ-AUTH-005`        | 401    | No usable `X-FL-Actor` header on an admin-tier write                                                                                |
 | `REQ-VAL-001`         | 422    | Request payload or parameters failed validation                                                                                     |
 | `REQ-OID-001`         | 400    | A malformed ObjectId reached a handler — the net behind the path convertor and the query models, unreachable through routed traffic |
 | `REQ-RULES-001`       | 409    | `number_of_groups` × `qualifiers_per_group` is not a power of two the phase set holds                                               |

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
+from app.api.aktionen.schemas import FLAktion, FLAktionRequest, FLAktor
 from app.api.saisons.schemas import FLSaison, FLSaisonRules, FLSaisonStatus
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import (
@@ -53,6 +54,9 @@ OUT_OF_SCOPE_KEYWORDS = {
 # fourth keeps this an equality check: `FLTeam` and `FLSpieler` are assembled from several collections.
 MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple[type[BaseModel], ...], frozenset[str]]] = [
     # `schedule` is derived from this season's `rules` and stored nowhere.
+    (Collection.AKTIONEN, (), FLAktion, frozenset()),
+    (Collection.AKTIONEN, ("actor",), FLAktor, frozenset()),
+    (Collection.AKTIONEN, ("request",), FLAktionRequest, frozenset()),
     (Collection.SAISONS, (), FLSaison, frozenset({"schedule"})),
     (Collection.SAISONS, ("rules",), FLSaisonRules, frozenset()),
     (Collection.SPIELE, (), FLSpiel, frozenset()),
@@ -85,6 +89,11 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
 # The `quelle` rows read members off a model field: `type` and `ausgang` are declared inline.
 MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...], bool]] = [
+    (Collection.AKTIONEN, (), "operation", get_args(FLAktion.model_fields["operation"].annotation), False),
+    (Collection.AKTIONEN, ("actor",), "kind", get_args(FLAktor.model_fields["kind"].annotation), False),
+    # Derived from the roster rather than spelled out, so adding a collection widens this enum and
+    # forgetting to widen the validator fails here rather than at the first write to the new one.
+    (Collection.AKTIONEN, (), "collection", tuple(c.value for c in Collection if c is not Collection.AKTIONEN), False),
     (Collection.SAISONS, (), "status", get_args(FLSaisonStatus), False),
     # An array: not itself a `Literal`, but its members are, which is what this row compares.
     (Collection.SAISONS, ("rules",), "erlaubte_stufen", get_args(FLSpielerStufe), False),

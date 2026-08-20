@@ -183,6 +183,17 @@ AGGREGATES: tuple[Aggregate, ...] = (
         members=(),
         boundary="A referee. Reached from a match the way a venue is.",
     ),
+    Aggregate(
+        name="Aktion",
+        root=Collection.AKTIONEN,
+        members=(),
+        boundary=(
+            "One recorded write. Held true against nothing: a row is a statement that a write happened, "
+            "which stays true however the document it names changes afterwards. So it is in no boundary "
+            "with the collection it records, and carries no reference to it -- `document_id` names a row "
+            "that may since have been deleted, and a row surviving its subject is the point rather than a leak."
+        ),
+    ),
 )
 
 

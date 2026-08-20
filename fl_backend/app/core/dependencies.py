@@ -10,6 +10,7 @@ from motor.motor_asyncio import (
 )
 
 from app.core.db import (
+    get_aktionen_collection,
     get_database,
     get_db_client,
     get_saison_spieler_collection,
@@ -44,6 +45,8 @@ SchiedsrichterCollection = Annotated[AsyncIOMotorCollection, Depends(get_schieds
 SaisonTeamsCollection = Annotated[AsyncIOMotorCollection, Depends(get_saison_teams_collection)]
 
 SaisonSpielerCollection = Annotated[AsyncIOMotorCollection, Depends(get_saison_spieler_collection)]
+
+AktionenCollection = Annotated[AsyncIOMotorCollection, Depends(get_aktionen_collection)]
 
 
 # Injected rather than read at the call site, which is what keeps "today" substitutable in tests.

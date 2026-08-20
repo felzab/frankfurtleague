@@ -11,8 +11,12 @@ export function AdminCrudShell({
 }: {
   /** The slice's search field — an `AdminCrudSearch`, synced with the view through the URL. */
   search: ReactNode;
-  /** The slice's Create modal, which owns its own trigger button and overlay state. */
-  createModal: ReactNode;
+  /**
+   * The slice's Create modal, owning its own trigger and overlay state. Left out rather than passed
+   * empty by a surface that creates nothing: the type is what says so, where a placeholder would say
+   * only that somebody had to pass something.
+   */
+  createModal?: ReactNode;
   children: ReactNode;
 }) {
   return (

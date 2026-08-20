@@ -18,7 +18,7 @@ import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
-import { appToast } from "@/shared/utils/appToast";
+import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 
 import { buildSchiedsrichterBanners } from "./banners";
 import { FormHonorarSection } from "./FormHonorarSection";
@@ -30,8 +30,6 @@ import type { FLSchiedsrichterDraftFields } from "@/features/schiedsrichter/schi
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FLKontakt } from "@/shared/schemas";
 import type { ReactNode } from "react";
-
-const UNDO_TIMEOUT_MS = 15000;
 
 /**
  * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted,
@@ -239,7 +237,6 @@ export function AdminSchiedsrichterEditForm({
   const offerUndo = (payload: FLPatchSchiedsrichterPayload, message?: string) => {
     appToast.success("Änderung gespeichert", {
       description: message ?? "Die Schiedsrichterdaten wurden aktualisiert.",
-      // A decision window, not a reading time: the one case where text length does not set duration.
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",

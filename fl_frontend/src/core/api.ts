@@ -3,9 +3,9 @@ import "server-only";
 import z from "zod";
 
 import { frontend_config } from "./config";
-import { CORRELATION_HEADER, mintCorrelationId } from "./correlation";
+import { ACTOR_HEADER, CORRELATION_HEADER, mintCorrelationId } from "./correlation";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "./errors";
-import { getRequestCorrelationId } from "./requestScope";
+import { getRequestActor, getRequestCorrelationId } from "./requestScope";
 
 const BASE_FETCH_AUTH_TYPE = "base";
 const BASE_FETCH_TIMEOUT_MS = 15000;
@@ -94,6 +94,11 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   // either loses it silently -- `{...new Headers({a: "1"})}` is `{}`.
   const headers = new Headers(getFetchHeaders(authType));
   headers.set(CORRELATION_HEADER, correlationId);
+  // Admin tier alone: a base or system call is the app acting as itself, and an actor on one would
+  // attribute a machine read to a person. Omitted rather than sent empty, so an unattributed call
+  // reads as one everywhere it is inspected.
+  const actor = authType === "admin" ? getRequestActor() : undefined;
+  if (actor) headers.set(ACTOR_HEADER, actor);
   new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;

@@ -35,7 +35,7 @@ ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
 
 # Not domain rules: each is a property of the transport, and sitting in `app/core/` is what the
 # coverage test keys on — a boundary rather than an exception list.
-PROTOCOL_CODES = frozenset({"REQ-AUTH-001", "REQ-AUTH-002", "REQ-AUTH-003", "REQ-AUTH-004", "REQ-VAL-001", "REQ-OID-001"})
+PROTOCOL_CODES = frozenset({"REQ-AUTH-001", "REQ-AUTH-002", "REQ-AUTH-003", "REQ-AUTH-004", "REQ-AUTH-005", "REQ-VAL-001", "REQ-OID-001"})
 
 _CODE_PATTERN = "REQ-"
 

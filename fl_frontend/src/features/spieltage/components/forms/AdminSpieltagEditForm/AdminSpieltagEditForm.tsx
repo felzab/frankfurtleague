@@ -19,7 +19,7 @@ import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
-import { appToast } from "@/shared/utils/appToast";
+import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 
 import { buildSpieltagBanners, standsAtThePhaseFloor } from "./banners";
 import { FormPhaseSection } from "./FormPhaseSection";
@@ -32,8 +32,6 @@ import type { FLSpieltagDraftFields } from "@/features/spieltage/spieltagDraftSt
 import type { AdminSpieltagRow, SpieltagEditDraft } from "@/features/spieltage/types";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { ReactNode } from "react";
-
-const UNDO_TIMEOUT_MS = 15000;
 
 /**
  * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted, and
@@ -253,7 +251,6 @@ export function AdminSpieltagEditForm({
   const offerUndo = (payload: FLPatchSpieltagPayload, message?: string) => {
     appToast.success("Änderung gespeichert", {
       description: message ?? "Der Spieltag wurde aktualisiert.",
-      // A decision window, not a reading time — the one case where text length does not set duration.
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",

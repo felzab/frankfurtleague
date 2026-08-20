@@ -277,7 +277,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 87;
+const EXPECTED_PAIRS = 91;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

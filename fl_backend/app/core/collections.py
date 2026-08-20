@@ -26,3 +26,6 @@ class Collection(StrEnum):
     SPIELER = "spieler"
     SPIELORTE = "spielorte"
     SCHIEDSRICHTER = "schiedsrichter"
+    #: What every admin write did, and what it replaced. The one collection nothing here references
+    #: and nothing references back (`fl_backend/app/core/recording.py`).
+    AKTIONEN = "aktionen"
