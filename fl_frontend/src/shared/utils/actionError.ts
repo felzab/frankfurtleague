@@ -3,11 +3,17 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/cor
 import type { FormState } from "@/shared/types/types";
 
 /**
- * The exception to this module's generic messages: the only failures an admin can fix from the form in front of them.
- * Mirrors the refusals `fl_backend/app/api/spiele/services.py` raises over one fixture's own contents.
+ * The Spiel refusals `fl_frontend/src/features/spiele/actions.ts :: mapSpielRefusal` does not map.
+ * Three name an OCCUPANT and ride their code back for the form to place on the side at fault; the
+ * two REQ-STATE codes name none and land as a toast.
  */
 const OCCUPANT_REFUSALS: Record<string, string> = {
-  "REQ-ELIGIBILITY-001": "Diese Mannschaft ist aus der Saison ausgeschieden und kann nicht aufgestellt werden.",
+  // Three triggers: a re-dating or a changed Sonderereignis fires the rule as a new club does. The
+  // walkover names its precondition because `REQ-STATE-003` is judged first, so offering one on an
+  // unresolved slot would send an admin into a second refusal.
+  "REQ-ELIGIBILITY-001":
+    "Diese Mannschaft ist aus der Saison ausgeschieden und darf ab ihrem Austritt nicht mehr aufgestellt sein, auch wenn nur Datum oder Sonderereignis geändert wurde. Hebe den Austritt auf oder wähle eine andere Mannschaft; das Nichtantreten dieser Mannschaft kannst Du bei besetzten Plätzen eintragen, das Spiel absagen nur in der Gruppenphase.",
+
   "REQ-ELIGIBILITY-002": "Diese Mannschaft nimmt nicht an dieser Saison teil.",
   "REQ-STATE-002": "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
   "REQ-STATE-003": "Ein Nichtantreten braucht beide Mannschaften. Dieses Spiel hat noch einen offenen Platz.",

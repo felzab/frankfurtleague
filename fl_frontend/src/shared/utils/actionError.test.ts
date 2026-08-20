@@ -34,6 +34,31 @@ describe("toActionErrorResult", () => {
     }
   });
 
+  it("names the eligibility remedy that is open on every fixture", () => {
+    const result = toActionErrorResult(
+      new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode: "REQ-ELIGIBILITY-001" }),
+    );
+
+    // `fl_backend/app/api/spiele/services.py :: find_eligibility_refusal` keys on the austritt date,
+    // so lifting it clears the refusal in every phase. The walkover needs both sides resolved
+    // (`REQ-STATE-003`); calling off is Gruppenphase-only.
+    assert.match(result.error ?? "", /Hebe den Austritt auf/);
+    // The two clauses that carry the risk: each states a precondition, and each was wrong once.
+    assert.match(result.error ?? "", /bei besetzten Plätzen/);
+    assert.match(result.error ?? "", /nur in der Gruppenphase/);
+  });
+
+  it("answers the two refusals that name no side, which no form can place", () => {
+    // They reach this map BECAUSE `mapSpielRefusal` does not answer them, and
+    // `AdminEditSpielDataForm.tsx :: placeOccupantRefusal` has no case for either, so both are
+    // shown as a toast. Dropping them here would leave the generic conflict message.
+    for (const serverErrorCode of ["REQ-STATE-002", "REQ-STATE-003"]) {
+      const result = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode }));
+
+      assert.doesNotMatch(result.error ?? "", /Konflikt/, serverErrorCode);
+    }
+  });
+
   it("does not send an occupant refusal to reload the page, as a wiring refusal does", () => {
     // The two are both 409s on the same endpoint and the advice is opposite: the season has moved
     // under a wiring refusal, and has not moved at all under an occupant one.

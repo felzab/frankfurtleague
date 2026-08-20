@@ -33,9 +33,10 @@ function invalidateSeasonScoped(resource: "teams" | "spiele", saisonId: string):
 }
 
 /**
- * The junction write's refusals (`REQ-ENTER-001..004`), or `null` when the 409 is something else.
- * `POST` answers 001..003; `PATCH` feeds `find_entry_refusal` the status `future`, so it answers
- * 004 and both group gates, never 001.
+ * The junction write's refusals (`REQ-ENTER-001..005`), or `null` when the 409 is something else.
+ * `POST` answers 005 ahead of 001..003, the club's own standing being unfixable by another group;
+ * `PATCH` feeds `find_entry_refusal` the status `future`, so it answers 004 and both group gates,
+ * never 001 and never 005.
  */
 function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -53,7 +54,16 @@ function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     // the locked Gruppe row on the page this message lands on.
     return {
       error:
-        "Für dieses Team sind in dieser Saison schon Spiele angelegt, deshalb kann es die Gruppe nicht allein wechseln. Tausche die Gruppe stattdessen mit einer zweiten Mannschaft, unter der gesperrten Gruppe auf dieser Seite.",
+        "Für dieses Team sind in dieser Saison schon Spiele angelegt, deshalb kann es die Gruppe nicht allein wechseln. Tausche die Gruppe stattdessen mit einem zweiten Team, unter der gesperrten Gruppe auf dieser Seite.",
+    };
+  }
+  if (error.serverErrorCode === "REQ-ENTER-005") {
+    // Raised only by the club editor's season panel, and only while its page still believes the club
+    // is active — so the words are `buildTeamBanners`'s, which the same panel shows once the page
+    // catches up.
+    return {
+      error:
+        "Dieses Team ist inzwischen stillgelegt und kann in keine Saison aufgenommen werden. Reaktiviere es über den Kopf der Seite und nimm es danach hier auf.",
     };
   }
   return null;
@@ -122,7 +132,10 @@ export async function postTeamAction(
 export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
   success: boolean;
   updated_document?: FLTeamRecord;
+  // Both counts, because both halves of the fan-out fail silently and each answers a different
+  // question — one about the seasons a club is entered in, the other about the matches it stands on.
   fanned_out_to_spiele?: number;
+  fanned_out_to_saison_teams?: number;
   message?: string;
   error?: string;
   fieldErrors?: FieldErrors;
@@ -162,6 +175,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
       success: Boolean(patchOperation.acknowledged),
       updated_document: patchOperation.updated_document,
       fanned_out_to_spiele: patchOperation.fanned_out_to_spiele,
+      fanned_out_to_saison_teams: patchOperation.fanned_out_to_saison_teams,
       message: "Team erfolgreich bearbeitet!",
     };
   });
@@ -278,7 +292,7 @@ export async function postSaisonTeamAction(
     return {
       success: true,
       saison_team: saisonTeam,
-      message: `Mannschaft in die Saison ${validated.data.saison_id} aufgenommen!`,
+      message: `Team in die Saison ${validated.data.saison_id} aufgenommen!`,
     };
   });
 }

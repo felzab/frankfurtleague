@@ -19,9 +19,9 @@ export type FLActionUrgency = "blocking" | "results" | "details" | "none";
  */
 export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: string; short: string; desc: string; urgency: FLActionUrgency }> = {
   bracket_fault: {
-    name: "Fehlerhafte Verweise",
-    short: "Verweise",
-    desc: "KO-Spiele, deren Herkunft sich nicht auflösen lässt. Der Grund steht auf der Karte",
+    name: "Fehlerhafte Verweise und Aufstellungen",
+    short: "Fehler",
+    desc: "Spiele, deren Herkunft sich nicht auflösen lässt oder deren Aufstellung nicht zulässig ist. Der Grund steht auf der Karte",
     urgency: "blocking",
   },
   besetzung_missing: {
@@ -93,8 +93,9 @@ export function categorizeActionRequired<T extends FLSpielWithDraftFields>(
   const faultedSpielIds = new Set(bracketFaults.map((fault) => fault.spiel_id));
 
   for (const spiel of spiele) {
-    // Before the branch below and not exclusive with it: broken wiring still feeds whatever sits
-    // below the fixture.
+    // Keyed on the faulted id alone, never on the reason, so a fault variant added to the union
+    // lands here rather than falling through. Not exclusive with the branch below: a faulted
+    // fixture still feeds whatever sits under it.
     if (faultedSpielIds.has(spiel.id)) categorized.bracket_fault.push(spiel);
 
     // **This set is the triage list's alone**, and `abgebrochen` is deliberately absent: an

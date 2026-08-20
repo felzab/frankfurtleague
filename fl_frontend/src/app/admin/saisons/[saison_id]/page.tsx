@@ -46,9 +46,10 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   // The argument matches the one `/admin/saisons` warms, so both pages share a `"use cache"` entry.
   const [spieltageRes, outgoingSpieleRes, teamsRes, playoffSpieleRes, gruppenSpieleRes] = await Promise.all([
     getSpieltage({ saison_id: saison.id }),
-    // Only where there is something to warn about: an active season has no rollover to present, and
-    // one with no incumbent no outgoing fixtures to check.
-    outgoingSaisonId === null || saison.status === "active" ? Promise.resolve(null) : getSpiele({ saison_id: outgoingSaisonId }),
+    // Only where there is something to warn about: only a `future` season has a rollover to present —
+    // the running one has nothing to switch to, a `past` one is refused (`REQ-ACTIVATE-002`) — and no
+    // incumbent means no outgoing fixtures.
+    outgoingSaisonId === null || saison.status !== "future" ? Promise.resolve(null) : getSpiele({ saison_id: outgoingSaisonId }),
     // `include_inactive` because an admin picker hiding a retired club that still holds a junction
     // row would make a swap the endpoint accepts look impossible.
     getTeams({ saison_id: saison.id, include_inactive: true }),
@@ -77,6 +78,13 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     .sort((left, right) => left.spielNr - right.spielNr);
 
   const rollover: SaisonRolloverContext = { outgoingSaisonId, offeneSpiele };
+
+  /**
+   * `REQ-RULES-011`'s condition, off the two reads the swap already needs: `playoffs` is every phase
+   * but `gruppenphase`, so the pair partitions the season. A boolean rather than a count, which a
+   * list limit could truncate.
+   */
+  const hasDrawnSpiele = gruppenSpieleRes.spiele.length > 0 || playoffSpieleRes.spiele.length > 0;
 
   /**
    * Assembled by the derivation both entry points share, so this page and the club editor grade a
@@ -114,6 +122,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       }}
       rollover={rollover}
       swap={swap}
+      hasDrawnSpiele={hasDrawnSpiele}
       spieltagBound={spieltagBound}
     />
   );

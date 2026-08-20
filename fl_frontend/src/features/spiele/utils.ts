@@ -15,6 +15,7 @@ import type {
   FLSpielStatus,
   FLSpielTeamField,
   FLSpielTeamFieldJoined,
+  FLSpielTeamFieldPayload,
 } from "./schemas";
 
 /**
@@ -226,6 +227,13 @@ export const toStoredSide = (side: FLSpielTeamFieldJoined | null): FLSpielTeamFi
   side === null ? null : { team_id: side.team_id, name: side.name, tore: side.tore, shorthand: side.shorthand };
 
 /**
+ * The wire shape of one side: which club and what it scored. The display copies are left behind
+ * because the server composes them from the club's own row, so one sent back could only disagree.
+ */
+export const toPayloadSide = (side: FLSpielTeamField | null): FLSpielTeamFieldPayload | null =>
+  side === null ? null : { team_id: side.team_id, tore: side.tore };
+
+/**
  * One stored fixture as the payload restoring it, the loaded page being the only place the old
  * values still exist. Every field is listed rather than spread: the write path `$set`s wholesale,
  * so one omitted is overwritten with nothing.
@@ -235,16 +243,32 @@ export const toPatchPayload = (spiel: FLSpiel): FLPatchSpielDataPayload => ({
   // (`docs/backend/spec.md` I3).
   spiel_id: spiel.id,
   sonderereignis: spiel.sonderereignis,
-  team1: toStoredSide(spiel.team1),
-  team2: toStoredSide(spiel.team2),
+  team1: toPayloadSide(spiel.team1),
+  team2: toPayloadSide(spiel.team2),
   team1_quelle: spiel.team1_quelle,
   team2_quelle: spiel.team2_quelle,
   elfmeterschiessen: spiel.elfmeterschiessen,
   datum: spiel.datum,
   uhrzeit: spiel.uhrzeit,
+  // `mietpreis` and `payment` travel where the names do not: each is what THIS fixture pays, not a
+  // copy of the venue's or referee's current default, so omitting one would rewrite it as nothing.
+  ort: spiel.ort === null ? null : { spielort_id: spiel.ort.spielort_id, mietpreis: spiel.ort.mietpreis },
+  schiedsrichter:
+    spiel.schiedsrichter === null ? null : { schiedsrichter_id: spiel.schiedsrichter.schiedsrichter_id, payment: spiel.schiedsrichter.payment },
+  notiz: spiel.notiz,
+});
+
+/**
+ * What the editor seeds its atoms from — the payload plus the display copies its panels render.
+ * The server composes those copies, so a rename reaching this fixture still has to re-key a mounted
+ * editor, or the picker keeps showing the old club.
+ */
+const toEditorSeed = (spiel: FLSpiel) => ({
+  ...toPatchPayload(spiel),
+  team1: toStoredSide(spiel.team1),
+  team2: toStoredSide(spiel.team2),
   ort: spiel.ort,
   schiedsrichter: spiel.schiedsrichter,
-  notiz: spiel.notiz,
 });
 
 /**
@@ -252,7 +276,7 @@ export const toPatchPayload = (spiel: FLSpiel): FLPatchSpielDataPayload => ({
  * when an undo restores values — the fixture id alone would keep showing what the mounted editor
  * was seeded with until a reload.
  */
-export const spielStateKey = (spiel: FLSpiel): string => `${spiel.id}:${JSON.stringify(toPatchPayload(spiel))}`;
+export const spielStateKey = (spiel: FLSpiel): string => `${spiel.id}:${JSON.stringify(toEditorSeed(spiel))}`;
 
 /**
  * **Order is the whole correctness argument.** The edited fixture goes first, so the resolution
@@ -333,13 +357,27 @@ export const formatSpielUpdateMessage = (
     );
   }
 
+  // Its own sentence for the same reason, one step further: a no-show is what a fixture RECORDED
+  // rather than what it scored, so an admin reading only about a scoreline would not know it went.
+  const clearedNoShow = advancedTo.filter((advancement) => advancement.voided_sonderereignis !== null);
+  if (clearedNoShow.length > 0) {
+    sentences.push(
+      clearedNoShow.length === 1
+        ? `Das eingetragene Nichtantreten in Spiel ${joinSpiele(clearedNoShow)} wurde dabei ebenfalls entfernt`
+        : `In den Spielen ${joinSpiele(clearedNoShow)} wurde dabei jeweils das eingetragene Nichtantreten entfernt`,
+    );
+  }
+
   // The endpoint's other write: fielding a team here removes it from its other fixture on the same
   // Spieltag. Named per fixture, since the admin has to know which match is now short a side.
   for (const released of releasedSides) {
-    sentences.push(
+    const removal =
       released.voided_ergebnis === null
         ? `${released.team_name} wurde aus Spiel ${released.spiel_nr} entfernt, da beide am selben Spieltag stattfinden`
-        : `${released.team_name} wurde aus Spiel ${released.spiel_nr} entfernt, dessen Ergebnis ${released.voided_ergebnis} damit gelöscht wurde`,
+        : `${released.team_name} wurde aus Spiel ${released.spiel_nr} entfernt, dessen Ergebnis ${released.voided_ergebnis} damit gelöscht wurde`;
+
+    sentences.push(
+      released.voided_sonderereignis === null ? removal : `${removal}; das dort eingetragene Nichtantreten wurde ebenfalls entfernt`,
     );
   }
 
@@ -358,6 +396,9 @@ const joinSpiele = (advancements: readonly { spiel_nr: number }[]): string =>
  * wording table**: the two slices must not call one exit two things.
  */
 const zustandMidSentence = (austrittType: FLAustrittType): string => austrittZustand(austrittType).toLocaleLowerCase("de-DE");
+
+/** The editor's own spelling of a seat, so a fault names the side the form labels the same way. */
+const sideLabel = (side: "team1" | "team2"): string => (side === "team1" ? "Team 1" : "Team 2");
 
 /**
  * For the save's toast, which arrives with no fixture in sight — so every sentence names its match
@@ -382,6 +423,10 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
       return fault.spiel_datum === null
         ? `In Spiel ${fault.spiel_nr} steht ${fault.team_name}, ${zustandMidSentence(fault.austritt_type)} seit ${formatSpielDatum(fault.ausgeschieden_seit)}. Das Spiel hat kein Datum, also ist nicht belegt, dass es vorher stattfand`
         : `Spiel ${fault.spiel_nr} am ${formatSpielDatum(fault.spiel_datum)} führt ${fault.team_name}, ${zustandMidSentence(fault.austritt_type)} seit ${formatSpielDatum(fault.ausgeschieden_seit)}`;
+    // The side is named because one entry stands per APPEARANCE: without it, a club on both seats of
+    // one fixture reads as the same sentence twice.
+    case "fielded_twice":
+      return `In Spiel ${fault.spiel_nr} steht ${fault.team_name} als ${sideLabel(fault.side)}, doch an diesem Spieltag ist die Mannschaft mehrfach aufgestellt`;
   }
 };
 
@@ -405,6 +450,8 @@ export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
       return fault.spiel_datum === null
         ? `${fault.team_name} ist seit dem ${formatSpielDatum(fault.ausgeschieden_seit)} ${zustandMidSentence(fault.austritt_type)}. Ohne Spieldatum ist nicht belegt, dass vorher gespielt wurde.`
         : `${fault.team_name} ist seit dem ${formatSpielDatum(fault.ausgeschieden_seit)} ${zustandMidSentence(fault.austritt_type)}, steht aber noch in diesem Spiel.`;
+    case "fielded_twice":
+      return `${fault.team_name} ist an diesem Spieltag mehrfach aufgestellt, hier als ${sideLabel(fault.side)}.`;
   }
 };
 

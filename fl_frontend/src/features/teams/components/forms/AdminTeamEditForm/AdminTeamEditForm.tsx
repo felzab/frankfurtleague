@@ -24,6 +24,7 @@ import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarnin
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 
 import { buildTeamBanners } from "./banners";
+import { describeSaisonTeamsFanOut, describeSpieleFanOut } from "./fanOutNotes";
 import { FormAdresseSection } from "./FormAdresseSection";
 import { FormAustrittSection } from "./FormAustrittSection";
 import { FormSaisonSection } from "./FormSaisonSection";
@@ -70,13 +71,6 @@ async function postTeamUndo(payloads: TeamUndoPayloads): Promise<{ success: bool
   }
 
   return response.json() as Promise<{ success: boolean; message?: string; error?: string }>;
-}
-
-/** The save toast's fan-out line — the half of `PATCH /teams/{team_id}` that fails silently. */
-function describeFanOut(count: number): string {
-  if (count === 0) return "Kein Spiel trägt eine Kopie von Name und Kürzel.";
-  if (count === 1) return "Name und Kürzel wurden in 1 Spiel nachgezogen.";
-  return `Name und Kürzel wurden in ${count} Spielen nachgezogen.`;
 }
 
 /**
@@ -207,8 +201,12 @@ export function AdminTeamEditForm({
   const clubDirty = status.changed.some((field) => field.group !== "Saison");
   const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Saison");
 
+  // Read by the banners AND by the season panel, whose entry affordance it closes: one derivation,
+  // so the sentence and the control it explains cannot disagree.
+  const isRetired = team.inactive_since !== null;
+
   const banners = buildTeamBanners({
-    isRetired: team.inactive_since !== null,
+    isRetired,
     saisonId: saison.saisonId,
     saisonStatus: saison.saisonStatus,
     isMember: storedMembership !== null,
@@ -294,7 +292,14 @@ export function AdminTeamEditForm({
         const res = await patchTeamAction(clubPayload);
         if (res.success) {
           savedParts.push("Stammdaten gespeichert.");
-          if (renameTouched) consequenceNotes.push(describeFanOut(res.fanned_out_to_spiele ?? 0));
+          // Seasons before fixtures: the junction is what the next season copies from, so it is the
+          // broader statement, and each count is its own sentence because their zeros differ.
+          if (renameTouched) {
+            consequenceNotes.push(
+              describeSaisonTeamsFanOut(res.fanned_out_to_saison_teams ?? 0),
+              describeSpieleFanOut(res.fanned_out_to_spiele ?? 0),
+            );
+          }
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
           failedNotes.push(res.fieldErrors?.shorthand ?? res.error ?? "Die Teamdaten konnten nicht gespeichert werden.");
@@ -448,6 +453,7 @@ export function AdminTeamEditForm({
             gruppeOffer={gruppeOffer}
             gruppeLock={{ locked: gruppeLocked }}
             isMember={storedMembership !== null}
+            isRetired={isRetired}
             gruppe={gruppe}
             onGruppeChange={setGruppe}
             onValidateSelection={validateGruppeSelection}

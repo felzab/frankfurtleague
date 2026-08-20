@@ -278,6 +278,7 @@ export function FormSaisonSection({
   gruppeLock,
   gruppeOffer,
   isMember,
+  isRetired,
   gruppe,
   onGruppeChange,
   onValidateSelection,
@@ -291,6 +292,11 @@ export function FormSaisonSection({
   /** The season's groups with their fill state (`buildGruppeOffer`) — what the pickers may offer. */
   gruppeOffer: readonly GruppeOffer[];
   isMember: boolean;
+  /**
+   * The club's standing in the LEAGUE, not in this season: a stamped `teams.inactive_since`, which
+   * the entry write refuses for every season and every group alike (`REQ-ENTER-005`).
+   */
+  isRetired: boolean;
   gruppe: FLGruppenNames | null;
   onGruppeChange: (next: FLGruppenNames) => void;
   onValidateSelection: (paths: readonly string[], selected: { gruppe: FLGruppenNames }) => void;
@@ -322,7 +328,7 @@ export function FormSaisonSection({
       setEntryGruppeError(gruppeError);
 
       if (res.success) {
-        appToast.success(res.message ?? "Mannschaft aufgenommen!");
+        appToast.success(res.message ?? "Team aufgenommen!");
         return;
       }
       // Suppressed where the picker carries the message, so a refusal about the chosen group is not
@@ -410,7 +416,7 @@ export function FormSaisonSection({
               />
             </>
           )
-        ) : saison.saisonStatus === "future" ? (
+        ) : saison.saisonStatus === "future" && !isRetired ? (
           <div className="flex w-full flex-col gap-y-4">
             <InlineBanners
               banners={banners}
@@ -439,11 +445,12 @@ export function FormSaisonSection({
             </div>
           </div>
         ) : (
-          // No entry affordance outside a planned season: a season's field is settled before it
-          // starts, and the junction write refuses the same (`REQ-ENTER-001`).
+          // No entry affordance where the junction write refuses one whatever the admin picks: a
+          // season past planning (`REQ-ENTER-001`), and a club that has left the league
+          // (`REQ-ENTER-005`). A closure over every group is a banner, never a greyed picker.
           <InlineBanners
             banners={banners}
-            spot="saison-gesperrt"
+            spot="saison-kein-eintritt"
           />
         )}
       </div>

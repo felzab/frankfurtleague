@@ -7,6 +7,7 @@ import type { RailBanner } from "@/shared/components/ui/railBanner";
 
 export type TeamBannerId =
   | "team.retired"
+  | "team.not-in-saison-retired"
   | "team.not-in-saison-future"
   | "team.not-in-saison-closed"
   | "team.austritt-entering"
@@ -14,7 +15,9 @@ export type TeamBannerId =
   | "team.austritt-standing"
   | "team.gruppe-changed";
 
-export type TeamBannerSpot = "gruppe" | "saison-eintritt" | "saison-gesperrt" | "austritt-eintrag" | "austritt-aufhebung";
+// `saison-kein-eintritt` is where the season panel explains a CLOSED entry, named for the place
+// rather than for either of the two conditions that close it.
+export type TeamBannerSpot = "gruppe" | "saison-eintritt" | "saison-kein-eintritt" | "austritt-eintrag" | "austritt-aufhebung";
 
 export type TeamBanner = RailBanner<TeamBannerId> & { inline: TeamBannerSpot | null };
 
@@ -48,21 +51,40 @@ export function buildTeamBanners({
     banners.push({
       id: "team.retired",
       severity: "info",
-      title: "Diese Mannschaft erscheint in keiner Auswahlliste",
-      body: "Ihr Kürzel bleibt reserviert; reaktivieren kannst Du sie über den Kopf der Seite.",
+      title: "Dieses Team erscheint in keiner Auswahlliste",
+      body: "Sein Kürzel bleibt reserviert; reaktivieren kannst Du es über den Kopf der Seite.",
       inline: null,
     });
   }
 
   if (!isMember) {
-    // Split on the season's status: the future season has a remedy on this page, the other two
-    // do not.
-    if (saisonStatus === "future") {
+    // Graded in the order `POST /teams/{team_id}/saisons` answers in: a club that left the LEAGUE is
+    // refused by every season (`REQ-ENTER-005`), so naming the season's window instead would send
+    // the admin after a remedy that changes nothing.
+    if (isRetired) {
+      banners.push({
+        id: "team.not-in-saison-retired",
+        severity: "info",
+        // It carries `team.retired`'s reactivate step plus the entry that follows it.
+        supersedes: ["team.retired"],
+        title: `In Saison ${saisonId} lässt sich dieses Team nicht aufnehmen`,
+        // Only a `future` season has the entry control this promises, so past planning the sentence
+        // would send the admin after a remedy the panel then withdraws.
+        body:
+          saisonStatus === "future"
+            ? "Ein stillgelegtes Team kann in keine Saison aufgenommen werden. Reaktiviere es über den Kopf der Seite und nimm es danach hier auf."
+            : saisonStatus === "active"
+              ? "Ein stillgelegtes Team kann in keine Saison aufgenommen werden. Auch reaktiviert ließe es sich nur in eine geplante Saison aufnehmen, und diese läuft bereits."
+              : "Ein stillgelegtes Team kann in keine Saison aufgenommen werden. Auch reaktiviert ließe es sich nur in eine geplante Saison aufnehmen, und diese ist beendet.",
+        inline: "saison-kein-eintritt",
+      });
+    } else if (saisonStatus === "future") {
+      // The future season has a remedy on this page; the other two do not.
       banners.push({
         id: "team.not-in-saison-future",
         severity: "info",
-        title: `In Saison ${saisonId} erscheint diese Mannschaft auf keiner Seite`,
-        body: "Nimm sie unten mit einer Gruppe auf; sonst führt sie weder eine Tabelle noch eine Auswahlliste.",
+        title: `In Saison ${saisonId} erscheint dieses Team auf keiner Seite`,
+        body: "Nimm es unten mit einer Gruppe auf; sonst führt es weder eine Tabelle noch eine Auswahlliste.",
         inline: "saison-eintritt",
       });
     } else {
@@ -72,9 +94,9 @@ export function buildTeamBanners({
         title: `In Saison ${saisonId} steht das Teilnehmerfeld fest`,
         body:
           saisonStatus === "active"
-            ? "Aufnehmen lässt sich eine Mannschaft nur in eine geplante Saison, und diese läuft bereits."
-            : "Aufnehmen lässt sich eine Mannschaft nur in eine geplante Saison, und diese ist beendet.",
-        inline: "saison-gesperrt",
+            ? "Aufnehmen lässt sich ein Team nur in eine geplante Saison, und diese läuft bereits."
+            : "Aufnehmen lässt sich ein Team nur in eine geplante Saison, und diese ist beendet.",
+        inline: "saison-kein-eintritt",
       });
     }
   }

@@ -504,19 +504,32 @@ export function AdminEditSpielDataForm({
   const placeOccupantRefusal = (errorCode: string, message?: string): FieldErrors => {
     const text = message ?? "Diese Mannschaft kann hier nicht aufgestellt werden.";
 
-    const isAtFault = (side: FLSpielTeamField | null, stored: FLSpielTeamField | null): boolean => {
-      // Every occupant rule applies only to a team the payload NEWLY fields, as the backend's does;
-      // without this the message lands on a side the admin did not touch.
-      if (side === null || side.team_id === stored?.team_id) return false;
+    // Mirrors the skip in `fl_backend/app/api/spiele/services.py :: find_eligibility_refusal`: a side
+    // is judged unless the payload leaves every input that rule reads as stored, so clearing the
+    // carve-out is refused exactly as a re-dating is.
+    const judgedInputMoved = draft.datum !== spielData.datum || draft.sonderereignis !== spielData.sonderereignis;
 
+    const isAtFault = (side: FLSpielTeamField | null, stored: FLSpielTeamField | null): boolean => {
+      if (side === null) return false;
+
+      const stays = side.team_id === stored?.team_id;
       const team = teams.find((candidate) => candidate.id === side.team_id);
+
+      // Each rule takes the write path's own trigger, never one shared "this side moved": two of the
+      // three reach a side the admin never touched, and a shared guard marks nothing there — a
+      // refusal with no field is a failed save with nothing to correct.
       switch (errorCode) {
         // ANY `austritt`, whichever way the club left: `pull_saison_membership` keys the refusal on
         // the record's `datum` alone, so a withdrawal refuses exactly as a disqualification does.
         case "REQ-ELIGIBILITY-001":
-          return team !== undefined && team.austritt !== null;
+          return (!stays || judgedInputMoved) && team !== undefined && team.austritt !== null;
+        // The one rule that IS about a newly fielded club alone: one already standing here without a
+        // junction row is a fault corrected on this very fixture, and refusing every save would trap
+        // that correction.
         case "REQ-ELIGIBILITY-002":
-          return team === undefined;
+          return !stays && team === undefined;
+        // Judged on whichever clubs the payload fields, moved or not: the bracket resolution can put
+        // one club on two fixtures of a Spieltag with neither side touched here.
         case "REQ-SPIELTAG-001":
           return spieltagOccupancy.has(side.team_id) || side.team_id === (side === team1Payload ? team2Payload : team1Payload)?.team_id;
         default:

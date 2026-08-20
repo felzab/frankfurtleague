@@ -6,6 +6,11 @@ import { z } from "zod";
 // A literal space, never `\s`, which inside the anchors would admit newlines and tabs.
 const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{3,20})$/);
 
+// Shared, because the payload redeclares the field for its ceiling and a duplicated alphabet would drift. `*` not
+// `+`, so "optional" is the pattern rather than a union: a union whose branches both fail surfaces zod's raw English.
+const HAUSNUMMER_REGEX = /^[\d\-abcABC]*$/;
+const HAUSNUMMER_ERROR = "Die Hausnummer darf nur aus Zahlen, Bindestrichen und den Buchstaben a, b, c bestehen.";
+
 /**
  * `YYYY-MM-DD`, and a day that exists — `z.iso.date()` is a calendar regex rather than a shape one. The refinement
  * closes the one value it and `CustomDateString` disagree on: `\d{4}` admits year 0000 where Python refuses it.
@@ -48,11 +53,7 @@ export const PersonNameSchema = z
 
 export const FLAddressSchema = z.object({
   strasse: z.string().nonempty({ error: "Bitte gib eine Straße ein." }),
-  // `*` not `+`, so "optional" is the pattern rather than a union: a union whose branches both fail can
-  // surface a branch's message, putting zod's raw English in front of an admin.
-  hausnummer: z.string().regex(/^[\d\-abcABC]*$/, {
-    error: "Die Hausnummer darf nur aus Zahlen, Bindestrichen und den Buchstaben a, b, c bestehen.",
-  }),
+  hausnummer: z.string().regex(HAUSNUMMER_REGEX, { error: HAUSNUMMER_ERROR }),
   plz: z.string().regex(/^\d{5}$/, { error: "Die PLZ muss genau 5 Ziffern haben." }),
   stadtteil: z.string(),
   stadt: z.string().nonempty({ error: "Bitte gib eine Stadt ein." }),
@@ -60,11 +61,15 @@ export const FLAddressSchema = z.object({
 export type FLAddress = z.infer<typeof FLAddressSchema>;
 
 /**
- * The two ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Every frontend enforcement point reads
+ * The address ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Every frontend enforcement point reads
  * them from here, so the schema below and the inputs bound by them cannot disagree about the cap.
  */
 export const ADDRESS_STRASSE_MAX_LENGTH = 120;
 export const ADDRESS_STADT_MAX_LENGTH = 80;
+// Its own constant rather than `stadt`'s, though the numbers agree: the fields are bounded by separate judgements, so
+// raising either must not silently raise the other.
+export const ADDRESS_STADTTEIL_MAX_LENGTH = 80;
+export const ADDRESS_HAUSNUMMER_MAX_LENGTH = 16;
 
 /**
  * Mirrors `FLAddressPayload` — what every write payload embeds. The ceilings are here and not on `FLAddressSchema`,
@@ -79,6 +84,18 @@ export const FLAddressPayloadSchema = FLAddressSchema.extend({
     .string()
     .nonempty({ error: "Bitte gib eine Stadt ein." })
     .max(ADDRESS_STADT_MAX_LENGTH, { error: `Die Stadt darf höchstens ${String(ADDRESS_STADT_MAX_LENGTH)} Zeichen lang sein.` }),
+  // No floor beside the ceiling: a district is the part of an address a place can genuinely lack, so the payload
+  // bounds its length alone.
+  stadtteil: z.string().max(ADDRESS_STADTTEIL_MAX_LENGTH, {
+    error: `Der Stadtteil darf höchstens ${String(ADDRESS_STADTTEIL_MAX_LENGTH)} Zeichen lang sein.`,
+  }),
+  // Restated beside the ceiling because extending replaces the field outright, and the alphabet alone bounds nothing.
+  hausnummer: z
+    .string()
+    .regex(HAUSNUMMER_REGEX, { error: HAUSNUMMER_ERROR })
+    .max(ADDRESS_HAUSNUMMER_MAX_LENGTH, {
+      error: `Die Hausnummer darf höchstens ${String(ADDRESS_HAUSNUMMER_MAX_LENGTH)} Zeichen lang sein.`,
+    }),
 });
 export type FLAddressPayload = z.infer<typeof FLAddressPayloadSchema>;
 

@@ -25,6 +25,7 @@ export function FormRegelnSection({
   onFieldLeft,
   onStufenChange,
   isFinishedSaison,
+  isDrawnSaison,
   banners,
 }: {
   rules: FLSaisonRules;
@@ -37,6 +38,12 @@ export function FormRegelnSection({
    * (`REQ-RULES-005`). The endpoint refuses a change to any of them; this stops the page offering one.
    */
   isFinishedSaison: boolean;
+  /**
+   * Whether the season's fixtures exist, which freezes the three they were drawn from
+   * (`REQ-RULES-011`). Not a later stage of the freeze above: a season is drawn long before it is
+   * over, and `qualifiers_per_group` is in both.
+   */
+  isDrawnSaison: boolean;
   banners: readonly SaisonBanner[];
 }) {
   const panel = formPanel();
@@ -50,7 +57,8 @@ export function FormRegelnSection({
             <p>Diese Werte legen fest, wie die Saison gespielt wird.</p>
             <ul>
               <li>
-                <strong>Punkte</strong> gelten rückwirkend, auch für längst gespielte Spiele.
+                <strong>Punkte</strong> gelten rückwirkend, auch für längst gespielte Spiele. In einer abgeschlossenen Saison sind sie deshalb
+                festgeschrieben.
               </li>
               <li>
                 <strong>Bei Punktgleichheit</strong> legst Du fest, welche Zahl zwei gleichauf liegende Teams zuerst trennt.
@@ -137,6 +145,7 @@ export function FormRegelnSection({
           <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
             <SaisonRuleNumberField
               name="rules.number_of_groups"
+              isReadOnly={isDrawnSaison}
               label={<FieldLabel path="rules.number_of_groups">Gruppen</FieldLabel>}
               minValue={1}
               // The closed set is A to D and this picks a prefix, so 4 is a ceiling rather than a policy.
@@ -147,6 +156,7 @@ export function FormRegelnSection({
             />
             <SaisonRuleNumberField
               name="rules.teams_per_group"
+              isReadOnly={isDrawnSaison}
               label={<FieldLabel path="rules.teams_per_group">Teams pro Gruppe</FieldLabel>}
               // Below 2 a group generates no fixture; above 16 a season-scoped read is truncated and
               // the refusals over it cannot be trusted.
@@ -156,9 +166,11 @@ export function FormRegelnSection({
               onChange={(teams_per_group) => onRulesChange({ ...rules, teams_per_group })}
               onBlur={() => onFieldLeft(["rules.teams_per_group"])}
             />
+            {/* The one field both freezes reach: the table is scored from it and the fixtures were
+                drawn from it, so either condition alone closes it. */}
             <SaisonRuleNumberField
               name="rules.qualifiers_per_group"
-              isReadOnly={isFinishedSaison}
+              isReadOnly={isFinishedSaison || isDrawnSaison}
               label={<FieldLabel path="rules.qualifiers_per_group">Qualifikanten</FieldLabel>}
               minValue={1}
               value={rules.qualifiers_per_group}
@@ -206,13 +218,31 @@ export function FormRegelnSection({
         />
 
         {/* Panel-local, not a banner: which of THESE fields are frozen is a fact about the inputs
-            directly above, and on the rail it would describe controls the reader cannot see.
-            `REQ-RULES-005` refuses the change. */}
-        {isFinishedSaison && (
-          <p className="fluid-xxs text-foreground-muted font-medium">
-            Punkte, die Reihenfolge bei Punktgleichheit und die Qualifikanten sind festgeschrieben. Gruppen, Teams pro Gruppe, Nichtantreten,
-            Kadergröße, Stufen und der Zeitraum bleiben änderbar.
-          </p>
+            directly above, and on the rail it would describe controls the reader cannot see. One
+            sentence per freeze, the two arriving on different events. */}
+        {(isFinishedSaison || isDrawnSaison) && (
+          <div className="fluid-xxs text-foreground-muted flex w-full flex-col gap-y-1 font-medium">
+            {isFinishedSaison && (
+              <p>
+                Die Saison ist abgeschlossen, deshalb sind Punkte, die Reihenfolge bei Punktgleichheit und die Qualifikanten festgeschrieben.
+              </p>
+            )}
+            {isDrawnSaison && (
+              <p>
+                Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Gruppen, Teams pro Gruppe und
+                Qualifikanten stehen damit fest. Andere Zahlen würden einen neuen Spielplan verlangen, und Spiele legt die Verwaltung nicht an.
+              </p>
+            )}
+            {/* Spelled out per case rather than listing the always-open fields: under one freeze the
+                other's fields are still editable, and leaving them out would read as closing them. */}
+            <p>
+              {isFinishedSaison && isDrawnSaison
+                ? "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
+                : isFinishedSaison
+                  ? "Gruppen, Teams pro Gruppe, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
+                  : "Punkte, die Reihenfolge bei Punktgleichheit, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."}
+            </p>
+          </div>
         )}
       </div>
     </section>

@@ -68,7 +68,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         hint: {
           lead: "Jedes Spiel, das gerade eine Eingabe braucht, sortiert nach dem, was es aufhält.",
           points: [
-            { term: "Verweise und Besetzung", detail: "ohne diese Angaben löst sich kein späteres KO-Spiel auf." },
+            { term: "Fehler und Besetzung", detail: "die dringendsten Fälle; ohne Besetzung löst sich kein späteres KO-Spiel auf." },
             { term: "Ergebnis", detail: "Tabelle und Setzung warten darauf." },
             { term: "Datum, Uhrzeit, Ort, Schiedsrichter", detail: "Pflege, die nichts weiter aufhält." },
           ],
