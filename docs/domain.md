@@ -82,11 +82,18 @@ write refuses a target it cannot resolve — and `on_target_change` and `on_targ
 riding on it. Model only the triggered actions and there is no slot for the constraint itself, which is how
 half a referential check gets written and the other half never noticed.
 
-**A `NO_ACTION` on the creating direction is a statement that nothing looks**, and the rows where that catches
-a reader out are worth dwelling on: a `saison_teams` row may name a club `teams` does not hold, and a
-`saison_spieler` row a person `spieler` does not, because in each the path parameter names that row and no
-handler reads it; `spiele.spieltag_id` is unreachable in that direction altogether, the field being on no
-payload and `/spiele` having no POST. Each row's own `note` says which case it is.
+**A `NO_ACTION` on the creating direction is a statement that nothing looks at the target**, and it covers
+situations the notes keep apart. **Nothing reads the target at all**: a `saison_teams` row may name a club
+`teams` does not hold and a `saison_spieler` row a person `spieler` does not, the path parameter naming each
+and no handler resolving it. **Nothing can create the reference**: `spiele.spieltag_id` is on no payload and
+`/spiele` has no POST. **Or something is checked and it is not the target** — a fixture's side and a squad row
+are both held to the season's `saison_teams` entrants rather than to `teams`, and since entry into that
+junction is itself unchecked the entrants are not a subset, so either can carry a `team_id` no club document
+holds.
+
+That last case is the one most easily misread as a constraint, and it is why those rows carry `NO_ACTION`
+with the check they _do_ perform named in the note. A `RESTRICT` there would say the write resolves the club,
+which nothing does.
 
 **`aktionen` appears in `REFERENCES` in neither direction, on purpose** — its `document_id` is a copy of an id
 rather than a reference anything maintains, and [Aggregates](#aggregates) carries the reading.

@@ -212,12 +212,13 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SPIELE,
         fields=("team1.team_id", "team2.team_id"),
         target=Collection.TEAMS,
-        on_reference_created=Action.RESTRICT,
+        on_reference_created=Action.NO_ACTION,
         on_target_change=Action.CASCADE,
         on_target_removed=Action.NO_ACTION,
         note=(
-            "A side may be filled only by a club holding a junction row for the fixture's season "
-            "(`REQ-ELIGIBILITY-002`), so the reference is held to the season's entrants rather than to `teams` at large. "
+            "`REQ-ELIGIBILITY-002` holds a newly fielded side to the season's `saison_teams` entrants and nothing reads "
+            "`teams`; entry into that junction is itself unchecked, so the entrants are not a subset and a side can carry "
+            "a `team_id` no club document holds. "
             "A rename fans out into every match's embedded `name` and `shorthand` "
             "(`app/api/teams/admin_router.py :: patch_team`). Retirement is soft and touches no match: "
             "the embedded copy is what a played fixture said at the time."
@@ -341,11 +342,12 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SAISON_SPIELER,
         fields=("team_id",),
         target=Collection.TEAMS,
-        on_reference_created=Action.RESTRICT,
+        on_reference_created=Action.NO_ACTION,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.NO_ACTION,
         note=(
-            "`REQ-SQUAD-001` holds the club to one entered in that season, which is narrower than one `teams` holds. "
+            "`REQ-SQUAD-001` counts a `saison_teams` row for the season and reads `teams` nowhere, so this inherits the "
+            "junction's own unchecked entry: a squad row can name a club no `teams` document holds. "
             "Nothing is embedded and nothing is refused afterwards: a squad row pointing at a retired club still "
             "resolves, and the admin list renders it rather than hiding it."
         ),
@@ -579,8 +581,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELORTE,
         "maps_link",
         Editability.COMPOSED,
-        "composed from `name` and `address` on both writes and refused from a client, so a venue cannot be searchable "
-        "for one place and bookable at another",
+        "composed from `name` and `address` on both writes and on no payload, so a submitted one is overwritten rather "
+        "than stored and a venue cannot be searchable for one place and bookable at another",
         "app.api.spielorte.admin_router._maps_link",
     ),
     FieldPolicy(
@@ -984,7 +986,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "`status: active` -- delivers at-most-one rather than exactly-one, so a league with no active "
             "season would still satisfy it, and it would make the activation's write order load-bearing: "
             "demote the incumbent first or the index refuses the promotion. It holds instead because "
-            "`activate_saison` is the only writer of `status` and does both halves in one transaction."
+            "`activate_saison` is the only path that can write `active` -- `post_saison` writes the create's "
+            "`future` and nothing else touches the field -- and it demotes and promotes in one transaction."
         ),
         near=("REQ-ACTIVATE-001",),
         proven_by="tests/core/test_unenforced.py::TestExactlyOneActiveSeason",
@@ -1005,8 +1008,9 @@ UNENFORCED: tuple[Unenforced, ...] = (
         subject="a matchday whose attached fixtures differ from the count its phase implies",
         reason=(
             "A season being set up passes through that state on the way to being complete, so refusing it "
-            "would block the setup rather than a mistake. Reachable afterwards only through a drawn season's "
-            "edges, generation constructing the count. The list shows attached over expected and tints a mismatch."
+            "would block the setup rather than a mistake -- and every fixture in this database was placed by hand, "
+            "so the state is the ordinary one rather than an edge. The list shows attached over expected and tints "
+            "a mismatch."
         ),
         near=("REQ-SPIELTAG-002", "REQ-RETIRE-005"),
         proven_by="tests/core/test_unenforced.py::TestAMatchdayOffItsImpliedCount",
@@ -1018,12 +1022,13 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "A shirt number is worn rather than assigned, and the league already fields four goalkeepers "
             "in one squad all wearing 1 -- so refusing the state would make live rows uneditable and, once "
             "one was retired, unreactivatable. Refusing it on the create and the patch while the reactivate "
-            "consulted no rule at all was the same rule answering three ways (decided 2026-08-13). The squad "
-            "editor's Hinweise warn before a save introduces one and save anyway."
+            "consulted no rule at all was the same rule answering three ways (decided 2026-08-13). The editor's rail "
+            "warns before a save introduces one and saves anyway; the warning carries no inline spot, so it is the "
+            "rail rather than the squad section that shows it."
         ),
         near=("REQ-SQUAD-001",),
         proven_by="tests/core/test_unenforced.py::TestASharedSquadNumber",
-        surfaced_by="fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormKaderSection.tsx",
+        surfaced_by="fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx",
     ),
     Unenforced(
         subject="a bracket slot the resolution filled with a team later disqualified",
@@ -1053,12 +1058,14 @@ UNENFORCED: tuple[Unenforced, ...] = (
         subject="a group phase in which every club qualifies",
         reason=(
             "A seeding-only group stage is a real format, so a floor under `qualifiers_per_group` would invent "
-            "a rule this competition does not have. `REQ-RULES-007` bounds the field from above alone. The rules "
-            "form shows the bracket the numbers imply."
+            "a rule this competition does not have. `REQ-RULES-007` bounds the field from above alone. The season's "
+            "derived `schedule` is what makes the state visible, as the phases these numbers imply -- and the rules "
+            "form itself shows only the numbers, so the admin sees the consequence on the matchday list rather than "
+            "where the rule is typed."
         ),
         near=("REQ-RULES-007",),
         proven_by="tests/core/test_unenforced.py::TestAGroupPhaseEveryClubLeaves",
-        surfaced_by="fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx",
+        surfaced_by="/admin/spieltage",
     ),
     Unenforced(
         subject="a Spieltag on which a club already stands twice",
@@ -1098,10 +1105,12 @@ UNENFORCED: tuple[Unenforced, ...] = (
         reason=(
             "`FLAktion.before` is typed `dict[str, Any] | None` on purpose: an image is what a document looked like "
             "when it was written, so validating it against today's models would make every row taken before a "
-            "migration unreadable -- which is the one thing the log exists to prevent. The page renders it as data."
+            "migration unreadable -- which is the one thing the log exists to prevent. NOTHING SHOWS THE IMAGE: "
+            "`/admin/aktionen` reports whether one was recorded and drops it before the row reaches the browser, "
+            "because carrying it would serialise a document out of any collection to render one badge. So a person "
+            "cannot see this state, and the restore that would read an image is BE-15's unbuilt half."
         ),
         near=("REQ-VAL-001",),
         proven_by="tests/core/test_unenforced.py::TestAStoredPreImageIsNeverRevalidated",
-        surfaced_by="/admin/aktionen",
     ),
 )

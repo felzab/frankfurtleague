@@ -79,7 +79,7 @@ async def find_bracket_faults(
     """Every derived fault in every season, and the fixtures they name.
 
     The season read asks one over the cap, so an archive too large for one pass is DETECTED
-    rather than served as one whose later seasons hold no faults (`docs/backend/spec.md :: I45`).
+    rather than served as one whose unread seasons hold no faults (`docs/backend/spec.md :: I45`).
     """
 
     spiele = FLSpielJoinedListAdapter.validate_python(

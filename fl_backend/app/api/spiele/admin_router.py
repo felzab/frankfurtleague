@@ -47,6 +47,7 @@ from app.core.dependencies import (
 )
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 
 router = APIRouter(
@@ -144,7 +145,18 @@ async def patch_spiel_data(
         Every refusal is raised here, so a preview can never succeed where the save is refused.
         """
 
-        season_raw = await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
+        # One over the cap, so a truncated season is DETECTED rather than judged: a dropped fixture
+        # leaves `find_wiring_refusal` reporting a live `spiel_nr` as no such match, and
+        # `judge_spieltag_occupancy` blind to a release it owes.
+        season_raw = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": saison_id},
+            limit=LIST_LIMIT_DEFAULT + 1,
+            session=session,
+        )
+        if len(season_raw) > LIST_LIMIT_DEFAULT:
+            raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can judge")
+
         season = FLSpielListAdapter.validate_python(season_raw)
 
         refuse(find_wiring_refusal(spiel_id, spiel_data, season))

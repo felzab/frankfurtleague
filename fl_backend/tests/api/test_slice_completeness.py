@@ -6,7 +6,7 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.crud import advance_bracket_winners
+from app.api.spiele.crud import advance_bracket_winners, find_bracket_faults
 from app.api.spiele.schemas import FLBracketFault, FLPatchSpielDataPayload, FLSpiel, FLSpielAdvancement, FLSpielListAdapter
 from app.api.spiele.services import find_eligibility_refusal, find_result_removal_refusal, find_wiring_refusal, judge_spieltag_occupancy
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -130,3 +130,56 @@ class TestTheBracketWriteRefusesATruncatedSeason:
         advanced, faults = run_advance(_SeasonCollection(season_of(spiel, LIST_LIMIT_DEFAULT)))
 
         assert (advanced, faults) == ([], [])
+
+
+class _ArchiveCollections:
+    """The fault sweep's two reads at once: `aggregate` answers the fixtures, `find`/`limit`/`to_list` the seasons."""
+
+    def __init__(self, saisons: list[dict[str, Any]]) -> None:
+        self.saisons = saisons
+
+    def aggregate(self, pipeline: Any, session: Any = None) -> "_ArchiveCollections":
+        return self
+
+    def find(self, filter: Any, projection: Any = None, session: Any = None) -> "_ArchiveCollections":
+        return self
+
+    def limit(self, count: int) -> "_ArchiveCollections":
+        self.saisons = self.saisons[:count]
+        return self
+
+    async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
+        # The fixture read arrives here with `length=None` and wants none; the season read is capped.
+        return [] if length is None else self.saisons[:length]
+
+
+class TestTheFaultSweepRefusesATruncatedArchive:
+    """The other read that asks one past the cap: an unread season reports no faults, which reads as a clean season."""
+
+    def test_an_archive_past_the_cap_is_refused(self):
+        seasons = [{"_id": str(2000 + index), "rules": RULES.model_dump()} for index in range(LIST_LIMIT_DEFAULT + 1)]
+        collections = _ArchiveCollections(seasons)
+
+        with pytest.raises(ValueError, match=str(LIST_LIMIT_DEFAULT)):
+            asyncio.run(
+                find_bracket_faults(
+                    spiele_collection=cast(AsyncIOMotorCollection, collections),
+                    teams_collection=cast(AsyncIOMotorCollection, collections),
+                    saisons_collection=cast(AsyncIOMotorCollection, collections),
+                )
+            )
+
+    def test_an_archive_at_the_cap_is_swept(self):
+        """The boundary the other way, so an off-by-one answers 500 for the largest readable archive rather than passing."""
+
+        seasons = [{"_id": str(2000 + index), "rules": RULES.model_dump()} for index in range(LIST_LIMIT_DEFAULT)]
+
+        faults, faulted = asyncio.run(
+            find_bracket_faults(
+                spiele_collection=cast(AsyncIOMotorCollection, _ArchiveCollections(seasons)),
+                teams_collection=cast(AsyncIOMotorCollection, _ArchiveCollections(seasons)),
+                saisons_collection=cast(AsyncIOMotorCollection, _ArchiveCollections(seasons)),
+            )
+        )
+
+        assert (faults, faulted) == ([], [])

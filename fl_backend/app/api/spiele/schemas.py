@@ -96,8 +96,8 @@ FLSpielQuelle = Annotated[FLSpielQuelleGruppe | FLSpielQuelleSpiel, Field(discri
 class FLSpielElfmeterschiessen(BaseModel):
     """The penalty shoot-out that settled a knockout fixture whose goals finished level.
 
-    No `sieger`: a second statement of the same fact could contradict the counts, and I16 puts the
-    `$expr` that would bar it out of scope (`docs/backend/spec.md :: I25`).
+    No `sieger`: a stored one could contradict the counts, and the `$expr` barring it is outside the
+    database validators' ratified scope (`docs/backend/spec.md :: I25`).
     """
 
     team1: int = Field(ge=0)

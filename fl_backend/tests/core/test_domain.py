@@ -165,10 +165,10 @@ def _reaches_code(dotted: str, code: str) -> bool:
 
 
 def _test_class_asserts_code(tested_by: str, code: str) -> bool:
-    """Whether the cited class reaches an IMPORTED name holding `code`.
+    """Whether the cited class ASSERTS on an imported name holding `code`.
 
-    A literal is refused: every code is bound to a constant, so a test asserting the string
-    carries a copy of it. Parsed rather than imported, which needs no fixtures.
+    Inside an `assert` and nowhere else, so importing the constant or naming it in a parametrize id
+    does not count. A literal is refused too: every code is bound to a constant.
     """
 
     path, _, class_name = tested_by.partition("::")
@@ -178,7 +178,8 @@ def _test_class_asserts_code(tested_by: str, code: str) -> bool:
         return False
 
     origins = _import_origins(file)
-    for referenced in _names_referenced(node):
+    asserted = {name for statement in ast.walk(node) if isinstance(statement, ast.Assert) for name in _names_referenced(statement)}
+    for referenced in asserted:
         origin = origins.get(referenced)
         if origin is not None and getattr(importlib.import_module(origin[0]), origin[1], None) == code:
             return True
