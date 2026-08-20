@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `30a8b1ef`, 2026-08-20\
+**Verified against:** `31e23ce2`, 2026-08-20\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -58,11 +58,18 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 3   | FB-16 | Nothing announces that a season rollover is due            | BE, Ops         | M      | Open     | —          |
 | 4   | FB-17 | Season setup is hand-run, and only an admin enters a squad | FE, BE, DB, Ops | XL     | Open     | —          |
 | 5   | BE-17 | Every server-ordered name list sorts in byte order         | BE, FE          | M      | Open     | —          |
-| 6   | FE-1  | A fixture carries one date, not a play window              | FE, BE          | XL     | Open     | —          |
-| 7   | LOG-2 | A cached read's call joins to no render                    | FE, BE, Ops     | L      | Open     | —          |
-| 8   | BE-12 | Nothing purges a row whose `inactive_since` is old         | BE, DB          | M      | Open     | —          |
-| 9   | BE-7  | `typing` imports instead of `collections.abc`              | BE              | —      | Standing | —          |
-| 10  | BE-14 | The certainty walk gives up in a group of six or more      | BE              | —      | Standing | —          |
+| 6   | BE-19 | Nothing says a multi-write request writes atomically       | BE, Docs        | S      | Open     | —          |
+| 7   | FE-17 | A never-clause bounds toast CSS short of the stylesheet    | FE, Docs        | S      | Open     | —          |
+| 8   | FE-21 | The editor shell's widest layout step is unrendered        | FE              | S      | Open     | —          |
+| 9   | FE-18 | A vendored stylesheet may reach nothing it declares        | FE              | S      | Open     | —          |
+| 10  | FE-19 | One failure sentence, written out at every call site       | FE              | M      | Open     | —          |
+| 11  | FE-1  | A fixture carries one date, not a play window              | FE, BE          | XL     | Open     | —          |
+| 12  | LOG-2 | A cached read's call joins to no render                    | FE, BE, Ops     | L      | Open     | —          |
+| 13  | FB-18 | Only the match editor marks a field somebody waits on      | FE, BE          | L      | Open     | —          |
+| 14  | BE-12 | Nothing purges a row whose `inactive_since` is old         | BE, DB          | M      | Open     | —          |
+| 15  | FE-20 | Search parameters default against an absent value          | FE              | S      | Open     | —          |
+| 16  | BE-7  | `typing` imports instead of `collections.abc`              | BE              | —      | Standing | —          |
+| 17  | BE-14 | The certainty walk gives up in a group of six or more      | BE              | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -413,7 +420,219 @@ person notices first, because the two are one navigation apart.
 name-ordered pipeline or facet builder added meanwhile is another place to revisit, and the two ends
 are already inconsistent enough that a reader cannot tell which one is deliberate.
 
-### 6 · FE-1 — A fixture carries one date, and a play window cannot be expressed
+### 6 · BE-19 — Nothing states that a request making more than one write makes them together
+
+**Status:** Open\
+**Surfaces:** BE, Docs\
+**Effort:** S\
+**Path:** Independent — the sweep is below and is done. What is left is where the rule is recorded,
+and whether anything holds a later endpoint to it. Backend audit pass B1's multi-document write check
+(`docs/_auditing/prompts/backend/1-consistency.md`) asks the same question of the code.
+
+**Every request in `fl_backend/app/` that makes more than one write already makes them inside a
+transaction, and no written source says it has to.** Measured 2026-08-20 by reading every call site
+of the write helpers in `fl_backend/app/core/crud.py` — `:: patch_one_in_db`, `:: patch_many_in_db`
+and `:: post_one_to_db` — together with the helpers layered over them, and every direct driver call
+under `fl_backend/app/`.
+
+**What the sweep leaves out on purpose.** The venue, referee and club patch endpoints are the change
+this branch carries, so an entry describing them would describe work already in hand. What the sweep
+asks is whether the same shape survives anywhere else: a write that lands, followed by a further
+write nothing can take back.
+
+**It does not, and each surviving multi-write path argues itself at the line.**
+
+| The path                                                        | How it writes                                                                                        |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `fl_backend/app/api/saisons/admin_router.py :: activate_saison` | A transaction, demoting whichever season holds `active` and promoting the target inside it           |
+| `fl_backend/app/api/saisons/admin_router.py :: swap_gruppen`    | `with_transaction`, judging through the session so a retry after a write conflict re-reads           |
+| `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data` | `with_transaction` around the save, the sides another fixture gives up, and the bracket's resolution |
+
+**What the sweep found instead are neighbouring shapes, and each is already answered.**
+
+- **A read that decides a write.** `fl_backend/app/api/teams/admin_router.py :: post_saison_team`
+  counts a group's occupants and then inserts, and the comment at the count accepts the race on a
+  single-admin surface. BE-18 carries that acceptance and the date on it. The soft deletes share the
+  shape — `fl_backend/app/api/spielorte/admin_router.py :: delete_spielort` reads what is still
+  booked and then stamps — and none of them writes more than once.
+- **Applying the database's own constraints.**
+  `fl_backend/app/core/constraints.py :: apply_constraints` writes a validator per collection and
+  an index per rule and raises on the first failure, which its own docstring argues for: a run
+  that stops part-way looks exactly like one that finished. It is idempotent and runs at boot, so
+  the next successful boot reapplies from the start.
+- **A restore that spans requests.** `fl_frontend/src/app/api/admin/teams/undo/route.ts` calls the
+  club patch and then the membership patch, which is the same shape across the wire, where no
+  transaction is available at all. Its answer is to name which half committed rather than to hide it,
+  and `fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest` is what carries that refusal
+  string back to the browser. A different answer to the same question, taken where the backend's is
+  out of reach.
+
+**The question this entry asks is where the rule lives, given that the code already follows it.**
+Nothing tells a session writing the next endpoint that a request making more than one write makes
+them together, and nothing reports one that does not. `fl_backend/app/core/domain.py` is the obvious
+home and is refused one: `.claude/CLAUDE.md` §7 forbids importing it from `app/`, generating it and
+enforcing it, so a line there would be a list a reader consults rather than a control. The
+alternatives are an invariant on [`docs/backend/spec.md`](../backend/spec.md), whose §2 already
+records each transactional write path separately, and a sweep of the source tree in the shape
+`fl_backend/tests/api/test_route_order.py` already uses.
+
+**Not measured:** whether such a sweep can tell a genuine multi-write handler from a helper that
+merely accepts an optional session. The enumeration above was read rather than executed, and that
+reading is what a check would have to mechanise.
+
+### 7 · FE-17 — A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more
+
+**Status:** Open\
+**Surfaces:** FE, Docs\
+**Effort:** S\
+**Path:** Independent — `.claude/CLAUDE.md` §7 forbids touching one of its lines without an
+instruction naming it, so this entry is the instruction being asked for.
+
+**`.claude/CLAUDE.md` §7 permits a toast to be styled from CSS at the shell and at the frontmost
+close button, and `fl_frontend/src/app/globals.css` styles a surface past both.** The block there
+sets `.toast` and each of its `--<variant>` modifiers, the close button under `[data-frontmost]`, and
+the timer bar — its animation, and the pause the region's hover and focus put on it.
+
+**The same rule is stated in a wider place, and the wider statement is the one that fits the code.**
+[`docs/frontend/spec.md`](../frontend/spec.md) I23 states it as a ban on adding — never a new
+`.toast*` rule in a stylesheet — which names the surface rather than counting it. §7 states it as a
+bound on what may be styled at all, and the bound it names falls short of what the stylesheet holds.
+PRE-1's ladder puts the code above the spec sheet and the spec sheet above `.claude/CLAUDE.md`, so
+the clause is the loser of both.
+
+**Which parts are genuinely in question, verified against `@heroui/styles` 3.2.4 on 2026-08-20 by
+enumerating the selectors its `toast.css` declares:**
+
+- **The variant modifiers are the shell.** HeroUI writes `toast` and its `--<variant>` modifier onto
+  one element, so a rule tinting that element's border styles the shell rather than something beside
+  it. Every modifier the stylesheet overrides is declared by that file.
+- **`toast-region` is never a rule's subject.** It occurs only as the ancestor in the selectors that
+  pause the timer, and the property lands on the timer.
+- **The timer bar is this app's own element, and its rules are what the clause does not name.**
+  `toast.css` declares no `toast__timer` selector, and
+  `fl_frontend/src/core/providers/AppToaster.tsx :: toastCard` is what puts the class on the
+  element. Its keyframes and its paused state are keyed on an ancestor's hover and focus, which a
+  utility on the element cannot express — so a stylesheet is the only route, which is the argument
+  the close button's rule already rests on.
+
+**My recommendation, for the ruling this entry asks for:** move the clause rather than the
+stylesheet. Naming the surface the way I23 does — the toast rules a stylesheet may hold are the ones
+markup cannot reach, and a new one is a breach — states the same bound without a figure that goes
+stale the next time a rule is genuinely forced into CSS.
+
+**Context rather than proposal:** `table__column` and the secondary variant's row hover are vendored
+selectors overridden in the same file, and no clause governs them. §1.11 of the frontend spec sheet
+is what governs both cases, and it already asks a stylesheet rule to name the HeroUI version it was
+written against.
+
+### 8 · FE-21 — The shared editor shell's widest layout step has never been rendered
+
+**Status:** Open\
+**Surfaces:** FE\
+**Effort:** S\
+**Path:** Independent — `fl_frontend/src/shared/components/ui/EditFormLayout.tsx` is the file, and
+every entity editor renders through it.
+
+**`fl_frontend/src/shared/components/ui/EditFormLayout.tsx :: EditFormLayout` declares a layout step
+at the `2xl` breakpoint that nothing has ever exercised.** What has been rendered is the single
+column below `xl` and the grid inside `xl`, where it resolves to `minmax(0px, 1fr) 340px` with the
+rail sticky at 24px. Past `2xl` — 96rem in the installed Tailwind 4.3.3, the theme declaring no
+breakpoint of its own — the rail becomes 380px and the gap widens, and nobody has looked at it.
+
+**Read from the source, the step moves width the wrong way.** The rail gains 40px and the gap gains
+8px, and both come out of the form column, so crossing that breakpoint narrows the fields by 48px
+while the viewport grows. Whether the wrapper is at `--container-page`'s cap or short of it does not
+change the transfer, only the widths either side of it. That arithmetic is derived from the class
+list and the token rather than measured in a browser, and confirming it is the work's first step.
+
+**The question is which way the step goes, not merely whether it is tested.** Either the wider rail
+earns the width it takes at that size and the step stays, or it is a default nobody chose and the
+shell keeps a single grid past `xl`. Both are cheap; neither is answerable without rendering it.
+
+**Where it has to be rendered, and why that is not free.** Every editor sits behind the admin
+sign-in, and the sidemenu takes its share of the viewport before the shell sees any of it, so the
+breakpoint and the space the shell actually gets are different numbers.
+[`docs/_auditing/lessons.md`](../_auditing/lessons.md) §6 records that a session cannot sign in, so
+the honest scope is a look at one editor past 96rem, in a real browser, by somebody who can.
+
+### 9 · FE-18 — A vendored stylesheet ships on every route, and nothing may render what it declares
+
+**Status:** Open\
+**Surfaces:** FE\
+**Effort:** S\
+**Path:** Independent — the header comment in `fl_frontend/src/app/globals.css` moves with it,
+because the claim it makes covers a sibling import as well.
+
+**`fl_frontend/src/app/globals.css` imports HeroUI's `disclosure-group.css`, and the class it
+declares may be rendered by nothing here.** Read against the installed `@heroui/styles` 3.2.4 on
+2026-08-20: that stylesheet declares the lone selector `disclosure-group`; the only component
+emitting that class is HeroUI's own `DisclosureGroup` root, through the base slot of
+`disclosureGroupVariants`; and no module under `fl_frontend/src` imports `DisclosureGroup`. The app's
+accordion is `AccordionRoot`, which renders react-aria's `DisclosureGroup` primitive under the
+`accordion` class from `accordionVariants`.
+
+**The proof is short of what removing an import here has to establish.** Enumerating the
+selectors and grepping both HeroUI packages are done and are above. What is not done is diffing the
+compiled stylesheet either side of the removal, which is what separates a selector nothing renders
+from one a component reaches through a path the source does not show. That step needs a build, and it
+is the whole remaining work.
+
+**The header comment moves with it, and it is wrong in a direction this entry has to settle.** The
+comment above the import list states that `disclosure` and `disclosure-group` back `Accordion`. For
+`disclosure-group` that is false. For `disclosure` it is true through `accordion__heading` alone, the
+only accordion selector `disclosure.css` declares — and `accordion.css` declares the same selector
+with the same declaration, so the accordion would render identically without it. Every other selector
+in `disclosure.css` is a `disclosure__*` name whose element the accordion's slots never emit, react-aria's
+own default class names being replaced wherever HeroUI passes one.
+
+**What it is worth is a byte figure per route rather than an argument**, and the pair is small. The
+value is that the import list and the comment above it stop asserting something the code does not do.
+§1.11 of [`docs/frontend/spec.md`](../frontend/spec.md) is the procedure both imports were added
+under, and its own instruction is to establish membership from the import graph.
+
+### 10 · FE-19 — One failure sentence is written out at every call site, behind a fallback nothing reaches
+
+**Status:** Open\
+**Surfaces:** FE\
+**Effort:** M\
+**Path:** Independent — both halves land in one change, because deleting the fallbacks removes most
+of the literal and a constant covers what is left.
+
+**The literal `"Ein unerwarteter Fehler ist aufgetreten."` occurs 21 times across 19 files under
+`fl_frontend/src` (measured 2026-08-20), and
+`fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult` already owns that
+vocabulary** — it is the module whose whole job is turning a thrown API error into the sentence a
+form renders, and the same literal is its own last branch.
+
+**Almost every copy sits behind a fallback the runtime cannot take.** Each call site spells
+`res.error ?? …` or `res.error || …`. `fl_frontend/src/shared/types/types.ts :: FormState` types
+`error` as optional, so the checker requires the fallback; whether it can ever run is a runtime
+contract rather than a type claim, and the contract holds.
+`fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation` answers a thrown error with
+`toActionErrorResult`, whose every branch sets `error`; and every failing return under
+`fl_frontend/src` carries an `error` beside it, measured 2026-08-20 by scanning each such return with
+the lines around it.
+
+**Both halves are one change, and neither is worth making alone.** A constant on its own leaves a
+sentence imported everywhere and visible nowhere. Deleting the fallbacks on its own needs the type
+narrowed — `FormState` becoming a union whose failing member requires its `error` — and that
+narrowing is what turns each remaining fallback into a compile error rather than a judgement call per
+site. The constant is then what a genuinely new failure message is written from.
+
+**What makes it more than a rename.** `fl_frontend/src/shared/components/ui/EntityForm.tsx` and
+`fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` reach the sentence through
+`res.error || res.message || …`, and their `res` comes from a caller-supplied function rather than
+from an action — so the narrowing has to reach the props those shared components declare, not the
+actions alone. The nearby sentences that read almost the same, which each action returns when an
+operation comes back unacknowledged, are a different string with a different subject; folding them in
+is a copy decision rather than a refactor.
+
+**Not decided:** whether the sentence should stay generic at all. §1.12 of
+[`docs/frontend/spec.md`](../frontend/spec.md) fixes the copy rules these messages are written to, and
+`toActionErrorResult` states its own reason for a generic message — the diagnosis is already in the
+server log, and what an admin needs is whether retrying can help.
+
+### 11 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -437,7 +656,7 @@ harder, and the intent (a fixture whose play window includes today is found by t
 and labelled `heute`) is what the range arithmetic has to preserve. Working it re-derives both
 definitions under ranges.
 
-### 7 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
+### 12 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -505,7 +724,45 @@ log-injection risk and must be validated or replaced the same way.
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
 
-### 8 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+### 13 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
+
+**Status:** Open\
+**Surfaces:** FE, BE\
+**Effort:** L\
+**Path:** Independent of every entry here. What it waits on is a product ruling per entity rather
+than a page or another item.
+
+**The Fehlt and Empfohlen markers exist on the match editor alone, and putting them on the other
+entity editors is a domain question before it is a UI one.**
+`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/ExpectedMarker.tsx :: ExpectedMarker`
+renders a marker only where a field is empty **and** a triage category is waiting on it. Those
+categories are `fl_frontend/src/features/spiele/types.ts :: ActionRequiredCategory`, each
+classifies a fixture, and `fl_frontend/src/features/admin/utils.ts :: ACTION_REQUIRED_LABELS` is
+where each is spelled out with the urgency it carries.
+
+**The frontend half is already built.**
+`fl_frontend/src/shared/components/ui/FieldLabel.tsx :: FieldLabel` takes an `extraMarker`, every
+editor's label goes through it, and §1.14 of
+[`docs/frontend/spec.md`](../frontend/spec.md) records the match editor as the one composer filling
+that slot — stating in terms that the rows behind it are a concept no other entity has.
+
+**What cannot be borrowed is the meaning.** For a club, a venue, a referee, a player, a squad row, a
+matchday and a season, somebody has to say what "the competition is waiting on this field" means, and
+whether an empty field there stops anything at all. A marker that fires on emptiness alone is a
+different feature wearing the same disc, and it would say Fehlt about a description nobody needs.
+
+**And the backend has nothing equivalent to read.**
+`fl_backend/app/api/spiele/admin_router.py :: get_spiele_action_required` is the only route answering
+"what needs attention", and its qualifying set is a fixture's. A marker on a club's editor either
+derives its answer in the browser from what that page already holds, or asks for a route per entity —
+and which of those it is decides whether this is a page change or a contract change.
+
+**What ranks it here is that it is a feature rather than a doubt.** Nothing is wrong today: the
+markers are absent rather than misleading, and every other editor already says what it needs through
+its required fields and the rail's Hinweise. Its cost is the per-entity ruling, and that cost does
+not grow while it waits.
+
+### 14 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -543,7 +800,37 @@ than rediscovered.
 `saisons` and `saison_teams` carry no such field and need none: neither has a delete at all, so
 neither can accumulate a row to purge.
 
-### 9 · BE-7 — `typing` imports instead of `collections.abc`
+### 15 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
+
+**Status:** Open\
+**Surfaces:** FE\
+**Effort:** S\
+**Path:** Independent — `.claude/CLAUDE.md` §7 protects this function's redirect and the season
+selector's fallback beside it, and names nothing about the defaulting.
+
+**`fl_frontend/src/features/saisons/resolvers.ts :: resolveSaisonId` opens by defaulting its awaited
+search parameters to an empty object, and what it awaits is not typed as optional.**
+`fl_frontend/src/shared/types/types.ts :: NextPageProps` declares `searchParams` as a `Promise` of a
+record, `fl_frontend/tsconfig.json` sets `strict`, and every call site is a page or a component a
+page hands its own props to — so no caller the checker admits can supply the value the default
+exists for.
+
+**What the default buys if it is reached at all.** Without it, an absent object throws where the next
+line reads a key. With it, the function degrades to the backend's own default season. So it trades a
+loud failure for a silent one, on a path the checker says nothing reaches.
+
+**What I could not verify (COR-9).** Whether Next.js itself ever renders a page without
+`searchParams`. The type this repository relies on is its own declaration rather than the framework's,
+and Next 16.3.0 emits its own page-props type into a build directory this session has no build for.
+The cheapest way to settle it is to read that generated type after a build, or the framework's
+reference for the page convention. The reading I chose is that the branch is unreachable; the reading
+I rejected is that the framework may omit the value on some render path, which nothing here refutes.
+
+**What ranks it here.** One token, and almost no doubt removed by taking it out — but the same token
+is what a reader has to decide about every time this function is edited, and this function is what
+every season-scoped page opens with.
+
+### 16 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -556,7 +843,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 10 · BE-14 — The certainty walk gives up in a group of six or more
+### 17 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\

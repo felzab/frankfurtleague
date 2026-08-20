@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `30a8b1ef`, 2026-08-20\
+**Verified against:** `31e23ce2`, 2026-08-20\
 **Scope:** `fl_backend/`
 
 | Section                                                                        | Answers                                                         |
@@ -449,3 +449,4 @@ and cannot suffer same-basename collisions.
 | —     | OpenAPI carries no service-level prose                 | Open — every endpoint has a `summary` and a docstring, and the app declares no `title` or `description`. The Swagger UI is also not publicly routed: nginx sends `/api` here but FastAPI's `/docs` sits at the app root, which nginx sends to Next                                                                                                                                                                        |
 | —     | A single read exists whether or not something calls it | Accepted — `GET /{id}` exists on every resource and only `/teams/{team_id}`, `/spiele/{spiel_id}` and `/spieltage/{spieltag_id}` are called. Uniform addressability is the point, and the editors addressed by id alone are what came to need it                                                                                                                                                                          |
 | BE-12 | Nothing purges a retired row                           | Open — `inactive_since` is a date so a scheduled purge can select on it, and that purge is not built. Tracked in [`docs/_roadmap/open-items.md`](../_roadmap/open-items.md)                                                                                                                                                                                                                                               |
+| BE-19 | Nothing states the multi-write transaction rule        | Open — every request under `fl_backend/app/` making more than one write already makes them inside a transaction, `fl_backend/app/api/saisons/admin_router.py :: activate_saison` being the shape they share, and no invariant or declaration says a later one must. Tracked in [`docs/_roadmap/open-items.md`](../_roadmap/open-items.md)                                                                                 |

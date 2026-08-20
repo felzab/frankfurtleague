@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `30a8b1ef`, 2026-08-20\
+**Verified against:** `31e23ce2`, 2026-08-20\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 | Section                                                | Answers                                                              |
@@ -108,12 +108,13 @@ prerendered HTML, and this application prerenders one for its routes (`cacheComp
 (`fl_frontend/eslint.config.mjs`, set to `error`), which forbids `dangerouslySetInnerHTML` — the only
 realistic path for injected markup to enter this codebase.
 
-`style-src` carries it for a narrower reason: the toast's timer bar sets its duration
-as a runtime-computed inline `style` attribute (`fl_frontend/src/core/providers/AppToaster.tsx`), and
-CSP offers no nonce or hash for a style **attribute**. Nothing else in the application sets one, and
-the prerendered HTML carries no inline `<style>` block — so the policy could be narrowed to
-`style-src 'self'` with `style-src-attr 'unsafe-inline'`, which is an nginx change rather than a
-documentation one.
+`style-src` carries it for a narrower reason: several components set a runtime-computed inline
+`style` **attribute**, for which CSP offers no nonce or hash — the toast's timer bar states its
+duration (`fl_frontend/src/core/providers/AppToaster.tsx`), `FilterPanel` states its column count
+(`fl_frontend/src/shared/components/ui/FilterPanel.tsx`), and react-aria writes a resolved position
+onto every portalled overlay. The prerendered HTML carries no inline `<style>` block, so the policy
+could still be narrowed to `style-src 'self'` with `style-src-attr 'unsafe-inline'` — an nginx change
+rather than a documentation one, and `docs/_roadmap/tooling-items.md :: OPS-66` owns it.
 
 **The rest of the policy is load-bearing and does not depend on `script-src`:** `frame-ancestors
 'none'` blocks framing, `object-src 'none'` blocks plugin content, `base-uri 'self'` blocks base-tag
