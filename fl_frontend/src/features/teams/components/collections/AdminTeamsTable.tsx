@@ -129,9 +129,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="fluid-sm text-foreground-muted font-medium">
-        {teamsQuery ? "Keine Teams für diese Suche gefunden." : "Es wurden noch keine Teams angelegt."}
-      </p>
+      <p className="muted-hint">{teamsQuery ? "Keine Teams für diese Suche gefunden." : "Es wurden noch keine Teams angelegt."}</p>
     </div>
   );
 

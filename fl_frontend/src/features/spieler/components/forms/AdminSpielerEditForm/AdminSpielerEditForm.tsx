@@ -11,6 +11,10 @@ import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus"
 import { isSquadNummerNewlyShared } from "@/features/spieler/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
+import { DraftRail } from "@/shared/components/ui/DraftRail";
+import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
+import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -21,9 +25,6 @@ import { buildSpielerBanners } from "./banners";
 import { FormAustragenSection } from "./FormAustragenSection";
 import { FormKaderSection } from "./FormKaderSection";
 import { FormPersonSection } from "./FormPersonSection";
-import { SpielerActionBar } from "./SpielerActionBar";
-import { SpielerDraftStatusProvider } from "./SpielerDraftStatusContext";
-import { SpielerRail } from "./SpielerRail";
 
 import type { FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { FLSpielerDraftFields } from "@/features/spieler/spielerDraftStatus";
@@ -383,64 +384,59 @@ export function AdminSpielerEditForm({
   };
 
   return (
-    <SpielerDraftStatusProvider status={status}>
+    <DraftStatusProvider status={status}>
       <Form
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={runOnSubmit(requestSave)}>
-        <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
-          <div className="max-w-page mx-auto flex w-full flex-col">
-            {pageHeader}
+        <EditFormLayout
+          header={pageHeader}
+          rail={
+            <DraftRail
+              banners={banners}
+              nomen="Spieler"
+            />
+          }>
+          <FormPersonSection
+            draft={personDraft}
+            onChange={setPersonDraft}
+            onFieldLeft={validatePersonFields}
+          />
 
-            <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_380px] 2xl:gap-8">
-              <div className="w-full xl:sticky xl:top-6 xl:col-start-2 xl:row-start-1 xl:self-start">
-                <SpielerRail banners={banners} />
-              </div>
+          <FormKaderSection
+            saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus, erlaubteStufen: saison.erlaubteStufen }}
+            teams={teams}
+            isMember={storedMembership !== null}
+            teamId={teamId}
+            onTeamIdChange={setTeamId}
+            nummer={nummer}
+            onNummerChange={setNummer}
+            position={position}
+            onPositionChange={setPosition}
+            stufe={stufe}
+            onStufeChange={setStufe}
+            isCaptain={isCaptain}
+            onIsCaptainChange={setIsCaptain}
+            onValidateFields={validateSaisonFields}
+            onValidateSelection={validateTeamSelection}
+            spielerId={spieler.id}
+            banners={banners}
+          />
 
-              <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:col-start-1 xl:row-start-1 xl:mx-0 xl:max-w-none">
-                <FormPersonSection
-                  draft={personDraft}
-                  onChange={setPersonDraft}
-                  onFieldLeft={validatePersonFields}
-                />
+          {/* Only where a row exists: there is nothing to take out of a squad the player is not in,
+              and the Kader panel above offers the entry instead. */}
+          {storedMembership !== null && (
+            <FormAustragenSection
+              spielerId={spieler.id}
+              saisonId={saison.saisonId}
+              rowInactiveSince={storedMembership.inactive_since}
+              banners={banners}
+            />
+          )}
+        </EditFormLayout>
 
-                <FormKaderSection
-                  saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus, erlaubteStufen: saison.erlaubteStufen }}
-                  teams={teams}
-                  isMember={storedMembership !== null}
-                  teamId={teamId}
-                  onTeamIdChange={setTeamId}
-                  nummer={nummer}
-                  onNummerChange={setNummer}
-                  position={position}
-                  onPositionChange={setPosition}
-                  stufe={stufe}
-                  onStufeChange={setStufe}
-                  isCaptain={isCaptain}
-                  onIsCaptainChange={setIsCaptain}
-                  onValidateFields={validateSaisonFields}
-                  onValidateSelection={validateTeamSelection}
-                  spielerId={spieler.id}
-                  banners={banners}
-                />
-
-                {/* Only where a row exists: there is nothing to take out of a squad the player is
-                    not in, and the Kader panel above offers the entry instead. */}
-                {storedMembership !== null && (
-                  <FormAustragenSection
-                    spielerId={spieler.id}
-                    saisonId={saison.saisonId}
-                    rowInactiveSince={storedMembership.inactive_since}
-                    banners={banners}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <SpielerActionBar
+        <FormActionBar
           isPending={isPending}
           onCancel={requestLeave}
         />
@@ -465,6 +461,6 @@ export function AdminSpielerEditForm({
           handleFormSubmit();
         }}
       />
-    </SpielerDraftStatusProvider>
+    </DraftStatusProvider>
   );
 }

@@ -3,12 +3,11 @@
 import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
 
 import { AddressFields } from "@/shared/components/ui/AddressFields";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { buildMapsSearchUrl, formatAddressFull } from "@/shared/utils/format";
-
-import { TeamFieldLabel } from "./TeamFieldLabel";
 
 import type { FLAddress } from "@/shared/schemas";
 
@@ -72,7 +71,7 @@ export function FormAdresseSection({
           value={address}
           onChange={onChange}
           onFieldLeft={onFieldLeft}
-          renderLabel={(path, text) => <TeamFieldLabel path={path}>{text}</TeamFieldLabel>}
+          renderLabel={(path, text) => <FieldLabel path={path}>{text}</FieldLabel>}
         />
       </div>
     </section>

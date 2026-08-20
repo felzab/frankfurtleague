@@ -82,7 +82,7 @@ export function FormAustragenSection({
           </>
         ) : (
           <>
-            <p className="fluid-sm text-foreground-muted font-medium">
+            <p className="muted-hint">
               Der Spieler verschwindet aus dem Kader der Saison {saisonId}. Sein Eintrag bleibt gespeichert und kann jederzeit reaktiviert
               werden.
             </p>

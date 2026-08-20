@@ -63,6 +63,18 @@ export const FIELD_ERROR = "fluid-xxs text-danger mt-1 font-bold";
 export const FORM_SECTION_HEADING = "fluid-xxs text-foreground-muted font-bold tracking-widest uppercase";
 
 /**
+ * The one two-up field grid, which a section may half-fill. Spelled per panel, the gap and the breakpoint drift,
+ * and a pair a step wider than its neighbour shows only with both panels on screen.
+ */
+export const FIELD_PAIR = "grid w-full grid-cols-1 gap-4 sm:grid-cols-2";
+
+/**
+ * The one marker disc. Two can share a label row — the match editor's Fehlt/Empfohlen beside Geändert — and a
+ * disc that measured differently from its neighbour read as a second idea rather than the same one.
+ */
+export const FIELD_MARKER = "inline-flex size-5 shrink-0 items-center justify-center rounded-full";
+
+/**
  * `rounded-xl` must match `overlayPanel`'s corner: HeroUI makes `.date-picker__popover` a clipping box, so a larger
  * arc here clips away the calendar's own border. `p-0` because that calendar is already a bordered panel.
  */

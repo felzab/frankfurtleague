@@ -2,12 +2,11 @@
 
 import { FieldError, NumberField } from "@heroui/react";
 
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-
-import { SchiedsrichterFieldLabel } from "./SchiedsrichterFieldLabel";
 
 import type { SchiedsrichterBanner } from "./banners";
 
@@ -66,7 +65,7 @@ export function FormHonorarSection({
           }}
           formatOptions={{ style: "currency", currency: "EUR" }}
           className="w-full sm:max-w-xs">
-          <SchiedsrichterFieldLabel path="default_payment">Standard-Honorar</SchiedsrichterFieldLabel>
+          <FieldLabel path="default_payment">Standard-Honorar</FieldLabel>
           <NumberField.Group className={FIELD_GROUP}>
             <NumberField.DecrementButton />
             <NumberField.Input className={FIELD_COUNT_INPUT} />

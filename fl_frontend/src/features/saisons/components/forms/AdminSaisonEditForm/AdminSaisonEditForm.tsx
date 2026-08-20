@@ -12,6 +12,10 @@ import { deriveSaisonDraftStatus } from "@/features/saisons/saisonDraftStatus";
 import { FLPatchSaisonPayloadSchema } from "@/features/saisons/schemas";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
+import { DraftRail } from "@/shared/components/ui/DraftRail";
+import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
+import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -23,9 +27,6 @@ import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
 import { FormRolloverSection } from "./FormRolloverSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
-import { SaisonActionBar } from "./SaisonActionBar";
-import { SaisonDraftStatusProvider } from "./SaisonDraftStatusContext";
-import { SaisonRail } from "./SaisonRail";
 
 import type { FLPatchSaisonPayload, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type { SaisonDraftFields, SaisonGruppenSwapContext, SaisonRolloverContext } from "@/features/saisons/types";
@@ -309,67 +310,63 @@ export function AdminSaisonEditForm({
   };
 
   return (
-    <SaisonDraftStatusProvider status={status}>
+    <DraftStatusProvider status={status}>
       <Form
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={runOnSubmit(requestSave)}>
-        <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
-          <div className="max-w-page mx-auto flex w-full flex-col">
-            {pageHeader}
+        <EditFormLayout
+          header={pageHeader}
+          rail={
+            <DraftRail
+              banners={banners}
+              nomen="Saison"
+            />
+          }>
+          <FormZeitraumSection
+            startDate={startDate}
+            onStartDateChange={setStartDate}
+            endDate={endDate}
+            onEndDateChange={setEndDate}
+            onFieldLeft={validateFields}
+            spieltagBound={spieltagBound}
+            banners={banners}
+          />
 
-            <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_380px] 2xl:gap-8">
-              <div className="w-full xl:sticky xl:top-6 xl:col-start-2 xl:row-start-1 xl:self-start">
-                <SaisonRail banners={banners} />
-              </div>
+          <FormRegelnSection
+            rules={rules}
+            onRulesChange={setRules}
+            onFieldLeft={validateFields}
+            onStufenChange={(next) => {
+              setRules({ ...rules, erlaubte_stufen: next });
+              validateStufen(next);
+            }}
+            isFinishedSaison={saison.status === "past"}
+            banners={banners}
+          />
 
-              <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:col-start-1 xl:row-start-1 xl:mx-0 xl:max-w-none">
-                <FormZeitraumSection
-                  startDate={startDate}
-                  onStartDateChange={setStartDate}
-                  endDate={endDate}
-                  onEndDateChange={setEndDate}
-                  onFieldLeft={validateFields}
-                  spieltagBound={spieltagBound}
-                  banners={banners}
-                />
+          {/* Above the rollover, and below the two field panels: a control rather than a field,
+              but the one control on this page that a later run of itself undoes. */}
+          <FormGruppenSwapSection
+            saisonId={saison.id}
+            swap={swap}
+            isFinishedSaison={saison.status === "past"}
+          />
 
-                <FormRegelnSection
-                  rules={rules}
-                  onRulesChange={setRules}
-                  onFieldLeft={validateFields}
-                  onStufenChange={(next) => {
-                    setRules({ ...rules, erlaubte_stufen: next });
-                    validateStufen(next);
-                  }}
-                  isFinishedSaison={saison.status === "past"}
-                  banners={banners}
-                />
+          {/* Last on the page, the position the club editor's Disqualifikation panel holds: the one
+              control here that no later edit reverses on its own. It writes on press, so it never
+              joins the save bar — one row cannot hold two promises about when. */}
+          <FormRolloverSection
+            saisonId={saison.id}
+            saisonStatus={saison.status}
+            rollover={rollover}
+            onBeforeActivate={guardRolloverAgainstDraft}
+            banners={banners}
+          />
+        </EditFormLayout>
 
-                {/* Above the rollover, and below the two field panels: a control rather than a field,
-                    but the one control on this page that a later run of itself undoes. */}
-                <FormGruppenSwapSection
-                  saisonId={saison.id}
-                  swap={swap}
-                  isFinishedSaison={saison.status === "past"}
-                />
-
-                {/* Last on the page, the position the club editor's Disqualifikation panel holds: the
-                    one control here that does something no later edit reverses on its own. */}
-                <FormRolloverSection
-                  saisonId={saison.id}
-                  saisonStatus={saison.status}
-                  rollover={rollover}
-                  onBeforeActivate={guardRolloverAgainstDraft}
-                  banners={banners}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <SaisonActionBar
+        <FormActionBar
           isPending={isPending}
           onCancel={requestLeave}
         />
@@ -394,6 +391,6 @@ export function AdminSaisonEditForm({
           handleFormSubmit();
         }}
       />
-    </SaisonDraftStatusProvider>
+    </DraftStatusProvider>
   );
 }

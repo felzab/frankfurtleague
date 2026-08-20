@@ -2,7 +2,7 @@ import { deriveDraftStatus } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLAddress } from "@/shared/schemas";
-import type { FLDraftStatus, FLFieldDescriptor, FLFieldStatus } from "@/shared/utils/draftStatus";
+import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLDisqualifikation, FLGruppenNames } from "./schemas";
 
@@ -24,8 +24,6 @@ export type FLTeamDraftFields = {
 };
 
 export type FLTeamFieldGroup = "Team" | "Adresse" | "Saison";
-
-export type FLTeamFieldStatus = FLFieldStatus<FLTeamFieldGroup>;
 
 export type FLTeamDraftStatus = FLDraftStatus<FLTeamFieldGroup>;
 

@@ -2,12 +2,11 @@
 
 import { SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
+import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-
-import { SaisonFieldLabel } from "./SaisonFieldLabel";
 
 import type { FLSaisonRules } from "@/features/saisons/schemas";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
@@ -68,11 +67,11 @@ export function FormRegelnSection({
       <div className={panel.body()}>
         <div className="flex w-full flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING}>Punkte</h3>
-          <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className={FIELD_PAIR}>
             <SaisonRuleNumberField
               name="rules.win_points"
               isReadOnly={isFinishedSaison}
-              label={<SaisonFieldLabel path="rules.win_points">Sieg</SaisonFieldLabel>}
+              label={<FieldLabel path="rules.win_points">Sieg</FieldLabel>}
               minValue={1}
               value={rules.win_points}
               onChange={(win_points) => onRulesChange({ ...rules, win_points })}
@@ -81,7 +80,7 @@ export function FormRegelnSection({
             <SaisonRuleNumberField
               name="rules.draw_points"
               isReadOnly={isFinishedSaison}
-              label={<SaisonFieldLabel path="rules.draw_points">Unentschieden</SaisonFieldLabel>}
+              label={<FieldLabel path="rules.draw_points">Unentschieden</FieldLabel>}
               minValue={0}
               value={rules.draw_points}
               onChange={(draw_points) => onRulesChange({ ...rules, draw_points })}
@@ -95,7 +94,7 @@ export function FormRegelnSection({
           <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
             <SaisonRuleNumberField
               name="rules.number_of_groups"
-              label={<SaisonFieldLabel path="rules.number_of_groups">Gruppen</SaisonFieldLabel>}
+              label={<FieldLabel path="rules.number_of_groups">Gruppen</FieldLabel>}
               minValue={1}
               // The closed set is A to D and this picks a prefix, so 4 is a ceiling rather than a policy.
               maxValue={4}
@@ -105,7 +104,7 @@ export function FormRegelnSection({
             />
             <SaisonRuleNumberField
               name="rules.teams_per_group"
-              label={<SaisonFieldLabel path="rules.teams_per_group">Teams pro Gruppe</SaisonFieldLabel>}
+              label={<FieldLabel path="rules.teams_per_group">Teams pro Gruppe</FieldLabel>}
               minValue={1}
               value={rules.teams_per_group}
               onChange={(teams_per_group) => onRulesChange({ ...rules, teams_per_group })}
@@ -114,7 +113,7 @@ export function FormRegelnSection({
             <SaisonRuleNumberField
               name="rules.qualifiers_per_group"
               isReadOnly={isFinishedSaison}
-              label={<SaisonFieldLabel path="rules.qualifiers_per_group">Qualifikanten</SaisonFieldLabel>}
+              label={<FieldLabel path="rules.qualifiers_per_group">Qualifikanten</FieldLabel>}
               minValue={1}
               value={rules.qualifiers_per_group}
               onChange={(qualifiers_per_group) => onRulesChange({ ...rules, qualifiers_per_group })}
@@ -133,7 +132,7 @@ export function FormRegelnSection({
 
         <div className="flex w-full flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING}>Erlaubte Stufen</h3>
-          <SaisonFieldLabel path="rules.erlaubte_stufen">Welche Stufen diese Saison spielen</SaisonFieldLabel>
+          <FieldLabel path="rules.erlaubte_stufen">Welche Stufen diese Saison spielen</FieldLabel>
           <StufenPicker
             name="rules.erlaubte_stufen"
             value={rules.erlaubte_stufen}

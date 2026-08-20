@@ -79,7 +79,7 @@ export function FormStilllegenSection({
           </Button>
         ) : (
           <>
-            <p className="fluid-sm text-foreground-muted font-medium">
+            <p className="muted-hint">
               Der Spieltag verschwindet vom öffentlichen Spielplan. Seine Spiele bleiben gespeichert und kehren beim Reaktivieren zurück.
             </p>
             {/* The danger button's own shape, so it does not read as the page's primary action —

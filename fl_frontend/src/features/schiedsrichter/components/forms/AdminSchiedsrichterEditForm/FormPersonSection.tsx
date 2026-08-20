@@ -2,11 +2,10 @@
 
 import { FieldError, Input, TextField } from "@heroui/react";
 
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
-
-import { SchiedsrichterFieldLabel } from "./SchiedsrichterFieldLabel";
 
 /**
  * The name fans out and the school does not: the patch rewrites the embedded `schiedsrichter.name`
@@ -46,14 +45,14 @@ export function FormPersonSection({
       </div>
 
       <div className={panel.body()}>
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className={FIELD_PAIR}>
           <TextField
             isRequired
             name="name"
             value={name}
             onChange={onNameChange}
             onBlur={() => onFieldLeft(["name"])}>
-            <SchiedsrichterFieldLabel path="name">Name</SchiedsrichterFieldLabel>
+            <FieldLabel path="name">Name</FieldLabel>
             <Input
               placeholder="z.B. Pierluigi Collina"
               className={FIELD_INPUT}
@@ -67,7 +66,7 @@ export function FormPersonSection({
             // Emptied means absent, not an empty school — the boundary where `""` becomes `null`.
             onChange={(next) => onSchuleChange(next.trim() === "" ? null : next)}
             onBlur={() => onFieldLeft(["schule"])}>
-            <SchiedsrichterFieldLabel path="schule">Schule / Verein</SchiedsrichterFieldLabel>
+            <FieldLabel path="schule">Schule / Verein</FieldLabel>
             <Input
               placeholder="z.B. Goethe-Gymnasium"
               className={FIELD_INPUT}

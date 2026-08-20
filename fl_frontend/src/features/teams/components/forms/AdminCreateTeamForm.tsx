@@ -6,7 +6,7 @@ import { postTeamAction } from "@/features/teams/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TeamFormFields } from "@/features/teams/components/forms/TeamFormFields";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { TeamCreateDraft, TeamCreateSaisonOption } from "@/features/teams/types";
@@ -49,7 +49,7 @@ export function AdminCreateTeamForm({
               onChange={setDraft}
             />
 
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className={FIELD_PAIR}>
               <Select
                 name="saison_id"
                 aria-label="Saison"

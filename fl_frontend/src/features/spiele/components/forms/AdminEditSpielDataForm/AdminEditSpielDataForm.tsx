@@ -9,6 +9,9 @@ import { Form } from "@heroui/react";
 
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
+import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
+import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -22,14 +25,13 @@ import { applyDraftToSpiel, deriveSpielDraftStatus, isLevelKnockout } from "../.
 import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { buildUndoPayloads, collectKnockoutTeamIds, collectSpieltagTeamOccupancy, listDependentSpiele, toStoredSide } from "../../../utils";
 import { buildSpielBanners } from "./banners";
-import { DraftRail } from "./DraftRail";
-import { DraftStatusProvider } from "./DraftStatusContext";
-import { FormActionBar } from "./FormActionBar";
 import { FormAnsetzungSection } from "./FormAnsetzungSection";
 import { FormCancelSection } from "./FormCancelSection";
 import { FormErgebnisSection } from "./FormErgebnisSection";
 import { FormMatchupSection } from "./FormMatchupSection";
 import { FormNotizSection } from "./FormNotizSection";
+import { SpielExpectedProvider } from "./SpielExpectedContext";
+import { SpielRail } from "./SpielRail";
 import { useVoidPreview } from "./useVoidPreview";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
@@ -508,98 +510,89 @@ export function AdminEditSpielDataForm({
 
   return (
     <DraftStatusProvider status={status}>
-      {/* The inner container scrolls; the action bar is its STATIC sibling outside that content,
-          where overscroll bounce and the mobile URL bar cannot move it. */}
-      <Form
-        ref={formRef}
-        validationErrors={fieldErrors}
-        className="flex min-h-0 w-full flex-1 flex-col"
-        onSubmit={runOnSubmit(requestSave)}>
-        <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
-          <div className="max-w-page mx-auto flex w-full flex-col">
-            {pageHeader}
+      {/* Only around the form: the markers and the open-items card are its readers, and neither
+          dialog below asks what the fixture is still waiting on. */}
+      <SpielExpectedProvider expected={status.expected}>
+        <Form
+          ref={formRef}
+          validationErrors={fieldErrors}
+          className="flex min-h-0 w-full flex-1 flex-col"
+          onSubmit={runOnSubmit(requestSave)}>
+          <EditFormLayout
+            header={pageHeader}
+            rail={
+              <SpielRail
+                previewSpiel={previewSpiel}
+                today={today}
+                banners={banners}
+              />
+            }>
+            <FormAnsetzungSection
+              datum={datum}
+              onDatumChange={setDatum}
+              uhrzeit={uhrzeit}
+              onUhrzeitChange={setUhrzeit}
+              spielorte={spielorte}
+              ortPayload={ortPayload}
+              onOrtChange={setOrtPayload}
+              schiedsrichter={schiedsrichter}
+              schiedsrichterPayload={schiedsrichterPayload}
+              onSchiedsrichterChange={setSchiedsrichterPayload}
+              onValidateFields={validateFields}
+            />
 
-            {/* Splits at `xl`, not `lg`: the admin sidemenu leaves too little beside the rail. */}
-            <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_380px] 2xl:gap-8">
-              {/* Explicit grid placement, not `order-*`: DOM order is the mobile reading order, and
-              on a phone the rail's warnings belong above the fields rather than below four panels. */}
-              <div className="w-full xl:sticky xl:top-6 xl:col-start-2 xl:row-start-1 xl:self-start">
-                <DraftRail
-                  previewSpiel={previewSpiel}
-                  today={today}
-                  banners={banners}
-                />
-              </div>
+            <FormMatchupSection
+              spielData={spielData}
+              saisonSpiele={saisonSpiele}
+              teams={teams}
+              knockoutTeamIds={knockoutTeamIds}
+              spieltagOccupancy={spieltagOccupancy}
+              team1Payload={team1Payload}
+              onTeam1Change={setTeam1Payload}
+              team2Payload={team2Payload}
+              onTeam2Change={setTeam2Payload}
+              team1Quelle={team1Quelle}
+              onTeam1QuelleChange={setTeam1Quelle}
+              team2Quelle={team2Quelle}
+              onTeam2QuelleChange={setTeam2Quelle}
+              onValidateSelection={validateSelection}
+              banners={banners}
+            />
 
-              <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:col-start-1 xl:row-start-1 xl:mx-0 xl:max-w-none">
-                <FormAnsetzungSection
-                  datum={datum}
-                  onDatumChange={setDatum}
-                  uhrzeit={uhrzeit}
-                  onUhrzeitChange={setUhrzeit}
-                  spielorte={spielorte}
-                  ortPayload={ortPayload}
-                  onOrtChange={setOrtPayload}
-                  schiedsrichter={schiedsrichter}
-                  schiedsrichterPayload={schiedsrichterPayload}
-                  onSchiedsrichterChange={setSchiedsrichterPayload}
-                  onValidateFields={validateFields}
-                />
+            <FormErgebnisSection
+              spielData={spielData}
+              team1Payload={team1Payload}
+              onTeam1Change={setTeam1Payload}
+              team2Payload={team2Payload}
+              onTeam2Change={setTeam2Payload}
+              team1Quelle={team1Quelle}
+              team2Quelle={team2Quelle}
+              elfmeterschiessen={elfmeterschiessenInDraft}
+              onElfmeterschiessenChange={setElfmeterschiessen}
+              ergebnisCanBeEdited={ergebnisCanBeEdited}
+              onErgebnisCanBeEditedChange={setErgebnisCanBeEdited}
+              onValidateFields={validateFields}
+            />
 
-                <FormMatchupSection
-                  spielData={spielData}
-                  saisonSpiele={saisonSpiele}
-                  teams={teams}
-                  knockoutTeamIds={knockoutTeamIds}
-                  spieltagOccupancy={spieltagOccupancy}
-                  team1Payload={team1Payload}
-                  onTeam1Change={setTeam1Payload}
-                  team2Payload={team2Payload}
-                  onTeam2Change={setTeam2Payload}
-                  team1Quelle={team1Quelle}
-                  onTeam1QuelleChange={setTeam1Quelle}
-                  team2Quelle={team2Quelle}
-                  onTeam2QuelleChange={setTeam2Quelle}
-                  onValidateSelection={validateSelection}
-                  banners={banners}
-                />
+            <FormNotizSection
+              notiz={notiz}
+              onNotizChange={setNotiz}
+              onValidateFields={validateFields}
+            />
 
-                <FormErgebnisSection
-                  spielData={spielData}
-                  team1Payload={team1Payload}
-                  onTeam1Change={setTeam1Payload}
-                  team2Payload={team2Payload}
-                  onTeam2Change={setTeam2Payload}
-                  team1Quelle={team1Quelle}
-                  team2Quelle={team2Quelle}
-                  elfmeterschiessen={elfmeterschiessenInDraft}
-                  onElfmeterschiessenChange={setElfmeterschiessen}
-                  ergebnisCanBeEdited={ergebnisCanBeEdited}
-                  onErgebnisCanBeEditedChange={setErgebnisCanBeEdited}
-                  onValidateFields={validateFields}
-                />
+            <FormCancelSection
+              spielIsCanceled={spielIsCanceled}
+              onSpielIsCanceledChange={setSpielIsCanceled}
+              banners={banners}
+            />
+          </EditFormLayout>
 
-                <FormNotizSection
-                  notiz={notiz}
-                  onNotizChange={setNotiz}
-                  onValidateFields={validateFields}
-                />
-
-                <FormCancelSection
-                  spielIsCanceled={spielIsCanceled}
-                  onSpielIsCanceledChange={setSpielIsCanceled}
-                  banners={banners}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <FormActionBar
-          isPending={isPending}
-          onCancel={requestLeave}
-        />
-      </Form>
+          <FormActionBar
+            isPending={isPending}
+            onCancel={requestLeave}
+          />
+        </Form>
+      </SpielExpectedProvider>
 
       {/* Unmounted rather than closed once a discard has left: closing animates, and `router.back()`
           in the same tick freezes that exit on a tree the App Router keeps. */}

@@ -10,6 +10,10 @@ import { FLPatchSpielortPayloadSchema } from "@/features/spielorte/schemas";
 import { deriveSpielortDraftStatus } from "@/features/spielorte/spielortDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
+import { DraftRail } from "@/shared/components/ui/DraftRail";
+import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
+import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -20,9 +24,6 @@ import { buildSpielortBanners } from "./banners";
 import { FormAdresseSection } from "./FormAdresseSection";
 import { FormMieteSection } from "./FormMieteSection";
 import { FormSpielortSection } from "./FormSpielortSection";
-import { SpielortActionBar } from "./SpielortActionBar";
-import { SpielortDraftStatusProvider } from "./SpielortDraftStatusContext";
-import { SpielortRail } from "./SpielortRail";
 
 import type { FLPatchSpielortPayload } from "@/features/spielorte/schemas";
 import type { FLSpielortDraftFields } from "@/features/spielorte/spielortDraftStatus";
@@ -280,47 +281,42 @@ export function AdminSpielortEditForm({
   };
 
   return (
-    <SpielortDraftStatusProvider status={status}>
+    <DraftStatusProvider status={status}>
       <Form
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={runOnSubmit(requestSave)}>
-        <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
-          <div className="max-w-page mx-auto flex w-full flex-col">
-            {pageHeader}
+        <EditFormLayout
+          header={pageHeader}
+          rail={
+            <DraftRail
+              banners={banners}
+              nomen="Spielort"
+            />
+          }>
+          <FormSpielortSection
+            name={name}
+            onNameChange={setName}
+            onFieldLeft={validateFields}
+          />
 
-            <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_380px] 2xl:gap-8">
-              <div className="w-full xl:sticky xl:top-6 xl:col-start-2 xl:row-start-1 xl:self-start">
-                <SpielortRail banners={banners} />
-              </div>
+          <FormAdresseSection
+            address={address}
+            onChange={setAddress}
+            onFieldLeft={validateFields}
+            banners={banners}
+          />
 
-              <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:col-start-1 xl:row-start-1 xl:mx-0 xl:max-w-none">
-                <FormSpielortSection
-                  name={name}
-                  onNameChange={setName}
-                  onFieldLeft={validateFields}
-                />
+          <FormMieteSection
+            defaultMietpreis={defaultMietpreis}
+            onChange={setDefaultMietpreis}
+            onFieldChanged={validatePicked}
+            banners={banners}
+          />
+        </EditFormLayout>
 
-                <FormAdresseSection
-                  address={address}
-                  onChange={setAddress}
-                  onFieldLeft={validateFields}
-                  banners={banners}
-                />
-
-                <FormMieteSection
-                  defaultMietpreis={defaultMietpreis}
-                  onChange={setDefaultMietpreis}
-                  onFieldChanged={validatePicked}
-                  banners={banners}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <SpielortActionBar
+        <FormActionBar
           isPending={isPending}
           onCancel={requestLeave}
         />
@@ -345,6 +341,6 @@ export function AdminSpielortEditForm({
           handleFormSubmit();
         }}
       />
-    </SpielortDraftStatusProvider>
+    </DraftStatusProvider>
   );
 }

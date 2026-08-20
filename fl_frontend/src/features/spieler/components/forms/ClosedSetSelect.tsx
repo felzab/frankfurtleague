@@ -32,7 +32,7 @@ export function ClosedSetSelect<TValue extends string>({
   placeholder: string;
   /** The message for a caller without a `<Form>` context — the same split as `GruppeSelect`. */
   error?: string;
-  /** Off for the caller whose label is a marker-carrying `SpielerFieldLabel` rendered outside. */
+  /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
 }) {
   // A sentinel rather than `""`: HeroUI reads `""` as "no selection", so clearing would silently do

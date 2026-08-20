@@ -115,7 +115,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                 <Table.Body
                   renderEmptyState={() => (
                     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                      <p className="fluid-sm text-foreground-muted font-medium">Für diese Gruppe sind noch keine Teams eingeteilt.</p>
+                      <p className="muted-hint">Für diese Gruppe sind noch keine Teams eingeteilt.</p>
                     </div>
                   )}>
                   {teamsData.map((teamData) => (
@@ -177,9 +177,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         <span className="text-danger-strong font-semibold">{teamData.statistik.niederlagen}</span>
                       </Table.Cell>
 
-                      <Table.Cell className="fluid-xs text-foreground-muted px-1 py-4 text-center font-medium lg:px-2">
-                        {teamData.statistik.tore_geschossen}
-                      </Table.Cell>
+                      <Table.Cell className="muted-meta px-1 py-4 text-center lg:px-2">{teamData.statistik.tore_geschossen}</Table.Cell>
 
                       <Table.Cell className="fluid-xs px-1 py-4 text-center font-bold lg:px-2">
                         {teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert > 0 ? (

@@ -2,12 +2,11 @@
 
 import { FieldError, Input, TextField } from "@heroui/react";
 
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-
-import { SchiedsrichterFieldLabel } from "./SchiedsrichterFieldLabel";
 
 import type { FLKontakt } from "@/shared/schemas";
 import type { SchiedsrichterBanner } from "./banners";
@@ -55,14 +54,14 @@ export function FormKontaktSection({
           spot="kontakt"
         />
 
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className={FIELD_PAIR}>
           <TextField
             type="email"
             name="kontakt.email"
             value={kontakt.email ?? ""}
             onChange={(next) => onChange({ ...kontakt, email: emptyAsNull(next) })}
             onBlur={() => onFieldLeft(["kontakt.email"])}>
-            <SchiedsrichterFieldLabel path="kontakt.email">E-Mail</SchiedsrichterFieldLabel>
+            <FieldLabel path="kontakt.email">E-Mail</FieldLabel>
             <Input
               placeholder="z.B. ref@beispiel.de"
               className={FIELD_INPUT}
@@ -76,7 +75,7 @@ export function FormKontaktSection({
             value={kontakt.telefon ?? ""}
             onChange={(next) => onChange({ ...kontakt, telefon: emptyAsNull(next) })}
             onBlur={() => onFieldLeft(["kontakt.telefon"])}>
-            <SchiedsrichterFieldLabel path="kontakt.telefon">Telefon</SchiedsrichterFieldLabel>
+            <FieldLabel path="kontakt.telefon">Telefon</FieldLabel>
             <Input
               placeholder="z.B. 0151 12345678"
               className={FIELD_INPUT}

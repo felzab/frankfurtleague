@@ -1,23 +1,32 @@
 "use client";
 
+import { useId } from "react";
+
 import { Button } from "@heroui/react";
 
 import { DisabledHint } from "@/shared/components/ui/DisabledHint";
+import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";
 import { formButton } from "@/shared/components/ui/formButtons";
 
-import { useTeamDraftStatus } from "./TeamDraftStatusContext";
-
-const SAVE_HINT_ID = "team-speichern-hinweis";
-
-/** The match editor's action bar over the club editor's status context; `FormActionBar` carries the reasoning. */
-export function TeamActionBar({ isPending, onCancel }: { isPending: boolean; onCancel: () => void }) {
-  const status = useTeamDraftStatus();
+/**
+ * **Never disabled on a client verdict** (it can be stale), but disabled while nothing has changed:
+ * an empty save rewrites the record and re-runs everything the write triggers.
+ */
+export function FormActionBar({ isPending, onCancel }: { isPending: boolean; onCancel: () => void }) {
+  const status = useDraftStatus();
+  // Generated rather than a constant: "one editor per page" held per editor and is not something a
+  // bar shared by seven of them can promise.
+  const saveHintId = useId();
 
   return (
+    // Static, never sticky: a sticky bar sits inside the scroll content, where page-end padding,
+    // overscroll bounce and the mobile URL bar each moved it.
     <div className="border-border bg-background w-full border-t px-4 py-3 sm:px-8">
       <div className="max-w-page mx-auto flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+        {/* At the leading edge, where the eye enters the row. The disabled Speichern
+            reaches it through `aria-describedby` rather than through proximity. */}
         <p
-          id={SAVE_HINT_ID}
+          id={saveHintId}
           role="status"
           aria-live="polite"
           className="fluid-xs font-bold sm:mr-auto">
@@ -45,13 +54,18 @@ export function TeamActionBar({ isPending, onCancel }: { isPending: boolean; onC
             className={`${formButton({ intent: "cancel" })} flex-1 sm:flex-initial`}>
             Abbrechen
           </Button>
+          {/* Strg+S submits too, and the form gates that path on the SAME `status.isDirty` — a
+              shortcut that saved a clean draft while the button beside it was disabled would be two
+              answers to one question. */}
+          {/* The hint answers the standing block only. `isPending` ends by itself and the label
+              already says "Speichert...", so explaining it would describe a state nobody waits on. */}
           <DisabledHint
             reason={isPending || status.isDirty ? null : "Es gibt noch keine Änderung zu speichern. Ändere zuerst etwas im Formular."}
             className="flex-1 sm:flex-initial">
             <Button
               type="submit"
               variant="primary"
-              aria-describedby={!isPending && !status.isDirty ? SAVE_HINT_ID : undefined}
+              aria-describedby={!isPending && !status.isDirty ? saveHintId : undefined}
               isDisabled={isPending || !status.isDirty}
               className={`${formButton({ intent: "submit" })} w-full`}>
               {isPending ? "Speichert..." : "Speichern"}

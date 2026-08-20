@@ -18,6 +18,7 @@
 | [1.11 Adding a HeroUI component](#111-adding-a-heroui-component)                                      | What a new component needs beyond its TSX import       |
 | [1.12 The copy rules](#112-the-copy-rules)                                                            | How the site addresses its reader, and where           |
 | [1.13 Metadata and indexing](#113-metadata-and-indexing)                                              | What each route sets, and what an unset value claims   |
+| [1.14 The shared editor surface](#114-the-shared-editor-surface)                                      | What every entity editor shares, and what a slice owns |
 | [2. Invariants](#2-invariants)                                                                        | The rules that must hold                               |
 | [3. Violation → remedy](#3-violation--remedy)                                                         | A symptom, its cause, and what to do about it          |
 | [4. Known-open](#4-known-open)                                                                        | The accepted gaps                                      |
@@ -313,15 +314,19 @@ driving them — a grid, a vertical timeline, and a horizontal playoff bracket. 
 collapses them without producing a three-mode component, which is harder to read and change than three
 single-mode ones. **Do not merge them.**
 
-Their genuinely shared code is already extracted:
-`fl_frontend/src/features/spiele/utils.ts :: formatSpielDisplay` returns the
-four presentation values all of them need. That extraction was itself a bug fix — an unplayed match
-rendered `"- : -"` in one card and `"-:-"` in the other two, on the same screen.
+Their genuinely shared code is extracted rather than copied.
+`fl_frontend/src/features/spiele/utils.ts :: formatSpielDisplay` derives the four presentation values
+all of them need, and two atoms render them:
+`fl_frontend/src/features/spiele/components/ui/SpielScore.tsx :: SpielScore` takes the score and the
+shoot-out, and `fl_frontend/src/features/spiele/components/ui/SpielTeamSlot.tsx :: SpielTeamSlot` takes
+a side and the text to show for it — the full name on the two wide cards, the shorthand on the bracket.
+Beyond that text each card passes only its own wrapper classes. The first extraction was itself a bug
+fix — an unplayed match rendered `"- : -"` in one card and `"-:-"` in the other two, on the same screen.
 
-The fourth is a knockout's shoot-out, which **every card renders on its own line under the score and
-never inside it**: the fixture
-finished level, the Saisontabelle counts it as a draw, and a card showing `4:3` where `2:2` belongs
-would contradict the table about the same match.
+The fourth value is a knockout's shoot-out, which **every surface renders on its own line under the
+score and never inside it** — `SpielScore` is the single component that decides that, the match
+editor's draft preview included: the fixture finished level, the Saisontabelle counts it as a draw, and
+a card showing `4:3` where `2:2` belongs would contradict the table about the same match.
 
 ### 1.7 Environment
 
@@ -648,6 +653,38 @@ lets the canonicals be paths. The consequences worth knowing before editing meta
   since 2009 and Bing reads an overstuffed one as a spam signal, so it is maintenance with no reader;
   ranking terms belong in the title and description.
 
+### 1.14 The shared editor surface
+
+Every entity editor is one shell over one status object. Five modules under
+`fl_frontend/src/shared/components/ui/` hold that shape, and a slice contributes only what is its own.
+
+| Module                   | Provides                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| `EditFormLayout.tsx`     | The scroll container, page-width wrapper, two-column grid and sticky rail slot       |
+| `DraftStatusContext.tsx` | `DraftStatusProvider`, and `useDraftStatus` / `useFieldStatus` for anything below it |
+| `DraftRail.tsx`          | The Hinweise and Änderungen cards, separately and as a `DraftRail` pair              |
+| `FormActionBar.tsx`      | The save/cancel bar and its unsaved-changes count                                    |
+| `FieldLabel.tsx`         | A field's label, its `feld-` anchor id, and the Geändert marker                      |
+
+**A slice owns its descriptors and nothing structural.** It declares a group union and a
+`FLFieldDescriptor` table, folds them through
+`fl_frontend/src/shared/utils/draftStatus.ts :: deriveDraftStatus`, builds its own banners, and mounts
+`DraftStatusProvider` around the form. `FieldLabel`, `FormActionBar` and `RailChangesSection` all read
+that context rather than taking props, so a label deep inside a form section needs no drilling — and a
+slice that renders one of them outside the provider throws rather than rendering a wrong state.
+
+**The rail's hint names its entity through a `nomen` prop, as a topic prefix**:
+`Saison: alle Warnungen an einem Ort, auch die aus dem Formular.` The prefix is what removes German
+grammar from the call site — a phrase carrying an article would let a caller pair the wrong one with a
+noun, and nothing would report it.
+
+**The match editor is the one composer.** `AdminEditSpielDataForm` mounts the shared provider _and_
+`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/SpielExpectedContext.tsx ::
+SpielExpectedProvider`, whose rows are the fields a triage category is waiting on — a concept no other
+entity has. Its rail places the two shared cards around its own Vorschau and Offene Angaben, and its
+`ExpectedMarker` reaches `FieldLabel` through the `extraMarker` slot. The two contexts carry disjoint
+data: the shared one never learns about `expected`, and the narrow one holds no draft status.
+
 ## 2. Invariants
 
 | #   | Invariant                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Enforced by                                                                                                                                                                                                                                                                                                                                       |
@@ -703,7 +740,7 @@ lets the canonicals be paths. The consequences worth knowing before editing meta
 | The image build fails on a page that builds locally                                                                                                                              | A page fetches without `await connection()`; the builder has no backend                                                                                                        | I6 — add the guard before the fetch; it need not sit in the default export                                                                                                                                                                                                                                                                                                 |
 | A dynamic route throws at request time but the build passed                                                                                                                      | A Server Component passes a render prop to a Client Component                                                                                                                  | I13 — restore the `"use client"` directive. No gate catches this one                                                                                                                                                                                                                                                                                                       |
 | `updateTag` throws inside a route handler                                                                                                                                        | Wrong function for the context                                                                                                                                                 | I14 — `revalidateTag` in route handlers, `updateTag` in server actions                                                                                                                                                                                                                                                                                                     |
-| The three match cards look like duplication                                                                                                                                      | Working as intended — they differ in chips, names and container (§1.6)                                                                                                         | Nothing. Extract shared derivation into `utils.ts` rather than merging them                                                                                                                                                                                                                                                                                                |
+| The three match cards look like duplication                                                                                                                                      | Working as intended — they differ in chips, names and container (§1.6)                                                                                                         | Nothing. Shared code leaves the cards as §1.6 says — a derivation into `utils.ts`, an atom into `components/ui/` — and never by a merge                                                                                                                                                                                                                                    |
 | A cache tag exists but nothing ever clears it                                                                                                                                    | A granular tag on a resource with no write surface                                                                                                                             | I1 — add the matching `updateTag` in the same change, or delete the tag                                                                                                                                                                                                                                                                                                    |
 | A server action fails with "An unexpected response was received from the server"                                                                                                 | Something answered its POST with a redirect, so the client read HTML where an RSC payload belongs                                                                              | `fl_frontend/src/proxy.ts` exempts any request carrying `next-action`; the action's own `getAdminSession()` refuses it instead                                                                                                                                                                                                                                             |
 | A server action fails with "An unexpected response was received from the server", and the route keeps serving its old data                                                       | A dynamic page awaited `params` at its own top level, so an `updateTag` from another route truncates the response                                                              | I22 — await inside the page's `<Suspense>` boundary                                                                                                                                                                                                                                                                                                                        |

@@ -9,14 +9,13 @@ import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSe
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
 import { NUMMER_MAX_LENGTH, POSITION_OPTIONS } from "@/features/spieler/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { appToast } from "@/shared/utils/appToast";
-
-import { SpielerFieldLabel } from "./SpielerFieldLabel";
 
 import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
@@ -141,9 +140,9 @@ export function FormKaderSection({
       <div className={panel.body()}>
         {isMember ? (
           <>
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className={FIELD_PAIR}>
               <div className="flex w-full flex-col gap-y-1">
-                <SpielerFieldLabel path="team_id">Team</SpielerFieldLabel>
+                <FieldLabel path="team_id">Team</FieldLabel>
                 <TeamSelect
                   value={teamId}
                   onChange={(next) => {
@@ -163,7 +162,7 @@ export function FormKaderSection({
                 maxLength={NUMMER_MAX_LENGTH}
                 inputMode="numeric"
                 pattern="[0-9]*">
-                <SpielerFieldLabel path="nummer">Nummer</SpielerFieldLabel>
+                <FieldLabel path="nummer">Nummer</FieldLabel>
                 <Input className={`${FIELD_INPUT} font-extrabold tracking-wider`} />
                 <FieldError className={FIELD_ERROR} />
               </TextField>
@@ -172,7 +171,7 @@ export function FormKaderSection({
             {/* A switch rather than a note, unlike `is_nachgetragen`: a decision somebody makes and
                 changes, and a role within THIS season's squad. */}
             <div className="flex w-full flex-col gap-y-1">
-              <SpielerFieldLabel path="is_captain">Kapitän</SpielerFieldLabel>
+              <FieldLabel path="is_captain">Kapitän</FieldLabel>
               <Switch
                 name="is_captain"
                 isSelected={isCaptain}
@@ -187,9 +186,9 @@ export function FormKaderSection({
               </Switch>
             </div>
 
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className={FIELD_PAIR}>
               <div className="flex w-full flex-col gap-y-1">
-                <SpielerFieldLabel path="position">Position</SpielerFieldLabel>
+                <FieldLabel path="position">Position</FieldLabel>
                 <ClosedSetSelect
                   value={position}
                   onChange={onPositionChange}
@@ -202,7 +201,7 @@ export function FormKaderSection({
               </div>
 
               <div className="flex w-full flex-col gap-y-1">
-                <SpielerFieldLabel path="stufe">Stufe</SpielerFieldLabel>
+                <FieldLabel path="stufe">Stufe</FieldLabel>
                 <ClosedSetSelect
                   value={stufe}
                   onChange={onStufeChange}

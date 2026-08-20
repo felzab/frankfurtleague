@@ -60,7 +60,7 @@ export function AdminSaisonEditView({
               <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
                 <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">Saison {saison.id}</h2>
               </div>
-              <p className="fluid-sm text-foreground-muted font-medium">Änderungen gelten erst, wenn Du speicherst.</p>
+              <p className="muted-hint">Änderungen gelten erst, wenn Du speicherst.</p>
             </header>
           </>
         }

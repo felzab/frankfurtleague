@@ -2,7 +2,7 @@ import { deriveDraftStatus } from "@/shared/utils/draftStatus";
 import { formatEuro } from "@/shared/utils/format";
 
 import type { FLKontakt } from "@/shared/schemas";
-import type { FLDraftStatus, FLFieldDescriptor, FLFieldStatus } from "@/shared/utils/draftStatus";
+import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /** The fields the referee editor owns, widened to what a draft holds mid-edit. */
@@ -14,8 +14,6 @@ export type FLSchiedsrichterDraftFields = {
 };
 
 export type FLSchiedsrichterFieldGroup = "Person" | "Kontakt" | "Honorar";
-
-export type FLSchiedsrichterFieldStatus = FLFieldStatus<FLSchiedsrichterFieldGroup>;
 
 export type FLSchiedsrichterDraftStatus = FLDraftStatus<FLSchiedsrichterFieldGroup>;
 

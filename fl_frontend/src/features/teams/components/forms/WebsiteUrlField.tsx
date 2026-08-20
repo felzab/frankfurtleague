@@ -30,7 +30,7 @@ export function WebsiteUrlField({
   onChange: (nextUrl: string) => void;
   /** Called when the field is left, for the page editor that judges on blur. */
   onFieldLeft?: () => void;
-  /** The label node — the editor passes its marker-carrying `TeamFieldLabel`, the dialog a plain label. */
+  /** The label node — the editor passes its marker-carrying `FieldLabel`, the dialog a plain label. */
   labelSlot?: ReactNode;
   /** The message for a caller without a `<Form>` context — same split as `SpielortFormFields`. */
   error?: string;

@@ -8,7 +8,7 @@ const emptyState = tv({
   slots: {
     root: "border-border bg-surface flex w-full flex-col items-center justify-center gap-2 rounded-2xl border p-10 text-center shadow-sm",
     title: "fluid-base font-bold",
-    hint: "fluid-sm text-foreground-muted font-medium",
+    hint: "muted-hint",
   },
   variants: {
     tone: {

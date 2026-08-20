@@ -70,6 +70,8 @@ export function AppToaster() {
             <Toast.Content className="flex min-w-0 flex-1 flex-col items-start gap-1">
               {!!title && <Toast.Title className="fluid-sm text-foreground font-semibold">{title}</Toast.Title>}
               {!!description && (
+                // Spelled out rather than `muted-meta`: this wants the recipe without its line-height,
+                // and a utility plus a `leading-*` undoing part of it would rest on emission order.
                 <Toast.Description className="fluid-xs text-foreground-muted leading-normal font-medium opacity-100">
                   {description}
                 </Toast.Description>

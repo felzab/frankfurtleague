@@ -61,7 +61,7 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
       {/* `break-words` and not `truncate`: a review surface that hides half a club's name cannot be
           finished, and the row is free to grow. */}
       {team === null ? (
-        <span className="fluid-xs text-foreground-muted font-medium italic">{PLACEHOLDER.slot}</span>
+        <span className="muted-meta italic">{PLACEHOLDER.slot}</span>
       ) : (
         <strong className="fluid-sm text-foreground max-w-full font-bold break-words">{team.name}</strong>
       )}

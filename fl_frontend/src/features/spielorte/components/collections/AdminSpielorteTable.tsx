@@ -143,9 +143,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="fluid-sm text-foreground-muted font-medium">
-        {spielortQuery ? "Keine Spielorte für diese Suche gefunden." : "Es wurden noch keine Spielorte angelegt."}
-      </p>
+      <p className="muted-hint">{spielortQuery ? "Keine Spielorte für diese Suche gefunden." : "Es wurden noch keine Spielorte angelegt."}</p>
     </div>
   );
 

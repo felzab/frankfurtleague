@@ -1,10 +1,11 @@
 import { FieldError, NumberField } from "@heroui/react";
 
 import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
 
-import { FieldLabel } from "./FieldLabel";
+import { ExpectedMarker } from "./ExpectedMarker";
 import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
 import { StepFiveButton } from "./StepFiveButton";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
@@ -95,7 +96,11 @@ export function FormSpielortSection({
           currencySign: "accounting",
           style: "currency",
         }}>
-        <FieldLabel path="ort.mietpreis">Mietpreis</FieldLabel>
+        <FieldLabel
+          path="ort.mietpreis"
+          extraMarker={<ExpectedMarker path="ort.mietpreis" />}>
+          Mietpreis
+        </FieldLabel>
         <NumberField.Group className={FIELD_GROUP}>
           <StepFiveButton
             direction="decrement"

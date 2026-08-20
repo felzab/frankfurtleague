@@ -13,16 +13,15 @@ import { postSaisonTeamAction } from "@/features/teams/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_LABEL, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PANEL_REVEAL } from "@/shared/components/ui/motion";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { appToast } from "@/shared/utils/appToast";
-
-import { TeamFieldLabel } from "./TeamFieldLabel";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
@@ -370,7 +369,7 @@ export function FormSaisonSection({
           gruppeLock.locked ? (
             <>
               <div className="flex w-full flex-col gap-y-1">
-                <TeamFieldLabel path="gruppe">Gruppe</TeamFieldLabel>
+                <FieldLabel path="gruppe">Gruppe</FieldLabel>
                 <div className="border-border bg-muted/40 text-foreground fluid-sm flex h-10 w-full items-center gap-x-2 rounded-lg border px-3 font-bold sm:max-w-60">
                   <LockFill className="text-foreground-muted size-3.5 shrink-0" />
                   {gruppe ? `Gruppe ${gruppe}` : "Keine Gruppe"}
@@ -390,9 +389,9 @@ export function FormSaisonSection({
             </>
           ) : (
             <>
-              <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className={FIELD_PAIR}>
                 <div className="flex w-full flex-col gap-y-1">
-                  <TeamFieldLabel path="gruppe">Gruppe</TeamFieldLabel>
+                  <FieldLabel path="gruppe">Gruppe</FieldLabel>
                   <GruppeSelect
                     value={gruppe}
                     onChange={(next) => {

@@ -47,7 +47,7 @@ export function SidemenuNavLinks<TIcon extends string>({
           {isDesktopCollapsed ? (
             <Separator className="bg-border my-1 w-1/2 self-center" />
           ) : (
-            group.category_name !== "" && <span className="text-foreground-muted fluid-sm px-2 pb-1 font-medium">{group.category_name}</span>
+            group.category_name !== "" && <span className="muted-hint px-2 pb-1">{group.category_name}</span>
           )}
 
           {/* `items-center` while collapsed, matching the footer's own container: the two must agree or the rail

@@ -12,6 +12,10 @@ import { FLPatchSaisonTeamPayloadSchema, FLPatchTeamPayloadSchema } from "@/feat
 import { deriveTeamDraftStatus } from "@/features/teams/teamDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
+import { DraftRail } from "@/shared/components/ui/DraftRail";
+import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
+import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
@@ -23,9 +27,6 @@ import { FormAdresseSection } from "./FormAdresseSection";
 import { FormDisqualifikationSection } from "./FormDisqualifikationSection";
 import { FormSaisonSection } from "./FormSaisonSection";
 import { FormVereinSection } from "./FormVereinSection";
-import { TeamActionBar } from "./TeamActionBar";
-import { TeamDraftStatusProvider } from "./TeamDraftStatusContext";
-import { TeamRail } from "./TeamRail";
 
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { FLGruppenNames, FLPatchSaisonTeamPayload, FLPatchTeamPayload, FLPostTeamPayload, FLTeamRecord } from "@/features/teams/schemas";
@@ -409,70 +410,65 @@ export function AdminTeamEditForm({
   };
 
   return (
-    <TeamDraftStatusProvider status={status}>
+    <DraftStatusProvider status={status}>
       <Form
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
         onSubmit={runOnSubmit(requestSave)}>
-        <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
-          <div className="max-w-page mx-auto flex w-full flex-col">
-            {pageHeader}
+        <EditFormLayout
+          header={pageHeader}
+          rail={
+            <DraftRail
+              banners={banners}
+              nomen="Team"
+            />
+          }>
+          <FormVereinSection
+            draft={clubDraft}
+            onChange={setClubDraft}
+            onFieldLeft={validateClubFields}
+          />
 
-            <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_380px] 2xl:gap-8">
-              <div className="w-full xl:sticky xl:top-6 xl:col-start-2 xl:row-start-1 xl:self-start">
-                <TeamRail banners={banners} />
-              </div>
+          <FormAdresseSection
+            address={clubDraft.address}
+            onChange={(nextAddress) => setClubDraft((current) => ({ ...current, address: nextAddress }))}
+            onFieldLeft={validateClubFields}
+          />
 
-              <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:col-start-1 xl:row-start-1 xl:mx-0 xl:max-w-none">
-                <FormVereinSection
-                  draft={clubDraft}
-                  onChange={setClubDraft}
-                  onFieldLeft={validateClubFields}
-                />
+          <FormSaisonSection
+            saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus }}
+            gruppeOffer={gruppeOffer}
+            gruppeLock={{ locked: gruppeLocked }}
+            isMember={storedMembership !== null}
+            gruppe={gruppe}
+            onGruppeChange={setGruppe}
+            onValidateSelection={validateGruppeSelection}
+            swap={swap}
+            teamId={team.id}
+            banners={banners}
+          />
 
-                <FormAdresseSection
-                  address={clubDraft.address}
-                  onChange={(nextAddress) => setClubDraft((current) => ({ ...current, address: nextAddress }))}
-                  onFieldLeft={validateClubFields}
-                />
+          {storedMembership !== null && (
+            <FormDisqualifikationSection
+              isDisqualified={isDisqualified}
+              onIsDisqualifiedChange={(next) => {
+                setIsDisqualified(next);
+                // Seeded with today, the common case for "took effect"; the lift stays a draft
+                // until the save sends the explicit null.
+                if (next && datum === null) setDatum(parseDate(today));
+              }}
+              banners={banners}
+              grund={grund}
+              onGrundChange={setGrund}
+              datum={datum}
+              onDatumChange={setDatum}
+              onValidateFields={validateSaisonFields}
+            />
+          )}
+        </EditFormLayout>
 
-                <FormSaisonSection
-                  saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus }}
-                  gruppeOffer={gruppeOffer}
-                  gruppeLock={{ locked: gruppeLocked }}
-                  isMember={storedMembership !== null}
-                  gruppe={gruppe}
-                  onGruppeChange={setGruppe}
-                  onValidateSelection={validateGruppeSelection}
-                  swap={swap}
-                  teamId={team.id}
-                  banners={banners}
-                />
-
-                {storedMembership !== null && (
-                  <FormDisqualifikationSection
-                    isDisqualified={isDisqualified}
-                    onIsDisqualifiedChange={(next) => {
-                      setIsDisqualified(next);
-                      // Seeded with today, the common case for "took effect"; the lift stays a draft
-                      // until the save sends the explicit null.
-                      if (next && datum === null) setDatum(parseDate(today));
-                    }}
-                    banners={banners}
-                    grund={grund}
-                    onGrundChange={setGrund}
-                    datum={datum}
-                    onDatumChange={setDatum}
-                    onValidateFields={validateSaisonFields}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <TeamActionBar
+        <FormActionBar
           isPending={isPending}
           onCancel={requestLeave}
         />
@@ -497,6 +493,6 @@ export function AdminTeamEditForm({
           handleFormSubmit();
         }}
       />
-    </TeamDraftStatusProvider>
+    </DraftStatusProvider>
   );
 }

@@ -2,11 +2,10 @@
 
 import { FieldError, Input, TextField } from "@heroui/react";
 
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
-
-import { SpielerFieldLabel } from "./SpielerFieldLabel";
 
 import type { SpielerPersonFields } from "@/features/spieler/types";
 
@@ -46,14 +45,14 @@ export function FormPersonSection({
       </div>
 
       <div className={panel.body()}>
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className={FIELD_PAIR}>
           <TextField
             isRequired
             name="vorname"
             value={draft.vorname}
             onChange={(next) => onChange({ ...draft, vorname: next })}
             onBlur={() => onFieldLeft(["vorname"])}>
-            <SpielerFieldLabel path="vorname">Vorname</SpielerFieldLabel>
+            <FieldLabel path="vorname">Vorname</FieldLabel>
             <Input className={FIELD_INPUT} />
             <FieldError className={FIELD_ERROR} />
           </TextField>
@@ -64,7 +63,7 @@ export function FormPersonSection({
             // Emptied means absent, not an empty surname — the boundary where `""` becomes `null`.
             onChange={(next) => onChange({ ...draft, nachname: next.trim() === "" ? null : next })}
             onBlur={() => onFieldLeft(["nachname"])}>
-            <SpielerFieldLabel path="nachname">Nachname</SpielerFieldLabel>
+            <FieldLabel path="nachname">Nachname</FieldLabel>
             <Input className={FIELD_INPUT} />
             <FieldError className={FIELD_ERROR} />
           </TextField>

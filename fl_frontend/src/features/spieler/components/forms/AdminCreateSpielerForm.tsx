@@ -9,7 +9,7 @@ import { NUMMER_MAX_LENGTH, POSITION_OPTIONS } from "@/features/spieler/constant
 import { isSquadNummerNewlyShared } from "@/features/spieler/utils";
 import { Callout } from "@/shared/components/ui/Callout";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { SpielerCreateDraft, SpielerCreateSaisonOption } from "@/features/spieler/types";
@@ -62,7 +62,7 @@ export function AdminCreateSpielerForm({
 
         return (
           <>
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className={FIELD_PAIR}>
               <TextField
                 isRequired
                 name="vorname"
@@ -86,7 +86,7 @@ export function AdminCreateSpielerForm({
               </TextField>
             </div>
 
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className={FIELD_PAIR}>
               <Select
                 isRequired
                 name="saison_id"

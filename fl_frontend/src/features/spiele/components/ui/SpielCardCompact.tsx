@@ -9,6 +9,7 @@ import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
 import { formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
+import { SpielScore } from "./SpielScore";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
 import type { FLSpiel } from "../../schemas";
@@ -74,11 +75,11 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
           </span>
 
           {/* `-strong` and a second line under the score, as on the other two cards. */}
-          <span
-            className={`fluid-base flex flex-col items-center px-2 py-1 text-center font-extrabold ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
-            {spielErgebnis}
-            {spielElfmeterschiessen !== null && <span className="fluid-xxs font-semibold whitespace-nowrap">{spielElfmeterschiessen}</span>}
-          </span>
+          <SpielScore
+            ergebnis={spielErgebnis}
+            elfmeterschiessen={spielElfmeterschiessen}
+            className={`fluid-base flex flex-col items-center px-2 py-1 text-center font-extrabold ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}
+          />
 
           <span className="flex min-w-0 justify-start">
             <SpielTeamSlot

@@ -2,6 +2,7 @@
 
 import { Calendar, DateField, DatePicker, FieldError, Input, Switch, TextField } from "@heroui/react";
 
+import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
   DATE_PICKER_CALENDAR,
   DATE_PICKER_PLACEMENT,
@@ -14,8 +15,6 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
-
-import { TeamFieldLabel } from "./TeamFieldLabel";
 
 import type { CalendarDate } from "@internationalized/date";
 import type { TeamBanner } from "./banners";
@@ -86,7 +85,7 @@ export function FormDisqualifikationSection({
               value={grund}
               onChange={onGrundChange}
               onBlur={() => onValidateFields(["disqualifikation.grund"])}>
-              <TeamFieldLabel path="disqualifikation">Grund</TeamFieldLabel>
+              <FieldLabel path="disqualifikation">Grund</FieldLabel>
               <Input className={FIELD_INPUT} />
               <FieldError className={FIELD_ERROR} />
             </TextField>
@@ -97,7 +96,7 @@ export function FormDisqualifikationSection({
               onBlur={() => onValidateFields(["disqualifikation.datum"])}
               name="disqualifikation.datum"
               className="w-full">
-              <TeamFieldLabel path="disqualifikation">Wirksam ab</TeamFieldLabel>
+              <FieldLabel path="disqualifikation">Wirksam ab</FieldLabel>
               <DateField.Group
                 fullWidth
                 className={FIELD_GROUP}>

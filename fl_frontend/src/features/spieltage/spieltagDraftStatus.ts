@@ -3,7 +3,7 @@ import { deriveDraftStatus } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
-import type { FLDraftStatus, FLFieldDescriptor, FLFieldStatus } from "@/shared/utils/draftStatus";
+import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /** Widened to what a draft holds mid-edit: `saison_phase` may be null while a picker is untouched. */
@@ -14,8 +14,6 @@ export type FLSpieltagDraftFields = {
 };
 
 export type FLSpieltagFieldGroup = "Phase" | "Zeitraum";
-
-export type FLSpieltagFieldStatus = FLFieldStatus<FLSpieltagFieldGroup>;
 
 export type FLSpieltagDraftStatus = FLDraftStatus<FLSpieltagFieldGroup>;
 

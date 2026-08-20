@@ -77,7 +77,7 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
                 <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">Spiel {spielData.spiel_nr}</h2>
                 <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
               </div>
-              <p className="fluid-sm text-foreground-muted font-medium">Änderungen gelten erst, wenn Du speicherst.</p>
+              <p className="muted-hint">Änderungen gelten erst, wenn Du speicherst.</p>
             </header>
           </>
         }

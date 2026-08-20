@@ -4,6 +4,7 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { computeSpielStatus, formatQuelle, formatSpielDisplay } from "../../../utils";
 import { SaisonPhaseChip } from "../../ui/SaisonPhaseChip";
+import { SpielScore } from "../../ui/SpielScore";
 import { SpielStatusChip } from "../../ui/SpielStatusChip";
 
 import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
@@ -28,7 +29,7 @@ export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpi
       <div className="flex w-full flex-col gap-y-1.5">
         <div className="flex w-full flex-row items-baseline gap-x-2">
           <span className="fluid-xs text-foreground font-bold">{datum}</span>
-          <span className="fluid-xs text-foreground-muted font-medium">{uhrzeit}</span>
+          <span className="muted-meta">{uhrzeit}</span>
         </div>
         <div className="flex w-full flex-row flex-wrap items-center gap-1.5">
           <SpielStatusChip spielStatus={spielStatus} />
@@ -40,15 +41,13 @@ export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpi
           name's width, so the score stays centred however the two names differ. */}
       <div className="bg-muted grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl p-2">
         <span className="fluid-xs text-foreground min-w-0 truncate text-right font-bold">{team1Name}</span>
-        <span
+        <SpielScore
+          ergebnis={ergebnis}
+          elfmeterschiessen={elfmeterschiessen}
           className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold ${
             previewSpiel.ergebnis !== null ? "text-success-strong" : "text-danger-strong"
-          }`}>
-          {ergebnis}
-          {/* A second line under the score, never folded in: the fixture finished level and the
-              Saisontabelle counts it as a draw, so the score has to stay the score. */}
-          {elfmeterschiessen !== null && <span className="fluid-xxs font-semibold whitespace-nowrap">{elfmeterschiessen}</span>}
-        </span>
+          }`}
+        />
         <span className="fluid-xs text-foreground min-w-0 truncate text-left font-bold">{team2Name}</span>
       </div>
 

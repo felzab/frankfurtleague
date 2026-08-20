@@ -40,7 +40,7 @@ export function SignInForm() {
         <div className="flex flex-col items-center pb-6 text-center">
           <span className="mb-3 text-4xl sm:text-5xl">⚽</span>
           <h1 className="fluid-2xl text-foreground font-black tracking-tight uppercase">Einloggen</h1>
-          <p className="fluid-sm text-foreground-muted mt-1 font-medium">Verwalte oder sehe Daten ein</p>
+          <p className="muted-hint mt-1">Verwalte oder sehe Daten ein</p>
         </div>
 
         <div className="border-border mb-8 h-[1px] w-full" />
@@ -56,9 +56,7 @@ export function SignInForm() {
 
             {state?.submittedEmail && <p className="fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
 
-            <p className="fluid-sm text-foreground-muted font-medium text-pretty">
-              {state?.message ?? "Falls diese Adresse freigegeben ist, ist ein Anmeldelink unterwegs."}
-            </p>
+            <p className="muted-hint text-pretty">{state?.message ?? "Falls diese Adresse freigegeben ist, ist ein Anmeldelink unterwegs."}</p>
             <p className="fluid-xs text-foreground-muted">Der Link gilt 15 Minuten und lässt sich nur einmal verwenden.</p>
 
             {/* The action does not navigate, so without this the only way back is a page reload. */}
