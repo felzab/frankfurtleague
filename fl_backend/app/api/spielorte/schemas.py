@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
 
-from app.shared.schemas.addresses import FLAddress
+from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse
@@ -18,12 +18,17 @@ class _SpielortWritable(BaseModel):
     default_mietpreis: int = Field(ge=0)
 
 
-# No `id` on any payload: the path names the venue, the body describes the change (RFC 5789).
-class FLPatchSpielortPayload(_SpielortWritable):
+# No `id` on any payload: the path names the venue, the body describes the change (RFC 5789). The
+# bounded address sits here rather than on the writable base, which the read model shares.
+class _SpielortPayload(_SpielortWritable):
+    address: FLAddressPayload
+
+
+class FLPatchSpielortPayload(_SpielortPayload):
     pass
 
 
-class FLPostSpielortPayload(_SpielortWritable):
+class FLPostSpielortPayload(_SpielortPayload):
     pass
 
 

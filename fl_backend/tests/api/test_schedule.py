@@ -14,6 +14,7 @@ from app.api.saisons.schedule import (
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
 from app.api.saisons.services import with_schedule
 from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, PHASE_ORDER, PHASE_RANK, FLSaisonPhase
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 
 def rules(*, groups: int = 4, per_group: int = 4, qualifiers: int = 2) -> FLSaisonRules:
@@ -24,9 +25,26 @@ def rules(*, groups: int = 4, per_group: int = 4, qualifiers: int = 2) -> FLSais
             "qualifiers_per_group": qualifiers,
             "number_of_groups": groups,
             "teams_per_group": per_group,
+            "tiebreak_order": "tordifferenz",
+            "max_kadergroesse": 18,
+            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
             "erlaubte_stufen": ["E1", "E2", "Q1", "Q2"],
         }
     )
+
+
+def ceiling(field: str) -> int:
+    """The `le` a rules field states, read off the model so widening one moves the test below rather than leaving it under the old bound."""
+
+    return next(constraint.le for constraint in FLSaisonRules.model_fields[field].metadata if hasattr(constraint, "le"))
+
+
+def widest_legal_rules() -> FLSaisonRules:
+    """The largest season the bounds admit: every ceiling at once, and the largest field the bracket holds."""
+
+    groups = ceiling("number_of_groups")
+
+    return rules(groups=groups, per_group=ceiling("teams_per_group"), qualifiers=MAX_QUALIFIERS // groups)
 
 
 class TestThePhaseSet:
@@ -175,6 +193,27 @@ class TestTheWholeSeason:
         """Zero is the honest answer, not an error."""
 
         assert expected_matches(rules(), "achtelfinale") == 0
+
+
+class TestTheLargestLegalSeasonFitsInOneRead:
+    """Why `teams_per_group` carries a ceiling at all.
+
+    Past `LIST_LIMIT_DEFAULT` a season-scoped read is truncated, and every refusal `find_rules_refusal` computes over one would then be
+    judging a partial season.
+    """
+
+    def test_the_widest_season_the_bounds_allow_stays_inside_one_page(self):
+        """Every bound is read off the model, so raising one without raising the limit fails here rather than silently truncating a read."""
+
+        fixtures = sum(entry.matchdays * entry.matches_per_matchday for entry in schedule_for(widest_legal_rules()))
+
+        assert fixtures <= LIST_LIMIT_DEFAULT, f"the widest legal season plays {fixtures} fixtures, past a read of {LIST_LIMIT_DEFAULT}"
+
+    def test_the_widest_season_is_a_shape_a_season_can_actually_be_saved_in(self):
+        """Guards the case above: a product the bracket refuses would make the ceiling look safe by measuring a season nobody can create."""
+
+        assert qualifier_count(widest_legal_rules()) == MAX_QUALIFIERS
+        assert knockout_phases_for(MAX_QUALIFIERS) == KNOCKOUT_PHASES
 
 
 class TestTheSeasonCarriesItsSchedule:

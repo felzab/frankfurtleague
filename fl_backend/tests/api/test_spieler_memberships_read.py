@@ -173,6 +173,12 @@ def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
         "vorname": name[0],
         "nachname": name,
         "inactive_since": inactive_since,
+        "einwilligung": {
+            "umfang": "kader_oeffentlich",
+            "erteilt_von": "erziehungsberechtigt",
+            "datum": "2026-01-15",
+            "bestaetigt_am": "2026-01-20",
+        },
     }
 
 

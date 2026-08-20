@@ -22,6 +22,7 @@ SPIELTAG_ID = "6890a1b2c3d4e5f607182932"
 SPIELORT_ID = "6890a1b2c3d4e5f607182933"
 SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607182934"
 SPIELER_ID = "6890a1b2c3d4e5f607182935"
+SAISON_SPIELER_ID = "6890a1b2c3d4e5f607182936"
 
 PayloadFactory = Callable[..., dict[str, Any]]
 
@@ -98,7 +99,7 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
             "name": "Carl-Schurz",
             "gruppe": "A",
             "statistik": statistik(),
-            "disqualifikation": None,
+            "austritt": None,
             "shorthand": "CS",
             "description": "",
             "full_name": "Carl-Schurz-Schule",
@@ -146,7 +147,7 @@ def spiel(
             "elfmeterschiessen": None,
             "spieltag_id": SPIELTAG_ID,
             "spiel_nr": 1,
-            "is_canceled": False,
+            "sonderereignis": None,
             "saison_phase": "gruppenphase",
             "saison_id": "2026",
         }
@@ -182,6 +183,38 @@ def schiedsrichter(kontakt: PayloadFactory) -> PayloadFactory:
 
 
 @pytest.fixture
+def einwilligung() -> PayloadFactory:
+    return _factory(
+        {
+            "umfang": "kader_oeffentlich",
+            "erteilt_von": "erziehungsberechtigt",
+            "datum": "2026-01-15",
+            "bestaetigt_am": "2026-01-20",
+        }
+    )
+
+
+@pytest.fixture
+def saison_spieler() -> PayloadFactory:
+    """The junction row as STORED, which is also what every payload and echo of it is a subset of."""
+
+    return _factory(
+        {
+            "_id": SAISON_SPIELER_ID,
+            "spieler_id": SPIELER_ID,
+            "saison_id": "2026",
+            "team_id": TEAM_ID,
+            "is_nachgetragen": False,
+            "is_captain": False,
+            "stufe": "Q2",
+            "position": "Angriff",
+            "nummer": "10",
+            "inactive_since": None,
+        }
+    )
+
+
+@pytest.fixture
 def spieler() -> PayloadFactory:
     return _factory(
         {
@@ -196,6 +229,13 @@ def spieler() -> PayloadFactory:
             "is_captain": False,
             "team_id": TEAM_ID,
             "inactive_since": None,
+            # Collected rather than carried over, so the default corpus is the case the rule is for.
+            "einwilligung": {
+                "umfang": "kader_oeffentlich",
+                "erteilt_von": "erziehungsberechtigt",
+                "datum": "2026-01-15",
+                "bestaetigt_am": "2026-01-20",
+            },
         }
     )
 
@@ -205,13 +245,13 @@ def spieltag() -> PayloadFactory:
     return _factory(
         {
             "_id": SPIELTAG_ID,
-            # No `name`: a matchday's label is composed by the reader.
+            # No `name`: a matchday's label is composed by the reader, from `position` and the phase.
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
             "anzahl_spiele": 4,
+            "position": 1,
             "saison_phase": "gruppenphase",
             "saison_id": "2026",
-            "inactive_since": None,
         }
     )
 
@@ -230,6 +270,9 @@ def saison() -> PayloadFactory:
                 "qualifiers_per_group": 2,
                 "number_of_groups": 4,
                 "teams_per_group": 4,
+                "tiebreak_order": "tordifferenz",
+                "max_kadergroesse": 18,
+                "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
                 "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
             },
             # Derived and on no document; spelled out rather than computed, so a `schedule_for` change shows here.

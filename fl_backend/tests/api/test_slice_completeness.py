@@ -74,6 +74,9 @@ RULES = FLSaisonRules.model_validate(
         "number_of_groups": 4,
         "teams_per_group": 4,
         "qualifiers_per_group": 2,
+        "tiebreak_order": "tordifferenz",
+        "max_kadergroesse": 50,
+        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
         "erlaubte_stufen": ["E1", "E2"],
     }
 )

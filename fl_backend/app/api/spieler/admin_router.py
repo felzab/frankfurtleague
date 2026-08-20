@@ -1,7 +1,9 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
+from motor.motor_asyncio import AsyncIOMotorCollection
 
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
     FLPatchSpielerPayload,
@@ -13,13 +15,25 @@ from app.api.spieler.schemas import (
     FLSpielerWithMemberships,
     FLSpielerWriteResponse,
 )
-from app.api.spieler.services import build_spieler_memberships_pipeline, find_squad_refusal
+from app.api.spieler.services import (
+    build_live_squad_filter,
+    build_spieler_memberships_pipeline,
+    find_squad_capacity_refusal,
+    find_squad_refusal,
+    registration_einwilligung,
+)
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, insert_live, patch_one_in_db, post_one_to_db, refuse, set_inactive_since
-from app.core.dependencies import SaisonSpielerCollection, SaisonTeamsCollection, SpielerCollection, get_german_date_str
+from app.core.crud import aggregate_many_from_db, insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse, set_inactive_since
+from app.core.dependencies import (
+    SaisonsCollection,
+    SaisonSpielerCollection,
+    SaisonTeamsCollection,
+    SpielerCollection,
+    get_german_date_str,
+)
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieler",
@@ -52,6 +66,35 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
     )
 
 
+async def _refuse_a_full_squad(
+    *,
+    saison_spieler_collection: AsyncIOMotorCollection,
+    saisons_collection: AsyncIOMotorCollection,
+    saison_id: str,
+    team_id: CustomObjectId,
+    spieler_id: CustomObjectId,
+) -> None:
+    """Refuse `REQ-SQUAD-003` when this team's squad for this season is already at the season's cap.
+
+    Shared by create, transfer and reactivate: the cap is a property of the DESTINATION squad, not
+    of the verb.
+    """
+
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"])
+    squad_size = await saison_spieler_collection.count_documents(
+        build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id)
+    )
+
+    refuse(
+        find_squad_capacity_refusal(
+            squad_size=squad_size,
+            # Validated, not read raw: a season missing the key fails here rather than admitting a
+            # player against a bound nobody chose.
+            max_kadergroesse=FLSaisonRules.model_validate(saison_raw["rules"]).max_kadergroesse,
+        )
+    )
+
+
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
 # capture this one whatever the declaration order.
 @router.get("/memberships", response_model=FLSpielerMembershipsResponse, summary="Every Spieler with their squad rows")
@@ -72,14 +115,22 @@ async def get_spieler_memberships(spieler_collection: SpielerCollection) -> FLSp
 async def post_spieler(
     spieler_data: Annotated[FLPostSpielerPayload, Body()],
     spieler_collection: SpielerCollection,
+    today: str = Depends(get_german_date_str),
 ) -> FLSpielerWriteResponse:
     """
     Create a player -- the person, and nothing else.
 
     They belong to no team until they have a junction row, and no uniqueness rule applies to a name.
+    The consent record is COMPOSED here rather than taken from the body, so no admin can write one.
     """
 
-    post_operation = await insert_live(collection=spieler_collection, document=spieler_data.model_dump(mode="json"))
+    post_operation = await insert_live(
+        collection=spieler_collection,
+        document={
+            **spieler_data.model_dump(mode="json"),
+            "einwilligung": registration_einwilligung(today=today).model_dump(mode="json"),
+        },
+    )
 
     return FLSpielerWriteResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
@@ -135,12 +186,14 @@ async def post_saison_spieler(
     saison_spieler_data: Annotated[FLPostSaisonSpielerPayload, Body()],
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
 ) -> FLSaisonSpielerResponse:
     """
     Put a player in a team's squad for a season.
 
     One row per player per season, enforced by a unique index, so moving a player is a PATCH of
-    `team_id` rather than a second row. A repeat is a 409, retired rows included.
+    `team_id` rather than a second row. A repeat is a 409, retired rows included. Refused once the
+    squad holds the season's `max_kadergroesse` members.
     """
 
     # The club has to be in the season, and that fact lives in another collection.
@@ -149,7 +202,18 @@ async def post_saison_spieler(
             {"saison_id": saison_spieler_data.saison_id, "team_id": saison_spieler_data.team_id}, limit=1
         )
     ) > 0
+    # Asked first: a cap on a squad the club does not have is not a fact worth reporting.
     refuse(find_squad_refusal(team_in_saison=team_in_saison))
+
+    # Count-then-insert, not transactional, as `post_saison_team` is: losing the race costs one
+    # player over a planning bound rather than corrupt data, on a single-admin surface.
+    await _refuse_a_full_squad(
+        saison_spieler_collection=saison_spieler_collection,
+        saisons_collection=saisons_collection,
+        saison_id=saison_spieler_data.saison_id,
+        team_id=saison_spieler_data.team_id,
+        spieler_id=spieler_id,
+    )
 
     # Stated here rather than through `insert_live`: the echo below reads THIS dict and not the
     # driver's result, so a field the helper added would be missing from the answer.
@@ -171,12 +235,14 @@ async def patch_saison_spieler(
     saison_spieler_data: Annotated[FLPatchSaisonSpielerPayload, Body()],
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
 ) -> FLSaisonSpielerResponse:
     """
     Update a player's squad entry for that season.
 
-    Changing `team_id` is how a transfer is recorded. `nummer` stays free TEXT and a DUPLICATE IS
-    PERMITTED (`fl_backend/app/core/domain.py :: UNENFORCED`): the league fields four keepers on 1.
+    Changing `team_id` is how a transfer is recorded, and the team it moves TO must have room.
+    `nummer` stays free TEXT and a DUPLICATE IS PERMITTED
+    (`fl_backend/app/core/domain.py :: UNENFORCED`): the league fields four keepers on 1.
     """
 
     # The one fact `find_squad_refusal` decides on, and it lives in another collection.
@@ -184,6 +250,16 @@ async def patch_saison_spieler(
         await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": saison_spieler_data.team_id}, limit=1)
     ) > 0
     refuse(find_squad_refusal(team_in_saison=team_in_saison))
+
+    # The team the payload NAMES, never the one the row currently holds: a transfer is judged
+    # against where the player is going.
+    await _refuse_a_full_squad(
+        saison_spieler_collection=saison_spieler_collection,
+        saisons_collection=saisons_collection,
+        saison_id=saison_id,
+        team_id=saison_spieler_data.team_id,
+        spieler_id=spieler_id,
+    )
 
     updated_raw = await patch_one_in_db(
         collection=saison_spieler_collection,
@@ -231,13 +307,30 @@ async def reactivate_saison_spieler(
     spieler_id: CustomRouteObjectId,
     saison_id: str,
     saison_spieler_collection: SaisonSpielerCollection,
+    saisons_collection: SaisonsCollection,
 ) -> FLSaisonSpielerResponse:
     """
     Clear a squad row's `inactive_since`, with the number and position it had.
 
     Where a repeat create is redirected: the row still holds the unique key, and a create reviving
-    it would overwrite the number and position it carries.
+    it would overwrite the number and position it carries. Refused where the squad has since filled
+    up -- a retired row gave its place back, and somebody else may be standing in it.
     """
+
+    # Read for its `team_id`: the row names the squad it is returning to, and the payload cannot.
+    # A missing row 404s here rather than inside `set_inactive_since`, which would answer the same.
+    stored_raw = await pull_one_from_db(
+        collection=saison_spieler_collection,
+        db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
+        projection=["team_id"],
+    )
+    await _refuse_a_full_squad(
+        saison_spieler_collection=saison_spieler_collection,
+        saisons_collection=saisons_collection,
+        saison_id=saison_id,
+        team_id=stored_raw["team_id"],
+        spieler_id=spieler_id,
+    )
 
     updated_raw = await set_inactive_since(
         collection=saison_spieler_collection,

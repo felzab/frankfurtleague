@@ -1,8 +1,12 @@
 from dataclasses import dataclass
 from typing import Any, Iterable, Literal, Mapping, Sequence
 
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     PHASE_RANK,
+    SONDEREREIGNIS_NO_SHOW,
+    SONDEREREIGNIS_RECORDING_AN_ABSENCE,
+    SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLBracketFault,
     FLBracketFaultGruppe,
     FLBracketFaultOccupant,
@@ -53,7 +57,8 @@ def build_spiele_filter(filters: FLSpieleFilterParams, today: str) -> dict[str, 
         case "ausstehend":
             compiled["datum"] = {"$gte": today}
         case "abgesagt":
-            compiled["is_canceled"] = True
+            # An abandonment is not among them: it took place, so it keeps whatever the date says.
+            compiled["sonderereignis"] = {"$in": list(SONDEREREIGNIS_RECORDING_AN_ABSENCE)}
 
     if filters.team_id is not None:
         compiled["$or"] = [
@@ -76,17 +81,17 @@ def _joined_side(side: Literal["team1", "team2"]) -> Mapping[str, Any]:
     joined_record = {
         "$let": {
             "vars": {"row": {"$first": matching_row}},
-            "in": {"$ifNull": ["$$row.disqualifikation", None]},
+            "in": {"$ifNull": ["$$row.austritt", None]},
         }
     }
 
     return {
         "$cond": [
             # `$eq` against null also catches a document missing the key, so an unresolved slot
-            # never becomes an object holding only a disqualification.
+            # never becomes an object holding only an austritt.
             {"$eq": [f"${side}", None]},
             None,
-            {"$mergeObjects": [f"${side}", {"disqualifikation": joined_record}]},
+            {"$mergeObjects": [f"${side}", {"austritt": joined_record}]},
         ]
     }
 
@@ -96,7 +101,7 @@ def build_spiele_pipeline(
     sort_by: Sequence[tuple[str, int]] | None = None,
     limit: int | None = None,
 ) -> list[Mapping[str, Any]]:
-    """Every match read runs this; `disqualifikation` joins on each document's OWN `saison_id` (`docs/backend/spec.md :: I32`)."""
+    """Every match read runs this; `austritt` joins on each document's OWN `saison_id` (`docs/backend/spec.md :: I32`)."""
 
     pipeline: list[Mapping[str, Any]] = [{"$match": db_filter}]
 
@@ -131,7 +136,7 @@ def build_spiele_pipeline(
                             }
                         }
                     },
-                    {"$project": {"_id": 0, "team_id": 1, "disqualifikation": 1}},
+                    {"$project": {"_id": 0, "team_id": 1, "austritt": 1}},
                 ],
                 "as": SAISON_TEAMS_AS_NAME,
             }
@@ -345,7 +350,7 @@ def _outcome_of(
     memo: dict[int, ResolvedSides],
     faults: list[FLBracketFault],
 ) -> FLSpielTeamField | None:
-    """The side that came out of one match as `ausgang`. `is_canceled` is not consulted (`docs/backend/spec.md :: I1a`)."""
+    """The side that came out of one match as `ausgang`. `sonderereignis` is not consulted (`docs/backend/spec.md :: I1a`)."""
 
     spiel = by_nr[spiel_nr]
     team1, team2, an_occupant_changed = _resolve_sides(spiel_nr, by_nr, standings, tainted, memo, faults)
@@ -420,8 +425,12 @@ def resolve_bracket(spiele: Iterable[FLSpiel], standings: Mapping[FLGruppenNames
     return BracketResolution(advancements=advancements, bracket_faults=faults)
 
 
-def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload) -> FLSpiel:
-    """The fixture as this patch leaves it; the save and the `dry_run` preview share it (`docs/backend/spec.md :: I29`)."""
+def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> FLSpiel:
+    """Composed once, for the save and its `dry_run` preview alike (`docs/backend/spec.md :: I29`).
+
+    `rules` arrives as a VALUE, keeping this module synchronous and collection-free; a forfeit from
+    a constant could disagree with the season being played.
+    """
 
     # An unresolved slot has nobody to score, so an unresolved fixture carries NO goals rather than
     # the partial result `build_statistik_lookup_stage` has to filter against.
@@ -429,6 +438,17 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload) ->
     team1_tore = payload.team1.tore if both_sides_known and payload.team1 is not None else None
     team2_tore = payload.team2.tore if both_sides_known and payload.team2 is not None else None
 
+    # `both_sides_known` again, so this function keeps the invariant its first lines state rather
+    # than resting on `REQ-STATE-003` refusing the same shape one layer up.
+    absent_side = SONDEREREIGNIS_NO_SHOW.get(payload.sonderereignis or "") if both_sides_known else None
+    if absent_side is not None:
+        # The award is COMPOSED for the same reason `ergebnis` is: a figure the client supplied can
+        # disagree with the regulation it is meant to express. The side that stayed away takes the
+        # loser's goals.
+        awarded = rules.forfeit_ergebnis
+        team1_tore, team2_tore = (
+            (awarded.verlierer_tore, awarded.sieger_tore) if absent_side == "team1" else (awarded.sieger_tore, awarded.verlierer_tore)
+        )
     ergebnis = f"{team1_tore}:{team2_tore}" if team1_tore is not None and team2_tore is not None else None
 
     is_knockout = stored.saison_phase != "gruppenphase"
@@ -446,7 +466,7 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload) ->
             "team2_quelle": payload.team2_quelle,
             "ergebnis": ergebnis,
             "elfmeterschiessen": payload.elfmeterschiessen if keeps_shoot_out else None,
-            "is_canceled": payload.is_canceled,
+            "sonderereignis": payload.sonderereignis,
             "notiz": payload.notiz,
         }
     )
@@ -464,6 +484,40 @@ def stored_in_slice(spiel_id: CustomObjectId, season: Sequence[FLSpiel]) -> FLSp
         raise ValueError(f"the season slice does not hold spiel {spiel_id}, so no refusal over it can be trusted")
 
     return stored
+
+
+STATE_RESULT_ON_A_NON_EVENT = "REQ-STATE-002"
+STATE_NO_SHOW_WITHOUT_TWO_SIDES = "REQ-STATE-003"
+
+
+def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
+    """Why this patch's SONDEREREIGNIS must be refused, or `None`.
+
+    Both read the payload alone: the event and the two goal counts arrive in one body, so the pair
+    is judged where it is stated.
+    """
+
+    submitted_goals = [side.tore for side in (payload.team1, payload.team2) if side is not None and side.tore is not None]
+
+    # Refused rather than silently emptied: the goals are somebody's typing, and a save that discards
+    # them without saying so is how a real result disappears.
+    if payload.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT and submitted_goals:
+        return WriteRefusal(
+            error_code=STATE_RESULT_ON_A_NON_EVENT,
+            message=(
+                f"a fixture recorded as {payload.sonderereignis} awards nothing and cannot carry a result; clear the goals before setting it"
+            ),
+        )
+
+    # An unresolved slot has nobody who could have failed to appear, and the award below would have
+    # no side to land on.
+    if payload.sonderereignis in SONDEREREIGNIS_NO_SHOW and (payload.team1 is None or payload.team2 is None):
+        return WriteRefusal(
+            error_code=STATE_NO_SHOW_WITHOUT_TWO_SIDES,
+            message="a no-show names the side that stayed away; this fixture still holds an unresolved slot",
+        )
+
+    return None
 
 
 # What each code refuses is `docs/backend/spec.md` §1.4.
@@ -493,19 +547,19 @@ def find_eligibility_refusal(
                 message=f"{label}: {submitted.name} has no saison_teams row for season {stored.saison_id}",
             )
 
-        # A cancelled GROUP fixture records a match that did not happen, so a disqualified team
-        # belongs on it. A knockout slot still has to say who advances.
-        records_an_absence = payload.is_canceled and stored.saison_phase == "gruppenphase"
+        # A GROUP fixture recording a match that did not happen carries a departed club
+        # legitimately. A knockout slot still has to say who advances, and an ABANDONED fixture is
+        # one that happened -- a departed club standing on it is the fault this rule catches.
+        records_an_absence = payload.sonderereignis in SONDEREREIGNIS_RECORDING_AN_ABSENCE and stored.saison_phase == "gruppenphase"
 
-        disqualified_from = membership[submitted.team_id]
-        if disqualified_from is not None and not records_an_absence and not (payload.datum is not None and payload.datum < disqualified_from):
+        departed_from = membership[submitted.team_id]
+        if departed_from is not None and not records_an_absence and not (payload.datum is not None and payload.datum < departed_from):
             played_on = payload.datum or "no date"
 
             return WriteRefusal(
                 error_code=ELIGIBILITY_DISQUALIFIED,
                 message=(
-                    f"{label}: {submitted.name} is disqualified from season {stored.saison_id} as of {disqualified_from} "
-                    f"and this fixture is dated {played_on}"
+                    f"{label}: {submitted.name} left season {stored.saison_id} as of {departed_from} and this fixture is dated {played_on}"
                 ),
             )
 
@@ -597,29 +651,30 @@ def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielD
     return None
 
 
-def find_disqualified_occupants(spiele: Sequence[FLSpielJoined]) -> list[FLBracketFaultOccupant]:
-    """Every fixture fielding a team disqualified before its date; an UNDATED fixture is reported, and every phase counts."""
+def find_departed_occupants(spiele: Sequence[FLSpielJoined]) -> list[FLBracketFaultOccupant]:
+    """Every fixture fielding a team that left the season before its date; an UNDATED fixture is reported, and every phase counts."""
 
     faults: list[FLBracketFaultOccupant] = []
     for spiel in sorted(spiele, key=lambda entry: (entry.saison_id, entry.spiel_nr)):
         for side in ("team1", "team2"):
             occupant: FLSpielTeamFieldJoined | None = getattr(spiel, side)
-            if occupant is None or occupant.disqualifikation is None:
+            if occupant is None or occupant.austritt is None:
                 continue
 
-            effective = occupant.disqualifikation.datum
+            effective = occupant.austritt.datum
             if spiel.datum is not None and spiel.datum < effective:
                 continue
 
             faults.append(
                 FLBracketFaultOccupant(
-                    reason="disqualified_occupant",
+                    reason="departed_occupant",
                     spiel_id=spiel.id,
                     spiel_nr=spiel.spiel_nr,
                     side=side,
                     team_id=occupant.team_id,
                     team_name=occupant.name,
-                    disqualifiziert_seit=effective,
+                    austritt_type=occupant.austritt.type,
+                    ausgeschieden_seit=effective,
                     spiel_datum=spiel.datum,
                 )
             )

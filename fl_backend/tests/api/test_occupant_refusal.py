@@ -3,19 +3,31 @@ from typing import Any, Callable
 import pytest
 from bson import ObjectId
 
+from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.crud import apply_release_to_spiel
-from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoinedListAdapter, FLSpielListAdapter
+from app.api.spiele.schemas import (
+    SONDEREREIGNIS_RECORDING_AN_ABSENCE,
+    SONDEREREIGNIS_WITHOUT_A_RESULT,
+    FLPatchSpielDataPayload,
+    FLSpiel,
+    FLSpielJoinedListAdapter,
+    FLSpielListAdapter,
+)
 from app.api.spiele.services import (
     ELIGIBILITY_DISQUALIFIED,
     ELIGIBILITY_NO_MEMBERSHIP,
     RESULT_SIDE_EMPTIED,
     SPIELTAG_OCCUPIED,
+    STATE_NO_SHOW_WITHOUT_TWO_SIDES,
+    STATE_RESULT_ON_A_NON_EVENT,
     apply_payload_to_spiel,
-    find_disqualified_occupants,
+    find_departed_occupants,
     find_eligibility_refusal,
     find_result_removal_refusal,
+    find_state_refusal,
     judge_spieltag_occupancy,
 )
+from app.core.exceptions import WriteRefusal
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 SPIELTAG_ONE = "6890a1b2c3d4e5f607210001"
@@ -26,6 +38,23 @@ ADLER = "6890a1b2c3d4e5f607220001"
 BIEBER = "6890a1b2c3d4e5f607220002"
 CRONBERG = "6890a1b2c3d4e5f607220003"
 DORNBUSCH = "6890a1b2c3d4e5f607220004"
+
+# A forfeit is composed from the SEASON's regulation, so the two sets below share no number: a
+# constant 3:0 would satisfy the first and fail the second.
+STANDARD_FORFEIT = FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0)
+UNUSUAL_FORFEIT = FLSaisonForfeitErgebnis(sieger_tore=2, verlierer_tore=1)
+
+RULES = FLSaisonRules(
+    win_points=3,
+    draw_points=1,
+    qualifiers_per_group=2,
+    number_of_groups=4,
+    teams_per_group=4,
+    tiebreak_order="tordifferenz",
+    max_kadergroesse=18,
+    forfeit_ergebnis=STANDARD_FORFEIT,
+    erlaubte_stufen=["E1"],
+)
 
 PayloadFactory = Callable[..., dict[str, Any]]
 
@@ -78,7 +107,7 @@ def payload_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) ->
     return FLPatchSpielDataPayload.model_validate(
         {
             "spiel_id": stored["_id"],
-            "is_canceled": stored["is_canceled"],
+            "sonderereignis": stored["sonderereignis"],
             "team1": stored["team1"],
             "team2": stored["team2"],
             "team1_quelle": stored["team1_quelle"],
@@ -127,66 +156,59 @@ ON_THE_FIXTURE_DAY = "2026-03-15"
 AFTER_THE_FIXTURE = "2026-03-16"
 
 
+def patched_spiel(season_docs: list[dict[str, Any]], nr: int, *, rules: FLSaisonRules = RULES, **overrides: Any) -> FLSpiel:
+    """The fixture as this patch leaves it — the one function `patch_spiel_data` applies for the save and for the `dry_run` preview alike."""
+
+    stored = FLSpiel.model_validate(stored_spiel(season_docs, nr))
+
+    return apply_payload_to_spiel(stored, payload_for(season_docs, nr, **overrides), rules)
+
+
 class TestApplyingThePayload:
-    """The normalisation, which is the one thing the preview and the save must never do differently."""
+    """The normalisation, which is the one thing the preview and the save must never do differently (`docs/backend/spec.md :: I29`)."""
 
     def test_ergebnis_is_derived_from_the_two_goal_counts(self, season):
-        patched = apply_payload_to_spiel(
-            FLSpiel.model_validate(season[0]),
-            payload_for(season, 1, team1=team(ADLER, "Adler", tore=4), team2=team(BIEBER, "Bieber", tore=2)),
-        )
+        patched = patched_spiel(season, 1, team1=team(ADLER, "Adler", tore=4), team2=team(BIEBER, "Bieber", tore=2))
 
         assert patched.ergebnis == "4:2"
 
     def test_an_unresolved_side_strips_the_other_sides_goals(self, season):
-        patched = apply_payload_to_spiel(
-            FLSpiel.model_validate(season[0]),
-            payload_for(season, 1, team1=team(ADLER, "Adler", tore=4), team2=None),
-        )
+        patched = patched_spiel(season, 1, team1=team(ADLER, "Adler", tore=4), team2=None)
 
         assert patched.ergebnis is None
         assert patched.team1 is not None and patched.team1.tore is None
 
     def test_a_shoot_out_is_discarded_on_a_group_fixture(self, season):
         """A group draw is a final result and has no tie to break."""
-        patched = apply_payload_to_spiel(
-            FLSpiel.model_validate(season[0]),
-            payload_for(
-                season,
-                1,
-                team1=team(ADLER, "Adler", tore=2),
-                team2=team(BIEBER, "Bieber", tore=2),
-                elfmeterschiessen={"team1": 4, "team2": 3},
-            ),
+        patched = patched_spiel(
+            season,
+            1,
+            team1=team(ADLER, "Adler", tore=2),
+            team2=team(BIEBER, "Bieber", tore=2),
+            elfmeterschiessen={"team1": 4, "team2": 3},
         )
 
         assert patched.ergebnis == "2:2"
         assert patched.elfmeterschiessen is None
 
     def test_a_shoot_out_is_discarded_when_the_goals_already_decided_it(self, season):
-        patched = apply_payload_to_spiel(
-            FLSpiel.model_validate(season[2]),
-            payload_for(
-                season,
-                29,
-                team1=team(ADLER, "Adler", tore=3),
-                team2=team(BIEBER, "Bieber", tore=1),
-                elfmeterschiessen={"team1": 4, "team2": 3},
-            ),
+        patched = patched_spiel(
+            season,
+            29,
+            team1=team(ADLER, "Adler", tore=3),
+            team2=team(BIEBER, "Bieber", tore=1),
+            elfmeterschiessen={"team1": 4, "team2": 3},
         )
 
         assert patched.elfmeterschiessen is None
 
     def test_a_shoot_out_survives_a_level_knockout(self, season):
-        patched = apply_payload_to_spiel(
-            FLSpiel.model_validate(season[2]),
-            payload_for(
-                season,
-                29,
-                team1=team(ADLER, "Adler", tore=2),
-                team2=team(BIEBER, "Bieber", tore=2),
-                elfmeterschiessen={"team1": 4, "team2": 3},
-            ),
+        patched = patched_spiel(
+            season,
+            29,
+            team1=team(ADLER, "Adler", tore=2),
+            team2=team(BIEBER, "Bieber", tore=2),
+            elfmeterschiessen={"team1": 4, "team2": 3},
         )
 
         assert patched.elfmeterschiessen is not None
@@ -194,7 +216,7 @@ class TestApplyingThePayload:
 
     def test_the_fixtures_own_identity_is_never_taken_from_the_payload(self, season):
         stored = FLSpiel.model_validate(season[1])
-        patched = apply_payload_to_spiel(stored, payload_for(season, 2, datum=None))
+        patched = patched_spiel(season, 2, datum=None)
 
         assert (patched.spiel_nr, patched.spieltag_id, patched.saison_id, patched.saison_phase) == (
             stored.spiel_nr,
@@ -202,6 +224,65 @@ class TestApplyingThePayload:
             stored.saison_id,
             stored.saison_phase,
         )
+
+
+class TestComposingAForfeit:
+    """A no-show's goals come from the season's regulation, never from the client: a typed figure can disagree with the rule it states."""
+
+    def test_a_no_show_by_team1_awards_the_result_against_it(self, season):
+        """The goals submitted are overwritten rather than trusted, which is what makes the award the regulation's."""
+
+        patched = patched_spiel(
+            season,
+            1,
+            sonderereignis="nichtantreten_team1",
+            team1=team(ADLER, "Adler", tore=9),
+            team2=team(BIEBER, "Bieber", tore=9),
+        )
+
+        assert patched.ergebnis == "0:3"
+        assert patched.team1 is not None and patched.team1.tore == 0
+        assert patched.team2 is not None and patched.team2.tore == 3
+
+    def test_a_no_show_by_team2_awards_it_the_other_way_round(self, season):
+        """Not redundant with the case above: a composition reading one side only passes that one and reverses this."""
+
+        patched = patched_spiel(season, 1, sonderereignis="nichtantreten_team2", team1=team(ADLER, "Adler"), team2=team(BIEBER, "Bieber"))
+
+        assert patched.ergebnis == "3:0"
+        assert patched.team1 is not None and patched.team1.tore == 3
+        assert patched.team2 is not None and patched.team2.tore == 0
+
+    def test_a_season_regulating_a_different_award_gets_a_different_score(self, season):
+        """The reason `rules` is an argument at all: a constant here would freeze one competition's regulation into every season."""
+
+        unusual = RULES.model_copy(update={"forfeit_ergebnis": UNUSUAL_FORFEIT})
+        patched = patched_spiel(
+            season,
+            1,
+            rules=unusual,
+            sonderereignis="nichtantreten_team2",
+            team1=team(ADLER, "Adler"),
+            team2=team(BIEBER, "Bieber"),
+        )
+
+        assert patched.ergebnis == "2:1"
+
+    def test_an_abandoned_fixture_keeps_the_score_that_stood(self, season):
+        """Only a no-show is composed; an abandonment is unconstrained, so whatever was entered when play stopped survives."""
+
+        patched = patched_spiel(
+            season, 1, sonderereignis="abgebrochen", team1=team(ADLER, "Adler", tore=1), team2=team(BIEBER, "Bieber", tore=0)
+        )
+
+        assert patched.ergebnis == "1:0"
+
+    def test_the_event_itself_reaches_the_fixture(self, season):
+        """A composition that awarded the goals and dropped the event would leave a scoreline nothing explains."""
+
+        patched = patched_spiel(season, 1, sonderereignis="nichtantreten_team2", team1=team(ADLER, "Adler"), team2=team(BIEBER, "Bieber"))
+
+        assert patched.sonderereignis == "nichtantreten_team2"
 
 
 class TestEligibility:
@@ -235,8 +316,9 @@ class TestEligibility:
             == ELIGIBILITY_DISQUALIFIED
         )
 
-    def test_a_cancelled_group_fixture_may_hold_a_disqualified_team(self, season):
-        """The carve-out: a cancellation records that the match did not happen, so refusing would refuse the entry documenting the absence."""
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_RECORDING_AN_ABSENCE)
+    def test_a_group_fixture_recording_an_absence_may_hold_a_disqualified_team(self, season, sonderereignis):
+        """The carve-out: the entry records that the match did not happen, so refusing would refuse the very document of the absence."""
 
         assert (
             eligibility_for(
@@ -244,13 +326,27 @@ class TestEligibility:
                 1,
                 {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE},
                 team1=team(CRONBERG, "Cronberg"),
-                is_canceled=True,
+                sonderereignis=sonderereignis,
             )
             is None
         )
 
-    def test_a_cancelled_knockout_fixture_is_still_refused(self, season):
-        """Where the carve-out stops: a cancelled bracket slot still has to say who advances. The phase comes from the stored fixture."""
+    def test_an_abandoned_group_fixture_is_still_refused(self, season):
+        """The distinction the boolean hid: an abandonment HAPPENED, so a club barred from the season standing on it is the fault."""
+
+        assert (
+            eligibility_for(
+                season,
+                1,
+                {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE},
+                team1=team(CRONBERG, "Cronberg"),
+                sonderereignis="abgebrochen",
+            )
+            == ELIGIBILITY_DISQUALIFIED
+        )
+
+    def test_an_annulled_knockout_fixture_is_still_refused(self, season):
+        """Where the carve-out stops: a struck-out bracket slot still has to say who advances. The phase comes from the stored fixture."""
 
         assert (
             eligibility_for(
@@ -258,23 +354,23 @@ class TestEligibility:
                 30,
                 {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE},
                 team1=team(CRONBERG, "Cronberg"),
-                is_canceled=True,
+                sonderereignis="annulliert",
             )
             == ELIGIBILITY_DISQUALIFIED
         )
 
-    def test_an_uncancelled_group_fixture_is_refused(self, season):
+    def test_an_ordinary_group_fixture_is_refused(self, season):
         assert (
             eligibility_for(season, 1, {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE}, team1=team(CRONBERG, "Cronberg"))
             == ELIGIBILITY_DISQUALIFIED
         )
 
-    def test_a_cancelled_group_fixture_still_needs_a_membership(self, season):
+    def test_a_group_fixture_recording_an_absence_still_needs_a_membership(self, season):
         """The carve-out reaches the disqualification rule alone; `REQ-ELIGIBILITY-002` is a different fact."""
 
         missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
 
-        assert eligibility_for(season, 1, missing, team1=team(CRONBERG, "Cronberg"), is_canceled=True) == ELIGIBILITY_NO_MEMBERSHIP
+        assert eligibility_for(season, 1, missing, team1=team(CRONBERG, "Cronberg"), sonderereignis="annulliert") == ELIGIBILITY_NO_MEMBERSHIP
 
     def test_a_disqualified_team_already_stored_stays_editable(self, season):
         """Resolving the fault means editing that fixture, so the stored occupant passes on any date."""
@@ -389,13 +485,14 @@ class TestApplyingARelease:
 
 
 def joined(*, nr: int, datum: str | None, side_disqualified_from: str | None, side: str = "team1") -> dict[str, Any]:
-    """Carries the whole `disqualifikation` record, so a fault can name its effective day."""
+    """Carries the whole `austritt` record, so a fault can name its effective day."""
 
     def occupant(team_id: str, name: str, disqualified_from: str | None) -> dict[str, Any]:
-        return {
-            **team(team_id, name),
-            "disqualifikation": None if disqualified_from is None else {"grund": "Nicht angetreten", "datum": disqualified_from},
-        }
+        # `type` is set and never varied: the rule reads the DATE, so a `rueckzug` would exercise
+        # the same branch with a different word in it.
+        record = None if disqualified_from is None else {"type": "disqualifikation", "grund": "Nicht angetreten", "datum": disqualified_from}
+
+        return {**team(team_id, name), "austritt": record}
 
     return {
         "_id": MATCH_ID.format(nr),
@@ -411,14 +508,14 @@ def joined(*, nr: int, datum: str | None, side_disqualified_from: str | None, si
         "elfmeterschiessen": None,
         "spieltag_id": SPIELTAG_ONE,
         "spiel_nr": nr,
-        "is_canceled": False,
+        "sonderereignis": None,
         "saison_phase": "gruppenphase",
         "saison_id": "2026",
     }
 
 
 def occupant_faults(*fixtures: dict[str, Any]) -> list:
-    return find_disqualified_occupants(FLSpielJoinedListAdapter.validate_python(list(fixtures)))
+    return find_departed_occupants(FLSpielJoinedListAdapter.validate_python(list(fixtures)))
 
 
 class TestTheDisqualifiedOccupantFault:
@@ -437,7 +534,7 @@ class TestTheDisqualifiedOccupantFault:
 
         faults = occupant_faults(joined(nr=1, datum="2026-03-15", side_disqualified_from="2026-03-15"))
 
-        assert [fault.reason for fault in faults] == ["disqualified_occupant"]
+        assert [fault.reason for fault in faults] == ["departed_occupant"]
 
     def test_a_fixture_after_the_disqualification_is_reported(self):
         faults = occupant_faults(joined(nr=4, datum="2026-04-01", side_disqualified_from="2026-03-15"))
@@ -445,7 +542,7 @@ class TestTheDisqualifiedOccupantFault:
         assert len(faults) == 1
         assert faults[0].spiel_nr == 4
         assert faults[0].side == "team1"
-        assert faults[0].disqualifiziert_seit == "2026-03-15"
+        assert faults[0].ausgeschieden_seit == "2026-03-15"
         assert faults[0].spiel_datum == "2026-04-01"
 
     def test_an_undated_fixture_is_reported(self):
@@ -527,3 +624,69 @@ class TestRemovingATeamFromAPlayedFixture:
         without_ergebnis = [{**doc, "ergebnis": None} if doc["spiel_nr"] == 2 else doc for doc in season]
 
         assert self.removal(without_ergebnis, 2, team1=None) == RESULT_SIDE_EMPTIED
+
+
+def state_refusal_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> WriteRefusal | None:
+    """`find_state_refusal` reads the payload alone — the event and the two goal counts arrive in one body."""
+
+    return find_state_refusal(payload_for(season_docs, nr, **overrides))
+
+
+class TestAnEventThatAwardsNothingCarriesNoResult:
+    """`REQ-STATE-002`: the goals are somebody's typing, so a save that silently discarded them is how a real result disappears."""
+
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
+    def test_goals_submitted_beside_it_are_refused(self, season, sonderereignis):
+        refusal = state_refusal_for(season, 1, sonderereignis=sonderereignis, team1=team(ADLER, "Adler", tore=2))
+
+        assert refusal is not None
+        assert refusal.error_code == STATE_RESULT_ON_A_NON_EVENT
+
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
+    def test_the_same_fixture_with_no_goals_passes(self, season, sonderereignis):
+        """The route the admin takes: clear the score, then record that the match never happened."""
+
+        assert state_refusal_for(season, 1, sonderereignis=sonderereignis) is None
+
+    def test_a_zero_is_a_goal_count_like_any_other(self, season):
+        """`0` is a score somebody entered, not an absent one, and a truthiness test on the value alone would let it through."""
+
+        refusal = state_refusal_for(season, 1, sonderereignis="ausgefallen", team1=team(ADLER, "Adler", tore=0))
+
+        assert refusal is not None
+        assert refusal.error_code == STATE_RESULT_ON_A_NON_EVENT
+
+    def test_an_abandoned_fixture_may_carry_its_goals(self, season):
+        """The distinction the boolean hid: play started and a score stood, so this state is unconstrained."""
+
+        assert state_refusal_for(season, 1, sonderereignis="abgebrochen", team1=team(ADLER, "Adler", tore=2)) is None
+
+    def test_an_ordinary_fixture_may_carry_its_goals(self, season):
+        assert state_refusal_for(season, 1, team1=team(ADLER, "Adler", tore=2)) is None
+
+
+class TestANoShowNeedsBothSides:
+    """`REQ-STATE-003`: an unresolved slot has nobody who could have failed to appear, and the award would have no side to land on."""
+
+    @pytest.mark.parametrize("sonderereignis", ["nichtantreten_team1", "nichtantreten_team2"])
+    def test_a_fixture_with_two_clubs_passes(self, season, sonderereignis):
+        assert state_refusal_for(season, 1, sonderereignis=sonderereignis) is None
+
+    @pytest.mark.parametrize("emptied", ["team1", "team2"])
+    def test_an_unresolved_slot_is_refused(self, season, emptied):
+        """Either side, because the rule is about the fixture rather than about the club that stayed away."""
+
+        refusal = state_refusal_for(season, 1, sonderereignis="nichtantreten_team1", **{emptied: None})
+
+        assert refusal is not None
+        assert refusal.error_code == STATE_NO_SHOW_WITHOUT_TWO_SIDES
+
+    def test_an_unresolved_slot_is_no_bar_to_any_other_event(self, season):
+        """Fixture 30 holds neither club, and calling off a match nobody was drawn into is a legitimate entry."""
+
+        assert state_refusal_for(season, 30, sonderereignis="ausgefallen") is None
+
+    def test_the_two_state_refusals_are_distinct(self):
+        """Different advice — one says remove the goals, the other says fill the slot — so different codes."""
+
+        assert STATE_RESULT_ON_A_NON_EVENT != STATE_NO_SHOW_WITHOUT_TWO_SIDES

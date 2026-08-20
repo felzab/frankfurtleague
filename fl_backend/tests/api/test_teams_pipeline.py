@@ -3,8 +3,8 @@ from typing import Any, Iterator, Mapping
 import pytest
 from bson import ObjectId
 
-from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import FLSpiel
+from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
+from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_ABSAGE, FLSpiel
 from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 from app.api.teams.services import (
@@ -20,7 +20,15 @@ from app.api.teams.services import (
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 
 STANDARD_RULES = FLSaisonRules(
-    win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN
+    win_points=3,
+    draw_points=1,
+    qualifiers_per_group=2,
+    number_of_groups=4,
+    teams_per_group=4,
+    tiebreak_order="tordifferenz",
+    max_kadergroesse=18,
+    forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
+    erlaubte_stufen=STUFEN,
 )
 
 Pipeline = list[Mapping[str, Any]]
@@ -123,9 +131,9 @@ def test_the_scope_narrows_the_matches_and_nothing_else():
     assert len(gruppenphase) == len(gesamt)
 
 
-def test_the_counting_lookup_never_consults_is_canceled():
-    """The forfeit rule: adding an `is_canceled` filter looks like a correction, so the assertion is over the whole lookup."""
-    assert not reads(statistik_stage(build()), "is_canceled")
+def test_the_counting_lookup_never_consults_the_sonderereignis():
+    """The forfeit rule: adding a `sonderereignis` filter looks like a correction, so the assertion is over the whole lookup."""
+    assert not reads(statistik_stage(build()), "sonderereignis")
 
 
 def test_no_stage_reads_the_shoot_out():
@@ -156,18 +164,25 @@ SCOPE_PHASES: list[tuple[FLTeamStatistikScope, str | None]] = [("gruppenphase", 
 
 
 class TestTheAbsageLookup:
-    """The one place `is_canceled` is read, kept separate from the scoring so the flag stays out of it."""
+    """The one place `sonderereignis` is read, kept separate from the scoring so the event stays out of it."""
 
-    def test_it_selects_on_the_flag_and_nothing_else(self):
+    def test_it_selects_on_the_event_and_nothing_else(self):
         """Narrowing to a null `ergebnis` reads like a correction and would drop every forfeit."""
         match_stage = absage_stage(build())["pipeline"][0]["$match"]
 
-        assert match_stage["is_canceled"] is True
+        assert match_stage["sonderereignis"] == {"$in": list(SONDEREREIGNIS_COUNTED_AS_ABSAGE)}
         assert "ergebnis" not in match_stage
 
-    def test_it_is_the_only_stage_reading_the_flag(self):
-        """A second reader would bring `is_canceled` into the scoring."""
-        readers = [stage for stage in build() if reads(stage, "is_canceled")]
+    def test_it_counts_a_no_show_and_neither_an_abandonment_nor_an_annulment(self):
+        """This figure's own question, which no other consumer asks: a club that never appeared was called off, and the other two were not."""
+        selected = set(SONDEREREIGNIS_COUNTED_AS_ABSAGE)
+
+        assert {"ausgefallen", "nichtantreten_team1", "nichtantreten_team2"} <= selected
+        assert selected.isdisjoint({"abgebrochen", "annulliert"})
+
+    def test_it_is_the_only_stage_reading_the_event(self):
+        """A second reader would bring `sonderereignis` into the scoring."""
+        readers = [stage for stage in build() if reads(stage, "sonderereignis")]
 
         assert [stage.get("$lookup", {}).get("as") for stage in readers] == [ABSAGE_AS_NAME]
 
@@ -189,7 +204,7 @@ class TestTheAbsageLookup:
 
 def test_scores_with_the_seasons_own_points_rather_than_a_constant():
     """A 2/0/0 season shares no number with the default scheme, so a hardcoded one cannot pass both."""
-    unusual = FLSaisonRules(win_points=2, draw_points=0, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
+    unusual = STANDARD_RULES.model_copy(update={"win_points": 2, "draw_points": 0})
 
     punkte = statistik_stage(build(rules=unusual))["pipeline"][-1]["$project"]["punkte"]
 
@@ -226,18 +241,18 @@ def test_reads_statistik_from_no_stored_copy():
     }
     assert not reads(projected, AS_NAME, "statistik")
     assert projected["gruppe"] == "$saison_data.gruppe"
-    assert projected["disqualifikation"] == "$saison_data.disqualifikation"
+    assert projected["austritt"] == "$saison_data.austritt"
 
 
 class TestTheDisqualifiedFilterIsTranslated:
     """The junction stores no boolean, so a dumped `True` would match nothing — silently, as an empty group rather than an error."""
 
     def test_true_selects_the_rows_holding_a_record(self):
-        assert junction_match(build(is_disqualified=True)) == {"saison_id": "2026", "disqualifikation": {"$ne": None}}
+        assert junction_match(build(is_disqualified=True)) == {"saison_id": "2026", "austritt": {"$ne": None}}
 
     def test_false_selects_the_rows_holding_none(self):
         """An explicit null, which also excludes a row missing the key — the state the seed removes."""
-        assert junction_match(build(is_disqualified=False)) == {"saison_id": "2026", "disqualifikation": None}
+        assert junction_match(build(is_disqualified=False)) == {"saison_id": "2026", "austritt": None}
 
     def test_an_omitted_filter_asks_nothing_about_disqualification(self):
         """A disqualified team stays in the table, so the default read must not narrow on the field."""

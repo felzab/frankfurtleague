@@ -1,5 +1,7 @@
+import pytest
+
 from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, find_activation_refusal, unplayed_spiel_nrs
-from app.api.spiele.schemas import FLSpielListAdapter
+from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielListAdapter
 
 
 def season(*spiele: dict) -> list:
@@ -19,7 +21,7 @@ def season(*spiele: dict) -> list:
         "elfmeterschiessen": None,
         "spieltag_id": "6890a1b2c3d4e5f607210001",
         "spiel_nr": 1,
-        "is_canceled": False,
+        "sonderereignis": None,
         "saison_phase": "gruppenphase",
         "saison_id": "2026",
     }
@@ -36,15 +38,21 @@ class TestWhatCountsAsUnplayed:
     def test_a_fixture_with_no_result_is_unplayed(self):
         assert unplayed_spiel_nrs(season({"spiel_nr": 7, "ergebnis": None})) == [7]
 
-    def test_a_cancelled_fixture_is_settled(self):
-        """Cancelling is the route past the refusal: otherwise a fixture nobody will play closes nothing."""
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
+    def test_a_fixture_that_can_award_nothing_is_settled(self, sonderereignis):
+        """Recording that a match will never be played is the route past the refusal: otherwise a fixture nobody will play closes nothing."""
 
-        assert unplayed_spiel_nrs(season({"spiel_nr": 4, "ergebnis": None, "is_canceled": True})) == []
+        assert unplayed_spiel_nrs(season({"spiel_nr": 4, "ergebnis": None, "sonderereignis": sonderereignis})) == []
 
-    def test_a_cancelled_fixture_with_a_result_is_also_settled(self):
-        """A cancelled match carrying a result counts for the league table (`docs/glossary.md`), so it is as played as any other."""
+    def test_an_abandoned_fixture_with_no_result_still_owes_one(self):
+        """The distinction the boolean hid: abandoning a match settles nothing, because a replay may still be scheduled."""
 
-        assert unplayed_spiel_nrs(season({"spiel_nr": 4, "ergebnis": "1:0", "is_canceled": True})) == []
+        assert unplayed_spiel_nrs(season({"spiel_nr": 4, "ergebnis": None, "sonderereignis": "abgebrochen"})) == [4]
+
+    def test_a_forfeit_carrying_its_awarded_result_is_settled(self):
+        """A no-show is awarded a result and counts for the league table (`docs/glossary.md`), so it is as played as any other."""
+
+        assert unplayed_spiel_nrs(season({"spiel_nr": 4, "ergebnis": "1:0", "sonderereignis": "nichtantreten_team2"})) == []
 
     def test_an_empty_bracket_slot_is_unplayed(self):
         """A season leaving one open is as unfinished as one leaving a match unscored, and it has no occupants to score."""

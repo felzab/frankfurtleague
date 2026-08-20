@@ -1,7 +1,10 @@
 import pytest
 from pydantic import ValidationError
 
-from app.shared.schemas.addresses import FLAddress
+from app.shared.schemas.addresses import FLAddress, FLAddressPayload
+from app.shared.schemas.bounds import ADDRESS_STADT_MAX_LENGTH, ADDRESS_STRASSE_MAX_LENGTH
+
+CAPPED_FIELDS = [("strasse", ADDRESS_STRASSE_MAX_LENGTH), ("stadt", ADDRESS_STADT_MAX_LENGTH)]
 
 
 def test_accepts_a_valid_address(address):
@@ -40,3 +43,30 @@ def test_accepts_the_house_number_charset(address, hausnummer):
 def test_rejects_a_house_number_outside_the_charset(address, hausnummer):
     with pytest.raises(ValidationError):
         FLAddress.model_validate(address(hausnummer=hausnummer))
+
+
+@pytest.mark.parametrize(("field", "cap"), CAPPED_FIELDS)
+def test_the_payload_refuses_a_value_over_its_cap(address, assert_rejects, field, cap):
+    assert_rejects(FLAddressPayload, address(**{field: "x" * (cap + 1)}), field)
+
+
+@pytest.mark.parametrize(("field", "cap"), CAPPED_FIELDS)
+def test_the_payload_accepts_a_value_at_its_cap(address, field, cap):
+    """The bound is inclusive, so the longest legal value must not be the first refused one."""
+    at_the_cap = "x" * cap
+
+    assert getattr(FLAddressPayload.model_validate(address(**{field: at_the_cap})), field) == at_the_cap
+
+
+@pytest.mark.parametrize("field", [field for field, _ in CAPPED_FIELDS])
+def test_the_payload_keeps_the_non_empty_floor(address, assert_rejects, field):
+    """Both fields are redeclared to carry a ceiling, and a redeclaration drops the floor unless it restates it."""
+    assert_rejects(FLAddressPayload, address(**{field: ""}), field)
+
+
+@pytest.mark.parametrize(("field", "cap"), CAPPED_FIELDS)
+def test_the_read_model_still_accepts_a_stored_value_the_payload_would_refuse(address, field, cap):
+    """A read model refusing a stored address would answer 500 for the whole list because of one row."""
+    over_the_cap = "x" * (cap + 1)
+
+    assert getattr(FLAddress.model_validate(address(**{field: over_the_cap})), field) == over_the_cap

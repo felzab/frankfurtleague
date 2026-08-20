@@ -8,6 +8,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import swap_gruppen
 from app.api.saisons.schemas import FLSwapGruppenPayload
+from app.api.spiele.schemas import SONDEREREIGNIS_PRODUCING_A_RECORD
 from app.api.teams.services import (
     SWAP_GRUPPENPHASE_PLAYED,
     SWAP_KNOCKOUT_STARTED,
@@ -46,7 +47,7 @@ NAMES = {
 def junction(team_id: ObjectId, gruppe: str) -> dict[str, Any]:
     """A dict rather than a model: `saison_teams` has no model of the row."""
 
-    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": gruppe, "disqualifikation": None}
+    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": gruppe, "austritt": None}
 
 
 def club(team_id: ObjectId) -> dict[str, Any]:
@@ -74,7 +75,7 @@ def gruppen_fixture(
     away: ObjectId,
     *,
     ergebnis: str | None = None,
-    is_canceled: bool = False,
+    sonderereignis: str | None = None,
     tore: tuple[int | None, int | None] = (None, None),
     spieltag_id: ObjectId = SPIELTAG,
 ) -> dict[str, Any]:
@@ -86,14 +87,14 @@ def gruppen_fixture(
         "team1": side(home, tore[0]),
         "team2": side(away, tore[1]),
         "ergebnis": ergebnis,
-        "is_canceled": is_canceled,
+        "sonderereignis": sonderereignis,
     }
 
 
-def knockout_fixture(*, ergebnis: str | None, is_canceled: bool = False, spieltag_id: ObjectId | None = None) -> dict[str, Any]:
+def knockout_fixture(*, ergebnis: str | None, sonderereignis: str | None = None, spieltag_id: ObjectId | None = None) -> dict[str, Any]:
     """`spieltag_id` is absent rather than null when none is given — the state `_spieltag_clashes` skips."""
 
-    fixture = {"saison_id": SAISON_ID, "saison_phase": "viertelfinale", "ergebnis": ergebnis, "is_canceled": is_canceled}
+    fixture = {"saison_id": SAISON_ID, "saison_phase": "viertelfinale", "ergebnis": ergebnis, "sonderereignis": sonderereignis}
 
     return fixture if spieltag_id is None else {**fixture, "spieltag_id": spieltag_id}
 
@@ -389,8 +390,9 @@ class TestTheRefusalsReadTheRealDocuments:
         assert "1 knockout fixture" in message, f"the fixture still to be played was counted too: {message}"
         assert stored[ALPHA] == "A" and stored[BETA] == "B"
 
-    def test_a_called_off_knockout_fixture_closes_the_window_too(self, mongo_replica_set_url: str):
-        """A knockout slot is filled from a group placing before the match, so calling it off does not un-fill it."""
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_PRODUCING_A_RECORD)
+    def test_a_knockout_fixture_that_left_a_record_closes_the_window_too(self, mongo_replica_set_url: str, sonderereignis: str):
+        """An abandonment and a no-show each happened, so the bracket already stands on these groups even with no `ergebnis`."""
 
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
@@ -400,10 +402,25 @@ class TestTheRefusalsReadTheRealDocuments:
         code = on_a_seeded_season(
             mongo_replica_set_url,
             body,
-            spiele=[*DRAWN_ROUND_ROBIN, knockout_fixture(ergebnis=None, is_canceled=True)],
+            spiele=[*DRAWN_ROUND_ROBIN, knockout_fixture(ergebnis=None, sonderereignis=sonderereignis)],
         )
 
         assert code == SWAP_KNOCKOUT_STARTED
+
+    def test_a_knockout_fixture_called_off_before_it_happened_leaves_it_open(self, mongo_replica_set_url: str):
+        """The distinction the boolean hid: nothing took place, so there is no history the exchange would rewrite."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await call_swap(database, client, ALPHA, BETA)
+            return await gruppen_now(database)
+
+        stored = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=[*DRAWN_ROUND_ROBIN, knockout_fixture(ergebnis=None, sonderereignis="ausgefallen")],
+        )
+
+        assert stored[ALPHA] == "B" and stored[BETA] == "A"
 
     def test_a_knockout_fixture_still_to_be_played_leaves_it_open(self, mongo_replica_set_url: str):
         """A drawn bracket is not a begun one: a count over every knockout document would close the window early."""
@@ -437,8 +454,9 @@ class TestTheRefusalsReadTheRealDocuments:
         assert code == SWAP_GRUPPENPHASE_PLAYED
         assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
 
-    def test_a_called_off_group_fixture_closes_the_window_too(self, mongo_replica_set_url: str):
-        """A cancellation is a forfeit, and a forfeit is a result the round robin holds."""
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_PRODUCING_A_RECORD)
+    def test_a_group_fixture_that_left_a_record_closes_the_window_too(self, mongo_replica_set_url: str, sonderereignis: str):
+        """A no-show is a forfeit and an abandonment is a match that happened; either is a round-robin entry Alpha would carry away."""
 
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
@@ -448,10 +466,26 @@ class TestTheRefusalsReadTheRealDocuments:
         code = on_a_seeded_season(
             mongo_replica_set_url,
             body,
-            spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, is_canceled=True), gruppen_fixture(2, BETA_RIVAL, BETA)],
+            spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, sonderereignis=sonderereignis), gruppen_fixture(2, BETA_RIVAL, BETA)],
         )
 
         assert code == SWAP_GRUPPENPHASE_PLAYED
+
+    @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
+    def test_a_group_fixture_that_left_no_record_leaves_the_window_open(self, mongo_replica_set_url: str, sonderereignis: str):
+        """The distinction the boolean hid: neither club took part, so both sides are still free to move."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await call_swap(database, client, ALPHA, BETA)
+            return await gruppen_now(database)
+
+        stored = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, sonderereignis=sonderereignis), gruppen_fixture(2, BETA_RIVAL, BETA)],
+        )
+
+        assert stored[ALPHA] == "B" and stored[BETA] == "A"
 
     def test_a_group_fixture_holding_one_goal_count_closes_the_window(self, mongo_replica_set_url: str):
         """Reachable because `apply_payload_to_spiel` strips goals only where a side is absent; the rewrite would leave them for Beta."""

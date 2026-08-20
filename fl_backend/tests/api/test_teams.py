@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeam, FLTeamRecord, FLTeamsGroupedResponse, FLTeamStatistik
 from app.api.teams.services import build_gruppen
@@ -9,7 +9,17 @@ from app.api.teams.services import build_gruppen
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 
-RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
+RULES = FLSaisonRules(
+    win_points=3,
+    draw_points=1,
+    qualifiers_per_group=2,
+    number_of_groups=4,
+    teams_per_group=4,
+    tiebreak_order="tordifferenz",
+    max_kadergroesse=50,
+    forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
+    erlaubte_stufen=STUFEN,
+)
 
 
 def test_accepts_a_valid_team(team):
@@ -122,7 +132,7 @@ class TestFLTeamRecord:
 
     def test_accepts_a_document_carrying_none_of_the_season_scoped_fields(self, team, address):
         """The case the write path produces: the same document validated against `FLTeam` fails on all three fields."""
-        stored = {key: value for key, value in team().items() if key not in {"gruppe", "disqualifikation", "statistik"}}
+        stored = {key: value for key, value in team().items() if key not in {"gruppe", "austritt", "statistik"}}
 
         assert FLTeamRecord.model_validate(stored).name == "Carl-Schurz"
 

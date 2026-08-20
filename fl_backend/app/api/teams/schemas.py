@@ -2,7 +2,7 @@ from typing import Annotated, Literal, Mapping, Union
 
 from pydantic import BaseModel, Field, RootModel, TypeAdapter
 
-from app.shared.schemas.addresses import FLAddress
+from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH, TEAM_DESCRIPTION_MAX_LENGTH, TEAM_SHORTHAND_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomExternalUrl, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse
@@ -14,15 +14,21 @@ FLGruppenNames = Literal["A", "B", "C", "D"]
 FLTeamStatistikScope = Literal["gruppenphase", "gesamt"]
 
 
-class FLDisqualifikation(BaseModel):
-    """Why a team is out of one season, and from when.
+# A withdrawal is not a sanction, so the two routes out of a season are told apart rather than
+# both filed as one. An alias because the bracket fault names it too.
+FLAustrittType = Literal["disqualifikation", "rueckzug"]
+
+
+class FLAustritt(BaseModel):
+    """How a team came to be out of one season, why, and from when.
 
     `grund` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no
     disciplinary code an enum could cite.
     """
 
+    type: FLAustrittType
     grund: CustomNonEmptyString
-    # The day the disqualification took effect, not the day somebody typed it in.
+    # The day the exit took effect, not the day somebody typed it in.
     datum: CustomDateString
 
 
@@ -62,8 +68,8 @@ class FLTeam(_TeamWritable):
     gruppe: FLGruppenNames
     statistik: FLTeamStatistik
     # Joined from the junction on every read, and copied into no match document.
-    disqualifikation: FLDisqualifikation | None
-    # The day this CLUB left the league. Leaving one season is `disqualifikation` above.
+    austritt: FLAustritt | None
+    # The day this CLUB left the league. Leaving one season is `austritt` above.
     inactive_since: CustomOptionalDateString
 
 
@@ -94,7 +100,7 @@ class FLTeamMembership(BaseModel):
 
     saison_id: str
     gruppe: FLGruppenNames
-    disqualifikation: FLDisqualifikation | None
+    austritt: FLAustritt | None
 
 
 class FLTeamWithMemberships(FLTeamRecord):
@@ -116,13 +122,19 @@ class FLTeamsMembershipsResponse(BaseAPIResponse):
     teams: list[FLTeamWithMemberships]
 
 
+# Private for `_TeamWritable`'s reason. The bounded address sits here rather than on that base, which
+# `FLTeam`, `FLTeamRecord` and `FLTeamWithMemberships` share.
+class _TeamPayload(_TeamWritable):
+    address: FLAddressPayload
+
+
 # Two names for one shape rather than an alias: the create and the edit are free to diverge, and an
 # alias would carry a change to either one into the other.
-class FLPostTeamPayload(_TeamWritable):
+class FLPostTeamPayload(_TeamPayload):
     pass
 
 
-class FLPatchTeamPayload(_TeamWritable):
+class FLPatchTeamPayload(_TeamPayload):
     pass
 
 
@@ -137,7 +149,7 @@ class FLPatchSaisonTeamPayload(BaseModel):
     gruppe: FLGruppenNames
     # No `default=None`: `PATCH` replaces both writable fields wholesale, so an omitted key would
     # silently reinstate a team.
-    disqualifikation: FLDisqualifikation | None
+    austritt: FLAustritt | None
 
 
 class FLTeamsFilterParams(BaseModel):
@@ -216,7 +228,7 @@ class FLSaisonTeamResponse(BaseAPIResponse):
     saison_id: str
     team_id: CustomObjectId
     gruppe: FLGruppenNames
-    disqualifikation: FLDisqualifikation | None
+    austritt: FLAustritt | None
 
 
 FLTeamsResponse = Annotated[

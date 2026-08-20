@@ -12,7 +12,7 @@ class TestTheMembershipsPipeline:
         lookup = next(stage["$lookup"] for stage in build_team_memberships_pipeline() if "$lookup" in stage)
         assert lookup["from"] == "saison_teams"
         projection = lookup["pipeline"][0]["$project"]
-        assert projection == {"_id": 0, "saison_id": 1, "gruppe": 1, "disqualifikation": 1}
+        assert projection == {"_id": 0, "saison_id": 1, "gruppe": 1, "austritt": 1}
 
     def test_it_sorts_by_name(self):
         assert build_team_memberships_pipeline()[-1] == {"$sort": {"name": 1}}

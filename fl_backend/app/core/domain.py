@@ -164,9 +164,9 @@ AGGREGATES: tuple[Aggregate, ...] = (
         root=Collection.SPIELTAGE,
         members=(),
         boundary=(
-            "A matchday alone. Nothing holds a matchday and its fixtures true together: its position and "
-            "its expected match count are both derived from elsewhere, and retiring one leaves its "
-            "matches untouched."
+            "A matchday alone. Nothing holds a matchday and its fixtures true together: its `position` is "
+            "checked against the other matchdays of its phase, and its expected match count is derived from "
+            "the season's rules. Neither is a fact about the fixtures it holds."
         ),
     ),
     Aggregate(
@@ -322,7 +322,7 @@ REFERENCES: tuple[Reference, ...] = (
             "`post_saison_team` reads the season for its status and its capacity, so entry into one that does not exist is a 404. "
             "The season's `rules` bound these rows, so narrowing `number_of_groups` or `teams_per_group` "
             "below what they occupy is refused (`REQ-RULES-002`, `REQ-RULES-003`). There is no row delete "
-            "either: a team leaves a season only by disqualification."
+            "either: a team leaves a season only by an austritt."
         ),
     ),
     Reference(
@@ -459,10 +459,12 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SPIELTAGE,
-        "inactive_since",
-        Editability.CONTROL_ONLY,
-        "`DELETE` stamps it and `POST /reactivate` clears it",
-        "app.api.spieltage.admin_router.delete_spieltag",
+        "position",
+        Editability.CONDITIONAL,
+        "the create appends the phase's highest plus one, no client knowing that number; the patch is the only way "
+        "a matchday moves, there being no reorder endpoint, and a slot its phase already holds is refused by "
+        "`uniq_saison_id_saison_phase_position`",
+        "app.api.spieltage.admin_router.post_spieltag",
     ),
     FieldPolicy(
         Collection.TEAMS,
@@ -478,7 +480,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.DERIVED,
         "joined from `saison_teams` for the season being read; the writable copy is the junction row's own field",
     ),
-    FieldPolicy(Collection.TEAMS, "disqualifikation", Editability.DERIVED, "joined from `saison_teams`, like `gruppe`"),
+    FieldPolicy(Collection.TEAMS, "austritt", Editability.DERIVED, "joined from `saison_teams`, like `gruppe`"),
     FieldPolicy(
         Collection.SAISON_TEAMS,
         "gruppe",
@@ -490,9 +492,16 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SAISON_TEAMS,
-        "disqualifikation",
+        "austritt",
         Editability.EDITABLE,
         "required on the payload with no default, so an omitted one is a 422 rather than a team quietly reinstated",
+    ),
+    FieldPolicy(
+        Collection.SPIELER,
+        "einwilligung",
+        Editability.IMMUTABLE,
+        "written once by `post_spieler`, which composes it: no payload carries the field, so an admin can neither "
+        "state a consent nor overwrite one, and a manual database edit is the only other writer",
     ),
     FieldPolicy(
         Collection.SPIELER,
@@ -633,6 +642,23 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_rules_refusal.py::TestAGroupCannotQualifyMoreThanItHolds",
     ),
     Rule(
+        code="REQ-RULES-008",
+        operation="POST /saisons · PATCH /saisons/{saison_id}",
+        aggregate="Saison",
+        summary="a draw may not be worth more than a win",
+        implemented_by="app.api.saisons.services.find_rules_refusal",
+        tested_by="tests/api/test_rules_refusal.py::TestADrawIsNeverWorthMoreThanAWin",
+    ),
+    Rule(
+        code="REQ-RULES-009",
+        operation="PATCH /saisons/{saison_id}",
+        aggregate="Saison",
+        summary="`max_kadergroesse` may not drop below the largest squad the season already holds",
+        implemented_by="app.api.saisons.services.find_rules_refusal",
+        tested_by="tests/api/test_rules_refusal.py::TestNarrowingTheSquadCap",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-RULES-002",
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
@@ -680,7 +706,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-DATE-004",
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
-        summary="a season's span may not shrink below a live matchday's own",
+        summary="a season's span may not shrink below a matchday's own",
         implemented_by="app.api.saisons.services.find_saison_span_refusal",
         tested_by="tests/api/test_containment_refusals.py::TestASeasonKeepsCoveringItsMatchdays",
         multi_document=True,
@@ -724,7 +750,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-ENTER-003",
         operation="POST /teams/{team_id}/saisons · PATCH /teams/{team_id}/saisons/{saison_id}",
         aggregate="Saison",
-        summary="the group must have space; the caller counts a disqualified club's row in, a team never leaving a season",
+        summary="the group must have space; the caller counts a departed club's row in, a team never leaving a season",
         implemented_by="app.api.teams.services.find_entry_refusal",
         tested_by="tests/api/test_team_entry_refusal.py::TestEnteringASeason",
         multi_document=True,
@@ -787,7 +813,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-SWAP-006",
         operation="POST /saisons/{saison_id}/gruppen/swap",
         aggregate="Saison",
-        summary="no group swap moving a disqualified club onto a fixture dated on or after its exit, an UNDATED one included",
+        summary="no group swap moving a departed club onto a fixture dated on or after its exit, an UNDATED one included",
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
         tested_by="tests/api/test_gruppe_swap_refusal.py::TestASwapNeverFieldsADisqualifiedClub",
         multi_document=True,
@@ -821,7 +847,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-002",
-        operation="POST /spieltage · PATCH /spieltage/{spieltag_id} · POST /spieltage/{spieltag_id}/reactivate",
+        operation="POST /spieltage · PATCH /spieltage/{spieltag_id}",
         aggregate="Spieltag",
         summary="a matchday's span must fall inside its season's, on the way in and on the way back in",
         implemented_by="app.api.spieltage.services.find_spieltag_span_refusal",
@@ -835,24 +861,6 @@ RULES: tuple[Rule, ...] = (
         summary="a matchday's span may not shrink below a date one of its own fixtures holds",
         implemented_by="app.api.spieltage.services.find_spieltag_span_refusal",
         tested_by="tests/api/test_containment_refusals.py::TestAMatchdayKeepsCoveringItsFixtures",
-        multi_document=True,
-    ),
-    Rule(
-        code="REQ-RETIRE-002",
-        operation="DELETE /spieltage/{spieltag_id}",
-        aggregate="Spieltag",
-        summary="a matchday holding a played match may not be retired, because retiring it unpublishes the result",
-        implemented_by="app.api.spieltage.services.find_spieltag_retire_refusal",
-        tested_by="tests/api/test_spieltag_refusals.py::TestRetiringAMatchday",
-        multi_document=True,
-    ),
-    Rule(
-        code="REQ-RETIRE-005",
-        operation="DELETE /spieltage/{spieltag_id}",
-        aggregate="Spieltag",
-        summary="retiring a matchday may not take its phase below the count the season's rules imply",
-        implemented_by="app.api.spieltage.services.find_spieltag_retire_refusal",
-        tested_by="tests/api/test_spieltag_refusals.py::TestAPhaseKeepsTheMatchdaysItsRulesImply",
         multi_document=True,
     ),
     Rule(
@@ -913,10 +921,26 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-STATE-002",
+        operation="PATCH /spiele/{spiel_id}/data",
+        aggregate="Saison-Spielplan",
+        summary="a fixture whose event awards nothing may not carry goals",
+        implemented_by="app.api.spiele.services.find_state_refusal",
+        tested_by="tests/api/test_occupant_refusal.py::TestAnEventThatAwardsNothingCarriesNoResult",
+    ),
+    Rule(
+        code="REQ-STATE-003",
+        operation="PATCH /spiele/{spiel_id}/data",
+        aggregate="Saison-Spielplan",
+        summary="a no-show may not be recorded on a fixture with an unresolved side",
+        implemented_by="app.api.spiele.services.find_state_refusal",
+        tested_by="tests/api/test_occupant_refusal.py::TestANoShowNeedsBothSides",
+    ),
+    Rule(
         code="REQ-ELIGIBILITY-001",
         operation="PATCH /spiele/{spiel_id}",
         aggregate="Saison-Spielplan",
-        summary="a disqualified team may not be NEWLY fielded on or after the disqualification, unless the fixture is a cancelled group match",
+        summary="a team that left the season may not be NEWLY fielded on or after its exit, unless the fixture records an absence",
         implemented_by="app.api.spiele.services.find_eligibility_refusal",
         tested_by="tests/api/test_occupant_refusal.py::TestEligibility",
         multi_document=True,
@@ -975,6 +999,18 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_containment_refusals.py::TestASquadEntry",
         multi_document=True,
     ),
+    Rule(
+        code="REQ-SQUAD-003",
+        operation=(
+            "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "
+            "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate"
+        ),
+        aggregate="Saison",
+        summary="a squad may not exceed the season's `max_kadergroesse`",
+        implemented_by="app.api.spieler.services.find_squad_capacity_refusal",
+        tested_by="tests/api/test_containment_refusals.py::TestASquadCap",
+        multi_document=True,
+    ),
 )
 
 
@@ -993,18 +1029,6 @@ UNENFORCED: tuple[Unenforced, ...] = (
         proven_by="tests/core/test_unenforced.py::TestExactlyOneActiveSeason",
     ),
     Unenforced(
-        subject="a matchday retired while it still holds UNPLAYED fixtures",
-        reason=(
-            "Those fixtures leave the public Spielplan with their container, but stay fully readable and "
-            "`spiele.spieltag_id` keeps resolving -- and a matchday created by mistake is exactly the one "
-            "somebody needs to retire. A played one is refused instead (`REQ-RETIRE-002`). The dialog names "
-            "how many fixtures leave the Spielplan with it."
-        ),
-        near=("REQ-RETIRE-002",),
-        proven_by="tests/core/test_unenforced.py::TestARetiredMatchdayKeepsItsUnplayedFixtures",
-        surfaced_by="fl_frontend/src/features/spieltage/components/modals/AdminDeleteSpieltagModal.tsx",
-    ),
-    Unenforced(
         subject="a matchday whose attached fixtures differ from the count its phase implies",
         reason=(
             "A season being set up passes through that state on the way to being complete, so refusing it "
@@ -1012,7 +1036,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "so the state is the ordinary one rather than an edge. The list shows attached over expected and tints "
             "a mismatch."
         ),
-        near=("REQ-SPIELTAG-002", "REQ-RETIRE-005"),
+        near=("REQ-SPIELTAG-002",),
         proven_by="tests/core/test_unenforced.py::TestAMatchdayOffItsImpliedCount",
         surfaced_by="/admin/spieltage",
     ),
@@ -1031,10 +1055,10 @@ UNENFORCED: tuple[Unenforced, ...] = (
         surfaced_by="fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx",
     ),
     Unenforced(
-        subject="a bracket slot the resolution filled with a team later disqualified",
+        subject="a bracket slot the resolution filled with a team that later left the season",
         reason=(
             "`REQ-ELIGIBILITY-001` covers a team being NEWLY fielded by a request; a slot already holding "
-            "a since-disqualified team is reported as a derived fault and never rewritten -- only a person "
+            "a since-departed team is reported as a derived fault and never rewritten -- only a person "
             "chooses between a forfeit and a replacement."
         ),
         near=("REQ-ELIGIBILITY-001",),
@@ -1090,9 +1114,9 @@ UNENFORCED: tuple[Unenforced, ...] = (
         surfaced_by="/admin/spieler",
     ),
     Unenforced(
-        subject="a disqualified club holding drawn fixtures",
+        subject="a departed club holding drawn fixtures",
         reason=(
-            "A disqualified club keeps its group place, and its opponents need a fixture to record the walkover on, "
+            "A departed club keeps its group place, and its opponents need a fixture to record the walkover on, "
             "so clearing them would leave a full group with nothing to play. The fixtures it can no longer stand on "
             "are refused where they are edited (`REQ-ELIGIBILITY-001`) rather than removed."
         ),

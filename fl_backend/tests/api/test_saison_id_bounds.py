@@ -78,6 +78,6 @@ def test_a_membership_model_still_accepts_a_stored_id_a_payload_would_refuse():
 
     A read model refusing one stored row would answer 500 for the whole list it appears in.
     """
-    membership = FLTeamMembership.model_validate({"saison_id": STORED_WRONG_LENGTH_ID, "gruppe": "A", "disqualifikation": None})
+    membership = FLTeamMembership.model_validate({"saison_id": STORED_WRONG_LENGTH_ID, "gruppe": "A", "austritt": None})
 
     assert membership.saison_id == STORED_WRONG_LENGTH_ID

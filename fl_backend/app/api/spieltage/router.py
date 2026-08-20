@@ -31,8 +31,8 @@ async def get_spieltage(
     """
     List matchdays for a season, in the order they are played.
 
-    That order is derived, not stored -- the phase in bracket order, then `beginn`, then `_id` -- and
-    is what `sort_by=natural` means. Omitting `saison_id` returns the CURRENT season.
+    That order is the phase in bracket order, then the stored `position`, which is what
+    `sort_by=natural` means. Omitting `saison_id` returns the CURRENT season.
     """
 
     # Resolved here, never as a field default, which cannot reach the database. The `rules` come
@@ -50,7 +50,8 @@ async def get_spieltage(
     )
     spieltage = FLSpieltagListAdapter.validate_python([with_expected_matches(raw, rules) for raw in spieltage_raw])
 
-    # After the read: the phases sort lexically in Mongo, not in the order they are played.
+    # After the read: the phase's RANK is on no document, so no Mongo sort can put the phases in the
+    # order they are played.
     if filters.sort_by == "natural":
         spieltage = order_spieltage(spieltage)
         if filters.order == "desc":
@@ -68,8 +69,8 @@ async def get_spieltag(
     """
     Return one matchday by its id.
 
-    Addressed directly, so a retired matchday is returned rather than hidden. Its OWN `saison_id` is
-    still resolved, the derived match count needing that season's rules.
+    Its OWN `saison_id` is resolved rather than the current season's, the derived match count needing
+    that season's rules.
     """
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})

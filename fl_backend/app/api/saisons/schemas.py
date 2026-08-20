@@ -15,6 +15,17 @@ FLSaisonStatus = Literal["past", "active", "future"]
 FLSaisonsSortOptions = Literal["_id", "start_date", "end_date"]
 
 
+class FLSaisonForfeitErgebnis(BaseModel):
+    """What a fixture is awarded when one side does not appear.
+
+    Both sides' goals rather than a margin, so a season can regulate 3:0, 2:0 or 0:0 as its own
+    competition requires (`app/api/spiele/services.py :: apply_payload_to_spiel`).
+    """
+
+    sieger_tore: int = Field(ge=0)
+    verlierer_tore: int = Field(ge=0)
+
+
 class FLSaisonRules(BaseModel):
     win_points: int = Field(gt=0)
     draw_points: int = Field(ge=0)
@@ -24,7 +35,18 @@ class FLSaisonRules(BaseModel):
     # The season's capacity: a team enters only a group the season offers -- a prefix of the closed
     # A-D set -- and only while it has room. No default, for the reason above.
     number_of_groups: int = Field(gt=0, le=4)
-    teams_per_group: int = Field(gt=0)
+    # The floor stops a group phase generating no fixture at all; the ceiling keeps the largest
+    # legal season inside `app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`, past which a
+    # season-scoped read truncates and its refusals cannot be trusted.
+    teams_per_group: int = Field(ge=2, le=16)
+
+    # Which figure separates two clubs level on points. No default, for the reason above.
+    tiebreak_order: Literal["tordifferenz", "direkter_vergleich"]
+
+    # A ceiling on one team's squad for one season, enforced at the squad write rather than here.
+    max_kadergroesse: int = Field(gt=0)
+
+    forfeit_ergebnis: FLSaisonForfeitErgebnis
 
     # No validator holds `saison_spieler` to this: it bounds what the FORM offers, so narrowing it
     # cannot invalidate a season already played.

@@ -6,7 +6,16 @@ from pydantic import ValidationError
 from app.api.saisons.schemas import FLSaison
 from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload, FLSchiedsrichter
 from app.api.spiele.schemas import FLSpielBooking
-from app.api.spieler.schemas import FLSpieler
+from app.api.spieler.schemas import (
+    FLEinwilligung,
+    FLPatchSaisonSpielerPayload,
+    FLPostSaisonSpielerPayload,
+    FLSaisonSpielerResponse,
+    FLSaisonSpielerRow,
+    FLSpieler,
+    FLSpielerMembership,
+)
+from app.api.spieler.services import registration_einwilligung
 from app.api.spielorte.schemas import FLPostSpielortPayload, FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLGruppenNames
@@ -120,6 +129,175 @@ class TestSpieler:
         """`E2` is offered although the current season has nobody in it — the phases run in sequence."""
         assert FLSpieler.model_validate(spieler(stufe="E2")).stufe == "E2"
 
+    def test_requires_a_consent_record(self, spieler):
+        """A pupil reaching a public squad list without one would be published on a claim nobody made."""
+
+        missing = spieler()
+        del missing["einwilligung"]
+
+        with pytest.raises(ValidationError):
+            FLSpieler.model_validate(missing)
+
+
+class TestEinwilligung:
+    """The consent record: what may be published, who agreed it, and whether anyone confirmed it."""
+
+    def test_accepts_a_collected_consent(self, spieler):
+        assert FLSpieler.model_validate(spieler()).einwilligung.umfang == "kader_oeffentlich"
+
+    @pytest.mark.parametrize("field", ["umfang", "erteilt_von", "datum", "bestaetigt_am"])
+    def test_requires_every_key(self, einwilligung, field, assert_rejects):
+        """All four are in the validator's `required` tuple, so a model accepting three would read back a row the database refuses to store."""
+
+        incomplete = einwilligung()
+        del incomplete[field]
+
+        assert_rejects(FLEinwilligung, incomplete, field)
+
+    def test_a_carried_over_record_says_so_and_carries_no_dates(self, einwilligung):
+        """`bestandsuebernahme` is the point of the third member: nobody was asked, so there is no day and no confirmation."""
+
+        parsed = FLEinwilligung.model_validate(einwilligung(erteilt_von="bestandsuebernahme", datum=None, bestaetigt_am=None))
+
+        assert parsed.erteilt_von == "bestandsuebernahme"
+        assert parsed.datum is None
+
+    def test_an_unconfirmed_record_is_null_rather_than_absent(self, einwilligung):
+        """A null `bestaetigt_am` is the state a publication gate reads; omitting the key would make it indistinguishable from a bad row."""
+
+        assert FLEinwilligung.model_validate(einwilligung(bestaetigt_am=None)).bestaetigt_am is None
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            # A scope somebody invented where the two the league publishes under already exist.
+            ("umfang", "oeffentlich"),
+            ("umfang", "kader"),
+            # A source outside the three: consent comes from a guardian, an adult, or a carry-over.
+            ("erteilt_von", "schule"),
+            ("erteilt_von", "trainer"),
+        ],
+    )
+    def test_rejects_a_value_outside_its_closed_set(self, einwilligung, field, value, assert_rejects):
+        assert_rejects(FLEinwilligung, einwilligung(**{field: value}), field)
+
+    def test_rejects_a_date_that_is_not_a_calendar_day(self, einwilligung, assert_rejects):
+        assert_rejects(FLEinwilligung, einwilligung(datum="2026-02-31"), "datum")
+
+    def test_a_registration_composes_a_collected_record_and_not_the_backfills(self):
+        """The difference IS the distinguishability: a guardian filing a registration is consenting, and nobody asked a carried-over row."""
+
+        composed = registration_einwilligung(today="2026-04-01")
+
+        assert composed.erteilt_von == "erziehungsberechtigt"
+        assert composed.umfang == "kader_oeffentlich"
+        assert (composed.datum, composed.bestaetigt_am) == ("2026-04-01", "2026-04-01")
+
+    def test_a_registration_is_confirmed_on_the_day_it_is_filed(self):
+        """No unconfirmed window: the person filing the form is the person whose consent it is."""
+
+        composed = registration_einwilligung(today="2026-04-01")
+
+        assert composed.bestaetigt_am == composed.datum
+
+    def test_a_registration_never_claims_a_carry_over(self):
+        """`bestandsuebernahme` is reserved for the backfill; composing it here would make a real consent unfindable among the assumed ones."""
+
+        assert registration_einwilligung(today="2026-04-01").erteilt_von != "bestandsuebernahme"
+
+
+class TestSaisonSpielerRow:
+    """`saison_spieler`'s declared shape. It validates no stored document — see the class docstring for why it may not."""
+
+    def test_declares_exactly_the_ten_stored_keys(self):
+        """Compared as a set against the validator's `required` tuple: a model naming an eleventh key would store one nothing reads."""
+
+        # Named as STORED, so `id` reads `_id`; an alias that is not a plain string names no single key.
+        stored = {
+            field.validation_alias if isinstance(field.validation_alias, str) else name
+            for name, field in FLSaisonSpielerRow.model_fields.items()
+        }
+
+        assert stored == {
+            "_id",
+            "spieler_id",
+            "saison_id",
+            "team_id",
+            "is_nachgetragen",
+            "is_captain",
+            "stufe",
+            "position",
+            "nummer",
+            "inactive_since",
+        }
+
+    def test_no_field_carries_a_default(self):
+        """Every key is in the validator's `required` tuple, and a default would make the model accept a row the database refuses."""
+
+        assert [name for name, field in FLSaisonSpielerRow.model_fields.items() if not field.is_required()] == []
+
+    def test_a_number_is_a_string_and_not_an_int(self, saison_spieler):
+        """Squad numbers are worn, not counted: `07` and `7` are different shirts, and an int erases the distinction."""
+
+        assert FLSaisonSpielerRow.model_validate(saison_spieler(nummer="07")).nummer == "07"
+
+        with pytest.raises(ValidationError):
+            FLSaisonSpielerRow.model_validate(saison_spieler(nummer=7))
+
+    def test_it_shares_the_closed_sets_with_the_read_models(self):
+        """A Literal of its own would compare equal to the validator's enum today and drift the moment either moves."""
+
+        assert FLSaisonSpielerRow.model_fields["stufe"].annotation == FLSpieler.model_fields["stufe"].annotation
+        assert FLSaisonSpielerRow.model_fields["position"].annotation == FLSpieler.model_fields["position"].annotation
+
+
+class TestASquadNumberOnTheWritePath:
+    """The digits bound sits on the payloads alone.
+
+    A read model refusing a stored value answers 500 for the whole list (`docs/backend/spec.md :: I36`).
+    """
+
+    PAYLOADS = [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload]
+    READ_MODELS = [FLSpieler, FLSaisonSpielerResponse, FLSpielerMembership]
+
+    @pytest.mark.parametrize("payload_model", PAYLOADS)
+    @pytest.mark.parametrize("nummer", ["7", "07", "1234"])
+    def test_a_payload_accepts_one_to_four_digits(self, saison_spieler, payload_model, nummer):
+        assert payload_model.model_validate(saison_spieler(nummer=nummer)).nummer == nummer
+
+    @pytest.mark.parametrize("payload_model", PAYLOADS)
+    def test_a_payload_accepts_null(self, saison_spieler, payload_model):
+        """A squad often does not know the number yet, and null is how the caller says so."""
+
+        assert payload_model.model_validate(saison_spieler(nummer=None)).nummer is None
+
+    @pytest.mark.parametrize("payload_model", PAYLOADS)
+    @pytest.mark.parametrize(
+        "nummer",
+        [
+            # A name where a shirt belongs — what free text admitted and this closes.
+            "Torwart",
+            "7a",
+            # Longer than any shirt printed, and a paste of something else.
+            "12345",
+            # Empty is not null: the caller has to say which they mean.
+            "",
+            " 7",
+            # Unicode decimals, which Python's `\d` would admit and the frontend's would not.
+            "٧",
+        ],
+    )
+    def test_a_payload_refuses_anything_else(self, saison_spieler, payload_model, nummer, assert_rejects):
+        assert_rejects(payload_model, saison_spieler(nummer=nummer), "nummer")
+
+    @pytest.mark.parametrize("read_model", READ_MODELS)
+    def test_a_read_model_still_returns_a_stored_value_the_payload_would_refuse(self, read_model, spieler, saison_spieler):
+        """The 362 rows predate the bound; one holding `Torwart` must stay readable, and editable, rather than 500 the list it is in."""
+
+        stored = spieler(nummer="Torwart") if read_model is FLSpieler else saison_spieler(nummer="Torwart")
+
+        assert read_model.model_validate(stored).nummer == "Torwart"
+
 
 class TestSpieltag:
     def test_accepts_a_valid_spieltag(self, spieltag):
@@ -138,10 +316,14 @@ class TestSpieltag:
     def test_accepts_a_match_count_of_zero(self, spieltag):
         assert FLSpieltag.model_validate(spieltag(anzahl_spiele=0)).anzahl_spiele == 0
 
-    def test_carries_no_stored_position(self, spieltag):
-        """Asserted, not left to absence: Pydantic drops an unknown key silently, and a stored position second-guesses `order_spieltage`."""
-        assert "order_val" not in FLSpieltag.model_fields
-        assert not hasattr(FLSpieltag.model_validate(spieltag(order_val=3)), "order_val")
+    def test_carries_its_stored_position(self, spieltag):
+        assert FLSpieltag.model_validate(spieltag(position=3)).position == 3
+
+    @pytest.mark.parametrize("position", [0, -1])
+    def test_rejects_a_position_below_one(self, spieltag, position):
+        """`ge=1` rather than `ge=0`: the reader renders this very number, and a zeroth matchday counts nobody."""
+        with pytest.raises(ValidationError):
+            FLSpieltag.model_validate(spieltag(position=position))
 
     @pytest.mark.parametrize("field", ["beginn", "ende"])
     def test_rejects_a_date_that_does_not_exist(self, spieltag, field):
@@ -166,14 +348,7 @@ class TestSaison:
 
     def test_accepts_zero_draw_points(self, saison):
         """The asymmetry with wins: a draw worth nothing is a legal rule set."""
-        rules = {
-            "win_points": 3,
-            "draw_points": 0,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "erlaubte_stufen": ["Q1"],
-        }
+        rules = {**saison()["rules"], "draw_points": 0}
 
         assert FLSaison.model_validate(saison(rules=rules)).rules.draw_points == 0
 

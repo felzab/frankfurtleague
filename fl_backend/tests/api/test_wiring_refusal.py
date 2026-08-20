@@ -61,7 +61,7 @@ def refusal_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) ->
     payload = FLPatchSpielDataPayload.model_validate(
         {
             "spiel_id": stored["_id"],
-            "is_canceled": stored["is_canceled"],
+            "sonderereignis": stored["sonderereignis"],
             "team1": stored["team1"],
             "team2": stored["team2"],
             "team1_quelle": stored["team1_quelle"],

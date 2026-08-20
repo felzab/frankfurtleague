@@ -3,7 +3,7 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import (
     FLTeamListAdapter,
@@ -13,7 +13,7 @@ from app.api.teams.schemas import (
 )
 from app.api.teams.services import build_team_pipeline
 
-from .conftest import DISQUALIFIKATION, SAISON, SeededLeague
+from .conftest import AUSTRITT, SAISON, SeededLeague
 
 pytestmark = pytest.mark.db
 
@@ -21,7 +21,15 @@ pytestmark = pytest.mark.db
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 
 STANDARD_RULES = FLSaisonRules(
-    win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN
+    win_points=3,
+    draw_points=1,
+    qualifiers_per_group=2,
+    number_of_groups=4,
+    teams_per_group=4,
+    tiebreak_order="tordifferenz",
+    max_kadergroesse=18,
+    forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
+    erlaubte_stufen=STUFEN,
 )
 
 
@@ -75,8 +83,8 @@ def test_the_scopes_agree_for_a_team_with_no_playoff_match(league: SeededLeague)
 # Which matches count
 
 
-def test_a_cancelled_match_carrying_a_result_still_counts(league: SeededLeague):
-    """Bock's only Gruppenphase win is a cancelled match with a result; an `is_canceled` filter would leave it on one match."""
+def test_a_no_show_carrying_its_awarded_result_still_counts(league: SeededLeague):
+    """Bock's only Gruppenphase win is a forfeit; a `sonderereignis` filter here would leave it on one match."""
     bock = table(league)["Bock"]
 
     assert bock["anzahl_gespielte_spiele"] == 2
@@ -119,6 +127,21 @@ class TestACalledOffFixture:
         assert figures["Helmholtz"]["anzahl_abgesagte_spiele"] == 1
         assert figures["Ohne"]["anzahl_abgesagte_spiele"] == 1
 
+    def test_an_abandoned_fixture_is_counted_as_played_and_not_as_an_absage(self, league: SeededLeague):
+        """The distinction one flag could not draw: Spiel 14 was abandoned with a score, so it reaches one figure and not the other."""
+        komplett = table(league)["Komplett"]
+
+        assert komplett["anzahl_gespielte_spiele"] == 2
+        assert komplett["siege"] == 2
+        assert komplett["anzahl_abgesagte_spiele"] == 0
+
+    def test_an_annulled_fixture_reaches_neither_figure(self, league: SeededLeague):
+        """Spiel 13 never existed, so it neither joins the one absage Ohne's Spiel 10 earns nor becomes a match played."""
+        ohne = table(league)["Ohne"]
+
+        assert ohne["anzahl_gespielte_spiele"] == 0
+        assert ohne["anzahl_abgesagte_spiele"] == 1
+
     def test_it_moves_none_of_the_figures_the_table_is_built_from(self, league: SeededLeague):
         """An accumulator admitting a cancellation lands it in `unentschieden`, since `$eq: [null, null]` is true."""
         helmholtz = table(league)["Helmholtz"]
@@ -158,7 +181,7 @@ def test_wins_draws_and_losses_partition_the_matches(league: SeededLeague):
 
 def test_points_come_from_the_seasons_own_rules(league: SeededLeague):
     """Helmholtz's win, draw and loss is worth 4 points under the standard rules and 2 under these."""
-    unusual = FLSaisonRules(win_points=2, draw_points=0, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
+    unusual = STANDARD_RULES.model_copy(update={"win_points": 2, "draw_points": 0})
 
     assert table(league, rules=unusual)["Helmholtz"]["punkte"] == 2
 
@@ -186,8 +209,8 @@ def test_the_junction_supplies_gruppe_and_disqualification(league: SeededLeague)
 
     assert by_name["Ohne"]["gruppe"] == "B"
     # The whole record travels, not a flag: a projection flattening it to a boolean would pass a presence check.
-    assert by_name["Lessing"]["disqualifikation"] == DISQUALIFIKATION
-    assert by_name["Helmholtz"]["disqualifikation"] is None
+    assert by_name["Lessing"]["austritt"] == AUSTRITT
+    assert by_name["Helmholtz"]["austritt"] is None
 
 
 def test_a_stored_statistik_on_the_junction_is_ignored(league: SeededLeague):

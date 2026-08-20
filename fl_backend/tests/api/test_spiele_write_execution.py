@@ -17,8 +17,9 @@ from app.api.spiele.schemas import (
     FLSpielElfmeterschiessen,
     FLSpielListAdapter,
 )
-from app.api.spiele.services import judge_spieltag_occupancy
+from app.api.spiele.services import FIXTURE_DOUBLE_BOOKED, STATE_RESULT_ON_A_NON_EVENT, judge_spieltag_occupancy
 from app.core.collections import Collection
+from app.core.exceptions import DocumentConflictException
 
 pytestmark = pytest.mark.db
 
@@ -68,7 +69,7 @@ def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
 def junction(team_id: ObjectId) -> dict[str, Any]:
     """A dict rather than a model: `saison_teams` has no model of the row."""
 
-    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": "A", "disqualifikation": None}
+    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": "A", "austritt": None}
 
 
 def saison_document() -> dict[str, Any]:
@@ -82,6 +83,9 @@ def saison_document() -> dict[str, Any]:
             "qualifiers_per_group": 2,
             "number_of_groups": 4,
             "teams_per_group": 4,
+            "tiebreak_order": "tordifferenz",
+            "max_kadergroesse": 18,
+            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
             "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
         },
     }
@@ -95,7 +99,6 @@ def spieltag_documents() -> list[dict[str, Any]]:
             "ende": ende,
             "saison_id": SAISON_ID,
             "saison_phase": saison_phase,
-            "inactive_since": None,
         }
         for spieltag_id, (saison_phase, beginn, ende) in SPIELTAGE.items()
     ]
@@ -134,7 +137,7 @@ def spiel_document(
         "schiedsrichter": None,
         "ergebnis": ergebnis,
         "elfmeterschiessen": elfmeterschiessen,
-        "is_canceled": False,
+        "sonderereignis": None,
         "notiz": None,
     }
 
@@ -187,6 +190,22 @@ def one_spieltag(*, opponent: ObjectId | None, ergebnis: str | None, tore: tuple
             team2=side(DELTA),
         ),
     ]
+
+
+SPIELORT = ObjectId("6890a1b2c3d4e5f6072200b1")
+
+
+def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
+    """Two group fixtures at one ground on one matchday, the first carrying `sonderereignis`."""
+
+    ort = {"spielort_id": SPIELORT, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80}
+
+    held = spiel_document(spiel_id=GRUPPE_HELD, spiel_nr=GRUPPE_HELD_NR, spieltag_id=SPIELTAG_GRUPPE, team1=side(ALPHA), team2=side(BETA))
+    filling = spiel_document(
+        spiel_id=GRUPPE_FILLING, spiel_nr=GRUPPE_FILLING_NR, spieltag_id=SPIELTAG_GRUPPE, team1=side(GAMMA), team2=side(DELTA)
+    )
+
+    return [{**held, "ort": ort, "sonderereignis": sonderereignis}, {**filling, "ort": ort}]
 
 
 Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
@@ -266,6 +285,49 @@ async def spiele_now(database: AsyncIOMotorDatabase) -> dict[int, dict[str, Any]
     rows = await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None)
 
     return {row["spiel_nr"]: row for row in rows}
+
+
+class TestTheBookingReadAsksWhoUsedTheGround:
+    """The booking query's mapping, against a real read: set membership elsewhere cannot show which half a member falls in."""
+
+    @pytest.mark.parametrize(
+        ("sonderereignis", "refused"),
+        [("abgebrochen", True), ("ausgefallen", False), ("annulliert", False), ("nichtantreten_team1", False)],
+        ids=["abandoned-occupies", "called-off-frees", "annulled-frees", "no-show-frees"],
+    )
+    def test_only_a_fixture_that_took_place_still_holds_its_slot(self, mongo_replica_set_url: str, sonderereignis: str, refused: bool):
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            spiel_data = await payload_for(database, GRUPPE_FILLING, uhrzeit="18:00:00")
+
+            try:
+                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+            except DocumentConflictException as conflict:
+                return conflict.error_code
+
+            return None
+
+        answered = on_a_seeded_season(mongo_replica_set_url, body, spiele=one_venue_twice(sonderereignis=sonderereignis))
+
+        assert (answered == FIXTURE_DOUBLE_BOOKED) is refused
+
+
+class TestTheStateRefusalIsReachedThroughTheRoute:
+    """That `find_state_refusal` is WIRED, not merely written: an unwired refusal is a green suite and a dead rule."""
+
+    def test_goals_on_a_fixture_that_awards_nothing_are_refused(self, mongo_replica_set_url: str):
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            spiel_data = await payload_for(database, VIERTELFINALE, sonderereignis="ausgefallen", team1=side(ALPHA, 3), team2=side(BETA, 1))
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await call_patch(database, client, VIERTELFINALE, spiel_data)
+
+            return refused.value, await spiele_now(database)
+
+        refused, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season())
+
+        assert refused.error_code == STATE_RESULT_ON_A_NON_EVENT
+        # The whole save is taken back, so the event does not land without the refusal that judges it.
+        assert spiele[VIERTELFINALE_NR]["sonderereignis"] is None
 
 
 class TestASavedResultCarriesThroughTheBracket:

@@ -19,7 +19,7 @@ from app.api.spiele.services import (
     SlotAdvancement,
     SpieltagRelease,
     build_spiele_pipeline,
-    find_disqualified_occupants,
+    find_departed_occupants,
     resolve_bracket,
 )
 from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
@@ -114,7 +114,7 @@ async def find_bracket_faults(
 
     # From the JOINED fixtures, not the resolution: this compares a fixture's date against a junction
     # record, so it sits beside the walk and covers group fixtures too.
-    occupant_faults = find_disqualified_occupants(spiele)
+    occupant_faults = find_departed_occupants(spiele)
     faults.extend(occupant_faults)
     faulted_ids.update(fault.spiel_id for fault in occupant_faults)
 
@@ -137,12 +137,12 @@ async def pull_saison_membership(
     rows = await pull_many_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
-        projection={"team_id": 1, "disqualifikation": 1},
+        projection={"team_id": 1, "austritt": 1},
         session=session,
     )
 
-    # The `.get` is for the null record: a present `disqualifikation` always carries a `datum`.
-    return {row["team_id"]: (row["disqualifikation"] or {}).get("datum") for row in rows}
+    # The `.get` is for the null record: a present `austritt` always carries a `datum`.
+    return {row["team_id"]: (row["austritt"] or {}).get("datum") for row in rows}
 
 
 async def preview_bracket_after_patch(

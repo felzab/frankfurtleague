@@ -214,7 +214,7 @@ async def post_saison_team(
             "team_id": team_id,
             "gruppe": saison_team_data.gruppe,
             # Required by the validator and by `FLTeam`, so a row without it is unreadable.
-            "disqualifikation": None,
+            "austritt": None,
         },
     )
 
@@ -222,14 +222,14 @@ async def post_saison_team(
         saison_id=saison_team_data.saison_id,
         team_id=team_id,
         gruppe=saison_team_data.gruppe,
-        disqualifikation=None,
+        austritt=None,
     )
 
 
 @router.patch(
     f"{by_id('team_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonTeamResponse,
-    summary="Change a team's group or disqualify it",
+    summary="Change a team's group or record its exit from the season",
 )
 async def patch_saison_team(
     team_id: CustomRouteObjectId,
@@ -240,10 +240,11 @@ async def patch_saison_team(
     spiele_collection: SpieleCollection,
 ) -> FLSaisonTeamResponse:
     """
-    Change which group a team is in for a season, or disqualify it.
+    Change which group a team is in for a season, or record that it has left.
 
-    Disqualification is how a team leaves a season; there is no delete. Both fields are required, so
-    an omitted `disqualifikation` is a 422 rather than a team quietly reinstated.
+    An `austritt` -- a disqualification or a withdrawal -- is how a team leaves a season; there is no
+    delete. Both fields are required, so an omitted `austritt` is a 422 rather than a team quietly
+    reinstated.
     """
 
     existing_raw = await pull_one_from_db(
@@ -251,7 +252,7 @@ async def patch_saison_team(
         db_filter={"team_id": team_id, "saison_id": saison_id},
         projection=["gruppe"],
     )
-    # Only a CHANGE is judged: a disqualification writes the same row without moving anyone.
+    # Only a CHANGE is judged: recording an austritt writes the same row without moving anyone.
     if saison_team_data.gruppe != existing_raw["gruppe"]:
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
 
@@ -287,5 +288,5 @@ async def patch_saison_team(
         saison_id=saison_id,
         team_id=team_id,
         gruppe=saison_team_data.gruppe,
-        disqualifikation=saison_team_data.disqualifikation,
+        austritt=saison_team_data.austritt,
     )

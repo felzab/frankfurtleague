@@ -3,7 +3,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
-from app.api.teams.schemas import FLDisqualifikation, FLGruppenNames
+from app.api.teams.schemas import FLAustritt, FLAustrittType, FLGruppenNames
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH, TEAM_SHORTHAND_LENGTH
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -18,6 +18,51 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 FLSaisonPhase = Literal["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]
 FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
+
+# What happened to a fixture beyond being played. Nullable rather than total: `null` is "nothing to
+# say", so no read site spells an ordinary fixture out. Distinct from `FLSpielStatus`, which is
+# derived and about time rather than event.
+FLSonderereignis = Literal["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"]
+
+# Each tuple below answers ONE consumer's question. They are deliberately NOT one predicate: a single
+# boolean would make independent consumers agree by accident, and a field telling five events apart
+# has a different right answer per consumer.
+
+# Two sides of ONE partition -- did the fixture use up its slot, or does it record a non-event?
+# Held complementary by `tests/api/test_spiele.py :: test_the_slot_partition_is_exhaustive`.
+SONDEREREIGNIS_KEEPING_ITS_SLOT: tuple[FLSonderereignis | None, ...] = (None, "abgebrochen")
+SONDEREREIGNIS_RECORDING_AN_ABSENCE: tuple[FLSonderereignis, ...] = (
+    "ausgefallen",
+    "nichtantreten_team1",
+    "nichtantreten_team2",
+    "annulliert",
+)
+
+# `REQ-STATE-002`'s subject, and by construction also the fixtures that can never award a point: a
+# state barred from carrying a result reaches no figure the table is scored on.
+SONDEREREIGNIS_WITHOUT_A_RESULT: tuple[FLSonderereignis, ...] = ("ausgefallen", "annulliert")
+
+# A no-show and an abandonment both leave a record a group swap would rewrite; a fixture called off
+# or struck out leaves none.
+SONDEREREIGNIS_PRODUCING_A_RECORD: tuple[FLSonderereignis, ...] = (
+    "abgebrochen",
+    "nichtantreten_team1",
+    "nichtantreten_team2",
+)
+
+# `anzahl_abgesagte_spiele` counts a forfeit, because a club that did not appear was called off in
+# the only sense a fixture list records. An abandonment happened and an annulment never existed.
+SONDEREREIGNIS_COUNTED_AS_ABSAGE: tuple[FLSonderereignis, ...] = (
+    "ausgefallen",
+    "nichtantreten_team1",
+    "nichtantreten_team2",
+)
+
+# The side that failed to appear, so the award goes the other way.
+SONDEREREIGNIS_NO_SHOW: Mapping[str, Literal["team1", "team2"]] = {
+    "nichtantreten_team1": "team1",
+    "nichtantreten_team2": "team2",
+}
 
 # The one declaration of this competition's rounds; the order is the order they are PLAYED.
 PHASE_ORDER: tuple[FLSaisonPhase, ...] = ("gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale")
@@ -50,7 +95,7 @@ class FLSpielTeamFieldJoined(FLSpielTeamField):
 
     # The whole record, not a boolean (`docs/backend/spec.md :: I31`). Null ALSO covers a team
     # holding no row at all.
-    disqualifikation: FLDisqualifikation | None
+    austritt: FLAustritt | None
 
 
 class FLSpielOrtField(BaseModel):
@@ -158,18 +203,21 @@ class FLBracketFaultSpiel(_BracketFault):
 
 
 class FLBracketFaultOccupant(_BracketFault):
-    """One fixture fielding a team the season disqualified before the day it is played.
+    """One fixture fielding a team that left the season before the day it is played.
 
     A fixture's DATE against a junction record rather than a bracket fault, so it covers a group
     fixture too. Nothing is emptied: that is a competition decision.
     """
 
-    reason: Literal["disqualified_occupant"]
+    reason: Literal["departed_occupant"]
     side: Literal["team1", "team2"]
     team_id: CustomObjectId
     team_name: str = Field(min_length=1)
+    # Carried so the surface can name the route out: a withdrawal reported as a disqualification is
+    # the untruth the neutral record exists to prevent.
+    austritt_type: FLAustrittType
     # Both dates, so a reader sees the ordering that makes it a fault without opening a document.
-    disqualifiziert_seit: CustomDateString
+    ausgeschieden_seit: CustomDateString
     spiel_datum: CustomOptionalDateString
 
 
@@ -199,7 +247,9 @@ FLSpielBookingListAdapter = TypeAdapter(list[FLSpielBooking])
 
 class FLPatchSpielDataPayload(BaseModel):
     # No `spiel_id`: the path names the match, the body describes the change (RFC 5789).
-    is_canceled: bool
+    # `empty_strings_to_none` below turns an unpicked select's "" into null, which is the ordinary
+    # fixture -- so clearing the control and choosing nothing are one answer rather than two.
+    sonderereignis: FLSonderereignis | None
 
     team1: FLSpielTeamField | None
     team2: FLSpielTeamField | None
@@ -260,7 +310,7 @@ class FLSpiel(BaseModel):
     spieltag_id: CustomObjectId
     spiel_nr: CustomSpielNr
 
-    is_canceled: bool
+    sonderereignis: FLSonderereignis | None
     saison_phase: FLSaisonPhase
     saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 

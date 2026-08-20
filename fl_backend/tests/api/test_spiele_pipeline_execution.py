@@ -5,7 +5,7 @@ from bson import ObjectId
 
 from app.api.spiele.services import SAISON_TEAMS_AS_NAME, build_spiele_pipeline
 
-from .conftest import DISQUALIFIKATION, PRIOR_SAISON, SAISON, TEAM_OIDS, SeededLeague
+from .conftest import AUSTRITT, PRIOR_SAISON, SAISON, TEAM_OIDS, SeededLeague
 
 pytestmark = pytest.mark.db
 
@@ -21,12 +21,12 @@ class TestTheJoinedDisqualification:
     def test_a_disqualified_side_carries_the_whole_record(self, league: SeededLeague) -> None:
         """The badge needs only presence, but the record is what is projected, so a popover can say why."""
 
-        assert spiel(league, 3)["team2"]["disqualifikation"] == DISQUALIFIKATION
+        assert spiel(league, 3)["team2"]["austritt"] == AUSTRITT
 
     def test_a_competing_side_carries_null(self, league: SeededLeague) -> None:
         """`null` is what not disqualified means, and there is no boolean anywhere."""
 
-        assert spiel(league, 3)["team1"]["disqualifikation"] is None
+        assert spiel(league, 3)["team1"]["austritt"] is None
 
     def test_each_side_reads_its_own_row(self, league: SeededLeague) -> None:
         """One lookup serves both sides: a join matching rows by position rather than `team_id` still returns one record and one null."""
@@ -34,9 +34,9 @@ class TestTheJoinedDisqualification:
         match_3 = spiel(league, 3)
 
         assert match_3["team1"]["name"] == "Helmholtz"
-        assert match_3["team1"]["disqualifikation"] is None
+        assert match_3["team1"]["austritt"] is None
         assert match_3["team2"]["name"] == "Lessing"
-        assert match_3["team2"]["disqualifikation"] == DISQUALIFIKATION
+        assert match_3["team2"]["austritt"] == AUSTRITT
 
     def test_the_season_is_the_fixtures_own_and_not_a_resolved_one(self, league: SeededLeague) -> None:
         """`find_bracket_faults` reads every season in one pass, so keying on `team_id` alone badges a match played before the decision."""
@@ -44,12 +44,12 @@ class TestTheJoinedDisqualification:
         match_8 = spiel(league, 8, saison_id=PRIOR_SAISON)
 
         assert match_8["team2"]["name"] == "Lessing"
-        assert match_8["team2"]["disqualifikation"] is None
+        assert match_8["team2"]["austritt"] is None
 
     def test_a_side_whose_team_holds_no_row_for_the_season_carries_null(self, league: SeededLeague) -> None:
         """No junction row is not a disqualification: that is `REQ-ELIGIBILITY-002`'s fact, and this field answers a different one."""
 
-        assert spiel(league, 8, saison_id=PRIOR_SAISON)["team1"]["disqualifikation"] is None
+        assert spiel(league, 8, saison_id=PRIOR_SAISON)["team1"]["austritt"] is None
 
 
 class TestWhatTheMergeMustNotBreak:
@@ -77,10 +77,11 @@ class TestTheFilterAndTheOrder:
     def test_the_filter_still_selects(self, league: SeededLeague) -> None:
         """The `$match` is the same document a `find` took, so the endpoints' parameters are unchanged."""
 
-        canceled = list(league.database.spiele.aggregate(build_spiele_pipeline(db_filter={"saison_id": SAISON, "is_canceled": True})))
+        db_filter = {"saison_id": SAISON, "sonderereignis": {"$ne": None}}
+        eventful = list(league.database.spiele.aggregate(build_spiele_pipeline(db_filter=db_filter)))
 
         # Sorted rather than taken in pipeline order: with no `sort_by` the order is the storage engine's.
-        assert sorted(document["spiel_nr"] for document in canceled) == [4, 10, 11]
+        assert sorted(document["spiel_nr"] for document in eventful) == [4, 10, 11, 13, 14]
 
     def test_the_sort_and_the_limit_run_before_the_join(self, league: SeededLeague) -> None:
         """Asserted through the result: a `$sort` after the `$limit` cuts the wrong fixtures, and both orders return three."""

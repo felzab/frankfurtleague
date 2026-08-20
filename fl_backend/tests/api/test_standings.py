@@ -2,8 +2,8 @@ from typing import Any, Callable
 
 import pytest
 
-from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import FLBracketFaultGruppe, FLSpielListAdapter
+from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
+from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLBracketFaultGruppe, FLSpielListAdapter
 from app.api.spiele.services import BracketResolution, resolve_bracket
 from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeam
@@ -15,10 +15,20 @@ MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 
-RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
+RULES = FLSaisonRules(
+    win_points=3,
+    draw_points=1,
+    qualifiers_per_group=2,
+    number_of_groups=4,
+    teams_per_group=4,
+    tiebreak_order="tordifferenz",
+    max_kadergroesse=18,
+    forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
+    erlaubte_stufen=STUFEN,
+)
 
 # The walk keys on the field being non-null, never on what it says, so one value serves every case.
-DISQUALIFIZIERT = {"grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
+AUSGETRETEN = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
 
 PayloadFactory = Callable[..., dict[str, Any]]
 TeamFactory = Callable[..., FLTeam]
@@ -124,16 +134,16 @@ class TestWhoMayHoldAPlatz:
     """A placing is walked past a team that cannot advance out of it, and the next team takes it."""
 
     def test_a_disqualified_team_keeps_its_row_in_the_table(self, a_team: TeamFactory):
-        """Disqualification is about advancing, not about the table."""
+        """Leaving the season is about advancing, not about the table."""
 
-        teams = [a_team(1, punkte=9, disqualifikation=DISQUALIFIZIERT), a_team(2, punkte=6)]
+        teams = [a_team(1, punkte=9, austritt=AUSGETRETEN), a_team(2, punkte=6)]
 
         assert order(teams, []) == ["Team 1", "Team 2"]
 
     def test_the_placings_walk_past_a_disqualified_team(self, a_team: TeamFactory):
         """The table and the bracket must agree, or the public page and the bracket name different qualifiers."""
 
-        teams = [a_team(1, punkte=9, disqualifikation=DISQUALIFIZIERT), a_team(2, punkte=6), a_team(3, punkte=3)]
+        teams = [a_team(1, punkte=9, austritt=AUSGETRETEN), a_team(2, punkte=6), a_team(3, punkte=3)]
         decided = standing(teams, [])
 
         assert decided.eligible == 2
@@ -195,14 +205,24 @@ class TestWhenAPlacingIsFinal:
 
         assert standing(teams, [played(9, 2, 3)]).by_platz == {}
 
-    def test_a_cancelled_match_with_no_result_is_never_coming(self, a_team: TeamFactory, played: MatchFactory):
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
+    def test_a_fixture_that_can_award_nothing_is_never_coming(self, a_team: TeamFactory, played: MatchFactory, sonderereignis: str):
         """Nothing recorded awards nobody, so it does not hold the group open; a forfeit is `test_bracket.py`'s."""
 
         teams = [a_team(1, punkte=9), a_team(2, punkte=6)]
-        decided = standing(teams, [played(9, 1, 2, is_canceled=True)])
+        decided = standing(teams, [played(9, 1, 2, sonderereignis=sonderereignis)])
 
         assert decided.is_complete
         assert decided.by_platz[1].name == "Team 1"
+
+    def test_an_abandoned_fixture_with_no_result_still_holds_the_group_open(self, a_team: TeamFactory, played: MatchFactory):
+        """The distinction the boolean hid: an abandonment may yet be replayed, so a point it could award is still to come."""
+
+        teams = [a_team(1, punkte=9), a_team(2, punkte=6)]
+        decided = standing(teams, [played(9, 1, 2, sonderereignis="abgebrochen")])
+
+        assert not decided.is_complete
+        assert decided.by_platz == {}
 
     def test_a_pending_fixture_with_no_sides_blocks_every_group(self, a_team: TeamFactory, spiel: PayloadFactory, played: MatchFactory):
         """It will award points inside some group and nothing can say which. Reachable only by hand: fixtures are created with their teams."""
