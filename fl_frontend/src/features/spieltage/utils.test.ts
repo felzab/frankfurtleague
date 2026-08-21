@@ -110,7 +110,8 @@ describe("spieltagLabels", () => {
     assert.equal(backwards.get("b")?.label, forwards.get("b")?.label);
   });
 
-  // A gap is reachable: an admin may move a matchday off position 2 and leave nobody on it.
+  // The gap is what separates the two candidate ordinals: counted from the row's place in the list
+  // this answers 2, where the stored `position` answers 3.
   it("renders the stored number rather than the row's place in the list", () => {
     const labels = spieltagLabels([labelled("a", "gruppenphase", 1), labelled("c", "gruppenphase", 3)]);
 

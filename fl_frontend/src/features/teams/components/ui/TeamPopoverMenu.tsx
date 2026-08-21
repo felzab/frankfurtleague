@@ -27,10 +27,8 @@ export function TeamPopoverMenu({
   teamName: string;
   teamId: string;
   /**
-   * The ROUTE out of the season, or `null` while the club competes. Required, not optional: an
-   * optional prop a caller omits compiles clean and renders no badge, and `tsc` is what should catch
-   * the next caller that cannot supply it. The route rather than a boolean, so a club that withdrew
-   * is not badged as one the league threw out.
+   * Required, not optional: a caller omitting it compiles clean and renders no badge, where `tsc`
+   * should be catching the next caller that cannot supply it.
    */
   teamAustritt: FLAustrittType | null;
   /**

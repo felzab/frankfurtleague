@@ -160,8 +160,7 @@ async def patch_spiel_data(
     Update one Spiel and resolve the season's bracket.
 
     The payload is written wholesale: an omitted field is overwritten, and every name it carries is
-    composed by the server. A result can fill or empty the slots below it, each named in
-    `advanced_to`. `dry_run=true` answers the same and writes nothing.
+    composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`.
     """
 
     # `saison_id` alone: everything the judgement and the normalisation read comes from the season
@@ -174,10 +173,10 @@ async def patch_spiel_data(
     _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
 
     async def judge(session: AsyncIOMotorClientSession | None) -> tuple[list[FLSpiel], list[SpieltagRelease], FLSpiel]:
-        """The season as this request sees it, the sides another fixture must give up, and the fixture this payload composes to.
+        """Judge this payload against the season, and compose the fixture it saves to.
 
-        Every refusal is raised here, so a preview can never succeed where the save is refused, and
-        the normalisation follows them so it composes from rows they have already judged.
+        Every refusal is raised here, so the `dry_run` preview cannot succeed where the save is
+        refused, and the normalisation after them composes from rows already judged.
         """
 
         # One over the cap, so a truncated season is DETECTED rather than judged: a dropped fixture

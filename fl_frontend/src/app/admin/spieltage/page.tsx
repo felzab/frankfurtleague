@@ -57,9 +57,8 @@ async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]
 }
 
 /**
- * Every matchday of the season, in the API's order, which this page does not reorder. The labels are
- * built HERE, over the whole season: what a knockout round's label needs is how many matchdays its
- * phase holds, which is a fact about the season and not about the rows a filter left on screen.
+ * The labels are built HERE, over the whole season rather than in the view that filters: a knockout
+ * round's label counts the matchdays its phase holds (`docs/frontend/spec.md` I27).
  */
 async function SpieltageList({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();

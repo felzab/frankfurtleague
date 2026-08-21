@@ -226,8 +226,8 @@ class FLBracketFaultSpiel(_BracketFault):
 class FLBracketFaultOccupant(_BracketFault):
     """One fixture fielding a team that left the season before the day it is played.
 
-    Derived beside the bracket walk rather than inside it, from a fixture's DATE against a junction
-    record, so no phase is out of its reach. Nothing is emptied: that is a competition decision.
+    Derived beside the bracket walk rather than inside it, so no phase is out of its reach; nothing
+    is emptied (`fl_backend/app/core/domain.py :: UNENFORCED`).
     """
 
     reason: Literal["departed_occupant"]
@@ -284,8 +284,9 @@ FLSpielBookingListAdapter = TypeAdapter(list[FLSpielBooking])
 
 class FLPatchSpielDataPayload(BaseModel):
     # No `spiel_id`: the path names the match, the body describes the change (RFC 5789).
-    # `empty_strings_to_none` below turns an unpicked select's "" into null, which is the ordinary
-    # fixture -- so clearing the control and choosing nothing are one answer rather than two.
+
+    # `empty_strings_to_none` turns an unpicked select's "" into null, the ordinary fixture, so
+    # clearing the control and choosing nothing are one answer rather than two.
     sonderereignis: FLSonderereignis | None
 
     team1: FLSpielTeamFieldPayload | None

@@ -742,10 +742,10 @@ def offered_gruppen(number_of_groups: int) -> tuple[FLGruppenNames, ...]:
 
 
 def find_gruppe_move_refusal(*, fixtures_drawn: int) -> WriteRefusal | None:
-    """Why moving this team to another group must be refused, or `None`.
+    """Why this team's group move must be refused, or `None`.
 
-    The window is a season with no fixtures drawn, whatever its status: `patch_saison_team` rewrites
-    none, so a later move leaves one round robin holding the club and the other short.
+    The window is a season where THIS team holds no fixture, whatever the season's status: a move
+    rewrites none, so a later one leaves one round robin holding the club and the other short.
     """
 
     if fixtures_drawn == 0:
@@ -803,9 +803,8 @@ def fixtures_newly_fielding_a_departed_club(
 ) -> int:
     """How many group fixtures the exchange would move a club that has left the season onto.
 
-    `find_eligibility_refusal`'s boundary: ON OR AFTER the effective day, and an UNDATED fixture
-    counts too, since it can still be dated after the exit. Which ROUTE out it was does not enter:
-    a withdrawal keeps a club off a later fixture exactly as a disqualification does.
+    Counted on `find_eligibility_refusal`'s boundary, an UNDATED fixture included: one can still be
+    dated after the exit.
     """
 
     arriving = {team1_id: team2_id, team2_id: team1_id}

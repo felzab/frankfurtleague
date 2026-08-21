@@ -73,10 +73,9 @@ export function FormNotizSection({
           />
           <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>
 
-          {/* The row is reserved whether the button is in it or not: `hasNotiz` flips on the first
-              character typed, and a control arriving then would push the panels below down the page
-              — the shift `fl_frontend/src/shared/components/ui/FieldLabel.tsx :: FieldLabel`'s own `min-h-5` reserve
-              exists to stop. */}
+          {/* The row is reserved whether the button is in it or not: a control arriving on the first
+              character typed would push the panels below down the page — the same shift
+              `FieldLabel.tsx :: FieldLabel` reserves against. */}
           <div className="flex min-h-7 w-full flex-row items-center">
             {/* No confirmation: nothing is written until Speichern, so this is an ordinary draft edit
                 — the same call `FormDateTimeSection.tsx :: ClearFieldButton` makes, and a plain button

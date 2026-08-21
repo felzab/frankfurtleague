@@ -99,8 +99,9 @@ export const FLSaisonSchema = z.object({
   rules: FLSaisonRulesSchema,
   // Derived from `rules`, stored on no document. One entry per phase the season plays.
   schedule: z.array(FLSaisonPhaseScheduleSchema),
-  // Required and nullable rather than optional: every season document carries the field, and `null`
-  // is the season the generator has never run on.
+  // Required and nullable rather than optional: a stored season may omit the key, but the model
+  // defaults it and nothing excludes unset, so every response carries it. `null` is the season
+  // the generator has never run on.
   spielplan: FLSaisonSpielplanSchema.nullable(),
 });
 export type FLSaison = z.infer<typeof FLSaisonSchema>;

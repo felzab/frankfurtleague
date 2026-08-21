@@ -49,8 +49,6 @@ function invalidateSpieler(): void {
 }
 
 /**
- * A squad refusal (`REQ-SQUAD-001`, `REQ-SQUAD-003`), or `null` when the 409 is something else.
- *
  * The membership refusal lands on the field that caused it — the team picker. The cap belongs to no
  * field: it is a fact about the season's rules, and the reactivate path renders no form at all.
  */

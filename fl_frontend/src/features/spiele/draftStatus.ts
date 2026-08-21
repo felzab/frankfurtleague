@@ -35,9 +35,8 @@ export type FLSpielDraftFields = {
 };
 
 /**
- * **The single statement of the condition**, read by the panel that offers the control, the draft
- * that carries the record and the preview that shows it. Two copies would let the form keep a record
- * the panel does not show, submitting a shoot-out no rendered input can carry a message about.
+ * One statement of the condition for the panel, the draft and the preview alike — never retracted
+ * handler by handler (`docs/frontend/spec.md` I33).
  */
 export function admitsShootOut(
   saisonPhase: FLSpiel["saison_phase"],
@@ -61,9 +60,8 @@ export function admitsShootOut(
 }
 
 /**
- * Built once, so readers cannot give two answers to "what am I about to save". `ergebnis` is
- * re-derived and the shoot-out discarded where the write path does, so the preview cannot promise
- * what the save throws away. The one figure it cannot mirror is the forfeit's — see below.
+ * Built once, so no reader gives a second answer to "what am I about to save": `ergebnis` is
+ * re-derived and the shoot-out discarded exactly as the write path does.
  */
 export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): FLSpielWithDraftFields {
   // A no-show's goals are COMPOSED on the server from the season's forfeit rule, which this page

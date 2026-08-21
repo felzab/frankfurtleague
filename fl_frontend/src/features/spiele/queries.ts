@@ -25,15 +25,10 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
 }
 
 /**
- * The one fixture the match editor loads, admin-tier so it stays correct when `REQ-READ-001` takes
- * the rent and the referee's Entschädigung off the public reads.
+ * The one fixture the match editor loads, admin-tier so it stays correct once the rent and the
+ * referee's Entschädigung come off the public reads (`docs/backend/spec.md` §4).
  *
- * **Uncached, and it stays uncached**: `"use cache"` keys on arguments and never on caller identity,
- * so one shared entry would be a slot of admin-authorized data any caller could reach. What it buys
- * today is freshness rather than confinement — the editor seeds from the fixture as it stands, so a
- * save cannot write back a copy that went stale in a cache. Nothing projects per caller,
- * since a response whose shape follows the credential cannot be mirrored in Zod. Being uncached is
- * also what lets it seed the request's correlation scope.
+ * **Uncached, and it stays uncached**: see `docs/frontend/spec.md` §1.2.
  */
 
 export async function getAdminSpiel(spielId: string): Promise<FLSpieleSingleResponse | null> {

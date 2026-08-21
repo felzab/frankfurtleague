@@ -55,9 +55,8 @@ export function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaiso
 }
 
 /**
- * Every matchday's label, keyed by id. **The ordinal is the served `position` and is never counted
- * from the arrival order**, so a filtered or reordered list labels each matchday the same way. Still
- * one pass, because `countInPhase` is only knowable once the whole phase has been seen.
+ * Over the whole list, because `countInPhase` is knowable only once the phase has been seen. The
+ * ordinal is the served `position` (`docs/frontend/spec.md` I27).
  */
 export function spieltagLabels(
   spieltage: readonly { id: string; saison_phase: FLSaisonPhase; position: number }[],

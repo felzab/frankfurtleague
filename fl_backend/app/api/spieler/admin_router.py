@@ -192,9 +192,8 @@ async def post_saison_spieler(
     """
     Put a player in a team's squad for a season.
 
-    One row per player per season, enforced by a unique index, so moving a player is a PATCH of
-    `team_id` rather than a second row. A repeat is a 409, retired rows included. Refused once the
-    squad holds the season's `max_kadergroesse` members.
+    One row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409
+    even where the row is retired (`docs/backend/spec.md :: I20`).
     """
 
     # The club has to be in the season, and that fact lives in another collection.
@@ -241,9 +240,8 @@ async def patch_saison_spieler(
     """
     Update a player's squad entry for that season.
 
-    Changing `team_id` is how a transfer is recorded, and the team it moves TO must have room.
-    `nummer` stays free TEXT and a DUPLICATE IS PERMITTED
-    (`fl_backend/app/core/domain.py :: UNENFORCED`): the league fields four keepers on 1.
+    Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
+    (`fl_backend/app/core/domain.py :: UNENFORCED`).
     """
 
     # The one fact `find_squad_refusal` decides on, and it lives in another collection.
@@ -313,9 +311,8 @@ async def reactivate_saison_spieler(
     """
     Clear a squad row's `inactive_since`, with the number and position it had.
 
-    Where a repeat create is redirected: the row still holds the unique key, and a create reviving
-    it would overwrite the number and position it carries. Refused where the squad has since filled
-    up -- a retired row gave its place back, and somebody else may be standing in it.
+    Where a repeat create is redirected (`docs/backend/spec.md :: I20`): a create reviving the row
+    would overwrite both. Refused where the squad has since filled up.
     """
 
     # Read for its `team_id`: the row names the squad it is returning to, and the payload cannot.

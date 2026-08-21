@@ -46,11 +46,8 @@ describe("toActionErrorResult", () => {
   });
 
   it("answers the two refusals that name no side, which no form can place", () => {
-    // They reach this map BECAUSE `mapSpielRefusal` does not answer them, and
-    // `AdminEditSpielDataForm.tsx :: placeOccupantRefusal` has no case for either, so both are
-    // shown as a toast. Dropping them here would leave the generic conflict message.
-    // Each gets ITS OWN sentence and carries its code back: without both, the two could swap
-    // messages, or stop riding the code out, and a check for "not the generic one" would still pass.
+    // Own sentence and own code each: without both, a swap of the two messages, or a code that
+    // stopped riding out, would still pass a check for "not the generic one".
     const own: readonly (readonly [string, RegExp])[] = [
       ["REQ-STATE-002", /Entferne zuerst die Tore/],
       ["REQ-STATE-003", /noch einen offenen Platz/],
