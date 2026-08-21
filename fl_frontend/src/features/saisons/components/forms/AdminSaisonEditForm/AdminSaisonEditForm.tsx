@@ -376,6 +376,9 @@ export function AdminSaisonEditForm({
           <FormSpielplanSection
             saisonId={saison.id}
             saisonStatus={saison.status}
+            // The STORED rules, never the draft: the draw reads what is saved, and `schedule` beside it was
+            // derived from exactly these, so a typed value leaves the preview contradicting itself.
+            rules={saison.rules}
             {...spielplan}
             hasDrawnSpiele={hasDrawnSpiele}
             onBeforeGenerate={() =>
@@ -392,6 +395,7 @@ export function AdminSaisonEditForm({
             saisonId={saison.id}
             saisonStatus={saison.status}
             rollover={rollover}
+            hasDrawnSpiele={hasDrawnSpiele}
             onBeforeActivate={() =>
               guardAgainstDraft("Die Umstellung lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
             }

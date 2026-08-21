@@ -11,6 +11,8 @@ import type { NextRequest } from "next/server";
 const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-DATE-002": "Der ursprüngliche Zeitraum liegt nicht mehr im Zeitraum der Saison. Die Änderung steht weiterhin.",
   "REQ-DATE-003": "Mindestens ein Spiel dieses Spieltags liegt außerhalb des ursprünglichen Zeitraums. Die Änderung steht weiterhin.",
+  "REQ-DATE-008":
+    "Der ursprüngliche Beginn dieses Spieltags passt nicht mehr in die Reihenfolge der Spieltage seiner Phase, die schon einen Zeitraum haben. Die Änderung steht weiterhin.",
 };
 
 export async function POST(request: NextRequest) {

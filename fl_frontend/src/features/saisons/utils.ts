@@ -1,5 +1,6 @@
 import type { NextPageProps } from "@/shared/types/types";
 import type { FLSpiel } from "../spiele/schemas";
+import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "./schemas";
 import type { SaisonGruppenSwapContext, SaisonSpieltagBound, SaisonSwapTeam } from "./types";
 
 /**
@@ -131,7 +132,48 @@ export function findSwapPartnerRefusal(fixed: SaisonSwapTeam, candidate: SaisonS
 }
 
 /**
- * The generator's two counts as one phrase, in the NOMINATIVE so both call sites can seat it
+ * Whether the season holds fixtures at all. `playoffs` is every phase but `gruppenphase`, so these
+ * two reads partition the season exactly. A boolean and not their sum, which a list limit could
+ * truncate.
+ */
+export function holdsDrawnSpiele({
+  gruppenSpiele,
+  playoffSpiele,
+}: {
+  gruppenSpiele: readonly unknown[];
+  playoffSpiele: readonly unknown[];
+}): boolean {
+  return gruppenSpiele.length > 0 || playoffSpiele.length > 0;
+}
+
+/** What one press of the generator would write, and the knockout rounds it would write them for. */
+export type SpielplanVorschau = {
+  spieltage: number;
+  spiele: number;
+  /** In playing order, empty for a rules combination whose qualifier count reaches no bracket. */
+  koRunden: FLSaisonPhase[];
+};
+
+/**
+ * **Summed off the SERVED schedule, never recomputed**: an odd group takes an extra matchday for the
+ * bye it leaves, and a copy undercounting that would promise a season the draw does not write.
+ */
+export function buildSpielplanVorschau(schedule: readonly FLSaisonPhaseSchedule[]): SpielplanVorschau {
+  const vorschau: SpielplanVorschau = { spieltage: 0, spiele: 0, koRunden: [] };
+
+  for (const entry of schedule) {
+    vorschau.spieltage += entry.matchdays;
+    // The product IS the phase's whole fixture count: the byes an odd group's extra matchday carries
+    // are exactly what cancels it back to one fixture per pair.
+    vorschau.spiele += entry.matchdays * entry.matches_per_matchday;
+    if (entry.phase !== "gruppenphase") vorschau.koRunden.push(entry.phase);
+  }
+
+  return vorschau;
+}
+
+/**
+ * The generator's two counts as one phrase, in the NOMINATIVE so every call site can seat it
  * unchanged. The singular is a defence: the smallest season `REQ-RULES-001` allows draws two of
  * each, and these counts arrive from the server.
  */

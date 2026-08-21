@@ -28,7 +28,7 @@ const BUTTON_HINT_ID = "gruppentausch-hinweis";
 
 /** This panel's wording for each refusal `findSwapPartnerRefusal` returns, short enough to sit in a row. */
 const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
-  self: "bereits gewählt",
+  self: "schon gewählt",
   sameGruppe: "gleiche Gruppe",
   played: "hat schon gespielt",
   spieltagClash: "zweimal am Spieltag",

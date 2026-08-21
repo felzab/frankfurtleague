@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { buildSpieltagBound, describeSpielplanUmfang, searchWithoutSaisonId } from "./utils.ts";
+import { buildSpielplanVorschau, buildSpieltagBound, describeSpielplanUmfang, holdsDrawnSpiele, searchWithoutSaisonId } from "./utils.ts";
 
 describe("searchWithoutSaisonId", () => {
   it("returns a bare ? when the season was the only parameter", () => {
@@ -32,6 +32,80 @@ describe("searchWithoutSaisonId", () => {
   it("strips a repeated saison_id too", () => {
     // A repeated parameter reaches the resolver as an array, which no season id matches.
     assert.equal(searchWithoutSaisonId({ saison_id: ["2025", "2026"], suche: "x" }), "?suche=x");
+  });
+});
+
+describe("holdsDrawnSpiele", () => {
+  /* `saison_phase=playoffs` compiles to every phase but `gruppenphase`, so a knockout-only season is
+     drawn as much as a group-only one, and one read alone would offer it a rollover with no undo. */
+  it("answers true from either half of the partition alone", () => {
+    assert.equal(holdsDrawnSpiele({ gruppenSpiele: [{}], playoffSpiele: [] }), true);
+    assert.equal(holdsDrawnSpiele({ gruppenSpiele: [], playoffSpiele: [{}] }), true);
+    assert.equal(holdsDrawnSpiele({ gruppenSpiele: [{}, {}], playoffSpiele: [{}] }), true);
+  });
+
+  it("answers false only for a season with neither", () => {
+    assert.equal(holdsDrawnSpiele({ gruppenSpiele: [], playoffSpiele: [] }), false);
+  });
+});
+
+describe("buildSpielplanVorschau", () => {
+  /* Every schedule below is one `fl_backend/app/api/saisons/schedule.py :: schedule_for` composes, so
+     a rules combination that reaches this derivation reaches it in this shape. */
+
+  it("sums a season whose bracket runs several rounds", () => {
+    // Four groups of four with two qualifying: 8 reach the bracket, so it opens at the quarter-final.
+    assert.deepEqual(
+      buildSpielplanVorschau([
+        { phase: "gruppenphase", matchdays: 3, matches_per_matchday: 8 },
+        { phase: "viertelfinale", matchdays: 1, matches_per_matchday: 4 },
+        { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
+        { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+      ]),
+      { spieltage: 6, spiele: 31, koRunden: ["viertelfinale", "halbfinale", "finale"] },
+    );
+  });
+
+  // One group of two with both qualifying, which is the smallest `REQ-RULES-001` allows: the one
+  // group fixture and the final are two matchdays, never one.
+  it("sums the smallest season the rules allow", () => {
+    assert.deepEqual(
+      buildSpielplanVorschau([
+        { phase: "gruppenphase", matchdays: 1, matches_per_matchday: 1 },
+        { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+      ]),
+      { spieltage: 2, spiele: 2, koRunden: ["finale"] },
+    );
+  });
+
+  /* Two groups of five, two qualifying. The regression a hand-written mirror produces: five matchdays
+     rather than four, because a round that cannot pair everyone byes one team per group. */
+  it("counts an odd group's bye matchday without counting a fixture for it", () => {
+    assert.deepEqual(
+      buildSpielplanVorschau([
+        { phase: "gruppenphase", matchdays: 5, matches_per_matchday: 4 },
+        { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
+        { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+      ]),
+      // 20 group fixtures: two round robins of five, each ten fixtures over five matchdays of two.
+      { spieltage: 7, spiele: 23, koRunden: ["halbfinale", "finale"] },
+    );
+  });
+
+  /* `schedule_for` contributes no knockout phase where the qualifier count is not a power of two in
+     range, so such a season is a group phase alone and the readout has no round to name. */
+  it("names no round for a season whose qualifiers reach no bracket", () => {
+    assert.deepEqual(buildSpielplanVorschau([{ phase: "gruppenphase", matchdays: 3, matches_per_matchday: 4 }]), {
+      spieltage: 3,
+      spiele: 12,
+      koRunden: [],
+    });
+  });
+
+  // Defensive rather than a state a resolved season reaches: every served schedule holds the group
+  // phase, and zeros are what a caller must not read as a drawable season.
+  it("counts nothing at all when no schedule was served", () => {
+    assert.deepEqual(buildSpielplanVorschau([]), { spieltage: 0, spiele: 0, koRunden: [] });
   });
 });
 

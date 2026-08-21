@@ -5,7 +5,7 @@ import { connection } from "next/server";
 import { AdminSaisonEditView } from "@/features/saisons/components/views/AdminSaisonEditView";
 import { getSaisons } from "@/features/saisons/queries";
 import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
-import { buildGruppenSwapContext, buildSpieltagBound } from "@/features/saisons/utils";
+import { buildGruppenSwapContext, buildSpieltagBound, holdsDrawnSpiele } from "@/features/saisons/utils";
 import { getSpiele } from "@/features/spiele/queries";
 import { getSpieltage } from "@/features/spieltage/queries";
 import { getTeams } from "@/features/teams/queries";
@@ -79,18 +79,19 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
 
   const rollover: SaisonRolloverContext = { outgoingSaisonId, offeneSpiele };
 
-  /**
-   * `REQ-RULES-011`'s condition, off the two reads the swap already needs: `playoffs` is every phase
-   * but `gruppenphase`, so the pair partitions the season. A boolean rather than a count, which a
-   * list limit could truncate.
-   */
-  const hasDrawnSpiele = gruppenSpieleRes.spiele.length > 0 || playoffSpieleRes.spiele.length > 0;
+  // The condition `REQ-SPIELPLAN-001`, `REQ-ACTIVATE-003` and `REQ-RULES-011` each read, derived off
+  // the two fixture reads the swap already needs.
+  const hasDrawnSpiele = holdsDrawnSpiele({ gruppenSpiele: gruppenSpieleRes.spiele, playoffSpiele: playoffSpieleRes.spiele });
 
   /**
    * The generator's own preconditions, off reads this page already makes: the watermark rides on the
    * season, and `REQ-SPIELPLAN-002` counts exactly the rows `getSpieltage` lists for it.
    */
-  const spielplan: SaisonSpielplanContext = { spielplan: saison.spielplan, spieltageCount: spieltageRes.spieltage.length };
+  const spielplan: SaisonSpielplanContext = {
+    spielplan: saison.spielplan,
+    spieltageCount: spieltageRes.spieltage.length,
+    schedule: saison.schedule,
+  };
 
   /**
    * Assembled by the derivation both entry points share, so this page and the club editor grade a

@@ -13,7 +13,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 
 import { AKTION_OPERATION_LABELS, AKTION_OPERATION_TINTS, AKTIONEN_CRUD_COPY } from "../../constants";
-import { formatAktionZeitpunkt, labelForCollection } from "../../utils";
+import { describeAktionDatensatz, formatAktionZeitpunkt, labelForCollection } from "../../utils";
 
 import type { AdminAktionRow } from "../../types";
 
@@ -91,14 +91,14 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     );
 
   const renderDatensatz = (aktion: AdminAktionRow) => {
-    if (aktion.document_id !== null) return <span className="fluid-xs text-foreground font-mono break-all">{aktion.document_id}</span>;
+    const datensatz = describeAktionDatensatz(aktion);
 
-    const filterPaare = Object.entries(aktion.db_filter ?? {});
-    if (filterPaare.length === 0) return <span className="fluid-xs text-foreground-muted/50 italic">Kein Datensatz benannt</span>;
+    if (datensatz.kind === "dokument") return <span className="fluid-xs text-foreground font-mono break-all">{datensatz.id}</span>;
+    if (datensatz.kind === "ohne") return <span className="fluid-xs text-foreground-muted/50 italic">Kein Datensatz benannt</span>;
 
     return (
       <div className="flex flex-col gap-0.5">
-        {filterPaare.map(([feld, wert]) => (
+        {datensatz.filterPaare.map(([feld, wert]) => (
           <span
             key={feld}
             className="fluid-xs flex flex-row flex-wrap gap-x-1.5 font-mono break-all">
@@ -107,9 +107,9 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
           </span>
         ))}
         {/* A readout rather than a sentence: "12 Datensätze" would have to agree with a count of one. */}
-        {aktion.modified_count !== null && (
+        {datensatz.betroffen !== null && (
           <span className="muted-meta">
-            Betroffen: <span className="text-foreground font-bold tabular-nums">{aktion.modified_count}</span>
+            Betroffen: <span className="text-foreground font-bold tabular-nums">{datensatz.betroffen}</span>
           </span>
         )}
       </div>

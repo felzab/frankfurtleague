@@ -38,8 +38,11 @@ export function buildSpieltagBanners({
     banners.push({
       id: "spieltag.zeitraum-changed",
       severity: "warning",
-      title: "Die Termine ändern die Reihenfolge nicht",
-      body: "Die Reihenfolge steht mit dem Spielplan fest. Speichern geht nur, wenn alle Spiele des Spieltags im neuen Zeitraum liegen.",
+      title: "Der Zeitraum ändert die Reihenfolge nicht",
+      // Both save refusals a moved span can draw: one naming only the fixtures reads as a promise
+      // about the rest. The second is measured against the DATED matchdays alone, so naming the
+      // neighbours would point past the rows the endpoint reads.
+      body: "Die Reihenfolge steht mit dem Spielplan fest. Speichern geht nur, wenn alle Spiele des Spieltags im neuen Zeitraum liegen. Der Beginn muss außerdem in die Reihenfolge der Spieltage seiner Phase passen, die schon einen Zeitraum haben.",
       inline: "zeitraum",
     });
   }

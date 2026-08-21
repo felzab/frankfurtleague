@@ -123,8 +123,9 @@ export type AdminTeamRow = {
 };
 
 /**
- * Editable only while the season is `future` or the club has no fixture in it. WHY it is locked
- * belongs to the swap control beneath the row, which grades four conditions where this grades one.
+ * Editable only while the club holds no fixture in the season, whatever the season's status
+ * (`REQ-ENTER-004`). WHY it is locked belongs to the swap control beneath the row, which grades four
+ * conditions where this grades one.
  */
 export type TeamGruppeLock = {
   locked: boolean;

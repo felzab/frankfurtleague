@@ -20,6 +20,8 @@ import { PANEL_REVEAL } from "@/shared/components/ui/motion";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import { rolloverBlockedReason } from "./blockedReasons";
+
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
 import type { SaisonRolloverContext } from "@/features/saisons/types";
 import type { SaisonBanner } from "./banners";
@@ -36,12 +38,15 @@ export function FormRolloverSection({
   saisonId,
   saisonStatus,
   rollover,
+  hasDrawnSpiele,
   onBeforeActivate,
   banners,
 }: {
   saisonId: string;
   saisonStatus: FLSaisonStatus;
   rollover: SaisonRolloverContext;
+  /** `REQ-ACTIVATE-003`: whether THIS season holds fixtures, which is what it would go live with. */
+  hasDrawnSpiele: boolean;
   /** Runs before the write; `false` cancels. The editor refuses while a draft is unsaved. */
   onBeforeActivate: () => boolean;
   banners: readonly SaisonBanner[];
@@ -58,13 +63,18 @@ export function FormRolloverSection({
   const offene = rollover.offeneSpiele;
   const outgoing = rollover.outgoingSaisonId;
 
-  // Nothing holds `active` on a fresh database, so there is no outgoing season to be unfinished and
-  // that first rollover stays live.
-  const isBlocked = outgoing !== null && offene.length > 0;
+  const blockedReason = rolloverBlockedReason({ hasDrawnSpiele, outgoingSaisonId: outgoing, offeneSpieleCount: offene.length });
 
   const handleActivate = () => {
+    // Checked on BOTH presses, as the draw's is: the fields stay live between arming and confirming,
+    // and the refresh this ends with remounts the editor on the moved status, so a draft typed in
+    // that window would go without a word.
+    if (!onBeforeActivate()) {
+      setIsConfirming(false);
+      return;
+    }
+
     if (!isConfirming) {
-      if (!onBeforeActivate()) return;
       setIsConfirming(true);
       return;
     }
@@ -99,7 +109,7 @@ export function FormRolloverSection({
         <h2 className={panel.heading()}>
           Umstellung
           <InfoHint label="Hinweis zur Umstellung">
-            <p>Die Umstellung macht diese Saison zur laufenden.</p>
+            <p>Die Umstellung macht diese Saison zur laufenden Saison.</p>
             <ul>
               <li>
                 Die bisher laufende Saison wird im <strong>gleichen Schritt</strong> abgeschlossen.
@@ -120,7 +130,7 @@ export function FormRolloverSection({
           <Callout
             severity="info"
             title="Diese Saison ist abgeschlossen">
-            Eine abgeschlossene Saison wird nicht wieder zur laufenden. Ihre Punkte, ihre Gruppen und die Tabelle daraus halten fest, was
+            Eine abgeschlossene Saison wird nicht wieder zur laufenden Saison. Ihre Punkte, ihre Gruppen und die Tabelle daraus halten fest, was
             gespielt wurde, und eine Umstellung würde alle drei wieder öffnen. Der Abschluss lässt sich in der Verwaltung nicht zurücknehmen.
           </Callout>
         ) : isAlreadyActive ? (
@@ -129,7 +139,7 @@ export function FormRolloverSection({
           <Callout
             severity="info"
             title="Hier ist nichts umzustellen">
-            Diese Saison läuft bereits; umgestellt wird auf der Seite der Saison, die als nächste laufen soll.
+            Diese Saison läuft schon; umgestellt wird auf der Seite der Saison, die als nächste laufen soll.
           </Callout>
         ) : (
           <>
@@ -152,6 +162,18 @@ export function FormRolloverSection({
               banners={banners}
               spot="umstellung"
             />
+
+            {/* In the body as well as on the control, the treatment the open-fixture list gets: a
+                hover hint is the only other place this is said, and the remedy is a whole panel
+                away. */}
+            {!hasDrawnSpiele && (
+              <Callout
+                severity="warning"
+                title="Diese Saison hat noch keinen Spielplan">
+                Eine Saison ohne Spiele wird nicht zur laufenden Saison: Sie stünde öffentlich als laufende Saison da, und zu spielen gäbe es
+                nichts. Lege den Spielplan im Abschnitt <strong>Spielplan</strong> an, dann lässt sich umstellen.
+              </Callout>
+            )}
 
             {/* The list, not a number: a count tells the operator that something is open and
                 nothing about whether it matters. A finale without a result is a different decision
@@ -204,18 +226,17 @@ export function FormRolloverSection({
               </div>
             )}
 
-            {/* Disabled rather than left live to fail. `REQ-ACTIVATE-001` refuses the same thing
-                and stays the authority; this only stops the page offering an act it knows the
-                answer to. The list above makes it actionable. */}
+            {/* Disabled rather than left live to fail. The endpoint refuses both of these and
+                stays the authority; this only stops the page offering an act it knows the answer
+                to, and the body above says which one in a form the admin can act on. */}
             <div className="flex w-full flex-row flex-wrap items-center gap-3">
-              {/* The list above sits a screen away from the button, so the refusal is said again on
-                  the control itself. `isActivating` is left out: it ends by itself. */}
-              <DisabledHint
-                reason={!isActivating && isBlocked ? "Umstellen geht erst, wenn die laufende Saison keine offenen Spiele mehr hat." : null}>
+              {/* The body sits a screen away from the button, so the refusal is said again on the
+                  control itself. `isActivating` is left out: it ends by itself. */}
+              <DisabledHint reason={isActivating ? null : blockedReason}>
                 <Button
                   type="button"
                   variant="primary"
-                  isDisabled={isActivating || isBlocked}
+                  isDisabled={isActivating || blockedReason !== null}
                   onPress={handleActivate}
                   className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
                   {!isConfirming && (

@@ -38,9 +38,9 @@ export const AKTION_OPERATION_LABELS: Record<FLAktion["operation"], string> = {
 };
 
 /**
- * The pairs `AdminSaisonsTable` already carries, at the same `/15` fill with its `-strong` ink. The two
- * fan-outs take the warning pair, because they are the rows that touched records nobody named, so they ask to be read
- * rather than skimmed.
+ * The pairs `AdminSaisonsTable` already carries, at the same `/15` fill with its `-strong` ink. The fan-out and the
+ * bulk create take the warning pair, because they touched records nobody named, so they ask to be read rather than
+ * skimmed.
  */
 export const AKTION_OPERATION_TINTS: Record<FLAktion["operation"], string> = {
   insert: "bg-success/15 text-success-strong",

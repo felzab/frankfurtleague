@@ -138,7 +138,9 @@ export function buildTeamBanners({
       id: "team.gruppe-changed",
       severity: "warning",
       title: "Der Gruppenwechsel ändert Tabelle und Setzung",
-      body: "Vertretbar ist er nur, solange nichts gespielt ist.",
+      // The window `REQ-ENTER-004` leaves open, in the refusal's own words: the two surfaces are read
+      // minutes apart, and a reader who met both must not have to reconcile two conditions.
+      body: "Vertretbar ist er nur, solange für dieses Team in dieser Saison noch keine Spiele angelegt sind.",
       inline: "gruppe",
     });
   }

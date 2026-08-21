@@ -91,13 +91,18 @@ beside its own list is the shape that does it, in `/admin/teams` as in `/admin/s
 view produces a backend line for each boundary that reads.
 
 **`getAdminSpiel` is `GET /spiele/{spiel_id}/admin`, and it is one of the uncached reads above.** It
-serves the rent and the referee's Entschädigung that no public fixture read carries, so it is admin-tier
+serves the rent and the referee's Entschädigung, and is the tier that will still carry them once the
+public reads stop — `docs/backend/spec.md` §4's Known-open row records that both ship to anonymous
+visitors today, `FLSpielOrtField` inheriting a required `mietpreis` from its payload. It is admin-tier
 — and `"use cache"` keys on arguments rather than on caller identity, which would make one shared entry
 a slot of admin-authorized data any caller could reach. Nothing is given up by that: the match editor is
 addressed by match id with no season in the URL, so a granular season tag has nothing to key on, and a
 season tag would be wrong even where one is available, because a match write resolves the whole bracket
-and rewrites fixtures the request never named. It resolves `null` for an unknown id, which the editor
-page turns into `notFound()`, and rethrows every other error.
+and rewrites fixtures the request never named. What staying uncached buys while both fields are still
+public is freshness rather than confinement: the editor seeds from the fixture as it stands, so a save
+cannot write back a copy that went stale in a cache. Nothing projects per caller either, a response whose
+shape follows the credential being one no Zod mirror can express. It resolves `null` for an unknown id,
+which the editor page turns into `notFound()`, and rethrows every other error.
 
 **A cached read that answers `null` for an unknown id converts the 404 INSIDE the cached function.** A
 production build redacts an error thrown out of a `"use cache"` scope to a digest-only `Error`, which a
@@ -158,13 +163,20 @@ than as a bare failure. It is an ordinary `PATCH` and meets the rules the save m
 tab has since narrowed comes back as a refusal instead of a restore — which is correct, and the toast
 reports the change as still standing.
 
-**The rollover is the one write on a page-owned editor with no undo**, and it is not an omission: it
+**Two writes on a page-owned editor have no undo, and neither is an omission.** The rollover is the
+first: it
 changes what every public page shows to a visitor who named no season, for two seasons at once and
 immediately, so there is no window in which it goes unnoticed. It confirms in place instead. There is
 also nothing for an undo to call — re-activating the season the rollover demoted is refused
 (`REQ-ACTIVATE-002`) and no endpoint demotes one — so its panel closes the control for that target as
 it does for an unfinished incumbent, and `activateSaisonAction` answers each refusal in its own words
 for the stale page that reaches the write anyway.
+
+**The draw is the second, and it is one-way**: `POST /saisons/{saison_id}/spielplan` refuses a season
+that already carries a Spielplan (`REQ-SPIELPLAN-001`), and `/spiele` has neither a create nor a
+delete, so nothing exists for an undo to call. `FormSpielplanSection` confirms in place behind a
+two-press escalation that shows the rules and the shape they produce, which is the same answer the
+rollover gives to the same problem.
 
 **The group swap also confirms in place, for a different reason: it is its own inverse**. Running it
 again on the same pair restores the season, so a fifteen-second window and a route handler of its

@@ -8,17 +8,21 @@ import { Calendar } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 
 import { generateSpielplanAction } from "@/features/saisons/actions";
-import { describeSpielplanUmfang } from "@/features/saisons/utils";
+import { PHASE_LABELS } from "@/features/saisons/constants";
+import { buildSpielplanVorschau, describeSpielplanUmfang } from "@/features/saisons/utils";
 import { Callout } from "@/shared/components/ui/Callout";
 import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { formButton } from "@/shared/components/ui/formButtons";
+import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { PANEL_REVEAL } from "@/shared/components/ui/motion";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLSaisonStatus } from "@/features/saisons/schemas";
+import { spielplanBlockedReason } from "./blockedReasons";
+
+import type { FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type { SaisonSpielplanContext } from "@/features/saisons/types";
 
 /**
@@ -29,13 +33,20 @@ import type { SaisonSpielplanContext } from "@/features/saisons/types";
 export function FormSpielplanSection({
   saisonId,
   saisonStatus,
+  rules,
   spielplan,
   spieltageCount,
+  schedule,
   hasDrawnSpiele,
   onBeforeGenerate,
 }: {
   saisonId: string;
   saisonStatus: FLSaisonStatus;
+  /**
+   * The season's STORED rules, which is what the draw reads. The editor's draft is refused before
+   * arming, so a preview off typed values would promise a season this press cannot write.
+   */
+  rules: FLSaisonRules;
   /** `REQ-SPIELPLAN-001`: the season already holds fixtures, whoever put them there. */
   hasDrawnSpiele: boolean;
   /** Runs before the write; `false` cancels. The editor refuses while a draft is unsaved. */
@@ -45,23 +56,23 @@ export function FormSpielplanSection({
   const [isGenerating, startGenerating] = useTransition();
   const [isConfirming, setIsConfirming] = useState(false);
 
-  /**
-   * Why the draw is closed, or `null` while it is on offer. **A courtesy and not the control**: the
-   * endpoint refuses every one of these itself, and this only stops the page offering an act it
-   * already knows the answer to.
-   */
-  const blockedReason: string | null =
-    spielplan !== null
-      ? "Der Spielplan dieser Saison wurde schon angelegt. Ein zweiter kommt nicht dazu."
-      : saisonStatus === "active"
-        ? "Diese Saison läuft bereits. Einen Spielplan legst Du an, solange die Saison geplant ist."
-        : saisonStatus === "past"
-          ? "Diese Saison ist abgeschlossen. Für sie wird kein Spielplan mehr angelegt."
-          : hasDrawnSpiele
-            ? "Für diese Saison sind schon Spiele angelegt. Ein Spielplan entsteht nur für eine Saison ganz ohne Spiele."
-            : spieltageCount > 0
-              ? "Für diese Saison gibt es schon Spieltage. Ein Spielplan entsteht nur für eine Saison ganz ohne Spieltage."
-              : null;
+  const vorschau = buildSpielplanVorschau(schedule);
+
+  /** One label-and-value row of the armed preview, the match editor's draft readout in shape. */
+  const renderVorschauRow = (label: string, value: string) => (
+    <div className="flex flex-row items-baseline justify-between gap-x-3">
+      <dt className="fluid-xxs text-foreground-muted font-bold">{label}</dt>
+      <dd className="fluid-xs text-foreground min-w-0 text-right font-semibold">{value}</dd>
+    </div>
+  );
+
+  const blockedReason = spielplanBlockedReason({
+    saisonStatus,
+    hasSpielplan: spielplan !== null,
+    hasDrawnSpiele,
+    spieltageCount,
+    hasKoRunden: vorschau.koRunden.length > 0,
+  });
 
   // The tone grades the act on offer, as the rollover's does: nothing a later edit reverses, but only
   // where there is still something to press.
@@ -103,7 +114,7 @@ export function FormSpielplanSection({
         <h2 className={panel.heading()}>
           Spielplan
           <InfoHint label="Hinweis zum Spielplan">
-            <p>Der Spielplan legt die Spieltage und alle Spiele dieser Saison in einem Schritt an.</p>
+            <p>Mit dem Anlegen des Spielplans entstehen die Spieltage und alle Spiele dieser Saison in einem Schritt.</p>
             <ul>
               <li>
                 Er entsteht aus den <strong>Gruppen</strong> und den <strong>Regeln</strong> dieser Saison, so wie beide gespeichert sind.
@@ -116,7 +127,8 @@ export function FormSpielplanSection({
                 Seinen Zeitraum bekommt jeder Spieltag auf seiner <strong>eigenen Seite</strong>, die Termine der Spiele danach.
               </li>
               <li>
-                Jede Gruppe braucht dafür genug Teams. Fehlen welche, nimm sie über die <strong>Teamseite</strong> in die Saison auf.
+                Jede Gruppe braucht dafür <strong>genau so viele Teams</strong>, wie die Regeln vorsehen, und kein Team darf in einer Gruppe
+                stehen, die diese Saison nicht anbietet. Passe die Gruppen über die <strong>Teamseite</strong> an.
               </li>
               <li>
                 Angelegt wird der Spielplan <strong>genau einmal</strong>. Zurücknehmen lässt er sich in der Verwaltung nicht, und danach stehen
@@ -141,8 +153,8 @@ export function FormSpielplanSection({
 
         {spielplan === null && (
           <p className="fluid-sm text-foreground font-medium">
-            Der Spielplan legt die Spieltage und alle Spiele von Saison <strong>{saisonId}</strong> in einem Schritt an. Das geschieht genau
-            einmal, und danach stehen die Gruppen, die Teams pro Gruppe und die Qualifikanten dieser Saison fest.
+            Mit dem Anlegen des Spielplans entstehen die Spieltage und alle Spiele von Saison <strong>{saisonId}</strong> in einem Schritt. Das
+            geschieht genau einmal, und danach stehen die Gruppen, die Teams pro Gruppe und die Qualifikanten dieser Saison fest.
           </p>
         )}
 
@@ -151,8 +163,36 @@ export function FormSpielplanSection({
         {isConfirming && (
           <div
             role="alert"
-            className={`${PANEL_REVEAL} bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm`}>
+            className={`${PANEL_REVEAL} bg-danger/5 border-danger/20 flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
             <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
+
+            {/* Inside the alert rather than beside it: the numbers ARE what the press is judged on,
+                and a region announced without them asks for agreement to an unnamed season. */}
+            <div className="flex w-full flex-col gap-y-3">
+              <div className="flex w-full flex-col gap-y-1">
+                <h3 className={FORM_SECTION_HEADING}>Aufbau dieser Saison</h3>
+                <dl className="flex w-full flex-col gap-y-1">
+                  {renderVorschauRow("Gruppen", String(rules.number_of_groups))}
+                  {renderVorschauRow("Teams pro Gruppe", String(rules.teams_per_group))}
+                  {renderVorschauRow("Qualifikanten pro Gruppe", String(rules.qualifiers_per_group))}
+                </dl>
+              </div>
+
+              <div className="flex w-full flex-col gap-y-1">
+                <h3 className={FORM_SECTION_HEADING}>Daraus entsteht</h3>
+                <dl className="flex w-full flex-col gap-y-1">
+                  {renderVorschauRow("Umfang", describeSpielplanUmfang(vorschau.spieltage, vorschau.spiele))}
+                  {/* The label agrees with the list under it, and an empty list still reads `Keine`:
+                      rules reaching no bracket close the control, so a blank value here would mean
+                      the schedule moved under an already armed panel. */}
+                  {renderVorschauRow(
+                    vorschau.koRunden.length === 1 ? "KO-Runde" : "KO-Runden",
+                    vorschau.koRunden.length === 0 ? "Keine" : vorschau.koRunden.map((phase) => PHASE_LABELS[phase]).join(", "),
+                  )}
+                </dl>
+              </div>
+            </div>
+
             <p className="fluid-xxs text-foreground leading-normal font-medium">
               Saison {saisonId} bekommt sofort ihre Spieltage und alle ihre Spiele. Rückgängig lässt sich das in der Verwaltung nicht machen.
             </p>

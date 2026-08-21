@@ -12,9 +12,9 @@ import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import type { SpieltagBanner } from "./banners";
 
 /**
- * **Both pickers are bounded by the season's span** (`REQ-DATE-002`), so a day the endpoint would
- * refuse is greyed out. `REQ-DATE-003` cannot be: the fixtures it reads are not on this page, so the
- * rail states it instead.
+ * **Both pickers are bounded by the season's span** (`REQ-DATE-002`), so a day outside the season is
+ * greyed out. `REQ-DATE-003` and `REQ-DATE-008` grey out nothing: a greyed day states neither the
+ * rows they read nor the escape each turns on.
  */
 export function FormZeitraumSection({
   beginn,
@@ -54,9 +54,18 @@ export function FormZeitraumSection({
             <p>Wann der Spieltag gespielt wird.</p>
             <ul>
               <li>
-                Die Termine <strong>ändern die Reihenfolge nicht</strong>. Sie steht mit dem Spielplan fest.
+                Der Zeitraum <strong>ändert die Reihenfolge nicht</strong>. Sie steht mit dem Spielplan fest.
               </li>
-              <li>Der Zeitraum muss innerhalb der Saison liegen; alles andere ist im Kalender ausgegraut.</li>
+              <li>
+                Der <strong>Beginn</strong> folgt dieser Reihenfolge. Er darf nicht vor dem Beginn eines Spieltags liegen, der in seiner Phase
+                davor steht. Er darf auch nicht nach dem Beginn eines Spieltags liegen, der danach steht. Es zählen nur Spieltage, die schon
+                einen Zeitraum haben.
+              </li>
+              <li>
+                Das <strong>Ende</strong> ist daran nicht gebunden und darf weiter reichen. Soll ein Spieltag später gespielt werden, verlege
+                seine Spiele in die späteren Tage seines Zeitraums.
+              </li>
+              <li>Der Zeitraum muss innerhalb der Saison liegen. Tage außerhalb der Saison sind im Kalender ausgegraut.</li>
             </ul>
           </InfoHint>
         </h2>
