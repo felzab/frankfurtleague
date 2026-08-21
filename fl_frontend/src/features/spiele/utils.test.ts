@@ -598,7 +598,7 @@ describe("formatBracketFault", () => {
   it("names the fixture whose two sides lead to one club", () => {
     assert.equal(
       formatBracketFault({ reason: "same_team", spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29 }),
-      "In Spiel 29 führen beide Seiten zur selben Mannschaft",
+      "In Spiel 29 führen beide Seiten zum selben Team",
     );
   });
 
@@ -623,7 +623,7 @@ describe("formatBracketFault", () => {
   it("names the seat a club stands on when it is fielded twice on one Spieltag", () => {
     assert.equal(
       formatBracketFault(fieldedTwice("team1")),
-      "In Spiel 29 steht Adler als Team 1, doch an diesem Spieltag ist die Mannschaft mehrfach aufgestellt",
+      "In Spiel 29 steht Adler als Team 1, doch an diesem Spieltag ist Adler mehrfach aufgestellt",
     );
     assert.equal(describeBracketFaultOnCard(fieldedTwice("team2")), "Adler ist an diesem Spieltag mehrfach aufgestellt, hier als Team 2.");
   });
@@ -659,7 +659,7 @@ describe("groupBracketFaultsBySpielId", () => {
 
     assert.deepEqual(grouped.get(twentyNine), [
       "Verweist auf Spiel 99, das es in dieser Saison nicht gibt.",
-      "Beide Seiten führen zur selben Mannschaft.",
+      "Beide Seiten führen zum selben Team.",
     ]);
   });
 
@@ -671,7 +671,7 @@ describe("groupBracketFaultsBySpielId", () => {
 
     assert.equal(grouped.size, 2);
     // No match number in the wording: the note sits on the card that already leads with it.
-    assert.deepEqual(grouped.get(thirty), ["Beide Seiten führen zur selben Mannschaft."]);
+    assert.deepEqual(grouped.get(thirty), ["Beide Seiten führen zum selben Team."]);
   });
 
   it("keys on the id and not the number, which repeats across seasons", () => {

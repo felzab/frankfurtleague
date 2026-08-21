@@ -27,8 +27,7 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   }
   if (error.serverErrorCode === "REQ-RESULT-001") {
     return {
-      error:
-        "Dieses Spiel hat ein Ergebnis, deshalb lässt sich die Mannschaft nicht entfernen. Wähle eine andere Mannschaft, oder lösche zuerst die Tore.",
+      error: "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen. Wähle ein anderes Team, oder lösche zuerst die Tore.",
     };
   }
   // One code covers both references and the failure body names neither, so the message names both.

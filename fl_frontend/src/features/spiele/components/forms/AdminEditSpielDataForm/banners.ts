@@ -2,6 +2,8 @@ import type { FLSonderereignis, FLSpielQuelle, FLSpielTeamField } from "@/featur
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
 export type SpielBannerId =
+  | "spiel.eligibility-refused"
+  | "spiel.spieltag-refused"
   | "spiel.team1-manual"
   | "spiel.team2-manual"
   | "spiel.team1-unqualified"
@@ -62,6 +64,38 @@ const SONDEREREIGNIS_MEANING: Record<FLSonderereignis, { title: string; body: st
   },
 };
 
+/** The refusal codes whose remedies ride the rail rather than the one field message they land on. */
+export type SpielRefusalCode = "REQ-ELIGIBILITY-001" | "REQ-SPIELTAG-001";
+
+/**
+ * The half a one-sentence field message cannot carry. The walkover names its precondition, because
+ * `REQ-STATE-003` is judged first and offering one on an unresolved slot would send an admin
+ * straight into a second refusal.
+ */
+const REFUSAL_REMEDIES: Record<SpielRefusalCode, { id: SpielBannerId; title: string; body: string }> = {
+  "REQ-ELIGIBILITY-001": {
+    id: "spiel.eligibility-refused",
+    title: "Ein ausgeschiedenes Team blockiert das Speichern",
+    body: "Der Austritt zählt auch, wenn nur Datum oder Sonderereignis geändert wurde. Hebe den Austritt auf, oder wähle ein anderes Team. Bei besetzten Plätzen kannst Du stattdessen das Nichtantreten des ausgeschiedenen Teams eintragen, nur in der Gruppenphase auch das Spiel absagen.",
+  },
+  "REQ-SPIELTAG-001": {
+    id: "spiel.spieltag-refused",
+    title: "Im anderen Spiel setzt das System die Aufstellung",
+    body: "Deshalb lässt sich das Team hier nicht zusätzlich einsetzen. Ändere dort die Herkunft, um das Team freizugeben, oder wähle hier ein anderes Team.",
+  },
+};
+
+/** Narrows a server error code onto the two the rail answers, so the caller stores no other. */
+export const isSpielRefusalCode = (code: string | undefined): code is SpielRefusalCode =>
+  code !== undefined && Object.hasOwn(REFUSAL_REMEDIES, code);
+
+// Derived from the remedies, never listed again: a third refusal added above would otherwise reach
+// the rail and be forgotten here.
+const REFUSAL_BANNER_IDS: ReadonlySet<SpielBannerId> = new Set(Object.values(REFUSAL_REMEDIES).map((remedy) => remedy.id));
+
+/** Whether this banner reports a refusal already delivered, rather than a consequence a save would cause. */
+export const isSpielRefusalBannerId = (id: SpielBannerId): boolean => REFUSAL_BANNER_IDS.has(id);
+
 /** A list of fixture numbers as German writes it: "29, 30 und 31", with "und" and no serial comma. */
 export const joinGerman = (spielNummern: readonly number[]): string =>
   new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(spielNummern.map(String));
@@ -78,6 +112,7 @@ export function buildSpielBanners({
   dropsShootOut,
   voidedSpielNummern,
   releasedSpielNummern,
+  refusalCode,
 }: {
   isKnockout: boolean;
   sides: readonly SpielBannerSide[];
@@ -99,8 +134,19 @@ export function buildSpielBanners({
   /** Fixtures the dry run says this save takes a stored result from, never ones that merely could. */
   voidedSpielNummern: readonly number[];
   releasedSpielNummern: readonly number[];
+  /**
+   * The refusal the last save came back with, `null` once the draft moves off the inputs that were
+   * judged — the caller's staleness rule, so a corrected draft never carries the old remedies.
+   */
+  refusalCode: SpielRefusalCode | null;
 }): readonly SpielBanner[] {
   const banners: SpielBanner[] = [];
+
+  // The field message states the value's own fault in one sentence, the register `docs/frontend/spec.md`
+  // §1.12 sets. What to DO about it needs more room than that allows, so it rides here instead.
+  if (refusalCode !== null) {
+    banners.push({ ...REFUSAL_REMEDIES[refusalCode], severity: "danger", inline: null });
+  }
 
   for (const side of sides) {
     if (!isKnockout || side.quelle !== null) continue;
@@ -184,7 +230,7 @@ export function buildSpielBanners({
           : "Das Ergebnis wird beim Speichern gewertet",
       // Appended rather than a second whole sentence-pair, so the award's own wording has one home.
       // What it adds is the record the save discards without replacing anything.
-      body: `Ein Nichtantreten wird nach den Regeln der Saison für die angetretene Mannschaft gewertet; die Tore trägt der Server ein.${
+      body: `Ein Nichtantreten wird nach den Regeln der Saison für das angetretene Team gewertet; die Tore trägt der Server ein.${
         dropsShootOut ? " Das eingetragene Elfmeterschießen wird nicht gespeichert." : ""
       }`,
       inline: "sonderereignis-wertung",
@@ -226,7 +272,7 @@ export function buildSpielBanners({
         voidedSpielNummern.length === 1
           ? `Speichern löscht das Ergebnis in Spiel ${nummern}`
           : `Speichern löscht die Ergebnisse in den Spielen ${nummern}`,
-      body: "Die Tore wurden von einer Mannschaft erzielt, die danach nicht mehr in diesem Spiel steht.",
+      body: "Die Tore wurden von einem Team erzielt, das danach nicht mehr in diesem Spiel steht.",
       inline: null,
     });
   }
@@ -237,10 +283,8 @@ export function buildSpielBanners({
       id: "spiel.release-preview",
       severity: "warning",
       title:
-        releasedSpielNummern.length === 1
-          ? `Eine Mannschaft wird aus Spiel ${nummern} entfernt`
-          : `Mannschaften werden aus den Spielen ${nummern} entfernt`,
-      body: "Die Seite wird dort frei, denn eine Mannschaft spielt höchstens einmal pro Spieltag.",
+        releasedSpielNummern.length === 1 ? `Ein Team wird aus Spiel ${nummern} entfernt` : `Teams werden aus den Spielen ${nummern} entfernt`,
+      body: "Die Seite wird dort frei, denn ein Team spielt höchstens einmal pro Spieltag.",
       inline: null,
     });
   }

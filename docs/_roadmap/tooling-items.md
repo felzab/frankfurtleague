@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `ad0aaa91`, 2026-08-21\
+**Verified against:** `c6d7b8e8`, 2026-08-21\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -45,27 +45,30 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 
 ## The path at a glance
 
-| #   | ID     | Item                                                    | Surfaces    | Effort | Status   | Depends on |
-| --- | ------ | ------------------------------------------------------- | ----------- | ------ | -------- | ---------- |
-| 1   | OPS-64 | The whole API is on the internet, behind static keys    | Ops, Docs   | S      | Open     | —          |
-| 2   | OPS-56 | The git stepper reads one `git`, on one line            | Ops         | S      | Open     | —          |
-| 3   | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops         | S      | Open     | —          |
-| 4   | OPS-62 | A pin bump arms every page citing the workflow          | Ops, Docs   | S      | Open     | —          |
-| 5   | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs   | S      | Open     | —          |
-| 6   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
-| 7   | OPS-63 | A comment claims two files hold one pattern, unchecked  | FE, BE, Ops | S      | Open     | —          |
-| 8   | OPS-65 | An unused parameter is reported by no checker here      | FE, Ops     | S      | Open     | —          |
-| 9   | OPS-66 | The CSP's style directive is wider than it needs to be  | Ops, Docs   | S      | Open     | —          |
-| 10  | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops         | M      | Open     | —          |
-| 11  | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
-| 12  | DOC-9  | Pairs of audit checks hunt the same ground              | Docs        | S      | Open     | —          |
-| 13  | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
-| 14  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops     | S      | Open     | —          |
-| 15  | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
-| 16  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
-| 17  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
-| 18  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
-| 19  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
+| #   | ID     | Item                                                    | Surfaces      | Effort | Status   | Depends on |
+| --- | ------ | ------------------------------------------------------- | ------------- | ------ | -------- | ---------- |
+| 1   | OPS-64 | The whole API is on the internet, behind static keys    | Ops, Docs     | S      | Open     | —          |
+| 2   | OPS-67 | The runner cannot load a component, so none is tested   | FE, Ops, Docs | M      | Open     | —          |
+| 3   | OPS-56 | The git stepper reads one `git`, on one line            | Ops           | S      | Open     | —          |
+| 4   | OPS-61 | The commit hook's scratch is a path git cannot open     | Ops           | S      | Open     | —          |
+| 5   | OPS-62 | A pin bump arms every page citing the workflow          | Ops, Docs     | S      | Open     | —          |
+| 6   | OPS-29 | The docs gate is blind inside an embedded one-liner     | Ops, Docs     | S      | Open     | —          |
+| 7   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops           | S      | Open     | —          |
+| 8   | OPS-68 | Two routes on one path and method collapse to one       | BE, Ops       | S      | Open     | —          |
+| 9   | OPS-63 | A comment claims two files hold one pattern, unchecked  | FE, BE, Ops   | S      | Open     | —          |
+| 10  | OPS-65 | An unused parameter is reported by no checker here      | FE, Ops       | S      | Open     | —          |
+| 11  | OPS-66 | The CSP's style directive is wider than it needs to be  | Ops, Docs     | S      | Open     | —          |
+| 12  | OPS-60 | The gate's floor is one scope, and that scope is serial | Ops           | M      | Open     | —          |
+| 13  | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops       | S      | Open     | —          |
+| 14  | DOC-9  | Pairs of audit checks hunt the same ground              | Docs          | S      | Open     | —          |
+| 15  | DOC-2  | An enforcement claim is resolved in one direction only  | Docs          | M      | Open     | —          |
+| 16  | OPS-19 | Both repository-wide linters re-read every file         | FE, Ops       | S      | Open     | —          |
+| 17  | OPS-10 | The comment-only classifier costs a process per file    | Ops           | S      | Open     | —          |
+| 18  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops           | —      | Standing | —          |
+| 19  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops           | —      | Standing | —          |
+| 20  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs          | —      | Standing | —          |
+| 21  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs          | —      | Standing | —          |
+| 22  | DOC-10 | One unchanged line exempts a rewritten comment block    | Ops, Docs     | S      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -169,7 +172,56 @@ upstreams being healthy before it serves anything, and a bad block takes the sit
 turning something red. Its own branch, and `./scripts/deploy.sh --status` either side of a deploy
 somebody is watching.
 
-### 2 · OPS-56 — The git subcommand stepper reads one `git`, on one line
+### 2 · OPS-67 — No component can be loaded by the frontend test runner, so no component test can be written
+
+**Status:** Open\
+**Surfaces:** FE, Ops, Docs\
+**Effort:** M\
+**Path:** Independent. Closing it invalidates [`docs/frontend/spec.md`](../frontend/spec.md) §1.9,
+which states that there are no component tests, so that section moves in the same commit (CUR-2).
+
+**[`docs/frontend/spec.md`](../frontend/spec.md) §1.9 states that there are no component tests, and a
+stranger reads that as a gap in discipline. It is a gap in the toolchain.** The runner is Node's own,
+driven through `pnpm test`, and nothing in that invocation transforms JSX — so a `.test.tsx` file
+fails before its first assertion, and a `.test.ts` file fails the moment an import reaches an
+application component, every one of those living in a `.tsx`.
+
+**Measured on 2026-08-21 rather than inferred**, by driving the repository's own test invocation from
+`fl_frontend/` over probe files written outside the tree, against the installed Node 26.3.0. Both
+shapes die the same way:
+
+```
+TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".tsx"
+```
+
+For the `.test.ts` probe the path that error names is the component's —
+`fl_frontend/src/shared/components/ui/FLLogo.tsx` — rather than the test file's, which is what says
+the wall is the extension of the module being loaded and not the shape of the test.
+
+**`fl_frontend/tsconfig-alias-hook.mjs` cannot close it, and is not where the repair goes.** It registers a
+`resolve` hook alone, so it answers where a specifier points and never how the file behind it is
+read. A `load` hook is the half that is absent, and a transform to put behind it is absent from
+`fl_frontend/package.json`, along with any DOM environment and any testing library. **So what closes
+this is a devDependency and a hook rather than a test**, which is why no amount of discipline reaches
+it and why the effort is a day or two rather than an afternoon.
+
+**One test already renders the component library, and it imports no application code.**
+`fl_frontend/src/shared/components/ui/requiredMarking.test.ts` puts real HeroUI through
+`renderToStaticMarkup`, over a tree it composes itself from library primitives. It proves what the
+library emits for a shape; it proves nothing about a component written here.
+
+**No component is rendered by any test, and that is worth naming plainly rather than softening.** The
+sweeps §1.9 describes read `.tsx` files as text or through the TypeScript checker, which is how a
+rule no linter can express is held and says nothing about what a component renders — so no form the
+write path puts on screen is exercised by running it. The logic inside those forms sits in `.ts` siblings
+that each carry a test:
+`fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/fanOutNotes.ts` and
+`fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/banners.ts` are the pair to look
+at, each with a `.test.ts` beside it while the `.tsx` consuming them has none. **That the split falls
+exactly where the runner stops is the reading this entry takes**, and it is a reading rather than a
+measurement: no comment in either file states it.
+
+### 3 · OPS-56 — The git subcommand stepper reads one `git`, on one line
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -250,7 +302,7 @@ that matrix twice for one line of code**, which is why they are one entry.
 distinction to hold on to is that the subcommand table here is complete and the stepper never
 reaches it, which is the opposite of a guard whose vocabulary is genuinely short of a shape.
 
-### 3 · OPS-61 — The commit hook builds its scratch at a path git cannot open
+### 4 · OPS-61 — The commit hook builds its scratch at a path git cannot open
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -284,7 +336,7 @@ spells the pool's own shell and how `scripts/selfcheck.sh` builds its container 
 that hands a POSIX-looking path to a Windows binary owes the same resolution, so it is worth deciding
 whether they should share one helper rather than a spelling each.
 
-### 4 · OPS-62 — A version pin bump arms every stamped page citing that workflow
+### 5 · OPS-62 — A version pin bump arms every stamped page citing that workflow
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -295,7 +347,7 @@ the larger half.
 **`branch-impact` (CUR-4) fires on any change to a cited file, and a bot cannot answer it.** A
 Dependabot pull request bumping a pinned action changes a workflow, so every stamped page citing that
 workflow is asked to re-verify and restamp — work Dependabot has no way to do. Measured on
-2026-08-12 against PR #108, which moves `github/codeql-action` from `f205ea1c` to `5595ccaf` and
+2026-08-12 against PR #108, which moves `github/codeql-action` from v4.37.4 to v4.37.6 and
 touches nothing else: **two pages armed, `docs` exits 1, and no author of that change can clear it.**
 It recurs on the monthly schedule.
 
@@ -324,7 +376,7 @@ also what keeps a human's identical bump answerable by the same rule.
 describes while touching only the pin line. That is the same risk the stamp-only test already
 accepts, and it belongs to the review of the version bump rather than to a stamp on an unrelated page.
 
-### 5 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
+### 6 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -385,7 +437,7 @@ advisory over three lines**. The reason is structural rather than lucky — COR-
 `check_comment_length` all read `branch_additions`, so they cannot fire on a line no branch added,
 and the over-length block named above surfaces only when somebody rewrites it.
 
-### 6 · OPS-11 — The local-compose guard cannot tell an invocation from a mention
+### 7 · OPS-11 — The local-compose guard cannot tell an invocation from a mention
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -434,7 +486,40 @@ when `-f` actually carries the local file as its value.
 local file named, and for a command that is not compose at all, so the probes have a home; the third
 assertion above is the one with no probe today.
 
-### 7 · OPS-63 — A comment claims two files hold the same pattern, and nothing holds them to it
+### 8 · OPS-68 — Two routes sharing a path and a method collapse to one before the guard sweep reads them
+
+**Status:** Open\
+**Surfaces:** BE, Ops\
+**Effort:** S\
+**Path:** Independent — the assertion belongs beside the mapping that needs it, and
+`fl_backend/app/main.py` is untouched by it.
+
+**`fl_backend/tests/api/test_admin_guard.py :: ROUTES_BY_OPERATION` maps `(path, method)` to the
+route serving it, walking every mounted `APIRoute` to build it.** A dict keeps the last value
+written, so where two mounted routes share that pair the later one replaces the earlier and every
+case built on the mapping — the mutation sweep and the one-guard sweep alike — inspects whichever
+route won. **The route that lost is never checked for a guard at all.** The key is the path with its
+convertor stripped (`:: strip_convertors`), so two routes differing only in a parameter's convertor
+collapse together as well.
+
+**Nothing else in that file reports the collapse.**
+`:: test_the_published_surface_and_the_mounted_routes_are_the_same_set` compares the published
+operations against the mapping's keys as sets, and a collapsed pair satisfies that comparison exactly
+as a single route does, the published document keying on the same pair.
+
+**The repair is an assertion beside the mapping**: no two mounted routes share the pair. It needs no
+change to how the routers mount, no testing-only API, and it names the colliding pair at collection
+time.
+
+**The bound has to be stated rather than left to be assumed (COR-9): the nearest candidate for such a
+pair is not one.** The admin single-fixture read and the public one do not collide.
+`fl_backend/app/core/routing.py :: by_id` constrains the id parameter to an ObjectId, so a static
+segment cannot be read as an id; the admin route carries a static `/admin` after that parameter; and
+`fl_backend/tests/api/test_spiele_admin_read.py :: GUARD_CASES` already proves which router answers
+each of the two paths, by the guard that refuses the wrong key. **This entry is about the sweep's
+blind spot in general, not about that route.**
+
+### 9 · OPS-63 — A comment claims two files hold the same pattern, and nothing holds them to it
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -490,7 +575,7 @@ a reader following that comment never arrives at them.
 - **Generate one end from the other.** Refused for the mirror as a whole, and refusing it
   for one constant is the same argument at a smaller scale.
 
-### 8 · OPS-65 — An unused parameter is reported by neither checker the frontend runs
+### 10 · OPS-65 — An unused parameter is reported by neither checker the frontend runs
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -523,7 +608,7 @@ declared rather than omitted. `noUnusedParameters` is not among the keys it writ
 installed Next 16.3.0 on 2026-08-20 — so adding it neither collides with that pass nor has to be
 defended against it.
 
-### 9 · OPS-66 — The style directive concedes more than the reason recorded for it needs
+### 11 · OPS-66 — The style directive concedes more than the reason recorded for it needs
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -563,7 +648,7 @@ attribute half is the whole of the value. That the prerendered HTML carries no i
 is the spec sheet's claim rather than this entry's measurement, and it is worth re-checking beside
 the one above it.
 
-### 10 · OPS-60 — The gate's wall clock is one scope, and that scope runs serially
+### 12 · OPS-60 — The gate's wall clock is one scope, and that scope runs serially
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -599,7 +684,7 @@ about 60s, at which point `frontend` at 57s becomes the new floor and the next l
 build`. **OPS-19's linter cache buys nothing on wall clock** — it targets `format` at 45s, which is
 already hidden inside `scripts`.
 
-### 11 · OPS-12 — Nothing checks a generated file against the generator that owns it
+### 13 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -635,7 +720,7 @@ the formatter has run over each side so the comparison is about content rather t
 and fails where it differs from the committed one, and the images are left to review with that
 exclusion written down rather than assumed.
 
-### 12 · DOC-9 — Pairs of audit checks hunt one another's ground, and only one pair has a boundary about it
+### 14 · DOC-9 — Pairs of audit checks hunt one another's ground, and only one pair has a boundary about it
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -678,7 +763,7 @@ split is a sentence in each prompt, and both pages of a pair move together.
 **Not decided:** whether `docs/_auditing/prompts/README.md` should carry a rule that every check
 names its counterpart, or whether the boundary lines stay the only mechanism.
 
-### 13 · DOC-2 — An enforcement claim is resolved in one direction only
+### 15 · DOC-2 — An enforcement claim is resolved in one direction only
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -710,7 +795,7 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 14 · OPS-19 — Both repository-wide linters re-read every file on every run
+### 16 · OPS-19 — Both repository-wide linters re-read every file on every run
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -784,7 +869,7 @@ that same sixteen-core machine on 2026-08-12. That is not the CI figure and must
 a standard GitHub-hosted runner has four cores, where worker startup and plugin loading can spend the
 whole win, so the flag is kept only if three CI runs beat the recorded baseline.
 
-### 15 · OPS-10 — Deciding whether a change is comments only costs a process per file
+### 17 · OPS-10 — Deciding whether a change is comments only costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -814,7 +899,7 @@ spawning it replaced.
 **Not measured:** what the spawns actually cost, and how much of a gate run is attributable to them.
 The mechanism above is read from the code; the magnitude is not.
 
-### 16 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 18 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -853,7 +938,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 17 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 19 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -898,7 +983,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 18 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 20 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -932,7 +1017,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a chapter added to the standard under a prefix the patterns do not carry, or
 the first page that needs a metadata block indented.
 
-### 19 · DOC-4 — A stamp is required by a path and owed by a claim
+### 21 · DOC-4 — A stamp is required by a path and owed by a claim
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -958,3 +1043,40 @@ was written to replace.
 
 **Trigger to revisit:** a reference page added under `docs/` that sits outside
 `STAMP_REQUIRED_GLOBS`, or any change to what the branch-impact check arms on.
+
+### 22 · DOC-10 — One unchanged line exempts a comment block a branch rewrote
+
+**Status:** Standing\
+**Surfaces:** Ops, Docs\
+**Effort:** S\
+**Path:** Independent — one comparison in one function, and the measurement below is what any change
+to it has to be argued against.
+
+**`scripts/docs_gate/structure.py :: check_comment_length` holds INC-9's bounds against a block only
+where every one of its physical lines is one the branch added.** The block's line numbers must be a
+subset of the added set, which `scripts/docs_gate/branch.py :: _added_by_file` derives from one
+`git diff -U0` against the fork point. A block one line short of that is skipped at any length.
+
+**A Python docstring makes the shortfall easy to reach.** Its delimiter lines are block lines, so
+where the `"""` sit on lines of their own, rewriting the prose between them leaves both delimiters
+untouched and the block is exempt however long the new prose runs. Measured on 2026-08-21 by reading
+a docstring of that shape through `:: comment_runs`, which yields the opening and the closing line as
+members of the block.
+
+**The exemption is deliberate, and the check's own docstring records why** — failing a branch for a
+word changed inside an older block is what gets a check suppressed, and a block a branch only partly
+rewrote is that branch's own slice, which CUR-6 hands to `/docs:audit-pr`. **The narrow complaint is
+only that one unchanged line exempts a block a branch effectively rewrote**, which is not the case
+the exemption was written for.
+
+**Tightening it is a decision against a measured cost.** Measured on 2026-08-21 over the twenty
+non-merge commits ending at [`2cb204db`](https://github.com/felzab/frankfurtleague/commit/2cb204db),
+by replaying each commit's added lines against the blocks in each file as that commit left it: 121
+comment blocks were touched in part and left in part, and 34 of those stand over one of INC-9's caps.
+A rule of "any added line trips the check" would therefore charge a commit roughly one to two
+rewrites of prose it did not come to change. **That measurement is what this entry delivers**, and
+the rule change is not proposed with it.
+
+**Trigger to revisit:** a partly-rewritten block shipping over a cap where its length is what costs
+something, or any change to what `check_comment_length` reads, at which point the subset test is
+already being touched.

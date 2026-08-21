@@ -23,7 +23,7 @@ export type FLTeamStatistikScope = "gruppenphase" | "gesamt";
  */
 export type FLTeamsFilterParams = {
   saison_id?: string;
-  gruppe?: string;
+  gruppe?: FLGruppenNames;
   // A question about the junction, not a field on it: the row stores an `austritt` record and
   // no boolean.
   has_austritt?: boolean;

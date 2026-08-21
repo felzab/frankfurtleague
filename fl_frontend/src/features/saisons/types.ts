@@ -8,7 +8,7 @@ export type FLSaisonsSortOptions = "_id" | "start_date" | "end_date";
 export type FLSaisonsFilterParams = {
   // No `saison_id`: this narrows a LIST, where `GET /saisons/{saison_id}` names one. The endpoint
   // declares no such parameter, and an undeclared one is dropped in silence rather than refused.
-  status?: string;
+  status?: FLSaisonStatus;
 
   limit?: number;
   sort_by?: FLSaisonsSortOptions;

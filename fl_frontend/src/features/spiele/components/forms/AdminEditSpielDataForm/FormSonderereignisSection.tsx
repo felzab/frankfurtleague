@@ -51,7 +51,7 @@ export function FormSonderereignisSection({
   // An unresolved slot has nobody who could have failed to appear, and the award would have no side
   // to land on — so the write path answers `REQ-STATE-003` and this must not offer it.
   const unpickableReason = (event: FLSonderereignis): string | undefined =>
-    !hasBothSides && (event === "nichtantreten_team1" || event === "nichtantreten_team2") ? "beide Mannschaften nötig" : undefined;
+    !hasBothSides && (event === "nichtantreten_team1" || event === "nichtantreten_team2") ? "beide Teams nötig" : undefined;
 
   // An unrecognised key cannot arrive from a closed collection, so it reads as the ordinary fixture
   // rather than throwing on a page holding unsaved work.

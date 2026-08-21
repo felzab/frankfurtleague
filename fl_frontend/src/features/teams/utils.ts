@@ -28,9 +28,9 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], mem
 };
 
 /**
- * The backend's `_may_hold_a_platz`: a team that has left the season keeps its row but cannot
- * advance out of it, and a team with no counting match holds no placing. Both derivations below
- * apply it, so the marker and the ordinal cannot disagree.
+ * Read off the table AS IT STANDS: a team that has left holds no placing, nor does one yet to play.
+ * The backend adds a still-to-play term, the divergence `docs/backend/spec.md :: I24b` settles. Both
+ * derivations below share this one rule.
  */
 const mayHoldAPlatz = (team: FLTeam): boolean => team.austritt === null && team.statistik.anzahl_gespielte_spiele > 0;
 

@@ -38,7 +38,7 @@ const SWAP_BUTTON_HINT_ID = "gruppentausch-team-hinweis";
  * and named at the top of the page, so a row says what is true of the club in it, not of the pair.
  */
 const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
-  self: "diese Mannschaft",
+  self: "dieses Team",
   sameGruppe: "gleiche Gruppe",
   played: "hat schon gespielt",
   spieltagClash: "zweimal am Spieltag",
@@ -136,7 +136,7 @@ function GruppenTauschControl({
       ) : self.gespielteGruppenSpiele > 0 ? (
         <Callout
           severity="info"
-          title={`${self.name} hat in ihrer Gruppe schon gespielt`}>
+          title={`${self.name} hat in seiner Gruppe schon gespielt`}>
           {self.gespielteGruppenSpiele === 1
             ? `Ein Spiel in Gruppe ${self.gruppe} wurde schon gespielt oder abgesagt.`
             : `${String(self.gespielteGruppenSpiele)} Spiele in Gruppe ${self.gruppe} wurden schon gespielt oder abgesagt.`}{" "}
@@ -145,15 +145,15 @@ function GruppenTauschControl({
       ) : !hasAPartner ? (
         <Callout
           severity="info"
-          title="Zurzeit ist keine Mannschaft wählbar">
+          title="Zurzeit ist kein Team wählbar">
           Tauschen kann nur, wer in einer anderen Gruppe dieser Saison steht und dort noch kein Spiel gespielt oder abgesagt bekommen hat. Auf
-          keine Mannschaft dieser Saison trifft das gerade zu.
+          kein Team dieser Saison trifft das gerade zu.
         </Callout>
       ) : (
         <>
           <p className="fluid-sm text-foreground font-medium">
-            <strong>{self.name}</strong> steht in Gruppe {self.gruppe}. Wähle die Mannschaft, mit der die Gruppe getauscht wird. Beide wechseln
-            in einem Schritt.
+            <strong>{self.name}</strong> steht in Gruppe {self.gruppe}. Wähle das Team, mit dem die Gruppe getauscht wird. Beide wechseln in
+            einem Schritt.
           </p>
 
           <div className="flex w-full flex-col gap-y-1.5">
@@ -169,12 +169,12 @@ function GruppenTauschControl({
                 {/* From the prop, not `Select.Value` — the collection can lag a render behind and
                 would then show HeroUI's English placeholder. */}
                 <span className={partner ? "" : "text-foreground-muted"}>
-                  {partner ? `${partner.name} (Gruppe ${partner.gruppe})` : "Mannschaft wählen"}
+                  {partner ? `${partner.name} (Gruppe ${partner.gruppe})` : "Team wählen"}
                 </span>
                 <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
               </Select.Trigger>
               <Select.Popover className={`${overlayPanel()} mt-2 max-h-72 overflow-y-auto p-1.5`}>
-                <ListBox aria-label="Mannschaften dieser Saison">
+                <ListBox aria-label="Teams dieser Saison">
                   {candidates.map(({ team, refusal }) => (
                     <ListBox.Item
                       key={team.id}
@@ -195,8 +195,8 @@ function GruppenTauschControl({
             {/* The two questions this picker raises — why a row is grey, and why an expected club is
             missing — answered where it raises them. */}
             <p className="fluid-xxs text-foreground-muted leading-normal font-medium">
-              Ausgegraut heißt: gleiche Gruppe, in ihrer Gruppe schon gespielt, oder eine der beiden stünde nach dem Tausch zweimal an einem
-              Spieltag. Mannschaften, die nicht in dieser Saison stehen, haben hier keine Gruppe und erscheinen deshalb nicht.
+              Ausgegraut heißt: gleiche Gruppe, in seiner Gruppe schon gespielt, oder eines der beiden stünde nach dem Tausch zweimal an einem
+              Spieltag. Teams, die nicht in dieser Saison stehen, haben hier keine Gruppe und erscheinen deshalb nicht.
             </p>
           </div>
 
@@ -205,7 +205,7 @@ function GruppenTauschControl({
               severity="warning"
               title="Das passiert beim Tausch">
               <strong>{self.name}</strong> steht danach in Gruppe {partner.gruppe}, <strong>{partner.name}</strong> in Gruppe {self.gruppe}.
-              Beide übernehmen dabei die angesetzten Spiele der anderen, mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
+              Beide übernehmen dabei die angesetzten Spiele des anderen, mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
               sofort.
             </Callout>
           )}
@@ -219,7 +219,7 @@ function GruppenTauschControl({
               <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
               <p className="fluid-xxs text-foreground leading-normal font-medium">
                 Der Tausch gilt sofort, unabhängig vom Speichern-Knopf unten, und ist auf jeder Tabelle dieser Saison sichtbar. Rückgängig
-                machst Du ihn, indem Du dieselben beiden Mannschaften noch einmal tauschst.
+                machst Du ihn, indem Du dieselben beiden Teams noch einmal tauschst.
               </p>
             </div>
           )}
@@ -259,7 +259,7 @@ function GruppenTauschControl({
               <p
                 id={SWAP_BUTTON_HINT_ID}
                 className="fluid-xxs text-foreground-muted leading-normal font-medium">
-                Wähle zuerst eine Mannschaft zum Tauschen.
+                Wähle zuerst ein Team zum Tauschen.
               </p>
             )}
           </div>
@@ -356,14 +356,15 @@ export function FormSaisonSection({
                 Eine <strong>andere Saison</strong> wählst Du im Seitenmenü aus.
               </li>
               <li>
-                Der <strong>Austritt</strong> unten ist der einzige Weg aus einer Saison — als Disqualifikation oder als Rückzug.
+                Der <strong>Austritt</strong> unten ist der einzige Weg aus einer Saison. Er wird als Disqualifikation oder als Rückzug
+                eingetragen.
               </li>
               <li>
                 Die <strong>Gruppe</strong> ist nur änderbar, solange die Saison nicht begonnen hat und keine Spiele angesetzt sind.
               </li>
               <li>
-                Danach bleibt genau ein Weg: der <strong>Tausch</strong> mit einer zweiten Mannschaft, hier oder auf der Saisonseite. Beide
-                wechseln in einem Schritt, damit jede Gruppe ihre Größe behält.
+                Danach bleibt genau ein Weg: der <strong>Tausch</strong> mit einem zweiten Team, hier oder auf der Saisonseite. Beide wechseln
+                in einem Schritt, damit jede Gruppe ihre Größe behält.
               </li>
             </ul>
           </InfoHint>

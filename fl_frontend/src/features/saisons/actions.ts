@@ -294,7 +294,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
         if (error.serverErrorCode === "REQ-SWAP-001") {
           return {
             success: false,
-            error: "Die beiden Mannschaften stehen nicht mehr in zwei verschiedenen Gruppen dieser Saison. Lade die Seite neu.",
+            error: "Die beiden Teams stehen nicht mehr in zwei verschiedenen Gruppen dieser Saison. Lade die Seite neu.",
           };
         }
         if (error.serverErrorCode === "REQ-SWAP-003") {
@@ -312,14 +312,13 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
         if (error.serverErrorCode === "REQ-SWAP-004") {
           return {
             success: false,
-            error: "Mindestens eine der beiden Mannschaften hat in ihrer Gruppe inzwischen gespielt. Lade die Seite neu.",
+            error: "Mindestens eines der beiden Teams hat in seiner Gruppe inzwischen gespielt. Lade die Seite neu.",
           };
         }
         if (error.serverErrorCode === "REQ-SWAP-005") {
           return {
             success: false,
-            error:
-              "Durch den Tausch stünde eine Mannschaft zweimal an einem Spieltag. Verschiebe eines der beiden Spiele und lade die Seite neu.",
+            error: "Durch den Tausch stünde ein Team zweimal an einem Spieltag. Verschiebe eines der beiden Spiele und lade die Seite neu.",
           };
         }
         if (error.serverErrorCode === "REQ-SWAP-006") {
@@ -327,7 +326,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
           return {
             success: false,
             error:
-              "Durch den Tausch käme eine ausgeschiedene Mannschaft auf Spiele, die nach ihrem Austritt stattfinden können. Hebe den Austritt auf, tausche die Gruppen und trage ihn danach erneut ein.",
+              "Durch den Tausch käme ein ausgeschiedenes Team auf Spiele, die nach seinem Austritt stattfinden können. Hebe den Austritt auf, tausche die Gruppen und trage ihn danach erneut ein.",
           };
         }
       }
@@ -356,7 +355,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
     return {
       success: true,
       swap: swapOperation,
-      message: `Die beiden Mannschaften stehen jetzt in Gruppe ${swapOperation.team1_gruppe} und Gruppe ${swapOperation.team2_gruppe}. ${umgeschrieben}`,
+      message: `Die beiden Teams stehen jetzt in Gruppe ${swapOperation.team1_gruppe} und Gruppe ${swapOperation.team2_gruppe}. ${umgeschrieben}`,
     };
   });
 }

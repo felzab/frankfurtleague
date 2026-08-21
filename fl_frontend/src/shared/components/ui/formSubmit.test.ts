@@ -64,12 +64,18 @@ describe("every form holding a draft", () => {
 /** The state atom holding the gate's snapshot, whatever the editor calls it. */
 const SNAPSHOT_STATE = /const \[(\w+), set\w+\] = useState<BlockingBanners \| null>\(null\)/;
 
+/** The editor's own banners, optionally less the refusals the save gate does not confirm. */
+const GATE_ARGUMENT = /resolveBlockingBanners\(banners(?:\.filter\(\(banner\) => !isSpielRefusalBannerId\(banner\.id\)\))?\)/;
+
 describe("every editor raising the save confirmation", () => {
   for (const file of filesContaining("<ConfirmSaveModal")) {
     it(`${file} shows the snapshot the gate took, not a live derivation`, () => {
       const source = sources.get(file) ?? "";
 
-      assert.ok(source.includes("resolveBlockingBanners(banners)"), `${file} derives its gate some other way`);
+      // The WHOLE argument: a prefix match would accept a filter that empties the list and
+      // silently disables the gate. One narrowing is permitted by name, a delivered refusal
+      // being no consequence to confirm.
+      assert.match(source, GATE_ARGUMENT, `${file} derives its gate some other way`);
 
       // The dialog's list has to be state, because a value recomputed each render can change while
       // the admin is reading what they are agreeing to.

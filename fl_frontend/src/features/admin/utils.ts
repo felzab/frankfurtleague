@@ -27,7 +27,7 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
   besetzung_missing: {
     name: "Offene Besetzung",
     short: "Besetzung",
-    desc: "KO-Spiele mit einer Seite ohne Mannschaft und ohne Herkunft. Diese Seite wird von niemandem gepflegt",
+    desc: "KO-Spiele mit einer Seite ohne Team und ohne Herkunft. Diese Seite wird von niemandem gepflegt",
     urgency: "blocking",
   },
   ergebnis_pending: {

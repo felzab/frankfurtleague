@@ -106,7 +106,7 @@ export function buildTeamBanners({
       id: "team.austritt-entering",
       severity: "danger",
       title: "Der Grund wird veröffentlicht",
-      body: "Sobald Du speicherst, erscheint er als eingegebener Text auf der Teamseite und als Hinweis an jedem Spiel der Mannschaft.",
+      body: "Sobald Du speicherst, erscheint er als eingegebener Text auf der Teamseite und als Hinweis an jedem Spiel des Teams.",
       inline: "austritt-eintrag",
     });
   }

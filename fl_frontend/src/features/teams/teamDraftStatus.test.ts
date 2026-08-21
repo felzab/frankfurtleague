@@ -103,11 +103,11 @@ describe("deriveTeamDraftStatus", () => {
     const status = deriveTeamDraftStatus({
       stored,
       draft: draftFrom({ membership: { gruppe: "A", austritt: { type: null, grund: "Nicht angetreten", datum: "2026-03-14" } } }),
-      fieldErrors: { "austritt.type": "Bitte wähle, wie die Mannschaft ausgeschieden ist." },
+      fieldErrors: { "austritt.type": "Bitte wähle, wie das Team ausgeschieden ist." },
     });
 
     const row = status.byPath.get("austritt");
-    assert.equal(row?.error, "Bitte wähle, wie die Mannschaft ausgeschieden ist.");
+    assert.equal(row?.error, "Bitte wähle, wie das Team ausgeschieden ist.");
     assert.match(row?.draftText ?? "", /^Art offen: /);
   });
 });

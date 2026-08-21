@@ -1,4 +1,4 @@
-from typing import Any, Mapping, Sequence
+from typing import Any, Literal, Mapping, Sequence
 
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 
@@ -331,6 +331,12 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
     )
 
 
+def _other_side(side: Literal["team1", "team2"]) -> Literal["team1", "team2"]:
+    """The side facing `side`. One spelling, so the model and the `$set` cannot pair the two differently."""
+
+    return "team2" if side == "team1" else "team1"
+
+
 def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
     """One fixture with the released side emptied.
 
@@ -339,7 +345,7 @@ def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
     against the team being removed.
     """
 
-    other = "team2" if release.side == "team1" else "team1"
+    other = _other_side(release.side)
     other_side: FLSpielTeamField | None = getattr(spiel, other)
 
     return spiel.model_copy(
@@ -366,21 +372,34 @@ async def release_spieltag_sides(
     released state and can refill the slot.
     """
 
+    # Grouped, because a payload can field both clubs of one held fixture: a second `$set` would
+    # create `team1.tore` under the null the first wrote -- `PathNotViable`, and the save falls. The
+    # report stays per side, so the preview still names both.
+    grouped: dict[CustomObjectId, list[SpieltagRelease]] = {}
     for release in releases:
+        grouped.setdefault(release.spiel_id, []).append(release)
+
+    for spiel_id, group in grouped.items():
+        emptied = {release.side for release in group}
+        changes: dict[str, Any] = {"ergebnis": None, "elfmeterschiessen": None}
+
+        for release in group:
+            changes[release.side] = None
+
+            # Named, not re-read: reading the fixture again to strip one number would be a second
+            # answer. Skipped where the counterpart is itself released -- `team1` beside
+            # `team1.tore` in one `$set` is a conflicting path.
+            other = _other_side(release.side)
+            if release.other_side_present and other not in emptied:
+                changes[f"{other}.tore"] = None
+
+            if release.voided_sonderereignis is not None:
+                changes["sonderereignis"] = None
+
         await patch_one_in_db(
             collection=spiele_collection,
-            db_filter={"_id": release.spiel_id},
-            update={
-                "$set": {
-                    release.side: None,
-                    # Named, not re-read: this transaction has already read the season, and reading
-                    # a fixture again to strip one number would be a second answer.
-                    **({f"{'team2' if release.side == 'team1' else 'team1'}.tore": None} if release.other_side_present else {}),
-                    "ergebnis": None,
-                    "elfmeterschiessen": None,
-                    **({"sonderereignis": None} if release.voided_sonderereignis is not None else {}),
-                }
-            },
+            db_filter={"_id": spiel_id},
+            update={"$set": changes},
             session=session,
         )
 

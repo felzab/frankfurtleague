@@ -142,7 +142,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
    */
   const renderCaptainCompact = (spieler: AdminSpielerRow) =>
     spieler.selected?.is_captain === true ? (
-      <IconTooltip label="Kapitän dieser Mannschaft">
+      <IconTooltip label="Kapitän dieses Teams">
         <span className={`${SHORTHAND_CHIP} cursor-help`}>C</span>
       </IconTooltip>
     ) : null;
