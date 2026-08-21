@@ -182,8 +182,9 @@ relied on as one.
 
 **`einwilligung.bestaetigt_am` has a schema and no writer.** D64 defers who sets it, and records that
 **the schema is identical under every answer they can give** — `umfang`, `erteilt_von`, `datum` and
-`bestaetigt_am` are written either way, so the field, `READ-PUPIL-003` and the registration form are
-all built before the answer arrives and the answer selects a writer **without a migration**. What
+`bestaetigt_am` are written either way, so the field, the rule that publishes nobody without a
+recorded consent, and the registration form are all built before the answer arrives, and the answer
+selects a writer **without a migration**. What
 changes is only which of three designs is built:
 
 - **the registrant**, if a self-declared over-16 consent suffices;
@@ -219,9 +220,9 @@ rests on a judgement nobody qualified has reviewed:
   more identifying fact about a minor than the one being protected. That decline is the part most
   worth having confirmed or overturned.
 
-**What the public surface is today**, so the expert can judge it rather than reconstruct it:
-`READ-PUPIL-001` publishes a forename plus a surname initial, `READ-PUPIL-002` publishes no `stufe`,
-and `READ-PUPIL-003` publishes nobody without a recorded consent.
+**What the public surface is today**, so the expert can judge it rather than reconstruct it: a pupil
+is published as a forename and a surname initial, never with a `stufe`, and never at all without a
+recorded consent.
 
 **Path:** Independent of every other entry on this page. It blocks round 4's registration path, which
 is not on this page, and it has the longest lead time of anything remaining in the programme — asking
