@@ -65,6 +65,7 @@ GRUPPE_FILLING = ObjectId("6890a1b2c3d4e5f607220014")
 GRUPPE_DECIDER = ObjectId("6890a1b2c3d4e5f607220015")
 GRUPPE_BESIDE = ObjectId("6890a1b2c3d4e5f607220016")
 HALBFINALE_FROM_GRUPPE = ObjectId("6890a1b2c3d4e5f607220017")
+GRUPPE_HELD_OTHER = ObjectId("6890a1b2c3d4e5f607220018")
 
 # Read back off the stored documents, which key by `spiel_nr` rather than by id.
 VIERTELFINALE_NR = 1
@@ -74,6 +75,7 @@ GRUPPE_FILLING_NR = 12
 GRUPPE_DECIDER_NR = 21
 GRUPPE_BESIDE_NR = 22
 HALBFINALE_FROM_GRUPPE_NR = 25
+GRUPPE_HELD_OTHER_NR = 13
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
@@ -288,6 +290,42 @@ def one_spieltag(
             spieltag_id=SPIELTAG_GRUPPE,
             team1=side(GAMMA),
             team2=side(DELTA),
+        ),
+    ]
+
+
+def two_held_fixtures() -> list[dict[str, Any]]:
+    """Three group fixtures on ONE matchday: Alpha stands in the first, Beta in the second, and the third is about to field both.
+
+    Distinct scorelines, so a `$set` landing on the wrong fixture shows rather than matching what
+    belonged there.
+    """
+
+    return [
+        spiel_document(
+            spiel_id=GRUPPE_HELD,
+            spiel_nr=GRUPPE_HELD_NR,
+            spieltag_id=SPIELTAG_GRUPPE,
+            team1=side(ALPHA, 2),
+            team2=side(GAMMA, 1),
+            ergebnis="2:1",
+        ),
+        spiel_document(
+            spiel_id=GRUPPE_HELD_OTHER,
+            spiel_nr=GRUPPE_HELD_OTHER_NR,
+            spieltag_id=SPIELTAG_GRUPPE,
+            team1=side(BETA, 4),
+            team2=side(DELTA, 0),
+            ergebnis="4:0",
+        ),
+        # Both slots unresolved: every club already stands on a fixture above, so a side seeded here
+        # would be a double entry before the test made one.
+        spiel_document(
+            spiel_id=GRUPPE_FILLING,
+            spiel_nr=GRUPPE_FILLING_NR,
+            spieltag_id=SPIELTAG_GRUPPE,
+            team1=None,
+            team2=None,
         ),
     ]
 
@@ -758,6 +796,28 @@ class ReleaseRun:
     saved: FLPatchSpielDataResponse
 
 
+@dataclass(frozen=True)
+class SplitReleaseRun:
+    """Releases against DIFFERENT held fixtures, each fixture keyed by its `spiel_nr`."""
+
+    predicted: dict[int, FLSpiel]
+    after_save: dict[int, FLSpiel]
+    saved: FLPatchSpielDataResponse
+
+
+@dataclass(frozen=True)
+class DoubleReleaseRun:
+    """`ReleaseRun` plus the count of log rows the emptied fixture drew, which is how many writes reached it."""
+
+    before: FLSpiel
+    predicted: FLSpiel
+    after_preview: FLSpiel
+    after_save: FLSpiel
+    preview: FLPatchSpielDataResponse
+    saved: FLPatchSpielDataResponse
+    writes_against_the_held_fixture: int
+
+
 class TestAReleaseWritesWhatThePureModelPredicts:
     @pytest.mark.parametrize(
         ("opponent", "ergebnis", "tore", "sonderereignis"),
@@ -824,6 +884,107 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         # `REQ-STATE-003` refuses a no-show beside an unresolved slot, so one outliving this release
         # would leave a fixture the admin's next save is refused over.
         assert run.after_save.sonderereignis == (None if sonderereignis in ("nichtantreten_team1", "nichtantreten_team2") else sonderereignis)
+
+    def test_a_fixture_giving_up_both_its_sides_is_emptied_by_one_write(self, mongo_replica_set_url: str):
+        """Both clubs of one held fixture, released in a single write.
+
+        Side by side the two `$set`s would null `team1` and then set `team1.tore` beneath it --
+        `PathNotViable`, and the save falls. The report stays per side, so the preview names both.
+        """
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            rows = await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None)
+            season = FLSpielListAdapter.validate_python(rows)
+            before = next(spiel for spiel in season if spiel.id == GRUPPE_HELD)
+
+            spiel_data = await payload_for(database, GRUPPE_FILLING, team1=side(ALPHA), team2=side(BETA))
+            releases = judge_spieltag_occupancy(GRUPPE_FILLING, spiel_data, season).releases
+
+            # Folded rather than applied once, which is what the preview does with a repeated
+            # `spiel_id`: the second release is modelled against the first one's result.
+            predicted = before
+            for release in releases:
+                predicted = apply_release_to_spiel(predicted, release)
+
+            preview = await call_patch(database, client, GRUPPE_FILLING, spiel_data, dry_run=True)
+            after_preview = await read_spiel(database, GRUPPE_HELD)
+
+            saved = await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+
+            return DoubleReleaseRun(
+                before=before,
+                predicted=predicted,
+                after_preview=after_preview,
+                after_save=await read_spiel(database, GRUPPE_HELD),
+                preview=preview,
+                saved=saved,
+                # The action log is where a second `$set` would still show, once merging stopped it
+                # from failing: one released fixture is one row.
+                writes_against_the_held_fixture=await database[Collection.AKTIONEN].count_documents({"document_id": GRUPPE_HELD}),
+            )
+
+        run = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=one_spieltag(opponent=BETA, ergebnis="2:1", tore=(2, 1)),
+        )
+
+        assert run.after_save == run.predicted
+        assert (run.after_save.team1, run.after_save.team2, run.after_save.ergebnis) == (None, None, None)
+        assert run.after_preview == run.before, "the dry run wrote something"
+        assert run.saved == run.preview, "the preview answered differently from the save it previews"
+
+        # Two rows, because both clubs left this fixture and the admin is told about each.
+        assert [(entry.spiel_nr, entry.side, entry.team_name) for entry in run.saved.released_sides] == [
+            (GRUPPE_HELD_NR, "team1", "Alpha"),
+            (GRUPPE_HELD_NR, "team2", "Beta"),
+        ]
+        assert [entry.voided_ergebnis for entry in run.saved.released_sides] == ["2:1", "2:1"]
+        assert run.writes_against_the_held_fixture == 1
+
+    def test_two_held_fixtures_each_give_up_the_side_its_own_release_names(self, mongo_replica_set_url: str):
+        """Releases spanning two fixtures reach the fixture each one names.
+
+        Written under one id they would all land on the first, leaving the second holding a club the
+        payload also fields -- the double entry `docs/backend/spec.md :: I30` bars.
+        """
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            rows = await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None)
+            season = FLSpielListAdapter.validate_python(rows)
+            by_id = {spiel.id: spiel for spiel in season}
+
+            spiel_data = await payload_for(database, GRUPPE_FILLING, team1=side(ALPHA), team2=side(BETA))
+            releases = judge_spieltag_occupancy(GRUPPE_FILLING, spiel_data, season).releases
+
+            saved = await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+
+            return SplitReleaseRun(
+                predicted={release.spiel_nr: apply_release_to_spiel(by_id[release.spiel_id], release) for release in releases},
+                after_save={
+                    GRUPPE_HELD_NR: await read_spiel(database, GRUPPE_HELD),
+                    GRUPPE_HELD_OTHER_NR: await read_spiel(database, GRUPPE_HELD_OTHER),
+                },
+                saved=saved,
+            )
+
+        run = on_a_seeded_season(mongo_replica_set_url, body, spiele=two_held_fixtures())
+
+        assert run.after_save == run.predicted
+
+        for spiel_nr in (GRUPPE_HELD_NR, GRUPPE_HELD_OTHER_NR):
+            after = run.after_save[spiel_nr]
+            assert after.team1 is None, f"spiel {spiel_nr} kept the club the payload fields elsewhere"
+            # The side that stayed loses the goals it scored against the club removed, and with them
+            # the scoreline -- so a fixture no write reached shows here as well as above.
+            assert after.team2 is not None and after.team2.tore is None
+            assert after.ergebnis is None
+
+        # The scorelines are the two fixtures' own, so a report assembled from one of them is visible.
+        assert [(entry.spiel_nr, entry.team_name, entry.voided_ergebnis) for entry in run.saved.released_sides] == [
+            (GRUPPE_HELD_NR, "Alpha", "2:1"),
+            (GRUPPE_HELD_OTHER_NR, "Beta", "4:0"),
+        ]
 
 
 @dataclass(frozen=True)

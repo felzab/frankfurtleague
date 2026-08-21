@@ -24,6 +24,7 @@ from app.api.spiele.services import (
     BookedVenue,
     ResolvedReferences,
     SaisonMembership,
+    SpieltagRelease,
     apply_payload_to_spiel,
     find_booking_refusal,
     find_departed_occupants,
@@ -611,6 +612,35 @@ class TestEligibility:
         """Clearing the side is the correction, and refusing it would trap the fixture."""
         assert eligibility_for(season, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}, team1=None) is None
 
+    def test_a_disqualified_team_stored_on_a_knockout_fixture_stays_editable_too(self, season):
+        """The tolerance carries no phase: `UNENFORCED`'s departed club keeps what it stands on wherever that sits in the bracket.
+
+        Spiel 29 is a semi-final holding Adler by hand, and the resubmit moves neither the date nor
+        the event.
+        """
+
+        assert eligibility_for(season, 29, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}) is None
+
+    def test_a_disqualified_team_on_an_abandoned_fixture_stays_editable_too(self, fixture_at, season):
+        """And no event either: an abandonment is one `records_an_absence` does not rescue, so only the no-op skip can answer here.
+
+        Its pair is `test_an_abandoned_group_fixture_is_still_refused`, where the fixture moves.
+        """
+
+        abandoned = [
+            fixture_at(
+                1,
+                "gruppenphase",
+                SPIELTAG_ONE,
+                team1=team(ADLER, "Adler"),
+                team2=team(BIEBER, "Bieber"),
+                sonderereignis="abgebrochen",
+            ),
+            *season[1:],
+        ]
+
+        assert eligibility_for(abandoned, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}) is None
+
     def test_re_dating_a_fixture_past_its_occupants_exit_is_refused(self, season):
         """No side moved and the DATE did, which is the other half of the same predicate: the club is as ineligible either way."""
 
@@ -790,6 +820,18 @@ def released_fixture(season_docs: list[dict[str, Any]], **overrides: Any) -> FLS
     return apply_release_to_spiel(FLSpiel.model_validate(stored_spiel(seeded, release.spiel_nr)), release)
 
 
+def doubly_released_fixture(season_docs: list[dict[str, Any]]) -> tuple[list[SpieltagRelease], FLSpiel]:
+    """Spiel 2 after BOTH its clubs are fielded on Spiel 1, the two releases folded in turn — the preview's answer to a repeated `spiel_id`."""
+
+    releases = occupancy_for(season_docs, 1, team1=team(CRONBERG, "Cronberg"), team2=team(DORNBUSCH, "Dornbusch")).releases
+
+    released = FLSpiel.model_validate(stored_spiel(season_docs, 2))
+    for release in releases:
+        released = apply_release_to_spiel(released, release)
+
+    return releases, released
+
+
 class TestApplyingARelease:
     """The emptying itself. The preview and the save share it, so neither can model a release the other would not."""
 
@@ -848,6 +890,20 @@ class TestApplyingARelease:
         )
 
         assert released.sonderereignis == after_the_release
+
+    def test_a_fixture_giving_up_both_its_sides_is_left_empty(self, season):
+        """One payload can take both of a fixture's clubs, and the two releases still name one fixture.
+
+        Each is computed against the STORED document, so both see a counterpart to strip -- which is
+        why the write has to merge them rather than issue the pair.
+        """
+
+        releases, released = doubly_released_fixture(season)
+
+        assert [(release.spiel_nr, release.side) for release in releases] == [(2, "team1"), (2, "team2")]
+        assert all(release.other_side_present for release in releases)
+        assert released.team1 is None and released.team2 is None
+        assert released.ergebnis is None and released.elfmeterschiessen is None
 
 
 def joined(*, nr: int, datum: str | None, side_disqualified_from: str | None, side: str = "team1") -> dict[str, Any]:
