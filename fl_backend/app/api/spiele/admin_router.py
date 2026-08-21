@@ -223,11 +223,14 @@ async def patch_spiel_data(
             session=session,
         )
         if spieltag_raw is not None:
+            # Passed RAW, never through `str()`: a drawn matchday stores a null span, and "None"
+            # sorts above every date, so stringifying it would refuse every fixture the season
+            # drew rather than reaching the rule's own absent-span branch.
             refuse(
                 find_fixture_date_refusal(
                     datum=spiel_data.datum,
-                    spieltag_beginn=str(spieltag_raw["beginn"]),
-                    spieltag_ende=str(spieltag_raw["ende"]),
+                    spieltag_beginn=spieltag_raw["beginn"],
+                    spieltag_ende=spieltag_raw["ende"],
                 )
             )
 

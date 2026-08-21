@@ -308,7 +308,7 @@ async def patch_saison_team(
         fixtures_drawn = await spiele_collection.count_documents(
             {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}
         )
-        refuse(find_gruppe_move_refusal(saison_status=str(saison_raw["status"]), fixtures_drawn=fixtures_drawn))
+        refuse(find_gruppe_move_refusal(fixtures_drawn=fixtures_drawn))
 
         occupied_rows = await pull_many_from_db(
             collection=saison_teams_collection,
@@ -317,8 +317,8 @@ async def patch_saison_team(
         )
         refuse(
             find_entry_refusal(
-                # `find_gruppe_move_refusal` above holds the status gate a MOVE has, so this is fed
-                # the one status the entry gate accepts.
+                # A MOVE is not an entry -- the club already holds a row -- so the status gate on
+                # entering does not judge it, and only the capacity half below applies.
                 saison_status="future",
                 gruppe=saison_team_data.gruppe,
                 rules=FLSaisonRules.model_validate(saison_raw["rules"]),

@@ -758,10 +758,17 @@ def _minutes_into_day(uhrzeit: str) -> int:
     return int(hours) * 60 + int(minutes)
 
 
-def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str, spieltag_ende: str) -> WriteRefusal | None:
-    """Why this fixture's date must be refused, or `None`. An undated fixture contradicts no span and passes."""
+def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str | None, spieltag_ende: str | None) -> WriteRefusal | None:
+    """Why this fixture's date must be refused, or `None`.
 
-    if datum is None or spieltag_beginn <= datum <= spieltag_ende:
+    An undated fixture contradicts no span, and an undated MATCHDAY states none to contradict: a
+    drawn season carries both until somebody sets them, and neither absence is a disagreement.
+    """
+
+    if datum is None or spieltag_beginn is None or spieltag_ende is None:
+        return None
+
+    if spieltag_beginn <= datum <= spieltag_ende:
         return None
 
     return WriteRefusal(

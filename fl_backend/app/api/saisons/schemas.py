@@ -53,6 +53,18 @@ class FLSaisonRules(BaseModel):
     erlaubte_stufen: list[FLSpielerStufe] = Field(min_length=1)
 
 
+class FLSaisonSpielplan(BaseModel):
+    """What the generator left behind on the season it wrote.
+
+    Counts rather than a hash: these are the two numbers an admin can compare against the page in
+    front of them, and a hash answers no question anyone standing there is asking.
+    """
+
+    generiert_am: CustomDateString
+    spieltage: int = Field(ge=0)
+    spiele: int = Field(ge=0)
+
+
 class FLSaisonPhaseSchedule(BaseModel):
     """One phase of a season: how many matchdays it takes, and how many matches each holds.
 
@@ -91,6 +103,10 @@ class FLSaison(_SaisonWritable):
     id: str = Field(validation_alias="_id", serialization_alias="id", min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
     status: FLSaisonStatus
+
+    # DEFAULTED, as `FLSpiel.notiz` is: nothing tells a missing key from a stored null, and every
+    # season written before the generator existed carries neither.
+    spielplan: FLSaisonSpielplan | None = None
 
     # DERIVED, and on no document. Injected before validation, because a computed field would close
     # an import cycle.
@@ -166,3 +182,16 @@ class FLActivateSaisonResponse(BaseAPIResponse):
 
     updated_document: FLSaison
     deactivated: int
+
+
+class FLGenerateSpielplanResponse(BaseAPIResponse):
+    """What the draw wrote, flat rather than nested.
+
+    An admin reads the two counts without a second request, and they are the same numbers the
+    season's own watermark keeps, so the two can be compared by eye.
+    """
+
+    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    spieltage: int = Field(ge=0)
+    spiele: int = Field(ge=0)
+    generiert_am: CustomDateString

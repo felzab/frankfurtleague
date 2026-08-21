@@ -207,8 +207,8 @@ def find_saison_span_refusal(
 ) -> WriteRefusal | None:
     """Why this season's span must be refused, or `None`.
 
-    `spieltag_spans` is every matchday of the season, as `(beginn, ende)`: a span the season no
-    longer covers strands the matchday, so the repair is that matchday's dates or the rules.
+    `spieltag_spans` is every DATED matchday of the season, as `(beginn, ende)`: a span the season no
+    longer covers strands the matchday, and one still undated constrains nothing, so the caller filters.
     """
 
     # Inclusive: a season running 2026-05-01 to 2026-05-01 offers one day, not zero.
@@ -284,3 +284,70 @@ def find_activation_refusal(*, target_status: str, outgoing_unplayed: Sequence[i
         message=f"the outgoing season has {len(outgoing_unplayed)} unplayed fixtures (spiel_nr {named}{rest}); "
         "enter their results or cancel them before closing the season",
     )
+
+
+# What each code below refuses is `docs/logging/error-codes.md`.
+SPIELPLAN_ALREADY_DRAWN = "REQ-SPIELPLAN-001"
+SPIELPLAN_MATCHDAYS_HELD = "REQ-SPIELPLAN-002"
+SPIELPLAN_SAISON_NOT_FUTURE = "REQ-SPIELPLAN-003"
+SPIELPLAN_GRUPPE_SHORT = "REQ-SPIELPLAN-004"
+
+
+def find_spielplan_refusal(
+    *,
+    saison_status: str,
+    fixtures_drawn: int,
+    spieltage_held: int,
+    watermark: Mapping[str, Any] | None,
+    rules: FLSaisonRules,
+    occupancy_by_gruppe: Mapping[FLGruppenNames, int],
+) -> WriteRefusal | None:
+    """Why drawing this season's Spielplan must be refused, or `None`.
+
+    Each of the four refuses on its own, so the order decides only which one an admin reads: the
+    most specific first, because naming what already exists is more use than naming a status.
+    """
+
+    if fixtures_drawn > 0:
+        # The FIXTURES are the guard, never the watermark: a draw written outside this endpoint
+        # carries none, and offering to draw over one is the single thing this must not do.
+        held = (
+            f"generated on {watermark['generiert_am']}, {watermark['spiele']} fixtures across {watermark['spieltage']} matchdays"
+            if watermark is not None
+            else f"{fixtures_drawn} fixtures this endpoint did not write"
+        )
+
+        return WriteRefusal(
+            error_code=SPIELPLAN_ALREADY_DRAWN,
+            message=f"the season already holds a Spielplan ({held}); drawing one is a one-way operation",
+        )
+
+    if spieltage_held > 0:
+        return WriteRefusal(
+            error_code=SPIELPLAN_MATCHDAYS_HELD,
+            message=f"the season already holds {spieltage_held} matchday(s); the draw writes the whole list at once and merges with none",
+        )
+
+    if saison_status != "future":
+        return WriteRefusal(
+            error_code=SPIELPLAN_SAISON_NOT_FUTURE,
+            message=f"season is {saison_status}; a Spielplan is drawn while the season is still future",
+        )
+
+    # Rows carrying an `austritt` count as occupying, exactly as `find_entry_refusal` counts them:
+    # a club that withdrew before the draw keeps its place, and the group is not short.
+    short = [
+        (gruppe, occupancy_by_gruppe.get(gruppe, 0))
+        for gruppe in offered_gruppen(rules.number_of_groups)
+        if occupancy_by_gruppe.get(gruppe, 0) < rules.teams_per_group
+    ]
+
+    if short:
+        listed = ", ".join(f"gruppe {gruppe} holds {held} of {rules.teams_per_group}" for gruppe, held in short)
+
+        return WriteRefusal(
+            error_code=SPIELPLAN_GRUPPE_SHORT,
+            message=f"{listed}; every group plays the same round robin, so a short one draws a different number of fixtures",
+        )
+
+    return None
