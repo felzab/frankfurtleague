@@ -90,10 +90,10 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
 
 
 def implied_matchdays(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
-    """How many matchdays of this phase the rules imply -- a FLOOR, never a ceiling.
+    """How many matchdays of this phase the rules imply -- THE COUNT, exactly.
 
-    A round split across two dates is two matchday rows for one phase. Zero for a phase the bracket
-    never reaches, the one exact answer here.
+    One row per round, so a phase spread over two dates is still one matchday. Zero for a phase the
+    bracket never reaches.
     """
 
     for entry in schedule_for(rules):

@@ -17,7 +17,8 @@ from typing import AbstractSet, Any, Mapping, Sequence
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 from pydantic import BaseModel
 from pymongo import ReturnDocument
-from pymongo.results import InsertOneResult, UpdateResult
+from pymongo.errors import BulkWriteError
+from pymongo.results import InsertManyResult, InsertOneResult, UpdateResult
 
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException, WriteRefusal
 from app.core.recording import record_write
@@ -138,6 +139,36 @@ async def post_one_to_db(
     # No `before`: a create replaced nothing, and a null there is what tells the page this row offers
     # a deletion to undo rather than a restore.
     await record_write(collection=collection, operation="insert", document_id=result.inserted_id, session=session)
+
+    return result
+
+
+async def post_many_to_db(
+    *,
+    collection: AsyncIOMotorCollection,
+    documents: Sequence[Mapping[str, Any]],
+    session: AsyncIOMotorClientSession | None = None,
+) -> InsertManyResult:
+    """The driver's result, unwrapped: `inserted_ids` is in input order, so a caller can pair an id back to what it sent.
+
+    One log row carrying the count, never one per document: a generated season is a single action,
+    and a row per document would bury it.
+    """
+
+    try:
+        result = await collection.insert_many(documents=documents, session=session)
+    except BulkWriteError as failure:
+        # `insert_many` is ORDERED and not atomic: a duplicate key partway through leaves everything
+        # before it written, unlogged unless recorded here. Not under a session, where the abort takes
+        # them back and a second write would mask this error with its own.
+        landed = int((failure.details or {}).get("nInserted", 0))
+        if session is None and landed:
+            await record_write(collection=collection, operation="insert_many", modified_count=landed)
+        raise
+
+    # Neither an id nor a `before`: the call named no single document, and a create replaced nothing.
+    # The count goes where a fan-out puts its own, so one field answers "how many did this touch".
+    await record_write(collection=collection, operation="insert_many", modified_count=len(result.inserted_ids), session=session)
 
     return result
 

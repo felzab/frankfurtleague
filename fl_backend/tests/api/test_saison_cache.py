@@ -173,7 +173,7 @@ SAISONS_COLLECTION_PARAM = "saisons_collection"
 
 # `app/core/crud.py`'s writing half, checked against that module below: a rename there would
 # otherwise leave this sweep matching nothing and passing.
-CRUD_WRITERS = ("patch_one_in_db", "patch_many_in_db", "post_one_to_db", "set_inactive_since", "insert_live")
+CRUD_WRITERS = ("patch_one_in_db", "patch_many_in_db", "post_one_to_db", "post_many_to_db", "set_inactive_since", "insert_live")
 
 # A handler reaching past those helpers writes through the driver itself.
 DRIVER_WRITERS = frozenset(

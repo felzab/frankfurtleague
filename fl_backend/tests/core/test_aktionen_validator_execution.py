@@ -8,7 +8,7 @@ from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
 from app.core.constraints import apply_constraints
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 
 pytestmark = pytest.mark.db
 
@@ -40,6 +40,12 @@ def team_document() -> dict[str, Any]:
         "address": {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": STADT},
         "inactive_since": None,
     }
+
+
+def bulk_team_document(shorthand: str) -> dict[str, Any]:
+    """One member of a bulk create: no `_id`, which is what a generated document leaves to the driver."""
+
+    return {key: value for key, value in team_document().items() if key != "_id"} | {"shorthand": shorthand}
 
 
 def recorded_row(**overrides: Any) -> dict[str, Any]:
@@ -93,7 +99,7 @@ def insert_outcome(container: Any, row: dict[str, Any]) -> str:
     return on_a_database(container, body)
 
 
-def test_the_rows_three_real_writes_build_are_all_accepted(mongo_container: Any):
+def test_the_rows_four_real_writes_build_are_all_accepted(mongo_container: Any):
     """Row and `$jsonSchema` are hand-written from one shape, and a drift between them is a write refused in production and nowhere else."""
 
     async def body(database: AsyncIOMotorDatabase) -> list[dict[str, Any]]:
@@ -103,17 +109,22 @@ def test_the_rows_three_real_writes_build_are_all_accepted(mongo_container: Any)
         await patch_one_in_db(collection=teams, db_filter={"_id": TEAM_OID}, update={"$set": {"name": RENAMED}})
         # A dotted key, which is what every reference fan-out matches on and what the row then stores.
         await patch_many_in_db(collection=teams, db_filter={"address.stadt": STADT}, update={"$set": {"description": "x"}})
+        # Ids left to the driver, and distinct shorthands so `uniq_shorthand` admits the pair.
+        await post_many_to_db(collection=teams, documents=[bulk_team_document(code) for code in ("HE", "CS")])
 
         return [row async for row in database[Collection.AKTIONEN].find().sort("_id", 1)]
 
     rows = on_a_database(mongo_container, body)
 
-    assert [row["operation"] for row in rows] == ["insert", "patch_one", "patch_many"]
+    assert [row["operation"] for row in rows] == ["insert", "patch_one", "patch_many", "insert_many"]
     assert rows[0]["document_id"] == TEAM_OID
     # The image the write replaced, which is the whole of what a restore would replay.
     assert rows[1]["before"]["name"] == SEEDED_NAME
     assert rows[2]["db_filter"] == {"address.stadt": STADT}
     assert rows[2]["modified_count"] == 1
+    # The count and nothing else: the bulk create named no document and replaced none.
+    assert rows[3]["modified_count"] == 2
+    assert rows[3]["document_id"] is None and rows[3]["before"] is None and rows[3]["db_filter"] is None
 
 
 def test_the_base_row_every_rejection_below_deviates_from_is_accepted(mongo_container: Any):
@@ -129,6 +140,7 @@ def test_the_base_row_every_rejection_below_deviates_from_is_accepted(mongo_cont
         (recorded_row(collection="teamz"), "a collection this database does not hold"),
         (recorded_row(operation="delete"), "an operation outside the Literal"),
         (recorded_row(operation="update_many"), "the driver's spelling of an operation rather than this module's"),
+        (recorded_row(operation="insert_one"), "the driver's spelling of the single create rather than this module's"),
         (recorded_row(actor={"kind": "admin", "email": ACTOR}), "an actor kind outside the Literal"),
         (recorded_row(actor={"email": ACTOR}), "an actor missing half its shape"),
         ({key: value for key, value in recorded_row().items() if key != "before"}, "a row carrying no `before` key at all"),
@@ -152,9 +164,13 @@ def test_a_malformed_row_is_rejected(mongo_container: Any, row: dict[str, Any], 
         ),
         (recorded_row(actor={"kind": "system", "email": "SYSTEM"}, request=None, correlation_id="SYSTEM"), "a write made outside any request"),
         (recorded_row(redacted_at="2026-04-01", before=None), "a row whose values an erasure has already overwritten"),
+        (
+            recorded_row(operation="insert_many", document_id=None, db_filter=None, before=None, modified_count=75),
+            "a bulk create, which carries its count and nothing else",
+        ),
     ],
     ids=lambda value: value if isinstance(value, str) else "",
 )
 def test_every_shape_a_recorded_row_legitimately_takes_is_accepted(mongo_container: Any, row: dict[str, Any], why: str):
-    """One validator covers nine collections and three operations, and a shape it refuses is a write the application cannot record."""
+    """One validator covers nine collections and four operations, and a shape it refuses is a write the application cannot record."""
     assert insert_outcome(mongo_container, row) == "accepted", f"the validator refused {why}"

@@ -20,7 +20,7 @@ from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollectio
 from app.core.collections import Collection
 from app.core.logging import correlation_id_var
 
-Operation = Literal["insert", "patch_one", "patch_many"]
+Operation = Literal["insert", "insert_many", "patch_one", "patch_many"]
 
 # What a write not made through a request is attributed to -- a migration, a script, a fixture. The
 # spelling matches `app/core/logging.py :: NO_REQUEST_SENTINEL`, so one grep finds both.

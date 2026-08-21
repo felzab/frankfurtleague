@@ -54,9 +54,10 @@ _STUFEN = ["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 # Derived, not spelled: these ARE the collection names, and the log never records itself.
 _LOGGED_COLLECTIONS = [str(name) for name in Collection if name is not Collection.AKTIONEN]
 
-# Mirrors `app/core/recording.py :: Operation` and `:: Actor.kind`; the models are hand-copied here,
-# which is why both move in one commit.
-_AKTION_OPERATIONS = ["insert", "patch_one", "patch_many"]
+# Mirrors `app/core/recording.py :: Operation` and `:: Actor.kind`, hand-copied.
+# `tests/core/test_constraints.py` pins each against the recording literal too, so a member added to
+# one alone fails rather than reaching a stored row.
+_AKTION_OPERATIONS = ["insert", "insert_many", "patch_one", "patch_many"]
 _AKTOR_KINDS = ["admin_session", "system"]
 
 
@@ -222,6 +223,18 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                         "erlaubte_stufen": {"bsonType": "array", "items": {"bsonType": "string", "enum": _STUFEN}},
                     },
                 ),
+                # Deliberately out of `required`: every stored season predates the field, so making
+                # the key mandatory would refuse every one of them and owe a backfill. A missing key
+                # and a stored null both read as never generated.
+                "spielplan": _object(
+                    nullable=True,
+                    required=("generiert_am", "spieltage", "spiele"),
+                    properties={
+                        "generiert_am": {"bsonType": "string"},
+                        "spieltage": {"bsonType": "int"},
+                        "spiele": {"bsonType": "int"},
+                    },
+                ),
             },
         )
     },
@@ -353,8 +366,11 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             required=("_id", "beginn", "ende", "saison_phase", "saison_id", "position"),
             properties={
                 "_id": {"bsonType": "objectId"},
-                "beginn": {"bsonType": "string"},
-                "ende": {"bsonType": "string"},
+                # A generated matchday holds no dates until `PATCH /spieltage/{id}` sets them. Both
+                # stay in `required`, which MongoDB satisfies with a stored null: the key is
+                # mandatory and the value is not, so an absent one is still refused.
+                "beginn": {"bsonType": _STRING_OR_NULL},
+                "ende": {"bsonType": _STRING_OR_NULL},
                 "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
                 "saison_id": {"bsonType": "string"},
                 # Stored rather than re-derived from `beginn`: that chain ends at `_id`, which orders by

@@ -25,7 +25,8 @@ from app.api.spiele.services import SaisonMembership, find_departed_occupants, f
 from app.api.spieler.admin_router import post_spieler
 from app.api.spieler.schemas import FLPostSpielerPayload
 from app.api.spieler.services import find_squad_refusal
-from app.api.spieltage.services import find_spieltag_phase_refusal
+from app.api.spieltage.admin_router import patch_spieltag
+from app.api.spieltage.services import with_expected_matches
 from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES
@@ -359,16 +360,18 @@ class TestExactlyOneActiveSeason:
 
 
 class TestAMatchdayOffItsImpliedCount:
-    """That the mismatch is refused only as a MOVE that narrows the count, never as a state the matchday sits in."""
+    """That the count a phase implies reaches the matchday's own write nowhere, so no state of the two can be refused there."""
 
-    def test_a_matchday_over_its_phases_count_is_permitted_where_it_stands(self):
-        assert find_spieltag_phase_refusal(attached_count=9, expected_count=6, expected_in_stored_phase=6) is None
+    def test_the_matchday_write_refuses_on_its_span_alone(self):
+        assert {call for call in _calls_of(patch_spieltag) if call.startswith("find_")} == {"find_spieltag_span_refusal"}
 
-    def test_a_matchday_under_its_phases_count_is_permitted_too(self):
-        assert find_spieltag_phase_refusal(attached_count=2, expected_count=6, expected_in_stored_phase=6) is None
+    def test_the_implied_count_is_read_for_the_echo_and_nothing_else(self):
+        """`expected_matches` is the figure a mismatch would be measured against, so where it is called is where a refusal could form."""
 
-    def test_the_move_into_a_narrower_phase_is_what_refuses(self):
-        assert find_spieltag_phase_refusal(attached_count=9, expected_count=1, expected_in_stored_phase=6) is not None
+        module = _module_of(with_expected_matches)
+
+        assert _callers_of(module, "expected_matches") == {"with_expected_matches"}
+        assert _callers_of(_module_of(patch_spieltag), "expected_matches") == set()
 
 
 class TestASharedSquadNumber:

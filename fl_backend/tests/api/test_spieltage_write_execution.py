@@ -8,14 +8,9 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.api.saisons.services import SAISON_SPAN_BELOW_SPIELTAGE
-from app.api.spiele.schemas import FLSaisonPhase
-from app.api.spieltage.admin_router import patch_spieltag, post_spieltag
-from app.api.spieltage.schemas import FLPatchSpieltagPayload, FLPostSpieltagPayload
-from app.api.spieltage.services import (
-    SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY,
-    SPIELTAG_MOVED_TO_UNPLAYED_PHASE,
-    SPIELTAG_OVER_ITS_PHASE,
-)
+from app.api.spieltage.admin_router import patch_spieltag
+from app.api.spieltage.schemas import FLPatchSpieltagPayload
+from app.api.spieltage.services import SPIELTAG_SPAN_BELOW_FIXTURES
 from app.core.exceptions import DocumentConflictException
 
 pytestmark = pytest.mark.db
@@ -24,9 +19,8 @@ DATABASE_NAME = "fl_spieltage_write_test"
 
 SAISON_ID = "2026"
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607300001")
-
-# Injected rather than read from the clock, which `get_german_date_str` makes substitutable.
-TODAY = "2026-04-01"
+# The Finale's row, seeded only where a second phase's match count is what a test turns on.
+FINALE_OID = ObjectId("6890a1b2c3d4e5f607300003")
 
 SAISON_START = "2026-01-01"
 SAISON_END = "2026-06-30"
@@ -65,7 +59,7 @@ def saison_document() -> dict[str, Any]:
 
 
 def spieltag_document(**overrides: Any) -> dict[str, Any]:
-    """No `anzahl_spiele`, the shape `POST /spieltage` inserts, so the echo assertions are controls rather than readings of a stale key."""
+    """No `anzahl_spiele`, the shape a drawn schedule leaves, so the echo assertions are controls rather than readings of a stale key."""
 
     return {
         "_id": SPIELTAG_OID,
@@ -113,21 +107,16 @@ async def move_the_seasons_end(database: AsyncIOMotorDatabase, end_date: str) ->
     )
 
 
-# The seeded matchday holds the Gruppenphase's position 1, so `create_a_matchday` appends after it.
-CREATED_POSITION = 2
+async def re_date(database: AsyncIOMotorDatabase, spieltag_id: ObjectId, *, beginn: str, ende: str) -> Any:
+    """The whole of `PATCH /spieltage/{spieltag_id}`: the payload carries the span and nothing else."""
 
-
-async def create_a_matchday(database: AsyncIOMotorDatabase) -> ObjectId:
-    """Always `gruppenphase`; the phase is not a parameter because a `str` default would widen `FLSaisonPhase` past its `Literal`."""
-
-    response = await post_spieltag(
-        spieltag_data=FLPostSpieltagPayload(beginn="2026-03-07", ende="2026-03-08", saison_phase="gruppenphase", saison_id=SAISON_ID),
+    return await patch_spieltag(
+        spieltag_id=spieltag_id,
+        spieltag_data=FLPatchSpieltagPayload(beginn=beginn, ende=ende),
         spieltage_collection=database.spieltage,
         saisons_collection=database.saisons,
-        today=TODAY,
+        spiele_collection=database.spiele,
     )
-
-    return ObjectId(response.spieltag_id)
 
 
 class TestASeasonKeepsCoveringTheMatchdaysItStores:
@@ -157,85 +146,28 @@ class TestASeasonKeepsCoveringTheMatchdaysItStores:
         assert response.updated_document.end_date == "2026-06-25"
 
 
-class TestACreateAppendsToItsPhase:
-    """The one path that writes a `position` without being handed one, so only a database says which number it picked."""
-
-    async def _create_in(self, database: AsyncIOMotorDatabase, saison_phase: FLSaisonPhase) -> int:
-        response = await post_spieltag(
-            spieltag_data=FLPostSpieltagPayload(beginn="2026-03-07", ende="2026-03-08", saison_phase=saison_phase, saison_id=SAISON_ID),
-            spieltage_collection=database.spieltage,
-            saisons_collection=database.saisons,
-            today=TODAY,
-        )
-        stored = await database.spieltage.find_one({"_id": ObjectId(response.spieltag_id)})
-
-        assert stored is not None
-        return int(stored["position"])
-
-    def test_the_first_matchday_of_a_phase_takes_position_one(self, mongo_container: Any):
-        """The Finale holds none, and the seeded Gruppenphase row must not push its number up."""
-
-        async def body(database: AsyncIOMotorDatabase) -> int:
-            return await self._create_in(database, "finale")
-
-        assert on_a_database(mongo_container, body) == 1
-
-    def test_each_further_matchday_takes_the_next_free_position(self, mongo_container: Any):
-        """Read off the phase's highest, not off its count: a create appends behind whatever is already there."""
-
-        async def body(database: AsyncIOMotorDatabase) -> list[int]:
-            return [await self._create_in(database, "gruppenphase"), await self._create_in(database, "gruppenphase")]
-
-        assert on_a_database(mongo_container, body) == [CREATED_POSITION, CREATED_POSITION + 1]
-
-    def test_the_phases_are_numbered_independently(self, mongo_container: Any):
-        """`saison_phase` is a key of the unique index for exactly this: the Finale's 1 sits beside the Gruppenphase's."""
-
-        async def body(database: AsyncIOMotorDatabase) -> tuple[int, int]:
-            return await self._create_in(database, "gruppenphase"), await self._create_in(database, "finale")
-
-        assert on_a_database(mongo_container, body) == (CREATED_POSITION, 1)
-
-
 class TestAWriteEchoesTheMatchdayItChanged:
-    """`anzahl_spiele` is on no document. Created rather than seeded, because a seeded document can be given any shape that passes."""
+    """`anzahl_spiele` is on no document, so the write has to derive it rather than read the stored row back."""
 
-    def test_a_created_matchday_can_be_edited(self, mongo_container: Any):
+    def test_a_re_dated_matchday_is_echoed_with_its_derived_count(self, mongo_container: Any):
         async def body(database: AsyncIOMotorDatabase) -> Any:
-            created = await create_a_matchday(database)
-            return await patch_spieltag(
-                spieltag_id=created,
-                spieltag_data=FLPatchSpieltagPayload(
-                    beginn="2026-03-07", ende="2026-03-09", saison_phase="gruppenphase", position=CREATED_POSITION
-                ),
-                spieltage_collection=database.spieltage,
-                saisons_collection=database.saisons,
-                spiele_collection=database.spiele,
-            )
+            return await re_date(database, SPIELTAG_OID, beginn=SPIELTAG_BEGINN, ende="2026-06-22")
 
         response = on_a_database(mongo_container, body)
 
-        assert response.updated_document is not None
-        assert response.updated_document.ende == "2026-03-09"
+        assert response.updated_document.ende == "2026-06-22"
         assert response.updated_document.anzahl_spiele == GRUPPENPHASE_MATCHES
 
-    def test_moving_the_phase_moves_the_count_the_echo_reports(self, mongo_container: Any):
-        """`PATCH` can move the phase the count follows from, so a remembered echo would be wrong rather than merely absent."""
+    def test_the_count_follows_the_matchdays_own_phase(self, mongo_container: Any):
+        """Two phases, two figures: an echo answering a constant would be right for the Gruppenphase alone."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
-            created = await create_a_matchday(database)
-            return await patch_spieltag(
-                spieltag_id=created,
-                # Position 1 in the Finale, which holds none: a phase change picks its slot in the same write.
-                spieltag_data=FLPatchSpieltagPayload(beginn="2026-03-07", ende="2026-03-08", saison_phase="finale", position=1),
-                spieltage_collection=database.spieltage,
-                saisons_collection=database.saisons,
-                spiele_collection=database.spiele,
-            )
+            await database.spieltage.insert_one(spieltag_document(_id=FINALE_OID, saison_phase="finale"))
+
+            return await re_date(database, FINALE_OID, beginn=SPIELTAG_BEGINN, ende="2026-06-22")
 
         response = on_a_database(mongo_container, body)
 
-        assert response.updated_document is not None
         assert response.updated_document.saison_phase == "finale"
         assert response.updated_document.anzahl_spiele == FINALE_MATCHES
 
@@ -245,184 +177,44 @@ class TestAWriteEchoesTheMatchdayItChanged:
         stale_oid = ObjectId("6890a1b2c3d4e5f607300002")
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
-            await database.spieltage.insert_one(spieltag_document(_id=stale_oid, anzahl_spiele=99, position=CREATED_POSITION))
-            return await patch_spieltag(
-                spieltag_id=stale_oid,
-                spieltag_data=FLPatchSpieltagPayload(
-                    beginn=SPIELTAG_BEGINN, ende=SPIELTAG_ENDE, saison_phase="gruppenphase", position=CREATED_POSITION
-                ),
-                spieltage_collection=database.spieltage,
-                saisons_collection=database.saisons,
-                spiele_collection=database.spiele,
-            )
+            await database.spieltage.insert_one(spieltag_document(_id=stale_oid, anzahl_spiele=99, position=2))
+
+            return await re_date(database, stale_oid, beginn=SPIELTAG_BEGINN, ende=SPIELTAG_ENDE)
 
         response = on_a_database(mongo_container, body)
 
-        assert response.updated_document is not None
         assert response.updated_document.anzahl_spiele == GRUPPENPHASE_MATCHES
 
 
-class TestAMatchdayOverItsPhaseKeepsItsDatesEditable:
-    """`REQ-SPIELTAG-002` against a real `spiele` collection, so the refusal compares the figures the endpoint produces."""
+class TestAMatchdayKeepsCoveringItsFixtures:
+    """`REQ-DATE-003` through the endpoint: only a database proves the dates it judges are read out of `spiele` at all."""
 
-    ATTACHED = GRUPPENPHASE_MATCHES + 1
+    async def _with_a_fixture_on(self, database: AsyncIOMotorDatabase, datum: str | None) -> None:
+        await database.spiele.insert_one({"saison_id": SAISON_ID, "spieltag_id": SPIELTAG_OID, "spiel_nr": 1, "datum": datum})
 
-    async def _with_fixtures_attached(self, database: AsyncIOMotorDatabase) -> None:
-        """Fixtures on the seeded matchday, dateless so `REQ-DATE-003` has nothing to hold."""
+    def test_a_shrink_past_a_dated_fixture_is_refused(self, mongo_container: Any):
+        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+            # On the matchday's last day, so pulling `ende` back to its first leaves the fixture outside.
+            await self._with_a_fixture_on(database, SPIELTAG_ENDE)
 
-        for spiel_nr in range(1, self.ATTACHED + 1):
-            await database.spiele.insert_one({"saison_id": SAISON_ID, "spieltag_id": SPIELTAG_OID, "spiel_nr": spiel_nr})
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await re_date(database, SPIELTAG_OID, beginn=SPIELTAG_BEGINN, ende=SPIELTAG_BEGINN)
 
-    def test_a_dates_only_patch_goes_through(self, mongo_container: Any):
-        """The payload repeats the stored phase, so there is no move for the phase rule to judge."""
+            return excinfo.value
+
+        refusal = on_a_database(mongo_container, body)
+
+        assert refusal.error_code == SPIELTAG_SPAN_BELOW_FIXTURES
+        assert SPIELTAG_ENDE in refusal.error_detail["message"]
+
+    def test_an_undated_fixture_constrains_nothing(self, mongo_container: Any):
+        """The endpoint filters those out rather than passing nulls, and only a real query says whether it does."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
-            await self._with_fixtures_attached(database)
-            return await patch_spieltag(
-                spieltag_id=SPIELTAG_OID,
-                spieltag_data=FLPatchSpieltagPayload(beginn=SPIELTAG_BEGINN, ende="2026-06-22", saison_phase="gruppenphase", position=1),
-                spieltage_collection=database.spieltage,
-                saisons_collection=database.saisons,
-                spiele_collection=database.spiele,
-            )
+            await self._with_a_fixture_on(database, None)
+
+            return await re_date(database, SPIELTAG_OID, beginn=SPIELTAG_BEGINN, ende=SPIELTAG_BEGINN)
 
         response = on_a_database(mongo_container, body)
 
-        assert response.updated_document is not None
-        assert response.updated_document.ende == "2026-06-22"
-
-    def test_a_move_into_a_smaller_phase_is_still_refused(self, mongo_container: Any):
-        """From a bad state the step that makes it worse is still refused."""
-
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
-            await self._with_fixtures_attached(database)
-
-            with pytest.raises(DocumentConflictException) as excinfo:
-                await patch_spieltag(
-                    spieltag_id=SPIELTAG_OID,
-                    spieltag_data=FLPatchSpieltagPayload(beginn=SPIELTAG_BEGINN, ende=SPIELTAG_ENDE, saison_phase="finale", position=1),
-                    spieltage_collection=database.spieltage,
-                    saisons_collection=database.saisons,
-                    spiele_collection=database.spiele,
-                )
-
-            return excinfo.value
-
-        refusal = on_a_database(mongo_container, body)
-
-        assert refusal.error_code == SPIELTAG_OVER_ITS_PHASE
-
-
-class TestWhichPhaseChangesAreLegitimate:
-    """Only a database proves the split: the side counts key on the fixture's own `saison_phase`, which this endpoint never writes."""
-
-    async def _with_fixtures(self, database: AsyncIOMotorDatabase, saison_phase: str, count: int) -> None:
-        """Fixtures carrying their own phase, dateless so `REQ-DATE-003` has nothing to hold."""
-
-        for spiel_nr in range(1, count + 1):
-            await database.spiele.insert_one(
-                {"saison_id": SAISON_ID, "spieltag_id": SPIELTAG_OID, "spiel_nr": spiel_nr, "saison_phase": saison_phase}
-            )
-
-    async def _patch_to(self, database: AsyncIOMotorDatabase, saison_phase: FLSaisonPhase) -> Any:
-        return await patch_spieltag(
-            spieltag_id=SPIELTAG_OID,
-            spieltag_data=FLPatchSpieltagPayload(beginn=SPIELTAG_BEGINN, ende=SPIELTAG_ENDE, saison_phase=saison_phase, position=1),
-            spieltage_collection=database.spieltage,
-            saisons_collection=database.saisons,
-            spiele_collection=database.spiele,
-        )
-
-    def test_a_drawn_knockout_round_may_not_become_a_group_matchday(self, mongo_container: Any):
-        """`REQ-SPIELTAG-002` cannot fire on these counts, which leaves the boundary rule as the only thing that can refuse."""
-
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
-            await database.spieltage.update_one({"_id": SPIELTAG_OID}, {"$set": {"saison_phase": "viertelfinale"}})
-            await self._with_fixtures(database, "viertelfinale", 4)
-
-            with pytest.raises(DocumentConflictException) as excinfo:
-                await self._patch_to(database, "gruppenphase")
-
-            return excinfo.value
-
-        refusal = on_a_database(mongo_container, body)
-
-        assert refusal.error_code == SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY
-
-    def test_an_empty_knockout_matchday_still_becomes_a_group_matchday(self, mongo_container: Any):
-        """Identical move, identical row, opposite answer — which makes the case above a rule about the fixtures."""
-
-        async def body(database: AsyncIOMotorDatabase) -> Any:
-            await database.spieltage.update_one({"_id": SPIELTAG_OID}, {"$set": {"saison_phase": "viertelfinale"}})
-            return await self._patch_to(database, "gruppenphase")
-
-        response = on_a_database(mongo_container, body)
-
-        assert response.updated_document is not None
-        assert response.updated_document.saison_phase == "gruppenphase"
-        assert response.updated_document.anzahl_spiele == GRUPPENPHASE_MATCHES
-
-    def test_a_matchday_may_be_moved_to_agree_with_the_fixtures_it_holds(self, mongo_container: Any):
-        """A rule reading the crossing alone would block the only edit that improves the state."""
-
-        async def body(database: AsyncIOMotorDatabase) -> Any:
-            await self._with_fixtures(database, "viertelfinale", 4)
-            return await self._patch_to(database, "viertelfinale")
-
-        response = on_a_database(mongo_container, body)
-
-        assert response.updated_document is not None
-        assert response.updated_document.saison_phase == "viertelfinale"
-
-    def test_a_move_into_a_round_the_season_never_plays_is_refused(self, mongo_container: Any):
-        """These rules send eight into the bracket, so `achtelfinale` is a round the season never reaches."""
-
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
-            await database.spieltage.update_one({"_id": SPIELTAG_OID}, {"$set": {"saison_phase": "viertelfinale"}})
-
-            with pytest.raises(DocumentConflictException) as excinfo:
-                await self._patch_to(database, "achtelfinale")
-
-            return excinfo.value
-
-        refusal = on_a_database(mongo_container, body)
-
-        assert refusal.error_code == SPIELTAG_MOVED_TO_UNPLAYED_PHASE
-
-    def test_a_row_stranded_in_an_unplayed_round_keeps_its_dates_and_its_way_out(self, mongo_container: Any):
-        """A rule reading the row's own phase would refuse the dates correction and leave no way to reach the move out."""
-
-        async def body(database: AsyncIOMotorDatabase) -> tuple[Any, Any]:
-            await database.spieltage.update_one({"_id": SPIELTAG_OID}, {"$set": {"saison_phase": "achtelfinale"}})
-
-            dates_only = await patch_spieltag(
-                spieltag_id=SPIELTAG_OID,
-                spieltag_data=FLPatchSpieltagPayload(beginn=SPIELTAG_BEGINN, ende="2026-06-22", saison_phase="achtelfinale", position=1),
-                spieltage_collection=database.spieltage,
-                saisons_collection=database.saisons,
-                spiele_collection=database.spiele,
-            )
-
-            return dates_only, await self._patch_to(database, "viertelfinale")
-
-        dates_only, moved_out = on_a_database(mongo_container, body)
-
-        assert dates_only.updated_document is not None
-        assert dates_only.updated_document.ende == "2026-06-22"
-        assert moved_out.updated_document is not None
-        assert moved_out.updated_document.saison_phase == "viertelfinale"
-
-    def test_the_unplayed_round_is_answered_before_the_boundary(self, mongo_container: Any):
-        """Naming the season's rules is the actionable half: moving fixtures would not make the round exist."""
-
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
-            await self._with_fixtures(database, "gruppenphase", GRUPPENPHASE_MATCHES)
-
-            with pytest.raises(DocumentConflictException) as excinfo:
-                await self._patch_to(database, "achtelfinale")
-
-            return excinfo.value
-
-        refusal = on_a_database(mongo_container, body)
-
-        assert refusal.error_code == SPIELTAG_MOVED_TO_UNPLAYED_PHASE
+        assert response.updated_document.ende == SPIELTAG_BEGINN
