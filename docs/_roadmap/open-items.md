@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `c6d7b8e8`, 2026-08-21\
+**Verified against:** `a468e858`, 2026-08-21\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -224,10 +224,11 @@ which BE-12 leans on for its own "what runs it".
 rollover actually being missed.
 
 **Every step of a rollover has a page; the sequence has nothing.** `/admin/saisons` creates the
-season, the Umstellung panel on `/admin/saisons/[saison_id]` activates it, the team and player editors
-carry the junction rows, and `/admin/spieltage` builds the skeleton. Each clears its own
-caches as it saves. What no surface does is notice that the sequence has not started, or that it
-stopped half-way: nothing prompts for a step that is skipped.
+season, the team and player editors carry the junction rows, the Spielplan panel on
+`/admin/saisons/[saison_id]` draws the matchdays and fixtures, each matchday's own editor dates it, and
+the Umstellung panel on that same season page activates it. Each clears its own caches as it saves. What
+no surface does is notice that the sequence has not started, or that it stopped half-way: nothing
+prompts for a step that is skipped.
 
 **The failure is silent in a specific way.** An omitted step leaves the site serving last season as
 though it were this one, and every read of it is a correct read of stale data.
@@ -258,10 +259,9 @@ message, is the actual scope.
 **Status:** Open\
 **Surfaces:** FE, BE, DB, Ops\
 **Effort:** XL\
-**Path:** Waits on the matchday-model question below, because until that is settled the generation
-half is being built against a model that may move. BE-15 ahead of it is an ordering preference and
-not a block. It changes what FB-16's reminder would have to say and removes no part of the need for
-one.
+**Path:** Independent — nothing on this page blocks it, and the model the generation half stands on
+is settled. BE-15 ahead of it is an ordering preference and not a block. It changes what FB-16's
+reminder would have to say and removes no part of the need for one.
 
 **My item, 2026-08-13.** The Saison create form becomes a guided workflow that takes an admin through
 a whole new season — its dates, which clubs play it, which clubs are new, and the rules it runs
@@ -276,15 +276,15 @@ Saison page and its editor change with it.
 and worth much less after: a season set up by hand is a season this work does nothing for, and its
 squads are typed by one person either way. That is the test — a clock — that separates it from FE-1,
 which carries no date. It ranks under BE-15 because BE-15's cost is the unrecoverable one, and
-because this entry is the largest new source of writes on the page: writes made before an action log
-exists are writes nobody can reconstruct.
+because this entry is the largest new source of writes on the page: every write is recorded, and until
+BE-15 lands there is nothing that puts one back.
 
 **It is a programme, and its parts are not one change.**
 
 | Part                                                        | Needs first                                   | Could ship alone |
 | ----------------------------------------------------------- | --------------------------------------------- | ---------------- |
 | The guided creation flow, as a page over the create payload | —                                             | Yes              |
-| Generating the season's structure behind it                 | the matchday-model question                   | No               |
+| Drawing the season from that flow rather than by hand       | the flow                                      | No               |
 | A representatives-and-contacts admin surface                | somewhere to keep a contact                   | Yes              |
 | Telling a representative their team is in                   | the contacts surface                          | No               |
 | A shareable link or code, and what it authorises            | a ruling on the authorisation model           | No               |
@@ -293,24 +293,26 @@ exists are writes nobody can reconstruct.
 | Raising a squad-number clash                                | the registration page; the reissue hole below | The hole, alone  |
 | Rework of the Saison page and its editor                    | whichever of the above lands                  | Yes              |
 
-**Half of "generate the season fully" is arithmetic that already exists.**
+**The season's structure is not this entry's to build.**
 `fl_backend/app/api/saisons/schedule.py :: schedule_for` takes a season's rules and returns, per
 phase the season actually plays, how many matchdays it takes and how many matches each holds;
-`:: expected_matches` is what a matchday's `anzahl_spiele` reports.
-Nothing stores any of it, and a rules combination that cannot be played is refused
-(`fl_backend/app/api/saisons/services.py :: find_rules_refusal`). So the shape of a season is already
-a pure function of what a create form collects, and the guided flow's structural half is a matter of
-showing that function's answer while the admin is still choosing.
+`:: expected_matches` is what a matchday's `anzahl_spiele` reports, and a rules combination that
+cannot be played is refused (`fl_backend/app/api/saisons/services.py :: find_rules_refusal`). The
+draw writes that answer out: `POST /saisons/{saison_id}/spielplan` composes every matchday and every
+fixture of the season from those rules and the clubs entered into it, in one transaction
+([`docs/backend/spec.md`](../backend/spec.md) I46), and `spiel_nr` is contiguous from 1 in playing
+order because the draw assigns it rather than a caller choosing one. So the shape of a season is a
+pure function of what a create form collects, and the flow's structural half is showing that
+function's answer while the admin is still choosing, then calling the draw once.
 
-**The missing half is the draw, and its absence is a ratified decision rather than a gap.** `/spiele`
-has no `POST` and no `DELETE`: a season's matches are drawn once, outside the API, correcting a draw
-means editing the database directly, and a `POST` would need a `spiel_nr` nobody can safely choose —
-the draw assigns it, and the bracket is wired through that number rather than through document ids.
-**Generating a season "fully" therefore means writing a draw**, which is the largest single piece of
-new backend here and the one that runs straight at the rule that a season's fixtures are created
-once. Whether the flow does that at all,
-or stops at a season whose structure is ready and leaves the draw outside the API, is a ruling this
-entry needs before the work starts.
+**What the flow owes the draw is the ORDER, not the arithmetic.** The draw is one-way and refuses a
+season already holding a fixture or a matchday (`REQ-SPIELPLAN-001`, `-002`), a season past `future`
+(`-003`) and a group short of the teams its rules ask for (`-004`). So it is the last step of the
+setup rather than a step the flow can repeat, every club has to be entered before it runs, and a
+wizard that reaches it early is refused rather than left half-drawn. Today it is a panel an admin
+presses on `/admin/saisons/[saison_id]` once the clubs are in
+(`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx`),
+which is the hand-run sequence this entry is about rather than a flow.
 
 **Ending the flow by making the season live is the one thing it must not do.**
 `POST /saisons/{saison_id}/activate` is the only code path in the system that writes `status`, a
@@ -321,17 +323,13 @@ by making the season current is exactly that call with a wizard in front of it. 
 season that is ready and `future`; the rollover stays the panel on `/admin/saisons/[saison_id]`,
 where the outgoing season's unfinished fixtures are listed rather than counted.
 
-**The load-bearing question: a matchday row is created by hand, and whether it should be is open.**
-`/admin/spieltage` creates one at a time, and what a row supplies is its phase and its date span —
-its name and its match count have each already left the document, and its position is chosen from the
-slots that phase leaves free rather than typed. My
-direction is that the rows should follow from the rules as well. **If they do, generating a season
-stops being a feature and becomes a consequence**, because building the structure is then only
-applying the rules — and the flow's generation half is a read of `schedule_for` rather than a writer
-of anything. That is why the ordering matters: building the guided flow first means building
-generation against a model that is about to change, and rewriting it afterwards. The question is not
-free either — a knockout round stays splittable across several matchdays, and `spiele.spieltag_id`
-has no fixture-level create or delete to move a fixture off a row a narrowing would remove.
+**A matchday follows from the rules rather than from a person, which is what makes generating a
+season a consequence rather than a feature.** A phase takes exactly the matchdays its rules imply —
+one per round, so a knockout round is one matchday and not several — and `position` and
+`saison_phase` are the draw's, on no payload afterwards. `/admin/spieltage` lists what the draw wrote, and a matchday's own editor
+sets the span the draw leaves null. What remains of the structural half is therefore the flow that
+collects the rules, not a second writer of anything: `spiele.spieltag_id` still has no fixture-level
+create or delete, and nothing needs one, because no endpoint removes the row it points at.
 
 **A public write into application data would be the first of its kind here.** Every write that
 touches the league's own data sits behind `verify_access_admin`, declared at router level and
@@ -378,7 +376,7 @@ section, a field judged when it is left, one save bar, a discard guard and an un
 also picks clubs and creates them passes that threshold by a distance, so the guided workflow is a
 page rather than a larger modal, and the pattern to copy is on
 `/admin/saisons/[saison_id]` — `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx`
-and the Zeitraum, Regeln, Gruppentausch and rollover sections beside it. The editor is where a wrong
+and the panels beside it, the Spielplan draw among them. The editor is where a wrong
 answer from the flow is corrected, so every field the flow collects has to be editable afterwards,
 and the narrowing refusals `find_rules_refusal` performs are what the flow has to state while a
 value is still being chosen.
@@ -473,7 +471,8 @@ and whether anything holds a later endpoint to it. Backend audit pass B1's multi
 transaction, and no written source says it has to.** Measured 2026-08-20 by reading every call site
 of the write helpers in `fl_backend/app/core/crud.py` — `:: patch_one_in_db`, `:: patch_many_in_db`
 and `:: post_one_to_db` — together with the helpers layered over them, and every direct driver call
-under `fl_backend/app/`.
+under `fl_backend/app/`. `:: post_many_to_db` is not in that reading: it is a later helper, and the
+sweep answers for the tree it was taken over rather than for this one.
 
 **What the sweep leaves out on purpose.** The venue, referee and club patch endpoints each wrap their
 rename and its fan-out in `with_transaction` and argue that choice at the line, so they are not the
@@ -513,7 +512,9 @@ them together, and nothing reports one that does not. `fl_backend/app/core/domai
 home and is refused one: `.claude/CLAUDE.md` §7 forbids importing it from `app/`, generating it and
 enforcing it, so a line there would be a list a reader consults rather than a control. The
 alternatives are an invariant on [`docs/backend/spec.md`](../backend/spec.md), whose §2 already
-records each transactional write path separately, and a sweep of the source tree in the shape
+records each transactional write path separately — I46 holds the season's draw to atomicity across
+its three collections and reaches no other endpoint, which is the shape of the gap rather than a
+closing of it — and a sweep of the source tree in the shape
 `fl_backend/tests/api/test_route_order.py` already uses.
 
 **Not measured:** whether such a sweep can tell a genuine multi-write handler from a helper that

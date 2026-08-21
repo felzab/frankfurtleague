@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `c6d7b8e8`, 2026-08-21\
+**Verified against:** `a468e858`, 2026-08-21\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
@@ -74,8 +74,12 @@ season turns `past`, where `REQ-RULES-005` freezes it.
 | `REQ-ENTER-001`       | 409    | A team was entered into a season that is not `future`                                                                               |
 | `REQ-ENTER-002`       | 409    | A team was entered into, or moved to, a group the season does not run                                                               |
 | `REQ-ENTER-003`       | 409    | A team was entered into, or moved to, a group already holding `teams_per_group` rows                                                |
-| `REQ-ENTER-004`       | 409    | A group change reached a team whose fixtures the started season has already drawn                                                   |
+| `REQ-ENTER-004`       | 409    | A group change reached a team whose season has already drawn its fixtures, whatever that season's status                            |
 | `REQ-ENTER-005`       | 409    | A club that has left the LEAGUE was entered into a season, rather than reactivated first                                            |
+| `REQ-SPIELPLAN-001`   | 409    | A season already holding fixtures was asked to draw one, and a Spielplan is drawn once                                              |
+| `REQ-SPIELPLAN-002`   | 409    | A season already holding matchdays was asked to draw one, and the draw writes the whole list at once                                |
+| `REQ-SPIELPLAN-003`   | 409    | A Spielplan was drawn for a season past `future`                                                                                    |
+| `REQ-SPIELPLAN-004`   | 409    | A Spielplan was drawn while a group holds fewer teams than the season's rules ask for                                               |
 | `REQ-SWAP-001`        | 409    | A group swap named something other than two clubs of that season standing in different groups                                       |
 | `REQ-SWAP-002`        | 409    | A group swap reached a season with a knockout fixture already played, abandoned, forfeited or holding a goal count                  |
 | `REQ-SWAP-003`        | 409    | A group swap reached a `past` season, whose table is derived from the groups it would exchange                                      |
@@ -86,11 +90,6 @@ season turns `past`, where `REQ-RULES-005` freezes it.
 | `REQ-RETIRE-003`      | 409    | A venue still booked for an unplayed fixture was asked to retire                                                                    |
 | `REQ-RETIRE-004`      | 409    | A referee still assigned to an unplayed fixture was asked to retire                                                                 |
 | `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved                                                       |
-| `REQ-SPIELTAG-002`    | 409    | A matchday was moved to a phase accounting for fewer matches than the one it holds now                                              |
-| `REQ-SPIELTAG-003`    | 409    | A season whose knockout phase has started was asked for a new matchday                                                              |
-| `REQ-SPIELTAG-004`    | 409    | A matchday was created in a phase the season's rules never produce                                                                  |
-| `REQ-SPIELTAG-005`    | 409    | A matchday was moved into a round the season's rules never produce                                                                  |
-| `REQ-SPIELTAG-006`    | 409    | A matchday carrying fixtures was moved across the gruppenphase/knockout boundary, away from them                                    |
 | `REQ-BOOKING-001`     | 409    | A venue or a referee NEWLY assigned to a fixture is unknown or retired — one already stored survives its target's retirement        |
 | `REQ-CLASH-001`       | 409    | A venue or a referee would serve two fixtures less than four hours apart                                                            |
 | `REQ-WIRING-001`      | 409    | Bracket wiring the season cannot hold reached the match write path                                                                  |

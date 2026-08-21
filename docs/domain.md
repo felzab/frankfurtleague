@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `c6d7b8e8`, 2026-08-21
+**Verified against:** `a468e858`, 2026-08-21
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
@@ -57,9 +57,10 @@ one.
 today are on `teams`; its group, its `austritt` and the name and shorthand a given season was played under
 are on `saison_teams`; its league table is on neither, being derived from the matches.
 
-**`spieltage` is its own aggregate even though `spiele` points at it.** Its `position` is checked against the
+**`spieltage` is its own aggregate even though `spiele` points at it.** Its `position` is unique among the
 other matchdays of its phase and its expected match count comes from the season's rules, so no invariant
-holds a matchday and its fixtures true together. A reference is not a boundary.
+holds a matchday and its fixtures true together. A reference is not a boundary — and the one operation that
+does write both, the season's draw, writes them as a `Saison` decision rather than as a matchday one.
 
 **`aktionen` is in a boundary with nothing, and that is the decision rather than an oversight.** It is its own
 aggregate in `domain.py :: AGGREGATES` with no members, because no invariant holds a log row and any other
@@ -84,8 +85,10 @@ half a referential check gets written and the other half never noticed.
 
 **A `NO_ACTION` on the creating direction is a statement that nothing looks at the target**, and it covers
 situations the notes keep apart. **Nothing reads the target at all**: a `saison_spieler` row may name a
-person `spieler` does not hold, the path parameter naming them and no handler resolving it. **Nothing can
-create the reference**: `spiele.spieltag_id` is on no payload and `/spiele` has no POST. **Or something is
+person `spieler` does not hold, the path parameter naming them and no handler resolving it. **No REQUEST
+creates the reference**: `spiele.spieltag_id` is on no payload and `/spiele` has no POST, so the one writer
+that sets it — the season's draw — mints the matchday and the fixture pointing at it in the same
+transaction and carries the check itself. **Or something is
 checked and it is not the target** — a fixture's side and a squad row are both held to the season's
 `saison_teams` entrants rather than to `teams`, and it is the junction's own entry that resolves the club —
 `fl_backend/app/api/teams/admin_router.py :: post_saison_team` reads `teams` and 404s on an id it does not
@@ -140,8 +143,9 @@ while played fixtures still name them.
 
 No endpoint removes a `saisons`, `saison_teams`, `spiele` or `spieltage` document, and each absence is its
 own decision: removing a season orphans every `saison_id` in the database, a team leaves a season only by an
-`austritt` record, a season's fixtures are created once and then recorded or moved, and `spieltage` carries no
-`inactive_since`, so a matchday has no field a soft delete could stamp.
+`austritt` record, a season's fixtures and matchdays are drawn in one operation that refuses a second run and
+are then recorded, re-dated or moved, and `spieltage` carries no `inactive_since`, so a matchday has no field
+a soft delete could stamp. A `spiele.spieltag_id` therefore cannot dangle: nothing takes the matchday away.
 
 ---
 
@@ -166,8 +170,9 @@ There are three answers here, and a field can be under more than one of them.
 - **Frozen once the season's fixtures are drawn** (`:: SHAPE_RULES_FIELDS`, `REQ-RULES-011`) — the numbers
   the fixture list was generated from, fixed in either direction from the moment the season holds a fixture
   at all. **This one turns on the draw and not on `status`**, so it binds an `active` or a `future` season
-  the same way; raising one of them is what nothing else refuses, and it would leave every matchday
-  expecting matches nobody drew. `qualifiers_per_group` sits in both sets, and a finished season is told it
+  the same way; raising one of them is what nothing else refuses, and it would leave every matchday expecting
+  matches nobody drew — with no repair available, the draw being the one writer of a matchday and refusing a
+  season that already holds one. `qualifiers_per_group` sits in both sets, and a finished season is told it
   is finished first.
 - **Never narrowed below what already exists**, because the data below would be stranded. What decides
   membership here is what the field bounds: `max_kadergroesse` caps stored squad rows and so may not drop

@@ -1,6 +1,6 @@
 # Documentation
 
-**Verified against:** `d0ad46a4`, 2026-08-20\
+**Verified against:** `a468e858`, 2026-08-21\
 **Folder purpose:** everything written down about Frankfurt-League — a Next.js frontend, a FastAPI backend, MongoDB, deployed with Docker Compose behind nginx on a single host.
 
 ## Folder overview
