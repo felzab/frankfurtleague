@@ -37,7 +37,6 @@ const BACKEND_ONLY: Record<string, string> = {
 
   FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
-  FLSpieltageSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
 };
 
 /**
@@ -64,11 +63,13 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSpielplan: "composed client-side from separate responses; no endpoint returns it",
   FLSpieltagWithSpiele: "composed client-side from separate responses; no endpoint returns it",
 
+  FLSpielTeamField: "no endpoint touches the stored side: a read serves FLSpielTeamFieldJoined and a write takes FLSpielTeamFieldPayload",
+
   FLTeamsResponse: "the discriminated union is published inline at GET /teams; both members are paired",
 
   FLSpielQuelle: "the discriminated union is published inline on each teamN_quelle; both variants are paired",
 
-  FLBracketFault: "the discriminated union is published inline on each bracket_faults; all three variants are paired",
+  FLBracketFault: "the discriminated union is published inline on each bracket_faults; all five variants are paired",
 
   FLDeleteTeamPayload: "a DELETE takes its id from the path and has no request body",
   FLDeleteSpielerPayload: "a DELETE takes its id from the path and has no request body",
@@ -277,7 +278,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 94;
+const EXPECTED_PAIRS = 97;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

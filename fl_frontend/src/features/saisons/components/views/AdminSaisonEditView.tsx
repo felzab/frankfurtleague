@@ -21,12 +21,15 @@ export function AdminSaisonEditView({
   saison,
   rollover,
   swap,
+  hasDrawnSpiele,
   spieltagBound,
 }: {
   saison: { id: string; status: FLSaisonStatus } & SaisonDraftFields;
   rollover: SaisonRolloverContext;
   /** This season's clubs and their groups, plus the knockout count that closes the swap. */
   swap: SaisonGruppenSwapContext;
+  /** Whether the season holds fixtures, which is what freezes the rules they were drawn from. */
+  hasDrawnSpiele: boolean;
   /** The span the live matchdays already occupy, which the date pickers may not shrink past. */
   spieltagBound?: { startMax: string; endMin: string };
 }) {
@@ -41,6 +44,7 @@ export function AdminSaisonEditView({
         saison={saison}
         rollover={rollover}
         swap={swap}
+        hasDrawnSpiele={hasDrawnSpiele}
         spieltagBound={spieltagBound}
         registerRequestLeave={(requestLeave) => {
           requestLeaveRef.current = requestLeave;

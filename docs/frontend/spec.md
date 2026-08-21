@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `d0ad46a4`, 2026-08-20\
+**Verified against:** `a8e389c5`, 2026-08-20\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -63,7 +63,6 @@ answer.
 | Function                                       | Slice          | Lifetime  | Tags                                             |
 | ---------------------------------------------- | -------------- | --------- | ------------------------------------------------ |
 | `getSpiele`                                    | spiele         | `hours`   | `spiele` + `spiele:saison_id:{id}` when filtered |
-| `getSpiel`                                     | spiele         | `hours`   | `spiele`                                         |
 | `getTeams`                                     | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
 | `getTeam`                                      | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
 | `getSaisons`                                   | saisons        | `days`    | `saisons`                                        |
@@ -75,7 +74,7 @@ answer.
 | `getSchiedsrichter`                            | schiedsrichter | `days`    | `schiedsrichter`                                 |
 | `checkIsLive`, `checkIsReady`, `getSystemInfo` | system         | `minutes` | `system`                                         |
 
-**Uncached, deliberately:** the admin-authed reads — `getAdminSpieleActionRequired`,
+**Uncached, deliberately:** the admin-authed reads — `getAdminSpiel`, `getAdminSpieleActionRequired`,
 `getTeamMemberships`, `getSpielerMemberships` and `getAktionen`. Admin-authorized data does not
 belong in a shared cache, and `getAdminSpieleActionRequired`'s `bracket_faults` are derived per request
 over the stored bracket, so a
@@ -91,21 +90,25 @@ is present, so a page reading the same data from more than one boundary pays for
 beside its own list is the shape that does it, in `/admin/teams` as in `/admin/spieler`: a single page
 view produces a backend line for each boundary that reads.
 
-**`getSpiel` is `GET /spiele/{spiel_id}` and carries the base tag ALONE.** The match editor is addressed
-by match id with no season in the URL, so the season a
-granular tag would name is what this read exists to supply — and a season tag would be wrong even where
-one is available, because a match write resolves the whole bracket and rewrites fixtures the request
-never named. The patch
-action invalidates `spiele` unconditionally, so this entry cannot outlive an edit. It resolves `null`
-for an unknown id, which the editor page turns into `notFound()`, and rethrows every other error. **The
-404 → null conversion lives INSIDE the cached function**: a production build redacts an error thrown out
-of a `"use cache"` scope to a digest-only `Error`, which a catch at the call site can never recognise.
-`getSpieltagById` resolves `null` the same way and for the same reason.
+**`getAdminSpiel` is `GET /spiele/{spiel_id}/admin`, and it is one of the uncached reads above.** It
+serves the rent and the referee's Entschädigung that no public fixture read carries, so it is admin-tier
+— and `"use cache"` keys on arguments rather than on caller identity, which would make one shared entry
+a slot of admin-authorized data any caller could reach. Nothing is given up by that: the match editor is
+addressed by match id with no season in the URL, so a granular season tag has nothing to key on, and a
+season tag would be wrong even where one is available, because a match write resolves the whole bracket
+and rewrites fixtures the request never named. It resolves `null` for an unknown id, which the editor
+page turns into `notFound()`, and rethrows every other error.
+
+**A cached read that answers `null` for an unknown id converts the 404 INSIDE the cached function.** A
+production build redacts an error thrown out of a `"use cache"` scope to a digest-only `Error`, which a
+catch at the call site can never recognise, so `getSpieltagById` and `getTeam` each catch their own 404
+where the directive can still see it.
 
 **`getTeam` is `GET /teams/{team_id}` and is tagged exactly as `getTeams` is** — it reads the same
 documents through the same derivation, so a result edit moves it too. It resolves
 `null` for an unknown id — or a club with no junction row for the requested season, since the join is
-strict — for the same redaction reason as `getSpiel`, and the detail pages and the admin team editor
+strict and the club's name for that season lives on the row that is missing
+([`docs/backend/spec.md`](../backend/spec.md) I11) — and the detail pages and the admin team editor
 turn that null into `notFound()` or an absent membership.
 
 **`getTeams` caches two tables per season, not one.** `statistik_scope` is part of the cache key:
@@ -157,7 +160,11 @@ reports the change as still standing.
 
 **The rollover is the one write on a page-owned editor with no undo**, and it is not an omission: it
 changes what every public page shows to a visitor who named no season, for two seasons at once and
-immediately, so there is no window in which it goes unnoticed. It confirms in place instead.
+immediately, so there is no window in which it goes unnoticed. It confirms in place instead. There is
+also nothing for an undo to call — re-activating the season the rollover demoted is refused
+(`REQ-ACTIVATE-002`) and no endpoint demotes one — so its panel closes the control for that target as
+it does for an unfinished incumbent, and `activateSaisonAction` answers each refusal in its own words
+for the stale page that reaches the write anyway.
 
 **The group swap also confirms in place, for a different reason: it is its own inverse**. Running it
 again on the same pair restores the season, so a fifteen-second window and a route handler of its
@@ -205,9 +212,10 @@ can offer a pair the other refuses.
 | `signOutAction`                  | auth           | —                                                                    |
 
 The venue, referee and team patch actions also invalidate `spiele` because the backend fans a rename
-out into every match document embedding it — so match data really has changed. The team patch stays on
-base tags alone: a club is season-independent, so its rename touches every season's entries and no
-granular tag names them all. `patchSaisonTeamAction` invalidates the `spiele` pair for a different
+out into the match documents embedding it — so match data really has changed. The team patch stays on
+base tags alone: a club rename reaches its `saison_teams` rows and its matches in every season that is
+not `past` ([`docs/backend/spec.md`](../backend/spec.md) I13), and the action holds no list of which
+seasons those are, so no granular tag names them. `patchSaisonTeamAction` invalidates the `spiele` pair for a different
 reason — no match document is written, but each side's `austritt` is JOINED from the junction
 row at read time ([`docs/backend/spec.md`](../backend/spec.md) I32), so the junction write changes
 what `GET /spiele` returns for that season.
@@ -235,7 +243,11 @@ editor's Aufnehmen affordance offer only `future` seasons, and their group picke
 (`fl_frontend/src/features/teams/components/forms/GruppeSelect.tsx :: offer`) shows each offered
 group's fill state with full ones disabled — derived by
 `fl_frontend/src/features/teams/utils.ts :: buildGruppeOffer` from the season's `rules` and the
-memberships read. The junction write's four refusals (`REQ-ENTER-001..004`,
+memberships read. **A club that has left the LEAGUE is refused by every season and every group alike**
+(`REQ-ENTER-005`), so the editor withholds the affordance entirely and says so in a banner rather than
+greying each group in turn —
+`fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/banners.ts :: buildTeamBanners` grades that
+closure ahead of the season's own. The junction write's refusals (`REQ-ENTER-001..005`,
 [`docs/logging/error-codes.md`](../logging/error-codes.md)) stay authoritative;
 `fl_frontend/src/features/teams/actions.ts :: mapEntryRefusal` turns each into its German answer, on
 the group field where the group is what was refused.
@@ -282,8 +294,10 @@ These satisfy both and exist:
   are the shapes to refuse. Editing a result can move a match from pending to played, so correct
   invalidation needs both the old value and the new one, and the action holds only the new one. A tag
   that is right half the time is worse than no tag, because the wrong half is invisible.
-- **No tag keys on a team dimension no mutation touches** — group, the `austritt` record and similar. The
-  only thing an app mutation changes about a team is its league table, and that is a result edit.
+- **No tag keys on a team dimension a junction write moves** — group, the `austritt` record and similar. A
+  club changes which value it sits under and `patchSaisonTeamAction` holds only the value it arrives at, so
+  this is the bullet above on a second resource; the `teams:saison_id:*` entry that action already invalidates
+  clears both sides of the move at once, a move never crossing a season.
 - **No tag keys on an argument its declaring query is never called with.** A tag on a parameter every
   call site leaves at its default names nothing that is ever cached under it.
 
@@ -396,6 +410,32 @@ every Zod schema against the component that publishes it, discovering the schema
 tree and importing them dynamically — so a new feature slice is covered without an edit, and `core`
 gains no static import of `features` (I9).
 
+**`fl_frontend/src/core/apiRequests.test.ts` compares that same document against the REQUESTS, where
+`apiContract.test.ts` compares it against the shapes.** It resolves every `apiClient` call under `src/`
+through the TypeScript checker, matched on the client's export symbol so a call site that renames it on
+import is still seen. Each call's method and path shape must reach an operation `fl_backend/openapi.json`
+publishes, a `${…}` hole matching only a `{param}` placeholder; every query parameter name the call sends
+— written into the endpoint literal, or carried by the type passed as `params` — must be one that operation
+declares; and every exported `*FilterParams` type under `features/*/types.ts` must reach some call. Every
+`features/*/queries.ts` and `features/*/mutations.ts` must yield a call of its own, so renaming the client
+cannot quietly empty the run (I36).
+
+**It is there because a wrong request is the failure nothing else reports.** A path the backend does not
+publish type-checks, lints, builds and passes every other test, and answers 404 only once someone opens the
+page; an undeclared query parameter is not refused but dropped, so a filter renamed on one side alone
+narrows nothing and the page still renders.
+
+**It compares names, never values, and widens I17 by nothing.** What the Zod mirror is checked on is
+unchanged and stays as I17 states it — deliberately, because that mirror is hand-written (§4). This test says
+a parameter's name exists on the operation; whether the value sent under it fits is I17's question and not
+one this test can answer.
+
+**It is blind to a request made with bare `fetch` instead of `apiClient`, to the runtime value inside a
+`${…}` hole, which collapses to a placeholder before anything is compared, and to a filter type that
+neither ends in `FilterParams` nor is passed anywhere.** A path assembled outside the call expression is
+not on that list: it is reported as unreadable and fails the run, because a call the reader cannot read is
+a call nothing compares.
+
 ### 1.10 The match editor's structural properties
 
 Each is load-bearing and none is visible from any single component, which is why they are here rather
@@ -421,8 +461,8 @@ into a sweep.
 #### The editor's subtree is keyed by the fixture's stored state
 
 `fl_frontend/src/app/admin/spiele/[spiel_id]/page.tsx` keys `AdminSpielEditView` with
-`fl_frontend/src/features/spiele/utils.ts :: spielStateKey`, which is the fixture id **plus the
-payload the draft mirrors** — not the id alone.
+`fl_frontend/src/features/spiele/utils.ts :: spielStateKey`, which is the fixture id **plus every
+value the editor seeds an atom from** — not the id alone.
 
 Every field on the page is `useState` initialised from `spielData`, and an initialiser runs once per
 mounted instance, so fresh props never re-seed a field. React's own answer is to reset with a `key`,
@@ -431,7 +471,10 @@ whose stored values changed does not. That second case is the undo's — a resto
 a still-mounted editor reads as un-restored until a reload, with the server sending correct data the
 whole time.
 
-The key is built from `toPatchPayload` — exactly the fields the draft mirrors — so it moves when
+The key is built from `fl_frontend/src/features/spiele/utils.ts :: toEditorSeed`, a **superset** of the
+wire payload: the payload plus the display copies the panels render, which the server composes and
+`:: toPatchPayload` therefore leaves behind. Without them a rename reaching this fixture would move
+nothing the key can see, and a mounted picker would go on showing the old club. So the key moves when
 something the form displays has changed underneath it, and not when a field no draft atom holds
 (`ergebnis`, `spiel_nr`) does; `fl_frontend/src/features/spiele/utils.test.ts` pins that case.
 **Narrowing this key to `spiel.id` alone opens a bug the type checker cannot see.**
@@ -533,6 +576,15 @@ re-levelling the score brings them back.
 **The one route the condition cannot see is the result toggle**, which unmounts the fields while leaving
 the score level. That is the handler restoring the stored result, and the record goes back with the
 goals — which is what the panel's own Hinweis already promises.
+
+**The draft's other surplus is the display copies, and the same parse drops those too.** The pickers
+render a club, a venue and a referee by name, so the draft holds each one's `name`, where
+`FLPatchSpielDataPayloadSchema` composes from the payload halves —
+`fl_frontend/src/features/spiele/schemas.ts :: FLSpielTeamFieldPayloadSchema` and its two siblings — which
+declare no name at all, so zod's `strip` leaves every copy behind on the way to the wire. The server
+composes them from the row each id names ([`docs/backend/spec.md`](../backend/spec.md) I3), so a copy
+travelling back could only disagree with it. `mietpreis` and `payment` stay on the payload beside them,
+being what this fixture agreed to pay rather than a copy of anything.
 
 ### 1.11 Adding a HeroUI component
 
@@ -701,7 +753,7 @@ data: the shared one never learns about `expected`, and the narrow one holds no 
 | I2  | Base tags `spiele`/`teams` invalidate unconditionally on a match write                                                                                                                                                                                                                                                                                                                                                                                                           | `fl_frontend/src/features/spiele/actions.ts :: updateTag("spiele")`                                                                                                                                                                                                                                                                               |
 | I3  | `saison_id` reaches the action as an argument, never on the patch body                                                                                                                                                                                                                                                                                                                                                                                                           | `fl_frontend/src/features/spiele/actions.ts` signature                                                                                                                                                                                                                                                                                            |
 | I4  | A failed season-id parse never fails the edit                                                                                                                                                                                                                                                                                                                                                                                                                                    | `fl_frontend/src/features/spiele/actions.ts :: FLSpielSchema.shape.saison_id.safeParse`                                                                                                                                                                                                                                                           |
-| I5  | Write payloads compose from the read model's field schemas                                                                                                                                                                                                                                                                                                                                                                                                                       | `fl_frontend/src/features/spiele/schemas.ts :: FLPatchSpielDataPayloadSchema`                                                                                                                                                                                                                                                                     |
+| I5  | A write payload and the read model share one declaration per field, never a second copy — an embedded record the write narrows is declared as its payload half, and the stored shape extends that                                                                                                                                                                                                                                                                                | `fl_frontend/src/features/spiele/schemas.ts :: FLPatchSpielDataPayloadSchema` composes `:: FLSpielTeamFieldPayloadSchema` and its siblings, which `:: FLSpielTeamFieldSchema` and its own siblings extend                                                                                                                                         |
 | I6  | `await connection()` precedes every page data fetch                                                                                                                                                                                                                                                                                                                                                                                                                              | each page or its async child                                                                                                                                                                                                                                                                                                                      |
 | I7  | Every admin server action starts with `getAdminSession()`                                                                                                                                                                                                                                                                                                                                                                                                                        | every action in §1.3's table, the read-only preview included                                                                                                                                                                                                                                                                                      |
 | I8  | `getAdminSession()`'s return value must be checked                                                                                                                                                                                                                                                                                                                                                                                                                               | naming only                                                                                                                                                                                                                                                                                                                                       |
@@ -732,6 +784,7 @@ data: the shared one never learns about `expected`, and the narrow one holds no 
 | I33 | **The match editor's draft reaches the wire payload by a parse, and a field whose inputs are conditional is retracted by that same condition** — never by a cast, and never handler by handler                                                                                                                                                                                                                                                                                   | `fl_frontend/src/features/spiele/schemas.ts :: FLPatchSpielDataPayloadDraft` makes the gap a type error; `fl_frontend/src/features/spiele/draftStatus.ts :: admitsShootOut` is the shoot-out's one condition, read by the panel that offers it, the draft that carries it and the preview that shows it                                           |
 | I34 | **Every field path a refusal can name is a path its form renders a `name` for — or a declared, reasoned exemption**                                                                                                                                                                                                                                                                                                                                                              | `fl_frontend/src/core/refusalPaths.test.ts` sweeps every payload schema an action parses against the `name` props of the components that dispatch that action, and against the paths its `map*Refusal` writes by hand                                                                                                                             |
 | I35 | **Every `path` a field label is given is a path its editor's descriptor table carries.** A path no descriptor carries renders a label with no Geändert marker and no error, because `useFieldStatus` answers `undefined` rather than throwing                                                                                                                                                                                                                                    | `fl_frontend/src/shared/components/ui/fieldLabelPaths.test.ts` sweeps every literal, template and composed path a label is handed                                                                                                                                                                                                                 |
+| I36 | **Every request `apiClient` composes reaches an operation `fl_backend/openapi.json` publishes — matched on method and on path shape — and sends only query parameter names that operation declares.** Names, never values: what a value has to look like is I17's, and this widens it by nothing                                                                                                                                                                                 | `fl_frontend/src/core/apiRequests.test.ts`                                                                                                                                                                                                                                                                                                        |
 
 ## 3. Violation → remedy
 

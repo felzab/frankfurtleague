@@ -16,6 +16,7 @@ from app.core.constraints import (
     probe_privileges,
     report_duplicates,
     report_identity,
+    report_relations,
     report_violations,
 )
 
@@ -33,6 +34,15 @@ SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607200003")
 SPIELORT_OID = ObjectId("6890a1b2c3d4e5f607200004")
 SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200005")
 AKTION_OID = ObjectId("6890a1b2c3d4e5f607200006")
+# A third club and a club-shaped id `teams` never held: the two the cross-document rules need and
+# no validator has an opinion about.
+OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607200007")
+ORPHAN_TEAM_OID = ObjectId("6890a1b2c3d4e5f607200008")
+
+# The labels an operator reads off `--check`. Asserted rather than inlined per test, so renaming one
+# fails here instead of quietly changing what the report is understood to mean.
+SPIELTAG_OCCUPANCY_RULE = "a team is fielded at most once per Spieltag (spiele)"
+JUNCTION_CLUB_RULE = "every junction row names a club that exists (saison_teams)"
 
 ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
@@ -68,7 +78,9 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "address": dict(ADDRESS),
             "inactive_since": None,
         },
-        "saison_teams": {"saison_id": SAISON_ID, "team_id": TEAM_OID, "gruppe": "A", "austritt": None},
+        # `name` and `shorthand` are the season's own copy of the club's identity, required since the
+        # junction became their home; a row without them is unreadable rather than merely stale.
+        "saison_teams": {"saison_id": SAISON_ID, "team_id": TEAM_OID, "gruppe": "A", "austritt": None, "name": "Lessing", "shorthand": "LE"},
         "spieler": {
             "_id": SPIELER_OID,
             "vorname": "Max",
@@ -232,6 +244,14 @@ def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str
         ("spieltage", valid_document("spieltage", beginn=20260315), "a date stored as a number"),
         ("spieler", valid_document("spieler", vorname=None), "a player with no first name"),
         ("teams", {k: v for k, v in valid_documents()["teams"].items() if k != "full_name"}, "a missing required field"),
+        # `saison_teams` is the one collection the mirror apparatus skips, so its `required` tuple is
+        # hand-maintained and these two cases are the only thing standing under it.
+        ("saison_teams", {k: v for k, v in valid_documents()["saison_teams"].items() if k != "name"}, "a junction row with no name"),
+        (
+            "saison_teams",
+            {k: v for k, v in valid_documents()["saison_teams"].items() if k != "shorthand"},
+            "a junction row with no shorthand",
+        ),
         ("schiedsrichter", valid_document("schiedsrichter", kontakt={"telefon": "030 123"}), "a kontakt missing half its shape"),
     ],
     ids=lambda value: value if isinstance(value, str) else "",
@@ -429,6 +449,91 @@ def test_the_check_mode_finds_what_the_validators_would_reject(mongo_container: 
     assert failing == 1
     assert len(examples) == 1
     assert duplicate_groups == 1
+
+
+def test_the_cross_document_rules_report_a_clean_database_as_clean(mongo_container: Any):
+    """Asserted FIRST and separately: a rule that fires on everything enforces nothing and reads exactly like one that works."""
+
+    async def body(database: AsyncIOMotorDatabase) -> dict[str, int]:
+        await database.teams.insert_one(valid_documents()["teams"])
+        await database.saison_teams.insert_one(valid_documents()["saison_teams"])
+        await database.spiele.insert_one(valid_documents()["spiele"])
+
+        return {report.rule: report.groups for report in await report_relations(database)}
+
+    groups = on_a_database(mongo_container, body, constrained=False)
+    assert groups == {SPIELTAG_OCCUPANCY_RULE: 0, JUNCTION_CLUB_RULE: 0}
+
+
+def test_the_cross_document_rules_find_what_no_validator_and_no_index_can(mongo_container: Any):
+    """Both rules span two documents, so neither is expressible as a `$jsonSchema` or a unique index.
+
+    Unconstrained on purpose: every offender below is a document the validators ACCEPT, which is the
+    whole gap this report exists to close.
+    """
+
+    async def body(database: AsyncIOMotorDatabase) -> tuple[dict[str, int], dict[str, list[Any]]]:
+        await database.teams.insert_one(valid_documents()["teams"])
+
+        # One club on two fixtures of ONE Spieltag. The second names a different opponent, so the
+        # rule has exactly one group to find rather than three.
+        await database.spiele.insert_many(
+            [
+                valid_documents()["spiele"],
+                valid_document(
+                    "spiele",
+                    spiel_nr=2,
+                    ergebnis=None,
+                    team1={"team_id": TEAM_OID, "name": "Lessing", "tore": None, "shorthand": "LE"},
+                    team2={"team_id": OTHER_TEAM_OID, "name": "Goethe", "tore": None, "shorthand": "GO"},
+                ),
+            ]
+        )
+
+        # One junction row naming a club `teams` does not hold, beside one that resolves.
+        await database.saison_teams.insert_many(
+            [
+                valid_documents()["saison_teams"],
+                valid_document("saison_teams", gruppe="B", team_id=ORPHAN_TEAM_OID, name="Nowhere", shorthand="NW"),
+            ]
+        )
+
+        reports = {report.rule: report for report in await report_relations(database)}
+
+        return (
+            {rule: report.groups for rule, report in reports.items()},
+            {rule: report.examples for rule, report in reports.items()},
+        )
+
+    groups, examples = on_a_database(mongo_container, body, constrained=False)
+
+    assert groups == {SPIELTAG_OCCUPANCY_RULE: 1, JUNCTION_CLUB_RULE: 1}
+
+    occupancy = examples[SPIELTAG_OCCUPANCY_RULE][0]
+    assert occupancy["team_id"] == TEAM_OID
+    assert occupancy["spieltag_id"] == SPIELTAG_OID
+    # Both fixture numbers, sorted: the example is what an operator repairs from, so it names them.
+    assert occupancy["spiele"] == [1, 2]
+
+    orphan = examples[JUNCTION_CLUB_RULE][0]
+    assert orphan["team_id"] == ORPHAN_TEAM_OID
+    assert orphan["saisons"] == [SAISON_ID]
+
+
+def test_a_club_on_both_sides_of_one_fixture_is_one_group_not_two(mongo_container: Any):
+    """`n`, not the size of `spiele`: the two sides collapse to one `spiel_nr`, and counting those would miss it."""
+
+    async def body(database: AsyncIOMotorDatabase) -> tuple[int, list[Any]]:
+        side = {"team_id": TEAM_OID, "name": "Lessing", "tore": None, "shorthand": "LE"}
+        await database.spiele.insert_one(valid_document("spiele", ergebnis=None, team1=dict(side), team2=dict(side)))
+
+        report = next(report for report in await report_relations(database) if report.rule == SPIELTAG_OCCUPANCY_RULE)
+
+        return report.groups, report.examples
+
+    groups, examples = on_a_database(mongo_container, body, constrained=False)
+    assert groups == 1
+    assert examples[0]["spiele"] == [1]
 
 
 def test_the_identity_report_names_the_user_and_its_roles(mongo_container: Any):

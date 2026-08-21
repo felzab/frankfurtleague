@@ -325,6 +325,50 @@ class TestADepartedClubInTheBand:
         assert displayed == ["Team 1", "Team 2"]
         assert [decided.by_platz[platz].name for platz in sorted(decided.by_platz)] == displayed
 
+    @pytest.mark.parametrize("rules", [RULES, DIREKTER_VERGLEICH], ids=["tordifferenz", "direkter_vergleich"])
+    def test_a_result_against_the_departed_club_separates_the_two_that_remain(
+        self, a_team: TeamFactory, played: MatchFactory, rules: FLSaisonRules
+    ):
+        """Teams 1 and 2 drew, so ONLY their results against the departed club tell them apart.
+
+        Ranking placeable clubs alone loses them and reports a tie the table does not show. The
+        departed club takes no place, so second belongs to whoever it beat.
+        """
+
+        teams = [
+            a_team(1, punkte=4, geschossen=4, kassiert=4),
+            a_team(2, punkte=4, geschossen=4, kassiert=4),
+            a_team(3, punkte=4, geschossen=4, kassiert=4, austritt=AUSGETRETEN),
+        ]
+        met = [played(1, 1, 2, 1, 1), played(2, 1, 3, 3, 0), played(3, 2, 3, 0, 3)]
+        decided = standing(teams, met, rules)
+
+        assert order(teams, met, rules) == ["Team 1", "Team 3", "Team 2"]
+        assert [decided.by_platz[platz].name for platz in (1, 2)] == ["Team 1", "Team 2"]
+
+    def test_a_departed_clubs_own_unplayed_fixture_still_holds_the_band_open(self, a_team: TeamFactory, played: MatchFactory):
+        """Points are hypothesised and goal margins never, so an unbounded difference stays unbounded whoever holds it.
+
+        The departed club's goal key decides whether its results enter the live clubs' mini-table,
+        so nothing is final while it has a match left.
+        """
+
+        teams = [
+            a_team(1, punkte=4, geschossen=4, kassiert=4),
+            a_team(2, punkte=4, geschossen=4, kassiert=4),
+            a_team(3, punkte=1, geschossen=4, kassiert=4, austritt=AUSGETRETEN),
+            a_team(4, punkte=0, austritt=AUSGETRETEN),
+        ]
+        between_the_live_clubs = played(1, 1, 2, 2, 0)
+
+        assert standing(teams, [between_the_live_clubs, played(9, 3, 4)]).by_platz == {}
+
+        # The control: the same group with that one fixture played decides both placings, so the case
+        # above cannot be passing because a departed club is in the band at all.
+        settled = standing(teams, [between_the_live_clubs, played(9, 3, 4, 1, 0)])
+
+        assert [settled.by_platz[platz].name for platz in (1, 2)] == ["Team 1", "Team 2"]
+
 
 class TestWhoMayHoldAPlatz:
     """A placing is walked past a team that cannot advance out of it, and the next team takes it."""

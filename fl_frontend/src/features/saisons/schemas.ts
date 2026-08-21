@@ -113,7 +113,7 @@ const groupCannotOverQualify = {
 };
 
 const bracketMustHaveAShape = {
-  error: `Gruppen mal Qualifizierte muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`,
+  error: `Gruppen mal Qualifikanten muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`,
   path: ["rules", "qualifiers_per_group"],
 };
 

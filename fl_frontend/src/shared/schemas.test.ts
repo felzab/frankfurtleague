@@ -4,7 +4,9 @@ import { describe, it } from "node:test";
 import { z } from "zod";
 
 import {
+  ADDRESS_HAUSNUMMER_MAX_LENGTH,
   ADDRESS_STADT_MAX_LENGTH,
+  ADDRESS_STADTTEIL_MAX_LENGTH,
   ADDRESS_STRASSE_MAX_LENGTH,
   CustomTimeStringSchema,
   ExternalUrlSchema,
@@ -53,29 +55,49 @@ describe("FLAddressSchema", () => {
 });
 
 describe("FLAddressPayloadSchema", () => {
+  // The filler is per field rather than shared: `hausnummer` has an alphabet, so an `x` would prove
+  // the pattern refusing a long value and leave the ceiling itself untested.
   const capped = [
-    { field: "strasse", cap: ADDRESS_STRASSE_MAX_LENGTH },
-    { field: "stadt", cap: ADDRESS_STADT_MAX_LENGTH },
+    { field: "strasse", cap: ADDRESS_STRASSE_MAX_LENGTH, filler: "x" },
+    { field: "stadt", cap: ADDRESS_STADT_MAX_LENGTH, filler: "x" },
+    { field: "stadtteil", cap: ADDRESS_STADTTEIL_MAX_LENGTH, filler: "x" },
+    { field: "hausnummer", cap: ADDRESS_HAUSNUMMER_MAX_LENGTH, filler: "1" },
   ] as const;
 
   it("accepts a value exactly at the cap and refuses the next character", () => {
-    for (const { field, cap } of capped) {
-      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "x".repeat(cap) }).success, true, `${field} at the cap`);
-      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "x".repeat(cap + 1) }).success, false, `${field} over it`);
+    for (const { field, cap, filler } of capped) {
+      const atTheCap = filler.repeat(cap);
+      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: atTheCap }).success, true, `${field} at the cap`);
+      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: atTheCap + filler }).success, false, `${field} over it`);
     }
   });
 
-  it("keeps refusing an empty value, which redeclaring the field could have dropped", () => {
-    for (const { field } of capped) {
+  it("keeps refusing an empty strasse or stadt, which redeclaring the field could have dropped", () => {
+    for (const field of ["strasse", "stadt"] as const) {
       assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "" }).success, false, `${field} empty`);
+    }
+  });
+
+  // A venue can genuinely lack a house number or a district, so neither field carries a floor and a
+  // redeclaration bounding its length must not turn it into a required one.
+  it("keeps accepting an empty hausnummer or stadtteil", () => {
+    for (const field of ["hausnummer", "stadtteil"] as const) {
+      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "" }).success, true, `${field} empty`);
+    }
+  });
+
+  // Nothing else would catch the loss: a pattern is outside what `fl_frontend/src/core/apiContract.test.ts` compares.
+  it("keeps refusing a hausnummer outside its alphabet, which redeclaring the field could have dropped", () => {
+    for (const hausnummer of ["12d", "12 a", "Nr. 12"]) {
+      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, hausnummer }).success, false, `expected "${hausnummer}" to be rejected`);
     }
   });
 
   // The load-bearing half: the read schema parses whatever is stored, so one over-long row cannot
   // fail the list it appears in.
   it("leaves the read schema accepting a stored value the payload refuses", () => {
-    for (const { field, cap } of capped) {
-      assert.equal(FLAddressSchema.safeParse({ ...validAddress, [field]: "x".repeat(cap + 1) }).success, true, `${field} over the cap`);
+    for (const { field, cap, filler } of capped) {
+      assert.equal(FLAddressSchema.safeParse({ ...validAddress, [field]: filler.repeat(cap + 1) }).success, true, `${field} over the cap`);
     }
   });
 });

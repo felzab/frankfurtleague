@@ -1,6 +1,6 @@
 # Ops — runbooks
 
-**Verified against:** `d0ad46a4`, 2026-08-20\
+**Verified against:** `a8e389c5`, 2026-08-20\
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
@@ -33,10 +33,54 @@ what it reports, and what a database user without `collMod` produces, are
 [`../backend/spec.md`](../backend/spec.md) §4. `--apply` does the same work startup does, which is how to
 put a corrected constraint in place without waiting for a deploy.
 
+**Run it BEFORE the deploy, from a checkout carrying the new constraints while the old image is still
+serving.** A container built from the previous commit carries the previous validators and reads clean on
+the very documents the new ones reject, so the only run that answers the question is the one made against
+the constraints that are about to land. Nothing later in the pipeline compares stored documents against a
+validator.
+
+**Counting a key's presence is not a substitute for the run.** The report reads each validator back as a
+query, so it fails a document whose key is there with the wrong BSON type; a `$exists` count passes that
+same document and reports clean.
+
+**A validator that newly REQUIRES a field fails every row written before it.** `--check` is what says how
+many and names a few of them, and back-filling those rows belongs to the change that added the field
+rather than to a follow-up: `--apply` attaches the validator without touching stored documents, so the
+first read that parses one is where the omission surfaces.
+
 **A change that only adds a read index has nothing for `--check` to answer**, and a clean report is not
 evidence it landed: those indexes constrain nothing, so no stored document can be in breach of one
 (`fl_backend/app/core/constraints.py :: SupportIndex`). `--apply` or the next boot is what builds it, and
 either fails loudly if it cannot.
+
+**When `every junction row names a club that exists (saison_teams)` reports a group**, it has found a
+`saison_teams` row whose `team_id` matches no `teams` document. Nothing on the API produces one now — entry
+reads the club and answers 404 for an id `teams` does not hold
+(`fl_backend/app/api/teams/admin_router.py :: post_saison_team`) — and nothing on the API removes one, the
+junction having no DELETE. **That says nothing about where the row came from.** A row older than that read
+arrived through `POST /teams/{team_id}/saisons` itself: entry resolved no club then, so a `team_id` that was
+well-formed and wrong inserted a row with nobody touching the database at all. It is invisible from the side
+worth checking first: `GET /teams` starts from `teams` and never joins the orphan, so the club list and every
+league table read normally.
+
+**The repair is a judgement rather than a command**, and the readings are not equally likely. An id mistyped
+at entry names a club that never existed, so there is nothing to restore and deleting the junction row is the
+whole repair. A club document that went missing is the other reading, and restoring it is that repair — but
+no route deletes a club, retirement being soft and leaving the document in place
+(`fl_backend/app/api/teams/admin_router.py :: delete_team`), so that history needs a database edit of its own
+before it is worth acting on. Only somebody who knows whether that club played that season can settle it.
+Re-run `--check` afterwards.
+
+**The junction failure that does stop the site is the other report**, the validator one: a `saison_teams`
+row missing `name` takes `PATCH /spiele/{spiel_id}` down for every fixture in that season, the save and
+its `dry_run` preview alike, because `fl_backend/app/api/spiele/crud.py :: pull_saison_membership` indexes
+that field directly — and it takes `GET /teams` for that season with it, the season's copy of the club's
+name being what the read projects. **It does not stop at that season's own reads:**
+`fl_backend/app/api/spiele/crud.py :: find_bracket_faults` derives the whole archive's faults in one request
+and resolves every season whose knockout slots draw on a group placing against that same `GET /teams`
+pipeline, so one such row fails `GET /spiele/action_required` for the entire league — a `past` season's row
+included, which is the one nobody thinks to suspect. The two reports are independent: an orphan row can carry
+a perfectly good name, and a row missing its name can name a club that exists.
 
 ## 3. After changing anything about the brand mark
 

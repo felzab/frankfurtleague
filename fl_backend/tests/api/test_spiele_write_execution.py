@@ -11,13 +11,21 @@ from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.crud import apply_release_to_spiel
 from app.api.spiele.schemas import (
+    SONDEREREIGNIS_NO_SHOW,
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
     FLSpiel,
     FLSpielElfmeterschiessen,
     FLSpielListAdapter,
 )
-from app.api.spiele.services import FIXTURE_DOUBLE_BOOKED, STATE_RESULT_ON_A_NON_EVENT, judge_spieltag_occupancy
+from app.api.spiele.services import (
+    BOOKING_UNKNOWN_RESOURCE,
+    ELIGIBILITY_DISQUALIFIED,
+    FIXTURE_DOUBLE_BOOKED,
+    FIXTURE_OUTSIDE_SPIELTAG,
+    STATE_RESULT_ON_A_NON_EVENT,
+    judge_spieltag_occupancy,
+)
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 
@@ -54,22 +62,59 @@ VIERTELFINALE = ObjectId("6890a1b2c3d4e5f607220011")
 HALBFINALE = ObjectId("6890a1b2c3d4e5f607220012")
 GRUPPE_HELD = ObjectId("6890a1b2c3d4e5f607220013")
 GRUPPE_FILLING = ObjectId("6890a1b2c3d4e5f607220014")
+GRUPPE_DECIDER = ObjectId("6890a1b2c3d4e5f607220015")
+GRUPPE_BESIDE = ObjectId("6890a1b2c3d4e5f607220016")
+HALBFINALE_FROM_GRUPPE = ObjectId("6890a1b2c3d4e5f607220017")
 
 # Read back off the stored documents, which key by `spiel_nr` rather than by id.
 VIERTELFINALE_NR = 1
 HALBFINALE_NR = 5
 GRUPPE_HELD_NR = 11
 GRUPPE_FILLING_NR = 12
+GRUPPE_DECIDER_NR = 21
+GRUPPE_BESIDE_NR = 22
+HALBFINALE_FROM_GRUPPE_NR = 25
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
     return {"team_id": team_id, "name": NAMES[team_id][0], "shorthand": NAMES[team_id][1], "tore": tore}
 
 
-def junction(team_id: ObjectId) -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` has no model of the row."""
+def team_document(team_id: ObjectId) -> dict[str, Any]:
+    """The club row the group table is built over. Its `name` is never read: a standing takes the season's, off the junction."""
 
-    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": "A", "austritt": None}
+    name, shorthand = NAMES[team_id]
+
+    return {
+        "_id": team_id,
+        "name": name,
+        "shorthand": shorthand,
+        "description": "",
+        "full_name": f"{name}-Schule",
+        "website_url": f"https://{name.lower()}.example.de",
+        "address": {
+            "strasse": "Hanauer Landstraße",
+            "hausnummer": "12a",
+            "plz": "60314",
+            "stadtteil": "Ostend",
+            "stadt": "Frankfurt am Main",
+        },
+        # Present rather than omitted: the pipeline's base filter matches a missing field against
+        # `None`, so the row would pass it and then fail validation.
+        "inactive_since": None,
+    }
+
+
+def junction(team_id: ObjectId) -> dict[str, Any]:
+    """A dict rather than a model: `saison_teams` has no model of the row.
+
+    The name and the shorthand are the season's own, and a saved side is composed from them rather
+    than from anything the payload carries.
+    """
+
+    name, shorthand = NAMES[team_id]
+
+    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": "A", "austritt": None, "name": name, "shorthand": shorthand}
 
 
 def saison_document() -> dict[str, Any]:
@@ -179,6 +224,44 @@ def a_semi_final_recorded_as(sonderereignis: str) -> list[dict[str, Any]]:
     return [quarter, {**semi, **settled, "sonderereignis": sonderereignis}]
 
 
+def a_gruppe_fed_semi_final() -> list[dict[str, Any]]:
+    """Group A played out, and a semi-final wired to whoever finished first in it.
+
+    Beta leads on goal difference and stands in the semi, so the season is consistent as seeded and
+    the only advancement a test sees is the one its own save causes.
+    """
+
+    return [
+        spiel_document(
+            spiel_id=GRUPPE_DECIDER,
+            spiel_nr=GRUPPE_DECIDER_NR,
+            spieltag_id=SPIELTAG_GRUPPE,
+            team1=side(ALPHA, 0),
+            team2=side(BETA, 3),
+            ergebnis="0:3",
+        ),
+        # Beside it rather than on a second matchday: Gamma level on points with Beta is what leaves
+        # the goal difference deciding first place, which the edit under test overturns.
+        spiel_document(
+            spiel_id=GRUPPE_BESIDE,
+            spiel_nr=GRUPPE_BESIDE_NR,
+            spieltag_id=SPIELTAG_GRUPPE,
+            team1=side(GAMMA, 1),
+            team2=side(DELTA, 0),
+            ergebnis="1:0",
+        ),
+        spiel_document(
+            spiel_id=HALBFINALE_FROM_GRUPPE,
+            spiel_nr=HALBFINALE_FROM_GRUPPE_NR,
+            spieltag_id=SPIELTAG_HALBFINALE,
+            team1=side(BETA, 2),
+            team2=side(GAMMA, 1),
+            ergebnis="2:1",
+            team1_quelle={"type": "gruppe", "gruppe": "A", "platz": 1},
+        ),
+    ]
+
+
 def one_spieltag(
     *,
     opponent: ObjectId | None,
@@ -210,12 +293,53 @@ def one_spieltag(
 
 
 SPIELORT = ObjectId("6890a1b2c3d4e5f6072200b1")
+SPIELORT_RETIRED = ObjectId("6890a1b2c3d4e5f6072200b2")
+# Deliberately in no collection, so "the id names nothing" is a case no seeded row can mask.
+SPIELORT_UNKNOWN = ObjectId("6890a1b2c3d4e5f6072200b9")
+
+SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6072200c1")
+SCHIEDSRICHTER_RETIRED = ObjectId("6890a1b2c3d4e5f6072200c2")
+
+VENUES = {SPIELORT: ("Sportplatz Ost", None), SPIELORT_RETIRED: ("Bezirkssportanlage West", "2026-02-01")}
+REFEREES = {SCHIEDSRICHTER: ("A. Referee", None), SCHIEDSRICHTER_RETIRED: ("B. Whistle", "2026-02-01")}
+
+
+def venue_documents() -> list[dict[str, Any]]:
+    """One live ground and one retired, so a refusal about RETIREMENT cannot pass because the id resolved to nothing."""
+
+    return [
+        {"_id": spielort_id, "name": name, "maps_link": f"{name}, Frankfurt", "inactive_since": inactive_since}
+        for spielort_id, (name, inactive_since) in VENUES.items()
+    ]
+
+
+def referee_documents() -> list[dict[str, Any]]:
+    return [
+        {"_id": schiedsrichter_id, "name": name, "inactive_since": inactive_since}
+        for schiedsrichter_id, (name, inactive_since) in REFEREES.items()
+    ]
+
+
+def booking(spielort_id: ObjectId, mietpreis: int = 80) -> dict[str, Any]:
+    """A venue as a fixture STORES it, under the name the venue itself carries -- which is what a save composes back."""
+
+    name, _ = VENUES[spielort_id]
+
+    return {"spielort_id": spielort_id, "name": name, "maps_link": f"{name}, Frankfurt", "mietpreis": mietpreis}
+
+
+def assignment(schiedsrichter_id: ObjectId, payment: int = 20) -> dict[str, Any]:
+    """A referee as a fixture STORES them, the venue's `booking` counterpart -- and the fee is the money half of the same asymmetry."""
+
+    name, _ = REFEREES[schiedsrichter_id]
+
+    return {"schiedsrichter_id": schiedsrichter_id, "name": name, "payment": payment}
 
 
 def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
     """Two group fixtures at one ground on one matchday, the first carrying `sonderereignis`."""
 
-    ort = {"spielort_id": SPIELORT, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80}
+    ort = booking(SPIELORT)
 
     held = spiel_document(spiel_id=GRUPPE_HELD, spiel_nr=GRUPPE_HELD_NR, spieltag_id=SPIELTAG_GRUPPE, team1=side(ALPHA), team2=side(BETA))
     filling = spiel_document(
@@ -241,8 +365,13 @@ def on_a_seeded_season(url: str, body: Body, *, spiele: list[dict[str, Any]]) ->
             invalidate_saison_cache()
 
             await database[Collection.SAISONS].insert_one(saison_document())
+            # Always, not per scenario: a `gruppe` slot seeds from the table these rows are ranked in.
+            await database[Collection.TEAMS].insert_many([team_document(team_id) for team_id in NAMES])
             await database[Collection.SAISON_TEAMS].insert_many([junction(team_id) for team_id in NAMES])
             await database[Collection.SPIELTAGE].insert_many(spieltag_documents())
+            # Always, not per scenario: every save composes its stored names from these rows.
+            await database[Collection.SPIELORTE].insert_many(venue_documents())
+            await database[Collection.SCHIEDSRICHTER].insert_many(referee_documents())
             await database.create_collection(Collection.SPIELE)
             await database[Collection.SPIELE].insert_many(spiele)
 
@@ -271,6 +400,8 @@ async def call_patch(
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spieltage_collection=database[Collection.SPIELTAGE],
+        spielorte_collection=database[Collection.SPIELORTE],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         dry_run=dry_run,
     )
 
@@ -328,6 +459,110 @@ class TestTheBookingReadAsksWhoUsedTheGround:
         assert (answered == FIXTURE_DOUBLE_BOOKED) is refused
 
 
+def an_unbooked_spieltag() -> list[dict[str, Any]]:
+    """`one_spieltag`'s two group fixtures with nothing booked, so a booking a test makes is the only one in the season."""
+
+    return one_spieltag(opponent=BETA, ergebnis=None, tore=(None, None))
+
+
+class TestTheBookingRefusalIsReachedThroughTheRoute:
+    """That `find_booking_refusal` is WIRED, not merely written: an unwired refusal is a green suite and a dead rule."""
+
+    @pytest.mark.parametrize(
+        "chosen",
+        [pytest.param(SPIELORT_UNKNOWN, id="a ground no row answers to"), pytest.param(SPIELORT_RETIRED, id="a retired ground")],
+    )
+    def test_booking_a_venue_the_league_cannot_offer_is_refused(self, mongo_replica_set_url: str, chosen: ObjectId):
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": chosen, "mietpreis": 80})
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+
+            return refused.value.error_code, await spiele_now(database)
+
+        code, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
+
+        assert code == BOOKING_UNKNOWN_RESOURCE
+        # The whole save is taken back, so the booking does not land without the rule that judges it.
+        assert spiele[GRUPPE_FILLING_NR]["ort"] is None
+
+    def test_booking_a_referee_the_league_cannot_offer_is_refused(self, mongo_replica_set_url: str):
+        """The other reference, because a rule reading one only would pass that one and miss this."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            assigned = {"schiedsrichter_id": SCHIEDSRICHTER_RETIRED, "payment": 20}
+            spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+
+            return refused.value.error_code
+
+        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == BOOKING_UNKNOWN_RESOURCE
+
+    def test_a_live_venue_is_stored_under_the_name_the_venue_carries(self, mongo_replica_set_url: str):
+        """The composition end to end: the ground and the rent are the payload's, the name and the link the venue's."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": SPIELORT, "mietpreis": 95})
+            await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+
+            return await spiele_now(database)
+
+        spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
+
+        assert spiele[GRUPPE_FILLING_NR]["ort"] == booking(SPIELORT, mietpreis=95)
+
+    def test_a_live_referee_is_stored_under_the_name_the_referee_carries(self, mongo_replica_set_url: str):
+        """The same composition on the other reference, whose fee is what the league pays out -- and the venue's case cannot speak for it."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            assigned = {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 35}
+            spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
+            await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+
+            return await spiele_now(database)
+
+        spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
+
+        assert spiele[GRUPPE_FILLING_NR]["schiedsrichter"] == assignment(SCHIEDSRICHTER, payment=35)
+
+    def test_a_retired_venue_an_old_fixture_already_holds_blocks_no_edit(self, mongo_replica_set_url: str):
+        """`REQ-RETIRE-003` lets a venue retire while only played fixtures still name it; refusing their edits would be a false refusal."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            spiel_data = await payload_for(database, GRUPPE_FILLING, uhrzeit="19:00:00")
+            await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+
+            return await spiele_now(database)
+
+        held, filling = an_unbooked_spieltag()
+        spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=[held, {**filling, "ort": booking(SPIELORT_RETIRED)}])
+
+        assert spiele[GRUPPE_FILLING_NR]["uhrzeit"] == "19:00:00"
+        assert spiele[GRUPPE_FILLING_NR]["ort"] == booking(SPIELORT_RETIRED)
+
+
+class TestASavedSideIsNamedByTheSeason:
+    def test_the_stored_name_comes_from_the_junction_rather_than_the_payload(self, mongo_replica_set_url: str):
+        """A club renamed while the season runs: the fixture's copy is rewritten from the junction on the next save of it."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"name": "Gamma-Schule", "shorthand": "GS"}})
+            spiel_data = await payload_for(database, GRUPPE_FILLING)
+            await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+
+            return await spiele_now(database)
+
+        spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
+
+        assert spiele[GRUPPE_FILLING_NR]["team1"] == {"team_id": GAMMA, "name": "Gamma-Schule", "shorthand": "GS", "tore": None}
+        # Composed from its OWN row, which the rename above did not touch: the change followed the
+        # junction rather than one name reaching every side.
+        assert spiele[GRUPPE_FILLING_NR]["team2"] == side(DELTA)
+
+
 class TestTheStateRefusalIsReachedThroughTheRoute:
     """That `find_state_refusal` is WIRED, not merely written: an unwired refusal is a green suite and a dead rule."""
 
@@ -345,6 +580,70 @@ class TestTheStateRefusalIsReachedThroughTheRoute:
         assert refused.error_code == STATE_RESULT_ON_A_NON_EVENT
         # The whole save is taken back, so the event does not land without the refusal that judges it.
         assert spiele[VIERTELFINALE_NR]["sonderereignis"] is None
+
+
+# The day Gamma is out of the season, which is also the day a fixture is moved onto below: the rule
+# reads `datum < departed_from`, so the boundary is the value an off-by-one comparison gets wrong.
+GAMMA_DEPARTED_FROM = "2026-03-20"
+A_DAY_SHORT_OF_THE_EXIT = "2026-03-19"
+
+GAMMA_AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": GAMMA_DEPARTED_FROM}
+
+
+class TestTheEligibilityRefusalIsReachedThroughTheRoute:
+    """That `find_eligibility_refusal` is WIRED, and that it judges the membership `pull_saison_membership` really returns.
+
+    Every other test of this rule builds that map by hand, which proves nothing about the projection
+    the junction read asks for.
+    """
+
+    @pytest.mark.parametrize(
+        ("datum", "error_code"),
+        [
+            pytest.param(GAMMA_DEPARTED_FROM, ELIGIBILITY_DISQUALIFIED, id="moved onto the exit"),
+            # The control: one day earlier the same save clears this rule and is refused by the NEXT
+            # one, so the refusal above is about the exit rather than about any date at all.
+            pytest.param(A_DAY_SHORT_OF_THE_EXIT, FIXTURE_OUTSIDE_SPIELTAG, id="moved a day short of it"),
+        ],
+    )
+    def test_a_fixture_re_dated_past_its_own_occupants_exit_is_judged_as_a_newly_fielded_club_is(
+        self, mongo_replica_set_url: str, datum: str, error_code: str
+    ):
+        """The WIDENED case: both sides stay exactly as stored and only `datum` moves, which is the save `stays` would otherwise skip."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"austritt": GAMMA_AUSTRITT}})
+            spiel_data = await payload_for(database, GRUPPE_FILLING, datum=datum)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+
+            return refused.value, await spiele_now(database)
+
+        refused, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
+
+        assert refused.error_code == error_code
+        # Nothing written under either refusal: the judgement runs inside the transaction's callback.
+        assert spiele[GRUPPE_FILLING_NR]["datum"] == SPIELTAGE[SPIELTAG_GRUPPE][1]
+
+    def test_the_refusal_names_the_club_under_the_name_the_season_carries(self, mongo_replica_set_url: str):
+        """The season's name reaches the message only through the junction projection, so a key dropped from it fails here."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"team_id": GAMMA}, {"$set": {"austritt": GAMMA_AUSTRITT, "name": "Gamma-Schule"}}
+            )
+            spiel_data = await payload_for(database, GRUPPE_FILLING, datum=GAMMA_DEPARTED_FROM)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+
+            return refused.value
+
+        refused = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
+
+        assert refused.error_code == ELIGIBILITY_DISQUALIFIED
+        assert "Gamma-Schule" in refused.error_detail["message"]
 
 
 class TestASavedResultCarriesThroughTheBracket:
@@ -386,16 +685,21 @@ class TestASavedResultCarriesThroughTheBracket:
 
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
             spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
-            await call_patch(database, client, VIERTELFINALE, spiel_data)
+            response = await call_patch(database, client, VIERTELFINALE, spiel_data)
 
-            return await spiele_now(database)
+            return response, await spiele_now(database)
 
-        spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_semi_final_recorded_as(stored_event))
+        response, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_semi_final_recorded_as(stored_event))
 
         # The advancement itself, so the event assertion below cannot pass on a fixture nothing moved.
         assert spiele[HALBFINALE_NR]["team1"]["team_id"] == ALPHA
         assert spiele[HALBFINALE_NR]["ergebnis"] is None
         assert spiele[HALBFINALE_NR]["sonderereignis"] == after_the_advancement
+
+        # Reported, not only performed: an event this save destroyed is something the admin has to
+        # see, which is the reason the two fields beside it exist.
+        (advancement,) = response.advanced_to
+        assert advancement.voided_sonderereignis == (None if after_the_advancement else stored_event)
 
     def test_a_save_changing_nothing_advances_nobody(self, mongo_replica_set_url: str):
         """The control for the test above: the seeded season already agrees with its wiring, so that advancement is the save's doing."""
@@ -511,9 +815,49 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         (released,) = run.saved.released_sides
         assert (released.spiel_nr, released.side, released.team_name) == (GRUPPE_HELD_NR, "team1", "Alpha")
         assert released.voided_ergebnis == ergebnis
+        # Reported for the reason the scoreline is: a no-show cleared silently is a record the admin
+        # never learns this save cost them.
+        assert released.voided_sonderereignis == (sonderereignis if sonderereignis in SONDEREREIGNIS_NO_SHOW else None)
 
         # Asserted on both, so a seed that never landed cannot pass as an event correctly cleared.
         assert run.before.sonderereignis == sonderereignis
         # `REQ-STATE-003` refuses a no-show beside an unresolved slot, so one outliving this release
         # would leave a fixture the admin's next save is refused over.
         assert run.after_save.sonderereignis == (None if sonderereignis in ("nichtantreten_team1", "nichtantreten_team2") else sonderereignis)
+
+
+@dataclass(frozen=True)
+class SeedingRun:
+    """One edit of a group fixture, previewed and then saved, so the assertions read outside the event loop."""
+
+    preview: FLPatchSpielDataResponse
+    saved: FLPatchSpielDataResponse
+    after_preview: dict[int, dict[str, Any]]
+    after_save: dict[int, dict[str, Any]]
+
+
+class TestAResultThatReordersItsGroupIsPreviewedAsItIsSaved:
+    def test_the_preview_names_the_advancement_the_save_makes(self, mongo_replica_set_url: str):
+        """A `gruppe` slot resolves against a table derived from the season's fixtures, and the fixture under edit is one of them."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            # Alpha 5:0 turns a 0:3 defeat into the group's best goal difference, so first place -- and
+            # with it the semi-final's slot -- changes hands.
+            spiel_data = await payload_for(database, GRUPPE_DECIDER, team1=side(ALPHA, 5), team2=side(BETA, 0))
+
+            preview = await call_patch(database, client, GRUPPE_DECIDER, spiel_data, dry_run=True)
+            after_preview = await spiele_now(database)
+            saved = await call_patch(database, client, GRUPPE_DECIDER, spiel_data)
+
+            return SeedingRun(preview=preview, saved=saved, after_preview=after_preview, after_save=await spiele_now(database))
+
+        run = on_a_seeded_season(mongo_replica_set_url, body, spiele=a_gruppe_fed_semi_final())
+
+        # The save first, so the case cannot pass because the seeding never moved at all.
+        moved = run.after_save[HALBFINALE_FROM_GRUPPE_NR]
+        assert (moved["team1"]["team_id"], moved["ergebnis"]) == (ALPHA, None)
+        assert run.after_preview[HALBFINALE_FROM_GRUPPE_NR]["team1"]["team_id"] == BETA, "the dry run wrote something"
+
+        advanced = [(entry.spiel_nr, entry.voided_ergebnis) for entry in run.saved.advanced_to]
+        assert advanced == [(HALBFINALE_FROM_GRUPPE_NR, "2:1")]
+        assert run.preview == run.saved, "the preview answered differently from the save it previews"

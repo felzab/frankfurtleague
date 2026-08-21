@@ -66,4 +66,8 @@ describe("buildSaisonBanners", () => {
   it("stays quiet about the rollover on the season that is already running", () => {
     assert.deepEqual(ids(build({ saisonStatus: "active", outgoingSaisonId: "2025", offeneSpieleCount: 3 })), ["saison.active"]);
   });
+
+  it("stays quiet about the rollover on a finished season, which no open fixture is what blocks", () => {
+    assert.deepEqual(ids(build({ saisonStatus: "past", outgoingSaisonId: "2025", offeneSpieleCount: 3 })), ["saison.past"]);
+  });
 });

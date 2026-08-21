@@ -23,8 +23,8 @@ export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promi
 
 /**
  * **The 404 → null conversion stays INSIDE the cache scope**: a production build redacts an error
- * thrown out of one to a digest-only `Error`. `getSpiel` carries it in full. Public read under the
- * base key, so `"use cache"` is right.
+ * thrown out of one to a digest-only `Error`. Public read under the base key, so `"use cache"` is
+ * right.
  */
 export async function getSpieltagById(spieltagId: string): Promise<FLSpieltageSingleResponse | null> {
   "use cache";

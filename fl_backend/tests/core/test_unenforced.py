@@ -21,7 +21,7 @@ from app.api.spiele.schemas import (
     FLSpielJoinedListAdapter,
     FLSpielListAdapter,
 )
-from app.api.spiele.services import find_departed_occupants, find_eligibility_refusal, resolve_bracket
+from app.api.spiele.services import SaisonMembership, find_departed_occupants, find_eligibility_refusal, resolve_bracket
 from app.api.spieler.admin_router import post_spieler
 from app.api.spieler.schemas import FLPostSpielerPayload
 from app.api.spieler.services import find_squad_refusal
@@ -510,6 +510,13 @@ class TestAPersonWithNoSquadRow:
         assert _callers_of(_module_of(post_spieler), find_squad_refusal.__name__) == {"post_saison_spieler", "patch_saison_spieler"}
 
 
+# The junction as the refusal reads it: the season's own name for the club, and the day it left.
+MEMBERSHIP = {
+    ObjectId(ADLER): SaisonMembership(name="Adler", shorthand="AD", departed_from=EXIT_BEFORE_THE_FIXTURE),
+    ObjectId(BIEBER): SaisonMembership(name="Bieber", shorthand="BI", departed_from=None),
+}
+
+
 class TestADisqualifiedClubKeepsItsFixtures:
     """That a disqualification leaves the club's drawn fixtures standing, its opponents' walkover needing them."""
 
@@ -518,19 +525,32 @@ class TestADisqualifiedClubKeepsItsFixtures:
             ObjectId(MATCH_ID.format(1)),
             _resubmit(one_fixture, 1),
             FLSpielListAdapter.validate_python(one_fixture),
-            {ObjectId(ADLER): EXIT_BEFORE_THE_FIXTURE, ObjectId(BIEBER): None},
+            MEMBERSHIP,
         )
 
         assert refusal is None
 
-    def test_fielding_it_somewhere_NEW_is_what_refuses(self, one_fixture):
+    def test_fielding_it_somewhere_new_is_one_of_two_things_that_refuse(self, one_fixture):
         moved_in = _resubmit(one_fixture, 1).model_copy(update={"team2": _resubmit(one_fixture, 1).team1})
         refusal = find_eligibility_refusal(
             ObjectId(MATCH_ID.format(1)),
             moved_in,
             FLSpielListAdapter.validate_python(one_fixture),
-            {ObjectId(ADLER): EXIT_BEFORE_THE_FIXTURE, ObjectId(BIEBER): None},
+            MEMBERSHIP,
         )
+
+        assert refusal is not None
+
+    def test_re_dating_it_past_the_exit_is_the_other(self, one_fixture):
+        """The half `REQ-ELIGIBILITY-001` gained: the tolerated state is a fixture STANDING, never one moved past the exit."""
+
+        stored = FLSpielListAdapter.validate_python(one_fixture)
+        re_dated = _resubmit(one_fixture, 1).model_copy(update={"datum": "2026-04-01"})
+
+        assert re_dated.team1 is not None and stored[0].team1 is not None
+        assert re_dated.team1.team_id == stored[0].team1.team_id, "both sides must be unchanged, or this proves the other half"
+
+        refusal = find_eligibility_refusal(ObjectId(MATCH_ID.format(1)), re_dated, stored, MEMBERSHIP)
 
         assert refusal is not None
 

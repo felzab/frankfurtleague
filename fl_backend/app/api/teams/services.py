@@ -131,11 +131,11 @@ def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Ma
     }
 
 
-def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team_id: Any | None = None) -> list[Mapping[str, Any]]:
-    # Without a season the statistics below match nothing and hand back a table of zeros that reads
-    # as a real answer.
+def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | None, team_id: Any | None = None) -> list[Mapping[str, Any]]:
+    # Without a season the junction join stops being strict -- one row per season a club played --
+    # and the statistics below match nothing, handing back a table of zeros that reads as an answer.
     if filters.saison_id is None:
-        raise ValueError("build_team_pipeline requires a resolved saison_id -- statistics are derived per season.")
+        raise ValueError("build_team_pipeline requires a resolved saison_id -- the junction join and the statistics are both season-scoped.")
 
     pipeline: list[Mapping[str, Any]] = []
 
@@ -151,11 +151,18 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
     if base_match:
         pipeline.append({"$match": base_match})
 
+    # Translated, not dumped: the row stores a record, never a boolean (`docs/backend/spec.md :: I31`).
+    # Two independent terms, so "left the season" and "left it THIS way" compose into one match.
+    austritt_terms: dict[str, Any] = {}
+    if filters.has_austritt is not None:
+        austritt_terms["austritt"] = {"$ne": None} if filters.has_austritt else None
+    if filters.austritt_type is not None:
+        austritt_terms["austritt.type"] = filters.austritt_type
+
     lookup_filters = build_query(
         filters,
         terms={"saison_id", "gruppe"},
-        # Translated, not dumped: the row stores a record, never a boolean (`docs/backend/spec.md :: I31`).
-        compiled=None if filters.is_disqualified is None else {"austritt": {"$ne": None} if filters.is_disqualified else None},
+        compiled=austritt_terms or None,
     )
 
     lookup_pipeline: list[Mapping[str, Any]] = [{"$match": {"$expr": {"$eq": ["$team_id", "$$base_team_id"]}}}]
@@ -185,8 +192,11 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
     )
 
     # After the strict unwind, so the matches are only summed for teams that survive the join.
-    pipeline.append(build_statistik_lookup_stage(saison_id=filters.saison_id, rules=rules, scope=filters.statistik_scope))
-    pipeline.append(build_absage_lookup_stage(saison_id=filters.saison_id, scope=filters.statistik_scope))
+    # A scoring rule IS the table, so `rules=None` derives none -- `build_statistik_by_team` is
+    # the other way to one, over fixtures this collection has not stored.
+    if rules is not None:
+        pipeline.append(build_statistik_lookup_stage(saison_id=filters.saison_id, rules=rules, scope=filters.statistik_scope))
+        pipeline.append(build_absage_lookup_stage(saison_id=filters.saison_id, scope=filters.statistik_scope))
 
     # One projection, one team shape: a reduced variant trims the response and saves no query work,
     # since every lookup runs either way.
@@ -194,20 +204,30 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
         {
             "$project": {
                 "_id": 1,
-                "name": 1,
-                "shorthand": 1,
+                # From the JUNCTION, not the club: this read is season-scoped, and a finished season
+                # is the record of the name it was played under rather than of today's.
+                "name": f"${AS_NAME}.name",
+                "shorthand": f"${AS_NAME}.shorthand",
                 "address": 1,
                 "description": 1,
                 "full_name": 1,
                 "website_url": 1,
                 "inactive_since": 1,
-                # `$group` emits nothing for an empty input rather than a row of zeros.
-                "statistik": {
-                    "$mergeObjects": [
-                        {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, ZERO_STATISTIK]},
-                        {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}},
-                    ]
-                },
+                # `$group` emits nothing for an empty input rather than a row of zeros. Left out
+                # entirely without `rules`, so a row reaching `FLTeam` unfilled is REFUSED rather
+                # than read as a table of zeros.
+                **(
+                    {
+                        "statistik": {
+                            "$mergeObjects": [
+                                {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, ZERO_STATISTIK]},
+                                {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}},
+                            ]
+                        }
+                    }
+                    if rules is not None
+                    else {}
+                ),
                 "saison_id": f"${AS_NAME}.saison_id",
                 "gruppe": f"${AS_NAME}.gruppe",
                 "austritt": f"${AS_NAME}.austritt",
@@ -237,6 +257,54 @@ def _counted_goals(spiel: FLSpiel) -> tuple[CustomObjectId, int, CustomObjectId,
         return None
 
     return spiel.team1.team_id, spiel.team1.tore, spiel.team2.team_id, spiel.team2.tore
+
+
+def build_statistik_by_team(spiele: Iterable[FLSpiel], rules: FLSaisonRules) -> Mapping[CustomObjectId, FLTeamStatistik]:
+    """Every team's figures over the fixtures GIVEN, for a caller holding a season the collection does not.
+
+    `build_statistik_lookup_stage` and `build_absage_lookup_stage` restated. It filters nothing:
+    pass exactly the fixtures the scope names.
+    """
+
+    figures: dict[CustomObjectId, dict[str, int]] = {}
+
+    for spiel in spiele:
+        # Distinct, because the `$lookup` matches a fixture holding one club twice -- a fault state
+        # -- once, and a second count here would put the two tables at odds over it.
+        sides = {side.team_id for side in (spiel.team1, spiel.team2) if side is not None}
+        for team_id in sides:
+            figures.setdefault(team_id, dict(ZERO_STATISTIK))
+
+        if spiel.sonderereignis in SONDEREREIGNIS_COUNTED_AS_ABSAGE:
+            for team_id in sides:
+                figures[team_id]["anzahl_abgesagte_spiele"] += 1
+
+        counted = _counted_goals(spiel)
+        if counted is None:
+            continue
+
+        team1_id, tore1, team2_id, tore2 = counted
+        for team_id in sides:
+            # Slot one first, as the projection's `$cond` on `_IS_THIS_TEAM_IN_SLOT_ONE` is, so the
+            # degenerate fixture above is oriented the one way both derivations orient it.
+            tore_self, tore_opponent = (tore1, tore2) if team_id == team1_id else (tore2, tore1)
+
+            row = figures[team_id]
+            row["anzahl_gespielte_spiele"] += 1
+            row["tore_geschossen"] += tore_self
+            row["tore_kassiert"] += tore_opponent
+
+            if tore_self > tore_opponent:
+                row["siege"] += 1
+                row["punkte"] += rules.win_points
+            elif tore_self == tore_opponent:
+                row["unentschieden"] += 1
+                row["punkte"] += rules.draw_points
+            else:
+                # No `punkte` arm: `FLSaisonRules` carries no `loss_points`.
+                row["niederlagen"] += 1
+
+    return {team_id: FLTeamStatistik.model_validate(row) for team_id, row in figures.items()}
 
 
 def _goal_key(team: FLTeam) -> tuple[int, int]:
@@ -375,9 +443,9 @@ def _tiers(
     for team in teams:
         by_punkte.setdefault(punkte[team.id], []).append(team)
 
-    # Derived here so both callers ask one question: `build_gruppen` ranks a club that has left and
-    # `build_decided_standings` never sees one, so completeness judged over whoever is present
-    # splits the two surfaces (`docs/backend/spec.md :: I24`).
+    # Derived here so both callers ask one question: each ranks a club that has left and neither lets
+    # one hold a placing, so completeness judged over whoever is present would split the two surfaces
+    # (`docs/backend/spec.md :: I24b`).
     still_to_play = _still_to_play(spiele)
     placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0)))
 
@@ -479,15 +547,18 @@ def _decide_one_gruppe(
         and spiel.team2 is not None
     ]
 
-    eligible = [team for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0))]
+    placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0)))
     is_complete = not open_pairs and not has_unattributable
 
     if has_unattributable or len(open_pairs) > CERTAINTY_FIXTURE_LIMIT:
-        return DecidedStanding(eligible=len(eligible), is_complete=is_complete, by_platz={})
+        return DecidedStanding(eligible=len(placeable), is_complete=is_complete, by_platz={})
 
-    settled = frozenset(team.id for team in eligible if still_to_play.get(team.id, 0) == 0)
-    base = {team.id: team.statistik.punkte for team in eligible}
-    order = [team.id for team in eligible]
+    # Every member, never `placeable` alone: filtering before the ranking drops a departed club's
+    # results from the mini-table the DISPLAYED table computes with them, so the two surfaces order
+    # one group differently (`docs/backend/spec.md :: I24b`).
+    settled = frozenset(team.id for team in teams if still_to_play.get(team.id, 0) == 0)
+    base = {team.id: team.statistik.punkte for team in teams}
+    order = [team.id for team in teams]
 
     # Deduplicated by the points table each outcome set produces, and ranked AS the walk goes, so it
     # stops the moment no placing survives: this runs inside the write transaction.
@@ -496,23 +567,22 @@ def _decide_one_gruppe(
     for outcomes in product((1, 0, 2), repeat=len(open_pairs)):
         punkte = dict(base)
         for (left, right), outcome in zip(open_pairs, outcomes, strict=True):
+            # Added to unguarded: `_spiele_by_gruppe` attributes a fixture to this group only when
+            # both its teams are of it, so `base` already holds every side.
             if outcome == 0:
                 for side in (left, right):
-                    if side in punkte:
-                        punkte[side] += rules.draw_points
+                    punkte[side] += rules.draw_points
                 continue
 
             # Only the winner is added to: `FLSaisonRules` carries no `loss_points`.
-            winner = left if outcome == 1 else right
-            if winner in punkte:
-                punkte[winner] += rules.win_points
+            punkte[left if outcome == 1 else right] += rules.win_points
 
         vector = tuple(punkte[team_id] for team_id in order)
         if vector in seen:
             continue
         seen.add(vector)
 
-        placings = _placings(eligible, dict(zip(order, vector, strict=True)), settled, spiele, rules)
+        placings = _placings(teams, dict(zip(order, vector, strict=True)), settled, spiele, rules, placeable)
 
         # A placing survives only while every table so far has put the SAME team there.
         if decided is None:
@@ -523,7 +593,7 @@ def _decide_one_gruppe(
         if not decided:
             break
 
-    return DecidedStanding(eligible=len(eligible), is_complete=is_complete, by_platz=decided or {})
+    return DecidedStanding(eligible=len(placeable), is_complete=is_complete, by_platz=decided or {})
 
 
 def _placings(
@@ -532,16 +602,21 @@ def _placings(
     settled: AbstractSet[CustomObjectId],
     spiele: Sequence[FLSpiel],
     rules: FLSaisonRules,
+    placeable: AbstractSet[CustomObjectId],
 ) -> Mapping[int, FLTeam]:
-    """The placings one points table pins down. A band holding several teams pins none of them."""
+    """The placings one points table pins down. A band holding several teams that can place pins none of them."""
 
     placings: dict[int, FLTeam] = {}
     platz = 1
 
     for band in _tiers(teams, punkte, settled, spiele, rules):
-        if len(band) == 1:
-            placings[platz] = band[0]
-        platz += len(band)
+        # Only a club that can hold a placing advances the number, so a departed one takes no place
+        # and hides none -- the walk `fl_frontend/src/features/teams/utils.ts :: computePlatzByTeamId`
+        # runs over the same order (`docs/backend/spec.md :: I24b`).
+        holders = [team for team in band if team.id in placeable]
+        if len(holders) == 1:
+            placings[platz] = holders[0]
+        platz += len(holders)
 
     return placings
 
@@ -643,6 +718,23 @@ ENTRY_SAISON_NOT_FUTURE = "REQ-ENTER-001"
 ENTRY_GRUPPE_NOT_OFFERED = "REQ-ENTER-002"
 ENTRY_GRUPPE_FULL = "REQ-ENTER-003"
 ENTRY_GRUPPE_LOCKED = "REQ-ENTER-004"
+CLUB_RETIRED = "REQ-ENTER-005"
+
+
+def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
+    """Why this CLUB may not be entered into any season, or `None`.
+
+    Its own function beside `find_entry_refusal`, which judges the season and the group: a group
+    move re-uses that one, and a club's standing in the LEAGUE is not what a move is about.
+    """
+
+    if inactive_since is not None:
+        return WriteRefusal(
+            error_code=CLUB_RETIRED,
+            message=f"this club left the league on {inactive_since}; reactivate it before entering it into a season",
+        )
+
+    return None
 
 
 def offered_gruppen(number_of_groups: int) -> tuple[FLGruppenNames, ...]:

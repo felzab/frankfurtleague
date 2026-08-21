@@ -47,11 +47,14 @@ export function FormRolloverSection({
   banners: readonly SaisonBanner[];
 }) {
   const router = useRouter();
-  const panel = formPanel({ tone: saisonStatus === "active" ? "neutral" : "danger" });
+  // The tone grades the act on offer, and only a `future` season has one: the running season has
+  // nothing to switch to, and a `past` one is refused by `REQ-ACTIVATE-002`.
+  const panel = formPanel({ tone: saisonStatus === "future" ? "danger" : "neutral" });
   const [isActivating, startActivating] = useTransition();
   const [isConfirming, setIsConfirming] = useState(false);
 
   const isAlreadyActive = saisonStatus === "active";
+  const isFinishedSaison = saisonStatus === "past";
   const offene = rollover.offeneSpiele;
   const outgoing = rollover.outgoingSaisonId;
 
@@ -111,7 +114,16 @@ export function FormRolloverSection({
       </div>
 
       <div className={panel.body()}>
-        {isAlreadyActive ? (
+        {isFinishedSaison ? (
+          // Closed rather than disabled with a hint: `REQ-ACTIVATE-002` has no remedy, and a hint
+          // saying what would unblock it would name a route the system does not have.
+          <Callout
+            severity="info"
+            title="Diese Saison ist abgeschlossen">
+            Eine abgeschlossene Saison wird nicht wieder zur laufenden. Ihre Punkte, ihre Gruppen und die Tabelle daraus halten fest, was
+            gespielt wurde, und eine Umstellung würde alle drei wieder öffnen. Der Abschluss lässt sich in der Verwaltung nicht zurücknehmen.
+          </Callout>
+        ) : isAlreadyActive ? (
           // Panel-local and deliberately not a banner: it answers "why can I not act HERE", which is a
           // question only this control raises.
           <Callout

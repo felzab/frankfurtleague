@@ -8,7 +8,14 @@ from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollectio
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners, find_bracket_faults
 from app.api.spiele.schemas import FLBracketFault, FLPatchSpielDataPayload, FLSpiel, FLSpielAdvancement, FLSpielListAdapter
-from app.api.spiele.services import find_eligibility_refusal, find_result_removal_refusal, find_wiring_refusal, judge_spieltag_occupancy
+from app.api.spiele.services import (
+    ResolvedReferences,
+    find_booking_refusal,
+    find_eligibility_refusal,
+    find_result_removal_refusal,
+    find_wiring_refusal,
+    judge_spieltag_occupancy,
+)
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
@@ -65,6 +72,12 @@ class TestARefusalNeverPermitsWhatItCannotSee:
     def test_the_wiring_refusal_refuses_to_judge(self, season, payload):
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
             find_wiring_refusal(UNREAD_SPIEL_ID, payload, season)
+
+    def test_the_booking_refusal_refuses_to_judge(self, season, payload):
+        """It compares the payload's references against the STORED ones, so a slice without them judges a move it cannot see."""
+
+        with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
+            find_booking_refusal(UNREAD_SPIEL_ID, payload, season, ResolvedReferences(teams={}))
 
 
 RULES = FLSaisonRules.model_validate(
@@ -138,8 +151,11 @@ class TestTheBracketWriteRefusesATruncatedSeason:
 class _ArchiveCollections:
     """The fault sweep's two reads at once: `aggregate` answers the fixtures, `find`/`limit`/`to_list` the seasons."""
 
-    def __init__(self, saisons: list[dict[str, Any]]) -> None:
+    def __init__(self, saisons: list[dict[str, Any]], spiele: list[dict[str, Any]] | None = None) -> None:
         self.saisons = saisons
+        # The JOINED shape, because `build_spiele_pipeline` is what the real read runs; what is under
+        # test here is the wiring above that pipeline rather than the pipeline itself.
+        self.spiele = spiele or []
 
     def aggregate(self, pipeline: Any, session: Any = None) -> "_ArchiveCollections":
         return self
@@ -152,8 +168,8 @@ class _ArchiveCollections:
         return self
 
     async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
-        # The fixture read arrives here with `length=None` and wants none; the season read is capped.
-        return [] if length is None else self.saisons[:length]
+        # The fixture read arrives here with `length=None`; the season read is capped.
+        return self.spiele if length is None else self.saisons[:length]
 
 
 class TestTheFaultSweepRefusesATruncatedArchive:
@@ -186,3 +202,103 @@ class TestTheFaultSweepRefusesATruncatedArchive:
         )
 
         assert (faults, faulted) == ([], [])
+
+
+# Two clashing appearances on one matchday, and a departure on another: the two sweeps that sit
+# BESIDE the bracket walk, so neither can ride on a `resolve_bracket` fault.
+CLASHING_SPIELTAG = "6890a1b2c3d4e5f607210001"
+QUIET_SPIELTAG = "6890a1b2c3d4e5f607210002"
+
+TWICE_FIELDED = "6890a1b2c3d4e5f607220001"
+DEPARTED = "6890a1b2c3d4e5f607220002"
+BYSTANDER = "6890a1b2c3d4e5f607220003"
+OPPONENT = "6890a1b2c3d4e5f607220004"
+
+# Before the day every fixture below is played on, which is what makes the occupant a fault.
+DEPARTURE = {"type": "disqualifikation", "grund": "Nicht angetreten", "datum": "2026-03-01"}
+FIXTURE_DAY = "2026-03-15"
+
+CLASHING_FIRST, CLASHING_SECOND, WITH_THE_DEPARTED = 1, 2, 3
+
+
+def _joined_side(team_id: str, name: str, austritt: dict[str, Any] | None = None) -> dict[str, Any]:
+    """One side as `build_spiele_pipeline` serves it: the stored copy plus the junction record joined onto it."""
+
+    return {"team_id": team_id, "name": name, "shorthand": name[:2].upper(), "tore": None, "austritt": austritt}
+
+
+def faulted_archive(spiel: PayloadFactory) -> list[dict[str, Any]]:
+    """One club fielded twice on one matchday, and one fixture fielding a club that had already left.
+
+    Group fixtures with no `quelle`, so the bracket walk finds nothing and every fault reported comes
+    from a sweep beside it.
+    """
+
+    def fixture(nr: int, spieltag_id: str, team1: dict[str, Any], team2: dict[str, Any]) -> dict[str, Any]:
+        return spiel(
+            _id=MATCH_ID.format(nr),
+            spiel_nr=nr,
+            spieltag_id=spieltag_id,
+            saison_id=SAISON_ID,
+            datum=FIXTURE_DAY,
+            ergebnis=None,
+            team1=team1,
+            team2=team2,
+        )
+
+    return [
+        fixture(CLASHING_FIRST, CLASHING_SPIELTAG, _joined_side(TWICE_FIELDED, "Adler"), _joined_side(BYSTANDER, "Bieber")),
+        fixture(CLASHING_SECOND, CLASHING_SPIELTAG, _joined_side(TWICE_FIELDED, "Adler"), _joined_side(OPPONENT, "Cronberg")),
+        fixture(WITH_THE_DEPARTED, QUIET_SPIELTAG, _joined_side(DEPARTED, "Dornbusch", DEPARTURE), _joined_side(BYSTANDER, "Bieber")),
+    ]
+
+
+def sweep(spiel: PayloadFactory) -> tuple[list[FLBracketFault], list[Any]]:
+    """`find_bracket_faults` over the corpus above, with the season row its second read needs."""
+
+    seasons = [{"_id": SAISON_ID, "rules": RULES.model_dump()}]
+    spiele = faulted_archive(spiel)
+
+    return asyncio.run(
+        find_bracket_faults(
+            spiele_collection=cast(AsyncIOMotorCollection, _ArchiveCollections(seasons, spiele)),
+            teams_collection=cast(AsyncIOMotorCollection, _ArchiveCollections(seasons, spiele)),
+            saisons_collection=cast(AsyncIOMotorCollection, _ArchiveCollections(seasons, spiele)),
+        )
+    )
+
+
+class TestTheFaultSweepReportsWhatItsSweepsFound:
+    """That both derivations are WIRED into the report, not merely written.
+
+    `find_bracket_faults` feeds `GET /spiele/action_required` alone, so a sweep whose result never
+    reaches the return value is a fault the one page built to surface it never shows.
+    """
+
+    def test_a_stored_double_entry_is_reported(self, spiel):
+        faults, _ = sweep(spiel)
+        fielded_twice = [fault for fault in faults if fault.reason == "fielded_twice"]
+
+        assert [fault.spiel_nr for fault in fielded_twice] == [CLASHING_FIRST, CLASHING_SECOND]
+
+    def test_a_departed_occupant_is_reported(self, spiel):
+        """The other sweep beside the walk, because a report carrying one of the two would still look wired."""
+
+        faults, _ = sweep(spiel)
+        departed = [fault for fault in faults if fault.reason == "departed_occupant"]
+
+        assert [fault.spiel_nr for fault in departed] == [WITH_THE_DEPARTED]
+
+    def test_every_faulted_fixture_is_attached_to_the_report(self, spiel):
+        """The second half of the answer: a surface renders the fixture a fault names, so an unattached one has nothing to draw."""
+
+        _, faulted = sweep(spiel)
+
+        assert sorted(spiel.spiel_nr for spiel in faulted) == [CLASHING_FIRST, CLASHING_SECOND, WITH_THE_DEPARTED]
+
+    def test_the_bracket_walk_contributes_nothing_to_this_corpus(self, spiel):
+        """So neither case above can be passing on a fault the walk raised about the same fixture."""
+
+        faults, _ = sweep(spiel)
+
+        assert {fault.reason for fault in faults} == {"fielded_twice", "departed_occupant"}

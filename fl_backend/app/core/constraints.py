@@ -246,13 +246,18 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
         "$jsonSchema": _object(
             # Transcribed from the documents: this junction has no Pydantic model of the ROW, and no
             # `inactive_since` -- a team never leaves a season (`docs/backend/spec.md :: I19`).
-            required=("_id", "saison_id", "team_id", "gruppe", "austritt"),
+            required=("_id", "saison_id", "team_id", "gruppe", "austritt", "name", "shorthand"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "saison_id": {"bsonType": "string"},
                 "team_id": {"bsonType": "objectId"},
                 "gruppe": {"bsonType": "string", "enum": _GRUPPEN},
                 "austritt": _AUSTRITT,
+                # The name this club was PLAYED under, seeded at entry and rewritten by a rename only
+                # while the season is not `past`. A finished season keeps what it was played under,
+                # which is what makes the copy embedded in its fixtures true rather than merely old.
+                "name": {"bsonType": "string"},
+                "shorthand": {"bsonType": "string"},
             },
         )
     },
@@ -617,15 +622,32 @@ async def report_relations(db: AsyncIOMotorDatabase) -> list[RelationReport]:
         {"$match": {"n": {"$gt": 1}}},
     ]
 
-    counted = await db["spiele"].aggregate([*spieltag_occupancy, {"$count": "groups"}]).to_list(length=1)
-    examples = await db["spiele"].aggregate([*spieltag_occupancy, {"$limit": 5}]).to_list(length=5)
+    counted = await db[Collection.SPIELE].aggregate([*spieltag_occupancy, {"$count": "groups"}]).to_list(length=1)
+    examples = await db[Collection.SPIELE].aggregate([*spieltag_occupancy, {"$limit": 5}]).to_list(length=5)
+
+    # Reported rather than swept once: nothing in the API can create a phantom or remove one, so
+    # this report is the only thing that would ever surface it.
+
+    phantom_junctions: list[Mapping[str, Any]] = [
+        {"$lookup": {"from": Collection.TEAMS, "localField": "team_id", "foreignField": "_id", "as": "club"}},
+        {"$match": {"club": []}},
+        {"$group": {"_id": {"team_id": "$team_id"}, "saisons": {"$addToSet": "$saison_id"}}},
+    ]
+
+    orphans_counted = await db[Collection.SAISON_TEAMS].aggregate([*phantom_junctions, {"$count": "groups"}]).to_list(length=1)
+    orphans = await db[Collection.SAISON_TEAMS].aggregate([*phantom_junctions, {"$limit": 5}]).to_list(length=5)
 
     return [
         RelationReport(
             rule="a team is fielded at most once per Spieltag (spiele)",
             groups=counted[0]["groups"] if counted else 0,
             examples=[{**doc["_id"], "spiele": sorted(doc["spiele"])} for doc in examples],
-        )
+        ),
+        RelationReport(
+            rule="every junction row names a club that exists (saison_teams)",
+            groups=orphans_counted[0]["groups"] if orphans_counted else 0,
+            examples=[{**doc["_id"], "saisons": sorted(doc["saisons"])} for doc in orphans],
+        ),
     ]
 
 

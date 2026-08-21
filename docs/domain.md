@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `d0ad46a4`, 2026-08-20
+**Verified against:** `a8e389c5`, 2026-08-20
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
@@ -53,9 +53,9 @@ the same transaction and rewrites fixtures the request never named, so the bound
 _every fixture in that season_ — `PATCH /spiele/{spiel_id}` looks like a single-document write and is not
 one.
 
-**`teams` is NOT inside `Saison`.** The practical test: a club's name, address and website are on `teams`;
-its group and its `austritt` are on `saison_teams`; its league table is on neither, being derived from
-the matches.
+**`teams` is NOT inside `Saison`.** The practical test: a club's address, website and the name it carries
+today are on `teams`; its group, its `austritt` and the name and shorthand a given season was played under
+are on `saison_teams`; its league table is on neither, being derived from the matches.
 
 **`spieltage` is its own aggregate even though `spiele` points at it.** Its `position` is checked against the
 other matchdays of its phase and its expected match count comes from the season's rules, so no invariant
@@ -83,17 +83,18 @@ riding on it. Model only the triggered actions and there is no slot for the cons
 half a referential check gets written and the other half never noticed.
 
 **A `NO_ACTION` on the creating direction is a statement that nothing looks at the target**, and it covers
-situations the notes keep apart. **Nothing reads the target at all**: a `saison_teams` row may name a club
-`teams` does not hold and a `saison_spieler` row a person `spieler` does not, the path parameter naming each
-and no handler resolving it. **Nothing can create the reference**: `spiele.spieltag_id` is on no payload and
-`/spiele` has no POST. **Or something is checked and it is not the target** — a fixture's side and a squad row
-are both held to the season's `saison_teams` entrants rather than to `teams`, and since entry into that
-junction is itself unchecked the entrants are not a subset, so either can carry a `team_id` no club document
-holds.
+situations the notes keep apart. **Nothing reads the target at all**: a `saison_spieler` row may name a
+person `spieler` does not hold, the path parameter naming them and no handler resolving it. **Nothing can
+create the reference**: `spiele.spieltag_id` is on no payload and `/spiele` has no POST. **Or something is
+checked and it is not the target** — a fixture's side and a squad row are both held to the season's
+`saison_teams` entrants rather than to `teams`, and it is the junction's own entry that resolves the club —
+`fl_backend/app/api/teams/admin_router.py :: post_saison_team` reads `teams` and 404s on an id it does not
+hold — so either can carry a `team_id` no club document holds only through a junction row older than that
+read. `fl_backend/app/core/constraints.py :: report_relations` is what surfaces such a row.
 
 That last case is the one most easily misread as a constraint, and it is why those rows carry `NO_ACTION`
-with the check they _do_ perform named in the note. A `RESTRICT` there would say the write resolves the club,
-which nothing does.
+with the check they _do_ perform named in the note. A `RESTRICT` there would say the write itself resolves
+the club, which these two do not — they lean on the entry that did.
 
 **`aktionen` appears in `REFERENCES` in neither direction, on purpose** — its `document_id` is a copy of an id
 rather than a reference anything maintains, and [Aggregates](#aggregates) carries the reading.
@@ -101,11 +102,24 @@ rather than a reference anything maintains, and [Aggregates](#aggregates) carrie
 ### The fan-outs, and what they deliberately leave alone
 
 A match embeds a **display copy** of its team, venue and referee beside the id, so a card renders without a
-join, and each write path fans a rename out into every match that embeds it. What none of them touches is the
-point:
+join. **No display copy rides on the match payload**: `PATCH /spiele/{spiel_id}` reads the row each id
+names and composes the copy from it, so an editor left open across a rename cannot resubmit the old text
+and undo the fan-out for that one fixture. A side's `name` and `shorthand` come from the season's
+`saison_teams` row, a venue's `name` and `maps_link` and a referee's `name` from their own documents. The
+bracket resolution is the one write that composes nothing — it moves a side that is already stored, and
+carries that side's copy with it.
 
-- a venue's **`mietpreis`** and a referee's **`payment`** do not fan out. They record what _this fixture_
-  cost, so rewriting them would rewrite history.
+Each write path also fans a rename out into what already embeds it. A venue's and a referee's reach every
+match, neither being season-scoped. **A club's reaches its `saison_teams` rows and its matches in the seasons
+that are not `past`** — a finished season is the record of the name it was played under, which is what makes
+the copy in its fixtures true rather than merely old.
+
+What none of that touches is the point:
+
+- a venue's **`mietpreis`** and a referee's **`payment`** do not fan out, and they are the fields that **stay
+  on the match payload** while the names beside them are composed. Each is what _this fixture_ agreed to pay
+  rather than a copy of a default, so fanning one out would rewrite history and composing one would replace an
+  agreed figure with a current price nobody agreed to.
 - an **`austritt`** is not embedded at all. It is joined from the junction on every read, so recording
   one reaches every surface at once instead of needing a fan-out.
 
@@ -115,6 +129,12 @@ Retiring a club, a person or a squad row touches nothing that points at it: a pl
 embedded team name is what that fixture said at the time. Retirement is _refused_ only where it would take
 something live down with it, and the `REQ-RETIRE-*` rows of `domain.py :: RULES` are every such refusal there
 is.
+
+**What a retired row does lose is NEW work**, and that is the half easily missed: entering a retired club
+into a season is refused (`REQ-ENTER-005`), and so is assigning a retired venue or referee to a fixture that
+does not already hold it (`REQ-BOOKING-001`). Both judge the reference being made rather than the one already
+stored, which is what keeps `REQ-RETIRE-003` and `REQ-RETIRE-004` able to let a venue or a referee retire
+while played fixtures still name them.
 
 ### There is no delete
 
@@ -138,12 +158,21 @@ against the `$jsonSchema` validators.
 
 ### A season's rules are the interesting case
 
-Some fields of `rules` freeze once the season is `past`, because the league table is scored from them on
-every read and nothing records what they said before; some may never narrow below what already exists,
-because the data below would be stranded. What separates the two is what the field bounds:
-`max_kadergroesse` caps stored squad rows and so may not drop below the largest squad a season holds, while
-`erlaubte_stufen` narrows freely even on a finished season, bounding what a **form offers** rather than what
-a stored squad row holds.
+There are three answers here, and a field can be under more than one of them.
+
+- **Frozen once the season is `past`** (`fl_backend/app/api/saisons/services.py :: FROZEN_RULES_FIELDS`,
+  `REQ-RULES-005`) — the league table is scored from these on every read and nothing records what they said
+  before.
+- **Frozen once the season's fixtures are drawn** (`:: SHAPE_RULES_FIELDS`, `REQ-RULES-011`) — the numbers
+  the fixture list was generated from, fixed in either direction from the moment the season holds a fixture
+  at all. **This one turns on the draw and not on `status`**, so it binds an `active` or a `future` season
+  the same way; raising one of them is what nothing else refuses, and it would leave every matchday
+  expecting matches nobody drew. `qualifiers_per_group` sits in both sets, and a finished season is told it
+  is finished first.
+- **Never narrowed below what already exists**, because the data below would be stranded. What decides
+  membership here is what the field bounds: `max_kadergroesse` caps stored squad rows and so may not drop
+  below the largest squad a season holds, while `erlaubte_stufen` narrows freely even on a finished season,
+  bounding what a **form offers** rather than what a stored squad row holds.
 
 **Every one of these checks judges the step, not the endpoint and not the state it arrives in**, so a
 date-only edit resubmits the whole `rules` object and passes whatever the stored values already say — which
@@ -161,8 +190,10 @@ symbols have in common:
 
 - each is a **pure function** — no I/O, so every one is tested without a database, in the default tier
 - each is called by **the endpoint that owns the write**, never by a shared evaluator
-- each refusal reaches the client as a **code** it maps to German, with an English `detail` that goes only
-  to the log ([`logging/error-codes.md`](logging/error-codes.md))
+- each refusal reaches the client as a **code**, with an English `detail` that goes only to the log; every
+  code and the status it answers with is [`logging/error-codes.md`](logging/error-codes.md), and the German
+  a person reads is written per feature in the frontend's actions
+  (`fl_frontend/src/features/teams/actions.ts :: mapEntryRefusal` is one)
 
 **A rule returns one shape**, `fl_backend/app/core/exceptions.py :: WriteRefusal` or `None`, and
 `DocumentConflictException.from_refusal` is the only route from one to a response.
@@ -176,10 +207,13 @@ evaluator.
 
 ### The checks run in the order somebody can act on
 
-Within a rules edit the freeze is reported first and the check computing the season's whole schedule runs
-last; `fl_backend/app/api/saisons/services.py :: find_rules_refusal` carries the sequence and the reason for
-each position at the line, and
-`fl_backend/tests/api/test_rules_refusal.py :: test_the_freeze_is_reported_before_a_narrowing` pins it.
+Within a rules edit the two freezes are reported first — the `past` one ahead of the draw one, so a finished
+season is told it is finished rather than told to redraw fixtures it will never play — and the check
+computing the season's whole schedule runs last.
+`fl_backend/app/api/saisons/services.py :: find_rules_refusal` carries the sequence and the reason for each
+position at the line;
+`fl_backend/tests/api/test_rules_refusal.py :: test_the_freeze_is_reported_before_a_narrowing` and
+`:: TestADrawnSeasonKeepsTheShapeItWasDrawnFrom` pin both halves.
 Telling an admin their group count strands a team, watching them fix it, and _then_ saying the season is
 closed anyway is a puzzle rather than an answer.
 
@@ -268,4 +302,4 @@ and become an engine a write can forget to consult.
 
 - **[`backend/spec.md`](backend/spec.md)** — the endpoint inventory and the backend's own invariants
 - **[`glossary.md`](glossary.md)** — the German vocabulary, which is not optional
-- **[`logging/error-codes.md`](logging/error-codes.md)** — how an error code reaches a log line and a German message
+- **[`logging/error-codes.md`](logging/error-codes.md)** — every error code either service emits, and the response body and log line that carry it

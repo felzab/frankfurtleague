@@ -15,8 +15,9 @@ import type { FormState } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
- * The scheduling refusals a match write can answer with. `REQ-DATE-001` lands on `datum`, the field
- * that caused it; the others are about a fixture this form does not show.
+ * The 409s a match write answers here. `REQ-DATE-001` lands on `datum`, the field that caused it;
+ * the rest travel as a message, naming no single control. Every other code falls to
+ * `fl_frontend/src/shared/utils/actionError.ts :: OCCUPANT_REFUSALS`.
  */
 function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -30,10 +31,19 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
         "Dieses Spiel hat ein Ergebnis, deshalb lässt sich die Mannschaft nicht entfernen. Wähle eine andere Mannschaft, oder lösche zuerst die Tore.",
     };
   }
+  // One code covers both references and the failure body names neither, so the message names both.
+  // Only a NEWLY chosen one is judged, so the remedy is to reactivate the retired entry or reload
+  // and pick another.
+  if (error.serverErrorCode === "REQ-BOOKING-001") {
+    return {
+      error:
+        "Spielort oder Schiedsrichter ist nicht mehr verfügbar, weil der Eintrag stillgelegt wurde oder nicht mehr existiert. Reaktiviere ihn, oder lade die Seite neu und wähle einen anderen aus der aktualisierten Liste.",
+    };
+  }
   if (error.serverErrorCode === "REQ-CLASH-001") {
     return {
       error:
-        "Spielort oder Schiedsrichter sind zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand oder eine andere Zuordnung.",
+        "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand oder eine andere Zuordnung.",
     };
   }
   return null;
@@ -89,6 +99,8 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       success: Boolean(patch_operation.acknowledged),
       message: formatSpielUpdateMessage(patch_operation.advanced_to, patch_operation.bracket_faults, patch_operation.released_sides),
       // Named rather than counted: the undo toast has to know WHICH fixtures lost a result.
+      // `voided_ergebnis` alone still names every one: a no-show needs both sides and composes its
+      // own forfeit, so `voided_sonderereignis` never travels without the result it produced.
       voidedFixtures: patch_operation.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),
       releasedFixtures: patch_operation.released_sides.map((released) => released.spiel_nr),
     };

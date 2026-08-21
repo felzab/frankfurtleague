@@ -17,9 +17,9 @@ import type { FLTeamsFilterParams, FLTeamSingleFilterParams } from "./types";
 export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeamsResponse> {
   "use cache";
 
-  // `saison_id` is the only granular dimension: no mutation in the app changes gruppe,
-  // austritt or in_gruppen. `statistik_scope` is a cache KEY, not a tag, so `teams` clears
-  // both scopes.
+  // `saison_id` is the only granular tag: a rename reaches every open season at once, and a
+  // junction write holds only the value it moves to (`docs/frontend/spec.md` §1.4).
+  // `statistik_scope` is a cache KEY, not a tag, so `teams` clears both scopes.
   const tags: string[] = ["teams"];
   if (filters.saison_id) tags.push(`teams:saison_id:${filters.saison_id}`);
   cacheTag(...tags);

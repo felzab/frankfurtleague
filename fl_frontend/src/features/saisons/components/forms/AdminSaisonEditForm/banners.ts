@@ -55,8 +55,8 @@ export function buildSaisonBanners({
     banners.push({
       id: "saison.past",
       severity: "info",
-      title: "Eine Regeländerung wirkt hier rückwirkend",
-      body: "Die Tabellen dieser Saison ändern sich mit, obwohl sie längst gespielt ist.",
+      title: "Die Wertung bleibt, wie sie gespielt wurde",
+      body: "Punkte, Reihenfolge bei Punktgleichheit und Qualifikanten wirken rückwirkend und sind deshalb gesperrt.",
       inline: "regeln-status",
     });
   }
@@ -117,7 +117,10 @@ export function buildSaisonBanners({
     });
   }
 
-  if (saisonStatus !== "active" && outgoingSaisonId !== null && offeneSpieleCount > 0) {
+  // `future` alone: a `past` season is refused by `REQ-ACTIVATE-002` whatever the outgoing season
+  // holds, so its open fixtures are not the blocker — and this `danger` banner would raise the save
+  // dialog over an unrelated edit.
+  if (saisonStatus === "future" && outgoingSaisonId !== null && offeneSpieleCount > 0) {
     banners.push({
       id: "saison.rollover-blocked",
       severity: "danger",

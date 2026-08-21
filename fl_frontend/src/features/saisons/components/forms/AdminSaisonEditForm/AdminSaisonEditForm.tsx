@@ -64,6 +64,7 @@ export function AdminSaisonEditForm({
   saison,
   rollover,
   swap,
+  hasDrawnSpiele,
   spieltagBound,
   registerRequestLeave,
   pageHeader,
@@ -72,6 +73,8 @@ export function AdminSaisonEditForm({
   rollover: SaisonRolloverContext;
   /** This season's clubs and their groups, plus the knockout count that closes the swap. */
   swap: SaisonGruppenSwapContext;
+  /** Whether the season holds fixtures, which is what freezes the rules they were drawn from. */
+  hasDrawnSpiele: boolean;
   /** The span the live matchdays already occupy, which the date pickers may not shrink past. */
   spieltagBound?: { startMax: string; endMin: string };
   registerRequestLeave?: (requestLeave: () => void) => void;
@@ -258,8 +261,8 @@ export function AdminSaisonEditForm({
 
   /**
    * The toast outlives this component, so the press runs detached — `AdminEditSpielDataForm` has the
-   * pitfalls. **A warning and not a success wherever the table moved**: it is scored and ordered from
-   * `rules` on every read, and a table reading differently is what nobody notices.
+   * pitfalls. **A warning, never a success, wherever the table moved**: it is scored and ordered from
+   * `rules` on read, so the move goes unnoticed.
    */
   const offerUndo = (payload: FLPatchSaisonPayload) => {
     const pointsMoved = payload.rules.win_points !== rules.win_points || payload.rules.draw_points !== rules.draw_points;
@@ -347,6 +350,7 @@ export function AdminSaisonEditForm({
               validateStufen(next);
             }}
             isFinishedSaison={saison.status === "past"}
+            isDrawnSaison={hasDrawnSpiele}
             banners={banners}
           />
 

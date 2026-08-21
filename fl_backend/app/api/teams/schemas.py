@@ -156,8 +156,12 @@ class FLTeamsFilterParams(BaseModel):
     # No `team_id`: one team by its id is addressed by `GET /teams/{team_id}`; this narrows a list.
     saison_id: str | None = None
     gruppe: FLGruppenNames | None = None
-    # A question about the junction, not a field on it -- nothing stores a boolean.
-    is_disqualified: bool | None = None
+    # A question about the junction, not a field on it -- nothing stores a boolean. It asks whether
+    # the club LEFT, by either route; `austritt_type` below is what narrows to one of them.
+    has_austritt: bool | None = None
+    # Independent of the boolean rather than nested under it: naming a type already implies having
+    # left, so the two combine without either having to imply the other.
+    austritt_type: FLAustrittType | None = None
     in_gruppen: bool | None = None
     include_inactive: bool = False
 
@@ -214,6 +218,9 @@ class FLPatchTeamResponse(BaseAPIResponse):
     updated_document: FLTeamRecord
     # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently (`docs/backend/spec.md :: I13`).
     fanned_out_to_spiele: int
+    # Reported for the same reason, and separately: it is scoped to the seasons that are not `past`,
+    # so zero means the club holds no row in one of those -- every season closed, or none entered.
+    fanned_out_to_saison_teams: int
 
 
 class FLTeamWriteResponse(BaseAPIResponse):
@@ -229,6 +236,10 @@ class FLSaisonTeamResponse(BaseAPIResponse):
     team_id: CustomObjectId
     gruppe: FLGruppenNames
     austritt: FLAustritt | None
+    # The season's own copy of the club's identity, on no payload: it is seeded from the club at
+    # entry and rewritten by the rename fan-out, so a client supplying it could only be stale.
+    name: CustomNonEmptyString
+    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
 
 
 FLTeamsResponse = Annotated[

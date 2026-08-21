@@ -6,7 +6,8 @@ import type { FLSaisonRules, FLSaisonStatus } from "./schemas";
 export type FLSaisonsSortOptions = "_id" | "start_date" | "end_date";
 
 export type FLSaisonsFilterParams = {
-  saison_id?: string;
+  // No `saison_id`: this narrows a LIST, where `GET /saisons/{saison_id}` names one. The endpoint
+  // declares no such parameter, and an undeclared one is dropped in silence rather than refused.
   status?: string;
 
   limit?: number;
@@ -21,8 +22,8 @@ export type SaisonDraftFields = {
 };
 
 /**
- * One row of the admin season list. Neither count is the rollover precondition — that is
- * `REQ-ACTIVATE-001`, shown in the season editor's rollover panel.
+ * One row of the admin season list. Neither count is a rollover precondition — those are
+ * `REQ-ACTIVATE-001` and `REQ-ACTIVATE-002`, both shown in the season editor's rollover panel.
  */
 export type AdminSaisonRow = {
   id: string;

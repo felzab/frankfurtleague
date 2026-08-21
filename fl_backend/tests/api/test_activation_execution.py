@@ -8,7 +8,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.cache import invalidate_saison_cache
-from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED
+from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_TARGET_PAST
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 
@@ -234,3 +234,44 @@ class TestAMidFlightFailureTakesTheDemotionBack:
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the promotion, got code {code}"
         # The validator admits `past`, so the incumbent reading `active` can only mean the demotion was taken back.
         assert statuses == {FIRST_INCUMBENT: "active", TARGET: "future"}, "the league was left with no active season"
+
+
+class TestTheRolloverRefusesAFinishedTarget:
+    """`REQ-ACTIVATE-002` through the route, which is the only thing that proves the target's own status is read.
+
+    The read before the transaction was there for the 404 alone, and a status it discards refuses
+    nothing.
+    """
+
+    def test_a_past_target_is_refused_with_no_incumbent_to_answer_for_it(self, mongo_replica_set_url: str):
+        """Nothing holds `active`, so `REQ-ACTIVATE-001` has an empty list and only the target can be the reason."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_activate(database, client, ARCHIVED)
+
+            return refusal.value.error_code, await statuses_now(database)
+
+        code, statuses = on_a_league(mongo_replica_set_url, body, saisons=[saison_document(ARCHIVED, "past")])
+
+        assert code == ACTIVATE_TARGET_PAST
+        assert statuses == {ARCHIVED: "past"}
+
+    def test_the_incumbent_keeps_running(self, mongo_replica_set_url: str):
+        """The incumbent is finished, so the rollover would otherwise land: the demotion is what a missed refusal costs."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_activate(database, client, ARCHIVED)
+
+            return refusal.value.error_code, await statuses_now(database)
+
+        code, statuses = on_a_league(
+            mongo_replica_set_url,
+            body,
+            saisons=[saison_document(ARCHIVED, "past"), saison_document(FIRST_INCUMBENT, "active")],
+            spiele=[spiel_document(FIRST_INCUMBENT, ergebnis="2:1")],
+        )
+
+        assert code == ACTIVATE_TARGET_PAST
+        assert statuses == {ARCHIVED: "past", FIRST_INCUMBENT: "active"}

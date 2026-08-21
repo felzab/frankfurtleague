@@ -4,7 +4,7 @@ import { connection } from "next/server";
 
 import { AdminContextWrapper } from "@/features/admin/components/providers/AdminContextWrapper";
 import { AdminSpielEditView } from "@/features/admin/components/views/AdminSpielEditView";
-import { getSpiel } from "@/features/spiele/queries";
+import { getAdminSpiel } from "@/features/spiele/queries";
 import { resolveSpielId } from "@/features/spiele/resolvers";
 import { spielStateKey } from "@/features/spiele/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -32,9 +32,10 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
   await connection();
   const spielId = await resolveSpielId(params);
 
-  // Null for "no such fixture", converted inside the query because a production build redacts an
-  // error thrown out of a "use cache" scope. Everything else still throws.
-  const spielRes = await getSpiel(spielId);
+  // Admin-tier and uncached, so the editor seeds from the fixture as it stands rather than from a
+  // cache entry hours old. `null` is "no such fixture"; everything else throws.
+
+  const spielRes = await getAdminSpiel(spielId);
 
   if (!spielRes) {
     notFound();

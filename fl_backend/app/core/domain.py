@@ -146,8 +146,10 @@ AGGREGATES: tuple[Aggregate, ...] = (
         boundary=(
             "A season's `rules` bound its own entries: a junction row's group must be one the season runs "
             "and within its capacity, and both are checked against the root on every write from either "
-            "side. `saison_spieler` joins for its identity being (player, season) and for `stufe` being "
-            "offered by the root."
+            "side. The root's `status` bounds them too: a junction row's `name` tracks the club it names "
+            "only while the season is not `past`, which is why the rename fan-out reads `saisons` before "
+            "it writes. `saison_spieler` joins for its identity being (player, season) and for `stufe` "
+            "being offered by the root."
         ),
     ),
     Aggregate(
@@ -217,34 +219,46 @@ REFERENCES: tuple[Reference, ...] = (
         on_target_removed=Action.NO_ACTION,
         note=(
             "`REQ-ELIGIBILITY-002` holds a newly fielded side to the season's `saison_teams` entrants and nothing reads "
-            "`teams`; entry into that junction is itself unchecked, so the entrants are not a subset and a side can carry "
-            "a `team_id` no club document holds. "
-            "A rename fans out into every match's embedded `name` and `shorthand` "
-            "(`app/api/teams/admin_router.py :: patch_team`). Retirement is soft and touches no match: "
-            "the embedded copy is what a played fixture said at the time."
+            "`teams` here; entry into that junction reads it instead, where an absent club is a 404 and a retired one is "
+            "refused (`REQ-ENTER-005`), so no junction row written since can name a club that does not exist. One written "
+            "before it still can, which is what `app/core/constraints.py :: report_relations` exists to surface. The side's "
+            "`name` and `shorthand` are read from that junction by the fixture write and ride on no payload; the group "
+            "swap composes them from `teams`, which agrees because `REQ-SWAP-003` refuses a swap on a `past` season and "
+            "no other season lets the two drift. "
+            "A rename fans out into the junction rows and the matches of every season that is not `past` "
+            "(`app/api/teams/admin_router.py :: patch_team`); a `past` season keeps what it was played under, as it "
+            "keeps it through retirement, which is soft and touches no match."
         ),
     ),
     Reference(
         source=Collection.SPIELE,
         fields=("ort.spielort_id",),
         target=Collection.SPIELORTE,
-        on_reference_created=Action.NO_ACTION,
+        on_reference_created=Action.RESTRICT,
         on_target_change=Action.CASCADE,
-        on_target_removed=Action.NO_ACTION,
+        on_target_removed=Action.RESTRICT,
         note=(
-            "Nothing reads the venue at the write, so a fixture may name one no `spielorte` row holds. "
-            "The name and the maps link fan out; `mietpreis` deliberately does not. It "
-            "records what this fixture cost, so rewriting it would rewrite history."
+            "A NEWLY assigned venue is read at the write, and one no `spielorte` row holds -- or one whose row is "
+            "retired and takes no new fixtures -- is refused (`REQ-BOOKING-001`); a reference already stored is left "
+            "alone. Retiring the venue is refused from the other side while an UNPLAYED fixture holds it "
+            "(`REQ-RETIRE-003`), which is why a played one may keep a retired ground. "
+            "The name and the maps link are read from that row rather than accepted, and they fan out on a rename; "
+            "`mietpreis` deliberately does neither. It records what this fixture cost, so rewriting it would rewrite history."
         ),
     ),
     Reference(
         source=Collection.SPIELE,
         fields=("schiedsrichter.schiedsrichter_id",),
         target=Collection.SCHIEDSRICHTER,
-        on_reference_created=Action.NO_ACTION,
+        on_reference_created=Action.RESTRICT,
         on_target_change=Action.CASCADE,
-        on_target_removed=Action.NO_ACTION,
-        note=("Unchecked at the write, as the venue beside it is. The name fans out; `payment` does not, for the reason `mietpreis` does not."),
+        on_target_removed=Action.RESTRICT,
+        note=(
+            "Read at the write when NEWLY assigned, as the venue beside it is, and refused where no row holds it or "
+            "the row it holds is retired; retiring the referee is refused from the other side for the reason the "
+            "venue's is (`REQ-RETIRE-004`). "
+            "The name is read from that row and fans out; `payment` does neither, for the reason `mietpreis` does not."
+        ),
     ),
     Reference(
         source=Collection.SPIELE,
@@ -302,11 +316,15 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SAISON_TEAMS,
         fields=("team_id",),
         target=Collection.TEAMS,
-        on_reference_created=Action.NO_ACTION,
-        on_target_change=Action.NO_ACTION,
+        on_reference_created=Action.RESTRICT,
+        on_target_change=Action.CASCADE,
         on_target_removed=Action.RESTRICT,
         note=(
-            "The path names the club and nothing reads it, so a row here can name a club `teams` does not hold. "
+            "`post_saison_team` reads the club, so entry naming one `teams` does not hold is a 404 and entry naming a "
+            "RETIRED one is refused (`REQ-ENTER-005`); that same read seeds this row's `name` and `shorthand`, which a "
+            "rename then rewrites while the season is not `past`. A row naming no club predates that read -- the entry "
+            "resolved nothing before it -- and is now reachable only by a database "
+            "edit, and `report_relations` is what surfaces one. "
             "Retiring a club is refused while a running or planned season holds it (`REQ-RETIRE-001`). A "
             "past season's rows survive the retirement, because those seasons still happened."
         ),
@@ -346,8 +364,9 @@ REFERENCES: tuple[Reference, ...] = (
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.NO_ACTION,
         note=(
-            "`REQ-SQUAD-001` counts a `saison_teams` row for the season and reads `teams` nowhere, so this inherits the "
-            "junction's own unchecked entry: a squad row can name a club no `teams` document holds. "
+            "`REQ-SQUAD-001` counts a `saison_teams` row for the season and reads `teams` nowhere, so this rests on "
+            "`post_saison_team` resolving the club at the junction's own entry: a squad row can name a club no "
+            "`teams` document holds only where the junction row predates that read. "
             "Nothing is embedded and nothing is refused afterwards: a squad row pointing at a retired club still "
             "resolves, and the admin list renders it rather than hiding it."
         ),
@@ -373,7 +392,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SAISONS,
         "status",
         Editability.CONTROL_ONLY,
-        "`POST /saisons/{saison_id}/activate`, which demotes the incumbent in the same transaction",
+        "`POST /saisons/{saison_id}/activate`, which demotes the incumbent in the same transaction; a season already "
+        "`past` is never the target (`REQ-ACTIVATE-002`), since promotion would reopen the freezes its own status carries",
         "app.api.saisons.admin_router.activate_saison",
     ),
     FieldPolicy(
@@ -410,22 +430,23 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SAISONS,
         "rules.qualifiers_per_group",
         Editability.CONDITIONAL,
-        "frozen on a `past` season; never below a placing a bracket slot already names; the product "
-        "with `number_of_groups` must be a legal bracket",
+        "frozen once the season holds fixtures (`REQ-RULES-011`) and on a `past` season; never below a placing a "
+        "bracket slot already names; the product with `number_of_groups` must be a legal bracket",
         "app.api.saisons.services.find_rules_refusal",
     ),
     FieldPolicy(
         Collection.SAISONS,
         "rules.number_of_groups",
         Editability.CONDITIONAL,
-        "never below a group that still holds teams; the product with `qualifiers_per_group` must be a legal bracket",
+        "frozen once the season holds fixtures, the schedule having been drawn from it (`REQ-RULES-011`); never below a "
+        "group that still holds teams; the product with `qualifiers_per_group` must be a legal bracket",
         "app.api.saisons.services.find_rules_refusal",
     ),
     FieldPolicy(
         Collection.SAISONS,
         "rules.teams_per_group",
         Editability.CONDITIONAL,
-        "never below the fullest group's occupancy",
+        "frozen once the season holds fixtures, for the reason `number_of_groups` is; never below the fullest group's occupancy",
         "app.api.saisons.services.find_rules_refusal",
     ),
     FieldPolicy(
@@ -495,6 +516,22 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "austritt",
         Editability.EDITABLE,
         "required on the payload with no default, so an omitted one is a 422 rather than a team quietly reinstated",
+    ),
+    FieldPolicy(
+        Collection.SAISON_TEAMS,
+        "name",
+        Editability.COMPOSED,
+        "seeded from the club when it enters the season and rewritten by a rename only while that season is "
+        "not `past`, on no payload: a finished season keeps the name it was played under, which is what makes "
+        "the copy its fixtures carry true rather than merely old",
+        "app.api.teams.admin_router.post_saison_team",
+    ),
+    FieldPolicy(
+        Collection.SAISON_TEAMS,
+        "shorthand",
+        Editability.COMPOSED,
+        "for the reason `name` is",
+        "app.api.teams.admin_router.post_saison_team",
     ),
     FieldPolicy(
         Collection.SPIELER,
@@ -587,6 +624,59 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "app.api.spiele.services.find_wiring_refusal",
     ),
     FieldPolicy(
+        Collection.SPIELE,
+        "team1.name",
+        Editability.COMPOSED,
+        "read from the season's junction row for `team_id` by the fixture write and carried on no payload: an "
+        "editor open across a rename would otherwise submit the pre-rename copy and silently undo the "
+        "fan-out for that one fixture, leaving it the only surface still showing the club's old name",
+        "app.api.spiele.services.apply_payload_to_spiel",
+    ),
+    FieldPolicy(
+        Collection.SPIELE,
+        "team1.shorthand",
+        Editability.COMPOSED,
+        "for the reason `team1.name` is",
+        "app.api.spiele.services.apply_payload_to_spiel",
+    ),
+    FieldPolicy(
+        Collection.SPIELE,
+        "team2.name",
+        Editability.COMPOSED,
+        "for the reason `team1.name` is",
+        "app.api.spiele.services.apply_payload_to_spiel",
+    ),
+    FieldPolicy(
+        Collection.SPIELE,
+        "team2.shorthand",
+        Editability.COMPOSED,
+        "for the reason `team1.name` is",
+        "app.api.spiele.services.apply_payload_to_spiel",
+    ),
+    FieldPolicy(
+        Collection.SPIELE,
+        "ort.name",
+        Editability.COMPOSED,
+        "read from the venue `spielort_id` names and carried on no payload, for the reason `team1.name` is. "
+        "`mietpreis` beside it STAYS on the payload: it is this fixture's own agreed rent rather than a copy "
+        "of the venue's default, so composing it would be the violation",
+        "app.api.spiele.services.apply_payload_to_spiel",
+    ),
+    FieldPolicy(
+        Collection.SPIELE,
+        "ort.maps_link",
+        Editability.COMPOSED,
+        "for the reason `ort.name` is, and it is itself composed at the venue (`spielorte.maps_link`)",
+        "app.api.spiele.services.apply_payload_to_spiel",
+    ),
+    FieldPolicy(
+        Collection.SPIELE,
+        "schiedsrichter.name",
+        Editability.COMPOSED,
+        "for the reason `ort.name` is, `payment` beside it staying on the payload for the reason `mietpreis` does",
+        "app.api.spiele.services.apply_payload_to_spiel",
+    ),
+    FieldPolicy(
         Collection.SPIELORTE,
         "maps_link",
         Editability.COMPOSED,
@@ -656,6 +746,15 @@ RULES: tuple[Rule, ...] = (
         summary="a season whose rules produce a knockout round may not award a no-show a draw",
         implemented_by="app.api.saisons.services.find_rules_refusal",
         tested_by="tests/api/test_rules_refusal.py::TestADrawnForfeitCannotDecideAKnockout",
+    ),
+    Rule(
+        code="REQ-RULES-011",
+        operation="PATCH /saisons/{saison_id}",
+        aggregate="Saison",
+        summary="`number_of_groups`, `teams_per_group` and `qualifiers_per_group` may not change once the season holds fixtures",
+        implemented_by="app.api.saisons.services.find_rules_refusal",
+        tested_by="tests/api/test_rules_refusal.py::TestADrawnSeasonKeepsTheShapeItWasDrawnFrom",
+        multi_document=True,
     ),
     Rule(
         code="REQ-RULES-009",
@@ -737,6 +836,14 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-ACTIVATE-002",
+        operation="POST /saisons/{saison_id}/activate",
+        aggregate="Saison",
+        summary="a season already `past` is never made active again",
+        implemented_by="app.api.saisons.services.find_activation_refusal",
+        tested_by="tests/api/test_activation_refusal.py::TestAFinishedSeasonIsNeverPromotedBack",
+    ),
+    Rule(
         code="REQ-ENTER-001",
         operation="POST /teams/{team_id}/saisons",
         aggregate="Saison",
@@ -770,6 +877,15 @@ RULES: tuple[Rule, ...] = (
         summary="a group change is refused once the season has started and the team's fixtures are drawn",
         implemented_by="app.api.teams.services.find_gruppe_move_refusal",
         tested_by="tests/api/test_gruppe_move_refusal.py::TestTheWindowForAGroupChange",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-ENTER-005",
+        operation="POST /teams/{team_id}/saisons",
+        aggregate="Saison",
+        summary="a club that has left the LEAGUE is entered into no season until it is reactivated",
+        implemented_by="app.api.teams.services.find_club_entry_refusal",
+        tested_by="tests/api/test_team_entry_refusal.py::TestWhetherTheClubIsStillInTheLeague",
         multi_document=True,
     ),
     Rule(
@@ -908,6 +1024,15 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-BOOKING-001",
+        operation="PATCH /spiele/{spiel_id}",
+        aggregate="Saison-Spielplan",
+        summary="a venue or a referee NEWLY assigned to a fixture must name a row that exists and has not retired",
+        implemented_by="app.api.spiele.services.find_booking_refusal",
+        tested_by="tests/api/test_occupant_refusal.py::TestTheBookingRefusal",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-CLASH-001",
         operation="PATCH /spiele/{spiel_id}",
         aggregate="Saison-Spielplan",
@@ -949,8 +1074,9 @@ RULES: tuple[Rule, ...] = (
         operation="PATCH /spiele/{spiel_id}",
         aggregate="Saison-Spielplan",
         summary=(
-            "a team that left the season may not be NEWLY fielded on or after its exit, unless a Gruppenphase "
-            "fixture's event awards nothing or names that side as the one that stayed away"
+            "a team that left the season may not be fielded on or after its exit -- judged whenever the side, the date "
+            "or the event moves -- unless the event names that side as the one that stayed away, or awards nothing on a "
+            "Gruppenphase fixture"
         ),
         implemented_by="app.api.spiele.services.find_eligibility_refusal",
         tested_by="tests/api/test_occupant_refusal.py::TestEligibility",
@@ -1068,8 +1194,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="a bracket slot the resolution filled with a team that later left the season",
         reason=(
-            "`REQ-ELIGIBILITY-001` covers a team being NEWLY fielded by a request; a slot already holding "
-            "a since-departed team is reported as a derived fault and never rewritten -- only a person "
+            "`REQ-ELIGIBILITY-001` judges a side a request fields or re-dates; a slot the RESOLUTION filled, "
+            "which no request touched, is reported as a derived fault and never rewritten -- only a person "
             "chooses between a forfeit and a replacement."
         ),
         near=("REQ-ELIGIBILITY-001",),
@@ -1106,12 +1232,14 @@ UNENFORCED: tuple[Unenforced, ...] = (
         subject="a Spieltag on which a club already stands twice",
         reason=(
             "The swap refuses only the Spieltag it BREAKS, never one already broken, because refusing over an "
-            "existing fault would block the repair. `REQ-SPIELTAG-001` holds the same line one fixture at a time. "
-            "The refusal message names what the exchange would break."
+            "existing fault would block the repair. `REQ-SPIELTAG-001` holds the same line one fixture at a time, and "
+            "the swap's refusal message names what the exchange would break. Every appearance of the standing state "
+            "is reported instead, in fixture order, because which one to correct is a competition call rather than "
+            "a rule's."
         ),
         near=("REQ-SWAP-005", "REQ-SPIELTAG-001"),
         proven_by="tests/core/test_unenforced.py::TestASpieltagAlreadyHoldingAClubTwice",
-        surfaced_by="fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx",
+        surfaced_by="/admin/action_required",
     ),
     Unenforced(
         subject="a person holding no squad row at all",
@@ -1129,7 +1257,9 @@ UNENFORCED: tuple[Unenforced, ...] = (
         reason=(
             "A departed club keeps its group place, and its opponents need a fixture to record the walkover on, "
             "so clearing them would leave a full group with nothing to play. It keeps the fixtures it already "
-            "stands on; `REQ-ELIGIBILITY-001` refuses only fielding it somewhere NEW."
+            "stands on, undisturbed. What `REQ-ELIGIBILITY-001` refuses is a request that DISTURBS one: fielding the "
+            "club somewhere new, or moving the date or the event of a fixture it already stands on into a state that "
+            "no longer records its absence."
         ),
         near=("REQ-ELIGIBILITY-001",),
         proven_by="tests/core/test_unenforced.py::TestADisqualifiedClubKeepsItsFixtures",

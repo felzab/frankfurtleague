@@ -6,8 +6,11 @@ from pydantic import ValidationError
 from pymongo.database import Database
 
 from app.api.spieler.schemas import (
+    FLPatchSaisonSpielerPayload,
+    FLPostSaisonSpielerPayload,
     FLSpieler,
     FLSpielerFilterParams,
+    FLSpielerMembership,
     FLSpielerMembershipsResponse,
     FLSpielerWithMemberships,
 )
@@ -166,6 +169,40 @@ class TestTheResponseModel:
         assert player.memberships[0].position is None
         assert player.memberships[0].stufe is None
 
+    def test_a_membership_reads_a_row_that_carries_neither_flag(self):
+        """`FLSpieler` defaults both for this reason, and this model reads the same rows: requiring them here would 500 the whole list."""
+        player = FLSpielerWithMemberships.model_validate(
+            {
+                "_id": str(SPIELER_OIDS["Abel"]),
+                "vorname": "Anna",
+                "nachname": "Abel",
+                "inactive_since": None,
+                "memberships": [
+                    {
+                        "saison_id": SAISON,
+                        "team_id": str(TEAM_OID),
+                        "nummer": "7",
+                        "position": "Mittelfeld",
+                        "stufe": "Q1",
+                        "inactive_since": None,
+                    }
+                ],
+            }
+        )
+
+        assert (player.memberships[0].is_nachgetragen, player.memberships[0].is_captain) == (False, False)
+
+    def test_a_membership_defaults_match_the_flattened_read(self):
+        """`FLSpielerMembership` and `FLSpieler` read the same collection: a default on one and not the other is the disagreement this pins."""
+        for field in ("is_nachgetragen", "is_captain"):
+            assert FLSpielerMembership.model_fields[field].default == FLSpieler.model_fields[field].default
+
+    @pytest.mark.parametrize("payload_model", [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload])
+    @pytest.mark.parametrize("field", ["is_nachgetragen", "is_captain"])
+    def test_a_payload_keeps_both_flags_required(self, payload_model, field):
+        """The defaults belong to the read models: the patch `$set`s its dump, so one here strips an armband a form forgot to send."""
+        assert payload_model.model_fields[field].is_required()
+
 
 def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
     return {
@@ -196,6 +233,15 @@ def _squad_row(name: str, saison_id: str, *, nummer: str | None, inactive_since:
     }
 
 
+def _legacy_squad_row(name: str, saison_id: str) -> dict[str, Any]:
+    """A row as written before either flag existed: the keys are ABSENT rather than false, which is what the projection cannot supply."""
+    row = _squad_row(name, saison_id, nummer="5")
+    del row["is_nachgetragen"]
+    del row["is_captain"]
+
+    return row
+
+
 @pytest.fixture(scope="session")
 def squads(mongo_database: Database) -> Database:
     """Its own corpus rather than `conftest.py`'s league: squads there would make the pipeline suites depend on rows they never mention."""
@@ -220,6 +266,9 @@ def squads(mongo_database: Database) -> Database:
             _squad_row("Cordes", SAISON, nummer="11"),
             # The row is retired while the person plays on — independent in the other direction.
             _squad_row("Cordes", PRIOR_SAISON, nummer="9", inactive_since="2025-11-30"),
+            # Hung on a player who already holds a row, so no assertion above about who the corpus
+            # contains has to move.
+            _legacy_squad_row("Abel", PRIOR_SAISON),
         ]
     )
 
@@ -262,3 +311,13 @@ class TestTheMembershipsPipelineExecuted:
         raw = list(squads.spieler.aggregate(build_spieler_memberships_pipeline()))
 
         assert [row["vorname"] for row in raw] == ["A", "B", "C", "O"]
+
+    def test_a_row_written_before_the_flags_existed_still_reads(self, squads: Database):
+        """The whole chain, because its middle is the surprise: `$project` with a `1` omits an absent key rather than nulling it."""
+        raw = next(row for row in squads.spieler.aggregate(build_spieler_memberships_pipeline()) if row["nachname"] == "Abel")
+        legacy = next(row for row in raw["memberships"] if row["saison_id"] == PRIOR_SAISON)
+
+        assert "is_nachgetragen" not in legacy and "is_captain" not in legacy
+
+        rows = {row.saison_id: row for row in self._by_surname(squads)["Abel"].memberships}
+        assert (rows[PRIOR_SAISON].is_nachgetragen, rows[PRIOR_SAISON].is_captain) == (False, False)

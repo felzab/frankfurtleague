@@ -251,13 +251,27 @@ describe("deriveSlotHerkunft", () => {
 
 describe("formatSpielUpdateMessage", () => {
   /** A fixture that moved and lost nothing — the ordinary case. */
-  const moved = (spielNr: number): FLSpielAdvancement => ({ spiel_nr: spielNr, voided_ergebnis: null, voided_elfmeterschiessen: null });
+  const moved = (spielNr: number): FLSpielAdvancement => ({
+    spiel_nr: spielNr,
+    voided_ergebnis: null,
+    voided_elfmeterschiessen: null,
+    voided_sonderereignis: null,
+  });
 
   /** A fixture whose stored scoreline the same save deleted. */
   const voided = (spielNr: number, ergebnis: string): FLSpielAdvancement => ({
     spiel_nr: spielNr,
     voided_ergebnis: ergebnis,
     voided_elfmeterschiessen: null,
+    voided_sonderereignis: null,
+  });
+
+  /** A no-show fixture: the event and the forfeit it composed go together, as the write path pairs them. */
+  const voidedNoShow = (spielNr: number, ergebnis: string): FLSpielAdvancement => ({
+    spiel_nr: spielNr,
+    voided_ergebnis: ergebnis,
+    voided_elfmeterschiessen: null,
+    voided_sonderereignis: "nichtantreten_team1",
   });
 
   it("says only that the match was saved when the bracket did not move", () => {
@@ -306,7 +320,7 @@ describe("formatSpielUpdateMessage", () => {
     const message = formatSpielUpdateMessage(
       [],
       [],
-      [{ spiel_nr: 12, side: "team1", team_name: "Adler", voided_ergebnis: null, voided_elfmeterschiessen: null }],
+      [{ spiel_nr: 12, side: "team1", team_name: "Adler", voided_ergebnis: null, voided_elfmeterschiessen: null, voided_sonderereignis: null }],
     );
 
     assert.match(message, /Adler wurde aus Spiel 12 entfernt, da beide am selben Spieltag stattfinden/);
@@ -316,10 +330,59 @@ describe("formatSpielUpdateMessage", () => {
     const message = formatSpielUpdateMessage(
       [],
       [],
-      [{ spiel_nr: 12, side: "team2", team_name: "Adler", voided_ergebnis: "3:1", voided_elfmeterschiessen: null }],
+      [
+        {
+          spiel_nr: 12,
+          side: "team2",
+          team_name: "Adler",
+          voided_ergebnis: "3:1",
+          voided_elfmeterschiessen: null,
+          voided_sonderereignis: null,
+        },
+      ],
     );
 
     assert.match(message, /dessen Ergebnis 3:1 damit gelöscht wurde/);
+  });
+
+  it("says a cleared no-show went, beside the scoreline it composed", () => {
+    // Two facts, not one: the figure is what the table read, the event is what the fixture recorded,
+    // and an admin told only about the score would not know the Sonderereignis is gone.
+    const message = formatSpielUpdateMessage([voidedNoShow(30, "3:0")]);
+
+    assert.match(message, /Das eingetragene Ergebnis in Spiel 30 wurde dabei gelöscht/);
+    assert.match(message, /Das eingetragene Nichtantreten in Spiel 30 wurde dabei ebenfalls entfernt/);
+  });
+
+  it("says nothing about a no-show when the save cleared none", () => {
+    // The half that makes the sentence above worth reading.
+    assert.doesNotMatch(formatSpielUpdateMessage([voided(30, "2:0")]), /Nichtantreten/);
+  });
+
+  it("names several cleared no-shows without pluralising the word itself", () => {
+    assert.match(
+      formatSpielUpdateMessage([voidedNoShow(30, "3:0"), voidedNoShow(31, "0:3")]),
+      /In den Spielen 30 und 31 wurde dabei jeweils das eingetragene Nichtantreten entfernt/,
+    );
+  });
+
+  it("says a released fixture lost its no-show too", () => {
+    const message = formatSpielUpdateMessage(
+      [],
+      [],
+      [
+        {
+          spiel_nr: 12,
+          side: "team1",
+          team_name: "Adler",
+          voided_ergebnis: "3:0",
+          voided_elfmeterschiessen: null,
+          voided_sonderereignis: "nichtantreten_team2",
+        },
+      ],
+    );
+
+    assert.match(message, /dessen Ergebnis 3:0 damit gelöscht wurde; das dort eingetragene Nichtantreten wurde ebenfalls entfernt/);
   });
 });
 
@@ -341,6 +404,19 @@ function departedFault(austritt_type: FLAustrittType): FLBracketFault {
 /** The id is read only as a key, so any valid one will do. */
 function gruppeFault(reason: "gruppe_too_small" | "tie_unresolved", gruppe: "A" | "B", platz: number): FLBracketFault {
   return { reason, spiel_id: "6890a1b2c3d4e5f607180025", spiel_nr: 25, gruppe, platz };
+}
+
+/** One appearance of a club that stands more than once on its Spieltag; the callers vary only the seat. */
+function fieldedTwice(side: "team1" | "team2"): FLBracketFault {
+  return {
+    reason: "fielded_twice",
+    spiel_id: "6890a1b2c3d4e5f607180029",
+    spiel_nr: 29,
+    spieltag_id: "6890a1b2c3d4e5f607180301",
+    side,
+    team_id: TEAM_1,
+    team_name: "Adler",
+  };
 }
 
 describe("toPatchPayload and buildUndoPayloads", () => {
@@ -398,6 +474,15 @@ describe("toPatchPayload and buildUndoPayloads", () => {
     assert.notEqual(spielStateKey(fixture(29, null)), spielStateKey(fixture(30, null)));
   });
 
+  it("keys a renamed club apart, although the name no longer travels on the payload", () => {
+    // The editor seeds its pickers from these copies, so a rename fanned out into the fixture has to
+    // remount the tree. The key is the SEED's mirror, which the payload is only part of.
+    const before = fixture(29, null);
+    const renamed = { ...before, team1: { ...before.team1, name: "Team A II" } } as FLSpiel;
+
+    assert.notEqual(spielStateKey(before), spielStateKey(renamed));
+  });
+
   it("ignores a change to a field no draft atom holds", () => {
     // `ergebnis` is derived by the backend and is on no payload, so it cannot reset a form that never
     // showed it as editable state — the key is the draft's mirror, not the whole document.
@@ -410,10 +495,10 @@ describe("toPatchPayload and buildUndoPayloads", () => {
     assert.equal("ergebnis" in toPatchPayload(fixture(29, "2:0")), false);
   });
 
-  it("does not carry a side's joined austritt onto the write path", () => {
+  it("sends a side as identity and goals alone, carrying neither the join nor the composed name", () => {
     // Structural typing accepts the joined side wherever the stored one is asked for, so nothing in
-    // the toolchain sees this: only Zod's `strip` keeps the join off the wire, and Pydantic's
-    // `extra="ignore"` keeps it out of the document.
+    // the toolchain sees this: only this narrowing keeps `austritt` off the wire, and only it keeps
+    // a client's copy of a club's name from being written back over the row it came from.
     const joined = {
       ...fixture(29, "2:0"),
       team1: {
@@ -425,7 +510,21 @@ describe("toPatchPayload and buildUndoPayloads", () => {
       },
     } as FLSpiel;
 
-    assert.deepEqual(Object.keys(toPatchPayload(joined).team1 ?? {}).sort(), ["name", "shorthand", "team_id", "tore"]);
+    assert.deepEqual(Object.keys(toPatchPayload(joined).team1 ?? {}).sort(), ["team_id", "tore"]);
+  });
+
+  it("keeps the rent and the Entschädigung on the payload, where the composed names do not travel", () => {
+    // Each is what THIS fixture pays rather than a copy of a default, so an omitted one is a rent
+    // silently rewritten to nothing by the very `$set` that was meant to leave it alone.
+    const booked = {
+      ...fixture(29, null),
+      ort: { spielort_id: "6890a1b2c3d4e5f607180101", name: "Halle Nord", maps_link: "https://maps.example/nord", mietpreis: 120 },
+      schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607180202", name: "R. Meier", payment: 35 },
+    } as FLSpiel;
+    const payload = toPatchPayload(booked);
+
+    assert.deepEqual(payload.ort, { spielort_id: "6890a1b2c3d4e5f607180101", mietpreis: 120 });
+    assert.deepEqual(payload.schiedsrichter, { schiedsrichter_id: "6890a1b2c3d4e5f607180202", payment: 35 });
   });
 
   it("puts the edited fixture first, so the resolution runs before the results go back", () => {
@@ -519,6 +618,30 @@ describe("formatBracketFault", () => {
 
     assert.match(formatBracketFault(undated), /Das Spiel hat kein Datum/);
     assert.match(describeBracketFaultOnCard(undated), /Ohne Spieldatum/);
+  });
+
+  it("names the seat a club stands on when it is fielded twice on one Spieltag", () => {
+    assert.equal(
+      formatBracketFault(fieldedTwice("team1")),
+      "In Spiel 29 steht Adler als Team 1, doch an diesem Spieltag ist die Mannschaft mehrfach aufgestellt",
+    );
+    assert.equal(describeBracketFaultOnCard(fieldedTwice("team2")), "Adler ist an diesem Spieltag mehrfach aufgestellt, hier als Team 2.");
+  });
+
+  // One entry stands per APPEARANCE, so a club on both seats of one fixture arrives twice on it: the
+  // side is what keeps the two sentences from reading as one repeated.
+  it("tells the two entries of one fixture apart", () => {
+    assert.notEqual(formatBracketFault(fieldedTwice("team1")), formatBracketFault(fieldedTwice("team2")));
+    assert.notEqual(describeBracketFaultOnCard(fieldedTwice("team1")), describeBracketFaultOnCard(fieldedTwice("team2")));
+  });
+
+  // Nothing is emptied by this fault — which fixture to correct is a competition call — so neither
+  // wording may promise a repair.
+  it("promises no repair, because there is none to promise", () => {
+    for (const side of ["team1", "team2"] as const) {
+      assert.doesNotMatch(formatBracketFault(fieldedTwice(side)), /wird|automatisch|entfernt|gelöscht/);
+      assert.doesNotMatch(describeBracketFaultOnCard(fieldedTwice(side)), /wird|automatisch|entfernt|gelöscht/);
+    }
   });
 });
 

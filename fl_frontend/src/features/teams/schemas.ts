@@ -47,6 +47,10 @@ export const FLTeamStatistikSchema = z.object({
 });
 export type FLTeamStatistik = z.infer<typeof FLTeamStatistikSchema>;
 
+/**
+ * The season-scoped read. `name` and `shorthand` are the junction's copy, so a club renamed after a
+ * season finished still reads there under the name it played under (`docs/glossary.md :: Team`).
+ */
 export const FLTeamSchema = z.object({
   id: CustomObjectIdStringSchema,
 
@@ -202,6 +206,9 @@ export const FLPatchTeamResponseSchema = BaseAPIResponseSchema.extend({
   // The rename's fan-out is the half of the endpoint that fails silently, so the count is surfaced
   // in the save toast rather than dropped.
   fanned_out_to_spiele: z.int().nonnegative(),
+  // Reported beside the one above and never derived from it: this half reaches only the seasons that
+  // are not `past`, so zero is the true answer for a club whose every season is closed.
+  fanned_out_to_saison_teams: z.int().nonnegative(),
 });
 export type FLPatchTeamResponse = z.infer<typeof FLPatchTeamResponseSchema>;
 
@@ -236,5 +243,10 @@ export const FLSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   team_id: CustomObjectIdStringSchema,
   gruppe: FLGruppenNamesSchema,
   austritt: FLAustrittSchema.nullable(),
+  // The season's own copy of the club's identity, on no payload: it is seeded from the club at entry
+  // and rewritten by a rename only while the season is not `past`, so a client's copy could only be
+  // stale.
+  name: z.string().nonempty(),
+  shorthand: z.string().length(2),
 });
 export type FLSaisonTeamResponse = z.infer<typeof FLSaisonTeamResponseSchema>;

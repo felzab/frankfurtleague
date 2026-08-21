@@ -29,7 +29,7 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
 
   switch (error.serverErrorCode) {
     case "REQ-RULES-001":
-      return { fieldErrors: { "rules.qualifiers_per_group": "Gruppen mal Qualifizierte muss eine Zweierpotenz von 2 bis 16 ergeben." } };
+      return { fieldErrors: { "rules.qualifiers_per_group": "Gruppen mal Qualifikanten muss eine Zweierpotenz von 2 bis 16 ergeben." } };
     case "REQ-RULES-002":
       return { fieldErrors: { "rules.number_of_groups": "Eine Gruppe, die noch Teams hält, kann nicht wegfallen." } };
     case "REQ-RULES-003":
@@ -58,11 +58,23 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
             "Diese Saison spielt eine KO-Runde, in der ein Unentschieden niemanden weiterbringt. Sieger und Verlierer brauchen unterschiedliche Tore.",
         },
       };
+    // Both freezes can hold at once and neither message can see which does, so each names only what
+    // it freezes and closes with the four fields neither reaches. `FormRegelnSection`'s note has the
+    // season's status and lists the rest per case.
     case "REQ-RULES-005":
       return {
         error:
-          "Diese Saison ist abgeschlossen, deshalb sind Punkte, Qualifizierte und die Reihenfolge bei Punktgleichheit festgeschrieben. " +
-          "Die übrigen Regeln und der Zeitraum bleiben änderbar.",
+          "Diese Saison ist abgeschlossen, deshalb sind Punkte, die Reihenfolge bei Punktgleichheit und die Qualifikanten festgeschrieben. " +
+          "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar.",
+      };
+    // A bare message, the shape `REQ-RULES-005` uses: the two freezes refuse the same class of edit
+    // in one panel, and one answering through field paths would split that into two mechanisms.
+    case "REQ-RULES-011":
+      return {
+        error:
+          "Für diese Saison sind bereits Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Gruppen, Teams pro Gruppe und " +
+          "Qualifikanten stehen damit fest; einen neuen Spielplan legt die Verwaltung nicht an. Nichtantreten, Kadergröße, Stufen und der " +
+          "Zeitraum bleiben änderbar.",
       };
     case "REQ-RULES-006":
       return {
@@ -182,8 +194,9 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
 }
 
 /**
- * The only path to `status: "active"`. `REQ-ACTIVATE-001` refuses it while the outgoing season has
- * unplayed fixtures: demoting that season to `past` freezes its rules and its table into the record.
+ * The only path to `status: "active"`, under two refusals: `REQ-ACTIVATE-001` while the outgoing
+ * season has unplayed fixtures, demotion to `past` freezing its table into the record;
+ * `REQ-ACTIVATE-002` on a `past` target, which nothing reopens.
  */
 export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload): Promise<{
   success: boolean;
@@ -203,17 +216,27 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The panel already disables the control and lists the open fixtures, so reaching here means a
-    // stale page: the message names the remedy rather than failing bare.
+    // The panel closes the control for both, so either one arriving here means the page is stale. The
+    // first names the remedy; the second has none, and says so rather than implying one.
     let activateOperation;
     try {
       activateOperation = await activateSaison(validated.data);
     } catch (error) {
-      if (error instanceof APIBadStatusError && error.statusCode === 409 && error.serverErrorCode === "REQ-ACTIVATE-001") {
-        return {
-          success: false,
-          error: "Die laufende Saison hat noch Spiele ohne Ergebnis. Trage die Ergebnisse ein oder sage die Spiele ab.",
-        };
+      if (error instanceof APIBadStatusError && error.statusCode === 409) {
+        if (error.serverErrorCode === "REQ-ACTIVATE-001") {
+          return {
+            success: false,
+            error: "Die laufende Saison hat noch Spiele ohne Ergebnis. Trage die Ergebnisse ein oder sage die Spiele ab.",
+          };
+        }
+        if (error.serverErrorCode === "REQ-ACTIVATE-002") {
+          return {
+            success: false,
+            error:
+              "Diese Saison ist inzwischen abgeschlossen und wird nicht wieder zur laufenden: Die Punkte, die Gruppen und die Tabelle " +
+              "daraus halten fest, was gespielt wurde. Der Abschluss lässt sich in der Verwaltung nicht zurücknehmen. Lade die Seite neu.",
+          };
+        }
       }
       throw error;
     }

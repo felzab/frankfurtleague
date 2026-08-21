@@ -10,8 +10,11 @@ from app.api.spiele.schemas import (
     FLSonderereignis,
     FLSpiel,
     FLSpielElfmeterschiessen,
+    FLSpielOrtFieldPayload,
     FLSpielQuelleGruppe,
     FLSpielQuelleSpiel,
+    FLSpielSchiedsrichterFieldPayload,
+    FLSpielTeamFieldPayload,
 )
 
 
@@ -310,3 +313,35 @@ class TestPatchPayload:
         mismatched = {"type": "gruppe", "spiel_nr": 25, "ausgang": "sieger"}
 
         assert_rejects(FLPatchSpielDataPayload, self._payload(spiel, team1=None, team1_quelle=mismatched), "gruppe")
+
+    @pytest.mark.parametrize(
+        ("model", "composed"),
+        [
+            (FLSpielTeamFieldPayload, {"name", "shorthand"}),
+            (FLSpielOrtFieldPayload, {"name", "maps_link"}),
+            (FLSpielSchiedsrichterFieldPayload, {"name"}),
+        ],
+        ids=["a side", "a venue", "a referee"],
+    )
+    def test_a_display_copy_is_on_no_payload(self, model, composed):
+        """The server composes each from the row it belongs to, so a copy a client typed could only disagree with it."""
+
+        assert not composed & set(model.model_fields)
+
+    @pytest.mark.parametrize(
+        ("model", "kept"),
+        [(FLSpielOrtFieldPayload, "mietpreis"), (FLSpielSchiedsrichterFieldPayload, "payment")],
+        ids=["the rent", "the payment"],
+    )
+    def test_what_this_fixture_pays_stays_on_the_payload(self, model, kept):
+        """Deliberately unlike the names beside it: each is this fixture's own record, not a copy of a default."""
+
+        assert kept in model.model_fields
+
+    def test_a_submitted_name_never_reaches_the_payload(self, spiel):
+        """The other end of the same claim: an old client still sending one is answered, and its copy is dropped."""
+
+        parsed = FLPatchSpielDataPayload.model_validate(self._payload(spiel))
+
+        assert parsed.team1 is not None and not hasattr(parsed.team1, "name")
+        assert parsed.ort is not None and not hasattr(parsed.ort, "name")

@@ -26,7 +26,10 @@ export type FLTeamsFilterParams = {
   gruppe?: string;
   // A question about the junction, not a field on it: the row stores an `austritt` record and
   // no boolean.
-  is_disqualified?: boolean;
+  has_austritt?: boolean;
+  // Independent of the boolean rather than nested under it: naming a route already implies having
+  // left, so the two combine without either implying the other.
+  austritt_type?: FLAustrittType;
   in_gruppen?: boolean;
   // Retired clubs are excluded unless an admin picker asks for them.
   include_inactive?: boolean;
