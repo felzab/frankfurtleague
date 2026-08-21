@@ -31,19 +31,25 @@ SAISON_ID = "2026"
 Seeding = tuple[tuple[FLGruppenNames, int], ...]
 Score = tuple[tuple[int, ...], tuple[int, ...]]
 
-# `(number_of_groups, teams_per_group, qualifiers_per_group)`. Between them: an odd group, a lone
-# group, a bracket of one final, and the widest the phases hold. `TestTheShapesAreSeasonsThatCanExist`
-# derives that each is legal rather than trusting it.
+# `(number_of_groups, teams_per_group, qualifiers_per_group)`. Every `BRACKET_SEEDING` row is drawn
+# by one of these, and each shape's legality is derived rather than trusted -- both below.
 SHAPES: tuple[tuple[int, int, int], ...] = (
     (1, 2, 2),
     (2, 3, 1),
     (1, 6, 2),
+    (1, 7, 4),
+    (1, 8, 8),
     (2, 4, 2),
+    (2, 6, 4),
+    (4, 2, 2),
     (4, 5, 1),
     (4, 4, 4),
     (2, 8, 8),
     (1, 16, 16),
 )
+
+# A one-group season has only the identity relabelling, so the symmetry test says nothing there.
+MULTI_GROUP_KEYS: tuple[tuple[int, int], ...] = tuple(sorted(key for key in BRACKET_SEEDING if key[0] > 1))
 
 
 def rules(*, groups: int, teams: int, qualifiers: int) -> FLSaisonRules:
@@ -172,6 +178,24 @@ class TestTheCircleMethodPairsAGroup:
 
         assert sorted(byes) == list(range(teams))
 
+    def test_it_pairs_the_two_smallest_groups_exactly_like_this(self):
+        """Hand-derived rather than recorded from a run, so this pins the sides as well as the pairs."""
+
+        assert circle_rounds(3) == (((1, 2),), ((2, 0),), ((0, 1),))
+        assert circle_rounds(4) == (((0, 3), (1, 2)), ((2, 0), (3, 1)), ((0, 1), (2, 3)))
+
+    @pytest.mark.parametrize("teams", range(2, 17))
+    def test_the_pinned_club_leads_every_other_fixture_it_plays(self, teams: int):
+        """The alternation `circle_rounds` documents.
+
+        Position 0 is the only club whose pair could otherwise list it first every round, because
+        it is the one the rotation holds still.
+        """
+
+        leads = [pair[0] == 0 for pairs in circle_rounds(teams) for pair in pairs if 0 in pair]
+
+        assert sum(leads) == (len(leads) + 1) // 2
+
     def test_a_group_too_small_to_pair_plays_nothing(self):
         """`teams_per_group` has a floor of 2, so this is the boundary rather than a reachable season."""
 
@@ -266,6 +290,28 @@ def permutations_of(offered: tuple[FLGruppenNames, ...]) -> tuple[tuple[FLGruppe
     return tuple(permutations(offered))
 
 
+def partner_consistent_seedings(groups: int, qualifiers: int) -> Iterator[Seeding]:
+    """Every placement the obvious runtime rule permits: round one pairs A with B and C with D, at placings summing to `qualifiers + 1`."""
+
+    # The whole `groups! ** qualifiers` space, never the normalised one: what is counted is how much
+    # the rule leaves open, so no symmetry may be quotiented away first.
+    field = groups * qualifiers
+    seed_at = bracket_slots(field)
+    band_at = [(seed - 1) // groups for seed in seed_at]
+    rank_at = [(seed - 1) % groups for seed in seed_at]
+    opening = range(0, field, 2)
+
+    # Which placings a round-one pair draws is fixed by the bracket itself, so this half of the rule
+    # holds for every arrangement or for none.
+    if any(band_at[slot] + band_at[slot + 1] != qualifiers - 1 for slot in opening):
+        return
+
+    offered = GRUPPEN[:groups]
+    for bands in product(permutations(range(groups)), repeat=qualifiers):
+        if all(bands[band_at[slot + 1]][rank_at[slot + 1]] == bands[band_at[slot]][rank_at[slot]] ^ 1 for slot in opening):
+            yield tuple((offered[bands[band_at[slot]][rank_at[slot]]], band_at[slot] + 1) for slot in range(field))
+
+
 @cache
 def optimum(groups: int, qualifiers: int) -> Score:
     """The best score the banded space reaches, cached because the widest sweep walks 13824 seedings."""
@@ -279,10 +325,10 @@ class TestTheTableCoversTheWritePath:
 
         assert set(BRACKET_SEEDING) == legal_combinations()
 
-    def test_no_season_divides_its_bracket_three_ways(self):
-        """Three times any qualifier count keeps a factor of three, so nothing halves down to one final."""
+    def test_every_row_is_a_season_some_test_below_actually_draws(self):
+        """A row exercised only against itself is one no season was ever generated from."""
 
-        assert not any(groups == 3 for groups, _ in BRACKET_SEEDING)
+        assert {(groups, qualifiers) for groups, _, qualifiers in SHAPES} == set(BRACKET_SEEDING)
 
     @pytest.mark.parametrize("key", sorted(BRACKET_SEEDING))
     def test_a_row_holds_one_slot_per_qualifier(self, key: tuple[int, int]):
@@ -312,7 +358,7 @@ class TestEveryRowIsAWholeDraw:
 
 
 class TestTheTableIsTheExhaustiveOptimum:
-    @pytest.mark.parametrize("key", sorted(BRACKET_SEEDING))
+    @pytest.mark.parametrize("key", MULTI_GROUP_KEYS)
     def test_relabelling_the_groups_leaves_the_score_unchanged(self, key: tuple[int, int]):
         """What lets the sweep hold one band fixed; without it a fixed band would only BOUND the optimum."""
 
@@ -328,6 +374,36 @@ class TestTheTableIsTheExhaustiveOptimum:
         """Re-run rather than trusted: the row is a literal, and only this sweep says it is the best one."""
 
         assert score(BRACKET_SEEDING[key]) == optimum(*key)
+
+    def test_two_rows_are_exactly_these(self):
+        """Hand-written, so the table is pinned past what `score` cannot see.
+
+        Reversing a row, or swapping every fixture's two slots, leaves both objectives and the
+        `q + 1` sums identical, so the property tests fix the table only up to symmetry.
+        """
+
+        assert BRACKET_SEEDING[(2, 2)] == (("A", 1), ("B", 2), ("B", 1), ("A", 2))
+        assert BRACKET_SEEDING[(4, 2)] == (("A", 1), ("B", 2), ("C", 1), ("D", 2), ("B", 1), ("A", 2), ("D", 1), ("C", 2))
+
+
+class TestThePinnedTableBeatsTheObviousRuntimeRule:
+    """`spielplan.py`'s comment argues the table earns its place by these numbers, so they are recounted rather than quoted."""
+
+    @pytest.mark.parametrize(("key", "permitted", "sooner"), (((4, 2), 24, 8), ((4, 4), 576, 480)))
+    def test_the_rule_leaves_this_much_open_and_this_much_of_it_is_worse(self, key: tuple[int, int], permitted: int, sooner: int):
+        """`sooner` counts the placements meeting a same-group pair in an EARLIER round than the stored row does."""
+
+        placements = list(partner_consistent_seedings(*key))
+        best = optimum(*key)
+
+        assert len(placements) == permitted
+        assert sum(1 for one in placements if score(one)[0][0] < best[0][0]) == sooner
+
+    @pytest.mark.parametrize("key", ((4, 2), (4, 4)))
+    def test_the_stored_row_is_one_the_rule_permits(self, key: tuple[int, int]):
+        """So the table CHOOSES within the rule rather than departing from it, and what it adds is which placement to ship."""
+
+        assert BRACKET_SEEDING[key] in set(partner_consistent_seedings(*key))
 
 
 class TestTheShapesAreSeasonsThatCanExist:
@@ -425,6 +501,25 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
         ]
 
         assert sorted(met, key=sorted) == sorted(expected, key=sorted)
+
+    @pytest.mark.parametrize("shape", SHAPES)
+    def test_a_group_fixture_takes_its_sides_in_the_order_the_pairing_names(self, shape: tuple[int, int, int]):
+        """Every other pairing assertion here compares unordered pairs.
+
+        A draw that swapped `team1` and `team2` on every fixture would pass all of them.
+        """
+
+        groups, teams, _ = shape
+        entered = entered_for(groups, teams)
+        squads = {gruppe: [team for team in entered if team.gruppe == gruppe] for gruppe in GRUPPEN[:groups]}
+        drawn = [(spiel["team1"]["team_id"], spiel["team2"]["team_id"]) for spiel in draw(*shape).spiele if spiel["team1"] is not None]
+
+        assert drawn == [
+            (squads[gruppe][one].team_id, squads[gruppe][other].team_id)
+            for pairs in circle_rounds(teams)
+            for gruppe in GRUPPEN[:groups]
+            for one, other in pairs
+        ]
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_no_club_stands_twice_on_one_matchday(self, shape: tuple[int, int, int]):

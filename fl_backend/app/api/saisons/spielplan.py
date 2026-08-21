@@ -17,9 +17,9 @@ from app.api.spiele.schemas import FLSaisonPhase, FLSpielQuelleGruppe, FLSpielQu
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
 
-# Pinned, not derived: pairing partnered groups fixes WHO meets in round one, never WHERE a fixture
-# sits -- 8 of 24 such placements at 4x2, and 480 of 576 at 4x4, meet a same-group pair early. A
-# published bracket is a table in every competition.
+# Pinned, not derived: pairing partnered groups fixes WHO meets in round one, never WHERE. Of the
+# placements it leaves open, 8 of 24 at 4x2 and 480 of 576 at 4x4 meet a same-group pair sooner.
+# `tests/api/test_spielplan.py` recounts all four.
 BRACKET_SEEDING: Mapping[tuple[int, int], tuple[tuple[FLGruppenNames, int], ...]] = {
     (1, 2): (("A", 1), ("A", 2)),
     (1, 4): (("A", 1), ("A", 4), ("A", 2), ("A", 3)),
