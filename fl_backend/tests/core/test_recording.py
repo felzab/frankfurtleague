@@ -1,16 +1,16 @@
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any, Mapping, cast
+from typing import Any, Mapping, Sequence, cast
 
 import pytest
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 from pymongo import ReturnDocument
-from pymongo.results import InsertOneResult, UpdateResult
+from pymongo.results import InsertManyResult, InsertOneResult, UpdateResult
 
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import correlation_id_var
 from app.core.recording import Actor, _stringify_filter, actor_var, record_write, request_var
@@ -24,6 +24,10 @@ BEFORE_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing", "short
 AFTER_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing-Gymnasium", "shorthand": "LG"}
 
 CREATED_DOCUMENT: Mapping[str, Any] = {"_id": CREATED_OID, "name": "Carl-Schurz", "shorthand": "CS"}
+
+# More than two, so a row per document rather than per call is unmistakable, and none of them
+# carries an `_id`: a generated fixture leaves those to the driver.
+CREATED_DOCUMENTS: Sequence[Mapping[str, Any]] = [{"name": f"Club {index}", "shorthand": f"C{index}"} for index in range(5)]
 
 FILTER: Mapping[str, Any] = {"saison_id": "2026", "team_id": TEAM_OID}
 UPDATE: Mapping[str, Any] = {"$set": {"name": "Lessing-Gymnasium"}}
@@ -85,6 +89,13 @@ class _FakeCollection:
         self.sessions.append(session)
 
         return InsertOneResult(document.get("_id", CREATED_OID), True)
+
+    async def insert_many(self, documents: Sequence[Mapping[str, Any]], session: Any = None) -> InsertManyResult:
+        """Ids in input order, as the driver answers: `post_many_to_db` counts them to fill the row."""
+        self.inserted.extend(documents)
+        self.sessions.append(session)
+
+        return InsertManyResult([document.get("_id", ObjectId()) for document in documents], True)
 
 
 def build(name: str = Collection.TEAMS, **state: Any) -> tuple[_FakeCollection, _FakeCollection]:
@@ -203,12 +214,49 @@ class TestWhatEachWriteRecords:
 
         assert log.inserted[0]["before"] is None
 
+    def test_a_bulk_create_records_one_row_however_many_documents_it_inserted(self):
+        """One row per call, never one per document: a generated season is one action that writes its whole fixture draw."""
+        target, log = build()
+
+        asyncio.run(post_many_to_db(collection=as_collection(target), documents=CREATED_DOCUMENTS))
+
+        assert len(log.inserted) == 1
+        assert log.inserted[0]["operation"] == "insert_many"
+        assert log.inserted[0]["modified_count"] == len(CREATED_DOCUMENTS)
+
+    def test_a_bulk_create_names_no_document_and_no_prior_image(self):
+        """It named no single document and replaced nothing, so the count is the whole of what the row can say."""
+        target, log = build()
+
+        asyncio.run(post_many_to_db(collection=as_collection(target), documents=CREATED_DOCUMENTS))
+
+        assert log.inserted[0]["document_id"] is None
+        assert log.inserted[0]["before"] is None
+        assert log.inserted[0]["db_filter"] is None
+
+    def test_a_bulk_create_hands_the_driver_the_documents_unchanged(self):
+        """A helper editing what it was given would put a document into the database no caller composed."""
+        target, _ = build()
+
+        asyncio.run(post_many_to_db(collection=as_collection(target), documents=CREATED_DOCUMENTS))
+
+        assert target.inserted == list(CREATED_DOCUMENTS)
+
     def test_the_row_travels_inside_the_session_the_write_used(self):
         """A row written outside an aborting transaction survives it, and the log then holds a write the database rolled back."""
         target, log = build(before=BEFORE_DOCUMENT, after=AFTER_DOCUMENT)
 
         asyncio.run(patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE, session=SESSION))
 
+        assert log.sessions == [SESSION]
+
+    def test_a_bulk_create_carries_the_session_into_the_documents_and_the_row_alike(self):
+        """The generator writes a whole season in one transaction, and a row landing outside it survives an abort the documents do not."""
+        target, log = build()
+
+        asyncio.run(post_many_to_db(collection=as_collection(target), documents=CREATED_DOCUMENTS, session=SESSION))
+
+        assert target.sessions == [SESSION]
         assert log.sessions == [SESSION]
 
 

@@ -48,8 +48,8 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           lead: "Alle Saisons, ihre Zeiträume und die Regeln, nach denen sie gespielt werden.",
           points: [
             { term: "Anlegen", detail: "über die Schaltfläche oben rechts. Eine neue Saison ist immer geplant, nie laufend." },
-            { term: "Bearbeiten", detail: "der Stift öffnet die Saisonseite mit Zeitraum, Regeln und Umstellung." },
-            { term: "Umstellen", detail: "macht eine geplante Saison zur laufenden und schließt die bisherige ab." },
+            { term: "Bearbeiten", detail: "der Stift öffnet die Saisonseite mit Zeitraum, Regeln, Gruppentausch, Spielplan und Umstellung." },
+            { term: "Umstellen", detail: "macht eine geplante Saison zur laufenden Saison und schließt die bisherige ab." },
             { term: "Punkte", detail: "gelten rückwirkend, auch für längst gespielte Spiele." },
           ],
           note: "Eine Saison wird nie gelöscht. Eine gespielte Saison ist abgeschlossen und bleibt abrufbar.",
@@ -94,10 +94,11 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         hint: {
           lead: "Die Spieltage der im Seitenmenü gewählten Saison, nach Phase und in der Reihenfolge, in der sie gespielt werden.",
           points: [
-            { term: "Name", detail: "ergibt sich aus Phase und Position. Um einen Spieltag zu verschieben, ändere seine Position." },
+            { term: "Name", detail: "folgt aus der Runde, zu der ein Spieltag gehört." },
+            { term: "Zeitraum", detail: "der Stift öffnet den Spieltag, dort trägst Du Beginn und Ende ein." },
             { term: "Spiele", detail: "die angelegte Zahl neben der erwarteten. Weichen sie ab, fehlt etwas." },
           ],
-          note: "Sobald die KO-Runde begonnen hat, lassen sich keine Spieltage mehr anlegen.",
+          note: "Die Spieltage einer Saison entstehen zusammen mit ihrem Spielplan. Hier legst Du ihren Zeitraum fest.",
         },
       },
       {
@@ -203,7 +204,11 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           lead: "Jede Änderung, die über die Verwaltung geschrieben wurde, neueste zuerst.",
           points: [
             { term: "Wer", detail: "die angemeldete Person. „System“ steht für einen Lauf ohne Anmeldung, etwa eine Wartung." },
-            { term: "Art", detail: "was geschehen ist. Eine Sammeländerung trifft alle Datensätze eines Filters auf einmal." },
+            {
+              term: "Art",
+              detail:
+                "was geschehen ist. Eine Sammeländerung trifft alle Datensätze eines Filters auf einmal. „Mehrere angelegt“ benennt keinen einzelnen Datensatz, sondern nur die Zahl.",
+            },
             { term: "Stand gesichert", detail: "der Datensatz von vor der Änderung liegt in dieser Zeile." },
             { term: "Vorgangsnummer", detail: "kopiere sie und suche danach, um jede Zeile eines einzelnen Speicherns zu sehen." },
           ],

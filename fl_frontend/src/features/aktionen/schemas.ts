@@ -29,8 +29,9 @@ export const FLAktionSchema = z.object({
   request: FLAktionRequestSchema.nullable(),
   // Open rather than an enum of the nine names: a collection added on the backend must still list here.
   collection: z.string(),
-  operation: z.enum(["insert", "patch_one", "patch_many"]),
-  // An ObjectId everywhere but `saisons`, whose id is the season string. Null on a fan-out, which matched a filter.
+  operation: z.enum(["insert", "insert_many", "patch_one", "patch_many"]),
+  // An ObjectId everywhere but `saisons`, whose id is the season string. Null on a fan-out, which named a filter
+  // instead, and on a bulk create, which named nothing at all (`docs/backend/spec.md :: I40`).
   document_id: z.string().nullable(),
   db_filter: z.record(z.string(), z.string()).nullable(),
   // The replaced document, in whatever shape its own collection gives it.

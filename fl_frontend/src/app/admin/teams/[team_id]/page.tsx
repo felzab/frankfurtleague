@@ -61,14 +61,16 @@ async function AdminTeamEditContent({
 
   const membership = team.memberships.find((candidate) => candidate.saison_id === selectedSaison.id) ?? null;
 
-  // The group may move only while no fixture of the club's exists yet, or the season is `future`.
-  // The reads beside it are the swap control's: `REQ-SWAP-002`, `REQ-SWAP-004` and `REQ-SWAP-005`.
+  // The first read is the group lock's, counted over the club's own fixtures as `patch_saison_team`
+  // counts them; the other two are the swap control's: `REQ-SWAP-002`, `REQ-SWAP-004`, `REQ-SWAP-005`.
   const [teamSpieleRes, playoffSpieleRes, gruppenSpieleRes] = await Promise.all([
     membership === null ? Promise.resolve(null) : getSpiele({ saison_id: selectedSaison.id, team_id: teamId, limit: 1 }),
     getSpiele({ saison_id: selectedSaison.id, saison_phase: "playoffs" }),
     getSpiele({ saison_id: selectedSaison.id, saison_phase: "gruppenphase" }),
   ]);
-  const gruppeLocked = selectedSaison.status !== "future" && (teamSpieleRes?.spiele.length ?? 0) > 0;
+  // Whatever the season's status, because a `future` season is drawn before it is activated, so a
+  // drawn one is the ordinary pre-activation state rather than an unreachable one (`REQ-ENTER-004`).
+  const gruppeLocked = (teamSpieleRes?.spiele.length ?? 0) > 0;
 
   const saison: TeamSaisonMembership = {
     saisonId: selectedSaison.id,

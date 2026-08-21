@@ -32,12 +32,6 @@ function invalidateSeasonScoped(resource: "teams" | "spiele", saisonId: string):
   updateTag(`${resource}:saison_id:${saisonId}`);
 }
 
-/**
- * The junction write's refusals (`REQ-ENTER-001..005`), or `null` when the 409 is something else.
- * `POST` answers 005 ahead of 001..003, the club's own standing being unfixable by another group;
- * `PATCH` feeds `find_entry_refusal` the status `future`, so it answers 004 and both group gates,
- * never 001 and never 005.
- */
 function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
   if (error.serverErrorCode === "REQ-ENTER-001") {

@@ -32,16 +32,19 @@ export const AKTION_COLLECTION_LABELS: Record<string, string> = {
  */
 export const AKTION_OPERATION_LABELS: Record<FLAktion["operation"], string> = {
   insert: "Angelegt",
+  insert_many: "Mehrere angelegt",
   patch_one: "Geändert",
   patch_many: "Sammeländerung",
 };
 
 /**
- * The pairs `AdminSaisonsTable` already carries, at the same `/15` fill with its `-strong` ink. A fan-out takes the
- * warning pair because it is the one row that changed records nobody named, so it asks to be read rather than skimmed.
+ * The pairs `AdminSaisonsTable` already carries, at the same `/15` fill with its `-strong` ink. The fan-out and the
+ * bulk create take the warning pair, because they touched records nobody named, so they ask to be read rather than
+ * skimmed.
  */
 export const AKTION_OPERATION_TINTS: Record<FLAktion["operation"], string> = {
   insert: "bg-success/15 text-success-strong",
+  insert_many: "bg-warning/15 text-warning-strong",
   patch_one: "bg-info/15 text-info-strong",
   patch_many: "bg-warning/15 text-warning-strong",
 };

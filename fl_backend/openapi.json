@@ -278,7 +278,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in\n`advanced_to`. `dry_run=true` answers the same and writes nothing.",
+        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -662,7 +662,7 @@
       },
       "patch": {
         "summary": "Update a team and fan the rename out",
-        "description": "Update a club, then rewrite the name and shorthand its unfinished seasons carry.\n\nThe fan-out is not optional: the junction and every match carry a copy of both fields, so\nwithout it a stale name stands indefinitely. A `past` season is left alone -- it is the record\nof the name the club was played under.",
+        "description": "Update a club, then rewrite the name and shorthand its unfinished seasons carry.\n\nThe junction and every match hold a copy of both (`docs/backend/spec.md :: I13`); a `past`\nseason keeps the name it was played under.",
         "operationId": "patch_team_api_v0_teams__team_id__patch",
         "security": [
           {
@@ -875,48 +875,6 @@
             }
           }
         }
-      },
-      "post": {
-        "summary": "Create a Spieltag",
-        "description": "Create a matchday.\n\nThe payload carries no `position`: a create APPENDS to its phase, and the `PATCH` is where one\nmoves. A season whose knockout phase is under way takes no new matchday.",
-        "operationId": "post_spieltag_api_v0_spieltage_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLPostSpieltagPayload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpieltagWriteResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/api/v0/spieltage/{spieltag_id}": {
@@ -964,8 +922,8 @@
         }
       },
       "patch": {
-        "summary": "Update a Spieltag",
-        "description": "Update a matchday.\n\nNo fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. A phase\nchange is refused where it would strand fixtures; an EMPTY matchday moves freely. `position` and\n`saison_phase` land in one write, a slot another matchday of that phase holds being a 409.",
+        "summary": "Re-date a Spieltag",
+        "description": "Move a matchday's span.\n\nNo fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held\nto its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.",
         "operationId": "patch_spieltag_api_v0_spieltage__spieltag_id__patch",
         "security": [
           {
@@ -2315,7 +2273,7 @@
     "/api/v0/teams/{team_id}/saisons": {
       "post": {
         "summary": "Enter a team into a season",
-        "description": "Enter a team into a season, in a group, under the name the club carries today.\n\nA team with no row here is ABSENT from that season entirely: the join is strict. Refused unless\nthe club is still in the league, the season is `future`, and the group it names has space.",
+        "description": "Enter a team into a season, in a group, under the name the club carries today.\n\nA club with no row here is ABSENT from that season rather than merely unlisted\n(`docs/backend/spec.md :: I11`).",
         "operationId": "post_saison_team_api_v0_teams__team_id__saisons_post",
         "security": [
           {
@@ -2370,7 +2328,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}": {
       "patch": {
         "summary": "Change a team's group or record its exit from the season",
-        "description": "Change which group a team is in for a season, or record that it has left.\n\nAn `austritt` -- a disqualification or a withdrawal -- is how a team leaves a season; there is no\ndelete. Both fields are required, so an omitted `austritt` is a 422 rather than a team quietly\nreinstated.",
+        "description": "Change which group a team is in for a season, or record that it has left.\n\nBoth fields are required (`docs/backend/spec.md :: I31`), so an omitted `austritt` is a 422\nrather than a team quietly reinstated.",
         "operationId": "patch_saison_team_api_v0_teams__team_id__saisons__saison_id__patch",
         "security": [
           {
@@ -2503,7 +2461,7 @@
     "/api/v0/spieler/{spieler_id}/saisons": {
       "post": {
         "summary": "Add a Spieler to a squad",
-        "description": "Put a player in a team's squad for a season.\n\nOne row per player per season, enforced by a unique index, so moving a player is a PATCH of\n`team_id` rather than a second row. A repeat is a 409, retired rows included. Refused once the\nsquad holds the season's `max_kadergroesse` members.",
+        "description": "Put a player in a team's squad for a season.\n\nOne row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409\neven where the row is retired (`docs/backend/spec.md :: I20`).",
         "operationId": "post_saison_spieler_api_v0_spieler__spieler_id__saisons_post",
         "security": [
           {
@@ -2558,7 +2516,7 @@
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
       "patch": {
         "summary": "Update a squad entry",
-        "description": "Update a player's squad entry for that season.\n\nChanging `team_id` is how a transfer is recorded, and the team it moves TO must have room.\n`nummer` stays free TEXT and a DUPLICATE IS PERMITTED\n(`fl_backend/app/core/domain.py :: UNENFORCED`): the league fields four keepers on 1.",
+        "description": "Update a player's squad entry for that season.\n\nChanging `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted\n(`fl_backend/app/core/domain.py :: UNENFORCED`).",
         "operationId": "patch_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__patch",
         "security": [
           {
@@ -2674,7 +2632,7 @@
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
       "post": {
         "summary": "Put a Spieler back in a squad they left",
-        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected: the row still holds the unique key, and a create reviving\nit would overwrite the number and position it carries. Refused where the squad has since filled\nup -- a retired row gave its place back, and somebody else may be standing in it.",
+        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected (`docs/backend/spec.md :: I20`): a create reviving the row\nwould overwrite both. Refused where the squad has since filled up.",
         "operationId": "reactivate_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__reactivate_post",
         "security": [
           {
@@ -2825,6 +2783,51 @@
         }
       }
     },
+    "/api/v0/saisons/{saison_id}/spielplan": {
+      "post": {
+        "summary": "Draw this Saison's Spielplan",
+        "description": "Draw the whole season at once: every matchday and every fixture, in one transaction.\n\nONE-WAY, like activation, and nothing it writes carries a date. A half-written draw could not be\nrepaired here, `/spiele` having neither a create nor a delete.",
+        "operationId": "generate_spielplan_api_v0_saisons__saison_id__spielplan_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLGenerateSpielplanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v0/spielorte/{spielort_id}/reactivate": {
       "post": {
         "summary": "Bring a deactivated Spielort back",
@@ -2951,6 +2954,7 @@
                 {
                   "enum": [
                     "insert",
+                    "insert_many",
                     "patch_one",
                     "patch_many"
                   ],
@@ -3232,6 +3236,7 @@
             "type": "string",
             "enum": [
               "insert",
+              "insert_many",
               "patch_one",
               "patch_many"
             ],
@@ -3529,7 +3534,7 @@
           "spiel_datum"
         ],
         "title": "FLBracketFaultOccupant",
-        "description": "One fixture fielding a team that left the season before the day it is played.\n\nDerived beside the bracket walk rather than inside it, from a fixture's DATE against a junction\nrecord, so no phase is out of its reach. Nothing is emptied: that is a competition decision."
+        "description": "One fixture fielding a team that left the season before the day it is played.\n\nDerived beside the bracket walk rather than inside it, so no phase is out of its reach; nothing\nis emptied (`fl_backend/app/core/domain.py :: UNENFORCED`)."
       },
       "FLBracketFaultQuelle": {
         "properties": {
@@ -3696,6 +3701,49 @@
         ],
         "title": "FLEinwilligung",
         "description": "What this person agreed may be published about them.\n\nRequired TOGETHER, as `FLAustritt` is: a scope with no confirmation date is a claim that\nsomebody consented, and the surface reading this may not tell the two apart."
+      },
+      "FLGenerateSpielplanResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id"
+          },
+          "spieltage": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Spieltage"
+          },
+          "spiele": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Spiele"
+          },
+          "generiert_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Generiert Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "spieltage",
+          "spiele",
+          "generiert_am"
+        ],
+        "title": "FLGenerateSpielplanResponse",
+        "description": "What the draw wrote, flat rather than nested.\n\nAn admin reads the two counts without a second request, and they are the same numbers the\nseason's own watermark keeps, so the two can be compared by eye."
       },
       "FLGruppen": {
         "additionalProperties": {
@@ -4290,30 +4338,12 @@
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Ende"
-          },
-          "saison_phase": {
-            "type": "string",
-            "enum": [
-              "gruppenphase",
-              "achtelfinale",
-              "viertelfinale",
-              "halbfinale",
-              "finale"
-            ],
-            "title": "Saison Phase"
-          },
-          "position": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Position"
           }
         },
         "type": "object",
         "required": [
           "beginn",
-          "ende",
-          "saison_phase",
-          "position"
+          "ende"
         ],
         "title": "FLPatchSpieltagPayload"
       },
@@ -4685,45 +4715,6 @@
         ],
         "title": "FLPostSpielortResponse"
       },
-      "FLPostSpieltagPayload": {
-        "properties": {
-          "beginn": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Beginn"
-          },
-          "ende": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Ende"
-          },
-          "saison_phase": {
-            "type": "string",
-            "enum": [
-              "gruppenphase",
-              "achtelfinale",
-              "viertelfinale",
-              "halbfinale",
-              "finale"
-            ],
-            "title": "Saison Phase"
-          },
-          "saison_id": {
-            "type": "string",
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Saison Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "beginn",
-          "ende",
-          "saison_phase",
-          "saison_id"
-        ],
-        "title": "FLPostSpieltagPayload"
-      },
       "FLPostTeamPayload": {
         "properties": {
           "name": {
@@ -4817,6 +4808,16 @@
               "future"
             ],
             "title": "Status"
+          },
+          "spielplan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonSpielplan"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "schedule": {
             "items": {
@@ -5071,6 +5072,33 @@
         ],
         "title": "FLSaisonSpielerResponse",
         "description": "A junction row, which has no read model of its own -- so it is echoed as it was written."
+      },
+      "FLSaisonSpielplan": {
+        "properties": {
+          "generiert_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Generiert Am"
+          },
+          "spieltage": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Spieltage"
+          },
+          "spiele": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Spiele"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generiert_am",
+          "spieltage",
+          "spiele"
+        ],
+        "title": "FLSaisonSpielplan",
+        "description": "What the generator left behind on the season it wrote.\n\nCounts rather than a hash: these are the two numbers an admin can compare against the page in\nfront of them, and a hash answers no question anyone standing there is asking."
       },
       "FLSaisonTeamResponse": {
         "properties": {
@@ -6531,19 +6559,33 @@
       },
       "FLSpieltag": {
         "properties": {
-          "beginn": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Beginn"
-          },
-          "ende": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Ende"
-          },
           "id": {
             "type": "string",
             "title": "Id"
+          },
+          "beginn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beginn"
+          },
+          "ende": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ende"
           },
           "anzahl_spiele": {
             "type": "integer",
@@ -6575,9 +6617,9 @@
         },
         "type": "object",
         "required": [
+          "id",
           "beginn",
           "ende",
-          "id",
           "anzahl_spiele",
           "position",
           "saison_phase",
@@ -6601,19 +6643,13 @@
             "title": "Spieltag Id"
           },
           "updated_document": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpieltag"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLSpieltag"
           }
         },
         "type": "object",
         "required": [
-          "spieltag_id"
+          "spieltag_id",
+          "updated_document"
         ],
         "title": "FLSpieltagWriteResponse"
       },

@@ -9,6 +9,7 @@ from bson import ObjectId
 
 from app.api.aktionen.schemas import FLAktion
 from app.api.saisons.admin_router import _spieltag_clashes, activate_saison
+from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaisonRules
 from app.api.saisons.services import find_rules_refusal
 from app.api.spiele.schemas import (
@@ -25,7 +26,8 @@ from app.api.spiele.services import SaisonMembership, find_departed_occupants, f
 from app.api.spieler.admin_router import post_spieler
 from app.api.spieler.schemas import FLPostSpielerPayload
 from app.api.spieler.services import find_squad_refusal
-from app.api.spieltage.services import find_spieltag_phase_refusal
+from app.api.spieltage.admin_router import patch_spieltag
+from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
 from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES
@@ -359,16 +361,23 @@ class TestExactlyOneActiveSeason:
 
 
 class TestAMatchdayOffItsImpliedCount:
-    """That the mismatch is refused only as a MOVE that narrows the count, never as a state the matchday sits in."""
+    """That the count a phase implies reaches the matchday's own write nowhere, so no state of the two can be refused there."""
 
-    def test_a_matchday_over_its_phases_count_is_permitted_where_it_stands(self):
-        assert find_spieltag_phase_refusal(attached_count=9, expected_count=6, expected_in_stored_phase=6) is None
+    def test_the_matchday_write_refuses_on_its_dates_alone(self):
+        """Matched on the suffix rather than the `find_` prefix, which the driver's own reads share: what is pinned is the refusals."""
 
-    def test_a_matchday_under_its_phases_count_is_permitted_too(self):
-        assert find_spieltag_phase_refusal(attached_count=2, expected_count=6, expected_in_stored_phase=6) is None
+        assert {call for call in _calls_of(patch_spieltag) if call.endswith("_refusal")} == {
+            "find_spieltag_span_refusal",
+            "find_spieltag_order_refusal",
+        }
 
-    def test_the_move_into_a_narrower_phase_is_what_refuses(self):
-        assert find_spieltag_phase_refusal(attached_count=9, expected_count=1, expected_in_stored_phase=6) is not None
+    def test_the_implied_count_is_read_for_the_echo_and_nothing_else(self):
+        """`expected_matches` is the figure a mismatch would be measured against, so where it is called is where a refusal could form."""
+
+        module = _module_of(with_expected_matches)
+
+        assert _callers_of(module, "expected_matches") == {"with_expected_matches"}
+        assert _callers_of(_module_of(patch_spieltag), "expected_matches") == set()
 
 
 class TestASharedSquadNumber:
@@ -567,3 +576,43 @@ class TestAStoredPreImageIsNeverRevalidated:
         before = COLLECTION_VALIDATORS[Collection.AKTIONEN]["$jsonSchema"]["properties"]["before"]
 
         assert set(before) == {"bsonType"}
+
+
+class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
+    """That the order rule is handed one phase at a time, and that the phases it would have to compare hold one matchday each."""
+
+    def test_the_refusal_is_handed_no_phase_at_all(self):
+        """Its whole input: the span this request carries, the day the matchday stands on, and two neighbours of a position and a day."""
+
+        assert set(inspect.signature(find_spieltag_order_refusal).parameters) == {
+            "beginn",
+            "ende",
+            "stored_beginn",
+            "previous",
+            "following",
+        }
+        assert set(DatedNeighbour.__dataclass_fields__) == {"position", "beginn"}
+
+    def test_the_neighbours_are_read_inside_one_phase(self):
+        """The filter the endpoint builds, read out of its own source: the subject's OWN phase is what keeps two phases apart."""
+
+        keyed_on = {
+            key.value: ast.unparse(value)
+            for node in ast.walk(_declared(patch_spieltag))
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict)
+            for key, value in zip(node.value.keys, node.value.values, strict=True)
+            if isinstance(key, ast.Constant)
+        }
+
+        # `ast.unparse` normalises to single quotes, whatever the source spells them as.
+        assert keyed_on["saison_id"] == "stored_raw['saison_id']"
+        assert keyed_on["saison_phase"] == "stored_raw['saison_phase']"
+
+    def test_a_knockout_phase_is_drawn_with_one_matchday(self):
+        """One matchday makes no pair to order, which is what leaves the rule inert everywhere but the group phase."""
+
+        counts = {entry.phase: entry.matchdays for entry in schedule_for(_rules())}
+        knockout = {phase: matchdays for phase, matchdays in counts.items() if phase != "gruppenphase"}
+
+        assert counts["gruppenphase"] > 1
+        assert knockout and set(knockout.values()) == {1}

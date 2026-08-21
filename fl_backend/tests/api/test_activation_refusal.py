@@ -1,6 +1,12 @@
 import pytest
 
-from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_TARGET_PAST, find_activation_refusal, unplayed_spiel_nrs
+from app.api.saisons.services import (
+    ACTIVATE_SAISON_UNFINISHED,
+    ACTIVATE_TARGET_PAST,
+    ACTIVATE_TARGET_UNDRAWN,
+    find_activation_refusal,
+    unplayed_spiel_nrs,
+)
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielListAdapter
 
 
@@ -29,6 +35,11 @@ def season(*spiele: dict) -> list:
     return FLSpielListAdapter.validate_python(
         [{**base, "_id": f"6890a1b2c3d4e5f60720{index:04d}", **spiel} for index, spiel in enumerate(spiele, start=1)]
     )
+
+
+# A target that HOLDS fixtures, so every case below judges what it means to judge rather than
+# tripping `REQ-ACTIVATE-003` on the way past.
+DRAWN = 60
 
 
 class TestWhatCountsAsUnplayed:
@@ -73,10 +84,10 @@ class TestTheOutgoingSeasonMustBeFinished:
     def test_a_finished_season_rolls_over(self):
         """A fresh database has no incumbent at all, and the caller passes the same empty list for that case as for this one."""
 
-        assert find_activation_refusal(target_status="future", outgoing_unplayed=[]) is None
+        assert find_activation_refusal(target_status="future", target_fixtures=DRAWN, outgoing_unplayed=[]) is None
 
     def test_an_unfinished_season_is_refused(self):
-        refusal = find_activation_refusal(target_status="future", outgoing_unplayed=[3])
+        refusal = find_activation_refusal(target_status="future", target_fixtures=DRAWN, outgoing_unplayed=[3])
 
         assert refusal is not None
         assert refusal.error_code == ACTIVATE_SAISON_UNFINISHED
@@ -84,7 +95,7 @@ class TestTheOutgoingSeasonMustBeFinished:
     def test_the_refusal_names_the_fixtures(self):
         """`spiel_nr` is how an admin finds a fixture in the Spielsuche, so naming them saves a second lookup."""
 
-        refusal = find_activation_refusal(target_status="future", outgoing_unplayed=[3, 7])
+        refusal = find_activation_refusal(target_status="future", target_fixtures=DRAWN, outgoing_unplayed=[3, 7])
 
         assert refusal is not None
         assert "3, 7" in refusal.message
@@ -92,7 +103,7 @@ class TestTheOutgoingSeasonMustBeFinished:
     def test_a_long_list_is_summarised_rather_than_printed(self):
         """This detail is the log line: a season's worth of numbers buries the sentence saying what to do."""
 
-        refusal = find_activation_refusal(target_status="future", outgoing_unplayed=list(range(1, 12)))
+        refusal = find_activation_refusal(target_status="future", target_fixtures=DRAWN, outgoing_unplayed=list(range(1, 12)))
 
         assert refusal is not None
         assert "1, 2, 3, 4, 5 and 6 more" in refusal.message
@@ -110,10 +121,10 @@ class TestAFinishedSeasonIsNeverPromotedBack:
     def test_a_season_still_running_is_promoted(self, target_status):
         """`active` too, because re-activating the incumbent is what a season that was closed one step early would otherwise need."""
 
-        assert find_activation_refusal(target_status=target_status, outgoing_unplayed=[]) is None
+        assert find_activation_refusal(target_status=target_status, target_fixtures=DRAWN, outgoing_unplayed=[]) is None
 
     def test_a_finished_season_is_refused(self):
-        refusal = find_activation_refusal(target_status="past", outgoing_unplayed=[])
+        refusal = find_activation_refusal(target_status="past", target_fixtures=DRAWN, outgoing_unplayed=[])
 
         assert refusal is not None
         assert refusal.error_code == ACTIVATE_TARGET_PAST
@@ -121,7 +132,7 @@ class TestAFinishedSeasonIsNeverPromotedBack:
     def test_the_refusal_names_what_activating_would_reopen(self):
         """The message is the log line, and the reason has to be in it: nothing about this request is malformed."""
 
-        refusal = find_activation_refusal(target_status="past", outgoing_unplayed=[])
+        refusal = find_activation_refusal(target_status="past", target_fixtures=DRAWN, outgoing_unplayed=[])
 
         assert refusal is not None
         assert "past" in refusal.message
@@ -129,7 +140,46 @@ class TestAFinishedSeasonIsNeverPromotedBack:
     def test_the_target_is_judged_before_the_outgoing_season(self):
         """Otherwise: told to go and finish the running season, doing it, and only then told the target was never promotable."""
 
-        refusal = find_activation_refusal(target_status="past", outgoing_unplayed=[3, 7])
+        refusal = find_activation_refusal(target_status="past", target_fixtures=DRAWN, outgoing_unplayed=[3, 7])
 
         assert refusal is not None
         assert refusal.error_code == ACTIVATE_TARGET_PAST
+
+
+class TestASeasonWithNothingDrawn:
+    """`REQ-ACTIVATE-003`: the league would go live with nothing to play, and activation writes `status` one way."""
+
+    def test_an_undrawn_target_is_refused(self):
+        refusal = find_activation_refusal(target_status="future", target_fixtures=0, outgoing_unplayed=[])
+
+        assert refusal is not None
+        assert refusal.error_code == ACTIVATE_TARGET_UNDRAWN
+
+    def test_the_refusal_names_the_way_out(self):
+        """Drawing the Spielplan is the repair, and naming it is what keeps this from reading as a dead end."""
+
+        refusal = find_activation_refusal(target_status="future", target_fixtures=0, outgoing_unplayed=[])
+
+        assert refusal is not None
+        assert "Spielplan" in refusal.message
+
+    def test_one_fixture_is_enough(self):
+        """No threshold to tune: what this prevents is a season holding NOTHING, never a short one."""
+
+        assert find_activation_refusal(target_status="future", target_fixtures=1, outgoing_unplayed=[]) is None
+
+    def test_a_finished_target_is_named_before_an_empty_one(self):
+        """Both hold for a past season nobody drew, and its status is the wider statement about it."""
+
+        refusal = find_activation_refusal(target_status="past", target_fixtures=0, outgoing_unplayed=[])
+
+        assert refusal is not None
+        assert refusal.error_code == ACTIVATE_TARGET_PAST
+
+    def test_an_empty_target_is_named_before_an_unfinished_incumbent(self):
+        """The admin is sent to draw, not to finish last season: an incumbent they can play out is beside a target that cannot go live."""
+
+        refusal = find_activation_refusal(target_status="future", target_fixtures=0, outgoing_unplayed=[3, 7])
+
+        assert refusal is not None
+        assert refusal.error_code == ACTIVATE_TARGET_UNDRAWN

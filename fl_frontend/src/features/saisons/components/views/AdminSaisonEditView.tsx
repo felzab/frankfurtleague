@@ -11,7 +11,13 @@ import { AdminSaisonEditForm } from "@/features/saisons/components/forms/AdminSa
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
-import type { SaisonDraftFields, SaisonGruppenSwapContext, SaisonRolloverContext } from "@/features/saisons/types";
+import type {
+  SaisonDraftFields,
+  SaisonGruppenSwapContext,
+  SaisonRolloverContext,
+  SaisonSpielplanContext,
+  SaisonSpieltagBound,
+} from "@/features/saisons/types";
 
 /**
  * The body of `/admin/saisons/[saison_id]`. **The header carries no control and states no value**: a
@@ -21,6 +27,7 @@ export function AdminSaisonEditView({
   saison,
   rollover,
   swap,
+  spielplan,
   hasDrawnSpiele,
   spieltagBound,
 }: {
@@ -28,10 +35,12 @@ export function AdminSaisonEditView({
   rollover: SaisonRolloverContext;
   /** This season's clubs and their groups, plus the knockout count that closes the swap. */
   swap: SaisonGruppenSwapContext;
+  /** The season's draw watermark and its matchday count, which decide whether a draw is still offered. */
+  spielplan: SaisonSpielplanContext;
   /** Whether the season holds fixtures, which is what freezes the rules they were drawn from. */
   hasDrawnSpiele: boolean;
-  /** The span the live matchdays already occupy, which the date pickers may not shrink past. */
-  spieltagBound?: { startMax: string; endMin: string };
+  /** The span the dated matchdays already occupy, which the date pickers may not shrink past. */
+  spieltagBound: SaisonSpieltagBound;
 }) {
   const router = useRouter();
 
@@ -44,6 +53,7 @@ export function AdminSaisonEditView({
         saison={saison}
         rollover={rollover}
         swap={swap}
+        spielplan={spielplan}
         hasDrawnSpiele={hasDrawnSpiele}
         spieltagBound={spieltagBound}
         registerRequestLeave={(requestLeave) => {

@@ -16,9 +16,9 @@ import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING
 import type { FLPostSaisonPayload } from "@/features/saisons/schemas";
 
 /**
- * **Every value here is a default HERE and nowhere else.** Each is the starting value of an editable
- * field the admin sees before submitting; what is forbidden is a constant the reader cannot see, which
- * is why none of these fields carries a model default. They are the live season's values.
+ * **Every value here is a default HERE and nowhere else**: the live season's numbers, as the starting
+ * value of an editable field the admin sees. What is forbidden is a constant the reader cannot see,
+ * which is why no field carries a model default.
  */
 const EMPTY_DRAFT: FLPostSaisonPayload = {
   id: "",

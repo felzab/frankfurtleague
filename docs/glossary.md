@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `c6d7b8e8`, 2026-08-21\
+**Verified against:** `a468e858`, 2026-08-21\
 **Purpose:** the German domain vocabulary — what each term is, where it lives, and what catches people.
 
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs. Translating
@@ -36,10 +36,10 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 ### `Spieltag` — matchday, fixture round
 
-**Is:** a block of matches inside a season, with a date range and a phase.\
+**Is:** a block of matches inside a season, carrying a phase and, once somebody sets one, a date range.\
 **In code:** `fl_backend/app/api/spieltage/schemas.py :: FLSpieltag`, ordered by `fl_backend/app/api/spieltage/services.py :: order_spieltage`, labelled by `fl_frontend/src/features/spieltage/utils.ts :: spieltagLabel`.\
-**Trap:** `position` is STORED and orders matchdays within one PHASE, so the numbers restart at 1 in every round and `uniq_saison_id_saison_phase_position` is what keeps two matchdays off one slot; the name and the match count carry no field at all, the label being composed by the reader and `anzahl_spiele` derived from the season's rules, which is why neither can be sorted on.\
-**See:** [backend spec §1.1](backend/spec.md#11-endpoint-inventory) for the payload that carries `position` and the create that appends instead.
+**Trap:** `position` is STORED and orders matchdays within one PHASE, so the numbers restart at 1 in every round and `uniq_saison_id_saison_phase_position` is what keeps two matchdays off one slot — the season's draw writes it and no payload carries it afterwards; `beginn` and `ende` are null until an admin dates the matchday, and an undated one states no span for a fixture to fall outside of; the name and the match count carry no field at all, the label being composed by the reader and `anzahl_spiele` derived from the season's rules, which is why neither can be sorted on.\
+**See:** the `Spielplan` entry below for what creates a matchday, and [backend spec §1.1](backend/spec.md#11-endpoint-inventory) for the one write it takes afterwards.
 
 ### `Team` — club
 
@@ -107,6 +107,13 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLGruppenNames`.\
 **Trap:** the grouped response is seeded with all four keys even where a group holds no teams, because the frontend schema requires all four and an unseeded group would take down `/dashboard/saisontabelle`; and teams arrive already in standing order, so re-sorting a group anywhere is a second answer to who finished second.\
 **See:** backend spec I10 for the seeded keys, I24 for the ranking chain.
+
+### `Spielplan` — a season's whole draw
+
+**Is:** every matchday and every fixture of one season, composed in one operation from that season's `rules` and the clubs entered into it: round _k_ of every group is matchday _k_, so the groups play in step, and each knockout round that follows is one further matchday whose sides are `Quelle` references rather than teams. Nothing it writes carries a date.\
+**In code:** `fl_backend/app/api/saisons/spielplan.py :: draw_spielplan` composes the documents, `fl_backend/app/api/saisons/services.py :: find_spielplan_refusal` decides whether a season may be drawn at all, and `fl_backend/app/api/saisons/schemas.py :: FLSaisonSpielplan` is the watermark the season keeps afterwards.\
+**Trap:** the watermark is a record rather than the guard, so a repeat draw is measured against the FIXTURES and one made by any other route is caught too — drawing is one-way (I26). The field is null on every season stored before the draw existed, which is why it sits outside the validator's `required` list.\
+**See:** [backend spec §1.1](backend/spec.md#11-endpoint-inventory) for the endpoint and I26 for the one-way part, [`logging/error-codes.md`](logging/error-codes.md) for the refusals it raises.
 
 ### `spiel_nr` — a match's number within its season
 

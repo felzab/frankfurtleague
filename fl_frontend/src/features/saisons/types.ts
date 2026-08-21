@@ -1,5 +1,5 @@
 import type { FLGruppenNames } from "../teams/schemas";
-import type { FLSaisonRules, FLSaisonStatus } from "./schemas";
+import type { FLSaisonPhaseSchedule, FLSaisonRules, FLSaisonSpielplan, FLSaisonStatus } from "./schemas";
 
 // `"_id"` sorts chronologically: the season id is the four-character year string. A property of the
 // id format rather than a coincidence.
@@ -23,7 +23,7 @@ export type SaisonDraftFields = {
 
 /**
  * One row of the admin season list. Neither count is a rollover precondition — those are
- * `REQ-ACTIVATE-001` and `REQ-ACTIVATE-002`, both shown in the season editor's rollover panel.
+ * `REQ-ACTIVATE-001`, `-002` and `-003`, all three shown in the season editor's rollover panel.
  */
 export type AdminSaisonRow = {
   id: string;
@@ -53,6 +53,35 @@ export type SaisonRolloverContext = {
   outgoingSaisonId: string | null;
   /** Every unfinished match of the OUTGOING season. Empty when there is nothing to warn about. */
   offeneSpiele: SaisonOffeneSpiel[];
+};
+
+/**
+ * What `REQ-DATE-004` leaves the season's own dates free to be, read off the matchdays that carry
+ * dates. `null` at an end means nothing binds it, which is the same answer for a season holding no
+ * matchday and for one whose matchdays are all undated.
+ */
+export type SaisonSpieltagBound = {
+  /** The latest the season may start: the earliest dated matchday's `beginn`. */
+  startMax: string | null;
+  /** The earliest the season may end: the latest dated matchday's `ende`. */
+  endMin: string | null;
+};
+
+/**
+ * The generator panel's context, holding only what nothing else on the page carries: `saisonStatus`
+ * comes off the season itself and `hasDrawnSpiele` is what freezes the rules panel too, so each
+ * stays its own prop rather than a copy in here.
+ */
+export type SaisonSpielplanContext = {
+  /** The season's watermark, or `null` while the generator has never run on it. */
+  spielplan: FLSaisonSpielplan | null;
+  /** `REQ-SPIELPLAN-002`'s condition: how many matchday rows the season holds, retired ones included. */
+  spieltageCount: number;
+  /**
+   * The season's derived phase list, which the armed control counts its promise off. Served rather
+   * than recomputed, so the panel and the endpoint cannot name different seasons.
+   */
+  schedule: readonly FLSaisonPhaseSchedule[];
 };
 
 /**

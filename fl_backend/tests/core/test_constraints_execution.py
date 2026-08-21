@@ -242,6 +242,23 @@ def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str
         ),
         # `beginn` rather than a count: a matchday's count is on no document, so nothing rejects it.
         ("spieltage", valid_document("spieltage", beginn=20260315), "a date stored as a number"),
+        # The pair below is what keeps `beginn` nullable from collapsing into optional: the VALUE may
+        # be null, the KEY may not be absent.
+        ("spieltage", {k: v for k, v in valid_documents()["spieltage"].items() if k != "beginn"}, "a matchday with no `beginn` key"),
+        ("spieltage", {k: v for k, v in valid_documents()["spieltage"].items() if k != "ende"}, "a matchday with no `ende` key"),
+        (
+            "saisons",
+            valid_document("saisons", spielplan={"generiert_am": "2026-08-21", "spieltage": "12", "spiele": 60}),
+            "a generated count stored as a string",
+        ),
+        (
+            "saisons",
+            valid_document("saisons", spielplan={"generiert_am": "2026-08-21", "spieltage": 12}),
+            "a watermark missing its fixture count",
+        ),
+        # Declaring `spielplan` at all is what buys this: `_object` emits no `additionalProperties`,
+        # so an undeclared key of any type would have been accepted.
+        ("saisons", valid_document("saisons", spielplan="2026-08-21"), "a watermark stored as a bare string"),
         ("spieler", valid_document("spieler", vorname=None), "a player with no first name"),
         ("teams", {k: v for k, v in valid_documents()["teams"].items() if k != "full_name"}, "a missing required field"),
         # `saison_teams` is the one collection the mirror apparatus skips, so its `required` tuple is
@@ -263,6 +280,25 @@ def test_a_malformed_document_is_rejected(mongo_container: Any, collection: str,
 def test_an_absent_embedded_object_is_still_accepted(mongo_container: Any):
     """MongoDB applies `required` only when the value really is an object, so a nullable `ort` and its required keys do not fight."""
     assert insert_outcome(mongo_container, "spiele", valid_document("spiele", ort=None, schiedsrichter=None)) == "accepted"
+
+
+def test_a_generated_matchday_carries_no_dates_yet(mongo_container: Any):
+    """The generator writes the list before anyone has picked dates; `PATCH /spieltage/{id}` fills them in later."""
+    assert insert_outcome(mongo_container, "spieltage", valid_document("spieltage", beginn=None, ende=None)) == "accepted"
+
+
+@pytest.mark.parametrize(
+    ("spielplan", "why"),
+    [
+        ({"generiert_am": "2026-08-21", "spieltage": 12, "spiele": 60}, "a season the generator has written"),
+        # Both mean never generated, and the base document above covers the third case: no key at all.
+        (None, "a season explicitly marked as never generated"),
+    ],
+    ids=lambda value: value if isinstance(value, str) else "",
+)
+def test_every_shape_the_generator_watermark_takes_is_accepted(mongo_container: Any, spielplan: Any, why: str):
+    """`spielplan` is out of `required`, so a row predating the field stays writable and needs no backfill."""
+    assert insert_outcome(mongo_container, "saisons", valid_document("saisons", spielplan=spielplan)) == "accepted", f"refused {why}"
 
 
 @pytest.mark.parametrize(

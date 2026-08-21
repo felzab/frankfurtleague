@@ -741,23 +741,23 @@ def offered_gruppen(number_of_groups: int) -> tuple[FLGruppenNames, ...]:
     return get_args(FLGruppenNames)[:number_of_groups]
 
 
-def find_gruppe_move_refusal(*, saison_status: str, fixtures_drawn: int) -> WriteRefusal | None:
-    """Why moving this team to another group must be refused, or `None`.
+def find_gruppe_move_refusal(*, fixtures_drawn: int) -> WriteRefusal | None:
+    """Why this team's group move must be refused, or `None`.
 
-    The window is "`future` season, OR no fixture drawn yet". Both halves are needed: a `future`
-    season may already have its fixtures drawn, and a running season may not.
+    The window is a season where THIS team holds no fixture, whatever the season's status: a move
+    rewrites none, so a later one leaves one round robin holding the club and the other short.
     """
 
-    if saison_status != "future" and fixtures_drawn > 0:
-        noun = "fixture" if fixtures_drawn == 1 else "fixtures"
+    if fixtures_drawn == 0:
+        return None
 
-        return WriteRefusal(
-            error_code=ENTRY_GRUPPE_LOCKED,
-            message=f"season is {saison_status} and the team already has {fixtures_drawn} {noun} in it; "
-            "a group change would leave them played against the group it left",
-        )
+    noun = "fixture" if fixtures_drawn == 1 else "fixtures"
 
-    return None
+    return WriteRefusal(
+        error_code=ENTRY_GRUPPE_LOCKED,
+        message=f"the team already has {fixtures_drawn} {noun} drawn in this season; "
+        "a group change would leave them played against the group it left, and the group swap is what rewrites both",
+    )
 
 
 def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> WriteRefusal | None:
@@ -803,9 +803,8 @@ def fixtures_newly_fielding_a_departed_club(
 ) -> int:
     """How many group fixtures the exchange would move a club that has left the season onto.
 
-    `find_eligibility_refusal`'s boundary: ON OR AFTER the effective day, and an UNDATED fixture
-    counts too, since it can still be dated after the exit. Which ROUTE out it was does not enter:
-    a withdrawal keeps a club off a later fixture exactly as a disqualification does.
+    Counted on `find_eligibility_refusal`'s boundary, an UNDATED fixture included: one can still be
+    dated after the exit.
     """
 
     arriving = {team1_id: team2_id, team2_id: team1_id}

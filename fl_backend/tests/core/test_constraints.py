@@ -6,7 +6,7 @@ from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
 from app.api.aktionen.schemas import FLAktion, FLAktionRequest, FLAktor
-from app.api.saisons.schemas import FLSaison, FLSaisonForfeitErgebnis, FLSaisonRules, FLSaisonStatus
+from app.api.saisons.schemas import FLSaison, FLSaisonForfeitErgebnis, FLSaisonRules, FLSaisonSpielplan, FLSaisonStatus
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import (
     FLSaisonPhase,
@@ -24,7 +24,8 @@ from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLAustritt, FLGruppenNames, FLTeam, FLTeamRecord
 from app.core.collections import Collection
-from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES, diagnose_failure
+from app.core.constraints import _AKTION_OPERATIONS, _AKTOR_KINDS, COLLECTION_VALIDATORS, UNIQUE_INDEXES, diagnose_failure
+from app.core.recording import Actor, Operation
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.kontakt import FLKontakt
 
@@ -61,6 +62,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SAISONS, (), FLSaison, frozenset({"schedule"})),
     (Collection.SAISONS, ("rules",), FLSaisonRules, frozenset()),
     (Collection.SAISONS, ("rules", "forfeit_ergebnis"), FLSaisonForfeitErgebnis, frozenset()),
+    (Collection.SAISONS, ("spielplan",), FLSaisonSpielplan, frozenset()),
     (Collection.SPIELE, (), FLSpiel, frozenset()),
     (Collection.SPIELE, ("team1",), FLSpielTeamField, frozenset()),
     (Collection.SPIELE, ("team2",), FLSpielTeamField, frozenset()),
@@ -236,6 +238,22 @@ def test_every_required_field_is_required_on_its_model(
             f"A positional `Field(0, ge=0)` is a default to Pydantic while Pyright still reads the field as required. "
             f"Drop it, or drop {key!r} from `required` in app/core/constraints.py in the same commit."
         )
+
+
+# What `MIRRORED_ENUMS` never relates: its rows pin each validator enum to the aktionen SCHEMA, so a
+# member added to `recording.py` alone type-checks, lints, and surfaces only as a live write the
+# validator refuses.
+RECORDED_LITERALS: list[tuple[str, tuple[object, ...], list[str]]] = [
+    ("Operation", get_args(Operation), _AKTION_OPERATIONS),
+    ("Actor.kind", get_args(Actor.__annotations__["kind"]), _AKTOR_KINDS),
+]
+
+
+@pytest.mark.parametrize(("name", "recorded", "declared"), RECORDED_LITERALS)
+def test_every_recorded_literal_matches_the_validator_that_stores_it(name: str, recorded: tuple[object, ...], declared: list[str]):
+    """The write side and the stored shape, compared directly: one is what a row CARRIES and the other what the database ACCEPTS."""
+
+    assert set(recorded) == set(declared), f"app/core/recording.py :: {name} and its constraints.py copy disagree"
 
 
 @pytest.mark.parametrize(("collection", "path", "field", "members", "nullable"), MIRRORED_ENUMS)

@@ -217,7 +217,7 @@ class TestTheLargestLegalSeasonFitsInOneRead:
 
 
 class TestTheSeasonCarriesItsSchedule:
-    """The matchday editor reads `REQ-SPIELTAG-002`'s counts off the season it holds, so a path skipping the injection answers 500."""
+    """A matchday's `anzahl_spiele` is read off the season it holds, so a path skipping the injection answers 500."""
 
     def test_the_injected_schedule_is_the_derivation(self, saison):
         """The wire shape and `schedule_for` are the same numbers; nothing recomputes them differently."""

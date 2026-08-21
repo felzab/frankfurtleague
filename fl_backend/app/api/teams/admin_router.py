@@ -97,9 +97,8 @@ async def patch_team(
     """
     Update a club, then rewrite the name and shorthand its unfinished seasons carry.
 
-    The fan-out is not optional: the junction and every match carry a copy of both fields, so
-    without it a stale name stands indefinitely. A `past` season is left alone -- it is the record
-    of the name the club was played under.
+    The junction and every match hold a copy of both (`docs/backend/spec.md :: I13`); a `past`
+    season keeps the name it was played under.
     """
 
     async def rename_and_fan_out(session: AsyncIOMotorClientSession) -> FLPatchTeamResponse:
@@ -209,8 +208,8 @@ async def post_saison_team(
     """
     Enter a team into a season, in a group, under the name the club carries today.
 
-    A team with no row here is ABSENT from that season entirely: the join is strict. Refused unless
-    the club is still in the league, the season is `future`, and the group it names has space.
+    A club with no row here is ABSENT from that season rather than merely unlisted
+    (`docs/backend/spec.md :: I11`).
     """
 
     # The one read of the club, and it earns its place twice over: an id naming nothing 404s here
@@ -288,9 +287,8 @@ async def patch_saison_team(
     """
     Change which group a team is in for a season, or record that it has left.
 
-    An `austritt` -- a disqualification or a withdrawal -- is how a team leaves a season; there is no
-    delete. Both fields are required, so an omitted `austritt` is a 422 rather than a team quietly
-    reinstated.
+    Both fields are required (`docs/backend/spec.md :: I31`), so an omitted `austritt` is a 422
+    rather than a team quietly reinstated.
     """
 
     # The identity comes back with the group because this endpoint echoes the whole row and writes
@@ -308,7 +306,7 @@ async def patch_saison_team(
         fixtures_drawn = await spiele_collection.count_documents(
             {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}
         )
-        refuse(find_gruppe_move_refusal(saison_status=str(saison_raw["status"]), fixtures_drawn=fixtures_drawn))
+        refuse(find_gruppe_move_refusal(fixtures_drawn=fixtures_drawn))
 
         occupied_rows = await pull_many_from_db(
             collection=saison_teams_collection,
@@ -317,8 +315,8 @@ async def patch_saison_team(
         )
         refuse(
             find_entry_refusal(
-                # `find_gruppe_move_refusal` above holds the status gate a MOVE has, so this is fed
-                # the one status the entry gate accepts.
+                # A MOVE is not an entry -- the club already holds a row -- so the status gate on
+                # entering does not judge it, and only its two group gates below apply.
                 saison_status="future",
                 gruppe=saison_team_data.gruppe,
                 rules=FLSaisonRules.model_validate(saison_raw["rules"]),

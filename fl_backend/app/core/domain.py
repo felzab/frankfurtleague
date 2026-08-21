@@ -166,9 +166,9 @@ AGGREGATES: tuple[Aggregate, ...] = (
         root=Collection.SPIELTAGE,
         members=(),
         boundary=(
-            "A matchday alone: its fixtures are `Saison-Spielplan`'s, so they are READ to judge a matchday "
-            "-- its span, its attached count, its phase boundary -- and never written with it. Its `position` "
-            "is checked against the other matchdays of its phase and its match count comes from the season."
+            "A matchday alone: its fixtures are `Saison-Spielplan`'s, so they are READ to judge its span and "
+            "never written with it. Its `position` is unique among the other matchdays of its phase, and its "
+            "match count comes from the season."
         ),
     ),
     Aggregate(
@@ -270,8 +270,8 @@ REFERENCES: tuple[Reference, ...] = (
         note=(
             "No request creates this reference at all: the field is on no payload and `/spiele` has no POST, "
             "so whatever writes a fixture carries the check itself. "
-            "Nothing is embedded, so a renamed or re-dated matchday is picked up on the next read. "
-            "Retiring a matchday leaves its matches fully readable, which is why that delete is soft."
+            "Nothing is embedded, so a re-dated matchday is picked up on the next read. "
+            "No endpoint removes a matchday either, a season's matchdays being generated once, so the reference cannot dangle."
         ),
     ),
     Reference(
@@ -308,7 +308,8 @@ REFERENCES: tuple[Reference, ...] = (
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.RESTRICT,
         note=(
-            "`post_spieltag` reads the season it names, so a matchday cannot be created into one that does not exist. "
+            "`POST /saisons/{saison_id}/spielplan` writes every matchday of the season its own path names, so a matchday "
+            "cannot be created into one that does not exist. "
             "No season delete exists, and `saison_id` is absent from the matchday patch payload, so a matchday cannot change seasons either."
         ),
     ),
@@ -398,6 +399,14 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SAISONS,
+        "spielplan",
+        Editability.CONTROL_ONLY,
+        "`POST /saisons/{saison_id}/spielplan`, which stamps it in the transaction that writes the matchdays and "
+        "fixtures; a season already carrying one is refused (`REQ-SPIELPLAN-001`), the draw being one-way",
+        "app.api.saisons.admin_router.generate_spielplan",
+    ),
+    FieldPolicy(
+        Collection.SAISONS,
         "start_date",
         Editability.EDITABLE,
         "editable even on a finished season, and refused where the new span would stop covering a live matchday "
@@ -473,19 +482,18 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "schedule",
         Editability.DERIVED,
         "computed from this season's own `rules`: the whole phase-by-phase shape the matchday "
-        "above reports one entry of. Served for both halves of it — `matches_per_matchday` lets the matchday "
-        "editor refuse `REQ-SPIELTAG-002` before the request, which needs the count for a phase the matchday "
-        "does not have yet, and `matchdays` is what says whether a phase is short of matchdays at all",
+        "above reports one entry of. Served for both halves of it — `matches_per_matchday` is the figure a "
+        "matchday's own `anzahl_spiele` comes from, and `matchdays` is how many rows the season's schedule is "
+        "generated to, the same figure `REQ-DATE-005` measures a season's span against",
         "app.api.saisons.schedule.schedule_for",
     ),
     FieldPolicy(
         Collection.SPIELTAGE,
         "position",
-        Editability.CONDITIONAL,
-        "the create appends the phase's highest plus one, no client knowing that number; the patch is the only way "
-        "a matchday moves, there being no reorder endpoint, and a slot its phase already holds is refused by "
-        "`uniq_saison_id_saison_phase_position`",
-        "app.api.spieltage.admin_router.post_spieltag",
+        Editability.IMMUTABLE,
+        "written once by `POST /saisons/{saison_id}/spielplan` (`app/api/saisons/spielplan.py`), which numbers each "
+        "phase's rounds as it draws them; on no payload afterwards, and a slot its phase already holds is refused "
+        "by `uniq_saison_id_saison_phase_position`",
     ),
     FieldPolicy(
         Collection.TEAMS,
@@ -717,7 +725,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
 RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-RULES-001",
-        operation="POST /saisons · PATCH /saisons/{saison_id}",
+        operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="`number_of_groups` x `qualifiers_per_group` must be a power of two the phase set can hold",
         implemented_by="app.api.saisons.services.find_rules_refusal",
@@ -725,7 +733,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-007",
-        operation="POST /saisons · PATCH /saisons/{saison_id}",
+        operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="`qualifiers_per_group` may not exceed `teams_per_group`",
         implemented_by="app.api.saisons.services.find_rules_refusal",
@@ -733,7 +741,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-008",
-        operation="POST /saisons · PATCH /saisons/{saison_id}",
+        operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a draw may not be worth more than a win",
         implemented_by="app.api.saisons.services.find_rules_refusal",
@@ -741,7 +749,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-010",
-        operation="POST /saisons · PATCH /saisons/{saison_id}",
+        operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a season whose rules produce a knockout round may not award a no-show a draw",
         implemented_by="app.api.saisons.services.find_rules_refusal",
@@ -844,6 +852,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_activation_refusal.py::TestAFinishedSeasonIsNeverPromotedBack",
     ),
     Rule(
+        code="REQ-ACTIVATE-003",
+        operation="POST /saisons/{saison_id}/activate",
+        aggregate="Saison",
+        summary="a season holding no fixtures is never made active",
+        implemented_by="app.api.saisons.services.find_activation_refusal",
+        tested_by="tests/api/test_activation_refusal.py::TestASeasonWithNothingDrawn",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-ENTER-001",
         operation="POST /teams/{team_id}/saisons",
         aggregate="Saison",
@@ -874,7 +891,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-ENTER-004",
         operation="PATCH /teams/{team_id}/saisons/{saison_id}",
         aggregate="Saison",
-        summary="a group change is refused once the season has started and the team's fixtures are drawn",
+        summary="a group change is refused once the team's fixtures are drawn, whatever the season's status",
         implemented_by="app.api.teams.services.find_gruppe_move_refusal",
         tested_by="tests/api/test_gruppe_move_refusal.py::TestTheWindowForAGroupChange",
         multi_document=True,
@@ -886,6 +903,42 @@ RULES: tuple[Rule, ...] = (
         summary="a club that has left the LEAGUE is entered into no season until it is reactivated",
         implemented_by="app.api.teams.services.find_club_entry_refusal",
         tested_by="tests/api/test_team_entry_refusal.py::TestWhetherTheClubIsStillInTheLeague",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SPIELPLAN-001",
+        operation="POST /saisons/{saison_id}/spielplan",
+        aggregate="Saison",
+        summary="a season already holding fixtures is not drawn again, whoever wrote them",
+        implemented_by="app.api.saisons.services.find_spielplan_refusal",
+        tested_by="tests/api/test_spielplan_refusal.py::TestASeasonAlreadyDrawn",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SPIELPLAN-002",
+        operation="POST /saisons/{saison_id}/spielplan",
+        aggregate="Saison",
+        summary="a season already holding matchdays is not drawn, the draw writing the whole list at once",
+        implemented_by="app.api.saisons.services.find_spielplan_refusal",
+        tested_by="tests/api/test_spielplan_refusal.py::TestASeasonHoldingMatchdays",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SPIELPLAN-003",
+        operation="POST /saisons/{saison_id}/spielplan",
+        aggregate="Saison",
+        summary="a Spielplan is never drawn into a season already past",
+        implemented_by="app.api.saisons.services.find_spielplan_refusal",
+        tested_by="tests/api/test_spielplan_refusal.py::TestAFinishedSeason",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SPIELPLAN-004",
+        operation="POST /saisons/{saison_id}/spielplan",
+        aggregate="Saison",
+        summary="a season with an offered group off `teams_per_group`, or a club outside the offered groups, is not drawn",
+        implemented_by="app.api.saisons.services.find_spielplan_refusal",
+        tested_by="tests/api/test_spielplan_refusal.py::TestWhetherEveryOfferedGroupHoldsItsSize",
         multi_document=True,
     ),
     Rule(
@@ -952,28 +1005,10 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
-        code="REQ-SPIELTAG-003",
-        operation="POST /spieltage",
-        aggregate="Spieltag",
-        summary="a season whose knockout phase has started takes no new matchdays",
-        implemented_by="app.api.spieltage.services.find_spieltag_create_refusal",
-        tested_by="tests/api/test_spieltag_refusals.py::TestCreatingAMatchday",
-        multi_document=True,
-    ),
-    Rule(
-        code="REQ-SPIELTAG-004",
-        operation="POST /spieltage",
-        aggregate="Spieltag",
-        summary="a matchday in a phase the season's rules never produce is refused",
-        implemented_by="app.api.spieltage.services.find_spieltag_create_refusal",
-        tested_by="tests/api/test_spieltag_refusals.py::TestAMatchdayBelongsToAPhaseTheSeasonPlays",
-        multi_document=True,
-    ),
-    Rule(
         code="REQ-DATE-002",
-        operation="POST /spieltage · PATCH /spieltage/{spieltag_id}",
+        operation="PATCH /spieltage/{spieltag_id}",
         aggregate="Spieltag",
-        summary="a matchday's span must fall inside its season's, on the create and on every edit",
+        summary="a matchday's span must fall inside its season's",
         implemented_by="app.api.spieltage.services.find_spieltag_span_refusal",
         tested_by="tests/api/test_containment_refusals.py::TestAMatchdaySitsInsideItsSeason",
         multi_document=True,
@@ -988,30 +1023,15 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
-        code="REQ-SPIELTAG-002",
+        code="REQ-DATE-008",
         operation="PATCH /spieltage/{spieltag_id}",
         aggregate="Spieltag",
-        summary="a matchday may not MOVE to a phase accounting for fewer matches than it already holds",
-        implemented_by="app.api.spieltage.services.find_spieltag_phase_refusal",
-        tested_by="tests/api/test_spieltag_refusals.py::TestChangingThePhase",
-        multi_document=True,
-    ),
-    Rule(
-        code="REQ-SPIELTAG-005",
-        operation="PATCH /spieltage/{spieltag_id}",
-        aggregate="Spieltag",
-        summary="a matchday may not MOVE into a round the season's rules never produce",
-        implemented_by="app.api.spieltage.services.find_spieltag_unplayed_phase_refusal",
-        tested_by="tests/api/test_spieltag_refusals.py::TestWhichPhaseChangesAreLegitimate",
-        multi_document=True,
-    ),
-    Rule(
-        code="REQ-SPIELTAG-006",
-        operation="PATCH /spieltage/{spieltag_id}",
-        aggregate="Spieltag",
-        summary="a matchday carrying fixtures may not CROSS the gruppenphase/knockout boundary away from them",
-        implemented_by="app.api.spieltage.services.find_spieltag_boundary_refusal",
-        tested_by="tests/api/test_spieltag_refusals.py::TestWhichPhaseChangesAreLegitimate",
+        summary=(
+            "within one phase, a matchday may not begin before the nearest dated matchday at a lower `position`, "
+            "nor after the nearest one at a higher"
+        ),
+        implemented_by="app.api.spieltage.services.find_spieltag_order_refusal",
+        tested_by="tests/api/test_spieltag_refusals.py::TestAMatchdayNeverBeginsBeforeItsPredecessor",
         multi_document=True,
     ),
     Rule(
@@ -1168,12 +1188,14 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="a matchday whose attached fixtures differ from the count its phase implies",
         reason=(
-            "A season being set up passes through that state on the way to being complete, so refusing it "
-            "would block the setup rather than a mistake -- and every fixture in this database was placed by hand, "
-            "so the state is the ordinary one rather than an edge. The list shows attached over expected and tints "
-            "a mismatch."
+            "The draw writes every phase at exactly its implied count, so a drawn season reaches the mismatch "
+            "only where its rules widen afterwards; the seasons whose fixtures were placed by hand hold whatever "
+            "was entered, and refusing the state would block those rather than a mistake. The matchday's own "
+            "write never reads the count at all: `anzahl_spiele` is derived for the reader, and the one write the "
+            "mismatch does bind is the season's rules, where `REQ-RULES-006` refuses a narrowing that would "
+            "deepen it. The list shows attached over expected and tints a mismatch."
         ),
-        near=("REQ-SPIELTAG-002",),
+        near=("REQ-RULES-006",),
         proven_by="tests/core/test_unenforced.py::TestAMatchdayOffItsImpliedCount",
         surfaced_by="/admin/spieltage",
     ),
@@ -1277,5 +1299,22 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-VAL-001",),
         proven_by="tests/core/test_unenforced.py::TestAStoredPreImageIsNeverRevalidated",
+    ),
+    Unenforced(
+        subject="a matchday of a later phase dated before one of an earlier phase",
+        reason=(
+            "The rule finds its neighbour with one query on `(saison_id, saison_phase, position)`, the key the "
+            "collection is already indexed by. Across phases there is no such key: `position` restarts at 1 in every "
+            "phase, and what orders the phases themselves is `PHASE_RANK`, which lives in application code and on no "
+            "document -- so the same rule widened has no index to find its neighbour on: "
+            "`uniq_saison_id_saison_phase_position` does not carry `beginn`, and the phase order is on no "
+            "document at all. The state is reachable between phases alone: the draw gives every "
+            "knockout phase exactly one matchday, and one matchday makes no pair to order. `/admin/spieltage` "
+            "sections a season by phase in played order with each span beside it, so a phase dated against that "
+            "order reads as dates running backwards down the page."
+        ),
+        near=("REQ-DATE-008",),
+        proven_by="tests/core/test_unenforced.py::TestAPhaseDatedAgainstTheOrderItIsPlayedIn",
+        surfaced_by="/admin/spieltage",
     ),
 )

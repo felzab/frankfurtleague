@@ -73,9 +73,16 @@ function schemaFacts(schema: JsonObject): Omit<PublishedParam, "required"> {
       // failure a comparison must never have.
       if (branch.enum.some((value) => typeof value !== "string")) readable = false;
       values.push(...branch.enum.filter((value): value is string => typeof value === "string"));
-    } else if (typeof branch.const === "string") values.push(branch.const);
-    // One branch naming no closed set opens the whole union, so no value comparison is possible.
-    else closed = false;
+    } else if (branch.const !== undefined) {
+      // The guard above, for the other spelling of a closed set: a `const` this cannot spell pushes
+      // nothing, and an empty `values` returns as no closed set at all -- OPENING the parameter in
+      // silence.
+      if (typeof branch.const === "string") values.push(branch.const);
+      else readable = false;
+    } else {
+      // One branch naming no closed set opens the whole union, so no value comparison is possible.
+      closed = false;
+    }
   }
 
   // A `$ref`, an `allOf` or a branch carrying no `type` leaves nothing to compare on, and skipping
@@ -345,6 +352,32 @@ describe("the published document places every path this comparison reads", () =>
       `These query parameters publish a schema this comparison cannot read, so nothing checks what is sent under them.\n` +
         `Teach schemaFacts the shape rather than letting it pass:\n  ${unresolvable.join("\n  ")}`,
     );
+  });
+});
+
+/** FastAPI's optional idiom around one branch, which is how every omissible parameter publishes. */
+const optionalBranch = (branch: JsonObject): JsonObject => ({ anyOf: [branch, { type: "null" }] });
+
+describe("the schema reader reports a closed set it cannot spell", () => {
+  // `readable: false` IS the report -- it is what lands a parameter in `unresolvable` above. The
+  // failure guarded against is the quiet one: a set left uncompared with nothing saying so.
+  it("reports a const it cannot spell", () => {
+    const facts = schemaFacts(optionalBranch({ const: true, type: "boolean" }));
+
+    assert.equal(facts.readable, false, `a non-string const must be reported, not passed off as a parameter with no closed set`);
+  });
+
+  it("reports an enum member it cannot spell", () => {
+    const facts = schemaFacts(optionalBranch({ enum: [1, 2], type: "integer" }));
+
+    assert.equal(facts.readable, false, `a non-string enum member must be reported, not filtered out of the set it belongs to`);
+  });
+
+  it("reads a string const as the one-value set it publishes", () => {
+    const facts = schemaFacts(optionalBranch({ const: "gruppenphase", type: "string" }));
+
+    assert.deepEqual(facts.values, ["gruppenphase"], `a const the reader can spell still has to reach the value comparison`);
+    assert.equal(facts.readable, true);
   });
 });
 

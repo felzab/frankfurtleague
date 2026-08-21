@@ -360,7 +360,7 @@ export function FormSaisonSection({
                 eingetragen.
               </li>
               <li>
-                Die <strong>Gruppe</strong> ist nur änderbar, solange die Saison nicht begonnen hat und keine Spiele angesetzt sind.
+                Die <strong>Gruppe</strong> ist nur änderbar, solange für dieses Team noch keine Spiele angelegt sind.
               </li>
               <li>
                 Danach bleibt genau ein Weg: der <strong>Tausch</strong> mit einem zweiten Team, hier oder auf der Saisonseite. Beide wechseln

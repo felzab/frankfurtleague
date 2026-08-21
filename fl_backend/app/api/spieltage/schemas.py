@@ -8,27 +8,14 @@ from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_r
 from app.shared.schemas.responses import BaseAPIResponse
 
 
-class _SpieltagSpan(BaseModel):
-    # No span check at this level: `refuse_reversed_span` is payload-only, and a read refusing a
-    # stored reversal would hide the row from the edit that repairs it.
-    beginn: CustomDateString
-    ende: CustomDateString
-
-
-class _SpieltagPayload(_SpieltagSpan):
-    saison_phase: FLSaisonPhase
-
-    @model_validator(mode="after")
-    def the_matchday_ends_after_it_begins(self) -> Self:
-        """A span running backwards is a typo in one of the two dates, and nothing downstream can tell which one."""
-
-        refuse_reversed_span(start=self.beginn, end=self.ende, start_label="dem Beginn", end_label="Das Ende")
-
-        return self
-
-
-class FLSpieltag(_SpieltagSpan):
+class FLSpieltag(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+
+    # NULLABLE where the payload's pair is not: a drawn matchday carries no span until somebody sets
+    # one. No span check here either -- a read refusing a stored reversal would hide the row from the
+    # edit that repairs it.
+    beginn: CustomDateString | None
+    ende: CustomDateString | None
 
     # DERIVED, on no document. `ge=0`, because a matchday in a phase the bracket does not reach
     # expects none.
@@ -54,17 +41,22 @@ class FLSpieltageFilterParams(BaseModel):
     order: Literal["asc", "desc"] = Field(default="asc")
 
 
-class FLPostSpieltagPayload(_SpieltagPayload):
-    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+class FLPatchSpieltagPayload(BaseModel):
+    # The span alone: `saison_id`, `saison_phase` and `position` are settled when the season's
+    # schedule is generated, and the fixtures drawn against them are not rewritten here.
 
+    # Both REQUIRED, unlike the read model's pair: this payload exists to set them, so a null here
+    # would be a request to undate a matchday, which nothing asks for and nothing else expresses.
+    beginn: CustomDateString
+    ende: CustomDateString
 
-class FLPatchSpieltagPayload(_SpieltagPayload):
-    # No `saison_id`: moving a matchday between seasons would strand its matches, which carry their
-    # own and are not rewritten here.
+    @model_validator(mode="after")
+    def the_matchday_ends_after_it_begins(self) -> Self:
+        """A span running backwards is a typo in one of the two dates, and nothing downstream can tell which one."""
 
-    # On the PATCH and not the create, which appends: there is no reorder endpoint, so this payload
-    # is where a person moves a matchday inside its phase, and where a phase change picks its slot.
-    position: int = Field(ge=1)
+        refuse_reversed_span(start=self.beginn, end=self.ende, start_label="dem Beginn", end_label="Das Ende")
+
+        return self
 
 
 class FLSpieltageListResponse(BaseAPIResponse):
@@ -77,5 +69,4 @@ class FLSpieltageSingleResponse(BaseAPIResponse):
 
 class FLSpieltagWriteResponse(BaseAPIResponse):
     spieltag_id: CustomObjectId
-    # Absent on create, where the document is echoed by its id alone.
-    updated_document: FLSpieltag | None = None
+    updated_document: FLSpieltag

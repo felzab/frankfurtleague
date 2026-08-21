@@ -26,10 +26,17 @@ import { buildSaisonBanners } from "./banners";
 import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
 import { FormRolloverSection } from "./FormRolloverSection";
+import { FormSpielplanSection } from "./FormSpielplanSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
 
 import type { FLPatchSaisonPayload, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
-import type { SaisonDraftFields, SaisonGruppenSwapContext, SaisonRolloverContext } from "@/features/saisons/types";
+import type {
+  SaisonDraftFields,
+  SaisonGruppenSwapContext,
+  SaisonRolloverContext,
+  SaisonSpielplanContext,
+  SaisonSpieltagBound,
+} from "@/features/saisons/types";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { CalendarDate } from "@internationalized/date";
@@ -64,6 +71,7 @@ export function AdminSaisonEditForm({
   saison,
   rollover,
   swap,
+  spielplan,
   hasDrawnSpiele,
   spieltagBound,
   registerRequestLeave,
@@ -73,10 +81,12 @@ export function AdminSaisonEditForm({
   rollover: SaisonRolloverContext;
   /** This season's clubs and their groups, plus the knockout count that closes the swap. */
   swap: SaisonGruppenSwapContext;
+  /** The season's draw watermark and its matchday count, which decide whether a draw is still offered. */
+  spielplan: SaisonSpielplanContext;
   /** Whether the season holds fixtures, which is what freezes the rules they were drawn from. */
   hasDrawnSpiele: boolean;
-  /** The span the live matchdays already occupy, which the date pickers may not shrink past. */
-  spieltagBound?: { startMax: string; endMin: string };
+  /** The span the dated matchdays already occupy, which the date pickers may not shrink past. */
+  spieltagBound: SaisonSpieltagBound;
   registerRequestLeave?: (requestLeave: () => void) => void;
   pageHeader?: ReactNode;
 }) {
@@ -201,15 +211,13 @@ export function AdminSaisonEditForm({
   };
 
   /**
-   * The rollover revalidates the route, so an unsaved draft would go with the replaced props. It says
-   * what is in the way rather than discarding silently or stacking a second dialog.
+   * Both one-way controls revalidate the route, so an unsaved draft would go with the replaced props.
+   * Each says what is in the way rather than discarding silently or stacking a second dialog.
    */
-  const guardRolloverAgainstDraft = (): boolean => {
+  const guardAgainstDraft = (whatIsInTheWay: string): boolean => {
     if (!isDirty) return true;
 
-    appToast.warning("Erst speichern", {
-      description: "Die Umstellung lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.",
-    });
+    appToast.warning("Erst speichern", { description: whatIsInTheWay });
     return false;
   };
 
@@ -362,6 +370,24 @@ export function AdminSaisonEditForm({
             isFinishedSaison={saison.status === "past"}
           />
 
+          {/* Between the swap and the rollover: the rollover's class of control rather than the
+              swap's, in that it writes on press, never joins the save bar, and no later edit
+              reverses it. */}
+          <FormSpielplanSection
+            saisonId={saison.id}
+            saisonStatus={saison.status}
+            // The STORED rules, never the draft: the draw reads what is saved, and `schedule` beside it was
+            // derived from exactly these, so a typed value leaves the preview contradicting itself.
+            rules={saison.rules}
+            {...spielplan}
+            hasDrawnSpiele={hasDrawnSpiele}
+            onBeforeGenerate={() =>
+              guardAgainstDraft(
+                "Der Spielplan entsteht aus den gespeicherten Regeln, und das Anlegen lädt die Seite neu. Speichere die Änderungen zuerst.",
+              )
+            }
+          />
+
           {/* Last on the page, the position the club editor's Austritt panel holds: the one
               control here that no later edit reverses on its own. It writes on press, so it never
               joins the save bar — one row cannot hold two promises about when. */}
@@ -369,7 +395,10 @@ export function AdminSaisonEditForm({
             saisonId={saison.id}
             saisonStatus={saison.status}
             rollover={rollover}
-            onBeforeActivate={guardRolloverAgainstDraft}
+            hasDrawnSpiele={hasDrawnSpiele}
+            onBeforeActivate={() =>
+              guardAgainstDraft("Die Umstellung lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
+            }
             banners={banners}
           />
         </EditFormLayout>

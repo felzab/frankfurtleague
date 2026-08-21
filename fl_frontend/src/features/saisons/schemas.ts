@@ -76,6 +76,18 @@ export const FLSaisonPhaseScheduleSchema = z.object({
 });
 export type FLSaisonPhaseSchedule = z.infer<typeof FLSaisonPhaseScheduleSchema>;
 
+/**
+ * The watermark `POST /saisons/{saison_id}/spielplan` leaves on the season it drew. The counts are
+ * what that ONE transaction wrote rather than what the season holds now, so a later cancellation
+ * does not move them.
+ */
+export const FLSaisonSpielplanSchema = z.object({
+  generiert_am: CustomDateStringSchema,
+  spieltage: z.int().nonnegative(),
+  spiele: z.int().nonnegative(),
+});
+export type FLSaisonSpielplan = z.infer<typeof FLSaisonSpielplanSchema>;
+
 export const FLSaisonSchema = z.object({
   // Exactly 4, mirroring the backend: an unbounded id lets `SaisonSelector` offer a season the
   // backend cannot hold.
@@ -87,6 +99,10 @@ export const FLSaisonSchema = z.object({
   rules: FLSaisonRulesSchema,
   // Derived from `rules`, stored on no document. One entry per phase the season plays.
   schedule: z.array(FLSaisonPhaseScheduleSchema),
+  // Required and nullable rather than optional: a stored season may omit the key, but the model
+  // defaults it and nothing excludes unset, so every response carries it. `null` is the season
+  // the generator has never run on.
+  spielplan: FLSaisonSpielplanSchema.nullable(),
 });
 export type FLSaison = z.infer<typeof FLSaisonSchema>;
 
@@ -164,6 +180,12 @@ export const FLActivateSaisonPayloadSchema = z.object({
 });
 export type FLActivateSaisonPayload = z.infer<typeof FLActivateSaisonPayloadSchema>;
 
+/** An id in the path and no request body, the activation's shape: the season is the whole argument. */
+export const FLGenerateSpielplanPayloadSchema = z.object({
+  id: z.string().length(4),
+});
+export type FLGenerateSpielplanPayload = z.infer<typeof FLGenerateSpielplanPayloadSchema>;
+
 /**
  * **Neither side carries a group**: the backend reads the two junction rows inside the transaction, so
  * a form built against a season that has since moved cannot write a group nobody stands in.
@@ -191,6 +213,18 @@ export const FLActivateSaisonResponseSchema = BaseAPIResponseSchema.extend({
   deactivated: z.int().nonnegative(),
 });
 export type FLActivateSaisonResponse = z.infer<typeof FLActivateSaisonResponseSchema>;
+
+/**
+ * What the one transaction wrote, reported by the endpoint rather than re-read: the panel names the
+ * two counts without a second request, and they are the same numbers the season's watermark keeps.
+ */
+export const FLGenerateSpielplanResponseSchema = BaseAPIResponseSchema.extend({
+  saison_id: z.string().length(4),
+  spieltage: z.int().nonnegative(),
+  spiele: z.int().nonnegative(),
+  generiert_am: CustomDateStringSchema,
+});
+export type FLGenerateSpielplanResponse = z.infer<typeof FLGenerateSpielplanResponseSchema>;
 
 /**
  * The groups are what LANDED rather than what was intended: the backend writes from this object, which

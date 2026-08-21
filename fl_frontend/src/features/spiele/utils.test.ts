@@ -496,9 +496,8 @@ describe("toPatchPayload and buildUndoPayloads", () => {
   });
 
   it("sends a side as identity and goals alone, carrying neither the join nor the composed name", () => {
-    // Structural typing accepts the joined side wherever the stored one is asked for, so nothing in
-    // the toolchain sees this: only this narrowing keeps `austritt` off the wire, and only it keeps
-    // a client's copy of a club's name from being written back over the row it came from.
+    // Structural typing accepts a joined side wherever the stored one is asked for, so nothing in
+    // the toolchain catches a widened payload — this narrowing is the only guard.
     const joined = {
       ...fixture(29, "2:0"),
       team1: {

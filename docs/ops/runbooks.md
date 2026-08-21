@@ -1,6 +1,6 @@
 # Ops — runbooks
 
-**Verified against:** `c6d7b8e8`, 2026-08-21\
+**Verified against:** `a468e858`, 2026-08-21\
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
@@ -47,6 +47,20 @@ same document and reports clean.
 many and names a few of them, and back-filling those rows belongs to the change that added the field
 rather than to a follow-up: `--apply` attaches the validator without touching stored documents, so the
 first read that parses one is where the omission surfaces.
+
+**A validator that WIDENS what it accepts can fail no stored row, and owes no backfill.** `--check` reads
+clean before such a change lands as well as after, so the run is confirmation rather than the gate the
+paragraph above describes. The `spieltage` span is of that kind: `beginn` and `ende` accept a null beside a
+string, which every row already holding a date satisfies.
+
+**A property declared OUTSIDE `required` is the weaker case, and only for a key nothing stores yet.** An
+absent key passes, which is the whole of what `required` decides; a stored key of the wrong shape fails
+exactly as it would inside the list. `saisons.spielplan` owes no backfill because no season holds that key at
+all — declaring a shape over a key some row already carries is an ordinary constraint change, and `--check`
+is what tells the two apart. The order does not change either way: `--check` from the new checkout while the old
+image still serves, then `--apply` or the deploy's own boot to attach the validators
+(`fl_backend/app/core/db.py :: lifespan` applies them before it yields, so a new image attaches before it
+serves), then `--check` again.
 
 **A change that only adds a read index has nothing for `--check` to answer**, and a clean report is not
 evidence it landed: those indexes constrain nothing, so no stored document can be in breach of one

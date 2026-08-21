@@ -1,20 +1,19 @@
-import { PHASE_LABELS } from "@/features/saisons/constants";
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 
-/** Widened to what a draft holds mid-edit: `saison_phase` may be null while a picker is untouched. */
+/**
+ * The draft's own shape, where the read model's `null` is `""`: a cleared picker and an undated
+ * matchday are one state to the change list, and `emptyAsNull` reads both as a removal.
+ */
 export type FLSpieltagDraftFields = {
   beginn: string;
   ende: string;
-  saison_phase: FLSaisonPhase | null;
-  position: number;
 };
 
-export type FLSpieltagFieldGroup = "Phase" | "Zeitraum";
+export type FLSpieltagFieldGroup = "Zeitraum";
 
 export type FLSpieltagDraftStatus = FLDraftStatus<FLSpieltagFieldGroup>;
 
@@ -23,19 +22,6 @@ export type FLSpieltagDraftStatus = FLDraftStatus<FLSpieltagFieldGroup>;
  * `FLPatchSpieltagPayloadSchema` puts there deliberately.
  */
 const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSpieltagDraftFields, FLSpieltagFieldGroup>[] = [
-  {
-    path: "saison_phase",
-    label: "Phase",
-    group: "Phase",
-    read: (source) => (source.saison_phase === null ? null : PHASE_LABELS[source.saison_phase]),
-  },
-  {
-    path: "position",
-    label: "Position",
-    group: "Phase",
-    // Read as the ordinal it is rather than as a bare number, which reads as a count of something.
-    read: (source) => `${String(source.position)}.`,
-  },
   {
     path: "beginn",
     label: "Beginn",

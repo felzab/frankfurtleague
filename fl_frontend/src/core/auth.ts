@@ -90,17 +90,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 });
 
 /**
- * The one definition of the admin policy: the session for an admin, `null` otherwise. Also where the
- * actor `api.ts` sends is recorded, because every admin write already awaits this inside its request
- * scope and a second resolution would cost another round trip to the session store.
- *
- * Named `get...`, not `require...`: it neither throws nor redirects, so calling it on its own
- * line guards nothing. **Check the return value.**
+ * Neither throws nor redirects — hence `get`, not `require` — so it guards nothing on its own line.
+ * **Check the return value** (`docs/frontend/spec.md` I8).
  */
 export async function getAdminSession(): Promise<Session | null> {
   const session = await auth();
   if (session?.user?.role !== "admin") return null;
 
+  // Recorded here rather than in `runAdminMutation`: a second resolution is another round trip to
+  // the session store, and the ordering is load-bearing (`docs/frontend/spec.md` §1.3).
   setRequestActor(session.user.email);
 
   return session;

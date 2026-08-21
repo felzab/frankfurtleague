@@ -4,7 +4,6 @@ import { connection } from "next/server";
 import { getSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { getSpiele } from "@/features/spiele/queries";
-import { AdminCreateSpieltagModal } from "@/features/spieltage/components/modals/AdminCreateSpieltagModal";
 import { AdminSpieltageView } from "@/features/spieltage/components/views/AdminSpieltageView";
 import { SPIELTAGE_CRUD_COPY } from "@/features/spieltage/constants";
 import { getSpieltage } from "@/features/spieltage/queries";
@@ -12,14 +11,13 @@ import { buildSpieltagPhaseProgress, spieltagLabels } from "@/features/spieltage
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
-import { getGermanTodayStr } from "@/shared/utils/date";
 
 import type { FLSaison } from "@/features/saisons/schemas";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 import type { NextPageProps } from "@/shared/types/types";
 
-// Not async, so the chrome never waits on the list. The create modal needs to know which season
-// it creates into, so it gets its own boundary.
+// Not async, so the chrome never waits on the list. No `createModal`: the season's matchdays come
+// with its schedule, so this page shows and dates them rather than making them.
 export default function AdminSpieltagePage(props: NextPageProps) {
   return (
     <AdminCrudShell
@@ -27,13 +25,9 @@ export default function AdminSpieltagePage(props: NextPageProps) {
         <AdminCrudSearch
           searchLabel={SPIELTAGE_CRUD_COPY.searchLabel}
           searchPlaceholder={SPIELTAGE_CRUD_COPY.searchPlaceholder}
+          // This shell passes no `createModal`, so the bar joins nothing and keeps its own right edge.
+          attachEnd={false}
         />
-      }
-      createModal={
-        // The fallback holds the trigger's own height, so the header row does not jump.
-        <Suspense fallback={<div className="h-12 lg:h-15" />}>
-          <CreateSpieltagModalLoader searchParams={props.searchParams} />
-        </Suspense>
       }>
       {/* `sections`, because this list is phase-headed groups of cards at every width, so the table
           shape would reserve the wrong box on every viewport. */}
@@ -45,15 +39,15 @@ export default function AdminSpieltagePage(props: NextPageProps) {
 }
 
 /**
- * The season is the sidemenu selector's — a matchday is created into the season on screen, so the
- * form has no season picker. `null` only where the league has no seasons at all.
+ * The season is the sidemenu selector's, and the list below shows that season's matchdays. `null`
+ * only where the league has no seasons at all.
  */
 async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]): Promise<FLSaison | null> {
   const requestedSaisonId = await resolveSaisonId(searchParams);
   const saisonsRes = await getSaisons();
 
   // The requested season, else the active one, else the first. The whole season rather than its id:
-  // its span bounds both matchday date pickers (`REQ-DATE-002`).
+  // its schedule is what each phase's matchday count is read against.
   return (
     saisonsRes.saisons.find((saison) => saison.id === requestedSaisonId) ??
     saisonsRes.saisons.find((saison) => saison.status === "active") ??
@@ -63,37 +57,8 @@ async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]
 }
 
 /**
- * `REQ-SPIELTAG-003` refuses a create once the knockout phase is under way — the earliest non-group
- * matchday beginning today or earlier — so the trigger refuses before opening a dialog onto a 409.
- * The endpoint stays the authority.
- */
-async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  await connection();
-  const saison = await resolveSelectedSaison(searchParams);
-  const saisonId = saison?.id ?? null;
-
-  const spieltageRes = saisonId === null ? null : await getSpieltage({ saison_id: saisonId });
-  const knockoutBeginn = (spieltageRes?.spieltage ?? [])
-    .filter((spieltag) => spieltag.saison_phase !== "gruppenphase")
-    .map((spieltag) => spieltag.beginn)
-    .sort()
-    .at(0);
-
-  return (
-    <AdminCreateSpieltagModal
-      saisonId={saisonId}
-      saisonSpan={saison === null ? undefined : { start: saison.start_date, end: saison.end_date }}
-      saisonSchedule={saison?.schedule}
-      knockoutBeginn={knockoutBeginn ?? null}
-      today={getGermanTodayStr()}
-    />
-  );
-}
-
-/**
- * Every matchday of the season, in the API's order, which this page does not reorder. The labels are
- * built HERE, over the whole season: what a knockout round's label needs is how many matchdays its
- * phase holds, which is a fact about the season and not about the rows a filter left on screen.
+ * The labels are built HERE, over the whole season rather than in the view that filters: a knockout
+ * round's label counts the matchdays its phase holds (`docs/frontend/spec.md` I27).
  */
 async function SpieltageList({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();

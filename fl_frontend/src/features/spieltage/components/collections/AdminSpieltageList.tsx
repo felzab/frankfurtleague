@@ -124,8 +124,12 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   if (filteredSpieltage.length === 0) {
     return (
       <div className={`${card()} flex w-full flex-col items-center justify-center gap-3 py-16 text-center`}>
+        {/* Two different facts: a search that matched nothing, and a season whose rounds do not exist
+            yet. The second names where they come from, because no control on this page makes one. */}
         <p className="muted-hint">
-          {spieltageQuery ? "Keine Spieltage für diese Suche gefunden." : "Für diese Saison wurden noch keine Spieltage angelegt."}
+          {spieltageQuery
+            ? "Keine Spieltage für diese Suche gefunden."
+            : "Für diese Saison gibt es noch keine Spieltage. Sie entstehen zusammen mit dem Spielplan."}
         </p>
       </div>
     );
@@ -165,12 +169,15 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                         and reading "1" before every name is noise. The name is the row's accessible
                         identity, which is what the action labels name too. */}
                     <span className="fluid-sm text-foreground truncate font-semibold">{spieltag.label}</span>
-                    {/* One date where the matchday is one day, which most are — a range repeating the same
-                        date twice reads as two facts. */}
+                    {/* The undated matchday comes FIRST: its two nulls are equal, so the one-day
+                        branch below would render its absence as a single placeholder date. A range
+                        repeating one date twice reads as two facts. */}
                     <span className="fluid-xs text-foreground-muted">
-                      {spieltag.beginn === spieltag.ende
-                        ? formatSpielDatum(spieltag.beginn)
-                        : `${formatSpielDatum(spieltag.beginn)} – ${formatSpielDatum(spieltag.ende)}`}
+                      {spieltag.beginn === null && spieltag.ende === null
+                        ? "Noch kein Zeitraum"
+                        : spieltag.beginn === spieltag.ende
+                          ? formatSpielDatum(spieltag.beginn)
+                          : `${formatSpielDatum(spieltag.beginn)} – ${formatSpielDatum(spieltag.ende)}`}
                     </span>
                   </div>
                 </div>

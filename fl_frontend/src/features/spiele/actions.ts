@@ -97,7 +97,6 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
     return {
       success: Boolean(patch_operation.acknowledged),
       message: formatSpielUpdateMessage(patch_operation.advanced_to, patch_operation.bracket_faults, patch_operation.released_sides),
-      // Named rather than counted: the undo toast has to know WHICH fixtures lost a result.
       // `voided_ergebnis` alone still names every one: a no-show needs both sides and composes its
       // own forfeit, so `voided_sonderereignis` never travels without the result it produced.
       voidedFixtures: patch_operation.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),

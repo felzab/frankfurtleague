@@ -27,9 +27,9 @@ export default function AdminSpieltagEditPage(props: NextPageProps<{ spieltag_id
 }
 
 /**
- * Two rounds of reads, because the first answers which season to ask about: its span bounds the
- * date pickers (`REQ-DATE-002`), its schedule what the phase picker offers, and its matchday
- * list which positions each phase already holds.
+ * Two rounds of reads, because the first answers which season to ask about: its span bounds the date
+ * pickers (`REQ-DATE-002`), and its matchday list is what a knockout round's label is numbered
+ * against.
  */
 async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ spieltag_id: string }>["params"] }) {
   await connection();
@@ -80,10 +80,6 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
       key={JSON.stringify(row)}
       spieltag={row}
       saisonSpan={{ start: saison.start_date, end: saison.end_date }}
-      saisonSchedule={saison.schedule}
-      // Every matchday of the season, so the position picker can say which slots its phase already
-      // holds — including the phases this one could still be moved into.
-      siblings={siblingsRes.spieltage}
     />
   );
 }

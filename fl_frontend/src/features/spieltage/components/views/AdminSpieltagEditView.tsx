@@ -12,27 +12,13 @@ import { AdminSpieltagEditForm } from "@/features/spieltage/components/forms/Adm
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
-import type { FLSpieltag } from "@/features/spieltage/schemas";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 
 /**
- * The body of `/admin/spieltage/[spieltag_id]`. **The header carries the STORED label, phase and
- * span**: each is derived from a field the form is editing, so one following the draft would leave
- * the page with no fixed point.
+ * The body of `/admin/spieltage/[spieltag_id]`. **The header carries the STORED span**: it is what the
+ * form is editing, so a header following the draft would leave the page with no fixed point.
  */
-export function AdminSpieltagEditView({
-  spieltag,
-  saisonSpan,
-  saisonSchedule,
-  siblings,
-}: {
-  spieltag: AdminSpieltagRow;
-  saisonSpan?: { start: string; end: string };
-  saisonSchedule?: readonly FLSaisonPhaseSchedule[];
-  /** Every matchday of the season, this one included; the position picker filters it by `id`. */
-  siblings?: readonly FLSpieltag[];
-}) {
+export function AdminSpieltagEditView({ spieltag, saisonSpan }: { spieltag: AdminSpieltagRow; saisonSpan?: { start: string; end: string } }) {
   const router = useRouter();
 
   // The form's own guarded exit, registered from below — see `AdminSpielEditView`.
@@ -43,8 +29,6 @@ export function AdminSpieltagEditView({
       <AdminSpieltagEditForm
         spieltag={spieltag}
         saisonSpan={saisonSpan}
-        saisonSchedule={saisonSchedule}
-        siblings={siblings}
         registerRequestLeave={(requestLeave) => {
           requestLeaveRef.current = requestLeave;
         }}
@@ -62,8 +46,17 @@ export function AdminSpieltagEditView({
                 <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">{spieltag.label}</h2>
                 <SaisonPhaseChip saisonPhase={spieltag.saison_phase} />
               </div>
+              {/* The undated matchday is named in words rather than shown as two placeholders, which
+                  read as a span whose ends failed to load. */}
               <p className="muted-hint">
-                Saison {spieltag.saison_id} · {formatSpielDatum(spieltag.beginn)} – {formatSpielDatum(spieltag.ende)}
+                Saison {spieltag.saison_id} ·{" "}
+                {spieltag.beginn === null && spieltag.ende === null ? (
+                  "Noch kein Zeitraum"
+                ) : (
+                  <>
+                    {formatSpielDatum(spieltag.beginn)} – {formatSpielDatum(spieltag.ende)}
+                  </>
+                )}
               </p>
               <p className="muted-hint">Änderungen gelten erst, wenn Du speicherst.</p>
             </header>

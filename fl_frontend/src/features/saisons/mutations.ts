@@ -2,6 +2,7 @@ import { apiClient } from "@/core/api";
 
 import {
   FLActivateSaisonResponseSchema,
+  FLGenerateSpielplanResponseSchema,
   FLPatchSaisonResponseSchema,
   FLPostSaisonResponseSchema,
   FLSwapGruppenResponseSchema,
@@ -10,6 +11,8 @@ import {
 import type {
   FLActivateSaisonPayload,
   FLActivateSaisonResponse,
+  FLGenerateSpielplanPayload,
+  FLGenerateSpielplanResponse,
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
   FLPostSaisonPayload,
@@ -39,6 +42,17 @@ export async function patchSaison({ id, ...fields }: FLPatchSaisonPayload): Prom
 /** Promotes this season and demotes the incumbent in one transaction. No body: the id is the whole argument. */
 export async function activateSaison({ id }: FLActivateSaisonPayload): Promise<FLActivateSaisonResponse> {
   return apiClient<FLActivateSaisonResponse>(`/saisons/${id}/activate`, FLActivateSaisonResponseSchema, {
+    method: "POST",
+    authType: "admin",
+  });
+}
+
+/**
+ * Draws the season's whole matchday and fixture list in one transaction. No body: the id is the whole
+ * argument. **One-way**: `REQ-SPIELPLAN-001` refuses a second draw, so nothing here retries on a 409.
+ */
+export async function generateSpielplan({ id }: FLGenerateSpielplanPayload): Promise<FLGenerateSpielplanResponse> {
+  return apiClient<FLGenerateSpielplanResponse>(`/saisons/${id}/spielplan`, FLGenerateSpielplanResponseSchema, {
     method: "POST",
     authType: "admin",
   });

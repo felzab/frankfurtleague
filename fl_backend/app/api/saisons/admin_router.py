@@ -7,20 +7,31 @@ from pymongo import ReturnDocument
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
+    FLGenerateSpielplanResponse,
     FLPatchSaisonPayload,
     FLPatchSaisonResponse,
     FLPostSaisonPayload,
     FLPostSaisonResponse,
     FLSaison,
     FLSaisonRules,
+    FLSaisonSpielplan,
     FLSwapGruppenPayload,
     FLSwapGruppenResponse,
 )
-from app.api.saisons.services import find_activation_refusal, find_rules_refusal, find_saison_span_refusal, unplayed_spiel_nrs, with_schedule
+from app.api.saisons.services import (
+    find_activation_refusal,
+    find_rules_refusal,
+    find_saison_span_refusal,
+    find_spielplan_refusal,
+    unplayed_spiel_nrs,
+    with_schedule,
+)
+from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.spiele.schemas import KNOCKOUT_PHASES, SONDEREREIGNIS_PRODUCING_A_RECORD, FLSpielListAdapter
+from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import find_gruppe_swap_refusal, fixtures_newly_fielding_a_departed_club
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -29,6 +40,7 @@ from app.core.dependencies import (
     SpieleCollection,
     SpieltageCollection,
     TeamsCollection,
+    get_german_date_str,
 )
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.security import bind_actor, verify_access_admin
@@ -281,8 +293,14 @@ async def patch_saison(
         )
     )
 
+    # Dated rows only, filtered in the QUERY rather than after `str()`: a generated matchday carries
+    # no span until somebody sets one, and a null stringified to "None" sorts above every date and
+    # would be reported as falling outside the season.
     spieltag_spans = [
-        (str(row["beginn"]), str(row["ende"])) async for row in spieltage_collection.find({"saison_id": saison_id}, {"beginn": 1, "ende": 1})
+        (str(row["beginn"]), str(row["ende"]))
+        async for row in spieltage_collection.find(
+            {"saison_id": saison_id, "beginn": {"$ne": None}, "ende": {"$ne": None}}, {"beginn": 1, "ende": 1}
+        )
     ]
     refuse(
         find_saison_span_refusal(
@@ -342,7 +360,17 @@ async def activate_saison(
         )
 
     # One call, so which of the two refusals an admin is shown stays the service's decision.
-    refuse(find_activation_refusal(target_status=str(target["status"]), outgoing_unplayed=unplayed))
+    # The target's OWN fixtures, not the outgoing season's: a league going live with nothing drawn
+    # has no repair, activation writing `status` one way only.
+    target_fixtures = await spiele_collection.count_documents({"saison_id": saison_id})
+
+    refuse(
+        find_activation_refusal(
+            target_status=str(target["status"]),
+            target_fixtures=target_fixtures,
+            outgoing_unplayed=unplayed,
+        )
+    )
 
     async with await db.start_session() as session:
         async with session.start_transaction():
@@ -492,3 +520,119 @@ async def swap_gruppen(
     # and the callback re-reads everything it judges on, so a retry is safe.
     async with await db.start_session() as session:
         return await session.with_transaction(exchange_the_two_gruppen)
+
+
+@router.post("/{saison_id}/spielplan", response_model=FLGenerateSpielplanResponse, status_code=201, summary="Draw this Saison's Spielplan")
+async def generate_spielplan(
+    saison_id: str,
+    saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    spiele_collection: SpieleCollection,
+    spieltage_collection: SpieltageCollection,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+) -> FLGenerateSpielplanResponse:
+    """
+    Draw the whole season at once: every matchday and every fixture, in one transaction.
+
+    ONE-WAY, like activation, and nothing it writes carries a date. A half-written draw could not be
+    repaired here, `/spiele` having neither a create nor a delete.
+    """
+
+    # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
+    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
+
+    async def draw_the_whole_season(session: AsyncIOMotorClientSession) -> FLGenerateSpielplanResponse:
+        """Judge, then write both collections and the watermark. Everything judged is read in-session."""
+
+        # THROUGH the session, as the group swap's callback is: a retry after a write conflict has to
+        # judge the season as it stands then, not as this request first saw it.
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+        rules = FLSaisonRules.model_validate(saison_raw["rules"])
+
+        entered_rows = await pull_many_from_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id},
+            # `name` and `shorthand` off the JUNCTION: that is the name the season is played under,
+            # and `teams` may since have been renamed (`docs/backend/spec.md :: I19`).
+            projection=["team_id", "gruppe", "name", "shorthand"],
+            session=session,
+        )
+
+        occupancy: dict[FLGruppenNames, int] = {}
+        for row in entered_rows:
+            gruppe = row["gruppe"]
+            occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
+
+        refuse(
+            find_spielplan_refusal(
+                saison_status=str(saison_raw["status"]),
+                fixtures_drawn=await spiele_collection.count_documents({"saison_id": saison_id}, session=session),
+                spieltage_held=await spieltage_collection.count_documents({"saison_id": saison_id}, session=session),
+                watermark=saison_raw.get("spielplan"),
+                rules=rules,
+                occupancy_by_gruppe=occupancy,
+            )
+        )
+
+        # Last, and reachable only by a hand edit: create refuses each on its own `stored=None`
+        # path, and the step rule refuses any patch introducing one. Asked anyway, because such a
+        # season would draw a group phase whose bracket has no shape.
+        refuse(
+            find_rules_refusal(
+                saison_status=str(saison_raw["status"]),
+                stored=None,
+                proposed=rules,
+                occupancy_by_gruppe=occupancy,
+                highest_wired_platz=0,
+            )
+        )
+
+        # `find_wiring_refusal`, `judge_spieltag_occupancy`, `find_clash_refusal` and
+        # `find_eligibility_refusal` are all unasked: each judges ONE payload against a stored season,
+        # and would see a draw half written. The construction is what is verified instead.
+        drawn = draw_spielplan(
+            saison_id=saison_id,
+            rules=rules,
+            entered=[
+                EnteredTeam(
+                    row_id=row["_id"],
+                    team_id=row["team_id"],
+                    gruppe=row["gruppe"],
+                    name=str(row["name"]),
+                    shorthand=str(row["shorthand"]),
+                )
+                for row in entered_rows
+            ],
+        )
+
+        # Matchdays first: every fixture already carries the `spieltag_id` of a row in this list, the
+        # draw having generated both ids together rather than reading one back.
+        await post_many_to_db(collection=spieltage_collection, documents=drawn.spieltage, session=session)
+        await post_many_to_db(collection=spiele_collection, documents=drawn.spiele, session=session)
+
+        watermark = FLSaisonSpielplan(generiert_am=today, spieltage=len(drawn.spieltage), spiele=len(drawn.spiele))
+        # Inside the transaction, so the watermark can never disagree with what was written.
+        await patch_one_in_db(
+            collection=saisons_collection,
+            db_filter={"_id": saison_id},
+            update={"$set": {"spielplan": watermark.model_dump(mode="json")}},
+            session=session,
+        )
+
+        return FLGenerateSpielplanResponse(
+            saison_id=saison_id,
+            spieltage=watermark.spieltage,
+            spiele=watermark.spiele,
+            generiert_am=watermark.generiert_am,
+        )
+
+    # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges
+    # on, and a retry is safe because it generates its own ids and wires by `spiel_nr`, never by one.
+    async with await db.start_session() as session:
+        drawn_response = await session.with_transaction(draw_the_whole_season)
+
+    # After the commit: an aborted draw leaves the cache nothing to unlearn.
+    invalidate_saison_cache()
+
+    return drawn_response

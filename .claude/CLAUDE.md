@@ -280,7 +280,7 @@ by surface; the order inside a group carries nothing.
 - Refuse a manual pick as unqualified; field a team twice in a Spieltag
 - Add an austritt boolean beside the record
 - Widen a squad row's `position` or `stufe` past their `Literal`s; drop `E2`
-- Derive a `Spieltag`'s position rather than reading it; move one outside its PATCH; store or serve its German label
+- Derive a `Spieltag`'s position rather than reading it; write one outside the draw; store or serve its German label
 - Store `anzahl_spiele`; hardcode the qualifier cap
 - Import `app/core/domain.py` from `app/`; generate it; enforce it
 - Spell a collection name as a literal; enumerate the field names too
@@ -290,7 +290,6 @@ by surface; the order inside a group carries nothing.
 - Drop a forfeit from the cancellation count; merge it into the scoring lookup
 - Write `status` outside the activate endpoint; DELETE a season row; drop the rollover guard
 - Reach the swap's disqualification refusal backwards; refuse a club standing on its own fixture
-- Judge a phase change by where the row sits rather than by the step; refuse an empty matchday's move, or one towards its fixtures
 
 ### Frontend
 

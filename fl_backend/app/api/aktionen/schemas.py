@@ -7,6 +7,10 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
 
+# One alias for both the row and the filter: without it the two hand-copies drift, and a filter
+# narrower than the rows answers a legal `?operation=` with a 422 that no test would catch.
+FLAktionOperation = Literal["insert", "insert_many", "patch_one", "patch_many"]
+
 
 def _stringify_oids(value: Any) -> Any:
     """Every `ObjectId` in a stored document, at any depth, rendered as its hex.
@@ -51,7 +55,7 @@ class FLAktion(BaseModel):
     correlation_id: str
     request: FLAktionRequest | None
     collection: str
-    operation: Literal["insert", "patch_one", "patch_many"]
+    operation: FLAktionOperation
     document_id: str | None
     db_filter: dict[str, str] | None
     before: dict[str, Any] | None
@@ -85,7 +89,7 @@ FLAktionenListAdapter = TypeAdapter(list[FLAktion])
 
 class FLAktionenFilterParams(BaseModel):
     collection: str | None = None
-    operation: Literal["insert", "patch_one", "patch_many"] | None = None
+    operation: FLAktionOperation | None = None
     correlation_id: str | None = None
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)

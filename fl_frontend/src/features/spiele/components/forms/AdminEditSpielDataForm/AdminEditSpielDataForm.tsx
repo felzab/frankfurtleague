@@ -394,14 +394,12 @@ export function AdminEditSpielDataForm({
   };
 
   const requestSave = () => {
-    // Snapshotted, not read live: the admin agrees to the list the gate stopped on, and a
-    // background revalidation would move it under the open dialog.
-    //
     // Refusal banners are excluded: they report what the server ALREADY refused, where this gate
     // confirms what a save is about to cause. Left in, a standing one turns the next Save into a
     // dialog about a failure that has already happened.
     const blocking = resolveBlockingBanners(banners.filter((banner) => !isSpielRefusalBannerId(banner.id)));
     if (blocking !== null) {
+      // Snapshotted, not read live: a background revalidation would move the list under the dialog.
       setConfirmingBanners(blocking);
       return;
     }

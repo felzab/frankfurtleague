@@ -92,7 +92,7 @@ export function AdminTeamEditForm({
   /** The sidemenu selector's season and its junction row, resolved by the page. */
   saison: TeamSaisonMembership;
   today: string;
-  /** The page's answer to "may the group move": season not `future` and fixtures exist. */
+  /** The page's answer to "may the group move": whether the club holds a fixture in this season. */
   gruppeLocked: boolean;
   /** The selected season's groups with their fill state, from `buildGruppeOffer`. */
   gruppeOffer: readonly GruppeOffer[];

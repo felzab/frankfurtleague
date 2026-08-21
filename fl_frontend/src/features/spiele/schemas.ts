@@ -294,9 +294,9 @@ export const FLBracketFaultSpielSchema = z.object({
 export type FLBracketFaultSpiel = z.infer<typeof FLBracketFaultSpielSchema>;
 
 /**
- * A fixture's DATE against a junction record rather than a bracket reference, so it reaches a
- * group-phase fixture too. A match played BEFORE the effective day stands; an undated one is
- * reported, nothing showing it in time. Nothing is emptied — the remedy is a competition call.
+ * Derived from a fixture's DATE against a junction record rather than a bracket reference, so it
+ * reaches a Gruppenphase fixture too (`docs/backend/spec.md` I28). Which dates count:
+ * `fl_backend/app/api/spiele/services.py :: find_departed_occupants`.
  */
 export const FLBracketFaultOccupantSchema = z.object({
   reason: z.literal("departed_occupant"),

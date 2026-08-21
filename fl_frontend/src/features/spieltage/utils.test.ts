@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { buildSpieltagPhaseProgress, buildSpieltagPositionOffer, orderRoundsByWiring, spieltagLabels } from "./utils.ts";
+import { buildSpieltagPhaseProgress, orderRoundsByWiring, spieltagLabels } from "./utils.ts";
 
 import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "../saisons/schemas.ts";
 import type { FLSpiel, FLSpielQuelle } from "../spiele/schemas.ts";
@@ -110,7 +110,8 @@ describe("spieltagLabels", () => {
     assert.equal(backwards.get("b")?.label, forwards.get("b")?.label);
   });
 
-  // A gap is reachable: an admin may move a matchday off position 2 and leave nobody on it.
+  // The gap is what separates the two candidate ordinals: counted from the row's place in the list
+  // this answers 2, where the stored `position` answers 3.
   it("renders the stored number rather than the row's place in the list", () => {
     const labels = spieltagLabels([labelled("a", "gruppenphase", 1), labelled("c", "gruppenphase", 3)]);
 
@@ -126,57 +127,6 @@ describe("spieltagLabels", () => {
     assert.equal(alone.get("f")?.label, "Finale");
     assert.equal(split.get("v1")?.label, "Viertelfinale (1)");
     assert.equal(split.get("v2")?.label, "Viertelfinale (2)");
-  });
-});
-
-describe("buildSpieltagPositionOffer", () => {
-  const season = [labelled("a", "gruppenphase", 1), labelled("b", "gruppenphase", 2), labelled("f", "finale", 1)];
-
-  it("marks the slots this phase's other matchdays hold, and leaves the row's own free", () => {
-    assert.deepEqual(buildSpieltagPositionOffer(season, { phase: "gruppenphase", exceptId: "b" }), [
-      { position: 1, isTaken: true },
-      { position: 2, isTaken: false },
-      { position: 3, isTaken: false },
-    ]);
-  });
-
-  // The one move a phase change needs: whatever the round already holds, there is a slot to land on.
-  it("always ends on a free append slot", () => {
-    const offer = buildSpieltagPositionOffer(season, { phase: "finale", exceptId: "b" });
-
-    assert.deepEqual(offer, [
-      { position: 1, isTaken: true },
-      { position: 2, isTaken: false },
-    ]);
-  });
-
-  it("offers the first slot alone for a phase holding nothing", () => {
-    assert.deepEqual(buildSpieltagPositionOffer(season, { phase: "halbfinale", exceptId: "b" }), [{ position: 1, isTaken: false }]);
-  });
-
-  // Moving out to the end is how a slot lower down is freed, so the row's own last place must not
-  // shorten the list it is offered.
-  it("keeps the append slot when the row itself holds the highest place", () => {
-    assert.deepEqual(buildSpieltagPositionOffer(season, { phase: "gruppenphase", exceptId: "b" }).at(-1), {
-      position: 3,
-      isTaken: false,
-    });
-  });
-
-  // A gap must not shorten the list, or the number above it becomes unreachable.
-  it("offers every slot up to the highest one held, gaps included", () => {
-    const withAGap = [labelled("a", "gruppenphase", 1), labelled("c", "gruppenphase", 3)];
-
-    assert.deepEqual(buildSpieltagPositionOffer(withAGap, { phase: "gruppenphase", exceptId: "x" }), [
-      { position: 1, isTaken: true },
-      { position: 2, isTaken: false },
-      { position: 3, isTaken: true },
-      { position: 4, isTaken: false },
-    ]);
-  });
-
-  it("offers nothing at all while no phase is picked", () => {
-    assert.deepEqual(buildSpieltagPositionOffer(season, { phase: null, exceptId: "b" }), []);
   });
 });
 

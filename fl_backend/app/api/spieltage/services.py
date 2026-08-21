@@ -1,18 +1,19 @@
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from app.api.saisons.schedule import expected_matches
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import PHASE_RANK, FLSaisonPhase
+from app.api.spiele.schemas import PHASE_RANK
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
 
 
 def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
-    """The Mongo sort -- for the natural order an APPROXIMATION, refined by `order_spieltage`.
+    """The Mongo sort, an APPROXIMATION of the natural order that `order_spieltage` refines.
 
-    `position` first, which is exact inside one phase; the phase RANK is on no document, so nothing
-    a `find` can sort on separates the phases and `limit` may keep a prefix from each.
+    The phase RANK is on no document, so no `find` separates the phases and `limit` may keep a
+    prefix of each. `position` leads, being exact inside one.
     """
 
     if sort_by == "natural":
@@ -23,15 +24,15 @@ def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
         return build_sort(sort_by="position", order=order, chain=(("_id", direction),))
 
     # Tie-broken by the two fields that make any ordering here reproducible. `position` and not a
-    # date: every matchday has one, and it is the order a person chose.
+    # date: every matchday has one, and it is the order the season's schedule was drawn in.
     return build_sort(sort_by=sort_by, order=order, chain=(("position", 1), ("_id", 1)))
 
 
 def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
     """A season's matchdays in the order they are played: phase, then the stored `position`.
 
-    The id stays the last tie-break for a list spanning two seasons, where one phase's positions
-    repeat; `uniq_saison_id_saison_phase_position` makes it unreachable within one season.
+    The id tie-breaks a list spanning two seasons, whose positions repeat;
+    `uniq_saison_id_saison_phase_position` makes that unreachable within one.
     """
 
     return sorted(spieltage, key=lambda spieltag: (PHASE_RANK[spieltag.saison_phase], spieltag.position, str(spieltag.id)))
@@ -48,96 +49,14 @@ def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
 def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules) -> dict[str, Any]:
     """One raw matchday with its derived `anzahl_spiele` attached, ready to validate.
 
-    Every path validating a stored matchday goes through this, writes included: a `PATCH` can move
-    the phase the count derives from, so an echo skipping it goes stale.
+    Every path validating a stored matchday goes through this, the echo included: the count is on
+    no document, so an echo skipping it reports a matchday with no matches.
     """
 
     return {**spieltag_raw, "anzahl_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
 
 
 # What each code below refuses is `docs/logging/error-codes.md`.
-SPIELTAG_MOVED_TO_UNPLAYED_PHASE = "REQ-SPIELTAG-005"
-SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY = "REQ-SPIELTAG-006"
-
-
-def find_spieltag_unplayed_phase_refusal(
-    *,
-    stored_phase: FLSaisonPhase,
-    proposed_phase: FLSaisonPhase,
-    implied_in_proposed: int,
-) -> WriteRefusal | None:
-    """Why moving this matchday into the proposed round must be refused, or `None`.
-
-    The PROPOSED phase alone, so moving OUT of a round the rules never produce stays open: that is
-    the repair.
-    """
-
-    # An unchanged phase is a dates-only edit; this judges the step, not where the row sits.
-    if stored_phase == proposed_phase or implied_in_proposed > 0:
-        return None
-
-    return WriteRefusal(
-        error_code=SPIELTAG_MOVED_TO_UNPLAYED_PHASE,
-        message=f"these rules produce no {proposed_phase}; a matchday cannot be moved into a round the season never plays",
-    )
-
-
-def find_spieltag_boundary_refusal(
-    *,
-    stored_phase: FLSaisonPhase,
-    proposed_phase: FLSaisonPhase,
-    fixtures_on_stored_side: int,
-    fixtures_on_proposed_side: int,
-) -> WriteRefusal | None:
-    """Why this matchday may not cross the gruppenphase/knockout boundary.
-
-    The bracket selects rounds by the MATCHDAY's phase and fixtures by the FIXTURE's, and no endpoint
-    writes `spiele.saison_phase` -- so a move strands those fixtures across that join.
-    """
-
-    crosses_the_boundary = (stored_phase == "gruppenphase") != (proposed_phase == "gruppenphase")
-    # Graded as a STEP: a move TOWARDS the fixtures is the repair, and a matchday holding both kinds
-    # is left alone, either direction stranding something.
-    if not crosses_the_boundary or fixtures_on_stored_side == 0 or fixtures_on_proposed_side > 0:
-        return None
-
-    # Named by SIDE, not by phase: a knockout-side fixture may hold any round, not the matchday's.
-    stored_side = "gruppenphase" if stored_phase == "gruppenphase" else "knockout"
-    proposed_side = "gruppenphase" if proposed_phase == "gruppenphase" else "knockout"
-
-    return WriteRefusal(
-        error_code=SPIELTAG_CROSSES_THE_BRACKET_BOUNDARY,
-        message=f"the matchday holds {fixtures_on_stored_side} {stored_side} fixture(s) and no {proposed_side} one; "
-        f"moving it to {proposed_phase} would leave those fixtures on the other side of the bracket "
-        "boundary from their own matchday, and nothing here can move them across",
-    )
-
-
-SPIELTAG_OVER_ITS_PHASE = "REQ-SPIELTAG-002"
-
-
-def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int, expected_in_stored_phase: int) -> WriteRefusal | None:
-    """Why this matchday's phase must be refused, or `None`.
-
-    `expected_count` is for the PROPOSED phase, `expected_in_stored_phase` for the one it holds now.
-    Only the over-full direction is refused.
-    """
-
-    # An unchanged phase compares equal, so a dates-only patch never reaches the refusal, and a move
-    # to a roomier phase is a repair.
-    narrows_the_count = expected_count < expected_in_stored_phase
-    would_not_fit = attached_count > expected_count
-
-    if narrows_the_count and would_not_fit:
-        return WriteRefusal(
-            error_code=SPIELTAG_OVER_ITS_PHASE,
-            message=f"the matchday holds {attached_count} fixtures and this phase accounts for {expected_count}; "
-            "a single round robin per group fixes that number",
-        )
-
-    return None
-
-
 SPIELTAG_OUTSIDE_SAISON = "REQ-DATE-002"
 # `REQ-DATE-001`'s mirror: shrinking the span is the other way to break the same containment.
 SPIELTAG_SPAN_BELOW_FIXTURES = "REQ-DATE-003"
@@ -174,36 +93,94 @@ def find_spieltag_span_refusal(
     return None
 
 
-# "Started" is a DATE here, never a result.
-SPIELTAG_KNOCKOUT_STARTED = "REQ-SPIELTAG-003"
-SPIELTAG_PHASE_NOT_PLAYED = "REQ-SPIELTAG-004"
+# `position` and `beginn` order a phase independently, so nothing else stops a season from showing
+# its matchdays in one order and dating them in another. `ende` is left free: it is the escape a
+# postponement takes, and the message names it.
+SPIELTAG_BEGINN_OUT_OF_ORDER = "REQ-DATE-008"
 
 
-def find_spieltag_create_refusal(
-    *,
-    implied_in_phase: int,
-    saison_phase: FLSaisonPhase,
-    earliest_knockout_beginn: str | None,
-    today: str,
-) -> WriteRefusal | None:
-    """Why creating a matchday in this season must be refused, or `None`.
+@dataclass(frozen=True)
+class DatedNeighbour:
+    """One dated matchday beside the one being re-dated, inside the same phase of the same season."""
 
-    A non-zero `implied_in_phase` is NOT a quota: a phase may be split across more matchdays than
-    the minimum. Today COUNTS as under way.
+    position: int
+    beginn: str
+
+
+def dated_beginn(spieltag_raw: Mapping[str, Any]) -> str | None:
+    """One stored `beginn` as the rule takes it, or `None` for an undated row.
+
+    `app/core/constraints.py :: Collection.SPIELTAGE` validates the field string-or-null, so nothing
+    converts it: a `str()` would turn an undated row into a day above every ISO date.
     """
 
-    # Asked first: a phase nobody plays is wrong whatever the calendar says.
-    if implied_in_phase == 0:
-        return WriteRefusal(
-            error_code=SPIELTAG_PHASE_NOT_PLAYED,
-            message=f"these rules produce no {saison_phase}; a matchday cannot belong to a round the season never plays",
-        )
+    return spieltag_raw["beginn"]
 
-    if earliest_knockout_beginn is None or earliest_knockout_beginn > today:
+
+def dated_neighbour(spieltag_raw: Mapping[str, Any] | None) -> DatedNeighbour | None:
+    """The neighbouring row as the refusal takes it, or `None` where that side holds no dated matchday."""
+
+    if spieltag_raw is None:
         return None
 
-    return WriteRefusal(
-        error_code=SPIELTAG_KNOCKOUT_STARTED,
-        message=f"the knockout phase began on {earliest_knockout_beginn} and today is {today}; "
-        "a season's matchdays are created before its bracket is under way",
-    )
+    beginn = dated_beginn(spieltag_raw)
+
+    return None if beginn is None else DatedNeighbour(position=spieltag_raw["position"], beginn=beginn)
+
+
+def find_spieltag_order_refusal(
+    *,
+    beginn: str,
+    ende: str,
+    stored_beginn: str | None,
+    previous: DatedNeighbour | None,
+    following: DatedNeighbour | None,
+) -> WriteRefusal | None:
+    """Why this matchday's `beginn` must be refused for its place in the phase, or `None`.
+
+    `previous` and `following` are the nearest DATED matchday below and above this `position`; an
+    undated one states no date to compare, so the caller passes neither.
+    """
+
+    # The STEP, never the state (`docs/backend/spec.md :: I44`): an `ende`-only edit resubmits this
+    # `beginn`. A first dating moves from no pair at all, so it is judged against both neighbours.
+    moved_earlier = stored_beginn is None or beginn < stored_beginn
+    moved_later = stored_beginn is None or beginn > stored_beginn
+
+    # The predecessor first, and both are reachable at once only for a first dating landing between
+    # two neighbours already out of order: the earlier position is the pair a reader checks first.
+    if previous is not None and moved_earlier and beginn < previous.beginn:
+        # A stored `beginn` already below the predecessor's is the floor the STEP leaves: the rule
+        # takes it back unchanged, so naming the predecessor's day would refuse ground it gives.
+        floor = (
+            f"its `beginn` cannot go earlier than the {stored_beginn} it already stands on"
+            if stored_beginn is not None and stored_beginn < previous.beginn
+            else "its `beginn` cannot go earlier than that"
+        )
+
+        return WriteRefusal(
+            error_code=SPIELTAG_BEGINN_OUT_OF_ORDER,
+            # Below the floor the goal is reachable at fixture level alone: the predecessor's own
+            # matches move into the later days, and no `beginn` moves at all.
+            message=f"this matchday begins {beginn} and position {previous.position} of its phase begins {previous.beginn}; "
+            f"{floor}; to play this one first, widen position {previous.position}'s `ende` "
+            "and move that matchday's own fixtures into the later days",
+        )
+
+    if following is not None and moved_later and following.beginn < beginn:
+        # `ende` is never below `beginn` on the payload (`FLPatchSpieltagPayload`), so a span reaching
+        # here already runs past the follower and asking for a wider one would name a step taken.
+        opening = (
+            f"to postpone this one, restore its `beginn` of {stored_beginn}"
+            if stored_beginn is not None
+            else f"it holds no `beginn` to keep, so date it at or before {following.beginn}"
+        )
+
+        return WriteRefusal(
+            error_code=SPIELTAG_BEGINN_OUT_OF_ORDER,
+            message=f"this matchday begins {beginn} and position {following.position} of its phase begins {following.beginn}; "
+            f"{opening} and save that with this `ende` of {ende}, which already runs past that day, "
+            "then re-date its fixtures inside that span",
+        )
+
+    return None
