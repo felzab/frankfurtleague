@@ -29,7 +29,7 @@ export const FLAktionSchema = z.object({
   request: FLAktionRequestSchema.nullable(),
   // Open rather than an enum of the nine names: a collection added on the backend must still list here.
   collection: z.string(),
-  operation: z.enum(["insert", "patch_one", "patch_many"]),
+  operation: z.enum(["insert", "insert_many", "patch_one", "patch_many"]),
   // An ObjectId everywhere but `saisons`, whose id is the season string. Null on a fan-out, which matched a filter.
   document_id: z.string().nullable(),
   db_filter: z.record(z.string(), z.string()).nullable(),

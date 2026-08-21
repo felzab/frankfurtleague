@@ -94,10 +94,11 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         hint: {
           lead: "Die Spieltage der im Seitenmenü gewählten Saison, nach Phase und in der Reihenfolge, in der sie gespielt werden.",
           points: [
-            { term: "Name", detail: "ergibt sich aus Phase und Position. Um einen Spieltag zu verschieben, ändere seine Position." },
+            { term: "Name", detail: "folgt aus der Runde, zu der ein Spieltag gehört." },
+            { term: "Zeitraum", detail: "der Stift öffnet den Spieltag, dort trägst Du Beginn und Ende ein." },
             { term: "Spiele", detail: "die angelegte Zahl neben der erwarteten. Weichen sie ab, fehlt etwas." },
           ],
-          note: "Sobald die KO-Runde begonnen hat, lassen sich keine Spieltage mehr anlegen.",
+          note: "Die Spieltage einer Saison entstehen zusammen mit ihrem Spielplan. Hier legst Du ihren Zeitraum fest.",
         },
       },
       {

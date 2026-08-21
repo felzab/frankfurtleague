@@ -77,6 +77,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLReactivateSpielerPayload: "the reactivate POST takes its id from the path and has no request body",
   FLSaisonSpielerKeyPayload: "the junction's DELETE and reactivate take both ids from the path, with no request body",
   FLActivateSaisonPayload: "the activate POST takes its id from the path and has no request body",
+  FLGenerateSpielplanPayload: "the Spielplan POST takes its id from the path and has no request body",
   FLSchiedsrichterKeyPayload: "the referee's DELETE and reactivate take the id from the path, with no request body",
   FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
@@ -278,7 +279,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 97;
+const EXPECTED_PAIRS = 98;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

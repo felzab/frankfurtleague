@@ -9,6 +9,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
+import type { SaisonSpieltagBound } from "@/features/saisons/types";
 import type { CalendarDate } from "@internationalized/date";
 import type { SaisonBanner } from "./banners";
 
@@ -32,17 +33,19 @@ export function FormZeitraumSection({
   onEndDateChange: (next: CalendarDate | null) => void;
   onFieldLeft: (paths: readonly string[]) => void;
   /**
-   * The span the live matchdays occupy (`REQ-DATE-004`). Absent while the season has no live matchday,
-   * which leaves both pickers unbounded.
+   * The span the DATED matchdays occupy (`REQ-DATE-004`). `null` at an end leaves that picker
+   * unbounded, which is the answer for a season with no matchday and for one whose matchdays are all
+   * still undated.
    */
-  spieltagBound?: { startMax: string; endMin: string };
+  spieltagBound: SaisonSpieltagBound;
   banners: readonly SaisonBanner[];
 }) {
   const panel = formPanel();
 
-  // Parsed once for both pickers, `undefined` where no matchday binds.
-  const startMax = spieltagBound ? parseDate(spieltagBound.startMax) : undefined;
-  const endMin = spieltagBound ? parseDate(spieltagBound.endMin) : undefined;
+  // Parsed per end and never on a stand-in string: `parseDate` THROWS on one it cannot read, so an
+  // unbound end has to be `undefined` here rather than a value that happens to parse.
+  const startMax = spieltagBound.startMax === null ? undefined : parseDate(spieltagBound.startMax);
+  const endMin = spieltagBound.endMin === null ? undefined : parseDate(spieltagBound.endMin);
 
   return (
     <section className={panel.root()}>
@@ -53,8 +56,8 @@ export function FormZeitraumSection({
             <p>Der Zeitraum umschließt die Spieltage der Saison.</p>
             <ul>
               <li>
-                Alle <strong>Spieltage</strong> müssen im Zeitraum liegen. Tage, die einen Spieltag ausschließen würden, sind im Kalender
-                gesperrt.
+                Alle <strong>Spieltage mit Zeitraum</strong> müssen in der Saison liegen. Tage, die einen solchen Spieltag ausschließen würden,
+                sind im Kalender gesperrt.
               </li>
               <li>
                 Ein <strong>Spiel</strong> richtet sich nach seinem Spieltag, nicht direkt nach der Saison.

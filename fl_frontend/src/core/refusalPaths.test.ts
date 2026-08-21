@@ -180,6 +180,7 @@ const RECORD_ITSELF = "the record's own path: refusable only on a shape the type
  */
 const EXEMPT: Record<string, Record<string, string>> = {
   FLActivateSaisonPayloadSchema: { id: NO_FORM_AT_ALL },
+  FLGenerateSpielplanPayloadSchema: { id: NO_FORM_AT_ALL },
   FLDeleteSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
   FLDeleteTeamPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
@@ -197,10 +198,6 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLPatchTeamPayloadSchema: {
     id: IN_THE_PATH,
     description: "written through DescriptionEditModal, which caps at the schema's own 4096",
-  },
-
-  FLPostSpieltagPayloadSchema: {
-    saison_id: "the page's season, resolved against the season list before the dialog opens",
   },
 
   FLPostSaisonTeamPayloadSchema: { team_id: IN_THE_PATH, saison_id: THE_PAGE_SEASON },

@@ -8,7 +8,6 @@ import { Form } from "@heroui/react";
 import { patchSpieltagAction } from "@/features/spieltage/actions";
 import { FLPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";
 import { deriveSpieltagDraftStatus } from "@/features/spieltage/spieltagDraftStatus";
-import { buildSpieltagPhaseOffer, buildSpieltagPositionOffer, firstFreeSpieltagPosition } from "@/features/spieltage/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
@@ -22,13 +21,11 @@ import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarnin
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 
 import { buildSpieltagBanners } from "./banners";
-import { FormPhaseSection } from "./FormPhaseSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
 
-import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
-import type { FLPatchSpieltagPayload, FLSpieltag } from "@/features/spieltage/schemas";
+import type { FLPatchSpieltagPayload } from "@/features/spieltage/schemas";
 import type { FLSpieltagDraftFields } from "@/features/spieltage/spieltagDraftStatus";
-import type { AdminSpieltagRow, SpieltagEditDraft } from "@/features/spieltage/types";
+import type { AdminSpieltagRow } from "@/features/spieltage/types";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { ReactNode } from "react";
 
@@ -53,35 +50,29 @@ async function postSpieltagUndo(payload: FLPatchSpieltagPayload): Promise<{ succ
 }
 
 /**
- * The matchday editor's form. **Four fields on a page is deliberate**: what earns the page is what
- * the form has to SAY, the backend refusals standing behind those controls. The rail is where all of
- * that goes.
+ * The matchday editor's form. **Two fields on a page is deliberate**: what earns the page is what the
+ * form has to SAY, the backend refusals standing behind those controls. The rail is where all of that
+ * goes.
  */
 export function AdminSpieltagEditForm({
   spieltag,
   saisonSpan,
-  saisonSchedule,
-  siblings,
   registerRequestLeave,
   pageHeader,
 }: {
   spieltag: AdminSpieltagRow;
   /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
   saisonSpan?: { start: string; end: string };
-  /** The season's derived per-phase counts, which decide what the phase picker may offer. */
-  saisonSchedule?: readonly FLSaisonPhaseSchedule[];
-  /** Every matchday of the season, from which the position picker reads the slots each phase holds. */
-  siblings?: readonly FLSpieltag[];
   registerRequestLeave?: (requestLeave: () => void) => void;
   pageHeader?: ReactNode;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const [phase, setPhase] = useState<FLSaisonPhase | null>(spieltag.saison_phase);
-  const [position, setPosition] = useState(spieltag.position);
-  const [beginn, setBeginn] = useState(spieltag.beginn);
-  const [ende, setEnde] = useState(spieltag.ende);
+  // An undated matchday enters as the empty string, which is the same state a cleared picker leaves
+  // behind — so one branch below covers both, and the schema refuses the save either way.
+  const [beginn, setBeginn] = useState(spieltag.beginn ?? "");
+  const [ende, setEnde] = useState(spieltag.ende ?? "");
 
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
@@ -97,15 +88,10 @@ export function AdminSpieltagEditForm({
   });
 
   // `id` is the loaded record's own and the wire carries it in the path, so no refusal can name it.
-  const buildPayload = (): SpieltagEditDraft => ({ id: spieltag.id, beginn, ende, saison_phase: phase, position });
+  const buildPayload = (): FLPatchSpieltagPayload => ({ id: spieltag.id, beginn, ende });
 
-  const draftFields: FLSpieltagDraftFields = { beginn, ende, saison_phase: phase, position };
-  const storedFields: FLSpieltagDraftFields = {
-    beginn: spieltag.beginn,
-    ende: spieltag.ende,
-    saison_phase: spieltag.saison_phase,
-    position: spieltag.position,
-  };
+  const draftFields: FLSpieltagDraftFields = { beginn, ende };
+  const storedFields: FLSpieltagDraftFields = { beginn: spieltag.beginn ?? "", ende: spieltag.ende ?? "" };
 
   const status = deriveSpieltagDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
@@ -140,19 +126,8 @@ export function AdminSpieltagEditForm({
 
   const isZeitraumChanged = status.changed.some((field) => field.group === "Zeitraum");
 
-  // The browser's half of `REQ-SPIELTAG-002`: a phase accounting for fewer matches than this
-  // matchday holds would leave the rest with nowhere to be played.
-  const phaseOffer = buildSpieltagPhaseOffer(saisonSchedule ?? [], spieltag.spieleAngelegt);
-
-  // Read against the DRAFT phase: picking another round is what changes which slots are free, and the
-  // unique index is what refuses a taken one.
-  const positionOffer = buildSpieltagPositionOffer(siblings ?? [], { phase, exceptId: spieltag.id });
-
   const banners = buildSpieltagBanners({
     label: spieltag.label,
-    storedPhase: spieltag.saison_phase,
-    draftPhase: phase,
-    isPositionChanged: position !== spieltag.position,
     isZeitraumChanged,
     isEndeVorBeginn: beginn !== "" && ende !== "" && ende < beginn,
     spieleAngelegt: spieltag.spieleAngelegt,
@@ -181,10 +156,8 @@ export function AdminSpieltagEditForm({
   });
 
   const resetDraftToStored = () => {
-    setPhase(spieltag.saison_phase);
-    setPosition(spieltag.position);
-    setBeginn(spieltag.beginn);
-    setEnde(spieltag.ende);
+    setBeginn(spieltag.beginn ?? "");
+    setEnde(spieltag.ende ?? "");
 
     setSubmitFieldErrors({}, {});
   };
@@ -210,17 +183,10 @@ export function AdminSpieltagEditForm({
   const handleFormSubmit = () => {
     startTransition(async () => {
       // Read before the write: the props still hold the pre-save values, and the toast that replays
-      // them outlives this component.
-      const undoPayload: FLPatchSpieltagPayload = {
-        id: spieltag.id,
-        beginn: spieltag.beginn,
-        ende: spieltag.ende,
-        saison_phase: spieltag.saison_phase,
-        position: spieltag.position,
-      };
-      // Only what the admin cannot see from the form earns a sentence: the matchday's NAME, which is
-      // composed from the two fields below and shown on another page.
-      const nameTouched = position !== spieltag.position || phase !== spieltag.saison_phase;
+      // them outlives this component. The payload carries both dates or neither of them, so no replay
+      // can ask the endpoint to take the dates away again.
+      const undoPayload: FLPatchSpieltagPayload | null =
+        spieltag.beginn === null || spieltag.ende === null ? null : { id: spieltag.id, beginn: spieltag.beginn, ende: spieltag.ende };
 
       const payload = buildPayload();
       const res = await patchSpieltagAction(payload);
@@ -233,7 +199,8 @@ export function AdminSpieltagEditForm({
       setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
-      offerUndo(undoPayload, nameTouched ? "Der Spieltag heißt damit anders: sein Name folgt aus Phase und Position." : undefined);
+      if (undoPayload === null) appToast.success("Änderung gespeichert", { description: "Der Spieltag hat jetzt einen Zeitraum." });
+      else offerUndo(undoPayload);
 
       // AFTER the undo payload is built, which reads the props rather than these atoms: typed values
       // left in state let a save-then-undo reopen on values the matchday no longer holds.
@@ -247,9 +214,9 @@ export function AdminSpieltagEditForm({
    * pitfalls. **The replay can be refused**: it is an ordinary `PATCH`, so a span narrowed meanwhile
    * comes back as `REQ-DATE-003` rather than a restore.
    */
-  const offerUndo = (payload: FLPatchSpieltagPayload, message?: string) => {
+  const offerUndo = (payload: FLPatchSpieltagPayload) => {
     appToast.success("Änderung gespeichert", {
-      description: message ?? "Der Spieltag wurde aktualisiert.",
+      description: "Der Spieltag wurde aktualisiert.",
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",
@@ -303,29 +270,6 @@ export function AdminSpieltagEditForm({
               nomen="Spieltag"
             />
           }>
-          <FormPhaseSection
-            phase={phase}
-            onChange={(next) => {
-              setPhase(next);
-              // The slot follows the round: the number the matchday holds now may be another
-              // matchday's in the phase it is moving to, and the index would refuse the save.
-              const nextPosition =
-                next === spieltag.saison_phase
-                  ? spieltag.position
-                  : firstFreeSpieltagPosition(buildSpieltagPositionOffer(siblings ?? [], { phase: next, exceptId: spieltag.id }));
-              setPosition(nextPosition);
-              validatePicked(["saison_phase", "position"], { saison_phase: next, position: nextPosition });
-            }}
-            phaseOffer={phaseOffer}
-            position={position}
-            onPositionChange={(next) => {
-              setPosition(next);
-              validatePicked(["position"], { position: next });
-            }}
-            positionOffer={positionOffer}
-            banners={banners}
-          />
-
           <FormZeitraumSection
             beginn={beginn}
             ende={ende}

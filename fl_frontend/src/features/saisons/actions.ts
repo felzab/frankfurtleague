@@ -7,13 +7,23 @@ import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { activateSaison, patchSaison, postSaison, swapGruppen } from "./mutations";
-import { FLActivateSaisonPayloadSchema, FLPatchSaisonPayloadSchema, FLPostSaisonPayloadSchema, FLSwapGruppenPayloadSchema } from "./schemas";
+import { activateSaison, generateSpielplan, patchSaison, postSaison, swapGruppen } from "./mutations";
+import {
+  FLActivateSaisonPayloadSchema,
+  FLGenerateSpielplanPayloadSchema,
+  FLPatchSaisonPayloadSchema,
+  FLPostSaisonPayloadSchema,
+  FLSwapGruppenPayloadSchema,
+  MAX_QUALIFIERS,
+} from "./schemas";
+import { describeSpielplanUmfang } from "./utils";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLActivateSaisonPayload,
   FLActivateSaisonResponse,
+  FLGenerateSpielplanPayload,
+  FLGenerateSpielplanResponse,
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
   FLPostSaisonPayload,
@@ -23,13 +33,27 @@ import type {
 
 const SAISON_ID_TAKEN = "Diese Saison-ID ist bereits vergeben. Wähle eine andere oder bearbeite die vorhandene Saison.";
 
+/**
+ * The four stored-rules faults a DRAW raises as well as an edit, each worded once: the rules editor
+ * seats the sentence under its field, and the generator, having no field, seats it in a message that
+ * names where the repair is made.
+ */
+const BRACKET_HAS_NO_SHAPE = `Gruppen mal Qualifikanten muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`;
+const GROUP_OVER_QUALIFIES = "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.";
+const DRAW_BEATS_WIN = "Ein Unentschieden darf nicht mehr Punkte bringen als ein Sieg.";
+const FORFEIT_CANNOT_DECIDE =
+  "Diese Saison spielt eine KO-Runde, in der ein Unentschieden niemanden weiterbringt. Sieger und Verlierer brauchen unterschiedliche Tore.";
+
+/** A stored-rules fault as the generator must report it: the rule, then where it is repaired. */
+const rulesFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen unter Regeln und speichere sie.`;
+
 /** A rules 409 as the message it should render, or `null` when the code is none of these. */
 function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   switch (error.serverErrorCode) {
     case "REQ-RULES-001":
-      return { fieldErrors: { "rules.qualifiers_per_group": "Gruppen mal Qualifikanten muss eine Zweierpotenz von 2 bis 16 ergeben." } };
+      return { fieldErrors: { "rules.qualifiers_per_group": BRACKET_HAS_NO_SHAPE } };
     case "REQ-RULES-002":
       return { fieldErrors: { "rules.number_of_groups": "Eine Gruppe, die noch Teams hält, kann nicht wegfallen." } };
     case "REQ-RULES-003":
@@ -41,23 +65,18 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
         },
       };
     case "REQ-RULES-007":
-      return { fieldErrors: { "rules.qualifiers_per_group": "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst." } };
+      return { fieldErrors: { "rules.qualifiers_per_group": GROUP_OVER_QUALIFIES } };
     // Only a step that introduces or worsens it is refused, and an equal count is allowed — so the
     // message says "mehr" rather than promising a rule the server does not apply.
     case "REQ-RULES-008":
-      return { fieldErrors: { "rules.draw_points": "Ein Unentschieden darf nicht mehr Punkte bringen als ein Sieg." } };
+      return { fieldErrors: { "rules.draw_points": DRAW_BEATS_WIN } };
     case "REQ-RULES-009":
       return { fieldErrors: { "rules.max_kadergroesse": "Mindestens ein Kader hat schon mehr Spieler als dieses Maximum." } };
     // On the winner's box, which is the one to raise, and only there: `<FieldError>` renders under
     // the input whose `name` the key matches, and the pair's own row picks it up through
     // `saisonDraftStatus`'s `errorPaths`.
     case "REQ-RULES-010":
-      return {
-        fieldErrors: {
-          "rules.forfeit_ergebnis.sieger_tore":
-            "Diese Saison spielt eine KO-Runde, in der ein Unentschieden niemanden weiterbringt. Sieger und Verlierer brauchen unterschiedliche Tore.",
-        },
-      };
+      return { fieldErrors: { "rules.forfeit_ergebnis.sieger_tore": FORFEIT_CANNOT_DECIDE } };
     // Both freezes can hold at once and neither message can see which does, so each names only what
     // it freezes and closes with the four fields neither reaches. `FormRegelnSection`'s note has the
     // season's status and lists the rest per case.
@@ -105,6 +124,62 @@ function invalidateRollover(): void {
   updateTag("spiele");
   updateTag("spieltage");
   updateTag("teams");
+}
+
+/**
+ * `teams` too, for a reason no fixture count shows: a drawn season has fixtures still to play, which
+ * `fl_backend/app/api/teams/services.py :: _may_hold_a_platz` reads when it breaks a tie, so the
+ * group order moves without a single result being entered.
+ */
+function invalidateSpielplan(saisonId: string): void {
+  updateTag("saisons");
+  // Base tag alone, `getSpieltage` declaring no granular one.
+  updateTag("spieltage");
+
+  updateTag("spiele");
+  updateTag(`spiele:saison_id:${saisonId}`);
+
+  updateTag("teams");
+  updateTag(`teams:saison_id:${saisonId}`);
+}
+
+/**
+ * A generator 409 as the message it should render, or `null` for any other code. A state the panel
+ * already closes the control for means the page went stale, so it says to reload; every other code
+ * names a repair and where it is made.
+ */
+function mapSpielplanRefusal(error: unknown): string | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  switch (error.serverErrorCode) {
+    // One-way, exactly as the activation is: nothing in the product draws a season twice.
+    case "REQ-SPIELPLAN-001":
+      return (
+        "Für diese Saison sind bereits Spiele angelegt, und ein Spielplan entsteht nur einmal. Einen zweiten legt die Verwaltung nicht " +
+        "an. Lade die Seite neu."
+      );
+    case "REQ-SPIELPLAN-002":
+      return "Für diese Saison gibt es bereits Spieltage. Ein Spielplan entsteht nur für eine Saison ganz ohne Spieltage. Lade die Seite neu.";
+    case "REQ-SPIELPLAN-003":
+      return "Diese Saison ist nicht mehr geplant. Ein Spielplan entsteht nur, solange die Saison geplant ist. Lade die Seite neu.";
+    // The endpoint names each short group, in developer English. This says the class of repair
+    // instead, and where it is made: the group occupancies stand on the team pages.
+    case "REQ-SPIELPLAN-004":
+      return "Mindestens eine Gruppe hat noch zu wenige Teams für einen Spielplan. Nimm die fehlenden Teams über die Teamseite in die Saison auf.";
+    // A draw judges the STORED rules, so every fault below reaches it on the same footing as an edit.
+    // A season comes to hold one by resubmitting it unchanged, which the step rule allows
+    // (`docs/backend/spec.md :: I44`).
+    case "REQ-RULES-001":
+      return rulesFaultMessage(`Aus den Regeln dieser Saison entsteht keine KO-Runde: ${BRACKET_HAS_NO_SHAPE}`);
+    case "REQ-RULES-007":
+      return rulesFaultMessage(GROUP_OVER_QUALIFIES);
+    case "REQ-RULES-008":
+      return rulesFaultMessage(DRAW_BEATS_WIN);
+    case "REQ-RULES-010":
+      return rulesFaultMessage(FORFEIT_CANNOT_DECIDE);
+    default:
+      return null;
+  }
 }
 
 export async function postSaisonAction(
@@ -356,6 +431,54 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
       success: true,
       swap: swapOperation,
       message: `Die beiden Teams stehen jetzt in Gruppe ${swapOperation.team1_gruppe} und Gruppe ${swapOperation.team2_gruppe}. ${umgeschrieben}`,
+    };
+  });
+}
+
+/**
+ * The one path to a season's fixtures, on `POST /saisons/{saison_id}/spielplan`. **One-way like the
+ * activation**: `REQ-SPIELPLAN-001` refuses a second draw, so there is no undo to offer beside it.
+ */
+export async function generateSpielplanAction(rawPayload: FLGenerateSpielplanPayload): Promise<{
+  success: boolean;
+  spielplan?: FLGenerateSpielplanResponse;
+  message?: string;
+  error?: string;
+  fieldErrors?: FieldErrors;
+}> {
+  return runAdminMutation("generateSpielplanAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLGenerateSpielplanPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    let generateOperation;
+    try {
+      generateOperation = await generateSpielplan(validated.data);
+    } catch (error) {
+      const refusal = mapSpielplanRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
+    if (!generateOperation.acknowledged) {
+      return { success: false, error: "Beim Anlegen des Spielplans ist ein unerwarteter Fehler aufgetreten" };
+    }
+
+    invalidateSpielplan(validated.data.id);
+
+    // `stehen` and not `hat`, so the shared phrase can stay nominative for the panel's readout too.
+    const umfang = describeSpielplanUmfang(generateOperation.spieltage, generateOperation.spiele);
+
+    return {
+      success: true,
+      spielplan: generateOperation,
+      message: `In Saison ${validated.data.id} stehen jetzt ${umfang}, noch ohne Zeitraum und ohne Termin. Seinen Zeitraum bekommt jeder Spieltag auf seiner eigenen Seite, die Termine der Spiele danach.`,
     };
   });
 }

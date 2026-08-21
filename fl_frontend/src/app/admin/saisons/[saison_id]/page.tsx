@@ -5,14 +5,14 @@ import { connection } from "next/server";
 import { AdminSaisonEditView } from "@/features/saisons/components/views/AdminSaisonEditView";
 import { getSaisons } from "@/features/saisons/queries";
 import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
-import { buildGruppenSwapContext } from "@/features/saisons/utils";
+import { buildGruppenSwapContext, buildSpieltagBound } from "@/features/saisons/utils";
 import { getSpiele } from "@/features/spiele/queries";
 import { getSpieltage } from "@/features/spieltage/queries";
 import { getTeams } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import type { SaisonGruppenSwapContext, SaisonOffeneSpiel, SaisonRolloverContext } from "@/features/saisons/types";
+import type { SaisonGruppenSwapContext, SaisonOffeneSpiel, SaisonRolloverContext, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
@@ -87,6 +87,12 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const hasDrawnSpiele = gruppenSpieleRes.spiele.length > 0 || playoffSpieleRes.spiele.length > 0;
 
   /**
+   * The generator's own preconditions, off reads this page already makes: the watermark rides on the
+   * season, and `REQ-SPIELPLAN-002` counts exactly the rows `getSpieltage` lists for it.
+   */
+  const spielplan: SaisonSpielplanContext = { spielplan: saison.spielplan, spieltageCount: spieltageRes.spieltage.length };
+
+  /**
    * Assembled by the derivation both entry points share, so this page and the club editor grade a
    * swap pair identically.
    */
@@ -96,18 +102,9 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     playoffSpiele: playoffSpieleRes.spiele,
   });
 
-  // The inner bound on the season's dates (`REQ-DATE-004`): the start may not pass the first
-  // matchday's beginn, nor the end precede the last one's ende.
-  const beginne = spieltageRes.spieltage.map((spieltag) => spieltag.beginn);
-  const enden = spieltageRes.spieltage.map((spieltag) => spieltag.ende);
-  const spieltagBound =
-    beginne.length === 0
-      ? undefined
-      : {
-          // Lexicographic min/max is date order on YYYY-MM-DD.
-          startMax: [...beginne].sort()[0] ?? "",
-          endMin: [...enden].sort().at(-1) ?? "",
-        };
+  // The inner bound on the season's dates (`REQ-DATE-004`), derived rather than assembled here: a
+  // drawn season's matchdays are undated, which is the case the derivation is tested on.
+  const spieltagBound = buildSpieltagBound(spieltageRes.spieltage);
 
   return (
     // Keyed by the state the drafts mirror, for the match editor's reason.
@@ -122,6 +119,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       }}
       rollover={rollover}
       swap={swap}
+      spielplan={spielplan}
       hasDrawnSpiele={hasDrawnSpiele}
       spieltagBound={spieltagBound}
     />

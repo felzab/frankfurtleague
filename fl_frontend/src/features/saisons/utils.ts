@@ -1,6 +1,6 @@
 import type { NextPageProps } from "@/shared/types/types";
 import type { FLSpiel } from "../spiele/schemas";
-import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "./types";
+import type { SaisonGruppenSwapContext, SaisonSpieltagBound, SaisonSwapTeam } from "./types";
 
 /**
  * The query string minus `saison_id`, relative on purpose: a Server Component cannot read its own
@@ -128,4 +128,30 @@ export function findSwapPartnerRefusal(fixed: SaisonSwapTeam, candidate: SaisonS
   if (wouldFieldAClubTwice(fixed, candidate)) return "spieltagClash";
 
   return null;
+}
+
+/**
+ * The generator's two counts as one phrase, in the NOMINATIVE so both call sites can seat it
+ * unchanged. The singular is a defence: the smallest season `REQ-RULES-001` allows draws two of
+ * each, and these counts arrive from the server.
+ */
+export function describeSpielplanUmfang(spieltage: number, spiele: number): string {
+  const spieltagePhrase = spieltage === 1 ? "ein Spieltag" : `${String(spieltage)} Spieltage`;
+  const spielePhrase = spiele === 1 ? "ein Spiel" : `${String(spiele)} Spiele`;
+
+  return `${spieltagePhrase} und ${spielePhrase}`;
+}
+
+/**
+ * **The nulls come out before the sort.** `Array.prototype.sort` with no comparator orders by the
+ * STRINGIFIED value, where `null` becomes `"null"` and sorts after every ISO date, so one undated
+ * matchday would take the last position and drop `endMin`.
+ */
+export function buildSpieltagBound(spieltage: readonly { beginn: string | null; ende: string | null }[]): SaisonSpieltagBound {
+  // Sorted in place: `filter` has already produced arrays nothing else holds.
+  const beginne = spieltage.map((spieltag) => spieltag.beginn).filter((datum) => datum !== null);
+  const enden = spieltage.map((spieltag) => spieltag.ende).filter((datum) => datum !== null);
+
+  // Lexicographic order IS date order on YYYY-MM-DD, so no comparator is needed once the nulls are gone.
+  return { startMax: beginne.sort()[0] ?? null, endMin: enden.sort().at(-1) ?? null };
 }

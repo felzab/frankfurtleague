@@ -34,7 +34,10 @@ export function FormZeitraumSection({
 }) {
   const panel = formPanel();
 
-  /** The draft holds the payload's own strings and the picker wants a `CalendarDate` — see the season form. */
+  /**
+   * The draft holds the payload's own strings and the picker wants a `CalendarDate` — see the season
+   * form. Empty is the undated matchday as much as the cleared field, and both open the calendar bare.
+   */
   const asCalendarDate = (value: string) => (value === "" ? null : parseDate(value));
 
   // Parsed once for both pickers. `undefined` where no span was passed, which leaves the calendar
@@ -51,7 +54,7 @@ export function FormZeitraumSection({
             <p>Wann der Spieltag gespielt wird.</p>
             <ul>
               <li>
-                Die Termine <strong>ändern die Reihenfolge nicht</strong>. Dafür ist die Position da.
+                Die Termine <strong>ändern die Reihenfolge nicht</strong>. Sie steht mit dem Spielplan fest.
               </li>
               <li>Der Zeitraum muss innerhalb der Saison liegen; alles andere ist im Kalender ausgegraut.</li>
             </ul>
