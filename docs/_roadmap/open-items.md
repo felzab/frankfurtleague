@@ -55,21 +55,22 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | --- | ----- | ---------------------------------------------------------- | --------------- | ------ | -------- | ---------- |
 | 1   | BE-15 | The recording exists; the restore over it does not         | FE, BE, DB      | M      | Open     | —          |
 | 2   | BE-18 | Gaps the domain declaration does not reach                 | BE              | M      | Open     | —          |
-| 3   | FB-16 | Nothing announces that a season rollover is due            | BE, Ops         | M      | Open     | —          |
+| 3   | FB-16 | Nothing announces that a season rollover is due            | BE, Ops         | M      | Standing | —          |
 | 4   | FB-17 | Season setup is hand-run, and only an admin enters a squad | FE, BE, DB, Ops | XL     | Open     | —          |
 | 5   | BE-17 | Every server-ordered name list sorts in byte order         | BE, FE          | M      | Open     | —          |
 | 6   | BE-19 | Nothing says a multi-write request writes atomically       | BE, Docs        | S      | Open     | —          |
-| 7   | FE-17 | A never-clause bounds toast CSS short of the stylesheet    | FE, Docs        | S      | Open     | —          |
-| 8   | FE-21 | The editor shell's widest layout step is unrendered        | FE              | S      | Open     | —          |
-| 9   | FE-18 | A vendored stylesheet may reach nothing it declares        | FE              | S      | Open     | —          |
-| 10  | FE-19 | One failure sentence, written out at every call site       | FE              | M      | Open     | —          |
-| 11  | FE-1  | A fixture carries one date, not a play window              | FE, BE          | XL     | Open     | —          |
-| 12  | LOG-2 | A cached read's call joins to no render                    | FE, BE, Ops     | L      | Open     | —          |
-| 13  | FB-18 | Only the match editor marks a field somebody waits on      | FE, BE          | L      | Open     | —          |
-| 14  | BE-12 | Nothing purges a row whose `inactive_since` is old         | BE, DB          | M      | Open     | —          |
-| 15  | FE-20 | Search parameters default against an absent value          | FE              | S      | Open     | —          |
-| 16  | BE-7  | `typing` imports instead of `collections.abc`              | BE              | —      | Standing | —          |
-| 17  | BE-14 | The certainty walk gives up in a group of six or more      | BE              | —      | Standing | —          |
+| 7   | BE-20 | The certainty walk never hypothesises a called-off fixture | BE, Docs        | L      | Open     | —          |
+| 8   | FE-17 | A never-clause bounds toast CSS short of the stylesheet    | FE, Docs        | S      | Open     | —          |
+| 9   | FE-21 | The editor shell's widest layout step is unrendered        | FE              | S      | Open     | —          |
+| 10  | FE-18 | A vendored stylesheet may reach nothing it declares        | FE              | S      | Open     | —          |
+| 11  | FE-19 | One failure sentence, written out at every call site       | FE              | M      | Open     | —          |
+| 12  | FE-1  | A fixture carries one date, not a play window              | FE, BE          | XL     | Open     | —          |
+| 13  | LOG-2 | A cached read's call joins to no render                    | FE, BE, Ops     | L      | Open     | —          |
+| 14  | FB-18 | Only the match editor marks a field somebody waits on      | FE, BE          | L      | Open     | —          |
+| 15  | BE-12 | Nothing purges a row whose `inactive_since` is old         | BE, DB          | M      | Open     | —          |
+| 16  | FE-20 | Search parameters default against an absent value          | FE              | S      | Open     | —          |
+| 17  | BE-7  | `typing` imports instead of `collections.abc`              | BE              | —      | Decided  | —          |
+| 18  | BE-14 | The certainty walk gives up in a group of six or more      | BE              | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -213,7 +214,7 @@ because the live data already holds the state and refusing it would make those r
 
 ### 3 · FB-16 — Nothing announces that a season rollover is due
 
-**Status:** Open\
+**Status:** Standing\
 **Surfaces:** BE, Ops\
 **Effort:** M\
 **Path:** Independent — its leverage is that it settles where a scheduled job can run here at all,
@@ -519,7 +520,31 @@ records each transactional write path separately, and a sweep of the source tree
 merely accepts an optional session. The enumeration above was read rather than executed, and that
 reading is what a check would have to mechanise.
 
-### 7 · FE-17 — A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more
+### 7 · BE-20 — The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing
+
+**Status:** Open\
+**Surfaces:** BE, Docs\
+**Effort:** L — my estimate, and it rests on three answers rather than one: which endings the walk enumerates, what a wider set costs inside a write transaction, and how the invariant states the claim afterwards\
+**Path:** Independent. It shares a function with BE-14 and asks a different question of it — that entry is the cap on how many outstanding fixtures the walk enumerates at all, this one is the set of endings it enumerates per fixture — so neither blocks the other, and either one's arithmetic moves the other's.
+
+**`fl_backend/app/api/teams/services.py :: _decide_one_gruppe` walks `product((1, 0, 2), repeat=len(open_pairs))` — a win to one side, a win to the other, or a draw — and an outstanding fixture has a fourth ending.** A `sonderereignis` of `ausgefallen` or `annulliert` awards nothing to either club, and `fl_backend/app/api/spiele/schemas.py :: SONDEREREIGNIS_WITHOUT_A_RESULT` is the set that both the walk's own open set and `fl_backend/app/api/teams/services.py :: _still_to_play` exclude on. So a call-off does two things none of the three endings can express: it withholds points the walk assumed one of three ways, and it lowers what a club still has to play — which is half of `:: _may_hold_a_platz`, so a club that has played nothing and whose last outstanding fixture is called off leaves `placeable` and stops holding a placing at all.
+
+**What that reaches is the bracket rather than a table.** `fl_backend/app/api/spiele/crud.py` hands each group's `by_platz` straight to the bracket resolution, so a placing the walk certifies is seeded into a knockout slot. A later call-off that moves it is corrected on the next save, and re-resolving an advancement clears the advanced fixture's stored result — the destruction BE-15 carries.
+
+**Measured on 2026-08-21, against a ground-truth oracle enumerating four endings per open fixture.** Across 3,500 randomised groups and 275,000 exhaustive ones, the shipped walk contradicts the oracle's set in 1.4% to 6.9% of the groups that declare a placing at all — a spread across the generated shapes rather than a confidence bound. **What validates the oracle rather than the walk is the control:** the same comparison, with the oracle restricted to the three endings the walk already knows, finds no contradiction anywhere.
+
+**Two mechanisms produce it, and only one of them needs unusual rules.**
+
+- **Points.** A call-off leaves both clubs exactly where they stood, and no branch of a three-ending walk does — a draw lifts both, a win lifts one. The run separates this mechanism only where `draw_points` is 2 or more, so a season scoring the conventional 3/1/0 does not meet it.
+- **Placeability.** `_may_hold_a_platz` admits a club with a match that counts or still could, and a call-off removes the second half. Where a club has played nothing and its only outstanding fixture is called off, it leaves `placeable`, every club under it in the order moves up a number, and no table the walk built holds that ordering. This one is reachable at 3/1/0.
+
+**Widening the alphabet is not the fix, and neither obstacle is arithmetic alone.** The enumeration is `3^n` and would become `4^n`: measured at `fl_backend/app/api/teams/services.py :: CERTAINTY_FIXTURE_LIMIT` on 2026-08-21, the four-ending product takes 7.20 seconds against the three-ending 0.79, and BE-14 records where that time is spent — once per referenced group, inside a transaction whose lifetime is bounded. The second obstacle is structural: `placeable` and `settled` are derived once before the loop, from the fixtures as they stand, and a hypothesised call-off changes both — so each would have to be recomputed per outcome vector, and the deduplication by points table that keeps the walk affordable would no longer identify which iterations may be skipped.
+
+**What [`docs/backend/spec.md`](../backend/spec.md) I24a already says, and what it does not.** I24a states that a placing is written into a bracket slot only when no combination of the group's outstanding results could change who holds it, and it carves out one case: a fixture whose `sonderereignis` awards nothing counts as never coming, so a no-show recorded on one later can overturn a placing that was already final. That carve-out runs the other way — an already-called-off fixture that later receives a result — while the direction measured here, an open fixture later called off, sits inside the sentence the carve-out qualifies. Whichever way this is answered, that invariant moves with it.
+
+**Not measured:** whether the state has ever arisen in the live database, and what the walk contradicts on this season's own shape rather than on generated groups. Against the season shape and rules BE-14 records, only the placeability mechanism above is reachable.
+
+### 8 · FE-17 — A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -564,7 +589,7 @@ selectors overridden in the same file, and no clause governs them. §1.11 of the
 is what governs both cases, and it already asks a stylesheet rule to name the HeroUI version it was
 written against.
 
-### 8 · FE-21 — The shared editor shell's widest layout step has never been rendered
+### 9 · FE-21 — The shared editor shell's widest layout step has never been rendered
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -594,7 +619,7 @@ breakpoint and the space the shell actually gets are different numbers.
 [`docs/_auditing/lessons.md`](../_auditing/lessons.md) §6 records that a session cannot sign in, so
 the honest scope is a look at one editor past 96rem, in a real browser, by somebody who can.
 
-### 9 · FE-18 — A vendored stylesheet ships on every route, and nothing may render what it declares
+### 10 · FE-18 — A vendored stylesheet ships on every route, and nothing may render what it declares
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -629,7 +654,7 @@ value is that the import list and the comment above it stop asserting something 
 §1.11 of [`docs/frontend/spec.md`](../frontend/spec.md) is the procedure both imports were added
 under, and its own instruction is to establish membership from the import graph.
 
-### 10 · FE-19 — One failure sentence is written out at every call site, behind a fallback nothing reaches
+### 11 · FE-19 — One failure sentence is written out at every call site, behind a fallback nothing reaches
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -671,7 +696,7 @@ is a copy decision rather than a refactor.
 `toActionErrorResult` states its own reason for a generic message — the diagnosis is already in the
 server log, and what an admin needs is whether retrying can help.
 
-### 11 · FE-1 — A fixture carries one date, and a play window cannot be expressed
+### 12 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -695,7 +720,7 @@ harder, and the intent (a fixture whose play window includes today is found by t
 and labelled `heute`) is what the range arithmetic has to preserve. Working it re-derives both
 definitions under ranges.
 
-### 12 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
+### 13 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -763,7 +788,7 @@ log-injection risk and must be validated or replaced the same way.
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
 
-### 13 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
+### 14 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -801,7 +826,7 @@ markers are absent rather than misleading, and every other editor already says w
 its required fields and the rail's Hinweise. Its cost is the per-entity ruling, and that cost does
 not grow while it waits.
 
-### 14 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+### 15 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -839,7 +864,7 @@ than rediscovered.
 `saisons`, `saison_teams` and `spieltage` carry no such field and need none: none of them has a
 delete at all, so none can accumulate a row to purge.
 
-### 15 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
+### 16 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -869,9 +894,9 @@ I rejected is that the framework may omit the value on some render path, which n
 is what a reader has to decide about every time this function is edited, and this function is what
 every season-scoped page opens with.
 
-### 16 · BE-7 — `typing` imports instead of `collections.abc`
+### 17 · BE-7 — `typing` imports instead of `collections.abc`
 
-**Status:** Standing\
+**Status:** Decided\
 **Surfaces:** BE\
 **Effort:** —\
 **Path:** Independent — backend audit pass B4's typing check owns the migration.
@@ -882,7 +907,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 17 · BE-14 — The certainty walk gives up in a group of six or more
+### 18 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\

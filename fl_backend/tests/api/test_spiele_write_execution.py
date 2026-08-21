@@ -629,10 +629,10 @@ GAMMA_AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spi
 
 
 class TestTheEligibilityRefusalIsReachedThroughTheRoute:
-    """That `find_eligibility_refusal` is WIRED, and that it judges the membership `pull_saison_membership` really returns.
+    """That `find_eligibility_refusal` is WIRED, and judges the membership `pull_saison_membership` really returns.
 
-    Every other test of this rule builds that map by hand, which proves nothing about the projection
-    the junction read asks for.
+    Every other test builds that map by hand. The date trigger alone reaches it: the projection does
+    not vary with the input that moved.
     """
 
     @pytest.mark.parametrize(
