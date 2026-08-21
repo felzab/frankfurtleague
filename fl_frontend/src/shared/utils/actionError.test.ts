@@ -52,10 +52,19 @@ describe("toActionErrorResult", () => {
     // They reach this map BECAUSE `mapSpielRefusal` does not answer them, and
     // `AdminEditSpielDataForm.tsx :: placeOccupantRefusal` has no case for either, so both are
     // shown as a toast. Dropping them here would leave the generic conflict message.
-    for (const serverErrorCode of ["REQ-STATE-002", "REQ-STATE-003"]) {
+    // Each gets ITS OWN sentence and carries its code back: without both, the two could swap
+    // messages, or stop riding the code out, and a check for "not the generic one" would still pass.
+    const own: readonly (readonly [string, RegExp])[] = [
+      ["REQ-STATE-002", /Entferne zuerst die Tore/],
+      ["REQ-STATE-003", /noch einen offenen Platz/],
+    ];
+
+    for (const [serverErrorCode, sentence] of own) {
       const result = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode }));
 
       assert.doesNotMatch(result.error ?? "", /Konflikt/, serverErrorCode);
+      assert.match(result.error ?? "", sentence, serverErrorCode);
+      assert.equal(result.errorCode, serverErrorCode);
     }
   });
 

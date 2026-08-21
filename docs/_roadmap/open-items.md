@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `a8e389c5`, 2026-08-20\
+**Verified against:** `ad0aaa91`, 2026-08-21\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -54,7 +54,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | #   | ID    | Item                                                       | Surfaces        | Effort | Status   | Depends on |
 | --- | ----- | ---------------------------------------------------------- | --------------- | ------ | -------- | ---------- |
 | 1   | BE-15 | The recording exists; the restore over it does not         | FE, BE, DB      | M      | Open     | —          |
-| 2   | BE-18 | Four gaps the domain declaration does not reach            | BE              | M      | Open     | —          |
+| 2   | BE-18 | Gaps the domain declaration does not reach                 | BE              | M      | Open     | —          |
 | 3   | FB-16 | Nothing announces that a season rollover is due            | BE, Ops         | M      | Open     | —          |
 | 4   | FB-17 | Season setup is hand-run, and only an admin enters a squad | FE, BE, DB, Ops | XL     | Open     | —          |
 | 5   | BE-17 | Every server-ordered name list sorts in byte order         | BE, FE          | M      | Open     | —          |
@@ -167,7 +167,7 @@ day has passed. What is left carries no such clock — an unrestorable write is 
 the row that recorded it, slowly, which is a different order of problem from one nobody can
 reconstruct at all.
 
-### 2 · BE-18 — Four gaps the domain declaration does not reach
+### 2 · BE-18 — Gaps the domain declaration does not reach
 
 **Status:** Open\
 **Surfaces:** BE\
