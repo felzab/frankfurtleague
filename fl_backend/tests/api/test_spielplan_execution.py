@@ -1,7 +1,7 @@
 import asyncio
 from dataclasses import dataclass, field
-from itertools import product
-from typing import Any, Awaitable, Callable
+from itertools import combinations, product
+from typing import Any, Awaitable, Callable, Mapping
 
 import pytest
 from bson import ObjectId
@@ -10,16 +10,17 @@ from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import generate_spielplan
 from app.api.saisons.cache import invalidate_saison_cache, read_cached_saison, store_cached_saison
-from app.api.saisons.schedule import schedule_for, total_group_matches
+from app.api.saisons.schedule import group_matchdays, total_group_matches
 from app.api.saisons.schemas import FLGenerateSpielplanResponse, FLSaisonRules
 from app.api.saisons.services import (
     RULES_BRACKET_IMPOSSIBLE,
     SPIELPLAN_ALREADY_DRAWN,
-    SPIELPLAN_GRUPPE_SHORT,
+    SPIELPLAN_GRUPPEN_OFF_RULES,
     SPIELPLAN_MATCHDAYS_HELD,
-    SPIELPLAN_SAISON_NOT_FUTURE,
+    SPIELPLAN_SAISON_FINISHED,
 )
-from app.api.spiele.schemas import FLSpiel
+from app.api.saisons.spielplan import BRACKET_SEEDING
+from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpiel
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.spieltage.services import with_expected_matches
 from app.api.teams.services import offered_gruppen
@@ -51,6 +52,7 @@ QUALIFIERS = 2
 # `(number_of_groups, teams_per_group, qualifiers_per_group)`: the ordinary season, and one whose odd
 # groups take a bye round and whose bracket is a single final.
 SHAPES: tuple[tuple[int, int, int], ...] = ((GROUPS, TEAMS_PER_GROUP, QUALIFIERS), (2, 3, 1))
+SHAPE_IDS = ("four groups of four into a quarter-final", "two odd groups into one final")
 
 # Deliberately in no collection until a case seeds it: a matchday and the fixture hanging on it are
 # each their own refusal.
@@ -226,25 +228,44 @@ async def watermark_now(database: AsyncIOMotorDatabase) -> Any:
     return (stored or {}).get("spielplan")
 
 
-def expected_counts(rules: FLSaisonRules) -> tuple[int, int]:
-    """How many matchdays and fixtures these rules imply, counted by `app/api/saisons/schedule.py`.
+def bracket_rounds(rules: FLSaisonRules) -> tuple[int, ...]:
+    """How many matches each knockout round holds, halving the qualifier product down to one final.
 
-    The independent oracle: it reads a combination and a phase ladder, where the draw arrives at the
-    same two numbers by pairing clubs and walking the bracket.
+    Derived here rather than through `knockout_phases_for`, which the draw walks: an oracle reading
+    that function would agree with a draw one round short.
     """
 
-    schedule = schedule_for(rules)
-    bracket = sum(entry.matches_per_matchday for entry in schedule if entry.phase != "gruppenphase")
+    # `REQ-RULES-001` refuses a product that is no power of two, so the halving always lands on 1.
+    remaining = rules.number_of_groups * rules.qualifiers_per_group
 
-    return sum(entry.matchdays for entry in schedule), total_group_matches(rules.number_of_groups, rules.teams_per_group) + bracket
+    sizes: list[int] = []
+    while remaining >= 2:
+        sizes.append(remaining // 2)
+        remaining //= 2
+
+    return tuple(sizes)
+
+
+def expected_counts(rules: FLSaisonRules) -> tuple[int, int]:
+    """How many matchdays and fixtures these rules imply, from arithmetic rather than the draw's own helpers.
+
+    A combination for the group phase and a halved product for the bracket, so neither half can
+    agree with the draw by sharing a function with it.
+    """
+
+    bracket = bracket_rounds(rules)
+    spieltage = group_matchdays(rules.teams_per_group) + len(bracket)
+
+    return spieltage, total_group_matches(rules.number_of_groups, rules.teams_per_group) + sum(bracket)
 
 
 @dataclass(frozen=True)
 class DrawnSeason:
-    """One committed draw, read back four ways, so the assertions run outside the event loop."""
+    """One committed draw, read back five ways, so the assertions run outside the event loop."""
 
     response: FLGenerateSpielplanResponse
     saison: dict[str, Any]
+    entered: list[dict[str, Any]]
     spieltage: list[dict[str, Any]]
     spiele: list[dict[str, Any]]
     log: list[dict[str, Any]]
@@ -260,6 +281,8 @@ def a_drawn_season(url: str, *, groups: int = GROUPS, teams: int = TEAMS_PER_GRO
         return DrawnSeason(
             response=response,
             saison=saison,
+            # The junction rows the draw itself read: what a stored side's club and name are checked against.
+            entered=await database[Collection.SAISON_TEAMS].find({}).to_list(length=None),
             # Insertion order on both, which is playing order: the draw emits `spiel_nr` contiguously
             # from 1 and every generated `_id` rises with the clock.
             spieltage=await database[Collection.SPIELTAGE].find({}).sort("_id", 1).to_list(length=None),
@@ -272,14 +295,62 @@ def a_drawn_season(url: str, *, groups: int = GROUPS, teams: int = TEAMS_PER_GRO
         entered=entry_rows(groups=groups, teams=teams),
     )
 
-    return on_a_seeded_saison(url, body, seed=seed)
+    drawn = on_a_seeded_saison(url, body, seed=seed)
+
+    # Every case below FILTERS these lists, and a filter over an empty one holds trivially. What the
+    # counts should be is `expected_counts`' judgement, not this one's.
+    assert drawn.spieltage and drawn.spiele, "the draw wrote nothing"
+    assert (len(drawn.spieltage), len(drawn.spiele)) == (drawn.response.spieltage, drawn.response.spiele)
+
+    return drawn
+
+
+def junction_by_team(drawn: DrawnSeason) -> dict[Any, Mapping[str, Any]]:
+    """The `saison_teams` rows the draw read, keyed by club."""
+
+    return {row["team_id"]: row for row in drawn.entered}
+
+
+def side_from(junction_row: Mapping[str, Any]) -> dict[str, Any]:
+    """One side as a drawn fixture must store it: the club, the season's own name for it, and no goals."""
+
+    return {
+        "team_id": junction_row["team_id"],
+        "name": junction_row["name"],
+        "shorthand": junction_row["shorthand"],
+        "tore": None,
+    }
+
+
+def group_fixtures(drawn: DrawnSeason) -> list[dict[str, Any]]:
+    """This season's group fixtures, counted before they are handed back so no filter over them can pass on a short draw."""
+
+    rules = FLSaisonRules.model_validate(drawn.saison["rules"])
+    fixtures = [row for row in drawn.spiele if row["saison_phase"] == "gruppenphase"]
+
+    assert len(fixtures) == total_group_matches(rules.number_of_groups, rules.teams_per_group)
+
+    return fixtures
+
+
+def knockout_rounds(drawn: DrawnSeason) -> list[list[dict[str, Any]]]:
+    """The bracket's fixtures grouped by matchday, each round and each round's fixtures in playing order."""
+
+    rounds: dict[Any, list[dict[str, Any]]] = {}
+    for row in drawn.spiele:
+        if row["saison_phase"] != "gruppenphase":
+            rounds.setdefault(row["spieltag_id"], []).append(row)
+
+    ordered = [sorted(fixtures, key=lambda row: row["spiel_nr"]) for fixtures in rounds.values()]
+
+    return sorted(ordered, key=lambda fixtures: fixtures[0]["spiel_nr"])
 
 
 class TestACleanDrawWritesTheWholeSeason:
     @pytest.mark.parametrize(
         ("groups", "teams", "qualifiers"),
         SHAPES,
-        ids=["four groups of four into a quarter-final", "two odd groups into one final"],
+        ids=SHAPE_IDS,
     )
     def test_the_stored_counts_are_the_ones_the_rules_imply(self, mongo_replica_set_url: str, groups: int, teams: int, qualifiers: int):
         """Both numbers read off the database rather than off the response, which would otherwise report what the draw MEANT to write."""
@@ -353,6 +424,127 @@ class TestNothingTheDrawWritesIsDated:
         assert [row["spiel_nr"] for row in drawn.spiele if any(row[key] is not None for key in UNDATED_SPIEL_FIELDS)] == []
 
 
+class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
+    """What no count can see: a draw partitioning by list position rather than by `gruppe` writes the right NUMBER of wrong fixtures.
+
+    `entry_rows` interleaves the groups so the two partitions disagree, and these are the assertions
+    that read the difference.
+    """
+
+    def test_every_group_fixture_pairs_two_clubs_of_one_group(self, mongo_replica_set_url: str):
+        drawn = a_drawn_season(mongo_replica_set_url)
+        junction = junction_by_team(drawn)
+        fixtures = group_fixtures(drawn)
+
+        assert [row["spiel_nr"] for row in fixtures if row["team1"] is None or row["team2"] is None] == []
+        assert [
+            row["spiel_nr"] for row in fixtures if junction[row["team1"]["team_id"]]["gruppe"] != junction[row["team2"]["team_id"]]["gruppe"]
+        ] == []
+
+    def test_each_group_plays_every_pair_of_its_own_clubs_once(self, mongo_replica_set_url: str):
+        """The whole round robin, not merely a legal-looking one.
+
+        A repeated pair leaves two clubs that never meet, and a table neither of them was ranked by.
+        """
+
+        drawn = a_drawn_season(mongo_replica_set_url)
+        junction = junction_by_team(drawn)
+
+        played: dict[Any, list[frozenset[Any]]] = {}
+        for row in group_fixtures(drawn):
+            gruppe = junction[row["team1"]["team_id"]]["gruppe"]
+            played.setdefault(gruppe, []).append(frozenset((row["team1"]["team_id"], row["team2"]["team_id"])))
+
+        squads: dict[Any, list[Any]] = {}
+        for row in drawn.entered:
+            squads.setdefault(row["gruppe"], []).append(row["team_id"])
+
+        for gruppe, ids in squads.items():
+            pairs = played.get(gruppe, [])
+            assert len(pairs) == len(set(pairs)), f"gruppe {gruppe} draws a pair more than once"
+            assert set(pairs) == {frozenset(pair) for pair in combinations(ids, 2)}
+
+    def test_each_side_is_stored_under_the_name_the_junction_carries(self, mongo_replica_set_url: str):
+        """The name the season is played under, off the row rather than off `teams`, and no goals: a drawn fixture has not happened."""
+
+        drawn = a_drawn_season(mongo_replica_set_url)
+        junction = junction_by_team(drawn)
+
+        assert [
+            (row["spiel_nr"], slot)
+            for row in group_fixtures(drawn)
+            for slot in ("team1", "team2")
+            if row[slot] != side_from(junction[row[slot]["team_id"]])
+        ] == []
+
+    def test_no_group_fixture_carries_a_source(self, mongo_replica_set_url: str):
+        """Both sides are drawn outright, so a `quelle` here is a slot the bracket would later refill over a club that qualified for it."""
+
+        drawn = a_drawn_season(mongo_replica_set_url)
+
+        assert [row["spiel_nr"] for row in group_fixtures(drawn) if row["team1_quelle"] is not None or row["team2_quelle"] is not None] == []
+
+
+class TestTheBracketIsWiredToWhatFeedsIt:
+    @pytest.mark.parametrize(("groups", "teams", "qualifiers"), SHAPES, ids=SHAPE_IDS)
+    def test_each_round_is_the_phase_and_the_size_the_qualifier_count_implies(
+        self, mongo_replica_set_url: str, groups: int, teams: int, qualifiers: int
+    ):
+        """`KNOCKOUT_PHASES` is a pinned tuple and `bracket_rounds` halves the product itself.
+
+        A ladder one round short then shows twice over: a `halbfinale` holding four matches is both
+        the wrong label and the wrong size.
+        """
+
+        drawn = a_drawn_season(mongo_replica_set_url, groups=groups, teams=teams, qualifiers=qualifiers)
+        sizes = bracket_rounds(FLSaisonRules.model_validate(drawn.saison["rules"]))
+        rounds = knockout_rounds(drawn)
+
+        assert [{row["saison_phase"] for row in fixtures} for fixtures in rounds] == [{phase} for phase in KNOCKOUT_PHASES[-len(sizes) :]]
+        assert [len(fixtures) for fixtures in rounds] == list(sizes)
+
+    def test_every_knockout_fixture_is_two_unfilled_slots_each_with_a_source(self, mongo_replica_set_url: str):
+        """Nobody has qualified when a season is drawn, so a side filled here would name a club the group phase has not chosen yet."""
+
+        drawn = a_drawn_season(mongo_replica_set_url)
+        fixtures = [row for round_fixtures in knockout_rounds(drawn) for row in round_fixtures]
+
+        assert len(fixtures) == sum(bracket_rounds(FLSaisonRules.model_validate(drawn.saison["rules"])))
+        assert [row["spiel_nr"] for row in fixtures if row["team1"] is not None or row["team2"] is not None] == []
+        assert [row["spiel_nr"] for row in fixtures if row["team1_quelle"] is None or row["team2_quelle"] is None] == []
+
+    def test_the_first_round_names_the_placings_the_seeding_table_pins(self, mongo_replica_set_url: str):
+        """`BRACKET_SEEDING` fixes who meets in round one.
+
+        Seeded any other way, two clubs out of one group meet before the bracket has narrowed.
+        """
+
+        drawn = a_drawn_season(mongo_replica_set_url)
+        first, *_ = knockout_rounds(drawn)
+
+        assert [
+            (quelle["type"], quelle["gruppe"], quelle["platz"]) for row in first for quelle in (row["team1_quelle"], row["team2_quelle"])
+        ] == [("gruppe", gruppe, platz) for gruppe, platz in BRACKET_SEEDING[(GROUPS, QUALIFIERS)]]
+
+    def test_each_later_round_is_fed_by_the_winners_of_the_round_before_it(self, mongo_replica_set_url: str):
+        """The chain the bracket resolver walks: a source naming a fixture from anywhere else leaves a slot no result can ever fill."""
+
+        drawn = a_drawn_season(mongo_replica_set_url)
+        first, *later = knockout_rounds(drawn)
+
+        assert later, "this bracket holds one round, so the chain is never exercised"
+
+        feeding = [row["spiel_nr"] for row in first]
+        for fixtures in later:
+            sources = [
+                (quelle["type"], quelle["spiel_nr"], quelle["ausgang"])
+                for row in fixtures
+                for quelle in (row["team1_quelle"], row["team2_quelle"])
+            ]
+            assert sources == [("spiel", spiel_nr, "sieger") for spiel_nr in feeding]
+            feeding = [row["spiel_nr"] for row in fixtures]
+
+
 @dataclass(frozen=True)
 class RefusedDraw:
     """A draw refused before it wrote, and the season it left standing."""
@@ -371,13 +563,20 @@ class TestEachRefusalIsReachedThroughTheRoute:
         [
             pytest.param(SPIELPLAN_ALREADY_DRAWN, Seed(spiele=[a_stored_fixture()]), id="a season already holding a fixture"),
             pytest.param(SPIELPLAN_MATCHDAYS_HELD, Seed(spieltage=[a_stored_matchday()]), id="a season already holding a matchday"),
-            pytest.param(SPIELPLAN_SAISON_NOT_FUTURE, Seed(saison=saison_document(status="active")), id="a season already running"),
-            pytest.param(SPIELPLAN_GRUPPE_SHORT, Seed(entered=entry_rows(short_gruppe="D")), id="a group short of a club"),
-            # `find_rules_refusal`, the OTHER call: six qualifiers are no power of two, so this season
-            # has no bracket to draw at all.
+            pytest.param(SPIELPLAN_SAISON_FINISHED, Seed(saison=saison_document(status="past")), id="a season already finished"),
+            pytest.param(SPIELPLAN_GRUPPEN_OFF_RULES, Seed(entered=entry_rows(short_gruppe="D")), id="a group short of a club"),
+            # The other half of `REQ-SPIELPLAN-004`: these clubs stand in groups the season does not
+            # offer, so the draw would put them in no round robin at all.
+            pytest.param(
+                SPIELPLAN_GRUPPEN_OFF_RULES,
+                Seed(saison=saison_document(rules=rules_document(groups=2)), entered=entry_rows(groups=4)),
+                id="clubs in a group the season does not offer",
+            ),
+            # `find_rules_refusal`, the OTHER call, and the groups match the rules so nothing above
+            # answers first: six qualifiers are no power of two, so this season has no bracket at all.
             pytest.param(
                 RULES_BRACKET_IMPOSSIBLE,
-                Seed(saison=saison_document(rules=rules_document(groups=2, qualifiers=3))),
+                Seed(saison=saison_document(rules=rules_document(groups=2, qualifiers=3)), entered=entry_rows(groups=2)),
                 id="rules whose product is no bracket",
             ),
         ],
@@ -430,6 +629,7 @@ class AbortedDraw:
     spieltage: int
     spiele: int
     watermark: Any
+    log: int
     cached: dict[str, Any] | None
 
 
@@ -462,6 +662,7 @@ class TestAFailedDrawLeavesNothingBehind:
                 spieltage=spieltage,
                 spiele=spiele,
                 watermark=await watermark_now(database),
+                log=await database[Collection.AKTIONEN].count_documents({}),
                 cached=read_cached_saison(SAISON_ID),
             )
 
@@ -474,6 +675,9 @@ class TestAFailedDrawLeavesNothingBehind:
         assert aborted.refused_field == refused_field
         assert (aborted.spieltage, aborted.spiele) == (0, 0), "a rolled-back draw left documents behind"
         assert aborted.watermark is None, "the season claims a Spielplan the rollback took away"
+        # `record_write` runs in-session, so the log is part of what the abort takes back rather than
+        # a standing record of writes that never happened.
+        assert aborted.log == 0, "the action log kept a row for a write that was rolled back"
         # The drop runs after the commit, so a draw that never committed leaves the cache nothing to unlearn.
         assert aborted.cached is not None
 
@@ -543,4 +747,4 @@ class TestTheSeasonCacheIsDroppedOnlyByADrawThatCommitted:
 
             return read_cached_saison(SAISON_ID)
 
-        assert on_a_seeded_saison(mongo_replica_set_url, body, seed=Seed(saison=saison_document(status="active"))) is not None
+        assert on_a_seeded_saison(mongo_replica_set_url, body, seed=Seed(saison=saison_document(status="past"))) is not None

@@ -399,6 +399,14 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SAISONS,
+        "spielplan",
+        Editability.CONTROL_ONLY,
+        "`POST /saisons/{saison_id}/spielplan`, which stamps it in the transaction that writes the matchdays and "
+        "fixtures; a season already carrying one is refused (`REQ-SPIELPLAN-001`), the draw being one-way",
+        "app.api.saisons.admin_router.generate_spielplan",
+    ),
+    FieldPolicy(
+        Collection.SAISONS,
         "start_date",
         Editability.EDITABLE,
         "editable even on a finished season, and refused where the new span would stop covering a live matchday "
@@ -844,6 +852,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_activation_refusal.py::TestAFinishedSeasonIsNeverPromotedBack",
     ),
     Rule(
+        code="REQ-ACTIVATE-003",
+        operation="POST /saisons/{saison_id}/activate",
+        aggregate="Saison",
+        summary="a season holding no fixtures is never made active",
+        implemented_by="app.api.saisons.services.find_activation_refusal",
+        tested_by="tests/api/test_activation_refusal.py::TestASeasonWithNothingDrawn",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-ENTER-001",
         operation="POST /teams/{team_id}/saisons",
         aggregate="Saison",
@@ -910,18 +927,18 @@ RULES: tuple[Rule, ...] = (
         code="REQ-SPIELPLAN-003",
         operation="POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
-        summary="a Spielplan is drawn only while its season is still future",
+        summary="a Spielplan is never drawn into a season already past",
         implemented_by="app.api.saisons.services.find_spielplan_refusal",
-        tested_by="tests/api/test_spielplan_refusal.py::TestASeasonThatIsNotFuture",
+        tested_by="tests/api/test_spielplan_refusal.py::TestAFinishedSeason",
         multi_document=True,
     ),
     Rule(
         code="REQ-SPIELPLAN-004",
         operation="POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
-        summary="a season with a group short of the teams its rules ask for is not drawn",
+        summary="a season with an offered group off `teams_per_group`, or a club outside the offered groups, is not drawn",
         implemented_by="app.api.saisons.services.find_spielplan_refusal",
-        tested_by="tests/api/test_spielplan_refusal.py::TestAGroupShortOfTeams",
+        tested_by="tests/api/test_spielplan_refusal.py::TestWhetherEveryOfferedGroupHoldsItsSize",
         multi_document=True,
     ),
     Rule(
@@ -1003,6 +1020,18 @@ RULES: tuple[Rule, ...] = (
         summary="a matchday's span may not shrink below a date one of its own fixtures holds",
         implemented_by="app.api.spieltage.services.find_spieltag_span_refusal",
         tested_by="tests/api/test_containment_refusals.py::TestAMatchdayKeepsCoveringItsFixtures",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-DATE-008",
+        operation="PATCH /spieltage/{spieltag_id}",
+        aggregate="Spieltag",
+        summary=(
+            "within one phase, a matchday may not begin before the nearest dated matchday at a lower `position`, "
+            "nor after the nearest one at a higher"
+        ),
+        implemented_by="app.api.spieltage.services.find_spieltag_order_refusal",
+        tested_by="tests/api/test_spieltag_refusals.py::TestAMatchdayNeverBeginsBeforeItsPredecessor",
         multi_document=True,
     ),
     Rule(
@@ -1159,12 +1188,12 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="a matchday whose attached fixtures differ from the count its phase implies",
         reason=(
-            "A season being set up passes through that state on the way to being complete, so refusing it "
-            "would block the setup rather than a mistake -- and every fixture in this database was placed by hand, "
-            "so the state is the ordinary one rather than an edge. The matchday's own write never reads the count "
-            "at all: `anzahl_spiele` is derived for the reader, and the one write the mismatch does bind is the "
-            "season's rules, where `REQ-RULES-006` refuses a narrowing that would deepen it. The list shows "
-            "attached over expected and tints a mismatch."
+            "The draw writes every phase at exactly its implied count, so a drawn season reaches the mismatch "
+            "only where its rules widen afterwards; the seasons whose fixtures were placed by hand hold whatever "
+            "was entered, and refusing the state would block those rather than a mistake. The matchday's own "
+            "write never reads the count at all: `anzahl_spiele` is derived for the reader, and the one write the "
+            "mismatch does bind is the season's rules, where `REQ-RULES-006` refuses a narrowing that would "
+            "deepen it. The list shows attached over expected and tints a mismatch."
         ),
         near=("REQ-RULES-006",),
         proven_by="tests/core/test_unenforced.py::TestAMatchdayOffItsImpliedCount",
@@ -1270,5 +1299,22 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-VAL-001",),
         proven_by="tests/core/test_unenforced.py::TestAStoredPreImageIsNeverRevalidated",
+    ),
+    Unenforced(
+        subject="a matchday of a later phase dated before one of an earlier phase",
+        reason=(
+            "The rule finds its neighbour with one query on `(saison_id, saison_phase, position)`, the key the "
+            "collection is already indexed by. Across phases there is no such key: `position` restarts at 1 in every "
+            "phase, and what orders the phases themselves is `PHASE_RANK`, which lives in application code and on no "
+            "document -- so the same rule widened has no index to find its neighbour on: "
+            "`uniq_saison_id_saison_phase_position` does not carry `beginn`, and the phase order is on no "
+            "document at all. The state is reachable between phases alone: the draw gives every "
+            "knockout phase exactly one matchday, and one matchday makes no pair to order. `/admin/spieltage` "
+            "sections a season by phase in played order with each span beside it, so a phase dated against that "
+            "order reads as dates running backwards down the page."
+        ),
+        near=("REQ-DATE-008",),
+        proven_by="tests/core/test_unenforced.py::TestAPhaseDatedAgainstTheOrderItIsPlayedIn",
+        surfaced_by="/admin/spieltage",
     ),
 )

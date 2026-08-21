@@ -28,8 +28,13 @@ TARGET = "2026"
 
 SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f6072300a1")
 TEAM_ID = ObjectId("6890a1b2c3d4e5f607230001")
-# One fixture is ever seeded at a time, so a fixed id names the same document in every failure.
-SPIEL_ID = ObjectId("6890a1b2c3d4e5f607230011")
+# At most one fixture per season, so deriving its id from the season's names the same document in every failure.
+SPIEL_IDS = {
+    ARCHIVED: ObjectId("6890a1b2c3d4e5f607230011"),
+    FIRST_INCUMBENT: ObjectId("6890a1b2c3d4e5f607230012"),
+    SECOND_INCUMBENT: ObjectId("6890a1b2c3d4e5f607230013"),
+    TARGET: ObjectId("6890a1b2c3d4e5f607230014"),
+}
 
 
 def saison_document(saison_id: str, status: str) -> dict[str, Any]:
@@ -58,7 +63,7 @@ def spiel_document(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
     """Every key spelled out: the outgoing season's fixtures are validated as `FLSpiel` before the rollover is judged."""
 
     return {
-        "_id": SPIEL_ID,
+        "_id": SPIEL_IDS[saison_id],
         "spiel_nr": 1,
         "saison_id": saison_id,
         "saison_phase": "gruppenphase",
@@ -141,6 +146,7 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
                 saison_document(SECOND_INCUMBENT, "active"),
                 saison_document(TARGET, "future"),
             ],
+            spiele=[spiel_document(TARGET, ergebnis=None)],
         )
 
         active = [saison_id for saison_id, status in statuses.items() if status == "active"]
@@ -183,7 +189,8 @@ class TestARefusedRolloverWritesNothing:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
-            spiele=[spiel_document(FIRST_INCUMBENT, ergebnis=None)],
+            # The target is drawn so the unfinished incumbent is what refuses it, not the undrawn-target guard ahead of it.
+            spiele=[spiel_document(FIRST_INCUMBENT, ergebnis=None), spiel_document(TARGET, ergebnis=None)],
         )
 
         assert code == ACTIVATE_SAISON_UNFINISHED
@@ -228,6 +235,7 @@ class TestAMidFlightFailureTakesTheDemotionBack:
             mongo_replica_set_url,
             body,
             saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
+            spiele=[spiel_document(TARGET, ergebnis=None)],
         )
 
         # Asserted on the code, so this cannot pass because something failed before the demotion.

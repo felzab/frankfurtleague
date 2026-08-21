@@ -10,7 +10,7 @@ from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.api.saisons.services import SAISON_SPAN_BELOW_SPIELTAGE
 from app.api.spieltage.admin_router import patch_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
-from app.api.spieltage.services import SPIELTAG_SPAN_BELOW_FIXTURES
+from app.api.spieltage.services import SPIELTAG_BEGINN_OUT_OF_ORDER, SPIELTAG_SPAN_BELOW_FIXTURES
 from app.core.exceptions import DocumentConflictException
 
 pytestmark = pytest.mark.db
@@ -21,6 +21,12 @@ SAISON_ID = "2026"
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607300001")
 # The Finale's row, seeded only where a second phase's match count is what a test turns on.
 FINALE_OID = ObjectId("6890a1b2c3d4e5f607300003")
+# The later positions of the seeded matchday's own phase, for the tests judging a pair of them.
+SECOND_OID = ObjectId("6890a1b2c3d4e5f607300004")
+THIRD_OID = ObjectId("6890a1b2c3d4e5f607300005")
+# A row of ANOTHER season, whose phases are numbered from 1 exactly as this one's are.
+OTHER_SAISON_OID = ObjectId("6890a1b2c3d4e5f607300006")
+OTHER_SAISON_ID = "2025"
 
 SAISON_START = "2026-01-01"
 SAISON_END = "2026-06-30"
@@ -28,6 +34,32 @@ SAISON_END = "2026-06-30"
 # Late in the season, so an end date can be moved to either side of it.
 SPIELTAG_BEGINN = "2026-06-20"
 SPIELTAG_ENDE = "2026-06-21"
+
+# A neighbour after the seeded matchday, and a date past it that is still inside the season: the
+# order rule is what refuses the move, rather than `REQ-DATE-002` reaching it first.
+NEIGHBOUR_BEGINN = "2026-06-25"
+NEIGHBOUR_ENDE = "2026-06-26"
+AFTER_THE_NEIGHBOUR = "2026-06-28"
+PAST_THE_NEIGHBOUR = "2026-06-29"
+
+# A third dated position, and a day between it and the seeded matchday below: only a phase holding
+# two dated rows under the subject tells the nearest one apart from the earliest.
+MIDDLE_BEGINN = "2026-06-23"
+BEFORE_THE_MIDDLE = "2026-06-22"
+
+# Before the seeded matchday, which is where a step below the whole phase lands.
+BEFORE_THE_FIRST_BEGINN = "2026-06-15"
+BEFORE_THE_FIRST_ENDE = "2026-06-16"
+
+# Below both, for a phase already dated backwards: the step is what the rule judges, so a stored day
+# under the position below it is a floor and only a move past that floor is refused.
+BELOW_THE_BACKWARDS_PAIR = "2026-06-10"
+# A later end for a row held at that floor, so an accepted write moves a field the echo can show.
+WIDENED_ENDE = "2026-06-19"
+
+# The other season's own days, so no row carries a span reaching across two seasons.
+OTHER_SAISON_BEGINN = "2025-06-25"
+OTHER_SAISON_ENDE = "2025-06-26"
 
 RULES = {
     "win_points": 3,
@@ -218,3 +250,229 @@ class TestAMatchdayKeepsCoveringItsFixtures:
         response = on_a_database(mongo_container, body)
 
         assert response.updated_document.ende == SPIELTAG_BEGINN
+
+
+class TestAMatchdayNeverBeginsBeforeItsPredecessor:
+    """`REQ-DATE-008` through the endpoint: only a database proves the neighbours it judges are read out of `spieltage` at all."""
+
+    async def _with_a_matchday(
+        self,
+        database: AsyncIOMotorDatabase,
+        *,
+        oid: ObjectId,
+        position: int,
+        beginn: str | None,
+        ende: str = NEIGHBOUR_ENDE,
+        phase: str = "gruppenphase",
+        saison_id: str = SAISON_ID,
+    ) -> None:
+        await database.spieltage.insert_one(
+            spieltag_document(
+                _id=oid,
+                position=position,
+                saison_phase=phase,
+                saison_id=saison_id,
+                beginn=beginn,
+                ende=None if beginn is None else ende,
+            )
+        )
+
+    def test_a_move_past_the_next_position_is_refused(self, mongo_container: Any):
+        async def body(database: AsyncIOMotorDatabase) -> tuple[DocumentConflictException, Any]:
+            await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=NEIGHBOUR_BEGINN)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await re_date(database, SPIELTAG_OID, beginn=AFTER_THE_NEIGHBOUR, ende=PAST_THE_NEIGHBOUR)
+
+            stored = await database.spieltage.find_one({"_id": SPIELTAG_OID}, {"beginn": 1})
+
+            return excinfo.value, stored and stored["beginn"]
+
+        refusal, stored_beginn = on_a_database(mongo_container, body)
+
+        assert refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert NEIGHBOUR_BEGINN in refusal.error_detail["message"]
+        # The refusal runs ahead of the write, so the matchday still holds the span it was seeded with.
+        assert stored_beginn == SPIELTAG_BEGINN
+
+    def test_a_move_before_the_previous_position_is_refused(self, mongo_container: Any):
+        """The other neighbour, and the other direction: a rule reading one side would let this one through."""
+
+        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+            await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=NEIGHBOUR_BEGINN)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await re_date(database, SECOND_OID, beginn=BEFORE_THE_FIRST_BEGINN, ende=BEFORE_THE_FIRST_ENDE)
+
+            return excinfo.value
+
+        refusal = on_a_database(mongo_container, body)
+
+        assert refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert SPIELTAG_BEGINN in refusal.error_detail["message"]
+
+    def test_another_phases_matchday_is_no_neighbour(self, mongo_container: Any):
+        """Positions restart in every phase, so only a query keyed on the phase keeps a Finale out of the Gruppenphase's order."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            await self._with_a_matchday(database, oid=FINALE_OID, position=2, beginn=NEIGHBOUR_BEGINN, phase="finale")
+
+            return await re_date(database, SPIELTAG_OID, beginn=AFTER_THE_NEIGHBOUR, ende=PAST_THE_NEIGHBOUR)
+
+        response = on_a_database(mongo_container, body)
+
+        assert response.updated_document.beginn == AFTER_THE_NEIGHBOUR
+
+    def test_an_undated_neighbour_is_stepped_over_for_the_next_dated_one(self, mongo_container: Any):
+        """A drawn matchday is undated, so stopping at the adjacent position would go blind for most of a phase being dated."""
+
+        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+            await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=None)
+            await self._with_a_matchday(database, oid=THIRD_OID, position=3, beginn=NEIGHBOUR_BEGINN)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await re_date(database, SPIELTAG_OID, beginn=AFTER_THE_NEIGHBOUR, ende=PAST_THE_NEIGHBOUR)
+
+            return excinfo.value
+
+        refusal = on_a_database(mongo_container, body)
+
+        assert refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert "position 3" in refusal.error_detail["message"]
+
+    def test_an_undated_position_below_is_stepped_over_too(self, mongo_container: Any):
+        """The other side of the same gap: a phase is dated in whatever order somebody works it, so undated rows sit on both sides."""
+
+        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+            await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=None)
+            await self._with_a_matchday(database, oid=THIRD_OID, position=3, beginn=NEIGHBOUR_BEGINN)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await re_date(database, THIRD_OID, beginn=BEFORE_THE_FIRST_BEGINN, ende=BEFORE_THE_FIRST_ENDE)
+
+            return excinfo.value
+
+        refusal = on_a_database(mongo_container, body)
+
+        assert refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert "position 1" in refusal.error_detail["message"]
+
+    def test_the_nearest_dated_position_below_is_what_judges_the_move(self, mongo_container: Any):
+        """Two dated rows below the subject at different days: the phase's earliest one would let this step through."""
+
+        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+            await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=MIDDLE_BEGINN)
+            await self._with_a_matchday(database, oid=THIRD_OID, position=3, beginn=NEIGHBOUR_BEGINN)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await re_date(database, THIRD_OID, beginn=BEFORE_THE_MIDDLE, ende=MIDDLE_BEGINN)
+
+            return excinfo.value
+
+        refusal = on_a_database(mongo_container, body)
+
+        assert refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        # Position 1 begins earlier still and would permit this day, so naming the middle row is the
+        # whole of what "nearest" means here.
+        assert "position 2" in refusal.error_detail["message"]
+        assert MIDDLE_BEGINN in refusal.error_detail["message"]
+
+    def test_another_seasons_matchday_is_no_neighbour(self, mongo_container: Any):
+        """Every season numbers its own phases from 1, so a query missing the season key reads a stranger's dates as this phase's order."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            await self._with_a_matchday(
+                database,
+                oid=OTHER_SAISON_OID,
+                position=2,
+                beginn=OTHER_SAISON_BEGINN,
+                ende=OTHER_SAISON_ENDE,
+                saison_id=OTHER_SAISON_ID,
+            )
+
+            return await re_date(database, SPIELTAG_OID, beginn=AFTER_THE_NEIGHBOUR, ende=PAST_THE_NEIGHBOUR)
+
+        response = on_a_database(mongo_container, body)
+
+        assert response.updated_document.beginn == AFTER_THE_NEIGHBOUR
+
+    def test_the_predecessor_refusal_names_a_widening_the_write_path_takes(self, mongo_container: Any):
+        """Its remedy moves the row BELOW, so only driving that row says the message sends an admin somewhere the rule lets them go."""
+
+        async def body(database: AsyncIOMotorDatabase) -> tuple[str, Any]:
+            await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=NEIGHBOUR_BEGINN)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await re_date(database, SECOND_OID, beginn=BEFORE_THE_FIRST_BEGINN, ende=BEFORE_THE_FIRST_ENDE)
+
+            # The predecessor widened as the message reads it, its own `beginn` untouched.
+            accepted = await re_date(database, SPIELTAG_OID, beginn=SPIELTAG_BEGINN, ende=AFTER_THE_NEIGHBOUR)
+
+            return excinfo.value.error_detail["message"], accepted
+
+        message, response = on_a_database(mongo_container, body)
+
+        assert "widen position 1's `ende`" in message
+        assert response.updated_document.ende == AFTER_THE_NEIGHBOUR
+
+    def test_the_predecessor_refusal_names_the_day_the_matchday_already_stands_on(self, mongo_container: Any):
+        """Its remedy is this row's own stored day, so only driving that day says the message sends an admin somewhere the rule lets them go."""
+
+        async def body(database: AsyncIOMotorDatabase) -> tuple[str, Any]:
+            await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=BEFORE_THE_FIRST_BEGINN, ende=BEFORE_THE_FIRST_ENDE)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await re_date(database, SECOND_OID, beginn=BELOW_THE_BACKWARDS_PAIR, ende=BEFORE_THE_FIRST_ENDE)
+
+            # Held at the floor the message names, its `ende` moved so the echo shows a write.
+            accepted = await re_date(database, SECOND_OID, beginn=BEFORE_THE_FIRST_BEGINN, ende=WIDENED_ENDE)
+
+            return excinfo.value.error_detail["message"], accepted
+
+        message, response = on_a_database(mongo_container, body)
+
+        assert f"cannot go earlier than the {BEFORE_THE_FIRST_BEGINN} it already stands on" in message
+        assert response.updated_document.beginn == BEFORE_THE_FIRST_BEGINN
+        assert response.updated_document.ende == WIDENED_ENDE
+
+    def test_a_first_datings_refusal_names_a_day_the_write_path_takes(self, mongo_container: Any):
+        """An undated matchday has no `beginn` to restore, so its remedy is a different one and needs driving of its own."""
+
+        async def body(database: AsyncIOMotorDatabase) -> tuple[str, Any]:
+            await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=None)
+            await self._with_a_matchday(database, oid=THIRD_OID, position=3, beginn=NEIGHBOUR_BEGINN)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await re_date(database, SECOND_OID, beginn=AFTER_THE_NEIGHBOUR, ende=PAST_THE_NEIGHBOUR)
+
+            # Dated on the follower's own day, which is the latest the message offers.
+            accepted = await re_date(database, SECOND_OID, beginn=NEIGHBOUR_BEGINN, ende=PAST_THE_NEIGHBOUR)
+
+            return excinfo.value.error_detail["message"], accepted
+
+        message, response = on_a_database(mongo_container, body)
+
+        assert f"it holds no `beginn` to keep, so date it at or before {NEIGHBOUR_BEGINN}" in message
+        assert response.updated_document.beginn == NEIGHBOUR_BEGINN
+
+    def test_the_refusal_names_a_patch_the_write_path_takes(self, mongo_container: Any):
+        """Both fields are bare strings, so only driving the offered escape says the rule reads the pair its message names."""
+
+        async def body(database: AsyncIOMotorDatabase) -> tuple[str, Any]:
+            await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=NEIGHBOUR_BEGINN)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await re_date(database, SPIELTAG_OID, beginn=AFTER_THE_NEIGHBOUR, ende=PAST_THE_NEIGHBOUR)
+
+            # The message's own remedy, submitted as it reads it: the stored `beginn` back, and the
+            # `ende` this request already carried.
+            accepted = await re_date(database, SPIELTAG_OID, beginn=SPIELTAG_BEGINN, ende=PAST_THE_NEIGHBOUR)
+
+            return excinfo.value.error_detail["message"], accepted
+
+        message, response = on_a_database(mongo_container, body)
+
+        assert f"restore its `beginn` of {SPIELTAG_BEGINN}" in message
+        assert f"this `ende` of {PAST_THE_NEIGHBOUR}, which already runs past that day" in message
+        assert response.updated_document.beginn == SPIELTAG_BEGINN
+        assert response.updated_document.ende == PAST_THE_NEIGHBOUR

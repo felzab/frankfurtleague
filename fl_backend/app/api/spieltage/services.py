@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from app.api.saisons.schedule import expected_matches
@@ -9,10 +10,10 @@ from app.core.exceptions import WriteRefusal
 
 
 def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
-    """The Mongo sort -- for the natural order an APPROXIMATION, refined by `order_spieltage`.
+    """The Mongo sort, an APPROXIMATION of the natural order that `order_spieltage` refines.
 
-    `position` first, which is exact inside one phase; the phase RANK is on no document, so nothing
-    a `find` can sort on separates the phases and `limit` may keep a prefix from each.
+    The phase RANK is on no document, so no `find` separates the phases and `limit` may keep a
+    prefix of each. `position` leads, being exact inside one.
     """
 
     if sort_by == "natural":
@@ -30,8 +31,8 @@ def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
 def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
     """A season's matchdays in the order they are played: phase, then the stored `position`.
 
-    The id stays the last tie-break for a list spanning two seasons, where one phase's positions
-    repeat; `uniq_saison_id_saison_phase_position` makes it unreachable within one season.
+    The id tie-breaks a list spanning two seasons, whose positions repeat;
+    `uniq_saison_id_saison_phase_position` makes that unreachable within one.
     """
 
     return sorted(spieltage, key=lambda spieltag: (PHASE_RANK[spieltag.saison_phase], spieltag.position, str(spieltag.id)))
@@ -87,6 +88,99 @@ def find_spieltag_span_refusal(
             error_code=SPIELTAG_SPAN_BELOW_FIXTURES,
             message=f"{len(outside)} of the matchday's fixtures fall outside {beginn} to {ende} (first: {outside[0]}); "
             "widen the span or move those fixtures",
+        )
+
+    return None
+
+
+# `position` and `beginn` order a phase independently, so nothing else stops a season from showing
+# its matchdays in one order and dating them in another. `ende` is left free: it is the escape a
+# postponement takes, and the message names it.
+SPIELTAG_BEGINN_OUT_OF_ORDER = "REQ-DATE-008"
+
+
+@dataclass(frozen=True)
+class DatedNeighbour:
+    """One dated matchday beside the one being re-dated, inside the same phase of the same season."""
+
+    position: int
+    beginn: str
+
+
+def dated_beginn(spieltag_raw: Mapping[str, Any]) -> str | None:
+    """One stored `beginn` as the rule takes it, or `None` for an undated row.
+
+    `app/core/constraints.py :: Collection.SPIELTAGE` validates the field string-or-null, so nothing
+    converts it: a `str()` would turn an undated row into a day above every ISO date.
+    """
+
+    return spieltag_raw["beginn"]
+
+
+def dated_neighbour(spieltag_raw: Mapping[str, Any] | None) -> DatedNeighbour | None:
+    """The neighbouring row as the refusal takes it, or `None` where that side holds no dated matchday."""
+
+    if spieltag_raw is None:
+        return None
+
+    beginn = dated_beginn(spieltag_raw)
+
+    return None if beginn is None else DatedNeighbour(position=spieltag_raw["position"], beginn=beginn)
+
+
+def find_spieltag_order_refusal(
+    *,
+    beginn: str,
+    ende: str,
+    stored_beginn: str | None,
+    previous: DatedNeighbour | None,
+    following: DatedNeighbour | None,
+) -> WriteRefusal | None:
+    """Why this matchday's `beginn` must be refused for its place in the phase, or `None`.
+
+    `previous` and `following` are the nearest DATED matchday below and above this `position`; an
+    undated one states no date to compare, so the caller passes neither.
+    """
+
+    # The STEP, never the state (`docs/backend/spec.md :: I44`): an `ende`-only edit resubmits this
+    # `beginn`. A first dating moves from no pair at all, so it is judged against both neighbours.
+    moved_earlier = stored_beginn is None or beginn < stored_beginn
+    moved_later = stored_beginn is None or beginn > stored_beginn
+
+    # The predecessor first, and both are reachable at once only for a first dating landing between
+    # two neighbours already out of order: the earlier position is the pair a reader checks first.
+    if previous is not None and moved_earlier and beginn < previous.beginn:
+        # A stored `beginn` already below the predecessor's is the floor the STEP leaves: the rule
+        # takes it back unchanged, so naming the predecessor's day would refuse ground it gives.
+        floor = (
+            f"its `beginn` cannot go earlier than the {stored_beginn} it already stands on"
+            if stored_beginn is not None and stored_beginn < previous.beginn
+            else "its `beginn` cannot go earlier than that"
+        )
+
+        return WriteRefusal(
+            error_code=SPIELTAG_BEGINN_OUT_OF_ORDER,
+            # Below the floor the goal is reachable at fixture level alone: the predecessor's own
+            # matches move into the later days, and no `beginn` moves at all.
+            message=f"this matchday begins {beginn} and position {previous.position} of its phase begins {previous.beginn}; "
+            f"{floor}; to play this one first, widen position {previous.position}'s `ende` "
+            "and move that matchday's own fixtures into the later days",
+        )
+
+    if following is not None and moved_later and following.beginn < beginn:
+        # `ende` is never below `beginn` on the payload (`FLPatchSpieltagPayload`), so a span reaching
+        # here already runs past the follower and asking for a wider one would name a step taken.
+        opening = (
+            f"to postpone this one, restore its `beginn` of {stored_beginn}"
+            if stored_beginn is not None
+            else f"it holds no `beginn` to keep, so date it at or before {following.beginn}"
+        )
+
+        return WriteRefusal(
+            error_code=SPIELTAG_BEGINN_OUT_OF_ORDER,
+            message=f"this matchday begins {beginn} and position {following.position} of its phase begins {following.beginn}; "
+            f"{opening} and save that with this `ende` of {ende}, which already runs past that day, "
+            "then re-date its fixtures inside that span",
         )
 
     return None

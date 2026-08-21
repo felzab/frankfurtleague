@@ -374,7 +374,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
                 "saison_id": {"bsonType": "string"},
                 # Stored rather than re-derived from `beginn`: that chain ends at `_id`, which orders by
-                # insertion time, and a generated season gives every matchday of a phase one date.
+                # insertion time, and a drawn matchday carries no date at all until a PATCH sets one.
                 "position": {"bsonType": "int"},
             },
         )

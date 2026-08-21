@@ -35,10 +35,12 @@ Every domain refusal is a 409, for one reason: nothing about the payload is malf
 would have succeeded against a different state of the database
 (`fl_backend/app/core/exceptions.py :: DocumentConflictException`).
 
-**A rules refusal names a step, never a state**: `REQ-RULES-001`, `REQ-RULES-004`, `REQ-RULES-006`,
-`REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010` and `REQ-RULES-011` arrive on the edit that
-introduces or worsens the violation and let a resubmission of the stored values through, because a season patch
-replaces `rules` wholesale (`docs/backend/spec.md :: I44`).
+**A refusal comparing a payload against the document it replaces names a step, never a state**: `REQ-RULES-001`,
+`REQ-RULES-004`, `REQ-RULES-006`, `REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010` and
+`REQ-RULES-011` arrive on the edit that introduces or worsens the violation and let a resubmission of the stored
+values through, because a season patch replaces `rules` wholesale. `REQ-DATE-008` is the same shape one payload
+over: a matchday patch carries `beginn` and `ende` together, so an `ende`-only edit resubmits the stored `beginn`
+(`docs/backend/spec.md :: I44`).
 
 **The draw freezes a season's SHAPE alone**: `REQ-RULES-011` names `number_of_groups`, `teams_per_group` and
 `qualifiers_per_group`, the rules the fixtures were drawn from. What a season scores by stays editable until the
@@ -66,20 +68,22 @@ season turns `past`, where `REQ-RULES-005` freezes it.
 | `REQ-RULES-011`       | 409    | A drawn season changed one of the SHAPE rules its fixtures were drawn from                                                          |
 | `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures with no result and no `sonderereignis` that awards none                                    |
 | `REQ-ACTIVATE-002`    | 409    | A `past` season was activated — refused unconditionally, since it would reopen the points and groups its table derives from         |
+| `REQ-ACTIVATE-003`    | 409    | A season holding no fixtures was activated, which would take the league live with nothing to play                                   |
 | `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                                               |
 | `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                                                        |
 | `REQ-DATE-003`        | 409    | A matchday's span would shrink below a date one of its own fixtures holds                                                           |
 | `REQ-DATE-004`        | 409    | A season's span would shrink below a live matchday's own                                                                            |
 | `REQ-DATE-005`        | 409    | The season is shorter than the matchdays its own rules imply                                                                        |
+| `REQ-DATE-008`        | 409    | Within one phase, a matchday would begin before the nearest dated matchday below its position, or after the nearest one above       |
 | `REQ-ENTER-001`       | 409    | A team was entered into a season that is not `future`                                                                               |
 | `REQ-ENTER-002`       | 409    | A team was entered into, or moved to, a group the season does not run                                                               |
 | `REQ-ENTER-003`       | 409    | A team was entered into, or moved to, a group already holding `teams_per_group` rows                                                |
-| `REQ-ENTER-004`       | 409    | A group change reached a team whose season has already drawn its fixtures, whatever that season's status                            |
+| `REQ-ENTER-004`       | 409    | A group change reached a team that already holds a fixture in that season, whatever the season's status                             |
 | `REQ-ENTER-005`       | 409    | A club that has left the LEAGUE was entered into a season, rather than reactivated first                                            |
 | `REQ-SPIELPLAN-001`   | 409    | A season already holding fixtures was asked to draw one, and a Spielplan is drawn once                                              |
 | `REQ-SPIELPLAN-002`   | 409    | A season already holding matchdays was asked to draw one, and the draw writes the whole list at once                                |
-| `REQ-SPIELPLAN-003`   | 409    | A Spielplan was drawn for a season past `future`                                                                                    |
-| `REQ-SPIELPLAN-004`   | 409    | A Spielplan was drawn while a group holds fewer teams than the season's rules ask for                                               |
+| `REQ-SPIELPLAN-003`   | 409    | A Spielplan was drawn for a season already `past`                                                                                   |
+| `REQ-SPIELPLAN-004`   | 409    | A Spielplan was drawn while an offered group is off the size its rules ask, or a club stands in a group the season does not offer   |
 | `REQ-SWAP-001`        | 409    | A group swap named something other than two clubs of that season standing in different groups                                       |
 | `REQ-SWAP-002`        | 409    | A group swap reached a season with a knockout fixture already played, abandoned, forfeited or holding a goal count                  |
 | `REQ-SWAP-003`        | 409    | A group swap reached a `past` season, whose table is derived from the groups it would exchange                                      |

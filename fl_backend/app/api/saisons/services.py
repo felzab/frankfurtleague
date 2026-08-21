@@ -239,6 +239,9 @@ ACTIVATE_SAISON_UNFINISHED = "REQ-ACTIVATE-001"
 # operation that can reopen a finished season's points, groups and table. A season closed by mistake
 # is repaired at the database.
 ACTIVATE_TARGET_PAST = "REQ-ACTIVATE-002"
+# The pair to `REQ-SPIELPLAN-003`: that one lets a running season still be drawn, and this one keeps
+# a season from going live undrawn in the first place.
+ACTIVATE_TARGET_UNDRAWN = "REQ-ACTIVATE-003"
 
 # The refusal is also the log line, and a season's worth of numbers in it buries the message.
 _NAMED_UNPLAYED = 5
@@ -256,7 +259,7 @@ def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
     return sorted(spiel.spiel_nr for spiel in spiele if spiel.ergebnis is None and spiel.sonderereignis not in SONDEREREIGNIS_WITHOUT_A_RESULT)
 
 
-def find_activation_refusal(*, target_status: str, outgoing_unplayed: Sequence[int]) -> WriteRefusal | None:
+def find_activation_refusal(*, target_status: str, target_fixtures: int, outgoing_unplayed: Sequence[int]) -> WriteRefusal | None:
     """Why this rollover must be refused, or `None`.
 
     `target_status` is the status of the season being promoted, and `outgoing_unplayed` is empty
@@ -271,6 +274,12 @@ def find_activation_refusal(*, target_status: str, outgoing_unplayed: Sequence[i
             error_code=ACTIVATE_TARGET_PAST,
             message="the target season is past, and its points, its groups and the table derived from them are the "
             "record of what happened; activating it would reopen all three",
+        )
+
+    if target_fixtures == 0:
+        return WriteRefusal(
+            error_code=ACTIVATE_TARGET_UNDRAWN,
+            message="the target season has no fixtures; draw its Spielplan first, or the league goes live with nothing to play",
         )
 
     if not outgoing_unplayed:
@@ -289,8 +298,10 @@ def find_activation_refusal(*, target_status: str, outgoing_unplayed: Sequence[i
 # What each code below refuses is `docs/logging/error-codes.md`.
 SPIELPLAN_ALREADY_DRAWN = "REQ-SPIELPLAN-001"
 SPIELPLAN_MATCHDAYS_HELD = "REQ-SPIELPLAN-002"
-SPIELPLAN_SAISON_NOT_FUTURE = "REQ-SPIELPLAN-003"
-SPIELPLAN_GRUPPE_SHORT = "REQ-SPIELPLAN-004"
+SPIELPLAN_SAISON_FINISHED = "REQ-SPIELPLAN-003"
+# One code, because one repair reaches all three: every offered group holding exactly
+# `teams_per_group`, short or over, and no club standing outside them.
+SPIELPLAN_GRUPPEN_OFF_RULES = "REQ-SPIELPLAN-004"
 
 
 def find_spielplan_refusal(
@@ -304,8 +315,8 @@ def find_spielplan_refusal(
 ) -> WriteRefusal | None:
     """Why drawing this season's Spielplan must be refused, or `None`.
 
-    Each of the four refuses on its own, so the order decides only which one an admin reads: the
-    most specific first, because naming what already exists is more use than naming a status.
+    Each refuses on its own, so the order decides only which one an admin reads: what no group
+    filling repairs first, because `REQ-SPIELPLAN-004` alone names work an admin can go and do.
     """
 
     if fixtures_drawn > 0:
@@ -328,26 +339,39 @@ def find_spielplan_refusal(
             message=f"the season already holds {spieltage_held} matchday(s); the draw writes the whole list at once and merges with none",
         )
 
-    if saison_status != "future":
+    # `past` alone, never `future`-only: activation is one-way, so a season activated before its draw
+    # would otherwise be unschedulable for good. `REQ-ACTIVATE-003` is the other half, keeping the
+    # state rare rather than unreachable.
+    if saison_status == "past":
         return WriteRefusal(
-            error_code=SPIELPLAN_SAISON_NOT_FUTURE,
-            message=f"season is {saison_status}; a Spielplan is drawn while the season is still future",
+            error_code=SPIELPLAN_SAISON_FINISHED,
+            message=f"season is {saison_status}; its table is the record of what happened, and a draw would reopen it",
         )
 
-    # Rows carrying an `austritt` count as occupying, exactly as `find_entry_refusal` counts them:
-    # a club that withdrew before the draw keeps its place, and the group is not short.
-    short = [
-        (gruppe, occupancy_by_gruppe.get(gruppe, 0))
-        for gruppe in offered_gruppen(rules.number_of_groups)
-        if occupancy_by_gruppe.get(gruppe, 0) < rules.teams_per_group
+    offered = offered_gruppen(rules.number_of_groups)
+
+    # Rows carrying an `austritt` count as occupying, exactly as `find_entry_refusal` counts them: a
+    # club that withdrew before the draw keeps its place, and the group is still the size it owes.
+    off_size = [
+        f"gruppe {gruppe} holds {occupancy_by_gruppe.get(gruppe, 0)} of {rules.teams_per_group}"
+        for gruppe in offered
+        if occupancy_by_gruppe.get(gruppe, 0) != rules.teams_per_group
     ]
 
-    if short:
-        listed = ", ".join(f"gruppe {gruppe} holds {held} of {rules.teams_per_group}" for gruppe, held in short)
+    # A key outside `offered` is clubs the draw would put in no round robin at all. `_squads` raises
+    # on these states too, as its own contract against a caller that skipped this rule; the endpoint
+    # is where they become an answer an admin can act on.
+    off_size += [
+        f"gruppe {gruppe} holds {held} and a season of {rules.number_of_groups} group(s) does not offer it"
+        for gruppe, held in sorted(occupancy_by_gruppe.items())
+        if held > 0 and gruppe not in offered
+    ]
 
+    if off_size:
         return WriteRefusal(
-            error_code=SPIELPLAN_GRUPPE_SHORT,
-            message=f"{listed}; every group plays the same round robin, so a short one draws a different number of fixtures",
+            error_code=SPIELPLAN_GRUPPEN_OFF_RULES,
+            message=f"{', '.join(off_size)}; every group plays the same round robin, so a group off its size draws a different "
+            "number of fixtures and a club outside the offered groups draws none",
         )
 
     return None

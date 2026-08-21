@@ -360,7 +360,17 @@ async def activate_saison(
         )
 
     # One call, so which of the two refusals an admin is shown stays the service's decision.
-    refuse(find_activation_refusal(target_status=str(target["status"]), outgoing_unplayed=unplayed))
+    # The target's OWN fixtures, not the outgoing season's: a league going live with nothing drawn
+    # has no repair, activation writing `status` one way only.
+    target_fixtures = await spiele_collection.count_documents({"saison_id": saison_id})
+
+    refuse(
+        find_activation_refusal(
+            target_status=str(target["status"]),
+            target_fixtures=target_fixtures,
+            outgoing_unplayed=unplayed,
+        )
+    )
 
     async with await db.start_session() as session:
         async with session.start_transaction():
@@ -565,9 +575,9 @@ async def generate_spielplan(
             )
         )
 
-        # Last, and reachable only on a season the API can no longer create: create and patch run
-        # this same `stored=None` path. Asked anyway, because drawing one writes a group phase
-        # whose bracket has no shape.
+        # Last, and reachable only by a hand edit: create refuses each on its own `stored=None`
+        # path, and the step rule refuses any patch introducing one. Asked anyway, because such a
+        # season would draw a group phase whose bracket has no shape.
         refuse(
             find_rules_refusal(
                 saison_status=str(saison_raw["status"]),
