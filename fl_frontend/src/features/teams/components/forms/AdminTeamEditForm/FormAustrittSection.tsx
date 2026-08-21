@@ -72,13 +72,13 @@ export function FormAustrittSection({
             <p>Der einzige Weg aus einer Saison.</p>
             <ul>
               <li>
-                Eine <strong>Disqualifikation</strong> spricht die Liga aus; einen <strong>Rückzug</strong> erklärt die Mannschaft selbst.
+                Eine <strong>Disqualifikation</strong> spricht die Liga aus; einen <strong>Rückzug</strong> erklärt das Team selbst.
               </li>
               <li>
                 Der <strong>Grund ist öffentlich</strong> und erscheint wie eingegeben.
               </li>
               <li>
-                Die Tabelle <strong>überspringt</strong> die Mannschaft bei der Platzvergabe. Ihre Ergebnisse bleiben gewertet.
+                Die Tabelle <strong>überspringt</strong> das Team bei der Platzvergabe. Seine Ergebnisse bleiben gewertet.
               </li>
               <li>Aufheben entfernt Art, Grund und Datum ersatzlos. Es gibt keinen Verlauf.</li>
             </ul>
@@ -92,7 +92,7 @@ export function FormAustrittSection({
           isSelected={hasAustritt}
           onChange={onHasAustrittChange}>
           <Switch.Content className="fluid-sm text-danger flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
-            Mannschaft ist ausgeschieden
+            Team ist ausgeschieden
             <Switch.Control className={hasAustritt ? "bg-danger" : ""}>
               <Switch.Thumb />
             </Switch.Control>

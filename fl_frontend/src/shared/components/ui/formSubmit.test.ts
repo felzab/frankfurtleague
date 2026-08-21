@@ -69,7 +69,10 @@ describe("every editor raising the save confirmation", () => {
     it(`${file} shows the snapshot the gate took, not a live derivation`, () => {
       const source = sources.get(file) ?? "";
 
-      assert.ok(source.includes("resolveBlockingBanners(banners)"), `${file} derives its gate some other way`);
+      // Anchored on the argument, not the whole call: an editor may NARROW the list it gates on --
+      // a banner reporting a refusal already delivered is not a consequence to confirm -- but it
+      // must still derive the gate from its own banners.
+      assert.match(source, /resolveBlockingBanners\(banners\b/, `${file} derives its gate some other way`);
 
       // The dialog's list has to be state, because a value recomputed each render can change while
       // the admin is reading what they are agreeing to.

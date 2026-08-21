@@ -45,14 +45,57 @@ const versionPrefixes = [...new Set(Object.keys(publishedPaths).flatMap((publish
 const versionPrefix = versionPrefixes[0] ?? "";
 const unplaceable = Object.keys(publishedPaths).filter((published) => !UNVERSIONED.includes(published) && !published.startsWith(versionPrefix));
 
-/** One operation as published: what it answers on, and the query parameter names it will read. */
-type PublishedOperation = { published: string; queryParams: Set<string> };
+/** What one published query parameter admits: whether it may be omitted, its types, its closed value set. */
+type PublishedParam = { required: boolean; values: string[] | null; primitives: Set<string>; readable: boolean };
 
-function queryParamNames(...groups: unknown[]): string[] {
+/** One operation as published: what it answers on, and the query parameters it will read. */
+type PublishedOperation = { published: string; queryParams: Map<string, PublishedParam> };
+
+/**
+ * Read through FastAPI's optional idiom: an omissible parameter publishes as
+ * `anyOf: [<the real branch>, {type: null}]`, which the mirror spells `?`. The null branch is
+ * dropped here and answered by the optionality comparison instead.
+ */
+function schemaFacts(schema: JsonObject): Omit<PublishedParam, "required"> {
+  const branches = Array.isArray(schema.anyOf) ? (schema.anyOf as JsonObject[]) : [schema];
+  const primitives = new Set<string>();
+  const values: string[] = [];
+  let closed = true;
+  let readable = true;
+
+  for (const branch of branches) {
+    const branchType = typeof branch.type === "string" ? branch.type : null;
+    if (branchType === "null") continue;
+    if (branchType !== null) primitives.add(branchType);
+
+    if (Array.isArray(branch.enum)) {
+      // A member this cannot spell would be dropped, SHRINKING the set in silence -- the one
+      // failure a comparison must never have.
+      if (branch.enum.some((value) => typeof value !== "string")) readable = false;
+      values.push(...branch.enum.filter((value): value is string => typeof value === "string"));
+    } else if (typeof branch.const === "string") values.push(branch.const);
+    // One branch naming no closed set opens the whole union, so no value comparison is possible.
+    else closed = false;
+  }
+
+  // A `$ref`, an `allOf` or a branch carrying no `type` leaves nothing to compare on, and skipping
+  // it quietly would read as coverage. FastAPI emits one as soon as a parameter is annotated with
+  // an `Enum` class rather than a `Literal`.
+  if (primitives.size === 0) readable = false;
+
+  return { values: closed && values.length > 0 ? values : null, primitives: primitives, readable: readable };
+}
+
+function queryParams(...groups: unknown[]): [string, PublishedParam][] {
   return groups.flatMap((group) =>
-    (Array.isArray(group) ? (group as JsonObject[]) : []).flatMap((parameter) =>
-      parameter.in === "query" && typeof parameter.name === "string" ? [parameter.name] : [],
-    ),
+    (Array.isArray(group) ? (group as JsonObject[]) : []).flatMap((parameter) => {
+      if (parameter.in !== "query" || typeof parameter.name !== "string") return [];
+      const facts = schemaFacts((parameter.schema ?? {}) as JsonObject);
+
+      const entry: [string, PublishedParam] = [parameter.name, { required: parameter.required === true, ...facts }];
+
+      return [entry];
+    }),
   );
 }
 
@@ -67,6 +110,9 @@ function publishedSegments(published: string): string[] {
 
 const operationKey = (method: string, segments: readonly string[]): string => `${method.toUpperCase()} /${segments.join("/")}`;
 
+/** Query parameters whose published schema names neither a type nor a value set. Never skipped: one that is would read as covered. */
+const unresolvable: string[] = [];
+
 const published = new Map<string, PublishedOperation>();
 for (const [publishedPath, item] of Object.entries(publishedPaths)) {
   if (UNVERSIONED.includes(publishedPath) || unplaceable.includes(publishedPath)) continue;
@@ -74,8 +120,11 @@ for (const [publishedPath, item] of Object.entries(publishedPaths)) {
 
   for (const [method, operation] of Object.entries(item)) {
     if (!HTTP_METHODS.has(method)) continue;
-    const names = queryParamNames(item.parameters, (operation as JsonObject | undefined)?.parameters);
-    published.set(operationKey(method, segments), { published: publishedPath, queryParams: new Set(names) });
+    const params = queryParams(item.parameters, (operation as JsonObject | undefined)?.parameters);
+    for (const [name, param] of params) {
+      if (!param.readable) unresolvable.push(`${operationKey(method, segments)} · ${name} (${publishedPath})`);
+    }
+    published.set(operationKey(method, segments), { published: publishedPath, queryParams: new Map(params) });
   }
 }
 
@@ -123,6 +172,8 @@ type ExtractedCall = {
   method: string;
   segments: string[];
   sent: { name: string; source: string }[];
+  /** The mirrored type behind `sent`, where one was passed — an inline `?a=b` carries no type to compare. */
+  typed: SentParams | null;
 };
 
 const calls: ExtractedCall[] = [];
@@ -145,8 +196,11 @@ function endpointText(argument: ts.Expression): string | null {
   return null;
 }
 
-/** The property names a `params` argument can put on the wire, or why they could not be counted. */
-function paramProperties(node: ts.Expression): { label: string; names: string[] } | string {
+/** One `params` argument resolved: what it is called, and the properties it can put on the wire. */
+type SentParams = { label: string; names: string[]; properties: ts.Symbol[]; node: ts.Expression };
+
+/** The properties a `params` argument can put on the wire, or why they could not be counted. */
+function paramProperties(node: ts.Expression): SentParams | string {
   const type = checker.getTypeAtLocation(node);
   const label = checker.typeToString(type);
 
@@ -155,12 +209,13 @@ function paramProperties(node: ts.Expression): { label: string; names: string[] 
   // A union reports only the names every branch shares, which would UNDER-report what is sent.
   if (type.isUnion()) return `\`params\` is ${label}, a union whose branches need not agree on names`;
 
-  const names = type.getProperties().map((property) => property.name);
+  const properties = type.getProperties();
+  const names = properties.map((property) => property.name);
   if (names.length === 0) return `\`params\` is ${label}, which declares no property`;
-  return { label: label, names: names };
+  return { label: label, names: names, properties: properties, node: node };
 }
 
-type ReadOptions = { method: string; params: { label: string; names: string[] } | null };
+type ReadOptions = { method: string; params: SentParams | null };
 
 function readOptions(argument: ts.Expression, where: string): ReadOptions | null {
   if (!ts.isObjectLiteralExpression(argument)) {
@@ -169,7 +224,7 @@ function readOptions(argument: ts.Expression, where: string): ReadOptions | null
   }
 
   let method = "GET";
-  let params: { label: string; names: string[] } | null = null;
+  let params: SentParams | null = null;
 
   for (const property of argument.properties) {
     if (ts.isSpreadAssignment(property)) {
@@ -242,6 +297,7 @@ for (const file of callerFiles) {
             method: options.method,
             segments: pathText.split("/").filter((segment) => segment.length > 0),
             sent: [...inline, ...typed],
+            typed: options.params,
           });
         }
       }
@@ -280,6 +336,15 @@ describe("the published document places every path this comparison reads", () =>
 
   it("publishes operations under the prefix", () => {
     assert.ok(published.size > 0, `no operations under ${versionPrefix} in openapi.json — refresh it:  ${REGENERATE}`);
+  });
+
+  it("resolves every published query parameter's schema", () => {
+    assert.deepEqual(
+      unresolvable,
+      [],
+      `These query parameters publish a schema this comparison cannot read, so nothing checks what is sent under them.\n` +
+        `Teach schemaFacts the shape rather than letting it pass:\n  ${unresolvable.join("\n  ")}`,
+    );
   });
 });
 
@@ -320,14 +385,95 @@ describe("every request the frontend composes is published", () => {
           `  published on this resource:\n    ${sameResource.join("\n    ")}`,
       );
 
-      // Names only: whether a VALUE fits is the Zod mirror's comparison, in
-      // `fl_frontend/src/core/apiContract.test.ts`.
+      // Names here; the values are compared below. `apiContract.test.ts` reaches neither: it iterates
+      // `components.schemas`, and a query parameter publishes inline under `paths`.
       const undeclared = call.sent.filter((param) => !operation.queryParams.has(param.name));
       assert.deepEqual(
         undeclared.map((param) => `${param.name} (from ${param.source})`),
         [],
         `${call.where} sends query parameters ${operation.published} does not declare, and the server drops an unknown one in silence.\n` +
-          `  declared: ${[...operation.queryParams].sort().join(", ") || "none"}`,
+          `  declared: ${[...operation.queryParams.keys()].sort().join(", ") || "none"}`,
+      );
+    });
+  }
+});
+
+/** OpenAPI's primitive names as the mirror spells them. */
+const PRIMITIVE_IN_TS: Record<string, string> = { string: "string", integer: "number", number: "number", boolean: "boolean" };
+
+const sortedList = (values: Iterable<string>): string => [...values].sort().join(", ") || "none";
+
+const NOT_CLOSED = "<any value of its type>";
+
+/** What one mirrored property admits, with the omissible branch dropped — `?` is compared on its own. */
+function mirroredFacts(type: ts.Type): { values: string[] | null; primitives: Set<string> } {
+  const branches = type.isUnion() ? type.types : [type];
+  const primitives = new Set<string>();
+  const values: string[] = [];
+  let closed = true;
+
+  for (const branch of branches) {
+    if ((branch.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Null)) !== 0) continue;
+
+    // Asked before `StringLike`, which a string literal also satisfies.
+    if (branch.isStringLiteral()) {
+      values.push(branch.value);
+      primitives.add("string");
+      continue;
+    }
+
+    closed = false;
+    if ((branch.flags & ts.TypeFlags.StringLike) !== 0) primitives.add("string");
+    else if ((branch.flags & ts.TypeFlags.NumberLike) !== 0) primitives.add("number");
+    else if ((branch.flags & ts.TypeFlags.BooleanLike) !== 0) primitives.add("boolean");
+    else primitives.add(checker.typeToString(branch));
+  }
+
+  return { values: closed && values.length > 0 ? values : null, primitives: primitives };
+}
+
+describe("every mirrored query parameter admits what the server admits", () => {
+  for (const call of calls) {
+    const operation = published.get(operationKey(call.method, call.segments));
+    const sent = call.typed;
+    if (operation === undefined || sent === null) continue;
+
+    it(`${sent.label} at ${call.where}`, () => {
+      const drifted: string[] = [];
+
+      for (const property of sent.properties) {
+        const declared = operation.queryParams.get(property.name);
+        // An undeclared NAME is the comparison above's, and an unreadable schema is reported once
+        // against the document; either here would name one defect twice.
+        if (declared === undefined || !declared.readable) continue;
+
+        const mirrored = mirroredFacts(checker.getTypeOfSymbolAtLocation(property, sent.node));
+        const optional = (property.flags & ts.SymbolFlags.Optional) !== 0;
+
+        if (optional === declared.required) {
+          drifted.push(
+            `${property.name}: the mirror makes it ${optional ? "optional" : "required"}, the server ${declared.required ? "requires" : "omits"} it`,
+          );
+        }
+
+        const expected = new Set([...declared.primitives].map((name) => PRIMITIVE_IN_TS[name] ?? name));
+        // Skipped where the parameter publishes no `type` at all, which names nothing to compare.
+        if (expected.size > 0 && sortedList(expected) !== sortedList(mirrored.primitives)) {
+          drifted.push(`${property.name}: the mirror is ${sortedList(mirrored.primitives)}, the server publishes ${sortedList(expected)}`);
+        }
+
+        // Only where the SERVER closes the set: one it leaves open cannot be widened past.
+        const admitted = mirrored.values === null ? NOT_CLOSED : sortedList(mirrored.values);
+        if (declared.values !== null && admitted !== sortedList(declared.values)) {
+          drifted.push(`${property.name}: the mirror admits ${admitted}, the server admits ${sortedList(declared.values)}`);
+        }
+      }
+
+      assert.deepEqual(
+        drifted,
+        [],
+        `${sent.label} disagrees with ${operation.published} about what it may send, and the server answers 422 on a value it did not expect:\n  ` +
+          drifted.join("\n  "),
       );
     });
   }

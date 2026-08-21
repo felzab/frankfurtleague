@@ -250,7 +250,7 @@ export function FormTeamPicker({
       <FieldLabel
         path={`${fieldName}.team_id`}
         extraMarker={<ExpectedMarker path={`${fieldName}.team_id`} />}>
-        {isKnockout ? `${label}: Mannschaft` : label}
+        {label}
       </FieldLabel>
       <Autocomplete.Trigger className={FIELD_TRIGGER}>
         {/* The name from the prop, never `Autocomplete.Value`, and `flex-1` as
@@ -545,7 +545,7 @@ export function FormTeamPicker({
       ) : (
         /* Read-only: the side is the resolution's until the "Manuell" choice above takes it back. */
         <div className="flex w-full flex-col gap-y-1.5">
-          <span className={FIELD_LABEL}>{label}: Mannschaft</span>
+          <span className={FIELD_LABEL}>{label}</span>
           <div className={`${FIELD_INPUT} text-foreground-muted cursor-default`}>
             <span className="fluid-sm">{occupantLabel}</span>
           </div>

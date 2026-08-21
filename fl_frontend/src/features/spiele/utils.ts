@@ -416,7 +416,7 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
     case "reference_cycle":
       return `Spiel ${fault.spiel_nr} verweist über Spiel ${fault.quelle_spiel_nr} auf eine Verweiskette, die sich schließt und kein Ergebnis liefern kann`;
     case "same_team":
-      return `In Spiel ${fault.spiel_nr} führen beide Seiten zur selben Mannschaft`;
+      return `In Spiel ${fault.spiel_nr} führen beide Seiten zum selben Team`;
     // Not a bracket fault: what makes it one is the order of the two dates, and the fixture's own
     // may be missing — so the sentence names both rather than a reference.
     case "departed_occupant":
@@ -426,7 +426,7 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
     // The side is named because one entry stands per APPEARANCE: without it, a club on both seats of
     // one fixture reads as the same sentence twice.
     case "fielded_twice":
-      return `In Spiel ${fault.spiel_nr} steht ${fault.team_name} als ${sideLabel(fault.side)}, doch an diesem Spieltag ist die Mannschaft mehrfach aufgestellt`;
+      return `In Spiel ${fault.spiel_nr} steht ${fault.team_name} als ${sideLabel(fault.side)}, doch an diesem Spieltag ist ${fault.team_name} mehrfach aufgestellt`;
   }
 };
 
@@ -445,7 +445,7 @@ export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
     case "reference_cycle":
       return `Der Verweis über Spiel ${fault.quelle_spiel_nr} führt im Kreis und kann nie ein Ergebnis liefern.`;
     case "same_team":
-      return "Beide Seiten führen zur selben Mannschaft.";
+      return "Beide Seiten führen zum selben Team.";
     case "departed_occupant":
       return fault.spiel_datum === null
         ? `${fault.team_name} ist seit dem ${formatSpielDatum(fault.ausgeschieden_seit)} ${zustandMidSentence(fault.austritt_type)}. Ohne Spieldatum ist nicht belegt, dass vorher gespielt wurde.`

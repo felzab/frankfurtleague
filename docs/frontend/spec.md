@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `ad0aaa91`, 2026-08-21\
+**Verified against:** `c6d7b8e8`, 2026-08-21\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -428,16 +428,19 @@ publish type-checks, lints, builds and passes every other test, and answers 404 
 page; an undeclared query parameter is not refused but dropped, so a filter renamed on one side alone
 narrows nothing and the page still renders.
 
-**It compares names, never values, and widens I17 by nothing.** What the Zod mirror is checked on is
-unchanged and stays as I17 states it — deliberately, because that mirror is hand-written (§4). This test says
-a parameter's name exists on the operation; whether the value sent under it fits is I17's question and not
-one this test can answer.
+**It compares a query parameter's name and then what it may carry — required, primitive type, and enum
+members — and widens I17 by nothing.** What the Zod mirror is checked on is unchanged and stays as I17
+states it, deliberately, because that mirror is hand-written (§4). The two do not overlap: I17 iterates the
+document's `components.schemas`, and a query parameter publishes inline under `paths`, so I17's comparison
+never reaches one. Value comparison here needs a type to read, so it applies to a parameter carried by the
+type passed as `params`, never to one written into the endpoint literal.
 
 **It is blind to a request made with bare `fetch` instead of `apiClient`, to the runtime value inside a
-`${…}` hole, which collapses to a placeholder before anything is compared, and to a filter type that
-neither ends in `FilterParams` nor is passed anywhere.** A path assembled outside the call expression is
-not on that list: it is reported as unreadable and fails the run, because a call the reader cannot read is
-a call nothing compares.
+`${…}` hole, which collapses to a placeholder before anything is compared, to a parameter written into the
+endpoint literal, which carries no type to compare, and to a filter type that neither ends in
+`FilterParams` nor is passed anywhere.** A path assembled outside the call expression is not on that list,
+and neither is a published schema the reader cannot resolve to a type or a value set: each is reported and
+fails the run, because a call the reader cannot read is a call nothing compares.
 
 ### 1.10 The match editor's structural properties
 
@@ -633,6 +636,12 @@ the convention holds, so it is evidence of nothing.
 `fl_frontend/src/core/authEmail.ts` are all in. German inside `/docs` and in code comments addresses
 developers, not users, and is out — except where a comment quotes a rendered string, which tracks it.
 
+**One German word per concept, and a club is a `Team`** (my rule, 2026-08-21): never `Mannschaft`.
+`Team` is neuter, so every article, demonstrative, possessive, relative pronoun and adjective ending
+agreeing with it is neuter too — and the word that has to agree often sits in the NEXT sentence,
+which no grep for the noun will find. `Team` is also what `sideLabel` numbers a fixture's two seats,
+so a sentence naming both says the club by name rather than leaning on the noun to separate them.
+
 **Refusal copy carries a second register on top of this**, declared at
 `fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED`: a FIELD message stays one sentence
 about the value, and a FORM message is two with the action second. Field messages are the one place
@@ -787,7 +796,7 @@ data: the shared one never learns about `expected`, and the narrow one holds no 
 | I33 | **The match editor's draft reaches the wire payload by a parse, and a field whose inputs are conditional is retracted by that same condition** — never by a cast, and never handler by handler                                                                                                                                                                                                                                                                                   | `fl_frontend/src/features/spiele/schemas.ts :: FLPatchSpielDataPayloadDraft` makes the gap a type error; `fl_frontend/src/features/spiele/draftStatus.ts :: admitsShootOut` is the shoot-out's one condition, read by the panel that offers it, the draft that carries it and the preview that shows it                                           |
 | I34 | **Every field path a refusal can name is a path its form renders a `name` for — or a declared, reasoned exemption**                                                                                                                                                                                                                                                                                                                                                              | `fl_frontend/src/core/refusalPaths.test.ts` sweeps every payload schema an action parses against the `name` props of the components that dispatch that action, and against the paths its `map*Refusal` writes by hand                                                                                                                             |
 | I35 | **Every `path` a field label is given is a path its editor's descriptor table carries.** A path no descriptor carries renders a label with no Geändert marker and no error, because `useFieldStatus` answers `undefined` rather than throwing                                                                                                                                                                                                                                    | `fl_frontend/src/shared/components/ui/fieldLabelPaths.test.ts` sweeps every literal, template and composed path a label is handed                                                                                                                                                                                                                 |
-| I36 | **Every request `apiClient` composes reaches an operation `fl_backend/openapi.json` publishes — matched on method and on path shape — and sends only query parameter names that operation declares.** Names, never values: what a value has to look like is I17's, and this widens it by nothing                                                                                                                                                                                 | `fl_frontend/src/core/apiRequests.test.ts`                                                                                                                                                                                                                                                                                                        |
+| I36 | **Every request `apiClient` composes reaches an operation `fl_backend/openapi.json` publishes — matched on method and on path shape — and sends only query parameters that operation declares, each agreeing with it on required, type and enum members.** A query parameter publishes inline under `paths` rather than as a component, so I17's comparison never reaches one                                                                                                    | `fl_frontend/src/core/apiRequests.test.ts`                                                                                                                                                                                                                                                                                                        |
 
 ## 3. Violation → remedy
 

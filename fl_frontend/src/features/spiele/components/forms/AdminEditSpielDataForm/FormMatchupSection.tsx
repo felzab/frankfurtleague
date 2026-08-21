@@ -91,7 +91,7 @@ export function FormMatchupSection({
               </>
             ) : (
               <>
-                <p>Welche beiden Mannschaften aufeinandertreffen.</p>
+                <p>Welche beiden Teams aufeinandertreffen.</p>
                 <ul>
                   <li>
                     <strong>Ausgeschiedene</strong> Teams bleiben sichtbar, sind aber gesperrt.

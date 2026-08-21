@@ -72,7 +72,7 @@ function SwapTeamSelect({
       <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
         {/* From the prop rather than `Select.Value`: the collection can lag a render behind and would
             show HeroUI's English placeholder — `GruppeSelect`'s reason, and `SaisonSelector`'s. */}
-        <span className={value ? "" : "text-foreground-muted"}>{value ? `${value.name} (Gruppe ${value.gruppe})` : "Mannschaft wählen"}</span>
+        <span className={value ? "" : "text-foreground-muted"}>{value ? `${value.name} (Gruppe ${value.gruppe})` : "Team wählen"}</span>
         <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
       </Select.Trigger>
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-72 overflow-y-auto p-1.5`}>
@@ -212,7 +212,7 @@ export function FormGruppenSwapSection({
 
   // Rendered only while the button is disabled for a reason a reader can act on. A swap in flight
   // names nothing: the label already says so.
-  const missingPickHint = first === null ? "Wähle zwei Mannschaften aus zwei verschiedenen Gruppen." : "Wähle noch die zweite Mannschaft.";
+  const missingPickHint = first === null ? "Wähle zwei Teams aus zwei verschiedenen Gruppen." : "Wähle noch das zweite Team.";
   const isMissingAPick = first === null || second === null;
 
   return (
@@ -221,24 +221,24 @@ export function FormGruppenSwapSection({
         <h2 className={panel.heading()}>
           Gruppentausch
           <InfoHint label="Hinweis zum Gruppentausch">
-            <p>Zwei Mannschaften tauschen ihre Gruppen. Das geschieht in einem Schritt, nicht in zwei.</p>
+            <p>Zwei Teams tauschen ihre Gruppen. Das geschieht in einem Schritt, nicht in zwei.</p>
             <ul>
               <li>
-                Jede Gruppe behält ihre <strong>Größe</strong>. Die angesetzten Spiele tauschen mit: Jede Mannschaft übernimmt Gegner, Termine
-                und Orte der anderen.
+                Jede Gruppe behält ihre <strong>Größe</strong>. Die angesetzten Spiele tauschen mit: Jedes Team übernimmt Gegner, Termine und
+                Orte des anderen.
               </li>
               <li>Die Tabellen beider Gruppen sehen ab sofort anders aus.</li>
               <li>
-                Sobald eine der beiden in ihrer Gruppe <strong>gespielt</strong> hat, geht es nicht mehr: Eine Gruppe ist ein Rundenturnier, in
-                dem jede Mannschaft gegen jede andere ihrer Gruppe spielt.
+                Sobald eines der beiden in seiner Gruppe <strong>gespielt</strong> hat, geht es nicht mehr: Eine Gruppe ist ein Rundenturnier,
+                in dem jedes Team gegen jedes andere seiner Gruppe spielt.
               </li>
               <li>
-                Spiele der KO-Runde tauschen <strong>nicht</strong> mit. Stünde eine Mannschaft dadurch zweimal an einem Spieltag, ist das Paar
-                nicht wählbar. Verschiebe dann eines der beiden Spiele.
+                Spiele der KO-Runde tauschen <strong>nicht</strong> mit. Stünde ein Team dadurch zweimal an einem Spieltag, ist das Paar nicht
+                wählbar. Verschiebe dann eines der beiden Spiele.
               </li>
               <li>
-                Ein <strong>einzelner</strong> Wechsel bleibt gesperrt, hier wie auf der Mannschaftsseite. Dort lässt sich derselbe Tausch mit
-                der geöffneten Mannschaft als einer Seite starten; hier wählst Du beide Seiten selbst.
+                Ein <strong>einzelner</strong> Wechsel bleibt gesperrt, hier wie auf der Teamseite. Dort lässt sich derselbe Tausch mit dem
+                geöffneten Team als einer Seite starten; hier wählst Du beide Seiten selbst.
               </li>
             </ul>
           </InfoHint>
@@ -265,23 +265,22 @@ export function FormGruppenSwapSection({
           <Callout
             severity="info"
             title="Noch nichts zu tauschen">
-            Für einen Tausch müssen Mannschaften in mindestens zwei verschiedenen Gruppen stehen. Nimm die Mannschaften über die
-            Mannschaftsseite in die Saison auf.
+            Für einen Tausch müssen Teams in mindestens zwei verschiedenen Gruppen stehen. Nimm die Teams über die Teamseite in die Saison auf.
           </Callout>
         ) : !hasTwoSwappableGruppen ? (
           <Callout
             severity="info"
             title="Die Gruppenphase ist zu weit">
-            Tauschen können nur Mannschaften, die in ihrer Gruppe noch kein Spiel gespielt oder abgesagt bekommen haben, und die gibt es nicht
-            mehr in zwei verschiedenen Gruppen. Eine Gruppe ist ein Rundenturnier: Wer darin einmal gespielt hat, gehört dorthin.
+            Tauschen können nur Teams, die in ihrer Gruppe noch kein Spiel gespielt oder abgesagt bekommen haben, und die gibt es nicht mehr in
+            zwei verschiedenen Gruppen. Eine Gruppe ist ein Rundenturnier: Wer darin einmal gespielt hat, gehört dorthin.
           </Callout>
         ) : (
           <>
             <p
               id={PAIR_LABEL_ID}
               className="fluid-sm text-foreground font-medium">
-              Wähle die beiden Mannschaften, die ihre Gruppen tauschen sollen. Beide müssen in dieser Saison stehen, in zwei verschiedenen
-              Gruppen, und dürfen in ihrer Gruppe noch nicht gespielt haben.
+              Wähle die beiden Teams, die ihre Gruppen tauschen sollen. Beide müssen in dieser Saison stehen, in zwei verschiedenen Gruppen, und
+              dürfen in ihrer Gruppe noch nicht gespielt haben.
             </p>
 
             {/* One group rather than two fields: the exchange is one decision over two operands.
@@ -292,7 +291,7 @@ export function FormGruppenSwapSection({
               aria-labelledby={PAIR_LABEL_ID}
               className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
               <SwapTeamSelect
-                label="Mannschaft"
+                label="Team"
                 value={first}
                 onChange={handleFirstChange}
                 teams={swap.teams}
@@ -321,7 +320,7 @@ export function FormGruppenSwapSection({
                 severity="warning"
                 title="Das passiert beim Tausch">
                 <strong>{first.name}</strong> steht danach in Gruppe {second.gruppe}, <strong>{second.name}</strong> in Gruppe {first.gruppe}.
-                Beide übernehmen dabei die angesetzten Spiele der anderen, mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
+                Beide übernehmen dabei die angesetzten Spiele des anderen, mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
                 sofort.
               </Callout>
             )}
@@ -335,7 +334,7 @@ export function FormGruppenSwapSection({
                 <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
                   Der Tausch gilt sofort und ist auf jeder Tabelle dieser Saison sichtbar. Rückgängig machst Du ihn, indem Du dieselben beiden
-                  Mannschaften noch einmal tauschst.
+                  Teams noch einmal tauschst.
                 </p>
               </div>
             )}

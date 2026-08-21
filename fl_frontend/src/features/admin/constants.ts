@@ -82,7 +82,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         hint: {
           lead: "Durchsucht alle Spiele der Saison, um eines gezielt zu öffnen.",
           points: [
-            { term: "Gesucht wird in", detail: "Mannschaft, Ort, Datum, Spielnummer und Schiedsrichter." },
+            { term: "Gesucht wird in", detail: "Team, Ort, Datum, Spielnummer und Schiedsrichter." },
             { term: "Bearbeiten", detail: "der Stift auf einer Karte öffnet das Spiel." },
           ],
         },
@@ -112,7 +112,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             { term: "„1. der Gruppe A“", detail: "aus der Tabelle gesetzt. So wird die erste KO-Runde besetzt." },
             { term: "„Sieger 25.“", detail: "aus einem früheren Spiel. So wird jede spätere Runde besetzt." },
             { term: "„Manuell gesetzt“", detail: "diese Seite gehört Dir, keine Auflösung schreibt hinein." },
-            { term: "„Ohne Herkunft“", detail: "weder Mannschaft noch Herkunft. Diese Seite füllt niemand." },
+            { term: "„Ohne Herkunft“", detail: "weder Team noch Herkunft. Diese Seite füllt niemand." },
           ],
           note: "Die Gruppenphase steht nicht dort: ihre Paarungen kommen aus dem Spielplan und haben keine Herkunft.",
         },
@@ -155,7 +155,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
               detail: "nur möglich, solange das Team in keiner laufenden oder geplanten Saison spielt. Sein Kürzel bleibt reserviert.",
             },
           ],
-          note: "Ein Austritt — Disqualifikation oder Rückzug — gilt für eine Saison und wird auf der Teamseite eingetragen. Aus einer Saison entfernt wird nie.",
+          note: "Ein Austritt gilt für eine Saison und wird auf der Teamseite eingetragen, als Disqualifikation oder als Rückzug. Aus einer Saison entfernt wird nie.",
         },
       },
       {

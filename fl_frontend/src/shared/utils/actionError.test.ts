@@ -34,18 +34,15 @@ describe("toActionErrorResult", () => {
     }
   });
 
-  it("names the eligibility remedy that is open on every fixture", () => {
-    const result = toActionErrorResult(
-      new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode: "REQ-ELIGIBILITY-001" }),
-    );
+  it("keeps the two rail-backed refusals to one sentence about the value", () => {
+    // The field register `docs/frontend/spec.md` §1.12 sets. Their remedies are pinned where they
+    // live, in `AdminEditSpielDataForm/banners.test.ts`: a shared module may not reach a feature.
+    for (const serverErrorCode of ["REQ-ELIGIBILITY-001", "REQ-SPIELTAG-001"]) {
+      const result = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode }));
 
-    // `fl_backend/app/api/spiele/services.py :: find_eligibility_refusal` keys on the austritt date,
-    // so lifting it clears the refusal in every phase. The walkover needs both sides resolved
-    // (`REQ-STATE-003`); calling off is Gruppenphase-only.
-    assert.match(result.error ?? "", /Hebe den Austritt auf/);
-    // The two clauses that carry the risk: each states a precondition, and each was wrong once.
-    assert.match(result.error ?? "", /bei besetzten Plätzen/);
-    assert.match(result.error ?? "", /nur in der Gruppenphase/);
+      assert.equal(result.error?.split(". ").length, 1, serverErrorCode);
+      assert.doesNotMatch(result.error ?? "", /Hebe den Austritt auf|Ändere dort die Herkunft/, serverErrorCode);
+    }
   });
 
   it("answers the two refusals that name no side, which no form can place", () => {

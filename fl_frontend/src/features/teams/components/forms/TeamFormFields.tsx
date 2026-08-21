@@ -80,7 +80,7 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         <Label className={FIELD_LABEL}>Beschreibung</Label>
         <TextArea
           fullWidth
-          placeholder="Öffentlich sichtbarer Text über die Mannschaft"
+          placeholder="Öffentlich sichtbarer Text über das Team"
           className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
         />
         <FieldError className={FIELD_ERROR}>{errors?.["description"]}</FieldError>

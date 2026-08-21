@@ -35,9 +35,8 @@ function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
           beside the match tally, so a reader who cannot tell which figure holds a fixture will add
           it to one or subtract it from the other. */}
       <p>
-        Ein ausgefallenes oder annulliertes Spiel zählt nirgends mit, auch nicht als Niederlage. Ist eine Mannschaft dagegen nicht angetreten,
-        wird das Spiel gewertet und zählt in dieser Tabelle ganz normal mit. Ein abgebrochenes Spiel hat stattgefunden und steht nicht in dieser
-        Zahl.
+        Ein ausgefallenes oder annulliertes Spiel zählt nirgends mit, auch nicht als Niederlage. Ist ein Team dagegen nicht angetreten, wird das
+        Spiel gewertet und zählt in dieser Tabelle ganz normal mit. Ein abgebrochenes Spiel hat stattgefunden und steht nicht in dieser Zahl.
       </p>
     </InfoHint>
   );

@@ -57,7 +57,7 @@ export function DescriptionEditModal({
           <TextArea
             ref={textAreaRef}
             fullWidth
-            placeholder="Öffentlich sichtbarer Text über die Mannschaft"
+            placeholder="Öffentlich sichtbarer Text über das Team"
             className="border-border bg-surface text-foreground fluid-sm min-h-40 resize-none overflow-hidden rounded-lg border px-3 py-2 transition-colors"
           />
         </TextField>

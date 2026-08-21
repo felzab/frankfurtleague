@@ -24,7 +24,7 @@ import { patchAdminSpielDataAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { buildUndoPayloads, collectKnockoutTeamIds, collectSpieltagTeamOccupancy, listDependentSpiele, toStoredSide } from "../../../utils";
-import { buildSpielBanners } from "./banners";
+import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners";
 import { FormAnsetzungSection } from "./FormAnsetzungSection";
 import { FormErgebnisSection } from "./FormErgebnisSection";
 import { FormMatchupSection } from "./FormMatchupSection";
@@ -55,6 +55,7 @@ import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { ReactNode } from "react";
+import type { SpielRefusalCode } from "./banners";
 
 /**
  * Long enough to transcribe the only copy of a diagnosis, not merely to read it. Deliberately not `UNDO_TIMEOUT_MS`: this stands over a
@@ -163,6 +164,10 @@ export function AdminEditSpielDataForm({
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
+  // Stored with the draft it answers, `useVoidPreview`'s rule: the remedies retire the moment an
+  // input the refusal was judged on moves, so a corrected draft never carries the previous ones.
+  const [refusal, setRefusal] = useState<{ key: string; code: SpielRefusalCode } | null>(null);
+
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the one the
@@ -266,6 +271,10 @@ export function AdminEditSpielDataForm({
     isEnabled: dependentSpiele.length > 0 || spieltagOccupancy.size > 0,
   });
 
+  // `previewKey` plus the date, the one judged input it leaves out: `REQ-ELIGIBILITY-001` fires on a
+  // re-dating with neither side touched.
+  const refusalKey = `${previewKey}|${draft.datum ?? ""}`;
+
   const isKnockout = spielData.saison_phase !== "gruppenphase";
 
   const tore1 = team1Payload?.tore ?? null;
@@ -308,6 +317,7 @@ export function AdminEditSpielDataForm({
     dropsShootOut,
     voidedSpielNummern: voidPreview?.voided ?? [],
     releasedSpielNummern: voidPreview?.released ?? [],
+    refusalCode: refusal?.key === refusalKey ? refusal.code : null,
   });
 
   /**
@@ -386,7 +396,11 @@ export function AdminEditSpielDataForm({
   const requestSave = () => {
     // Snapshotted, not read live: the admin agrees to the list the gate stopped on, and a
     // background revalidation would move it under the open dialog.
-    const blocking = resolveBlockingBanners(banners);
+    //
+    // Refusal banners are excluded: they report what the server ALREADY refused, where this gate
+    // confirms what a save is about to cause. Left in, a standing one turns the next Save into a
+    // dialog about a failure that has already happened.
+    const blocking = resolveBlockingBanners(banners.filter((banner) => !isSpielRefusalBannerId(banner.id)));
     if (blocking !== null) {
       setConfirmingBanners(blocking);
       return;
@@ -416,6 +430,9 @@ export function AdminEditSpielDataForm({
         const fieldErrorsFromServer = { ...(res.fieldErrors ?? {}), ...occupantErrors };
         setSubmitFieldErrors(fieldErrorsFromServer, { spiel: payload });
 
+        // The remedies the field's one sentence has no room for, keyed to the draft just judged.
+        setRefusal(isSpielRefusalCode(res.errorCode) ? { key: refusalKey, code: res.errorCode } : null);
+
         // Only for failures no single field owns.
         if (!hasFieldErrors(fieldErrorsFromServer)) {
           appToast.danger("Speichern fehlgeschlagen", {
@@ -426,6 +443,7 @@ export function AdminEditSpielDataForm({
       }
 
       setSubmitFieldErrors({}, {});
+      setRefusal(null);
       setHasSaved(true);
 
       // Built BEFORE leaving: these are this render's props and the toast outlives the page.
@@ -502,7 +520,7 @@ export function AdminEditSpielDataForm({
    * so a refusal is never swallowed.
    */
   const placeOccupantRefusal = (errorCode: string, message?: string): FieldErrors => {
-    const text = message ?? "Diese Mannschaft kann hier nicht aufgestellt werden.";
+    const text = message ?? "Dieses Team kann hier nicht aufgestellt werden.";
 
     // Mirrors the skip in `fl_backend/app/api/spiele/services.py :: find_eligibility_refusal`: a side
     // is judged unless the payload leaves every input that rule reads as stored, so clearing the

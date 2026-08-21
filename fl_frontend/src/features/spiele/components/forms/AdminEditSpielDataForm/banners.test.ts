@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
 
-import { buildSpielBanners } from "./banners.ts";
+import { buildSpielBanners, isSpielRefusalCode } from "./banners.ts";
 
 import type { SpielBanner, SpielBannerSide } from "./banners.ts";
 
@@ -30,6 +30,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
     dropsShootOut: false,
     voidedSpielNummern: [],
     releasedSpielNummern: [],
+    refusalCode: null,
     ...overrides,
   });
 
@@ -182,6 +183,54 @@ describe("buildSpielBanners", () => {
 
     assert.match(built.find((banner) => banner.id === "spiel.void-preview")?.title ?? "", /Spielen 29 und 30/);
     assert.match(built.find((banner) => banner.id === "spiel.release-preview")?.title ?? "", /Spiel 31 entfernt/);
+  });
+
+  it("carries the remedies the two rail-backed refusals leave off their field message", () => {
+    // `fl_backend/app/api/spiele/services.py :: find_eligibility_refusal` keys on the austritt date,
+    // so lifting it clears the refusal in every phase. The walkover needs both sides resolved
+    // (`REQ-STATE-003`); calling off is Gruppenphase-only.
+    const eligibility = build({ refusalCode: "REQ-ELIGIBILITY-001" });
+    const body = eligibility.find((banner) => banner.id === "spiel.eligibility-refused")?.body ?? "";
+
+    assert.deepEqual(ids(eligibility), ["spiel.eligibility-refused"]);
+    assert.match(body, /Hebe den Austritt auf/);
+    // The two clauses that carry the risk: each states a precondition, and each was wrong once.
+    assert.match(body, /Bei besetzten Plätzen/);
+    assert.match(body, /in der Gruppenphase/);
+
+    const spieltag = build({ refusalCode: "REQ-SPIELTAG-001" });
+
+    assert.deepEqual(ids(spieltag), ["spiel.spieltag-refused"]);
+    assert.match(spieltag.find((banner) => banner.id === "spiel.spieltag-refused")?.body ?? "", /Ändere dort die Herkunft/);
+  });
+
+  // Danger for the colour a delivered refusal earns. It does NOT reach the save gate: the form
+  // filters these two ids out of `resolveBlockingBanners`, a refusal being what already happened
+  // rather than what a save would cause.
+  it("gives both refusal banners the danger the save's own failure has", () => {
+    for (const refusalCode of ["REQ-ELIGIBILITY-001", "REQ-SPIELTAG-001"] as const) {
+      const [banner, ...rest] = build({ refusalCode });
+
+      assert.equal(rest.length, 0, refusalCode);
+      assert.equal(banner?.severity, "danger", refusalCode);
+      assert.ok((banner?.body.length ?? 0) > 0, refusalCode);
+    }
+  });
+
+  it("leaves both off a draft whose save was never refused", () => {
+    const built = ids(build({ sonderereignis: "ausgefallen", voidedSpielNummern: [29], refusalCode: null }));
+
+    assert.ok(!built.includes("spiel.eligibility-refused"));
+    assert.ok(!built.includes("spiel.spieltag-refused"));
+  });
+
+  // `REQ-STATE-003` is the boundary case: it reaches the same map of refusals and deliberately stays
+  // a field message, so a widened guard would ask the rail for an entry it does not have.
+  it("narrows onto the two codes the rail answers and no third", () => {
+    assert.ok(isSpielRefusalCode("REQ-ELIGIBILITY-001"));
+    assert.ok(isSpielRefusalCode("REQ-SPIELTAG-001"));
+    assert.ok(!isSpielRefusalCode("REQ-STATE-003"));
+    assert.ok(!isSpielRefusalCode(undefined));
   });
 
   it("sorts danger over warning over info on the rail", () => {

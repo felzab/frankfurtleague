@@ -34,7 +34,7 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         hint: {
           lead: "Durchsucht alle Spiele der ausgewählten Saison.",
           points: [
-            { term: "Gesucht wird in", detail: "Mannschaft, Ort, Datum, Spielnummer und Schiedsrichter." },
+            { term: "Gesucht wird in", detail: "Team, Ort, Datum, Spielnummer und Schiedsrichter." },
             { term: "Sofort", detail: "die Liste filtert beim Tippen, es gibt nichts abzuschicken." },
             { term: "Filter", detail: "Status, Phase, Team und Ort. Sie wirken auch ganz ohne Suchbegriff, etwa für alle vergangenen Spiele." },
           ],
@@ -61,7 +61,7 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
           lead: "Der Turnierbaum der Finalrunden, von der ersten KO-Runde bis zum Finale.",
           points: [
             { term: "Linien", detail: "verbinden ein Spiel mit dem, aus dem sein Sieger kommt." },
-            { term: "Offene Seiten", detail: "zeigen ihre Herkunft statt einer Mannschaft, etwa „Sieger 25.“." },
+            { term: "Offene Seiten", detail: "zeigen ihre Herkunft statt eines Teams, etwa „Sieger 25.“." },
           ],
           note: "Die Runden entstehen erst, wenn die Gruppenphase abgeschlossen ist.",
         },
@@ -79,9 +79,9 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
           lead: "Der Tabellenstand jeder Gruppe der Saison.",
           points: [
             { term: "Gewertet", detail: "werden ausschließlich Spiele der Gruppenphase." },
-            { term: "Hervorgehoben", detail: "sind die Mannschaften, die aktuell auf einem KO-Runden-Platz stehen." },
+            { term: "Hervorgehoben", detail: "sind die Teams, die aktuell auf einem KO-Runden-Platz stehen." },
           ],
-          note: "Die Gesamtbilanz einer Mannschaft steht auf ihrer eigenen Seite.",
+          note: "Die Gesamtbilanz eines Teams steht auf seiner eigenen Seite.",
         },
       },
     ],
@@ -94,8 +94,8 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         label: "Teams",
         iconName: "Persons",
         hint: {
-          lead: "Alle Mannschaften der laufenden Saison.",
-          points: [{ term: "Eine Mannschaft öffnen", detail: "zeigt ihre Bilanz, ihren Kader und ihren Saisonverlauf." }],
+          lead: "Alle Teams der laufenden Saison.",
+          points: [{ term: "Ein Team öffnen", detail: "zeigt seine Bilanz, seinen Kader und seinen Saisonverlauf." }],
         },
       },
       {
@@ -103,8 +103,8 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         label: "Spieler",
         iconName: "Person",
         hint: {
-          lead: "Die Kader aller Mannschaften der Saison.",
-          points: [{ term: "Eine Mannschaft öffnen", detail: "zeigt die Spielerinnen und Spieler mit Position und Stufe." }],
+          lead: "Die Kader aller Teams der Saison.",
+          points: [{ term: "Ein Team öffnen", detail: "zeigt die Spielerinnen und Spieler mit Position und Stufe." }],
         },
       },
     ],

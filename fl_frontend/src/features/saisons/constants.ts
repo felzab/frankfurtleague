@@ -53,12 +53,12 @@ export const TIEBREAK_ORDER_OPTIONS: readonly TiebreakOption[] = [
   {
     value: "tordifferenz",
     label: "Tordifferenz",
-    hint: "Erst Tordifferenz und Tore aus allen Spielen, dann die Spiele der punktgleichen Teams untereinander, sobald sie alle gegeneinander gespielt haben — sonst bleibt es ein Gleichstand.",
+    hint: "Erst Tordifferenz und Tore aus allen Spielen, dann die Spiele der punktgleichen Teams untereinander, sobald sie alle gegeneinander gespielt haben. Sonst bleibt es ein Gleichstand.",
   },
   {
     value: "direkter_vergleich",
     label: "Direkter Vergleich",
-    hint: "Erst die Spiele der punktgleichen Teams untereinander, sobald sie alle gegeneinander gespielt haben — sonst zuerst Tordifferenz und Tore aus allen Spielen, darunter wieder das direkte Duell.",
+    hint: "Erst die Spiele der punktgleichen Teams untereinander, sobald sie alle gegeneinander gespielt haben. Sonst zuerst Tordifferenz und Tore aus allen Spielen, darunter wieder das direkte Duell.",
   },
 ];
 

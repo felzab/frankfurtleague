@@ -8,17 +8,16 @@ import type { FormState } from "@/shared/types/types";
  * two REQ-STATE codes name none and land as a toast.
  */
 const OCCUPANT_REFUSALS: Record<string, string> = {
-  // Three triggers: a re-dating or a changed Sonderereignis fires the rule as a new club does. The
-  // walkover names its precondition because `REQ-STATE-003` is judged first, so offering one on an
-  // unresolved slot would send an admin into a second refusal.
-  "REQ-ELIGIBILITY-001":
-    "Diese Mannschaft ist aus der Saison ausgeschieden und darf ab ihrem Austritt nicht mehr aufgestellt sein, auch wenn nur Datum oder Sonderereignis geändert wurde. Hebe den Austritt auf oder wähle eine andere Mannschaft; das Nichtantreten dieser Mannschaft kannst Du bei besetzten Plätzen eintragen, das Spiel absagen nur in der Gruppenphase.",
+  // Three triggers: a re-dating or a changed Sonderereignis fires the rule as a new club does. Its
+  // remedies ride the match editor's rail, from
+  // `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts`.
+  "REQ-ELIGIBILITY-001": "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein.",
 
-  "REQ-ELIGIBILITY-002": "Diese Mannschaft nimmt nicht an dieser Saison teil.",
+  "REQ-ELIGIBILITY-002": "Dieses Team nimmt nicht an dieser Saison teil.",
   "REQ-STATE-002": "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
-  "REQ-STATE-003": "Ein Nichtantreten braucht beide Mannschaften. Dieses Spiel hat noch einen offenen Platz.",
-  "REQ-SPIELTAG-001":
-    "Diese Mannschaft spielt am selben Spieltag bereits in einem anderen Spiel, dessen Aufstellung das System pflegt. Ändere dort die Herkunft, um die Mannschaft freizugeben.",
+  "REQ-STATE-003": "Ein Nichtantreten braucht beide Teams. Dieses Spiel hat noch einen offenen Platz.",
+  // The repair is on the OTHER fixture, so it rides the same rail rather than this field.
+  "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag bereits in einem anderen Spiel.",
 };
 
 /**
