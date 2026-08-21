@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `ad0aaa91`, 2026-08-21\
+**Verified against:** `c6d7b8e8`, 2026-08-21\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -295,7 +295,7 @@ the larger half.
 **`branch-impact` (CUR-4) fires on any change to a cited file, and a bot cannot answer it.** A
 Dependabot pull request bumping a pinned action changes a workflow, so every stamped page citing that
 workflow is asked to re-verify and restamp — work Dependabot has no way to do. Measured on
-2026-08-12 against PR #108, which moves `github/codeql-action` from `f205ea1c` to `5595ccaf` and
+2026-08-12 against PR #108, which moves `github/codeql-action` from v4.37.4 to v4.37.6 and
 touches nothing else: **two pages armed, `docs` exits 1, and no author of that change can clear it.**
 It recurs on the monthly schedule.
 

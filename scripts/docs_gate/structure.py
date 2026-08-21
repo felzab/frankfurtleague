@@ -241,8 +241,8 @@ def _misplaced_header(raw: str, suffix: str) -> tuple[int, list[str]] | None:
 def check_comment_length(path: Path, raw: str, added: set[int]) -> list[Finding]:
     """A comment block this branch WROTE keeps both of INC-9's bounds.
 
-    Failing a branch for a word changed inside an older block is what gets a check suppressed; the
-    standing backlog is `/docs:audit`'s (CUR-6).
+    Failing a branch for a word changed inside an older block is what gets a check suppressed. One
+    the branch only partly rewrote is its own slice, which CUR-6 gives `/docs:audit-pr`.
     """
     rel = path.relative_to(REPO_ROOT).as_posix()
     # Derived here so no caller can pass a suffix a Dockerfile does not have: read for `//` it

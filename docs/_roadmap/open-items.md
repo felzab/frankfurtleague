@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `ad0aaa91`, 2026-08-21\
+**Verified against:** `c6d7b8e8`, 2026-08-21\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -637,8 +637,8 @@ under, and its own instruction is to establish membership from the import graph.
 **Path:** Independent — both halves land in one change, because deleting the fallbacks removes most
 of the literal and a constant covers what is left.
 
-**The literal `"Ein unerwarteter Fehler ist aufgetreten."` occurs 21 times across 19 files under
-`fl_frontend/src` (measured 2026-08-20), and
+**The literal `"Ein unerwarteter Fehler ist aufgetreten."` occurs 19 times across 17 files under
+`fl_frontend/src` (measured 2026-08-21), and
 `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult` already owns that
 vocabulary** — it is the module whose whole job is turning a thrown API error into the sentence a
 form renders, and the same literal is its own last branch.
