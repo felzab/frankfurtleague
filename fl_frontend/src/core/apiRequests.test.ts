@@ -441,6 +441,15 @@ describe("every mirrored query parameter admits what the server admits", () => {
     it(`${sent.label} at ${call.where}`, () => {
       const drifted: string[] = [];
 
+      // Walked from the SERVER's side, because the loop below walks the mirror's: a parameter the
+      // operation requires and the mirror never declares is one no property can carry it to, and
+      // every call would answer 422.
+      for (const [name, declared] of operation.queryParams) {
+        if (declared.required && !sent.names.includes(name)) {
+          drifted.push(`${name}: the server requires it and the mirror declares no such property`);
+        }
+      }
+
       for (const property of sent.properties) {
         const declared = operation.queryParams.get(property.name);
         // An undeclared NAME is the comparison above's, and an unreadable schema is reported once

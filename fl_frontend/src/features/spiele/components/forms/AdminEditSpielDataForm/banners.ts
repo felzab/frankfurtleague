@@ -81,7 +81,7 @@ const REFUSAL_REMEDIES: Record<SpielRefusalCode, { id: SpielBannerId; title: str
   "REQ-SPIELTAG-001": {
     id: "spiel.spieltag-refused",
     title: "Im anderen Spiel setzt das System die Aufstellung",
-    body: "Deshalb lässt sich das Team hier nicht zusätzlich einsetzen. Ändere dort die Herkunft, um das Team freizugeben.",
+    body: "Deshalb lässt sich das Team hier nicht zusätzlich einsetzen. Ändere dort die Herkunft, um das Team freizugeben, oder wähle hier ein anderes Team.",
   },
 };
 

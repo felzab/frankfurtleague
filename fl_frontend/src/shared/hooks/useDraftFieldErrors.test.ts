@@ -11,7 +11,7 @@ import type { FieldVerdicts } from "./useDraftFieldErrors.ts";
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 
 /** The German sentence a Spieltag occupancy refusal puts on a side — a rule only the server holds. */
-const SERVER_REFUSAL = "Dieses Team steht an diesem Spieltag schon in einem anderen Spiel.";
+const SERVER_REFUSAL = "Dieses Team spielt am selben Spieltag bereits in einem anderen Spiel.";
 
 /** What a payload schema says about an emptied count, which is all a client verdict can ever know. */
 const CLIENT_MESSAGE = "Bitte gib die Treffer von Team 1 ein.";
