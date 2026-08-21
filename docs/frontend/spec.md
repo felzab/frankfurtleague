@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `a8e389c5`, 2026-08-20\
+**Verified against:** `ad0aaa91`, 2026-08-21\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -408,7 +408,10 @@ can express is held, `fl_frontend/src/core/refusalPaths.test.ts` (I34) and
 `fl_frontend/src/core/apiContract.test.ts` reads the committed `fl_backend/openapi.json` and compares
 every Zod schema against the component that publishes it, discovering the schema modules by walking the
 tree and importing them dynamically — so a new feature slice is covered without an edit, and `core`
-gains no static import of `features` (I9).
+gains no static import of `features` (I9). A shape with no counterpart is exempted by name in that
+file with the reason none can exist, and the exemptions are held to the same standard as the pairs:
+a third assertion fails on an entry whose shape is gone, or has since gained the counterpart it
+records as impossible.
 
 **`fl_frontend/src/core/apiRequests.test.ts` compares that same document against the REQUESTS, where
 `apiContract.test.ts` compares it against the shapes.** It resolves every `apiClient` call under `src/`

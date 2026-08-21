@@ -311,6 +311,28 @@ describe("every shape is paired or recorded", () => {
     );
   });
 
+  // Both lists rot the other way too: a component that gains a mirror, or a schema that gains a
+  // component, leaves an exemption nothing reports. One sat here unnoticed until an audit read it.
+  it("carries no exemption the pairing has since made unnecessary", () => {
+    const deadBackend = Object.keys(BACKEND_ONLY)
+      .filter((name) => !(name in components) || mirrors.has(NAME_ALIASES[name] ?? name))
+      .sort();
+    const deadFrontend = Object.keys(FRONTEND_ONLY)
+      .filter((name) => !mirrors.has(name) || name in components)
+      .sort();
+
+    assert.deepEqual(
+      deadBackend,
+      [],
+      `These BACKEND_ONLY entries are dead -- the component is gone, or it now has a mirror:\n  ${deadBackend.join("\n  ")}`,
+    );
+    assert.deepEqual(
+      deadFrontend,
+      [],
+      `These FRONTEND_ONLY entries are dead -- the schema is gone, or it now has a component:\n  ${deadFrontend.join("\n  ")}`,
+    );
+  });
+
   it("compares the number of pairs it is meant to", () => {
     assert.equal(
       pairs.length,
