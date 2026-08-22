@@ -1,7 +1,7 @@
 import { deriveSlotHerkunft } from "@/features/spiele/utils";
 import { typedObjectEntries } from "@/shared/utils/type";
 
-import type { FLBracketFault, FLSpiel, FLSpielWithDraftFields } from "../spiele/schemas";
+import type { FLBracketFault, FLSpiel, FLSpielWithStoredSides } from "../spiele/schemas";
 import type { ActionRequiredCategory } from "../spiele/types";
 
 // Re-exported and not moved: it is declared in `spiele`, because it classifies a Spiel.
@@ -73,11 +73,11 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
  * derived — the backend computes it over whole seasons. Both dates are `YYYY-MM-DD`, so `<` is
  * lexicographic and strict.
  */
-export function categorizeActionRequired<T extends FLSpielWithDraftFields>(
-  spiele: readonly T[],
-  today: string,
-  bracketFaults: readonly FLBracketFault[] = [],
-): Record<ActionRequiredCategory, T[]> {
+export function categorizeActionRequired<
+  // Base-tier: no rule here reads a rent or a fee, and asking for one would bar the triage list,
+  // whose fixtures come from a read that serves neither.
+  T extends FLSpielWithStoredSides,
+>(spiele: readonly T[], today: string, bracketFaults: readonly FLBracketFault[] = []): Record<ActionRequiredCategory, T[]> {
   // Keyed in the label table's order so `Object.keys` agrees with it, which a test asserts.
   const categorized: Record<ActionRequiredCategory, T[]> = {
     bracket_fault: [],

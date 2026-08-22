@@ -12,6 +12,7 @@ from app.api.spieler.schemas import (
     FLSpielerFilterParams,
     FLSpielerMembership,
     FLSpielerMembershipsResponse,
+    FLSpielerPublic,
     FLSpielerWithMemberships,
 )
 from app.api.spieler.services import build_spieler_memberships_pipeline, build_spieler_pipeline
@@ -21,6 +22,8 @@ PRIOR_SAISON = "2025"
 
 SPIELER_OIDS = {
     "Abel": ObjectId("6890a1b2c3d4e5f607290001"),
+    # Shares a forename with Abel, so the sort's second key is exercised rather than only declared.
+    "Alt": ObjectId("6890a1b2c3d4e5f607290005"),
     "Baum": ObjectId("6890a1b2c3d4e5f607290002"),
     # Two seasons — the case `FLSpieler` cannot report and this endpoint must.
     "Cordes": ObjectId("6890a1b2c3d4e5f607290003"),
@@ -204,6 +207,24 @@ class TestTheResponseModel:
         assert payload_model.model_fields[field].is_required()
 
 
+class TestWhichTierMayReadTheConsentRecord:
+    """This one and no other. `tests/api/test_spieler_public_read.py` holds the base tier's own case; the SPLIT is what is pinned here."""
+
+    def test_this_read_carries_it_and_the_base_tier_does_not(self):
+        """Both halves in one assertion, because widening the base allow-list "for consistency" is exactly how the split would come undone."""
+        assert "einwilligung" in FLSpielerWithMemberships.model_fields
+        assert "einwilligung" not in FLSpielerPublic.model_fields
+
+    def test_it_sits_on_the_person_and_not_on_the_squad_row(self):
+        """Consent is given by somebody, and a season is not what they agreed to -- the same split `inactive_since` is on either side of."""
+        assert "einwilligung" not in FLSpielerMembership.model_fields
+
+    def test_this_read_defaults_it_where_the_stored_shape_requires_it(self):
+        """`FLSpieler` describes a document nothing returns; this one validates live rows, so a bound is a 500 waiting to happen."""
+        assert FLSpielerWithMemberships.model_fields["einwilligung"].default is None
+        assert FLSpieler.model_fields["einwilligung"].is_required()
+
+
 def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
     return {
         "_id": SPIELER_OIDS[name],
@@ -233,6 +254,14 @@ def _squad_row(name: str, saison_id: str, *, nummer: str | None, inactive_since:
     }
 
 
+def _legacy_spieler(name: str) -> dict[str, Any]:
+    """A person as written before the consent record existed: the key is ABSENT rather than null, which is the shape no backfill has reached."""
+    person = _spieler(name)
+    del person["einwilligung"]
+
+    return person
+
+
 def _legacy_squad_row(name: str, saison_id: str) -> dict[str, Any]:
     """A row as written before either flag existed: the keys are ABSENT rather than false, which is what the projection cannot supply."""
     row = _squad_row(name, saison_id, nummer="5")
@@ -251,6 +280,7 @@ def squads(mongo_database: Database) -> Database:
     mongo_database.spieler.insert_many(
         [
             _spieler("Abel"),
+            _legacy_spieler("Alt"),
             # The person is retired and their squad row is not: the two are independent.
             _spieler("Baum", inactive_since="2026-05-01"),
             _spieler("Cordes"),
@@ -261,6 +291,7 @@ def squads(mongo_database: Database) -> Database:
     mongo_database.saison_spieler.insert_many(
         [
             _squad_row("Abel", SAISON, nummer="7"),
+            _squad_row("Alt", SAISON, nummer="4"),
             _squad_row("Baum", SAISON, nummer="3"),
             # Two seasons for one person — the case the flattened read reports as two players.
             _squad_row("Cordes", SAISON, nummer="11"),
@@ -285,7 +316,7 @@ class TestTheMembershipsPipelineExecuted:
         """One row per PERSON, including the one who plays two seasons — the unwind's failure, undone."""
         players = self._by_surname(squads)
 
-        assert sorted(players) == ["Abel", "Baum", "Cordes", "Ohne"]
+        assert sorted(players) == ["Abel", "Alt", "Baum", "Cordes", "Ohne"]
         assert len(players["Cordes"].memberships) == 2
 
     def test_a_player_with_no_squad_row_comes_back_with_an_empty_list(self, squads: Database):
@@ -307,10 +338,12 @@ class TestTheMembershipsPipelineExecuted:
         # Reactivating preserves what the retired row carries, so the number has to survive the read.
         assert rows[PRIOR_SAISON].nummer == "9"
 
-    def test_the_order_is_by_forename(self, squads: Database):
+    def test_the_order_is_by_forename_then_surname(self, squads: Database):
+        """Two people share a forename here, so the second key really decides an order rather than being carried untested."""
         raw = list(squads.spieler.aggregate(build_spieler_memberships_pipeline()))
 
-        assert [row["vorname"] for row in raw] == ["A", "B", "C", "O"]
+        assert [row["vorname"] for row in raw] == ["A", "A", "B", "C", "O"]
+        assert [row["nachname"] for row in raw][:2] == ["Abel", "Alt"]
 
     def test_a_row_written_before_the_flags_existed_still_reads(self, squads: Database):
         """The whole chain, because its middle is the surprise: `$project` with a `1` omits an absent key rather than nulling it."""
@@ -321,3 +354,18 @@ class TestTheMembershipsPipelineExecuted:
 
         rows = {row.saison_id: row for row in self._by_surname(squads)["Abel"].memberships}
         assert (rows[PRIOR_SAISON].is_nachgetragen, rows[PRIOR_SAISON].is_captain) == (False, False)
+
+    def test_the_consent_record_reaches_this_read_whole(self, squads: Database):
+        """All four fields, through a real aggregation: nothing is projected at the root, so the record rides on the stored document."""
+        consent = self._by_surname(squads)["Abel"].einwilligung
+
+        assert consent is not None
+        assert (consent.umfang, consent.erteilt_von) == ("kader_oeffentlich", "erziehungsberechtigt")
+        assert (consent.datum, consent.bestaetigt_am) == ("2026-01-15", "2026-01-20")
+
+    def test_a_person_stored_before_the_consent_record_existed_does_not_break_the_list(self, squads: Database):
+        """The whole LIST, not the one row: every document goes through one model, so a refusal here is a 500 for everybody."""
+        raw = next(row for row in squads.spieler.aggregate(build_spieler_memberships_pipeline()) if row["nachname"] == "Alt")
+
+        assert "einwilligung" not in raw
+        assert self._by_surname(squads)["Alt"].einwilligung is None

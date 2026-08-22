@@ -52,8 +52,6 @@ export async function postSpielortAction(
       return { success: false, error: "Beim Anlegen des neuen Spielortes ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    updateTag("spielorte");
-
     return { success: Boolean(postOperation.acknowledged), created_id: postOperation.created_id, message: "Spielort erfolgreich angelegt!" };
   });
 }
@@ -81,8 +79,7 @@ export async function patchSpielortAction(
       return { success: false, error: "Beim Bearbeiten der Spielort-Daten ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    updateTag("spielorte");
-    // A rename fans into every match embedding this venue.
+    // A rename fans into every match embedding this venue, which is the one cached read it reaches.
     updateTag("spiele");
 
     return {
@@ -125,8 +122,6 @@ export async function deleteSpielortAction(
       return { success: false, error: "Beim Stilllegen des Spielorts ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    updateTag("spielorte");
-
     return {
       success: Boolean(patchOperation.acknowledged),
       updated_document: patchOperation.updated_document,
@@ -136,8 +131,8 @@ export async function deleteSpielortAction(
 }
 
 /**
- * `spielorte` alone, unlike the patch: this write moves only `inactive_since`, which no match document
- * carries. The endpoint refuses nothing — a venue coming back takes no fixtures with it.
+ * Nothing to invalidate, unlike the patch: this write moves only `inactive_since`, which no match
+ * document carries. The endpoint refuses nothing — a venue coming back takes no fixtures with it.
  */
 export async function reactivateSpielortAction(
   rawPayload: FLSpielortKeyPayload,
@@ -161,8 +156,6 @@ export async function reactivateSpielortAction(
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: "Beim Reaktivieren des Spielorts ist ein unerwarteter Fehler aufgetreten" };
     }
-
-    updateTag("spielorte");
 
     return {
       success: Boolean(reactivateOperation.acknowledged),

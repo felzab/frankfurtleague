@@ -24,8 +24,9 @@ from app.core.exception_handlers import register_exception_handlers
 from app.core.logging import setup_custom_logger
 from app.core.middlewares import CorrelationIdMiddleware
 
-# Reads under `verify_access_base`, writes under `verify_access_admin`. Order between the groups is
-# not significant: the `objectid` convertor keeps a static path out of an id route.
+# Reads in one group, writes in the other: `spielorte` and `schiedsrichter` read under
+# `verify_access_admin`, the rest under `verify_access_base`. Order between them carries nothing --
+# the `objectid` convertor keeps a static path out of an id route.
 READ_ROUTERS = (spiele_router, teams_router, spieltage_router, spieler_router, saisons_router, spielorte_router, schiedsrichter_router)
 WRITE_ROUTERS = (
     spiele_admin_router,

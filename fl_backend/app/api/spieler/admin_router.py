@@ -10,8 +10,8 @@ from app.api.spieler.schemas import (
     FLPostSaisonSpielerPayload,
     FLPostSpielerPayload,
     FLSaisonSpielerResponse,
+    FLSpielerAdminSingleResponse,
     FLSpielerMembershipsResponse,
-    FLSpielerSingleResponse,
     FLSpielerWithMemberships,
     FLSpielerWriteResponse,
 )
@@ -41,8 +41,10 @@ router = APIRouter(
 )
 
 
-def _as_single(document) -> FLSpielerSingleResponse:
-    return FLSpielerSingleResponse(
+def _as_single(document) -> FLSpielerAdminSingleResponse:
+    """The admin tier's echo: the surname whole, and the retirement date `DELETE` and `reactivate` exist to set."""
+
+    return FLSpielerAdminSingleResponse(
         spieler_id=document["_id"],
         vorname=document["vorname"],
         nachname=document.get("nachname"),
@@ -103,8 +105,8 @@ async def get_spieler_memberships(spieler_collection: SpielerCollection) -> FLSp
     """
     Every player, retired ones included, each with every squad row they hold.
 
-    `GET /spieler` cannot answer it at any setting: with a `saison_id` the junction join is strict,
-    without one a player with no row comes back missing `team_id`.
+    `GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and
+    without one a player with no live row has `nummer` and `position` null.
     """
 
     spieler_raw = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_spieler_memberships_pipeline())
@@ -139,12 +141,12 @@ async def post_spieler(
     )
 
 
-@router.patch(by_id("spieler_id"), response_model=FLSpielerSingleResponse, summary="Update a Spieler's name")
+@router.patch(by_id("spieler_id"), response_model=FLSpielerAdminSingleResponse, summary="Update a Spieler's name")
 async def patch_spieler(
     spieler_id: CustomRouteObjectId,
     spieler_data: Annotated[FLPatchSpielerPayload, Body()],
     spieler_collection: SpielerCollection,
-) -> FLSpielerSingleResponse:
+) -> FLSpielerAdminSingleResponse:
     """Update a player's name. No fan-out: unlike a team or a venue, it is embedded in no other document."""
 
     updated_raw = await patch_one_in_db(
@@ -156,12 +158,12 @@ async def patch_spieler(
     return _as_single(updated_raw)
 
 
-@router.delete(by_id("spieler_id"), response_model=FLSpielerSingleResponse, summary="Retire a Spieler (soft delete)")
+@router.delete(by_id("spieler_id"), response_model=FLSpielerAdminSingleResponse, summary="Retire a Spieler (soft delete)")
 async def delete_spieler(
     spieler_id: CustomRouteObjectId,
     spieler_collection: SpielerCollection,
     today: str = Depends(get_german_date_str),
-) -> FLSpielerSingleResponse:
+) -> FLSpielerAdminSingleResponse:
     """Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE."""
 
     updated_raw = await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=today)
@@ -169,12 +171,12 @@ async def delete_spieler(
     return _as_single(updated_raw)
 
 
-@router.post(f"{by_id('spieler_id')}/reactivate", response_model=FLSpielerSingleResponse, summary="Bring a retired Spieler back")
+@router.post(f"{by_id('spieler_id')}/reactivate", response_model=FLSpielerAdminSingleResponse, summary="Bring a retired Spieler back")
 async def reactivate_spieler(
     spieler_id: CustomRouteObjectId,
     spieler_collection: SpielerCollection,
-) -> FLSpielerSingleResponse:
-    """Clear `inactive_since`, putting the player back into every read that hides retired ones."""
+) -> FLSpielerAdminSingleResponse:
+    """Clear `inactive_since`: the PERSON is back in the league. A squad row they left is revived by its own reactivate."""
 
     updated_raw = await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=None)
 
@@ -285,7 +287,7 @@ async def delete_saison_spieler(
     Take a player out of a season's squad. SOFT: the row stays.
 
     The row records that this player wore this number in this squad, which stays true after they
-    leave. `include_inactive=true` is how an admin list gets it back.
+    leave. `GET /spieler/memberships` is where an admin reads it back, marked by `inactive_since`.
     """
 
     updated_raw = await set_inactive_since(

@@ -19,6 +19,11 @@ ADDRESS_STADTTEIL_MAX_LENGTH: Final = 80
 # alphabet of digits, a hyphen and a/b/c can spell as a real address. Anything longer is not one.
 ADDRESS_HAUSNUMMER_MAX_LENGTH: Final = 16
 
+# RFC 5321's whole-address ceiling, the one `EmailStr` already applies through email-validator.
+# Named so the frontend mirror refuses at the same length: past it the API answers a bare
+# REQ-VAL-001 with no field detail, so no error reaches the box.
+KONTAKT_EMAIL_MAX_LENGTH: Final = 254
+
 TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 
 TEAM_SHORTHAND_LENGTH: Final = 2

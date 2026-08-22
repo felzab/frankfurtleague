@@ -25,8 +25,8 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   await connection();
   const schiedsrichterId = await resolveSchiedsrichterId(params);
 
-  // The list read, already cached under the tag this page's write clears. `include_inactive`, or
-  // a retired referee's own editor answers not-found.
+  // The list read, which serves the contact details and the fee this form round-trips.
+  // `include_inactive`, or a retired referee's own editor answers not-found.
   const schiedsrichterRes = await getSchiedsrichter({ include_inactive: true });
   const schiedsrichter = schiedsrichterRes.schiedsrichter.find((candidate) => candidate.id === schiedsrichterId);
   if (!schiedsrichter) {

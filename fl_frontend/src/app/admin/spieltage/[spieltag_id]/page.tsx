@@ -2,10 +2,10 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { getSaisons } from "@/features/saisons/queries";
-import { getSpiele } from "@/features/spiele/queries";
+import { getAdminSaisons } from "@/features/saisons/queries";
+import { getAdminSpiele } from "@/features/spiele/queries";
 import { AdminSpieltagEditView } from "@/features/spieltage/components/views/AdminSpieltagEditView";
-import { getSpieltagById, getSpieltage } from "@/features/spieltage/queries";
+import { getAdminSpieltagById, getAdminSpieltage } from "@/features/spieltage/queries";
 import { resolveSpieltagId } from "@/features/spieltage/resolvers";
 import { spieltagLabels } from "@/features/spieltage/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -35,9 +35,8 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
   await connection();
   const spieltagId = await resolveSpieltagId(params);
 
-  // Null for "no such matchday", converted inside the query because a production build redacts an
-  // error thrown out of a "use cache" scope. Everything else still throws.
-  const spieltagRes = await getSpieltagById(spieltagId);
+  // Null for "no such matchday", which this page turns into `notFound()`. Everything else throws.
+  const spieltagRes = await getAdminSpieltagById(spieltagId);
 
   if (!spieltagRes) {
     notFound();
@@ -46,9 +45,9 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
   const spieltag = spieltagRes.spieltag;
 
   const [saisonsRes, siblingsRes, spieleRes] = await Promise.all([
-    getSaisons(),
-    getSpieltage({ saison_id: spieltag.saison_id }),
-    getSpiele({ saison_id: spieltag.saison_id }),
+    getAdminSaisons(),
+    getAdminSpieltage({ saison_id: spieltag.saison_id }),
+    getAdminSpiele({ saison_id: spieltag.saison_id }),
   ]);
 
   const saison = saisonsRes.saisons.find((candidate) => candidate.id === spieltag.saison_id);

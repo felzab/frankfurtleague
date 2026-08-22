@@ -34,7 +34,9 @@ class FLPostSpielortPayload(_SpielortPayload):
 
 class FLSpielort(_SpielortWritable):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    # Free text searched on Google Maps, not a URL, so there is no scheme to check.
+    # Free text searched on Google Maps, not a URL, so there is no scheme to check. The copy a
+    # fixture embeds is the public address surface, which is why `address` here need not be
+    # (`READ-ADDRESS-001`).
     maps_link: CustomNonEmptyString
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString

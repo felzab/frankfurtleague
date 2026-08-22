@@ -20,10 +20,18 @@ import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarnin
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { patchAdminSpielDataAction } from "../../../actions";
+import { patchAdminSpielDataAction, readAdminSpielBookingsAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
-import { buildUndoPayloads, collectKnockoutTeamIds, collectSpieltagTeamOccupancy, listDependentSpiele, toStoredSide } from "../../../utils";
+import {
+  buildUndoPayloads,
+  collectKnockoutTeamIds,
+  collectSpieltagTeamOccupancy,
+  formatUndoScopeWarning,
+  listDependentSpiele,
+  listMovedSpiele,
+  toStoredSide,
+} from "../../../utils";
 import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners";
 import { FormAnsetzungSection } from "./FormAnsetzungSection";
 import { FormErgebnisSection } from "./FormErgebnisSection";
@@ -41,6 +49,7 @@ import type {
   FLPatchSpielDataPayloadDraft,
   FLSonderereignis,
   FLSpiel,
+  FLSpielAdmin,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
   FLSpielQuelle,
@@ -104,7 +113,7 @@ export function AdminEditSpielDataForm({
   registerRequestLeave,
   pageHeader,
 }: {
-  spielData: FLSpiel;
+  spielData: FLSpielAdmin;
   teams: FLTeam[];
   spielorte: FLSpielort[];
   schiedsrichter: FLSchiedsrichter[];
@@ -446,7 +455,19 @@ export function AdminEditSpielDataForm({
 
       // Built BEFORE leaving: these are this render's props and the toast outlives the page.
       const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
-      offerUndo(buildUndoPayloads(spielData, saisonSpiele, affected), res.message, affected.length > 0);
+      const moved = listMovedSpiele(spielData, saisonSpiele, affected);
+
+      // Only a save that moved something pays for this round trip: the season list is base-tier and
+      // carries no money, so a moved fixture cannot be restored whole without reading its booking.
+      const read = moved.length === 0 ? undefined : await readAdminSpielBookingsAction(moved.map((spiel) => spiel.id));
+      const bookings = new Map((read?.bookings ?? []).map(({ id, ...booking }) => [id, booking]));
+
+      // A read that FAILED leaves the same empty map a deleted fixture would, and the undo shrinks
+      // to the edited fixture either way. Only the failure is worth saying out loud.
+      const undoNote = read?.success === false ? formatUndoScopeWarning(moved) : "";
+      const description = [res.message ?? "", undoNote].filter(Boolean).join(". ");
+
+      offerUndo(buildUndoPayloads(spielData, moved, bookings), description, affected.length > 0);
 
       // AFTER the undo payloads are built, which read `spielData` rather than these atoms.
       resetDraftToStored();

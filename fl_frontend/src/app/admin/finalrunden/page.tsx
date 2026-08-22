@@ -4,24 +4,25 @@ import z from "zod";
 
 import { AdminBracketWiringView } from "@/features/admin/components/views/AdminBracketWiringView";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
-import { getSpiele } from "@/features/spiele/queries";
-import { getSpieltage } from "@/features/spieltage/queries";
+import { getAdminSpiele } from "@/features/spiele/queries";
+import { getAdminSpieltage } from "@/features/spieltage/queries";
 import { FLSpieltagWithSpieleSchema } from "@/features/spieltage/schemas";
 import { joinCollections } from "@/shared/utils/data";
 
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The season's bracket wiring, on the app's CACHED queries: a season's fixtures are public, so
- * nothing here is admin-authorized. The page is admin-only through `admin/layout.tsx`'s guard.
+ * The season's bracket wiring, on the admin-tier reads: this page opens on a season that may still be
+ * planned, whose contents the base reads withhold. The page is admin-only through
+ * `admin/layout.tsx`'s guard.
  */
 export default async function AdminFinalrundenPage(props: NextPageProps) {
   await connection();
-  const specifiedSaisonId = await resolveSaisonId(props.searchParams);
+  const specifiedSaisonId = await resolveSaisonId(props.searchParams, "admin");
 
   const [spieltageRes, spieleRes] = await Promise.all([
-    getSpieltage({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
-    getSpiele({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
+    getAdminSpieltage({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
+    getAdminSpiele({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
   ]);
 
   // Parsed, not cast: the type system cannot know the joined rows still satisfy the shape after an

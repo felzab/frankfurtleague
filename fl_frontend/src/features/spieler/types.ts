@@ -6,16 +6,16 @@ import type {
   FLSpielerStufe,
 } from "./schemas";
 
-export type FLSpielerSortingOptions = "vorname" | "nachname" | "stufe" | "nummer" | "position";
+/** Mirrors `FLSpielerSortOptions`: every option is a field the base tier serves, and it serves neither `nachname` whole nor `stufe` at all. */
+export type FLSpielerSortingOptions = "vorname" | "nummer" | "position";
 
-/** An absent `saison_id` does NOT resolve to the current season here: the read narrows by `team_id`. */
+/**
+ * An absent `saison_id` does NOT resolve to the current season here: the read narrows by `team_id`,
+ * and by nothing the base tier withholds or hides (`READ-PUPIL-002`, `READ-SQUAD-002`).
+ */
 export type FLSpielerFilterParams = {
   team_id?: string;
   saison_id?: string;
-  is_nachgetragen?: boolean;
-  stufe?: FLSpielerStufe;
-  // Covers retired PEOPLE and retired squad rows alike.
-  include_inactive?: boolean;
 
   limit?: number;
   sort_by?: FLSpielerSortingOptions;

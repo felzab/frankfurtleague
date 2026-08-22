@@ -19,7 +19,7 @@ def spiel(league: SeededLeague, spiel_nr: int, saison_id: str = SAISON) -> dict[
 
 class TestTheJoinedDisqualification:
     def test_a_disqualified_side_carries_the_whole_record(self, league: SeededLeague) -> None:
-        """The badge needs only presence, but the record is what is projected, so a popover can say why."""
+        """The projection is the whole record; which half of it each read model declares is `test_spiele_public_read.py`'s subject."""
 
         assert spiel(league, 3)["team2"]["austritt"] == AUSTRITT
 

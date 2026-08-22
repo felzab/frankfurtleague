@@ -99,6 +99,12 @@ export const FLAddressPayloadSchema = FLAddressSchema.extend({
 });
 export type FLAddressPayload = z.infer<typeof FLAddressPayloadSchema>;
 
+/**
+ * The whole-address ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here so an over-long address is refused
+ * in German at the keystroke: the API refuses it with a bare `REQ-VAL-001` and no field detail, so nothing marks the box.
+ */
+export const KONTAKT_EMAIL_MAX_LENGTH = 254;
+
 export const FLKontaktSchema = z.object({
   // The message has to sit on the union: with `.or()` the branch messages are unreachable and zod falls
   // back to its own English.
@@ -107,6 +113,12 @@ export const FLKontaktSchema = z.object({
       error: "Bitte gib eine gültige Telefonnummer ein.",
     })
     .nullable(),
-  email: z.union([z.email(), z.string().trim().length(0)], { error: "Bitte gib eine gültige E-Mail-Adresse ein." }).nullable(),
+  // No local-part cap beside it: email-validator applies RFC 5321's 64 only under `strict`, which
+  // pydantic does not pass, so one here alone would refuse an address the API accepts.
+  email: z
+    .union([z.email().max(KONTAKT_EMAIL_MAX_LENGTH), z.string().trim().length(0)], {
+      error: "Bitte gib eine gültige E-Mail-Adresse ein.",
+    })
+    .nullable(),
 });
 export type FLKontakt = z.infer<typeof FLKontaktSchema>;

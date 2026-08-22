@@ -418,8 +418,8 @@ describe("every request the frontend composes is published", () => {
           `  published on this resource:\n    ${sameResource.join("\n    ")}`,
       );
 
-      // Names here; the values are compared below. `apiContract.test.ts` reaches neither: it iterates
-      // `components.schemas`, and a query parameter publishes inline under `paths`.
+      // Names here; the values are compared below. `apiContract.test.ts` reaches no parameter NAME:
+      // it pairs components, and a query parameter publishes inline under `paths`.
       const undeclared = call.sent.filter((param) => !operation.queryParams.has(param.name));
       assert.deepEqual(
         undeclared.map((param) => `${param.name} (from ${param.source})`),

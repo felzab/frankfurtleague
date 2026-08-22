@@ -5,7 +5,7 @@ import { GRUPPEN_OPTIONS } from "./constants";
 
 import type { FLSaison, FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLSpiel } from "@/features/spiele/schemas";
-import type { FLTeam, FLTeamMembership } from "./schemas";
+import type { FLGruppenTeam, FLTeamMembership } from "./schemas";
 import type { GruppeOffer } from "./types";
 
 /**
@@ -28,11 +28,12 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], mem
 };
 
 /**
- * Read off the table AS IT STANDS: a team that has left holds no placing, nor does one yet to play.
- * The backend adds a still-to-play term, the divergence `docs/backend/spec.md :: I24b` settles. Both
- * derivations below share this one rule.
+ * `fl_backend/app/api/teams/services.py :: _may_hold_a_platz`, over the row that endpoint serves.
+ * One rule, so the table and the bracket cannot name different qualifiers
+ * (`docs/backend/spec.md :: I24b`).
  */
-const mayHoldAPlatz = (team: FLTeam): boolean => team.austritt === null && team.statistik.anzahl_gespielte_spiele > 0;
+const mayHoldAPlatz = (team: FLGruppenTeam): boolean =>
+  team.austritt_type === null && team.statistik.anzahl_gespielte_spiele + team.anzahl_ausstehende_spiele > 0;
 
 /**
  * "Currently" is the whole claim: this reads the table as it stands and says nothing about whether
@@ -42,7 +43,7 @@ export const computeQualifyingTeamIds = ({
   teams,
   qualifiersPerGroup,
 }: {
-  teams: readonly FLTeam[];
+  teams: readonly FLGruppenTeam[];
   qualifiersPerGroup: number;
 }): ReadonlySet<string> => {
   const qualifying = new Set<string>();
@@ -58,11 +59,10 @@ export const computeQualifyingTeamIds = ({
 };
 
 /**
- * Numbered as a `Platz` is (`docs/glossary.md :: Platz`), walking past a disqualified row and one
- * with nothing played. A raw row index is the wrong number there: the bracket's "2. der Gruppe A"
- * would name a team whose index reads 3.
+ * Numbered as a `Platz` is (`docs/glossary.md :: Platz`), walking past a row that can hold none.
+ * **A club absent from this map is the table's `N/A`**, so nothing may restate the rule at a cell.
  */
-export const computePlatzByTeamId = (teams: readonly FLTeam[]): ReadonlyMap<string, number> => {
+export const computePlatzByTeamId = (teams: readonly FLGruppenTeam[]): ReadonlyMap<string, number> => {
   const platzByTeamId = new Map<string, number>();
 
   for (const team of teams) {

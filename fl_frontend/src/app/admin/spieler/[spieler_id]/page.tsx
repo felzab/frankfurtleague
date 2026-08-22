@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { getSaisons } from "@/features/saisons/queries";
+import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminSpielerEditView";
 import { orderStufen } from "@/features/spieler/constants";
@@ -39,11 +39,11 @@ async function AdminSpielerEditContent({
 }) {
   await connection();
   const spielerId = await resolveSpielerId(params);
-  const requestedSaisonId = await resolveSaisonId(searchParams);
+  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
   // One read carries the record and every squad row; the season list answers which season is
   // selected and its state; the team list resolves a `team_id` into the name the picker shows.
-  const [membershipsRes, saisonsRes, teamsRes] = await Promise.all([getSpielerMemberships(), getSaisons(), getTeamMemberships()]);
+  const [membershipsRes, saisonsRes, teamsRes] = await Promise.all([getSpielerMemberships(), getAdminSaisons(), getTeamMemberships()]);
   const saisons = saisonsRes.saisons;
   const selectedSaison = requestedSaisonId
     ? saisons.find((saison) => saison.id === requestedSaisonId)

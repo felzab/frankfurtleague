@@ -25,6 +25,8 @@ const NAME_ALIASES: Record<string, string> = {
 
   // Only the joined shape reaches the wire; the frontend parses no stored document, so it has one.
   FLSpielJoined: "FLSpiel",
+  // The admin tier's fixture; the frontend drops "Joined" as it does for the base one above.
+  FLSpielJoinedAdmin: "FLSpielAdmin",
 };
 
 /**
@@ -37,6 +39,7 @@ const BACKEND_ONLY: Record<string, string> = {
 
   FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
+  FLSpielerSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
 };
 
 /**
@@ -58,7 +61,9 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSaisonStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielerPosition: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielerStufe: "a Pydantic Literal alias, inlined as an enum at each use site",
-  FLSpielStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
+  // The only alias here whose sole use site is a QUERY PARAMETER: no stored field carries the
+  // status, so the use-site test below and `apiRequests.test.ts` are together what pin its members.
+  FLSpielStatus: "a Pydantic Literal alias, published inline on the spiel_status query parameter and on no component field",
 
   FLSpielplan: "composed client-side from separate responses; no endpoint returns it",
   FLSpieltagWithSpiele: "composed client-side from separate responses; no endpoint returns it",
@@ -141,6 +146,24 @@ function findSchemaModules(dir: string): string[] {
 
 function isZodSchema(value: unknown): value is z.ZodType {
   return typeof value === "object" && value !== null && "_zod" in value;
+}
+
+/**
+ * The sorted members of a closed string set, in any spelling either side emits, or `null`.
+ *
+ * `anyOf` is walked: a nullable enum and a union of literals arrive that way, and a spelling read
+ * as `null` would count as covered rather than unchecked.
+ */
+function closedSet(node: JsonSchema): string[] | null {
+  const branches = Array.isArray(node.anyOf) ? (node.anyOf as JsonSchema[]) : [node];
+  const members = new Set<string>();
+  for (const branch of branches) {
+    if (branch.type === "null") continue;
+    const listed = Array.isArray(branch.enum) ? branch.enum : branch.const === undefined ? null : [branch.const];
+    if (listed === null || !listed.every((member) => typeof member === "string")) return null;
+    for (const member of listed as string[]) members.add(member);
+  }
+  return members.size > 0 ? [...members].sort() : null;
 }
 
 /** Depth-capped, so a malformed document cannot hang the suite. */
@@ -230,7 +253,13 @@ function describeObject(node: JsonSchema, root: JsonSchema, allRequired: boolean
   return fields;
 }
 
-function responseReachable(document: JsonSchema): Set<string> {
+/**
+ * Every component one side of the operations reaches, closed over what those reference.
+ *
+ * A one-hop read reaches only the roots an operation names, and a payload root references its
+ * embedded shapes rather than declaring them, so the sets never meet.
+ */
+function reachableFrom(document: JsonSchema, side: "requestBody" | "responses"): Set<string> {
   const components = ((document.components as JsonSchema | undefined)?.schemas ?? {}) as Record<string, JsonSchema>;
   const reached = new Set<string>();
 
@@ -245,7 +274,7 @@ function responseReachable(document: JsonSchema): Set<string> {
 
   const frontier = new Set<string>();
   for (const operations of Object.values((document.paths ?? {}) as Record<string, Record<string, JsonSchema>>)) {
-    for (const operation of Object.values(operations)) collect(operation.responses, frontier);
+    for (const operation of Object.values(operations)) collect(operation[side], frontier);
   }
 
   while (frontier.size > 0) {
@@ -260,7 +289,8 @@ function responseReachable(document: JsonSchema): Set<string> {
 
 const document = readDocument();
 const components = ((document.components as JsonSchema | undefined)?.schemas ?? {}) as Record<string, JsonSchema>;
-const RESPONSE_REACHABLE = responseReachable(document);
+const RESPONSE_REACHABLE = reachableFrom(document, "responses");
+const REQUEST_REACHABLE = reachableFrom(document, "requestBody");
 
 const mirrors = new Map<string, { schema: z.ZodType; module: string }>();
 for (const file of findSchemaModules(SRC_DIR)) {
@@ -279,7 +309,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 98;
+const EXPECTED_PAIRS = 103;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {
@@ -334,6 +364,49 @@ describe("every shape is paired or recorded", () => {
     );
   });
 
+  /* An alias exempted as "inlined at each use site" is compared only through those sites, so one
+     reaching none is compared NOWHERE while its exemption still reads as covered. */
+  it("finds a published use site for every enum alias it exempts", () => {
+    const published = new Set<string>();
+    const gather = (value: unknown) => {
+      if (Array.isArray(value)) return value.forEach(gather);
+      if (typeof value !== "object" || value === null) return;
+      const node = value as JsonSchema;
+      const members = closedSet(node);
+      // Keyed as JSON, never a joined string: a member containing the separator would collide with
+      // a different set that happens to join the same way.
+      if (members !== null) published.add(JSON.stringify(members));
+      Object.values(node).forEach(gather);
+    };
+    // Paths as well as components: a filter value publishes inline under `paths`, which is the half
+    // a walk over `components.schemas` alone cannot see.
+    gather(document.paths);
+    gather(components);
+
+    const examined: string[] = [];
+    const uncompared = Object.keys(FRONTEND_ONLY)
+      .flatMap((name) => {
+        const entry = mirrors.get(name);
+        if (entry === undefined) return [];
+        const members = closedSet(z.toJSONSchema(entry.schema, { io: "output" }) as JsonSchema);
+        if (members === null) return [];
+        examined.push(name);
+        return published.has(JSON.stringify(members)) ? [] : [`${name} [${members}]`];
+      })
+      .sort();
+
+    // Asserted before the finding: a `closedSet` that stopped reading the mirrors would examine
+    // nothing and report nothing, which is the one failure a coverage test must not have.
+    assert.ok(examined.length > 0, `No exempted schema resolved to a closed set, so this test compared nothing.`);
+
+    assert.deepEqual(
+      uncompared,
+      [],
+      `These exempted enum aliases appear at no published use site, so nothing compares their members:\n  ${uncompared.join("\n  ")}\n` +
+        `Either the backend dropped the field, or the exemption's reason no longer describes what happens.`,
+    );
+  });
+
   it("compares the number of pairs it is meant to", () => {
     assert.equal(
       pairs.length,
@@ -342,21 +415,24 @@ describe("every shape is paired or recorded", () => {
     );
   });
 
+  /* The two sets have to overlap for the guard below to be capable of failing at all. Asserted
+     first and on its own, so a walk that stopped reaching one side fails as itself rather than
+     leaving the guard passing over an empty intersection. */
+  it("reaches the same components from both directions", () => {
+    const both = [...REQUEST_REACHABLE].filter((name) => RESPONSE_REACHABLE.has(name));
+
+    assert.ok(
+      both.length > 0,
+      `No component is reached from both a request and a response, so the ambiguity guard below cannot fail.\n` +
+        `  request-reachable: ${REQUEST_REACHABLE.size}, response-reachable: ${RESPONSE_REACHABLE.size}`,
+    );
+  });
+
   it("has no component reached from both a request and a response while carrying a default", () => {
     // The response-direction rule would be ambiguous for such a component, so fail rather than
     // letting the comparison quietly pick a side.
-    const requestReachable = new Set<string>();
-    for (const operations of Object.values((document.paths ?? {}) as Record<string, Record<string, JsonSchema>>)) {
-      for (const operation of Object.values(operations)) {
-        JSON.stringify(operation.requestBody ?? null).replace(/#\/components\/schemas\/(\w+)/g, (_match, name: string) => {
-          requestReachable.add(name);
-          return _match;
-        });
-      }
-    }
-
     const ambiguous = Object.entries(components)
-      .filter(([name]) => RESPONSE_REACHABLE.has(name) && requestReachable.has(name))
+      .filter(([name]) => RESPONSE_REACHABLE.has(name) && REQUEST_REACHABLE.has(name))
       .filter(([, node]) => Object.values((node.properties ?? {}) as Record<string, JsonSchema>).some((p) => p.default !== undefined))
       .map(([name]) => name);
 

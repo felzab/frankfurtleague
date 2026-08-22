@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import z from "zod";
 
-import { getSaisons } from "./queries";
+import { getAdminSaisons, getSaisons } from "./queries";
 import { searchWithoutSaisonId } from "./utils";
 
 import type { NextPageProps } from "@/shared/types/types";
@@ -11,10 +11,12 @@ const saisonIdSchema = z.string().trim().length(4).optional().catch(undefined);
 
 /**
  * The season named in the URL, or `undefined` so the backend applies its default — one round-trip
- * rather than the two a `getCurrentSaison()` prefetch costs. An unknown value redirects without it,
- * so this and `SaisonSelector` cannot disagree.
+ * rather than the two a `getCurrentSaison()` prefetch costs. **An admin page must pass `"admin"`.**
  */
-export async function resolveSaisonId(searchParamsPromise: NextPageProps["searchParams"]): Promise<string | undefined> {
+export async function resolveSaisonId(
+  searchParamsPromise: NextPageProps["searchParams"],
+  tier: "base" | "admin" = "base",
+): Promise<string | undefined> {
   const searchParams = (await searchParamsPromise) ?? {};
   const requested = saisonIdSchema.parse(searchParams.saison_id);
 
@@ -23,10 +25,14 @@ export async function resolveSaisonId(searchParamsPromise: NextPageProps["search
   if (requested === undefined && searchParams.saison_id === undefined) return undefined;
 
   if (requested !== undefined) {
-    const { saisons } = await getSaisons();
+    // At `"base"` a planned season is unknown, so an admin picking one is redirected straight back
+    // off it.
+    const { saisons } = tier === "admin" ? await getAdminSaisons() : await getSaisons();
     if (saisons.some((saison) => saison.id === requested)) return requested;
   }
 
+  // Redirecting without the unknown value, rather than ignoring it, is what keeps this and
+  // `SaisonSelector` from disagreeing.
   redirect(searchWithoutSaisonId(searchParams));
 }
 

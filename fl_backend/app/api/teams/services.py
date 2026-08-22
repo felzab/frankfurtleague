@@ -3,8 +3,17 @@ from itertools import combinations, product
 from typing import AbstractSet, Any, Callable, Iterable, Mapping, Sequence, get_args
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_ABSAGE, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpiel
-from app.api.teams.schemas import FLGruppen, FLGruppenNames, FLTeam, FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
+from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_ABSAGE, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielCommon
+from app.api.teams.schemas import (
+    FLGruppen,
+    FLGruppenNames,
+    FLGruppenTeam,
+    FLPublicTeamsFilterParams,
+    FLTeam,
+    FLTeamsFilterParams,
+    FLTeamStatistik,
+    FLTeamStatistikScope,
+)
 from app.core.collections import Collection
 from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
@@ -131,7 +140,7 @@ def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Ma
     }
 
 
-def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | None, team_id: Any | None = None) -> list[Mapping[str, Any]]:
+def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules | None, team_id: Any | None = None) -> list[Mapping[str, Any]]:
     # Without a season the junction join stops being strict -- one row per season a club played --
     # and the statistics below match nothing, handing back a table of zeros that reads as an answer.
     if filters.saison_id is None:
@@ -141,8 +150,9 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | Non
 
     base_match: dict[str, Any] = {}
 
-    # Clubs that left the league -- never a team that left one season, which keeps its row.
-    if not filters.include_inactive:
+    # Clubs that left the league -- never a team that left one season, which keeps its row. The switch
+    # is on the ADMIN model alone: a standings row carries no field that would mark one (`READ-SQUAD-002`).
+    if not (isinstance(filters, FLTeamsFilterParams) and filters.include_inactive):
         base_match["inactive_since"] = None
 
     if team_id is not None:
@@ -248,7 +258,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules | Non
 CERTAINTY_FIXTURE_LIMIT = 10
 
 
-def _counted_goals(spiel: FLSpiel) -> tuple[CustomObjectId, int, CustomObjectId, int] | None:
+def _counted_goals(spiel: FLSpielCommon) -> tuple[CustomObjectId, int, CustomObjectId, int] | None:
     """`_counting_fixtures_match` restated in Python, for a standing asking it of a match the pipeline already summed."""
 
     if spiel.ergebnis is None or spiel.team1 is None or spiel.team2 is None:
@@ -259,7 +269,7 @@ def _counted_goals(spiel: FLSpiel) -> tuple[CustomObjectId, int, CustomObjectId,
     return spiel.team1.team_id, spiel.team1.tore, spiel.team2.team_id, spiel.team2.tore
 
 
-def build_statistik_by_team(spiele: Iterable[FLSpiel], rules: FLSaisonRules) -> Mapping[CustomObjectId, FLTeamStatistik]:
+def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> Mapping[CustomObjectId, FLTeamStatistik]:
     """Every team's figures over the fixtures GIVEN, for a caller holding a season the collection does not.
 
     `build_statistik_lookup_stage` and `build_absage_lookup_stage` restated. It filters nothing:
@@ -328,7 +338,7 @@ class _MiniTable:
 
 def _head_to_head_table(
     teams: Sequence[FLTeam],
-    spiele: Iterable[FLSpiel],
+    spiele: Iterable[FLSpielCommon],
     rules: FLSaisonRules,
     placeable: AbstractSet[CustomObjectId],
 ) -> _MiniTable:
@@ -386,7 +396,7 @@ def _grouped(band: Sequence[FLTeam], key_of: Callable[[FLTeam], tuple[int, ...]]
 
 def _break_tie(
     band: Sequence[FLTeam],
-    spiele: Sequence[FLSpiel],
+    spiele: Sequence[FLSpielCommon],
     rules: FLSaisonRules,
     placeable: AbstractSet[CustomObjectId],
 ) -> list[list[FLTeam]]:
@@ -430,7 +440,7 @@ def _tiers(
     teams: Sequence[FLTeam],
     punkte: Mapping[CustomObjectId, int],
     settled: AbstractSet[CustomObjectId],
-    spiele: Sequence[FLSpiel],
+    spiele: Sequence[FLSpielCommon],
     rules: FLSaisonRules,
 ) -> list[list[FLTeam]]:
     """`teams` in descending bands; a band of one is a decided position.
@@ -470,16 +480,16 @@ def _may_hold_a_platz(team: FLTeam, still_to_play: int) -> bool:
 
 
 def _spiele_by_gruppe(
-    spiele: Iterable[FLSpiel],
+    spiele: Iterable[FLSpielCommon],
     gruppe_of: Mapping[CustomObjectId, FLGruppenNames],
-) -> tuple[dict[FLGruppenNames, list[FLSpiel]], set[FLGruppenNames]]:
+) -> tuple[dict[FLGruppenNames, list[FLSpielCommon]], set[FLGruppenNames]]:
     """Each group's own fixtures, and the groups holding a fixture attributable to none.
 
     A fixture belongs to a group when BOTH sides are teams of it; one that is not can still award
     points inside it, so no placing there is final while it stands.
     """
 
-    by_gruppe: dict[FLGruppenNames, list[FLSpiel]] = {name: [] for name in get_args(FLGruppenNames)}
+    by_gruppe: dict[FLGruppenNames, list[FLSpielCommon]] = {name: [] for name in get_args(FLGruppenNames)}
     unattributable: set[FLGruppenNames] = set()
 
     for spiel in spiele:
@@ -500,7 +510,7 @@ def _spiele_by_gruppe(
     return by_gruppe, unattributable
 
 
-def _still_to_play(spiele: Iterable[FLSpiel]) -> Mapping[CustomObjectId, int]:
+def _still_to_play(spiele: Iterable[FLSpielCommon]) -> Mapping[CustomObjectId, int]:
     """How many fixtures each team has left: neither counted nor called off, so still to be awarded."""
 
     counts: dict[CustomObjectId, int] = {}
@@ -529,7 +539,7 @@ class DecidedStanding:
 
 def _decide_one_gruppe(
     teams: Sequence[FLTeam],
-    spiele: Sequence[FLSpiel],
+    spiele: Sequence[FLSpielCommon],
     rules: FLSaisonRules,
     still_to_play: Mapping[CustomObjectId, int],
     has_unattributable: bool,
@@ -600,7 +610,7 @@ def _placings(
     teams: Sequence[FLTeam],
     punkte: Mapping[CustomObjectId, int],
     settled: AbstractSet[CustomObjectId],
-    spiele: Sequence[FLSpiel],
+    spiele: Sequence[FLSpielCommon],
     rules: FLSaisonRules,
     placeable: AbstractSet[CustomObjectId],
 ) -> Mapping[int, FLTeam]:
@@ -621,7 +631,7 @@ def _placings(
     return placings
 
 
-def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpiel], rules: FLSaisonRules) -> FLGruppen:
+def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> FLGruppen:
     """The four groups, each ordered by the competition's tiebreak chain.
 
     Seeded with every group name, never from the teams present: a season with nobody in group D
@@ -629,6 +639,9 @@ def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpiel], rules: FLS
     """
 
     teams = list(teams)
+    # Materialised because the fixtures are walked twice below, and a caller may pass a generator.
+    spiele = list(spiele)
+
     gruppe_of: dict[CustomObjectId, FLGruppenNames] = {team.id: team.gruppe for team in teams}
     by_gruppe, _ = _spiele_by_gruppe(spiele, gruppe_of)
 
@@ -643,10 +656,14 @@ def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpiel], rules: FLS
     # Every figure is final AS A READING OF NOW, which is what lets the whole chain apply.
     everyone = frozenset(gruppe_of)
 
+    # Over the WHOLE scoped list, as `build_decided_standings` derives it: a fixture attributable to
+    # no group would otherwise count on one surface and not the other.
+    still_to_play = _still_to_play(spiele)
+
     return FLGruppen(
         {
             name: [
-                team
+                _standing_row(team, still_to_play.get(team.id, 0))
                 for band in _tiers(members, {team.id: team.statistik.punkte for team in members}, everyone, by_gruppe[name], rules)
                 for team in band
             ]
@@ -655,9 +672,26 @@ def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpiel], rules: FLS
     )
 
 
+def _standing_row(team: FLTeam, still_to_play: int) -> FLGruppenTeam:
+    """One ranked team as the table publishes it, with the still-to-play term the placing rule needs.
+
+    Narrowed on purpose: this response reaches a public client component, which renders none of the
+    club's address (`READ-ADDRESS-001`).
+    """
+
+    return FLGruppenTeam(
+        id=team.id,
+        name=team.name,
+        shorthand=team.shorthand,
+        statistik=team.statistik,
+        austritt_type=team.austritt.type if team.austritt is not None else None,
+        anzahl_ausstehende_spiele=still_to_play,
+    )
+
+
 def build_decided_standings(
     teams: Iterable[FLTeam],
-    spiele: Iterable[FLSpiel],
+    spiele: Iterable[FLSpielCommon],
     rules: FLSaisonRules,
     gruppen: AbstractSet[FLGruppenNames] | None = None,
 ) -> Mapping[FLGruppenNames, DecidedStanding]:

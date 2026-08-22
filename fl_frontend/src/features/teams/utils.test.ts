@@ -6,22 +6,23 @@ import { computePlatzByTeamId, computeQualifyingTeamIds, computeSaisonVerlauf } 
 
 import type { FLSaisonPhase } from "../saisons/schemas.ts";
 import type { FLSpiel } from "../spiele/schemas.ts";
-import type { FLTeam } from "./schemas.ts";
+import type { FLGruppenTeam } from "./schemas.ts";
 
 const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart(2, "0")}`;
 
 /**
  * One row of a standing, reduced to the fields this derivation reads. A team is walked past because
- * `austritt` is non-null, never because of what it says or which route it names.
+ * `austritt_type` is non-null, never because of which route out of the season it names.
  */
-const row = (seed: number, { gespielt = 3, disqualified = false } = {}) =>
+const row = (seed: number, { gespielt = 3, ausstehend = 0, disqualified = false } = {}) =>
   ({
     id: TEAM_ID(seed),
-    austritt: disqualified ? { type: "disqualifikation", grund: "Nicht angetreten zum Spieltag", datum: "2026-03-14" } : null,
+    austritt_type: disqualified ? "disqualifikation" : null,
     statistik: { anzahl_gespielte_spiele: gespielt },
-  }) as FLTeam;
+    anzahl_ausstehende_spiele: ausstehend,
+  }) as FLGruppenTeam;
 
-const marked = (teams: FLTeam[], qualifiersPerGroup = 2) => [...computeQualifyingTeamIds({ teams, qualifiersPerGroup })];
+const marked = (teams: FLGruppenTeam[], qualifiersPerGroup = 2) => [...computeQualifyingTeamIds({ teams, qualifiersPerGroup })];
 
 describe("computeQualifyingTeamIds", () => {
   it("marks the first teams in the order the backend ranked them", () => {
@@ -32,9 +33,15 @@ describe("computeQualifyingTeamIds", () => {
     assert.deepEqual(marked([row(1, { disqualified: true }), row(2), row(3)]), [TEAM_ID(2), TEAM_ID(3)]);
   });
 
-  it("passes over a team that has played nothing", () => {
-    // Zeroes rank above a negative goal difference, so this row can sit high while its position
-    // column shows N/A — and a row with no position cannot be shown holding one.
+  it("marks a team whose first fixture is still to come", () => {
+    // It will have a counting match, so the backend seeds it — and a marker that passed over it
+    // would highlight a different club than the bracket names.
+    assert.deepEqual(marked([row(1, { gespielt: 0, ausstehend: 3 }), row(2), row(3)]), [TEAM_ID(1), TEAM_ID(2)]);
+  });
+
+  it("passes over a team with nothing played and nothing left", () => {
+    // Zeroes rank above a negative goal difference, so this row can sit high while it has earned
+    // nothing and can earn nothing.
     assert.deepEqual(marked([row(1, { gespielt: 0 }), row(2), row(3)]), [TEAM_ID(2), TEAM_ID(3)]);
   });
 
@@ -42,7 +49,15 @@ describe("computeQualifyingTeamIds", () => {
     assert.deepEqual(marked([row(1), row(2, { disqualified: true })]), [TEAM_ID(1)]);
   });
 
-  it("marks nobody in a group whose matches have not started", () => {
+  it("marks the leaders in a group whose matches have not started", () => {
+    // A drawn group is a league table from day one: every club is on a placing, so the cutoff falls
+    // where the ranking put it rather than nowhere.
+    const drawn = [row(1, { gespielt: 0, ausstehend: 3 }), row(2, { gespielt: 0, ausstehend: 3 }), row(3, { gespielt: 0, ausstehend: 3 })];
+
+    assert.deepEqual(marked(drawn), [TEAM_ID(1), TEAM_ID(2)]);
+  });
+
+  it("marks nobody in a group with no fixtures drawn at all", () => {
     // The case the legend is hidden for: a highlight nobody can see needs no explanation under it.
     assert.deepEqual(marked([row(1, { gespielt: 0 }), row(2, { gespielt: 0 })]), []);
   });
@@ -63,16 +78,32 @@ describe("computePlatzByTeamId", () => {
     assert.equal(platz.get(TEAM_ID(3)), 2);
   });
 
-  it("gives a row that has played nothing no ordinal", () => {
+  // The `N/A` the cell still has to reach: nothing earned and nothing left to earn it with.
+  it("gives a row with nothing played and nothing left no ordinal", () => {
     const platz = computePlatzByTeamId([row(1), row(2, { gespielt: 0 })]);
 
     assert.equal(platz.get(TEAM_ID(2)), undefined);
     assert.equal(platz.size, 1);
   });
 
+  // The backend numbers a club yet to play, so a cell that skips it prints `N/A` on that row and 2
+  // on the row the bracket calls 3.
+  it("numbers a row whose first fixture is still to come, and moves the row below it down", () => {
+    const platz = computePlatzByTeamId([row(1), row(2, { gespielt: 0, ausstehend: 2 }), row(3)]);
+
+    assert.equal(platz.get(TEAM_ID(2)), 2);
+    assert.equal(platz.get(TEAM_ID(3)), 3);
+  });
+
+  it("numbers every club in a group that has yet to kick off", () => {
+    const drawn = [row(1, { gespielt: 0, ausstehend: 3 }), row(2, { gespielt: 0, ausstehend: 3 })];
+
+    assert.deepEqual([...computePlatzByTeamId(drawn).values()], [1, 2]);
+  });
+
   // The shared-predicate property: whoever the marker may consider, the numbering numbers.
   it("numbers exactly the rows the marker considers", () => {
-    const teams = [row(1), row(2, { disqualified: true }), row(3, { gespielt: 0 }), row(4)];
+    const teams = [row(1), row(2, { disqualified: true }), row(3, { gespielt: 0 }), row(4, { gespielt: 0, ausstehend: 1 })];
 
     const numbered = new Set(computePlatzByTeamId(teams).keys());
     const qualifying = computeQualifyingTeamIds({ teams, qualifiersPerGroup: teams.length });

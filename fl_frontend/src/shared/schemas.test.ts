@@ -13,6 +13,7 @@ import {
   FLAddressPayloadSchema,
   FLAddressSchema,
   FLKontaktSchema,
+  KONTAKT_EMAIL_MAX_LENGTH,
 } from "./schemas.ts";
 
 const validAddress = {
@@ -103,6 +104,20 @@ describe("FLAddressPayloadSchema", () => {
 });
 
 describe("FLKontaktSchema", () => {
+  // Every domain label stays under the 63-octet cap, so a boundary case can only fail on the total.
+  function addressOfLength(total: number): string {
+    const local = "a".repeat(64);
+    let remaining = total - local.length - 1;
+    const labels: string[] = [];
+    while (remaining > 0) {
+      const size = Math.min(60, remaining);
+      labels.push("b".repeat(size));
+      remaining -= size;
+      if (remaining > 0) remaining -= 1;
+    }
+    return `${local}@${labels.join(".")}`;
+  }
+
   it("accepts common German phone formats", () => {
     for (const telefon of ["069123456", "+49 69 123456", "(069) 123-456", "+49-69-123456"]) {
       assert.equal(FLKontaktSchema.safeParse({ telefon, email: null }).success, true, `expected "${telefon}" to be accepted`);
@@ -135,6 +150,28 @@ describe("FLKontaktSchema", () => {
     for (const email of ["info@", "@frankfurtleague.de", "info frankfurtleague.de", "info@@x.de"]) {
       assert.equal(FLKontaktSchema.safeParse({ telefon: null, email }).success, false, `expected "${email}" to be rejected`);
     }
+  });
+
+  // The boundary, not a wildly long string: a bound set anywhere passes that. Past it the API answers
+  // a bare REQ-VAL-001 carrying no field detail, so without this the box showed no error at all.
+  it("accepts an address at the backend ceiling and refuses the next character, in German", () => {
+    const atTheCap = addressOfLength(KONTAKT_EMAIL_MAX_LENGTH);
+    assert.equal(atTheCap.length, KONTAKT_EMAIL_MAX_LENGTH);
+    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: atTheCap }).success, true, "at the cap");
+
+    const over = FLKontaktSchema.safeParse({ telefon: null, email: addressOfLength(KONTAKT_EMAIL_MAX_LENGTH + 1) });
+    assert.equal(over.success, false, "one over the cap");
+    // The union carries the message, so the ceiling must not have moved it to zod's own English.
+    assert.deepEqual(
+      over.error?.issues.map((issue) => issue.message),
+      ["Bitte gib eine gültige E-Mail-Adresse ein."],
+    );
+  });
+
+  // email-validator applies RFC 5321's 64-octet local-part cap only under `strict`, which pydantic
+  // does not pass. A bound here alone would refuse in German an address the API stores.
+  it("accepts a local part over 64 characters, which the backend accepts too", () => {
+    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: `${"a".repeat(65)}@example.com` }).success, true);
   });
 
   it("rejects a missing field outright", () => {

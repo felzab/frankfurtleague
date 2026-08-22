@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { getSaisons } from "@/features/saisons/queries";
+import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { AdminCreateTeamModal } from "@/features/teams/components/modals/AdminCreateTeamModal";
 import { AdminTeamsView } from "@/features/teams/components/views/AdminTeamsView";
@@ -41,8 +41,8 @@ export default function AdminTeamsPage(props: NextPageProps) {
 
 async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
-  const requestedSaisonId = await resolveSaisonId(searchParams);
-  const [saisonsRes, membershipsRes] = await Promise.all([getSaisons(), getTeamMemberships()]);
+  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
+  const [saisonsRes, membershipsRes] = await Promise.all([getAdminSaisons(), getTeamMemberships()]);
 
   // PLANNED seasons only: a club enters a season before it starts. Each carries its groups' fill
   // state, so the form can disable a full group up front.
@@ -68,9 +68,9 @@ async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageP
  */
 async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
-  const requestedSaisonId = await resolveSaisonId(searchParams);
+  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
-  const [membershipsRes, saisonsRes] = await Promise.all([getTeamMemberships(), getSaisons()]);
+  const [membershipsRes, saisonsRes] = await Promise.all([getTeamMemberships(), getAdminSaisons()]);
   const saisons = saisonsRes.saisons;
   const selectedSaisonId = requestedSaisonId ?? saisons.find((saison) => saison.status === "active")?.id;
   const selectedSaisonStatus = saisons.find((saison) => saison.id === selectedSaisonId)?.status ?? "active";

@@ -10,15 +10,15 @@ import { PILL_RADIUS } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 
-import type { FLSpieler } from "../../schemas";
+import type { FLSpielerPublic } from "../../schemas";
 
 /**
  * `"use client"` is required: `Table.Body` takes a `renderEmptyState` render prop, which a Server
  * Component may not pass.
  *
- * The fallbacks are load-bearing — `FLSpieler` declares surname, number, level and position nullable.
+ * The fallbacks are load-bearing — `FLSpielerPublic` declares surname, number and position nullable.
  */
-export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; teamSpieler: FLSpieler[] }) {
+export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; teamSpieler: FLSpielerPublic[] }) {
   const router = useRouter();
 
   return (
@@ -55,7 +55,6 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
                 Name
               </Table.Column>
               <Table.Column className="w-1 px-1 text-center whitespace-nowrap lg:px-4">#</Table.Column>
-              <Table.Column className="w-1 px-1 text-center whitespace-nowrap lg:px-4">Stufe</Table.Column>
               <Table.Column className="w-1 pr-2 pl-1 text-right whitespace-nowrap lg:px-4">Position</Table.Column>
             </Table.Header>
 
@@ -88,8 +87,6 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
                   </Table.Cell>
 
                   <Table.Cell className="muted-meta w-1 px-1 py-4 text-center font-mono lg:px-4">{spielerData.nummer || "-"}</Table.Cell>
-
-                  <Table.Cell className="muted-meta w-1 px-1 py-4 text-center lg:px-4">{spielerData.stufe || "-"}</Table.Cell>
 
                   <Table.Cell className="w-1 px-1 py-4 whitespace-nowrap lg:px-4">
                     <div className="flex justify-end">

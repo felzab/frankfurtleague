@@ -21,7 +21,7 @@ export type FLTeamStatistikScope = "gruppenphase" | "gesamt";
  * Omission is meaningful: an absent `saison_id` means the current season, and `apiClient` drops
  * undefined params rather than serialising them.
  */
-export type FLTeamsFilterParams = {
+export type FLPublicTeamsFilterParams = {
   saison_id?: string;
   gruppe?: FLGruppenNames;
   // A question about the junction, not a field on it: the row stores an `austritt` record and
@@ -31,13 +31,20 @@ export type FLTeamsFilterParams = {
   // left, so the two combine without either implying the other.
   austritt_type?: FLAustrittType;
   in_gruppen?: boolean;
-  // Retired clubs are excluded unless an admin picker asks for them.
-  include_inactive?: boolean;
   statistik_scope?: FLTeamStatistikScope;
 
   limit?: number;
   sort_by?: FLTeamsSortingOptions;
   order?: "asc" | "desc";
+};
+
+/**
+ * The admin read's filters. `include_inactive` is here and not above because the base endpoint
+ * stopped declaring it: a public standings row carries no retirement date, so un-hiding a retired
+ * club there would serve one nothing marks (`READ-SQUAD-002`).
+ */
+export type FLTeamsFilterParams = FLPublicTeamsFilterParams & {
+  include_inactive?: boolean;
 };
 
 /** What `GET /teams/{team_id}` accepts: only the two choosing which season's figures to derive. */

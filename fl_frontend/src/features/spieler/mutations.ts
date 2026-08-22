@@ -1,6 +1,6 @@
 import { apiClient } from "@/core/api";
 
-import { FLSaisonSpielerResponseSchema, FLSpielerSingleResponseSchema, FLSpielerWriteResponseSchema } from "./schemas";
+import { FLSaisonSpielerResponseSchema, FLSpielerAdminSingleResponseSchema, FLSpielerWriteResponseSchema } from "./schemas";
 
 import type {
   FLDeleteSpielerPayload,
@@ -11,7 +11,7 @@ import type {
   FLReactivateSpielerPayload,
   FLSaisonSpielerKeyPayload,
   FLSaisonSpielerResponse,
-  FLSpielerSingleResponse,
+  FLSpielerAdminSingleResponse,
   FLSpielerWriteResponse,
 } from "./schemas";
 
@@ -25,8 +25,8 @@ export async function postSpieler(payload: FLPostSpielerPayload): Promise<FLSpie
 
 // The ids go in the PATH, never the body — a backend payload model that saw one would drop it
 // silently (frontend spec 1.3). No fan-out: squad lists read the name through a `$lookup`.
-export async function patchSpieler({ id, ...fields }: FLPatchSpielerPayload): Promise<FLSpielerSingleResponse> {
-  return apiClient<FLSpielerSingleResponse>(`/spieler/${id}`, FLSpielerSingleResponseSchema, {
+export async function patchSpieler({ id, ...fields }: FLPatchSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
+  return apiClient<FLSpielerAdminSingleResponse>(`/spieler/${id}`, FLSpielerAdminSingleResponseSchema, {
     method: "PATCH",
     authType: "admin",
     body: JSON.stringify(fields),
@@ -34,15 +34,15 @@ export async function patchSpieler({ id, ...fields }: FLPatchSpielerPayload): Pr
 }
 
 // Soft — the backend stamps `inactive_since`; the squad rows are left alone.
-export async function deleteSpieler({ id }: FLDeleteSpielerPayload): Promise<FLSpielerSingleResponse> {
-  return apiClient<FLSpielerSingleResponse>(`/spieler/${id}`, FLSpielerSingleResponseSchema, {
+export async function deleteSpieler({ id }: FLDeleteSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
+  return apiClient<FLSpielerAdminSingleResponse>(`/spieler/${id}`, FLSpielerAdminSingleResponseSchema, {
     method: "DELETE",
     authType: "admin",
   });
 }
 
-export async function reactivateSpieler({ id }: FLReactivateSpielerPayload): Promise<FLSpielerSingleResponse> {
-  return apiClient<FLSpielerSingleResponse>(`/spieler/${id}/reactivate`, FLSpielerSingleResponseSchema, {
+export async function reactivateSpieler({ id }: FLReactivateSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
+  return apiClient<FLSpielerAdminSingleResponse>(`/spieler/${id}/reactivate`, FLSpielerAdminSingleResponseSchema, {
     method: "POST",
     authType: "admin",
   });

@@ -2,17 +2,21 @@
 
 import { updateTag } from "next/cache";
 
+import z from "zod";
+
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
+import { getAdminSpiel } from "./queries";
 import { FLPatchSpielDataPayloadSchema, FLSpielSchema } from "./schemas";
 import { formatSpielUpdateMessage } from "./utils";
 
 import type { FormState } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
+import type { FLSpielBooking } from "./schemas";
 
 /**
  * The 409s a match write answers here. `REQ-DATE-001` lands on `datum`, the field that caused it;
@@ -101,6 +105,37 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       // own forfeit, so `voided_sonderereignis` never travels without the result it produced.
       voidedFixtures: patch_operation.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),
       releasedFixtures: patch_operation.released_sides.map((released) => released.spiel_nr),
+    };
+  });
+}
+
+/**
+ * The grounds and referees of the fixtures a save moved, so the undo it offers can restore each
+ * one whole: the season list the editor holds carries no money. Read AFTER the write, the
+ * resolution rewriting slots and results and never a booking.
+ */
+export async function readAdminSpielBookingsAction(
+  rawSpielIds: unknown,
+): Promise<{ success: boolean; error?: string; bookings?: (FLSpielBooking & { id: string })[] }> {
+  return runAdminMutation("readAdminSpielBookingsAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const spielIds = z.array(FLSpielSchema.shape.id).safeParse(rawSpielIds);
+    if (!spielIds.success) {
+      return { success: false, error: VALIDATION_FAILED };
+    }
+
+    const read = await Promise.all(spielIds.data.map((spielId) => getAdminSpiel(spielId)));
+
+    return {
+      success: true,
+      // A fixture that has since been deleted answers `null` and is simply absent, which is what
+      // makes the undo leave it out rather than restore it from a booking nobody holds.
+      bookings: read
+        .filter((response) => response !== null)
+        .map(({ spiel }) => ({ id: spiel.id, ort: spiel.ort, schiedsrichter: spiel.schiedsrichter })),
     };
   });
 }

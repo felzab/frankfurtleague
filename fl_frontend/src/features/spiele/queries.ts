@@ -1,12 +1,13 @@
+import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
 import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
 
-import { FLSpieleListResponseSchema, FLSpieleSingleResponseSchema } from "./schemas";
+import { FLSpieleAdminSingleResponseSchema, FLSpieleListResponseSchema } from "./schemas";
 
-import type { FLSpieleListResponse, FLSpieleSingleResponse } from "./schemas";
+import type { FLSpieleAdminSingleResponse, FLSpieleListResponse } from "./schemas";
 import type { FLSpieleFilterParams } from "./types";
 
 export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleListResponse> {
@@ -24,18 +25,40 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
   });
 }
 
+/** One in-flight admin fixture read per filter set, held for the length of one render pass. */
+const adminSpieleInFlight = cache((): Map<string, Promise<FLSpieleListResponse>> => new Map());
+
 /**
- * The one fixture the match editor loads, admin-tier so it stays correct once the rent and the
- * referee's Entschädigung come off the public reads (`docs/backend/spec.md` §4).
+ * A season's fixtures for the admin surfaces, a planned season's included — `getSpiele` lists that
+ * season as empty. **Uncached, and it stays uncached**: `docs/frontend/spec.md` §1.2.
+ */
+export function getAdminSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleListResponse> {
+  // Keyed on the filters SERIALIZED, never on the object: React's `cache` compares an argument by
+  // identity, so a literal written at the call site would miss every time and memoize nothing.
+  const key = JSON.stringify(filters, Object.keys(filters).sort());
+  const held = adminSpieleInFlight().get(key);
+  if (held !== undefined) return held;
+
+  const started = runWithIncomingCorrelationId(() =>
+    apiClient("/spiele/list/admin", FLSpieleListResponseSchema, { authType: "admin", params: filters }),
+  );
+  adminSpieleInFlight().set(key, started);
+
+  return started;
+}
+
+/**
+ * The one fixture the match editor loads, admin-tier because it round-trips the rent and the
+ * referee's Entschädigung — two figures a base-tier read withholds (`READ-MONEY-001`).
  *
  * **Uncached, and it stays uncached**: see `docs/frontend/spec.md` §1.2.
  */
 
-export async function getAdminSpiel(spielId: string): Promise<FLSpieleSingleResponse | null> {
+export async function getAdminSpiel(spielId: string): Promise<FLSpieleAdminSingleResponse | null> {
   return runWithIncomingCorrelationId(() =>
     // `null` for "no such fixture", which the editor page turns into `notFound()`. Every other
     // status still throws.
-    apiClient(`/spiele/${spielId}/admin`, FLSpieleSingleResponseSchema, { authType: "admin" }).catch((error: unknown) => {
+    apiClient(`/spiele/${spielId}/admin`, FLSpieleAdminSingleResponseSchema, { authType: "admin" }).catch((error: unknown) => {
       if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
       throw error;
     }),

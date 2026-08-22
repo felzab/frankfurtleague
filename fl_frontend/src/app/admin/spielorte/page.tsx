@@ -29,8 +29,8 @@ export default function AdminSpielortePage() {
 
 async function SpielorteTable() {
   await connection();
-  // Retired included: this list is the only surface that can bring one back. Its own cache entry,
-  // keyed by the arguments, so the picker keeps offering live venues only.
+  // Retired included: this list is the only surface that can bring one back. The picker asks
+  // without the flag, so it keeps offering live venues only.
   const spielorteRes = await getSpielorte({ include_inactive: true });
 
   return <AdminSpielorteView spielorte={spielorteRes.spielorte} />;

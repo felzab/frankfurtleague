@@ -18,8 +18,8 @@ from app.api.spiele.schemas import (
     FLBracketFaultQuelle,
     FLBracketFaultSpiel,
     FLPatchSpielDataPayload,
-    FLSpielJoined,
-    FLSpielJoinedListAdapter,
+    FLSpielJoinedInternal,
+    FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
 )
 from app.api.spiele.services import SaisonMembership, find_departed_occupants, find_eligibility_refusal, resolve_bracket
@@ -59,11 +59,11 @@ def _side(team_id: str, name: str, **overrides: Any) -> dict[str, Any]:
 
 
 def _joined_side(team_id: str, name: str, *, disqualified_from: str | None = None, **overrides: Any) -> dict[str, Any]:
-    """One side as a READ serves it: the whole exit record, which is what a fault names its effective day from."""
+    """One side as the fault walk reads it: the whole exit record, which is what a fault names its effective day from."""
 
     record = None if disqualified_from is None else {"type": "disqualifikation", "grund": "Nicht angetreten", "datum": disqualified_from}
 
-    return _side(team_id, name, austritt=record, **overrides)
+    return _side(team_id, name, austritt=record, austritt_type=None if record is None else record["type"], **overrides)
 
 
 @pytest.fixture
@@ -83,10 +83,10 @@ def one_fixture(spiel: PayloadFactory) -> list[dict[str, Any]]:
 
 
 @pytest.fixture
-def filled_bracket_slot(spiel: PayloadFactory) -> list[FLSpielJoined]:
+def filled_bracket_slot(spiel: PayloadFactory) -> list[FLSpielJoinedInternal]:
     """A knockout slot the resolution filled from the feeder below it, held by a club the season disqualified after that feeder was played."""
 
-    return FLSpielJoinedListAdapter.validate_python(
+    return FLSpielJoinedInternalListAdapter.validate_python(
         [
             spiel(
                 _id=MATCH_ID.format(FEEDER_NR),

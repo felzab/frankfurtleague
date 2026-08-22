@@ -176,9 +176,10 @@ def test_the_admin_key_gets_the_fixture_with_the_rent_and_the_payment(seeded_url
     assert spiel["id"] == str(SPIEL_ID)
     assert spiel["ort"]["mietpreis"] == MIETPREIS
     assert spiel["schiedsrichter"]["payment"] == PAYMENT
-    # The joined field, which only `build_spiele_pipeline` produces.
-    assert spiel["team2"]["austritt"] == AUSTRITT
-    assert spiel["team1"]["austritt"] is None
+    # The joined field, which only `build_spiele_pipeline` produces. The route out and not the
+    # record: the reason is free text about a school, and only a club's own page renders it.
+    assert spiel["team2"]["austritt_type"] == AUSTRITT["type"]
+    assert spiel["team1"]["austritt_type"] is None
 
 
 @pytest.mark.db

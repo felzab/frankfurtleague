@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.saisons.crud import pull_saison_id_and_rules
+from app.api.saisons.visibility import refuse_withheld_saison
 from app.api.spieltage.schemas import (
     FLSpieltag,
     FLSpieltageFilterParams,
@@ -31,13 +32,17 @@ async def get_spieltage(
     """
     List matchdays for a season, in the order they are played.
 
-    That order is the phase in bracket order, then the stored `position`, which is what
-    `sort_by=natural` means. Omitting `saison_id` returns the CURRENT season.
+    That order is the phase in bracket order, then the stored `position` -- `sort_by=natural`.
+    Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s.
     """
 
     # Resolved here, never as a field default, which cannot reach the database. The `rules` come
     # back in the same query, the derived match count needing them.
     filters.saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
+
+    # After the resolve, so an omitted `saison_id` is judged on the season it landed on -- which is
+    # the `active` one, and never withheld.
+    await refuse_withheld_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
     db_filter = build_spieltage_filter(filters=filters)
     db_sort = build_spieltage_sort(sort_by=filters.sort_by, order=filters.order)
@@ -70,10 +75,14 @@ async def get_spieltag(
     Return one matchday by its id.
 
     Its OWN `saison_id` is resolved rather than the current season's, the derived match count needing
-    that season's rules.
+    that season's rules. A matchday of a season this tier may not read 404s.
     """
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
-    _, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=str(spieltag_raw["saison_id"]))
+    saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=str(spieltag_raw["saison_id"]))
+
+    # The matchday's own season, so an id belonging to a season being drawn up misses exactly as an
+    # id belonging to no matchday does.
+    await refuse_withheld_saison(saisons_collection=saisons_collection, saison_id=saison_id)
 
     return FLSpieltageSingleResponse(spieltag=FLSpieltag.model_validate(with_expected_matches(spieltag_raw, rules)))

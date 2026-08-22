@@ -3,8 +3,10 @@ from typing import Any
 from fastapi import APIRouter, Depends
 
 from app.api.saisons.crud import pull_saison_id_and_rules
+from app.api.saisons.visibility import refuse_withheld_saison
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import (
+    FLPublicTeamsFilterParams,
     FLTeam,
     FLTeamListAdapter,
     FLTeamsFilterParams,
@@ -34,18 +36,22 @@ async def get_teams(
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
-    filters: FLTeamsFilterParams = Depends(),
+    filters: FLPublicTeamsFilterParams = Depends(),
 ) -> FLTeamsResponse:
     """
     List teams for a season.
 
-    `in_gruppen=true` returns the four groups keyed A-D, otherwise a plain list; check `format` to
-    tell them apart. Omitting `saison_id` returns the CURRENT season, and a team not in it is absent.
+    `in_gruppen=true` returns the four groups keyed A-D, otherwise a plain list; check `format`.
+    Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s, and a club that left the league is never listed.
     """
 
     # Resolved here, never as a field default, which cannot query the database. It also flips
     # `strict_join` on: without a season the `$lookup` returns one row per season a team played.
     filters.saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
+
+    # After the resolve, so an omitted `saison_id` is judged on the season it landed on -- which is
+    # the `active` one, and never withheld.
+    await refuse_withheld_saison(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
     pipeline = build_team_pipeline(filters=filters, rules=saison_rules)
 
@@ -85,10 +91,14 @@ async def get_team(
     Return one team, with its group and its statistics for a season.
 
     The path names WHICH TEAM; the query names WHICH SEASON'S figures: `gruppe` and `statistik` are
-    season-scoped. 404 for an id naming no team, and for one with no row that season.
+    season-scoped. 404 where the team, its row or the season is one this tier cannot read.
     """
 
     saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
+
+    # Before the pipeline: the season is what scopes `gruppe` and `statistik`, so a withheld one has
+    # to be refused whatever the club.
+    await refuse_withheld_saison(saisons_collection=saisons_collection, saison_id=saison_id)
 
     # A retired club stays addressable by id: a caller holding one was given it by something.
     pipeline_filters = FLTeamsFilterParams(

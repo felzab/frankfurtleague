@@ -30,8 +30,8 @@ export default function AdminSchiedsrichterPage() {
 
 async function SchiedsrichterTable() {
   await connection();
-  // Retired included: this list is the only surface that can bring one back. Its own cache entry,
-  // keyed by the arguments, so the picker keeps offering live referees only.
+  // Retired included: this list is the only surface that can bring one back. The picker asks
+  // without the flag, so it keeps offering live referees only.
   const schiedsrichterRes = await getSchiedsrichter({ include_inactive: true });
 
   return <AdminSchiedsrichterView schiedsrichter={schiedsrichterRes.schiedsrichter} />;

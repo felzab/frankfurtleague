@@ -110,6 +110,29 @@ class TestFLGruppen:
         # The cutoff rides with the table it applies to, so no page marks one season's standing with another's number.
         assert body["qualifiers_per_group"] == 2
 
+    def test_a_row_carries_the_standings_fields_and_no_club_detail(self, team):
+        """A public CLIENT component renders this, so every field listed is serialised into the page -- and an address here is a school's."""
+        response = FLTeamsGroupedResponse(
+            gruppen=build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES),
+            qualifiers_per_group=RULES.qualifiers_per_group,
+        )
+
+        assert sorted(response.model_dump()["gruppen"]["A"][0]) == [
+            "anzahl_ausstehende_spiele",
+            "austritt_type",
+            "id",
+            "name",
+            "shorthand",
+            "statistik",
+        ]
+
+    def test_a_row_names_only_the_type_of_an_austritt(self, team):
+        """`grund` is free text written for publication, and the club's own page is where it is published."""
+        austritt = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-03-14"}
+        rows = build_gruppen([FLTeam.model_validate(team(gruppe="A", austritt=austritt))], spiele=[], rules=RULES).root["A"]
+
+        assert rows[0].austritt_type == "rueckzug"
+
     # Validation already rejects these, so reaching the guard needs `model_construct`. `X` is why it
     # cannot test `not team.gruppe`: that catches empty and None and lets anything else `KeyError`.
     @pytest.mark.parametrize("gruppe", ["", "X", "a", " ", "AB"])

@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { AdminCreateSaisonModal } from "@/features/saisons/components/modals/AdminCreateSaisonModal";
 import { AdminSaisonsView } from "@/features/saisons/components/views/AdminSaisonsView";
 import { SAISONS_CRUD_COPY } from "@/features/saisons/constants";
-import { getSaisons } from "@/features/saisons/queries";
-import { getSpieltage } from "@/features/spieltage/queries";
+import { getAdminSaisons } from "@/features/saisons/queries";
+import { getAdminSpieltage } from "@/features/spieltage/queries";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
@@ -36,14 +36,14 @@ export default function AdminSaisonsPage() {
 async function SaisonsTable() {
   await connection();
 
-  const [saisonsRes, teamsRes] = await Promise.all([getSaisons(), getTeamMemberships()]);
+  const [saisonsRes, teamsRes] = await Promise.all([getAdminSaisons(), getTeamMemberships()]);
   const saisons = saisonsRes.saisons;
 
-  // One read per season: `GET /spieltage` narrows by exactly one, and an omitted `saison_id`
-  // means the current one.
+  // One read per season: the endpoint narrows by exactly one, and an omitted `saison_id` means the
+  // current one.
   const spieltageBySaison = await Promise.all(
     saisons.map(async (saison) => {
-      const res = await getSpieltage({ saison_id: saison.id });
+      const res = await getAdminSpieltage({ saison_id: saison.id });
       return [saison.id, res.spieltage.length] as const;
     }),
   );

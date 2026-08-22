@@ -102,37 +102,83 @@ class FLSpielTeamField(FLSpielTeamFieldPayload):
 
 
 class FLSpielTeamFieldJoined(FLSpielTeamField):
-    """One side as a READ serves it, produced only by `build_spiele_pipeline` and never by a write."""
+    """One side as a BASE-TIER read serves it, produced only by `build_spiele_pipeline`.
 
-    # The whole record, not a boolean (`docs/backend/spec.md :: I31`). Null ALSO covers a team
-    # holding no row at all.
+    Narrower than the junction row: every public surface listing a fixture carries this side, and
+    only a club's own page renders the free text a withdrawal names.
+    """
+
+    # The TYPE alone, as `fl_backend/app/api/teams/schemas.py :: FLGruppenTeam` narrows a league
+    # table row: a card says WHICH way a club left, its own page publishes the reason and the date.
+    # Null ALSO covers a team holding no row at all.
+    austritt_type: FLAustrittType | None
+
+
+class FLSpielTeamFieldJoinedInternal(FLSpielTeamFieldJoined):
+    """The same side with the record behind the type, for `find_departed_occupants` alone.
+
+    On NO endpoint, so no response carries a reason: the walk orders a fault on the DAY a club
+    left, which the type cannot answer.
+    """
+
+    # Beside the inherited type, and never a second answer to it: one `$let` in `_joined_side`
+    # produces both out of one junction row.
     austritt: FLAustritt | None
 
 
-class FLSpielOrtFieldPayload(BaseModel):
+# Private, so the payload and the served shape state the booked id once and publish no component of
+# their own. Each extends THIS rather than one extending the other: composing a name onto a payload
+# is what `docs/backend/spec.md :: I3` forbids.
+class _SpielOrtBooking(BaseModel):
+    spielort_id: CustomObjectId
+
+
+class FLSpielOrtFieldPayload(_SpielOrtBooking):
     """The venue as the admin PATCH SUBMITS it: which ground, and what this fixture pays for it."""
 
-    spielort_id: CustomObjectId
     # No default, and it stays on the payload where the name does not: this is THIS fixture's rent
     # rather than a copy of the venue's current default (`docs/backend/spec.md :: I6`).
     mietpreis: int = Field(ge=0)
 
 
-class FLSpielOrtField(FLSpielOrtFieldPayload):
+class FLSpielOrtFieldPublic(_SpielOrtBooking):
+    """The venue as a BASE-TIER read serves it: which ground, and where to find it.
+
+    No `mietpreis`: what one fixture agreed to pay is admin-tier (`READ-MONEY-001`).
+    """
+
     name: str = Field(min_length=1)
     # Free text rather than a URL, per `fl_backend/app/api/spielorte/schemas.py :: FLSpielort` (COR-2).
     maps_link: str = Field(min_length=1)
 
 
-class FLSpielSchiedsrichterFieldPayload(BaseModel):
+class FLSpielOrtField(FLSpielOrtFieldPublic):
+    """The venue as the DOCUMENT holds it, and as the admin editor reads it back to round-trip the rent."""
+
+    mietpreis: int = Field(ge=0)
+
+
+# The venue booking's twin, and private for its reason.
+class _SpielSchiedsrichterBooking(BaseModel):
+    schiedsrichter_id: CustomObjectId
+
+
+class FLSpielSchiedsrichterFieldPayload(_SpielSchiedsrichterBooking):
     """The referee as the admin PATCH SUBMITS it; `payment` stays for `mietpreis`' reason."""
 
-    schiedsrichter_id: CustomObjectId
     payment: int = Field(ge=0)
 
 
-class FLSpielSchiedsrichterField(FLSpielSchiedsrichterFieldPayload):
+class FLSpielSchiedsrichterFieldPublic(_SpielSchiedsrichterBooking):
+    """The referee as a BASE-TIER read serves it. `payment` is withheld for `mietpreis`' reason."""
+
     name: str = Field(min_length=1)
+
+
+class FLSpielSchiedsrichterField(FLSpielSchiedsrichterFieldPublic):
+    """The referee as the DOCUMENT holds it, and as the admin editor reads it back."""
+
+    payment: int = Field(ge=0)
 
 
 class FLSpielQuelleGruppe(BaseModel):
@@ -317,13 +363,10 @@ class FLPatchSpielDataPayload(BaseModel):
         return data
 
 
-class FLSpiel(BaseModel):
-    """One fixture as the `spiele` collection STORES it.
-
-    `FLSpielJoined` is a second model rather than a default here: a default would make every internal
-    read of a raw document quietly assert that nobody is disqualified.
-    """
-
+# The stored and the served shapes both extend THIS rather than one extending the other: they differ
+# in OPPOSITE directions, the stored one adding the two money fields and the served one each side's
+# joined season state.
+class FLSpielCommon(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
     # `None` while the occupant is unknown: absence is MODELLED, never impersonated by a placeholder.
@@ -337,8 +380,8 @@ class FLSpiel(BaseModel):
     datum: CustomDateString | None
     uhrzeit: CustomTimeString | None
 
-    ort: FLSpielOrtField | None
-    schiedsrichter: FLSpielSchiedsrichterField | None
+    ort: FLSpielOrtFieldPublic | None
+    schiedsrichter: FLSpielSchiedsrichterFieldPublic | None
 
     ergebnis: CustomErgebnisString | None
 
@@ -356,19 +399,49 @@ class FLSpiel(BaseModel):
     notiz: str | None = None
 
 
-class FLSpielJoined(FLSpiel):
-    """One fixture as an ENDPOINT serves it: the stored document plus each side's joined season state.
+class FLSpiel(FLSpielCommon):
+    """One fixture as the `spiele` collection STORES it, and the shape every write composes.
 
-    **A subclass, and the direction must not be flipped**: the stored shape is the one a write can
-    reach, so it stays free of derived fields.
+    The money is re-declared because `$set` writes this model's dump, and a shape without it would
+    erase `mietpreis` and `payment` on the next edit of anything else.
+    """
+
+    ort: FLSpielOrtField | None
+    schiedsrichter: FLSpielSchiedsrichterField | None
+
+
+class FLSpielJoined(FLSpielCommon):
+    """One fixture as a BASE-TIER endpoint serves it: stored fields plus each side's joined season state.
+
+    A model rather than a default on the stored side, which would make every internal read of a raw
+    document quietly assert that nobody is disqualified.
     """
 
     team1: FLSpielTeamFieldJoined | None
     team2: FLSpielTeamFieldJoined | None
 
 
+class FLSpielJoinedAdmin(FLSpielJoined):
+    """The same fixture, carrying the two figures the base tier withholds (`READ-MONEY-001`).
+
+    A second model rather than a projection per caller: a response whose shape follows the
+    credential is one no Zod mirror can express.
+    """
+
+    ort: FLSpielOrtField | None
+    schiedsrichter: FLSpielSchiedsrichterField | None
+
+
+class FLSpielJoinedInternal(FLSpielJoined):
+    """The base-tier fixture with each side's record behind its type; on no endpoint, for `FLSpielTeamFieldJoinedInternal`'s reason."""
+
+    team1: FLSpielTeamFieldJoinedInternal | None
+    team2: FLSpielTeamFieldJoinedInternal | None
+
+
 FLSpielListAdapter = TypeAdapter(list[FLSpiel])
 FLSpielJoinedListAdapter = TypeAdapter(list[FLSpielJoined])
+FLSpielJoinedInternalListAdapter = TypeAdapter(list[FLSpielJoinedInternal])
 
 
 class FLSpieleFilterParams(BaseModel):
@@ -388,6 +461,12 @@ class FLSpieleListResponse(BaseAPIResponse):
 
 class FLSpieleSingleResponse(BaseAPIResponse):
     spiel: FLSpielJoined
+
+
+class FLSpieleAdminSingleResponse(BaseAPIResponse):
+    """What `GET /spiele/{spiel_id}/admin` answers: the fixture the editor round-trips, money included."""
+
+    spiel: FLSpielJoinedAdmin
 
 
 class FLSpieleActionRequiredResponse(BaseAPIResponse):

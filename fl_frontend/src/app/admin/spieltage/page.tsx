@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { getSaisons } from "@/features/saisons/queries";
+import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
-import { getSpiele } from "@/features/spiele/queries";
+import { getAdminSpiele } from "@/features/spiele/queries";
 import { AdminSpieltageView } from "@/features/spieltage/components/views/AdminSpieltageView";
 import { SPIELTAGE_CRUD_COPY } from "@/features/spieltage/constants";
-import { getSpieltage } from "@/features/spieltage/queries";
+import { getAdminSpieltage } from "@/features/spieltage/queries";
 import { buildSpieltagPhaseProgress, spieltagLabels } from "@/features/spieltage/utils";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
@@ -43,8 +43,8 @@ export default function AdminSpieltagePage(props: NextPageProps) {
  * only where the league has no seasons at all.
  */
 async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]): Promise<FLSaison | null> {
-  const requestedSaisonId = await resolveSaisonId(searchParams);
-  const saisonsRes = await getSaisons();
+  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
+  const saisonsRes = await getAdminSaisons();
 
   // The requested season, else the active one, else the first. The whole season rather than its id:
   // its schedule is what each phase's matchday count is read against.
@@ -74,7 +74,7 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     );
   }
 
-  const [spieltageRes, spieleRes] = await Promise.all([getSpieltage({ saison_id: saisonId }), getSpiele({ saison_id: saisonId })]);
+  const [spieltageRes, spieleRes] = await Promise.all([getAdminSpieltage({ saison_id: saisonId }), getAdminSpiele({ saison_id: saisonId })]);
 
   const spieleBySpieltag = new Map<string, number>();
   for (const spiel of spieleRes.spiele) {

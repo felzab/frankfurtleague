@@ -41,12 +41,12 @@ export const FLSpielTeamFieldSchema = FLSpielTeamFieldPayloadSchema.extend({
 export type FLSpielTeamField = z.infer<typeof FLSpielTeamFieldSchema>;
 
 /**
- * Joined per request from `saison_teams`, so no copy of a club's exit can go stale. The whole record
- * rather than a boolean: it says WHICH way the club left, and `null` also covers a team with no
- * junction row for the season.
+ * Joined per request, so no copy of a club's exit can go stale — and narrowed to the route out:
+ * every public surface listing a fixture carries this side, and only a club's own page renders the
+ * reason. `null` also covers a team with no junction row.
  */
 export const FLSpielTeamFieldJoinedSchema = FLSpielTeamFieldSchema.extend({
-  austritt: FLAustrittSchema.nullable(),
+  austritt_type: FLAustrittSchema.shape.type.nullable(),
 });
 export type FLSpielTeamFieldJoined = z.infer<typeof FLSpielTeamFieldJoinedSchema>;
 
@@ -63,9 +63,25 @@ export const FLSpielOrtFieldPayloadSchema = z.object({
 });
 export type FLSpielOrtFieldPayload = z.infer<typeof FLSpielOrtFieldPayloadSchema>;
 
-export const FLSpielOrtFieldSchema = FLSpielOrtFieldPayloadSchema.extend({
+/**
+ * The venue as a base-tier read serves it: which ground, and where to find it. What one fixture
+ * agreed to pay is admin-tier, so it is absent here rather than nullable — a reader holding this
+ * shape cannot ask for a figure it was never sent.
+ */
+export const FLSpielOrtFieldPublicSchema = z.object({
+  spielort_id: CustomObjectIdStringSchema,
   name: z.string().nonempty(),
   maps_link: z.string().nonempty(),
+});
+export type FLSpielOrtFieldPublic = z.infer<typeof FLSpielOrtFieldPublicSchema>;
+
+/**
+ * The venue as the admin editor reads it back. **The served shape is the base and the rent the
+ * extension**, mirroring the models: composing a name onto the PAYLOAD is what the backend forbids,
+ * so the payload is a sibling rather than an ancestor.
+ */
+export const FLSpielOrtFieldSchema = FLSpielOrtFieldPublicSchema.extend({
+  mietpreis: FLSpielOrtFieldPayloadSchema.shape.mietpreis,
 });
 export type FLSpielOrtField = z.infer<typeof FLSpielOrtFieldSchema>;
 
@@ -76,8 +92,16 @@ export const FLSpielSchiedsrichterFieldPayloadSchema = z.object({
 });
 export type FLSpielSchiedsrichterFieldPayload = z.infer<typeof FLSpielSchiedsrichterFieldPayloadSchema>;
 
-export const FLSpielSchiedsrichterFieldSchema = FLSpielSchiedsrichterFieldPayloadSchema.extend({
+/** The referee as a base-tier read serves it; `payment` is withheld for `mietpreis`' reason. */
+export const FLSpielSchiedsrichterFieldPublicSchema = z.object({
+  schiedsrichter_id: CustomObjectIdStringSchema,
   name: z.string().nonempty(),
+});
+export type FLSpielSchiedsrichterFieldPublic = z.infer<typeof FLSpielSchiedsrichterFieldPublicSchema>;
+
+/** The referee as the admin editor reads it back, extending the served shape for `FLSpielOrtField`'s reason. */
+export const FLSpielSchiedsrichterFieldSchema = FLSpielSchiedsrichterFieldPublicSchema.extend({
+  payment: FLSpielSchiedsrichterFieldPayloadSchema.shape.payment,
 });
 export type FLSpielSchiedsrichterField = z.infer<typeof FLSpielSchiedsrichterFieldSchema>;
 
@@ -151,8 +175,10 @@ export const FLSpielSchema = z.object({
   datum: CustomDateStringSchema.nullable(),
   uhrzeit: CustomTimeStringSchema.nullable(),
 
-  ort: FLSpielOrtFieldSchema.nullable(),
-  schiedsrichter: FLSpielSchiedsrichterFieldSchema.nullable(),
+  // The base-tier halves: what a fixture pays for its ground and its referee is admin-tier, and
+  // `FLSpielAdminSchema` is where a reader that is entitled to it gets it.
+  ort: FLSpielOrtFieldPublicSchema.nullable(),
+  schiedsrichter: FLSpielSchiedsrichterFieldPublicSchema.nullable(),
 
   // Not free text: `computeErgebnisFor` matches this pattern for W/D/L, and a malformed "3"
   // silently rendered as a loss for both teams.
@@ -179,6 +205,17 @@ export const FLSpielSchema = z.object({
 export type FLSpiel = z.infer<typeof FLSpielSchema>;
 
 /**
+ * The same fixture for the admin editor, carrying the two figures the base tier withholds. A second
+ * schema rather than one with optional money: a shape that follows the caller's credential is one no
+ * parse can hold both ends of.
+ */
+export const FLSpielAdminSchema = FLSpielSchema.extend({
+  ort: FLSpielOrtFieldSchema.nullable(),
+  schiedsrichter: FLSpielSchiedsrichterFieldSchema.nullable(),
+});
+export type FLSpielAdmin = z.infer<typeof FLSpielAdminSchema>;
+
+/**
  * No schema, because nothing parses this. Use it wherever a joined `austritt` is neither read nor
  * available: asking for it there makes a caller invent one, and an invented one is a wrong answer
  * rather than a missing one.
@@ -189,9 +226,16 @@ export type FLSpielWithStoredSides = Omit<FLSpiel, "team1" | "team2"> & {
 };
 
 /**
- * The read counterpart to `FLPatchSpielDataPayloadDraft`: a cleared money field is `null` while the
- * admin types, and declaring otherwise takes a cast that type-checks while the value travels
- * (`docs/frontend/spec.md` I33).
+ * One fixture's ground and referee as the admin tier serves them. A base-tier read carries neither
+ * figure, so a fixture the editor never opened reaches a write payload only with this supplied
+ * beside it.
+ */
+export type FLSpielBooking = Pick<FLSpielAdmin, "ort" | "schiedsrichter">;
+
+/**
+ * The read counterpart to `FLPatchSpielDataPayloadDraft`, and admin-tier: a cleared money field is
+ * `null` while the admin types, and declaring otherwise takes a cast that type-checks while the
+ * value travels (`docs/frontend/spec.md` I33).
  */
 export type FLSpielWithDraftFields = Omit<FLSpielWithStoredSides, "ort" | "schiedsrichter"> & {
   ort: FLSpielOrtFieldDraft | null;
@@ -203,14 +247,21 @@ export const FLSpieleListResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLSpieleListResponse = z.infer<typeof FLSpieleListResponseSchema>;
 
-/**
- * The edit page is addressed by match id alone, so this read is what tells it which season's lookup
- * lists to load — a list read cannot, needing that same season to filter by.
- */
+/** One fixture as a base-tier read serves it, addressed by its own id. */
 export const FLSpieleSingleResponseSchema = BaseAPIResponseSchema.extend({
   spiel: FLSpielSchema,
 });
 export type FLSpieleSingleResponse = z.infer<typeof FLSpieleSingleResponseSchema>;
+
+/**
+ * What the match editor loads. The page is addressed by match id alone, so this read is also what
+ * tells it which season's lookup lists to load — a list read cannot, needing that same season to
+ * filter by.
+ */
+export const FLSpieleAdminSingleResponseSchema = BaseAPIResponseSchema.extend({
+  spiel: FLSpielAdminSchema,
+});
+export type FLSpieleAdminSingleResponse = z.infer<typeof FLSpieleAdminSingleResponseSchema>;
 
 /**
  * Composed from the field schemas above rather than redeclared, so the write shape cannot drift

@@ -1,7 +1,23 @@
 import pytest
 from pydantic import ValidationError
 
+from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.kontakt import FLKontakt
+
+
+# Every domain label stays under the 63-octet cap, so a boundary case can only fail on the total.
+def address_of_length(total: int) -> str:
+    local = "a" * 64
+    remaining = total - len(local) - 1
+    labels: list[str] = []
+    while remaining > 0:
+        size = min(60, remaining)
+        labels.append("b" * size)
+        remaining -= size
+        if remaining > 0:
+            remaining -= 1
+    domain = ".".join(labels)
+    return f"{local}@{domain}"
 
 
 def test_accepts_a_valid_contact(kontakt):
@@ -14,6 +30,30 @@ def test_rejects_a_malformed_email(kontakt, email):
     """`a@b` is the load-bearing case: a naive 'contains an @' check lets it through."""
     with pytest.raises(ValidationError):
         FLKontakt.model_validate(kontakt(email=email))
+
+
+def test_accepts_an_address_at_the_length_ceiling(kontakt):
+    address = address_of_length(KONTAKT_EMAIL_MAX_LENGTH)
+    # Asserted so a helper that built the wrong length reads as that, not as the ceiling moving.
+    assert len(address) == KONTAKT_EMAIL_MAX_LENGTH
+    assert FLKontakt.model_validate(kontakt(email=address)).email == address
+
+
+def test_rejects_an_address_one_character_over_the_length_ceiling(kontakt):
+    """The boundary, not a wildly long string: a bound set anywhere passes that, and only this pins the number the zod mirror copies."""
+    with pytest.raises(ValidationError):
+        FLKontakt.model_validate(kontakt(email=address_of_length(KONTAKT_EMAIL_MAX_LENGTH + 1)))
+
+
+@pytest.mark.parametrize("local_part_length", [64, 65])
+def test_accepts_a_local_part_at_and_over_rfc_5321s_64_octets(kontakt, local_part_length):
+    """email-validator applies that cap only under `strict`, which `EmailStr` does not pass.
+
+    Pinned because the zod mirror matches deliberately: bounding it there alone would refuse an
+    address the API stores.
+    """
+    address = "a" * local_part_length + "@example.com"
+    assert FLKontakt.model_validate(kontakt(email=address)).email == address
 
 
 @pytest.mark.parametrize("telefon", ["ext. two", "abc", "+", "12", "0" * 21])

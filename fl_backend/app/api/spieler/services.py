@@ -1,4 +1,4 @@
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from app.api.spieler.schemas import FLEinwilligung, FLSpielerFilterParams
 from app.core.collections import Collection
@@ -8,31 +8,67 @@ from app.shared.schemas.custom import CustomObjectId
 
 AS_NAME = "saison_data"
 
+# `READ-PUPIL-001`: the surname must not reach the base tier at all, so the initial is composed here
+# rather than by a serialiser a later reader could go around. The dot belongs to the value, so the
+# one page rendering it joins the two names unchanged.
+PUBLIC_NACHNAME: Mapping[str, Any] = {
+    "$cond": {
+        # By type, not by `$eq: null`: an absent key and a stored null both mean no surname, and an
+        # initial invented for one nobody holds would read as a name.
+        "if": {"$eq": [{"$type": "$nachname"}, "string"]},
+        # `$substrCP`, never `$substr`: the byte form halves a multi-byte letter, so `Öztürk` breaks.
+        "then": {"$concat": [{"$substrCP": ["$nachname", 0, 1]}, "."]},
+        "else": None,
+    }
+}
 
-def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, Any]]:
+
+def public_initial(nachname: str | None) -> str | None:
+    """`READ-PUPIL-001` where a `find` serves the read and no aggregation runs.
+
+    `PUBLIC_NACHNAME` above is the same rule as a Mongo expression. Slicing is by code point, as
+    `$substrCP` is.
+    """
+
+    # By TYPE, as `PUBLIC_NACHNAME`'s `$type` test is, and not by `is None`: the two are stated as one
+    # rule, so anything the aggregation answers `None` for has to answer `None` here rather than raise.
+    if not isinstance(nachname, str):
+        return None
+
+    return f"{nachname[:1]}."
+
+
+def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: Sequence[str] = ()) -> list[Mapping[str, Any]]:
+    """`withheld_saison_ids` are the seasons whose rows this read may not serve.
+
+    Empty is the honest default -- a league planning none withholds none -- so the caller that joins
+    across seasons is the one supplying them (`app/api/spieler/router.py`).
+    """
 
     pipeline: list[Mapping[str, Any]] = []
 
     # Terms are NAMED, never excluded: a field added to the filter model would otherwise reach the
-    # junction `$match` unreviewed. `include_inactive` stays out because it becomes two matches
-    # below -- a person and a squad row retire separately.
-    active_filters = build_query(filters, terms={"team_id", "saison_id", "is_nachgetragen", "stufe"})
-
-    # Retired PEOPLE, filtered on the base collection before the join.
-    if not filters.include_inactive:
-        pipeline.append({"$match": {"inactive_since": None}})
+    # junction `$match` unreviewed, and a term the response withholds is an inference channel.
+    active_filters = build_query(filters, terms={"team_id", "saison_id"})
 
     # A sub-pipeline, not a post-join `$match`: these narrow the junction BEFORE the rows attach, so
     # the join never carries a season this request did not ask for.
     lookup_pipeline: list[Mapping[str, Any]] = [{"$match": {"$expr": {"$eq": ["$spieler_id", "$$base_spieler_id"]}}}]
 
-    # Retired SQUAD ROWS, a different fact from a retired person, filtered before the unwind.
-    if not filters.include_inactive:
-        lookup_pipeline.append({"$match": {"inactive_since": None}})
+    # The SQUAD ROW's retirement, and only ever that (`READ-SQUAD-001`): the same match on the base
+    # collection would take a retired person's squad entries down with them. No switch: this tier
+    # marks no row it would un-hide (`READ-SQUAD-002`).
+    lookup_pipeline.append({"$match": {"inactive_since": None}})
 
     # No `saison_data.` prefix: inside the sub-pipeline the junction document IS the root.
     if active_filters:
         lookup_pipeline.append({"$match": active_filters})
+
+    # Beside the caller's own terms rather than after the join: a row of a season this tier may not
+    # read must never attach, whatever else narrowed. Absent when nothing is withheld, so a league
+    # with no season planned runs the pipeline it always ran.
+    if withheld_saison_ids:
+        lookup_pipeline.append({"$match": {"saison_id": {"$nin": list(withheld_saison_ids)}}})
 
     pipeline.append(
         {
@@ -58,22 +94,15 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
         }
     )
 
+    # An ALLOW-LIST: every key here is one the squad table renders. What is projected reaches the
+    # page's payload whether rendered or not, so the consent record, the `stufe` (`READ-PUPIL-002`),
+    # the squad flags and the joined ids are not projected.
     pipeline.append(
         {
             "$project": {
                 "_id": 1,
                 "vorname": 1,
-                "nachname": 1,
-                # The PERSON's retirement, not the squad row's, which is filtered above.
-                "inactive_since": 1,
-                # Required on `FLSpieler` and stored on the person, so a projection dropping it makes
-                # every row unreadable.
-                "einwilligung": 1,
-                "saison_id": f"${AS_NAME}.saison_id",
-                "team_id": f"${AS_NAME}.team_id",
-                "is_nachgetragen": f"${AS_NAME}.is_nachgetragen",
-                "is_captain": f"${AS_NAME}.is_captain",
-                "stufe": f"${AS_NAME}.stufe",
+                "nachname": PUBLIC_NACHNAME,
                 "position": f"${AS_NAME}.position",
                 "nummer": f"${AS_NAME}.nummer",
             }
@@ -81,9 +110,9 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
     )
 
     # After the projection, so a bare field name reaches the root copy rather than the nested one.
-    # Through `build_sort` because a name literal repeating `sort_by` would collapse in the dict and
-    # silently reverse the direction that was asked for.
-    pipeline.append({"$sort": dict(build_sort(sort_by=filters.sort_by, order=filters.order, chain=(("vorname", 1), ("nachname", 1))))})
+    # Through `build_sort` because `sort_by` may itself be `vorname`. The chain stops there: a surname
+    # this tier will not serve must not order the list either.
+    pipeline.append({"$sort": dict(build_sort(sort_by=filters.sort_by, order=filters.order, chain=(("vorname", 1),)))})
 
     pipeline.append({"$limit": filters.limit})
 

@@ -103,6 +103,17 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
       return {
         error: "Mindestens ein Spieltag liegt außerhalb des neuen Zeitraums. Erweitere den Zeitraum wieder oder verschiebe diese Spieltage.",
       };
+    // Bare like the two freezes: several fields could repair this and none is at fault. Only the
+    // dates repair it in every state -- `fl_backend/app/api/saisons/schedule.py :: group_matchdays`
+    // is flat from an even count down to the odd one.
+    case "REQ-DATE-005":
+      return {
+        error:
+          "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben: je ein Spieltag für jede Runde " +
+          "der Gruppenphase und für jede KO-Runde. Zwei Spieltage dürfen nicht auf denselben Tag fallen. Verlege das Enddatum nach " +
+          "hinten oder das Startdatum nach vorne — das hilft in jedem Fall. Weniger Spieltage ergeben sich nur aus anderen Regeln, und " +
+          "die lassen sich nicht in jeder Saison noch ändern.",
+      };
     default:
       return null;
   }
@@ -198,8 +209,8 @@ export async function postSaisonAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // `REQ-RULES-001` is checked first: a duplicate `_id` arrives from the index with no error code
-    // to discriminate on, so it can only be the fallback.
+    // Every mapped refusal is read first: a duplicate `_id` arrives from the unique index with no
+    // rule code to discriminate on, so "die ID ist vergeben" can only be the fallback.
     let postOperation;
     try {
       postOperation = await postSaison(validated.data);

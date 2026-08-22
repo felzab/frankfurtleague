@@ -7,7 +7,7 @@ import { describe, it } from "node:test";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "./draftStatus.ts";
 
 import type { FLSpielDraftFields } from "./draftStatus.ts";
-import type { FLSpiel, FLSpielTeamFieldJoined } from "./schemas.ts";
+import type { FLSpielAdmin, FLSpielTeamFieldJoined } from "./schemas.ts";
 import type { ActionRequiredCategory } from "./types.ts";
 
 const TEAM_1 = "6890a1b2c3d4e5f607182932";
@@ -15,17 +15,17 @@ const TEAM_2 = "6890a1b2c3d4e5f607182933";
 const ORT = "6890a1b2c3d4e5f607182940";
 const SCHIRI = "6890a1b2c3d4e5f607182950";
 
-/** `austritt` rides along because an endpoint joins it; nothing here asserts on it. */
+/** The joined withdrawal rides along because an endpoint joins it; nothing here asserts on it. */
 const side = (team_id: string, name: string, shorthand: string, tore: number | null): FLSpielTeamFieldJoined => ({
   team_id,
   name,
   shorthand,
   tore,
-  austritt: null,
+  austritt_type: null,
 });
 
 /** Fully populated, so every descriptor has something to compare against. */
-function makeStored(overrides: Partial<FLSpiel> = {}): FLSpiel {
+function makeStored(overrides: Partial<FLSpielAdmin> = {}): FLSpielAdmin {
   return {
     id: "6890a1b2c3d4e5f607182900",
     spieltag_id: "6890a1b2c3d4e5f607182901",
@@ -45,11 +45,11 @@ function makeStored(overrides: Partial<FLSpiel> = {}): FLSpiel {
     elfmeterschiessen: null,
     notiz: null,
     ...overrides,
-  } as FLSpiel;
+  } as FLSpielAdmin;
 }
 
 /** The draft the form holds when nothing has been touched: exactly the stored fields. */
-function draftOf(stored: FLSpiel, overrides: Partial<FLSpielDraftFields> = {}): FLSpielDraftFields {
+function draftOf(stored: FLSpielAdmin, overrides: Partial<FLSpielDraftFields> = {}): FLSpielDraftFields {
   return {
     datum: stored.datum,
     uhrzeit: stored.uhrzeit,
@@ -67,7 +67,7 @@ function draftOf(stored: FLSpiel, overrides: Partial<FLSpielDraftFields> = {}): 
 }
 
 function derive(
-  stored: FLSpiel,
+  stored: FLSpielAdmin,
   draft: FLSpielDraftFields,
   categories: readonly ActionRequiredCategory[] = [],
   fieldErrors: Record<string, string> = {},
