@@ -24,6 +24,7 @@ from .kernel import (
     tracked_files,
 )
 from .perkind import (
+    check_binary_bytes,
     check_check_registry,
     check_enforced_by,
     check_glossary,
@@ -74,6 +75,7 @@ def main() -> int:
     findings.extend(check_roadmap())
     findings.extend(check_inputs())
     findings.extend(check_line_endings())
+    findings.extend(check_binary_bytes())
     findings.extend(check_spec_sheets())
     findings.extend(check_invariant_tables())
     findings.extend(check_overviews())
