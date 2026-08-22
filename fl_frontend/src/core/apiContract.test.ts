@@ -40,6 +40,7 @@ const BACKEND_ONLY: Record<string, string> = {
   FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpielerSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
+  FLSpieleSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
 };
 
 /**
@@ -309,7 +310,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 103;
+const EXPECTED_PAIRS = 102;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

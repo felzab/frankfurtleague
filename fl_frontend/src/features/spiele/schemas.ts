@@ -247,12 +247,6 @@ export const FLSpieleListResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLSpieleListResponse = z.infer<typeof FLSpieleListResponseSchema>;
 
-/** One fixture as a base-tier read serves it, addressed by its own id. */
-export const FLSpieleSingleResponseSchema = BaseAPIResponseSchema.extend({
-  spiel: FLSpielSchema,
-});
-export type FLSpieleSingleResponse = z.infer<typeof FLSpieleSingleResponseSchema>;
-
 /**
  * What the match editor loads. The page is addressed by match id alone, so this read is also what
  * tells it which season's lookup lists to load — a list read cannot, needing that same season to
