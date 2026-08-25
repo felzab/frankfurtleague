@@ -120,7 +120,7 @@ def find_rules_refusal(
 
             repairs: list[str] = []
             if REDRAWABLE_SHAPE_FIELD in redrawn:
-                repairs.append(f"{REDRAWABLE_SHAPE_FIELD} moves by drawing the Spielplan again with the new number")
+                repairs.append(f"to move {REDRAWABLE_SHAPE_FIELD}, draw the Spielplan again with the new number")
             if pinned:
                 repairs.append(
                     f"the clubs entered fix {' and '.join(pinned)}, so undraw the Spielplan, change the entries, then draw the Spielplan again"
