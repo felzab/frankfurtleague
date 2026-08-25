@@ -1,9 +1,17 @@
+import asyncio
 import logging
 import re
 
+import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from pydantic import BaseModel, Field, ValidationError
 
+from app.core.exception_handlers import pydantic_validation_exception_handler, register_exception_handlers
+from app.core.logging import JSONFormatter
+from app.core.middlewares import CorrelationIdMiddleware
 from app.main import create_app
+from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from tests.config import build_test_config
 
 # Module level: building the app re-runs the logging dictConfig, which inside a test would strip the
@@ -21,6 +29,47 @@ def client() -> TestClient:
 
 def error_records(caplog) -> list[logging.LogRecord]:
     return [record for record in caplog.records if getattr(record, "error_code", None) is not None]
+
+
+# The value the pattern below refuses. Distinctive, so its absence from a whole log document is
+# evidence rather than coincidence.
+REJECTED_NAME = "Maximilian<script>"
+
+
+class NamePayload(BaseModel):
+    """A write payload's name field, carrying the pattern every real one carries."""
+
+    vorname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
+
+
+# A second app: `APP`'s routes all 503 on the database dependency before parsing can fail, so a
+# payload rejection needs a route that depends on nothing.
+VALIDATION_APP = FastAPI()
+register_exception_handlers(VALIDATION_APP)
+VALIDATION_APP.add_middleware(CorrelationIdMiddleware)
+
+
+@VALIDATION_APP.post("/name")
+async def refuse_a_name(payload: NamePayload) -> dict[str, bool]:
+    """Never reached: the pattern refuses the only body the tests post."""
+
+    return {"ok": True}
+
+
+def rejected_name_error() -> ValidationError:
+    with pytest.raises(ValidationError) as refused:
+        NamePayload(vorname=REJECTED_NAME)
+
+    return refused.value
+
+
+def logged_document(caplog) -> str:
+    """The line as the sink receives it -- message and extras both, so nothing hides in a field."""
+
+    records = error_records(caplog)
+    assert len(records) == 1, records
+
+    return JSONFormatter().format(records[0])
 
 
 class TestFailureBodies:
@@ -78,6 +127,57 @@ class TestErrorCodeLogging:
         codes = [getattr(record, "error_code", None) for record in error_records(caplog)]
         assert "REQ-AUTH-001" in codes
         assert "API_ERROR" not in codes
+
+
+class TestValidationLoggingWithholdsTheValue:
+    """The refusal reaches the log naming its field, with the value gone (`docs/logging/spec.md :: L9`).
+
+    Asserted on the LOG, never the wire: the body carries only the code and the id, so a wire test
+    passes whatever the handler writes.
+    """
+
+    def test_a_refused_payload_value_never_reaches_the_line(self, caplog):
+        with caplog.at_level(logging.WARNING, logger="frankfurtleague"):
+            response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/name", json={"vorname": REJECTED_NAME})
+
+        assert response.status_code == 422
+        document = logged_document(caplog)
+        assert REJECTED_NAME not in document
+        assert "<script>" not in document
+
+    def test_a_refused_payload_still_names_the_field_the_kind_and_the_reason(self, caplog):
+        with caplog.at_level(logging.WARNING, logger="frankfurtleague"):
+            TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/name", json={"vorname": REJECTED_NAME})
+
+        document = logged_document(caplog)
+        assert "body.vorname" in document
+        assert "string_pattern_mismatch" in document
+        assert "String should match pattern" in document
+        assert "REQ-VAL-001" in document
+
+    def test_a_refused_stored_document_never_reaches_the_line(self, caplog):
+        with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
+            asyncio.run(pydantic_validation_exception_handler(None, rejected_name_error()))  # type: ignore[arg-type]
+
+        document = logged_document(caplog)
+        assert REJECTED_NAME not in document
+        assert "<script>" not in document
+
+    def test_a_refused_stored_document_still_names_the_field_the_kind_and_the_reason(self, caplog):
+        with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
+            asyncio.run(pydantic_validation_exception_handler(None, rejected_name_error()))  # type: ignore[arg-type]
+
+        document = logged_document(caplog)
+        assert "vorname" in document
+        assert "string_pattern_mismatch" in document
+        assert "String should match pattern" in document
+        assert "SRV-VAL-001" in document
+
+    def test_the_refusal_still_hands_back_an_id_to_quote(self):
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/name", json={"vorname": REJECTED_NAME})
+
+        # The one join between a 422 nobody can read and the line that says which field failed.
+        assert re.fullmatch(r"[a-f0-9]{32}", response.json()["correlation_id"])
 
 
 class TestCorrelation:

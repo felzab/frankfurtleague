@@ -203,9 +203,10 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "One recorded write. Held true against nothing: a row is a statement that a write happened, "
             "which stays true however the document it names changes afterwards. So it is in no boundary "
             "with the collection it records, and carries no reference to it -- `document_id` names a row "
-            "that may since have been deleted. A row surviving its subject is the point where the subject is a fixture or a "
-            "season. Where the subject is a PERSON it is instead the leak, which is why a pupil's erasure and a referee's anonymisation both reach in here and "
-            "redacts the values in place rather than dropping the row (`docs/backend/spec.md :: I42`)."
+            "that may since have been deleted. A row surviving its subject is the point where that subject is a "
+            "fixture or a season. Where it is a PERSON the surviving row is instead the leak, which is why a "
+            "pupil's erasure and a referee's anonymisation both reach in here and redact the values in place "
+            "rather than dropping the row (`docs/backend/spec.md :: I42`)."
         ),
     ),
 )
@@ -446,23 +447,26 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SAISONS,
         "rules.qualifiers_per_group",
         Editability.CONDITIONAL,
-        "frozen once the season holds fixtures (`REQ-RULES-011`) and on a `past` season; never below a placing a "
-        "bracket slot already names; the product with `number_of_groups` must be a legal bracket",
+        "frozen on a `past` season, and on a drawn one it moves only WITH the fixtures, through the draw's own payload "
+        "(`REQ-RULES-011`); never below a placing a bracket slot already names; the product with `number_of_groups` must "
+        "be a legal bracket",
         "app.api.saisons.services.find_rules_refusal",
     ),
     FieldPolicy(
         Collection.SAISONS,
         "rules.number_of_groups",
         Editability.CONDITIONAL,
-        "frozen once the season holds fixtures, the schedule having been drawn from it (`REQ-RULES-011`); never below a "
-        "group that still holds teams; the product with `qualifiers_per_group` must be a legal bracket",
+        "on a drawn season it moves only WITH the fixtures, through the draw's own payload (`REQ-RULES-011`), the schedule "
+        "having been drawn from it; never below a group that still holds teams; the product with `qualifiers_per_group` "
+        "must be a legal bracket",
         "app.api.saisons.services.find_rules_refusal",
     ),
     FieldPolicy(
         Collection.SAISONS,
         "rules.teams_per_group",
         Editability.CONDITIONAL,
-        "frozen once the season holds fixtures, for the reason `number_of_groups` is; never below the fullest group's occupancy",
+        "moves only WITH the fixtures once the season is drawn, for the reason `number_of_groups` does; never below the "
+        "fullest group's occupancy",
         "app.api.saisons.services.find_rules_refusal",
     ),
     FieldPolicy(
@@ -768,7 +772,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-RULES-011",
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
-        summary="`number_of_groups`, `teams_per_group` and `qualifiers_per_group` may not change once the season holds fixtures",
+        summary="`number_of_groups`, `teams_per_group` and `qualifiers_per_group` move only with a redraw once the season holds fixtures",
         implemented_by="app.api.saisons.services.find_rules_refusal",
         tested_by="tests/api/test_rules_refusal.py::TestADrawnSeasonKeepsTheShapeItWasDrawnFrom",
         multi_document=True,
@@ -957,6 +961,15 @@ RULES: tuple[Rule, ...] = (
         summary="a confirmed replace reaches no season but a `future` one that holds nothing already played",
         implemented_by="app.api.saisons.services.find_spielplan_refusal",
         tested_by="tests/api/test_spielplan_refusal.py::TestAReplaceRunsOnlyInsideItsWindow",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SPIELPLAN-006",
+        operation="DELETE /saisons/{saison_id}/spielplan",
+        aggregate="Saison",
+        summary="an undraw reaches no season but a `future` one that holds nothing recorded against a fixture",
+        implemented_by="app.api.saisons.services.find_undraw_refusal",
+        tested_by="tests/api/test_undraw_refusal.py::TestAnUndrawRunsOnlyInsideItsWindow",
         multi_document=True,
     ),
     Rule(
@@ -1194,7 +1207,10 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SQUAD-001",
-        operation="POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id}",
+        operation=(
+            "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "
+            "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate"
+        ),
         aggregate="Saison",
         summary="a squad row's team must hold a junction row for that season",
         implemented_by="app.api.spieler.services.find_squad_refusal",

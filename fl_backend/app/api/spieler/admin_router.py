@@ -392,13 +392,14 @@ async def reactivate_saison_spieler(
     spieler_id: CustomRouteObjectId,
     saison_id: str,
     saison_spieler_collection: SaisonSpielerCollection,
+    saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
 ) -> FLSaisonSpielerResponse:
     """
     Clear a squad row's `inactive_since`, with the number and position it had.
 
     Where a repeat create is redirected (`docs/backend/spec.md :: I20`): a create reviving the row
-    would overwrite both. Refused where the squad has since filled up.
+    would overwrite both. Refused where the squad has filled up, or its club left.
     """
 
     # Read for its `team_id`: the row names the squad it is returning to, and the payload cannot.
@@ -408,6 +409,15 @@ async def reactivate_saison_spieler(
         db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
         projection=["team_id"],
     )
+
+    # The STORED club, no payload naming one: `POST /teams/{team_id}/saisons/{saison_id}/replace`
+    # hands a junction row to another club and retires this one's squad, so the season it returns
+    # to may hold its club no longer.
+    team_in_saison = (await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": stored_raw["team_id"]}, limit=1)) > 0
+    # Asked before the cap, as both siblings ask it: a full squad is not a fact worth reporting
+    # about a club the season does not hold.
+    refuse(find_squad_refusal(team_in_saison=team_in_saison))
+
     await _refuse_a_full_squad(
         saison_spieler_collection=saison_spieler_collection,
         saisons_collection=saisons_collection,

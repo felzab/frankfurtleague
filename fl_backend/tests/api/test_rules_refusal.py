@@ -520,6 +520,27 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
 
         assert judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), drawn=0) is None
 
+    @pytest.mark.parametrize("status", ["future", "active", "past"])
+    def test_the_freeze_holds_whatever_the_season_is_doing(self, status: str):
+        """`future` is the one to watch: a season nobody has played is where a carve-out for repairs would sit.
+
+        The repair is the draw, which takes these three on its own payload
+        (`app/api/saisons/schemas.py :: FLSpielplanShape`).
+        """
+
+        refusal = judge(status=status, stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+
+    def test_the_refusal_names_drawing_the_season_again(self):
+        """The message an admin reads: naming the shape as unchangeable would send them looking for an edit that does not exist."""
+
+        refusal = judge(stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert "draw the Spielplan again" in refusal.message
+
     def test_permits_resubmitting_the_drawn_shape_unchanged(self):
         """`rules` is required on the patch, so a dates-only edit resubmits all three unchanged (`docs/backend/spec.md :: I44`)."""
 

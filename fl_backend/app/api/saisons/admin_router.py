@@ -21,12 +21,15 @@ from app.api.saisons.schemas import (
     FLSaisonSpielplan,
     FLSwapGruppenPayload,
     FLSwapGruppenResponse,
+    FLUndrawSpielplanResponse,
 )
 from app.api.saisons.services import (
+    RECORDED_FACT_FIELDS,
     find_activation_refusal,
     find_rules_refusal,
     find_saison_span_refusal,
     find_spielplan_refusal,
+    find_undraw_refusal,
     holds_a_recorded_fact,
     unplayed_spiel_nrs,
     with_schedule,
@@ -284,27 +287,10 @@ async def patch_saison(
         phase_of_spieltag[spieltag["_id"]] = spieltag["saison_phase"]
 
     per_spieltag: dict[Any, int] = {}
-    recorded_fixtures = 0
-    # One cursor for both figures, so what `REQ-RULES-011` freezes and what lifts that freeze cannot
-    # be read off two different sets of rows.
-    async for spiel in spiele_collection.find(
-        {"saison_id": saison_id},
-        # `holds_a_recorded_fact`'s fields, bookings included: the freeze lifts only where
-        # `REQ-SPIELPLAN-005` grants the redraw, so a narrower count here unfreezes a season the
-        # replace refuses, stranding it on rules it was not drawn from.
-        {
-            "spieltag_id": 1,
-            "team1.tore": 1,
-            "team2.tore": 1,
-            "ergebnis": 1,
-            "sonderereignis": 1,
-            "ort.spielort_id": 1,
-            "schiedsrichter.schiedsrichter_id": 1,
-        },
-    ):
+    # `spieltag_id` alone: what a fixture carries is no business of this route, `REQ-RULES-011`
+    # freezing the shape on the draw's existence rather than on anything entered since.
+    async for spiel in spiele_collection.find({"saison_id": saison_id}, {"spieltag_id": 1}):
         per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
-        if holds_a_recorded_fact(spiel):
-            recorded_fixtures += 1
 
     # Every fixture of the season, whichever matchday it hangs on: what `REQ-RULES-011` freezes is the
     # draw, and a fixture pointing at another season's matchday came out of this season's rules too.
@@ -338,7 +324,6 @@ async def patch_saison(
             largest_squad=largest_squad,
             attached_by_phase=attached_by_phase,
             drawn_fixtures=drawn_fixtures,
-            recorded_fixtures=recorded_fixtures,
         )
     )
 
@@ -587,8 +572,8 @@ async def generate_spielplan(
     """
     Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
 
-    `replace` DELETES both lists and draws them again, only on a `future` season carrying
-    no result, cancellation or booking (`REQ-SPIELPLAN-005`).
+    `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
+    deletes both lists first, inside `REQ-SPIELPLAN-005`'s window.
     """
 
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
@@ -600,7 +585,12 @@ async def generate_spielplan(
         # THROUGH the session, as the group swap's callback is: a retry after a write conflict has to
         # judge the season as it stands then, not as this request first saw it.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
-        rules = FLSaisonRules.model_validate(saison_raw["rules"])
+        stored_rules = FLSaisonRules.model_validate(saison_raw["rules"])
+
+        # ONE object judged, drawn and stored, so every refusal below weighs the numbers this draw
+        # runs from. `model_copy` skips validation and safely: `FLSpielplanShape` declares the three
+        # under `FLSaisonRules`' own types.
+        rules = stored_rules if spielplan_data.shape is None else stored_rules.model_copy(update=spielplan_data.shape.model_dump())
 
         entered_rows = await pull_many_from_db(
             collection=saison_teams_collection,
@@ -622,9 +612,10 @@ async def generate_spielplan(
         stored_spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id},
-            # The booking fields are here for `REQ-SPIELPLAN-005` alone: a venue or a referee is
-            # work a replace would destroy, and its window closes on one exactly as on a result.
-            projection=["team1.tore", "team2.tore", "ergebnis", "sonderereignis", "ort.spielort_id", "schiedsrichter.schiedsrichter_id"],
+            # The predicate's own fields, so the projection cannot fall behind what it reads: a
+            # venue, a referee or an admin's note is work a replace would destroy, and
+            # `REQ-SPIELPLAN-005`'s window closes on one exactly as on a result.
+            projection=list(RECORDED_FACT_FIELDS),
             session=session,
         )
 
@@ -641,9 +632,9 @@ async def generate_spielplan(
             )
         )
 
-        # Last, and reachable only by a hand edit: create refuses each on its own `stored=None`
-        # path, and the step rule refuses any patch introducing one. Asked anyway, because such a
-        # season would draw a group phase whose bracket has no shape.
+        # `stored=None` is the create's reading, and the one this wants: every rule judging the
+        # numbers alone fires on the payload's own, and every rule judging a standing fixture is
+        # skipped, each of those weighing a draw about to cease to exist.
         refuse(
             find_rules_refusal(
                 saison_status=str(saison_raw["status"]),
@@ -684,12 +675,19 @@ async def generate_spielplan(
         await post_many_to_db(collection=spieltage_collection, documents=drawn.spieltage, session=session)
         await post_many_to_db(collection=spiele_collection, documents=drawn.spiele, session=session)
 
+        # Dotted keys, and only where the payload states a shape: a whole `rules` object here would
+        # make this endpoint a second writer for the rules the draw is not a function of.
+        shape = spielplan_data.shape
+        shape_written = {} if shape is None else {f"rules.{rule}": value for rule, value in shape.model_dump().items()}
+
         watermark = FLSaisonSpielplan(generiert_am=today, spieltage=len(drawn.spieltage), spiele=len(drawn.spiele))
-        # Inside the transaction, so the watermark can never disagree with what was written.
+        # ONE `$set` inside the transaction: the shape and the draw it produced are one fact, so one
+        # write carries one pre-image -- the season before either moved. Two would log a `before`
+        # holding rules that were never the season's.
         await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
-            update={"$set": {"spielplan": watermark.model_dump(mode="json")}},
+            update={"$set": {**shape_written, "spielplan": watermark.model_dump(mode="json")}},
             session=session,
         )
 
@@ -709,3 +707,77 @@ async def generate_spielplan(
     invalidate_saison_cache()
 
     return drawn_response
+
+
+@router.delete("/{saison_id}/spielplan", response_model=FLUndrawSpielplanResponse, summary="Undraw this Saison's Spielplan")
+async def undraw_spielplan(
+    saison_id: str,
+    saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
+    spieltage_collection: SpieltageCollection,
+    db: DBClient,
+) -> FLUndrawSpielplanResponse:
+    """
+    Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
+
+    The replace's window bounds it (`REQ-SPIELPLAN-006`). Undoing the draw is what reopens the shape
+    rules to `PATCH` and the groups to an entry.
+    """
+
+    async def undraw_the_whole_season(session: AsyncIOMotorClientSession) -> FLUndrawSpielplanResponse:
+        """Judge, then remove both collections and the watermark. Everything judged is read in-session."""
+
+        # THROUGH the session, as the draw's reads are: a retry after a write conflict judges the
+        # season as it stands then. A season id naming nothing raises the 404 here.
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+
+        # The stored rows, never the watermark: a season drawn outside this API carries none, and its
+        # fixtures are as much a record as one this endpoint wrote.
+        stored_spiele = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": saison_id},
+            projection=list(RECORDED_FACT_FIELDS),
+            session=session,
+        )
+
+        refuse(
+            find_undraw_refusal(
+                saison_status=str(saison_raw["status"]),
+                recorded_fixtures=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
+            )
+        )
+
+        # Fixtures first, the reverse of the draw's write order: neither the log's rows nor a restore
+        # replaying them then holds a fixture whose matchday is already gone.
+        removed_spiele = await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
+        removed_spieltage = await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
+
+        # INSIDE the transaction holding both removals (`docs/backend/spec.md :: I46`): a season
+        # keeping its watermark while its fixtures are gone reads as drawn, and `$unset` is the shape
+        # a season nobody has drawn carries.
+        before = await patch_one_in_db(
+            collection=saisons_collection,
+            db_filter={"_id": saison_id},
+            update={"$unset": {"spielplan": ""}},
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+
+        return FLUndrawSpielplanResponse(
+            saison_id=saison_id,
+            spieltage=removed_spieltage.deleted_count,
+            spiele=removed_spiele.deleted_count,
+            # The update's OWN pre-image, so nothing lands between reading the watermark and clearing
+            # it. A season holding one with no fixtures behind it reports the only thing removed.
+            watermark_cleared=before.get("spielplan") is not None,
+        )
+
+    # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges
+    # on, and a retry is safe because it removes a set by filter rather than by any id it read.
+    async with await db.start_session() as session:
+        undrawn = await session.with_transaction(undraw_the_whole_season)
+
+    # After the commit: an aborted undraw leaves the cache nothing to unlearn.
+    invalidate_saison_cache()
+
+    return undrawn

@@ -4,13 +4,11 @@ import pytest
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.saisons.services import (
-    RULES_SHAPE_AFTER_DRAW,
     SPIELPLAN_ALREADY_DRAWN,
     SPIELPLAN_GRUPPEN_OFF_RULES,
     SPIELPLAN_MATCHDAYS_HELD,
     SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
     SPIELPLAN_SAISON_FINISHED,
-    find_rules_refusal,
     find_spielplan_refusal,
     holds_a_recorded_fact,
 )
@@ -375,62 +373,8 @@ class TestAReplaceRunsOnlyInsideItsWindow:
         assert refusal.error_code == SPIELPLAN_ALREADY_DRAWN
 
 
-# A season already drawn, and the widening `REQ-RULES-011` freezes. A raise, so no narrowing rule
-# answers before it (`REQ-RULES-002`, `REQ-RULES-003` and `REQ-RULES-006` all read the other way).
-DRAWN_FIXTURES = 67
-WIDER_SHAPE = RULES.model_copy(update={"teams_per_group": 8})
-
-
-def shape_refusal_for(*, saison_status: str = "future", recorded: int = 0) -> WriteRefusal | None:
-    return find_rules_refusal(
-        saison_status=saison_status,
-        stored=RULES,
-        proposed=WIDER_SHAPE,
-        occupancy_by_gruppe={},
-        highest_wired_platz=0,
-        drawn_fixtures=DRAWN_FIXTURES,
-        recorded_fixtures=recorded,
-    )
-
-
-class TestTheShapeFreezeStepsAsideInTheSameWindow:
-    """`REQ-RULES-011` stops refusing where `REQ-SPIELPLAN-005` opens, which is why it is proved here.
-
-    A season drawn from the wrong rules is otherwise unrepairable: the draw freezes the shape a
-    fresh draw would have to run from.
-    """
-
-    def test_a_future_season_with_nothing_played_may_change_the_shape_it_was_drawn_from(self):
-        """Drop the carve-out and this fails: the rules that produced a wrong draw could never be corrected."""
-
-        assert shape_refusal_for() is None
-
-    def test_a_running_season_keeps_the_freeze(self):
-        """Widen the carve-out past `future` and this fails: a league mid-season would move the rules its fixtures came out of."""
-
-        refusal = shape_refusal_for(saison_status="active")
-
-        assert refusal is not None
-        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
-
-    def test_a_finished_season_keeps_the_freeze(self):
-        """The season whose table is scored from these rules on every read, and the state no replace reopens."""
-
-        refusal = shape_refusal_for(saison_status="past")
-
-        assert refusal is not None
-        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
-
-    def test_one_fixture_that_already_happened_keeps_the_freeze(self):
-        """Drop the `recorded_fixtures` half and this fails: a played match's own rules would move under it."""
-
-        refusal = shape_refusal_for(recorded=1)
-
-        assert refusal is not None
-        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
-
-
-# A fixture exactly as the draw wrote it: every field a record could land in, empty.
+# A fixture exactly as the draw wrote it: every field a record could land in, empty. No `notiz` key
+# at all, which is the shape `app/api/saisons/spielplan.py :: _spiel` leaves.
 UNTOUCHED_FIXTURE: Mapping[str, Any] = {
     "ergebnis": None,
     "sonderereignis": None,
@@ -460,6 +404,7 @@ class TestWhatCountsAsRecordedAgainstAFixture:
             ({"team2": {"tore": 0}}, "the same count on the other side, which a loop over one slot would miss"),
             ({"ort": {"spielort_id": "68f0a1b2c3d4e5f607600001"}}, "a booked venue"),
             ({"schiedsrichter": {"schiedsrichter_id": "68f0a1b2c3d4e5f607600002"}}, "a booked referee"),
+            ({"notiz": "Platz gesperrt"}, "an admin's note, which only `PATCH /spiele/{spiel_id}` writes"),
         ],
     )
     def test_a_fixture_carrying_one_of_these_closes_the_window(self, recorded: Mapping[str, Any], why: str):
@@ -469,6 +414,19 @@ class TestWhatCountsAsRecordedAgainstAFixture:
         """The floor: a predicate answering True for everything would pass every case above."""
 
         assert holds_a_recorded_fact(UNTOUCHED_FIXTURE) is False
+
+    @pytest.mark.parametrize(
+        ("empty", "why"),
+        [
+            ({"notiz": None}, "how CLEARING a note is stored: the patch `$set`s the whole model"),
+            ({"notiz": ""}, "unreachable through the API, and `spiele`'s validator takes it from a hand edit"),
+            ({"notiz": "   "}, "whitespace, which `empty_strings_to_none` catches on the API route alone"),
+        ],
+    )
+    def test_a_note_that_says_nothing_leaves_the_window_open(self, empty: Mapping[str, Any], why: str):
+        """Compare `notiz` to None rather than stripping it and the last two close a window nothing was entered in."""
+
+        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, **empty}) is False, why
 
     def test_a_date_and_a_kickoff_time_leave_the_window_open(self):
         """Rescheduling is what a replace is FOR, so a dated fixture stays replaceable and the log keeps the dates."""

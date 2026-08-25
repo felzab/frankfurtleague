@@ -52,10 +52,10 @@ over: a matchday patch carries `beginn` and `ende` together, so an `ende`-only e
 (`docs/backend/spec.md :: I44`).
 
 **The draw freezes a season's SHAPE alone**: `REQ-RULES-011` names `number_of_groups`, `teams_per_group` and
-`qualifiers_per_group`, the rules the fixtures were drawn from. The freeze steps aside for a season that is `future`
-and holds nothing recorded — the window a confirmed replace runs in (`REQ-SPIELPLAN-005`) — because a season drawn
-from the wrong rules would otherwise be unrepairable. What a season scores by stays editable until the season turns
-`past`, where `REQ-RULES-005` freezes it.
+`qualifiers_per_group`, the rules the fixtures were drawn from. The freeze is ABSOLUTE on the patch, and it is not a
+dead end: a season's shape rules and its draw are one fact, so the numbers change by drawing the season AGAIN, with the
+new ones carried on the replace and written in the transaction that redraws (`REQ-SPIELPLAN-005`). What a season scores
+by stays editable until the season turns `past`, where `REQ-RULES-005` freezes it.
 
 | Code                  | Status | Meaning                                                                                                                             |
 | --------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -76,7 +76,7 @@ from the wrong rules would otherwise be unrepairable. What a season scores by st
 | `REQ-RULES-008`       | 409    | A step put `draw_points` over `win_points`, or widened an excess already there                                                      |
 | `REQ-RULES-009`       | 409    | `max_kadergroesse` would drop below the largest squad the season already holds                                                      |
 | `REQ-RULES-010`       | 409    | A step paired a level `forfeit_ergebnis` with rules that produce a knockout round                                                   |
-| `REQ-RULES-011`       | 409    | A drawn season changed one of the SHAPE rules its fixtures were drawn from, outside the window a replace runs in                    |
+| `REQ-RULES-011`       | 409    | A drawn season was patched to change one of the SHAPE rules its fixtures were drawn from; the repair is to draw it again            |
 | `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures with no result and no `sonderereignis` that awards none                                    |
 | `REQ-ACTIVATE-002`    | 409    | A `past` season was activated — refused unconditionally, since it would reopen the points and groups its table derives from         |
 | `REQ-ACTIVATE-003`    | 409    | A season holding no fixtures was activated, which would take the league live with nothing to play                                   |
@@ -96,6 +96,7 @@ from the wrong rules would otherwise be unrepairable. What a season scores by st
 | `REQ-SPIELPLAN-003`   | 409    | A Spielplan was drawn for a season already `past`                                                                                   |
 | `REQ-SPIELPLAN-004`   | 409    | A Spielplan was drawn while an offered group is off the size its rules ask, or a club stands in a group the season does not offer   |
 | `REQ-SPIELPLAN-005`   | 409    | A replace of a season's Spielplan was confirmed for a season that is not `future`, or that already holds a recorded fixture         |
+| `REQ-SPIELPLAN-006`   | 409    | An undraw was asked of a season that is not `future`, or that holds a fixture with something recorded against it                    |
 | `REQ-SWAP-001`        | 409    | A group swap named something other than two clubs of that season standing in different groups                                       |
 | `REQ-SWAP-002`        | 409    | A group swap reached a season with a knockout fixture already played, abandoned, forfeited or holding a goal count                  |
 | `REQ-SWAP-003`        | 409    | A group swap reached a `past` season, whose table is derived from the groups it would exchange                                      |

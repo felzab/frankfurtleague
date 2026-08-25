@@ -1,4 +1,4 @@
-from typing import Mapping
+from typing import Any, Mapping, Sequence
 
 from bson.errors import InvalidId
 from fastapi import FastAPI, Request, status
@@ -35,7 +35,7 @@ async def pydantic_validation_exception_handler(request: Request, exc: Validatio
     # A server-side model failing on server-side data; a request payload raises
     # `RequestValidationError` instead. 500, not 422.
     fl_logger.error(
-        f"Model validation failed outside request parsing: {exc.errors() or NO_DATA_TEXT}",
+        f"Model validation failed outside request parsing: {rejected_fields_of(exc.errors()) or NO_DATA_TEXT}",
         extra={"error_code": "SRV-VAL-001"},
     )
 
@@ -44,11 +44,21 @@ async def pydantic_validation_exception_handler(request: Request, exc: Validatio
 
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
     fl_logger.warning(
-        f"Payload validation failed: {exc.errors() or NO_DATA_TEXT}",
+        f"Payload validation failed: {rejected_fields_of(exc.errors()) or NO_DATA_TEXT}",
         extra={"error_code": "REQ-VAL-001"},
     )
 
     return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, "REQ-VAL-001")
+
+
+def rejected_fields_of(errors: Sequence[Any]) -> list[dict[str, str]]:
+    """Where each error sits, what kind it is and what it says -- never `input`, the value submitted for it.
+
+    `docs/logging/spec.md :: L9`. A person's erasure clears every collection and reaches no log
+    sink, so a value written here outlives them.
+    """
+
+    return [{"loc": ".".join(str(part) for part in error["loc"]), "type": error["type"], "msg": error["msg"]} for error in errors]
 
 
 async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyError):

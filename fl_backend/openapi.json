@@ -3206,7 +3206,7 @@
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
       "post": {
         "summary": "Put a Spieler back in a squad they left",
-        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected (`docs/backend/spec.md :: I20`): a create reviving the row\nwould overwrite both. Refused where the squad has since filled up.",
+        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected (`docs/backend/spec.md :: I20`): a create reviving the row\nwould overwrite both. Refused where the squad has filled up, or its club left.",
         "operationId": "reactivate_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__reactivate_post",
         "security": [
           {
@@ -3458,7 +3458,7 @@
     "/api/v0/saisons/{saison_id}/spielplan": {
       "post": {
         "summary": "Draw this Saison's Spielplan",
-        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`replace` DELETES both lists and draws them again, only on a `future` season carrying\nno result, cancellation or booking (`REQ-SPIELPLAN-005`).",
+        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, inside `REQ-SPIELPLAN-005`'s window.",
         "operationId": "generate_spielplan_api_v0_saisons__saison_id__spielplan_post",
         "security": [
           {
@@ -3492,6 +3492,49 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLGenerateSpielplanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Undraw this Saison's Spielplan",
+        "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nThe replace's window bounds it (`REQ-SPIELPLAN-006`). Undoing the draw is what reopens the shape\nrules to `PATCH` and the groups to an entry.",
+        "operationId": "undraw_spielplan_api_v0_saisons__saison_id__spielplan_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLUndrawSpielplanResponse"
                 }
               }
             }
@@ -4445,11 +4488,21 @@
             "type": "boolean",
             "title": "Replace",
             "default": false
+          },
+          "shape": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielplanShape"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
         "title": "FLGenerateSpielplanPayload",
-        "description": "Whether this draw may REPLACE what the season already holds.\n\nAn absent body and `replace: false` are one request -- the first draw -- so no client destroys a\nseason by omission. `REQ-SPIELPLAN-005` bounds a confirmed one."
+        "description": "Whether this draw may REPLACE what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission. `REQ-SPIELPLAN-005` bounds a confirmed one."
       },
       "FLGenerateSpielplanResponse": {
         "properties": {
@@ -7766,6 +7819,35 @@
         ],
         "title": "FLSpielorteSingleResponse"
       },
+      "FLSpielplanShape": {
+        "properties": {
+          "number_of_groups": {
+            "type": "integer",
+            "maximum": 4.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Number Of Groups"
+          },
+          "teams_per_group": {
+            "type": "integer",
+            "maximum": 16.0,
+            "minimum": 2.0,
+            "title": "Teams Per Group"
+          },
+          "qualifiers_per_group": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Qualifiers Per Group"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number_of_groups",
+          "teams_per_group",
+          "qualifiers_per_group"
+        ],
+        "title": "FLSpielplanShape",
+        "description": "The three rules a season's fixture list is a function of, as this draw is to run from.\n\nAll three or none: the draw is one function of the whole shape, and a payload naming half\nof it would take the rest off a season about to stop matching it."
+      },
       "FLSpieltag": {
         "properties": {
           "id": {
@@ -8433,6 +8515,48 @@
         ],
         "title": "FLTeamsSingleResponse",
         "description": "One team, from `GET /teams/{team_id}`.\n\nNot part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can return."
+      },
+      "FLUndrawSpielplanResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id"
+          },
+          "spieltage": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Spieltage"
+          },
+          "spiele": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Spiele"
+          },
+          "watermark_cleared": {
+            "type": "boolean",
+            "title": "Watermark Cleared"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "spieltage",
+          "spiele",
+          "watermark_cleared"
+        ],
+        "title": "FLUndrawSpielplanResponse",
+        "description": "What removing the season's Spielplan took away, on the shape the draw reports.\n\nBoth counts are zero on a season already undrawn, which is why the watermark is reported apart:\nit is the one thing a season can hold with neither collection behind it."
       },
       "HTTPValidationError": {
         "properties": {

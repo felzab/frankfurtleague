@@ -81,7 +81,6 @@ def find_rules_refusal(
     largest_squad: int = 0,
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
     drawn_fixtures: int = 0,
-    recorded_fixtures: int = 0,
 ) -> WriteRefusal | None:
     """Why these rules must be refused, or `None`.
 
@@ -103,20 +102,16 @@ def find_rules_refusal(
     # may not drop past sends an admin to the wrong repair. Compared by value, so a resubmission
     # passes (`docs/backend/spec.md :: I44`).
 
-    # `REQ-RULES-004` and `REQ-RULES-006` read a figure derived from fixtures, so outside the window
-    # below this refuses the same field first; inside it, they are what bound the redraw instead.
-
-    # STEPS ASIDE in the window `REQ-SPIELPLAN-005` opens, on the SAME count: freezing the shape of a
-    # season nothing is recorded against leaves a wrong draw unrepairable, and a wider count here
-    # unfreezes one the redraw is then refused on.
-    redraw_is_offered = saison_status == "future" and recorded_fixtures == 0
-    if stored is not None and drawn_fixtures > 0 and not redraw_is_offered:
+    # ABSOLUTE, in every status and whatever is recorded: the shape and the fixtures drawn from it
+    # are one fact, so this path never moves half of it. The whole of it moves on the draw, which
+    # takes the three numbers on its own payload.
+    if stored is not None and drawn_fixtures > 0:
         redrawn = [field for field in SHAPE_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if redrawn:
             return WriteRefusal(
                 error_code=RULES_SHAPE_AFTER_DRAW,
                 message=f"the season's {drawn_fixtures} fixtures are already drawn from these rules; "
-                f"{', '.join(redrawn)} cannot change without drawing them again",
+                f"{', '.join(redrawn)} move only with the fixtures, so draw the Spielplan again carrying the new numbers",
             )
 
     # Before the bracket rule, being narrower: it names two fields an admin can compare, where the
@@ -271,17 +266,37 @@ ACTIVATE_TARGET_UNDRAWN = "REQ-ACTIVATE-003"
 _NAMED_UNPLAYED = 5
 
 
+# The projection `holds_a_recorded_fact` reads, beside the predicate itself: a field dropped from one
+# and left in the other reads a recorded fixture as untouched, and every window judged on the count
+# then opens on a season somebody has played.
+RECORDED_FACT_FIELDS: tuple[str, ...] = (
+    "team1.tore",
+    "team2.tore",
+    "ergebnis",
+    "sonderereignis",
+    "ort.spielort_id",
+    "schiedsrichter.schiedsrichter_id",
+    "notiz",
+)
+
+
 def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     """Whether anything has been entered against this fixture since the draw wrote it.
 
     Wider than `has_taken_place`: the replace's window is nothing recorded at all, so a called-off
-    fixture and a merely booked one both close it. A date does not.
+    fixture, a merely booked one and a noted one all close it. A date does not.
     """
 
     if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") is not None:
         return True
 
     if any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2")):
+        return True
+
+    # STRIPPED, never compared to None: the draw writes no key, clearing a note stores null, and
+    # `FLPatchSpielDataPayload.empty_strings_to_none` keeps "" off that route -- a hand edit can
+    # still leave one, and an empty note is not a record.
+    if (spiel.get("notiz") or "").strip():
         return True
 
     return (spiel.get("ort") or {}).get("spielort_id") is not None or (spiel.get("schiedsrichter") or {}).get("schiedsrichter_id") is not None
@@ -405,7 +420,7 @@ def find_spielplan_refusal(
         return WriteRefusal(
             error_code=SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
             message=f"a replace deletes every matchday and fixture the season holds, and this one is {saison_status} and holds "
-            f"{recorded_fixtures} fixture(s) carrying a result, a cancellation or a booking; it runs only on a planned season "
+            f"{recorded_fixtures} fixture(s) carrying a result, a cancellation, a booking or a note; it runs only on a planned season "
             "with nothing entered against it",
         )
 
@@ -445,3 +460,26 @@ def find_spielplan_refusal(
         )
 
     return None
+
+
+# A code of its own, never `REQ-SPIELPLAN-005`'s: a rule resolves to ONE `implemented_by`, and that
+# one already names `find_spielplan_refusal`.
+SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW = "REQ-SPIELPLAN-006"
+
+
+def find_undraw_refusal(*, saison_status: str, recorded_fixtures: int) -> WriteRefusal | None:
+    """Why removing this season's Spielplan must be refused, or `None`.
+
+    The replace's window, read off the OPERATION and not off what there is to remove: a season
+    already undrawn is the state asked for, so it removes nothing rather than refusing.
+    """
+
+    if saison_status == "future" and recorded_fixtures == 0:
+        return None
+
+    return WriteRefusal(
+        error_code=SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW,
+        message=f"removing a Spielplan deletes every matchday and fixture the season holds, and this one is {saison_status} and holds "
+        f"{recorded_fixtures} fixture(s) carrying a result, a cancellation, a booking or a note; it runs only on a planned season "
+        "with nothing entered against it",
+    )

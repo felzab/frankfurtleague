@@ -1,4 +1,4 @@
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
@@ -26,19 +26,27 @@ class FLSaisonForfeitErgebnis(BaseModel):
     verlierer_tore: int = Field(ge=0)
 
 
+# The three the fixture list is a function of. Named types because `FLSpielplanShape` carries the
+# same three, and a bound spelled at two sites is a bound that drifts.
+QualifiersPerGroup = Annotated[int, Field(gt=0)]
+# The season's capacity: a team enters only a group the season offers -- a prefix of the closed A-D
+# set -- and only while it has room.
+NumberOfGroups = Annotated[int, Field(gt=0, le=4)]
+# The floor stops a group phase generating no fixture at all; the ceiling keeps the largest legal
+# season inside `app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`, past which a season-scoped
+# read truncates and its refusals cannot be trusted.
+TeamsPerGroup = Annotated[int, Field(ge=2, le=16)]
+
+
 class FLSaisonRules(BaseModel):
     win_points: int = Field(gt=0)
     draw_points: int = Field(ge=0)
-    # No default: one would make the number a constant chosen here, as a hardcoded 3/1/0 would.
-    qualifiers_per_group: int = Field(gt=0)
+    # No default on any of the three: one would make the number a constant chosen here, as a
+    # hardcoded 3/1/0 would.
+    qualifiers_per_group: QualifiersPerGroup
 
-    # The season's capacity: a team enters only a group the season offers -- a prefix of the closed
-    # A-D set -- and only while it has room. No default, for the reason above.
-    number_of_groups: int = Field(gt=0, le=4)
-    # The floor stops a group phase generating no fixture at all; the ceiling keeps the largest
-    # legal season inside `app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`, past which a
-    # season-scoped read truncates and its refusals cannot be trusted.
-    teams_per_group: int = Field(ge=2, le=16)
+    number_of_groups: NumberOfGroups
+    teams_per_group: TeamsPerGroup
 
     # Which figure separates two clubs level on points. No default, for the reason above.
     tiebreak_order: Literal["tordifferenz", "direkter_vergleich"]
@@ -184,14 +192,31 @@ class FLActivateSaisonResponse(BaseAPIResponse):
     deactivated: int
 
 
-class FLGenerateSpielplanPayload(BaseModel):
-    """Whether this draw may REPLACE what the season already holds.
+class FLSpielplanShape(BaseModel):
+    """The three rules a season's fixture list is a function of, as this draw is to run from.
 
-    An absent body and `replace: false` are one request -- the first draw -- so no client destroys a
-    season by omission. `REQ-SPIELPLAN-005` bounds a confirmed one.
+    All three or none: the draw is one function of the whole shape, and a payload naming half
+    of it would take the rest off a season about to stop matching it.
+    """
+
+    number_of_groups: NumberOfGroups
+    teams_per_group: TeamsPerGroup
+    qualifiers_per_group: QualifiersPerGroup
+
+
+class FLGenerateSpielplanPayload(BaseModel):
+    """Whether this draw may REPLACE what the season already holds, and the shape it runs from.
+
+    An absent body is a first draw off the season's own rules: nothing is destroyed and no
+    number moves by omission. `REQ-SPIELPLAN-005` bounds a confirmed one.
     """
 
     replace: bool = Field(default=False)
+
+    # ABSENT keeps the season's stored three, which is what drawing off its own rules is. The rest of
+    # `FLSaisonRules` stays `PATCH`'s alone: those rules shaped no fixture, and carrying them here
+    # would give every one of them a second writer.
+    shape: FLSpielplanShape | None = Field(default=None)
 
 
 class FLGenerateSpielplanResponse(BaseAPIResponse):
@@ -205,3 +230,16 @@ class FLGenerateSpielplanResponse(BaseAPIResponse):
     spieltage: int = Field(ge=0)
     spiele: int = Field(ge=0)
     generiert_am: CustomDateString
+
+
+class FLUndrawSpielplanResponse(BaseAPIResponse):
+    """What removing the season's Spielplan took away, on the shape the draw reports.
+
+    Both counts are zero on a season already undrawn, which is why the watermark is reported apart:
+    it is the one thing a season can hold with neither collection behind it.
+    """
+
+    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    spieltage: int = Field(ge=0)
+    spiele: int = Field(ge=0)
+    watermark_cleared: bool

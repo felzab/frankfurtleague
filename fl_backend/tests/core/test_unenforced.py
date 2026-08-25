@@ -188,12 +188,20 @@ def _swap(**overrides: Any):
 # which is how a removal would arrive without naming one.
 DRIVER_REMOVALS = frozenset({"bulk_write", "delete_many", "delete_one", "drop", "drop_collection", "find_one_and_delete"})
 
-# The half `app/core/crud.py` implements a helper for, and the only half any module may call. Its
-# complement is banned everywhere, that module included.
-RECORDED_REMOVALS = frozenset({"delete_many", "delete_one"})
+# The ONE `app/core/crud.py` implements helpers for -- `delete_many_from_db` and `erase_many_from_db`
+# both call it -- and so the only removal any module may make. Its complement is banned everywhere,
+# that module included.
+RECORDED_REMOVALS = frozenset({"delete_many"})
 
 # `app/core/recording.py` writes the log's own rows and removes nothing, so it is not among these.
 REMOVAL_MODULES = ("app/core/crud.py",)
+
+# A retention sweep would call one of these selecting on an age, a shape the module rule above
+# cannot refuse: the call would sit in a router, exactly like every legitimate removal.
+REMOVAL_HELPERS = frozenset({"delete_many_from_db", "erase_many_from_db"})
+
+# The day a row retired, and so the field a retention sweep would select on.
+RETIREMENT_FIELD = "inactive_since"
 
 # `app/core/crud.py`'s writing half: a call to one of these is where a document changes.
 WRITE_HELPERS = frozenset({"insert_live", "patch_many_in_db", "patch_one_in_db", "post_one_to_db", "set_inactive_since"})
@@ -289,6 +297,29 @@ def _literal_writes_of(field: str) -> set[tuple[str, str]]:
                         writes.add((scope, str(value.value) if isinstance(value, ast.Constant) else "<composed>"))
 
     return writes
+
+
+def _removal_filter_strings() -> set[str]:
+    """Every string a removal helper's literal `db_filter` names.
+
+    The FILTER alone: `REQ-PURGE-001` reads `inactive_since` as the erasure's PRECONDITION, and
+    SELECTING on it is the sweep. Operators ride along, so a field nested under `$and` is seen.
+    """
+
+    named: set[str] = set()
+    for _, _, call in _app_calls():
+        if _callee(call) not in REMOVAL_HELPERS:
+            continue
+
+        for keyword in call.keywords:
+            if keyword.arg != "db_filter":
+                continue
+
+            # A LITERAL filter, which is every removal the application makes today. One composed
+            # into a variable would pass unseen, as `_literal_writes_of` is bounded the same way.
+            named |= {node.value for node in ast.walk(keyword.value) if isinstance(node, ast.Constant) and isinstance(node.value, str)}
+
+    return named
 
 
 def _opens_a_transaction(node: ast.AST) -> bool:
@@ -450,10 +481,10 @@ class TestNoBracketFaultIsStored:
 
 
 class TestNoPurgeReachesARetiredRow:
-    """That a removal reaches the driver from `app/core/crud.py` alone, the module recording what it removes.
+    """That a removal reaches the driver from `app/core/crud.py` alone, and that none selects on an age.
 
-    Deletion is that module's removal helpers and `inactive_since`, so a purge built later is logged
-    by construction rather than by discipline.
+    Deletion is that module's removal helpers and `inactive_since`, so a purge built later is
+    logged by construction, and no retention sweep stands here.
     """
 
     def test_a_removal_reaches_the_driver_from_one_module_alone(self):
@@ -466,12 +497,25 @@ class TestNoPurgeReachesARetiredRow:
 
         assert reaching_the_driver
 
-        # The four `app/core/crud.py` implements no helper for: a call to one is a removal that
+        # The five `app/core/crud.py` implements no helper for: a call to one is a removal that
         # records nothing, wherever it stands. `drop` and `drop_collection` could not be recorded at
         # all -- neither names a filter, and neither leaves an image.
         assert _driver_calls(DRIVER_REMOVALS - RECORDED_REMOVALS) == []
 
         assert [call for call in reaching_the_driver if not call.startswith(REMOVAL_MODULES)] == []
+
+    def test_no_removal_selects_on_the_day_a_row_retired(self):
+        """A sweep's SHAPE, never a count of its callers: the module rule above admits one written inside `app/core/crud.py`."""
+
+        selected_on = _removal_filter_strings()
+
+        # The floor is a filter being seen at all: a sweep reading the wrong keyword would match
+        # nothing and pass the assertion below over any application, retention sweep included.
+        assert selected_on
+
+        # What BE-12 would remove BY. The erasure names a person and the replace names a season, so
+        # a new caller of either helper is free -- selecting on an AGE is the one shape refused.
+        assert RETIREMENT_FIELD not in selected_on, f"a removal selects on {RETIREMENT_FIELD}, which is the retention sweep nothing here builds"
 
 
 class TestAGroupPhaseEveryClubLeaves:
@@ -538,13 +582,20 @@ class TestAPersonWithNoSquadRow:
         assert not {"saison_id", "team_id"} & set(FLPostSpielerPayload.model_fields)
 
     def test_the_squad_rule_governs_the_row_rather_than_its_absence(self):
-        """The person create against the two squad-row writes: `REQ-SQUAD-001` is asked where a row is written and nowhere else."""
+        """The person create against the three squad-row writes: `REQ-SQUAD-001` is asked where a row is written and nowhere else."""
 
         # `refuse` is how a write path raises a `WriteRefusal`, so a create reaching none is a create
         # no rule can stop -- which is the state this entry permits.
         assert "refuse" not in _calls_of(post_spieler)
 
-        assert _callers_of(_module_of(post_spieler), find_squad_refusal.__name__) == {"post_saison_spieler", "patch_saison_spieler"}
+        # The REACTIVATE for the same reason as the other two: a club replacement retires the
+        # outgoing club's rows without moving their `team_id`, so reviving one restores a live row
+        # for a club the season no longer holds -- the state `REQ-SQUAD-001` refuses.
+        assert _callers_of(_module_of(post_spieler), find_squad_refusal.__name__) == {
+            "post_saison_spieler",
+            "patch_saison_spieler",
+            "reactivate_saison_spieler",
+        }
 
 
 # The junction as the refusal reads it: the season's own name for the club, and the day it left.
