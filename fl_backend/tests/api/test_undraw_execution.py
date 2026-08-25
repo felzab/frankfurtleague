@@ -531,7 +531,7 @@ class TestAnUndrawOfASeasonHoldingNoSpielplan:
         assert undrawn.response.watermark_cleared is False
 
     def test_a_watermark_standing_with_no_fixtures_behind_it_is_cleared_and_reported(self, mongo_replica_set_url: str):
-        """Report the clear off the counts and this fails: the one thing removed here is the claim, and I13 says report it."""
+        """Report the clear off the counts and this fails: the one thing removed here is the claim, and `docs/backend/spec.md :: I13` says report it."""
 
         seed = Seed(saison=saison_document(spielplan={"generiert_am": TODAY, "spieltage": 8, "spiele": 67}))
         undrawn = an_undraw_of(mongo_replica_set_url, seed=seed)
