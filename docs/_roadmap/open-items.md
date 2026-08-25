@@ -73,10 +73,12 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 18  | LOG-2 | A cached read's call joins to no render                        | FE, BE, Ops     | L      | Open     | —          |
 | 19  | FB-18 | Only the match editor marks a field somebody waits on          | FE, BE          | L      | Open     | —          |
 | 20  | BE-12 | Nothing purges a row whose `inactive_since` is old             | BE, DB          | M      | Open     | —          |
-| 21  | BE-24 | An unnarrowed squad read scans an unindexed collection         | BE              | S      | Open     | —          |
-| 22  | FE-20 | Search parameters default against an absent value              | FE              | S      | Open     | —          |
-| 23  | BE-7  | `typing` imports instead of `collections.abc`                  | BE              | —      | Decided  | —          |
-| 24  | BE-14 | The certainty walk gives up in a group of six or more          | BE              | —      | Standing | —          |
+| 21  | BE-25 | A club's street address is served to an anonymous caller       | BE              | S      | Open     | —          |
+| 22  | BE-26 | Two rule summaries name a fixture state the code excludes      | BE              | S      | Open     | —          |
+| 23  | BE-24 | An unnarrowed squad read scans an unindexed collection         | BE              | S      | Open     | —          |
+| 24  | FE-20 | Search parameters default against an absent value              | FE              | S      | Open     | —          |
+| 25  | BE-7  | `typing` imports instead of `collections.abc`                  | BE              | —      | Decided  | —          |
+| 26  | BE-14 | The certainty walk gives up in a group of six or more          | BE              | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1100,7 +1102,59 @@ than rediscovered.
 `saisons`, `saison_teams` and `spieltage` carry no such field and need none: none of them has a
 delete at all, so none can accumulate a row to purge.
 
-### 21 · BE-24 — An unnarrowed squad read scans an unindexed collection to learn what it may not serve
+### 21 · BE-25 — A club's street address is served to an anonymous caller
+
+**Status:** Open\
+**Surfaces:** BE\
+**Effort:** S\
+**Path:** Independent — one response model, and the decision below is what any change to it has to
+be argued against.
+
+**`GET /teams` and `GET /teams/{team_id}` serve `FLTeam` on the base tier, and it carries `address`,
+`full_name` and `website_url`.** `fl_backend/app/api/teams/schemas.py :: FLTeam` composes from
+`_TeamWritable` and inherits all three, so a club's postal address reaches an unauthenticated caller
+on both reads.
+
+**Nothing is over-served today.** `/dashboard/teams/[team_id]` renders the address through
+`TeamIdentityCard`, so the field has a surface that needs it, and no `READ-*` rule covers a club's
+address — `READ-ADDRESS-001` governs a VENUE's and says that one is public through `maps_link`.
+
+**What is owed is a decision, not a fix.** The read-projection work stated the principle that a
+public model is an allow-list of what its surface renders, and argued the standings row down to
+`FLGruppenTeam` on the ground that _"a club's address is a school's street"_. That argument reaches
+`FLTeam` too, and `format=list` in particular serves the address for every club in a season to a
+caller rendering none of them. Either the list shape is narrowed the way the standings row was, or
+the reasoning is written down as not applying here. **Leaving it unstated is the thing to avoid**,
+because the next reader re-derives it from scratch.
+
+### 22 · BE-26 — Two rule summaries name a fixture state the code excludes
+
+**Status:** Open\
+**Surfaces:** BE\
+**Effort:** S\
+**Path:** Independent — two `summary=` strings, and one decision about which reading is right.
+
+**`REQ-SWAP-002` and `REQ-SWAP-004` in `fl_backend/app/core/domain.py :: RULES` both read _"played,
+called off or given a goal count"_.** The refusal they describe is
+`fl_backend/app/api/teams/services.py :: find_gruppe_swap_refusal`, over
+`fl_backend/app/api/spiele/schemas.py :: SONDEREREIGNIS_PRODUCING_A_RECORD`, which holds
+`abgebrochen`, `nichtantreten_team1` and `nichtantreten_team2`. **`ausgefallen` — which is what
+"called off" names — is not in it**, so a called-off fixture does not block a swap and the summaries
+say it does.
+
+**Nothing catches it.** `fl_backend/tests/core/test_domain.py` resolves each rule's `implemented_by`
+and `tested_by` and asserts the code appears in both, and reads no `summary=` string; the gate
+compares no sentence against the code it describes. The register is also what
+`docs/logging/error-codes.md` and the frontend's German are written from, so the wrong reading
+propagates rather than staying put.
+
+**Decide which is wrong before editing either.** If the summaries are right, the constant is missing
+`ausgefallen` and a swap is being allowed after a fixture nobody will replay. If the constant is
+right, the summaries want "abandoned" in place of "called off". The constant's own comment argues
+that a called-off fixture is one that never took place, which points at the summaries — but that is
+a domain call and it is not recorded anywhere.
+
+### 23 · BE-24 — An unnarrowed squad read scans an unindexed collection to learn what it may not serve
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -1140,7 +1194,7 @@ What pays is a caller reaching the API directly.
 `LIST_LIMIT_DEFAULT` and raises where it gets it, because a truncated set narrows on fewer seasons than
 exist ([`docs/backend/spec.md`](../backend/spec.md) I45).
 
-### 22 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
+### 24 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1170,7 +1224,7 @@ I rejected is that the framework may omit the value on some render path, which n
 is what a reader has to decide about every time this function is edited, and this function is what
 every season-scoped page opens with.
 
-### 23 · BE-7 — `typing` imports instead of `collections.abc`
+### 25 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -1183,7 +1237,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 24 · BE-14 — The certainty walk gives up in a group of six or more
+### 26 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
