@@ -1248,9 +1248,12 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "No validator sees two documents, and the index that comes closest -- a partial unique one on "
             "`status: active` -- delivers at-most-one rather than exactly-one, so a league with no active "
             "season would still satisfy it, and it would make the activation's write order load-bearing: "
-            "demote the incumbent first or the index refuses the promotion. It holds instead because "
+            "demote the incumbent first or the index refuses the promotion. What stands instead is that "
             "`activate_saison` is the only path that can write `active` -- `post_saison` writes the create's "
-            "`future` and nothing else touches the field -- and it demotes and promotes in one transaction."
+            "`future` and nothing else touches the field -- and that it demotes and promotes in one transaction. "
+            "That is weaker than at-most-one, and parts from it on the same case: where NOTHING holds `active` "
+            "the demotion matches nothing and writes nothing, so two concurrent rollovers have disjoint write "
+            "sets and both commit, leaving two seasons `active`."
         ),
         near=("REQ-ACTIVATE-001",),
         proven_by="tests/core/test_unenforced.py::TestExactlyOneActiveSeason",

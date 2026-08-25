@@ -14,14 +14,10 @@ NESTED_PAYLOAD_BLOCKS: Mapping[str, type[BaseModel]] = {
 
 
 def spiel_patch_body(stored: Mapping[str, Any], **overrides: Any) -> dict[str, Any]:
-    """`stored` as the editor would submit it, plus `overrides` — so a case overriding nothing is the no-op save.
+    """`stored` as the editor would submit it; overriding nothing gives the no-op save.
 
-    Handing the DOCUMENT to the payload instead would test a request nobody makes: the admin draft
-    carries each block's display copies for the pickers, and
-    `fl_frontend/src/features/spiele/schemas.ts :: FLPatchSpielDataPayloadSchema` strips them before
-    the body is built. Keyed off the payload's own field set, which is also what drops `spiel_id`.
-    Indexing rather than `.get` inside a block, so a stored one missing a field the payload needs
-    fails here rather than downstream.
+    Not the document: `fl_frontend/src/features/spiele/schemas.ts :: FLPatchSpielDataPayloadSchema`
+    strips the draft's display copies before it sends one.
     """
 
     body: dict[str, Any] = {field: stored.get(field) for field in FLPatchSpielDataPayload.model_fields}
@@ -29,6 +25,8 @@ def spiel_patch_body(stored: Mapping[str, Any], **overrides: Any) -> dict[str, A
     for key, block in NESTED_PAYLOAD_BLOCKS.items():
         stored_block = body.get(key)
         if stored_block is not None:
+            # Indexed rather than `.get`, so a stored block missing a field the payload needs fails
+            # here rather than downstream on a body that looks well formed.
             body[key] = {field: stored_block[field] for field in block.model_fields}
 
     return {**body, **overrides}

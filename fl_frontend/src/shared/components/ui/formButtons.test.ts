@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import tailwind from "@tailwindcss/postcss";
 import postcss from "postcss";
 
-import { ctaButton, formButton } from "./formButtons";
+import { confirmButton, ctaButton, formButton } from "./formButtons";
 
 import type { AtRule, Container, Document, Root, Rule } from "postcss";
 
@@ -207,6 +207,38 @@ describe("the press HeroUI scales and the recipe has to suppress", () => {
       escaped.every((escape) => escape.unlayered),
       "the escape has fallen into a cascade layer and can no longer win",
     );
+  });
+});
+
+describe("the fill that grades a two-press confirm's next press", () => {
+  /* The only thing that looks different once `ConfirmReveal` opens. Swap the ternary and every
+     resting control wears the destructive fill while every armed one wears the ordinary — the one
+     signal, backwards. */
+  it("puts the destructive fill on the armed press and the submit fill on the resting one", () => {
+    const armed = classesOf(confirmButton(true));
+    const resting = classesOf(confirmButton(false));
+
+    /** What one intent emits and the other does not, so the shared base is never what is compared. */
+    const only = (intent: "destructive" | "submit"): string[] => {
+      const other = classesOf(formButton({ intent: intent === "submit" ? "destructive" : "submit" }));
+      return [...classesOf(formButton({ intent }))].filter((className) => !other.has(className));
+    };
+
+    const destructive = only("destructive");
+    const submit = only("submit");
+    // Below this the two intents no longer differ at all, and every loop under it would run empty.
+    assert.ok(destructive.length > 0, "the destructive intent emits nothing the submit one does not");
+    assert.ok(submit.length > 0, "the submit intent emits nothing the destructive one does not");
+
+    for (const className of destructive) {
+      assert.ok(armed.has(className), `the armed press has lost the destructive \`${className}\``);
+      assert.ok(!resting.has(className), `the resting press wears the destructive \`${className}\``);
+    }
+
+    for (const className of submit) {
+      assert.ok(resting.has(className), `the resting press has lost the ordinary \`${className}\``);
+      assert.ok(!armed.has(className), `the armed press wears the ordinary \`${className}\``);
+    }
   });
 });
 

@@ -290,7 +290,7 @@ def _calls_of(function: Callable[..., Any]) -> set[str]:
 
 
 class TestExactlyOneActiveSeason:
-    """That no store-level constraint holds two seasons apart, and that one transaction is the whole of what does."""
+    """That no store-level constraint holds two seasons apart, and that one transaction is the whole of what the app does."""
 
     def test_no_unique_index_reaches_the_status_field(self):
         # The floor: `saisons` carries no unique index at all, so what proves the sweep read
@@ -454,8 +454,8 @@ class TestNoPurgeReachesARetiredRow:
         # nothing and pass the assertion below over any application, retention sweep included.
         assert selected_on
 
-        # What BE-12 would remove BY. The erasure names a person and the replace names a season, so
-        # a new caller of either helper is free -- selecting on an AGE is the one shape refused.
+        # The shape a retention sweep would select by. The erasure names a person and the replace a
+        # season, so a new caller of either helper is free -- selecting on an AGE is what is refused.
         assert RETIREMENT_FIELD not in selected_on, f"a removal selects on {RETIREMENT_FIELD}, which is the retention sweep nothing here builds"
 
 

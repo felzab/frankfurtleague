@@ -16,6 +16,15 @@ REMOVAL_HELPERS = frozenset({"delete_many_from_db", "erase_many_from_db"})
 # `app/core/crud.py`'s writing half: a call to one of these is where a document changes.
 WRITE_HELPERS = frozenset({"insert_live", "patch_many_in_db", "patch_one_in_db", "post_many_to_db", "post_one_to_db", "set_inactive_since"})
 
+# `app/core/crud.py`'s reading half: a call to one of these is where the application learns what it
+# then judges against.
+READ_HELPERS = frozenset({"aggregate_many_from_db", "pull_many_from_db", "pull_one_from_db"})
+
+# The driver's own reads. Routers call these directly where a helper's contract does not fit -- a
+# miss that is no 404, a count nothing needs the documents for -- so a sweep reading only the names
+# above would pass over most of what a transaction judges.
+DRIVER_READS = frozenset({"aggregate", "count_documents", "distinct", "find", "find_one"})
+
 # How a removal's `collection=` argument spells the collection it runs on, every router declaring
 # its dependencies this way.
 COLLECTION_ARGUMENT_SUFFIX = "_collection"
@@ -48,6 +57,37 @@ def declared(function: Callable[..., Any]) -> ast.FunctionDef | ast.AsyncFunctio
     return found[0]
 
 
+def crud_helpers_taking_a_session() -> frozenset[str]:
+    """Every `app/core/crud.py` helper whose own signature takes a `session`, read off that signature.
+
+    What holds the three name sets above complete: a helper none of them names is a call site every
+    sweep here passes over in silence.
+    """
+
+    return frozenset(
+        node.name
+        for node in parsed(APP_ROOT / "core" / "crud.py").body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        if any(argument.arg == "session" for argument in [*node.args.args, *node.args.kwonlyargs])
+    )
+
+
+@functools.cache
+def app_declares() -> frozenset[str]:
+    """Every function the application declares, by name.
+
+    What separates a call handing the session to a helper of the application's own -- which answers
+    for its reads under its own declaration -- from one this file has no word for.
+    """
+
+    return frozenset(
+        node.name
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        for node in ast.walk(parsed(path))
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    )
+
+
 def callee(call: ast.Call) -> str:
     """The name at a call site: the attribute where a driver method is called on a collection, the bare name for a helper."""
 
@@ -55,6 +95,30 @@ def callee(call: ast.Call) -> str:
         return call.func.attr
 
     return call.func.id if isinstance(call.func, ast.Name) else ""
+
+
+def carries_session(call: ast.Call) -> bool:
+    """Whether one call site hands the session along -- the keyword whose absence reads or commits outside the transaction around it."""
+
+    return any(keyword.arg == "session" for keyword in call.keywords)
+
+
+def reads_the_database(call: ast.Call) -> bool:
+    """Whether one call site reads this database.
+
+    A helper answers by name alone. A driver read answers only where the receiver is a
+    `*_collection` dependency, `find` being a method name anything at all may carry.
+    """
+
+    if callee(call) in READ_HELPERS:
+        return True
+
+    return (
+        callee(call) in DRIVER_READS
+        and isinstance(call.func, ast.Attribute)
+        and isinstance(call.func.value, ast.Name)
+        and call.func.value.id.endswith(COLLECTION_ARGUMENT_SUFFIX)
+    )
 
 
 def calls_in(node: ast.AST, scope: str) -> Iterator[tuple[str, ast.Call]]:
@@ -145,20 +209,31 @@ def removals() -> list[Removal]:
 # application is opened this way, and the writes sit in the callback rather than under it.
 TRANSACTION_RUNNER = "with_transaction"
 
+# What a callback's docstring says when everything it decides on is read through the session. The
+# promise a reader is given, so it is the promise a sweep has to be able to reach.
+IN_SESSION_PROMISE = "in-session"
+
 
 @dataclass(frozen=True)
 class TransactionalCallback:
-    """One `with_transaction` callback, and the writes it makes ITSELF, each with whether it carries the session."""
+    """One `with_transaction` callback, and the reads and writes it makes ITSELF, each with whether it carries the session."""
 
     where: str
     writes: tuple[tuple[str, bool], ...]
+    reads: tuple[tuple[str, bool], ...]
+    #: Whether the docstring claims an in-session judgement. A claim no read here answers for is
+    #: the one shape a clause over these can pass while proving nothing.
+    promises_in_session: bool
+    #: What hands `session=` on and is none of the above: neither read nor write nor a call to a
+    #: helper of the application's own, and so a way to the database no set here names.
+    unplaced: tuple[str, ...]
 
 
 def transactional_callbacks(session_taking: frozenset[str]) -> list[TransactionalCallback]:
     """Every callback the application runs inside a transaction.
 
-    Its OWN body: a write a helper it calls makes answers under that helper, and following those
-    would take a call graph rather than a sweep.
+    Its OWN body: a read or a write a helper it calls makes answers under that helper, and following
+    those would take a call graph rather than a sweep.
     """
 
     found: list[TransactionalCallback] = []
@@ -180,13 +255,25 @@ def transactional_callbacks(session_taking: frozenset[str]) -> list[Transactiona
             )
             callback = found_names[0]
 
+            # A comprehension's body is attributed to the function around it rather than to a scope
+            # of its own, so the reads a `[... async for row in ...]` makes are the callback's here.
+            own = [inner for scope, inner in calls_in(callback, handed) if scope == handed]
+
             found.append(
                 TransactionalCallback(
                     where=f"{module} :: {handed}",
-                    writes=tuple(
-                        (callee(inner), any(keyword.arg == "session" for keyword in inner.keywords))
-                        for scope, inner in calls_in(callback, handed)
-                        if scope == handed and callee(inner) in session_taking
+                    writes=tuple((callee(inner), carries_session(inner)) for inner in own if callee(inner) in session_taking),
+                    reads=tuple((callee(inner), carries_session(inner)) for inner in own if reads_the_database(inner)),
+                    promises_in_session=IN_SESSION_PROMISE in (ast.get_docstring(callback) or ""),
+                    unplaced=tuple(
+                        callee(inner)
+                        for inner in own
+                        if carries_session(inner)
+                        and callee(inner) not in session_taking
+                        and not reads_the_database(inner)
+                        # A bare name, so a driver method the sets above do not name can never be
+                        # excused by an application function that happens to share its spelling.
+                        and not (isinstance(inner.func, ast.Name) and callee(inner) in app_declares())
                     ),
                 )
             )

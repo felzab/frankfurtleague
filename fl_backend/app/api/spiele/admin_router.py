@@ -254,8 +254,8 @@ async def patch_spiel_data(
         # cannot quietly skip the date rule over a fixture they already stood on.
         stored = stored_in_slice(spiel_id, season)
 
-        # `find_one` directly, because `pull_one_from_db` takes no session, and the session is
-        # what makes a matchday widened by a concurrent write visible.
+        # `find_one` directly, because `pull_one_from_db` raises on a miss and this branches on one.
+        # The session is what makes a matchday widened by a concurrent write visible.
         spieltag_raw = await spieltage_collection.find_one(
             {"_id": stored.spieltag_id},
             {"beginn": 1, "ende": 1},

@@ -4,11 +4,13 @@ import { Label, ListBox, Select } from "@heroui/react";
 
 import { FIELD_LABEL, FIELD_TRIGGER } from "./formFieldStyles";
 import { overlayPanel } from "./overlayPanel";
+import { pickIfOffered } from "./refusableOption";
 
 import type { Key } from "@heroui/react";
+import type { RefusableOption } from "./refusableOption";
 
-/** One row of the list. `refusal` is why it cannot be taken, and `meta` what the row says otherwise. */
-export type RefusableOption = { id: string; name: string; meta: string | null; refusal: string | null };
+/** Re-exported: a panel imports the option shape from the picker it hands the options to. */
+export type { RefusableOption };
 
 /**
  * A select whose refused rows stay VISIBLE and disabled rather than disappearing, each carrying its
@@ -34,10 +36,10 @@ export function RefusableSelect({
   className?: string;
 }) {
   const handleChange = (key: Key | null) => {
-    const picked = options.find((option) => option.id === key?.toString());
-    // The refusal is re-read rather than left to `isDisabled` alone: a pick arriving past a closed
-    // row is one every caller's endpoint refuses.
-    if (picked && picked.refusal === null) onChange(picked.id);
+    // The whole decision is `pickIfOffered`'s, where a unit test can reach it: this component cannot
+    // be rendered by the test runner, and the re-read of `refusal` is the only guard left.
+    const offered = pickIfOffered(options, key?.toString() ?? null);
+    if (offered !== null) onChange(offered);
   };
 
   return (

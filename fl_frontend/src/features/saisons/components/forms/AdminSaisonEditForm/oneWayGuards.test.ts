@@ -19,17 +19,16 @@ const PANELS = [
 
 describe("the season editor's one-way panels", () => {
   it("reads a panel body out of each file before asserting over it", () => {
-    // A slice that came back empty would let every case below pass over nothing, which is how three
-    // refusal tests on this branch were found green while proving no such thing.
+    // The floor for the case below, whose `doesNotMatch` half passes over an empty string: a source
+    // that came back empty would prove nothing.
     for (const panel of PANELS) {
       assert.ok(panel.source.includes("useTwoPressConfirm"), `${panel.name}: not a two-press panel`);
     }
   });
 
-  /* Asserted over the set, because the set is what went wrong: the panels were given the arming-press
-     guard in one edit and only one was later moved to guard both presses. The ORDER those guards run
-     in is the hook's own and is pinned once at `shared/hooks/useTwoPressConfirm.test.ts`; what stays
-     here is that each panel actually hands its guard over rather than checking it itself. */
+  /* Over the set, not one panel: what this catches is one panel arming itself while its neighbours
+     delegate. The order the two guards run in is the hook's own, pinned at
+     `shared/hooks/useTwoPressConfirm.test.ts`. */
   it("hands its draft guard to the shared hook rather than arming on its own", () => {
     for (const panel of PANELS) {
       assert.match(panel.source, new RegExp(`useTwoPressConfirm\\(${panel.guard}\\)`), `${panel.name}: guard not passed to the hook`);

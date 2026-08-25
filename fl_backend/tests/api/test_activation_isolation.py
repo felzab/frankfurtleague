@@ -89,10 +89,10 @@ def entry_rows(saison_id: str) -> list[dict[str, Any]]:
 
 
 class SeasonsRunningAHookBeforeTheRollover:
-    """The seasons collection, running one hook immediately before the demotion the rollover begins with.
+    """A `saisons` stand-in running one hook just before the demotion, so the interleaving is a fact rather than a race.
 
-    A stand-in rather than a subclass: Motor builds a collection off a database handle, so what the
-    endpoint is handed has to answer every other call by delegating.
+    Not a subclass: Motor builds a collection off a database handle, so it has to answer every
+    other call by delegating.
     """
 
     def __init__(self, inner: Any, hook: Callable[[], Awaitable[Any]]) -> None:
@@ -210,10 +210,10 @@ async def call_activate(
 
 
 async def rollover_under(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, hook: Callable[[], Awaitable[Any]]) -> tuple[str, int]:
-    """Roll the league over with `hook` landing between the judgement and the write, reporting what the endpoint did and how often it judged.
+    """`hook` lands between the rollover's judgement and its write.
 
     Only a refusal is caught: a write conflict reaching the caller is a retry that never happened,
-    and it has to surface as itself rather than as a rollover that declined.
+    and must surface as itself rather than a rollover that declined.
     """
 
     seasons = SeasonsRunningAHookBeforeTheRollover(database[Collection.SAISONS], hook)
@@ -248,11 +248,9 @@ async def fixtures_now(database: AsyncIOMotorDatabase, saison_id: str) -> int:
 
 
 class TestADrawLandingMidRolloverIsJudgedAgain:
-    """Two administrators on one league: the outgoing season owes nothing when the rollover judges, and owes a whole Spielplan when it writes.
+    """The outgoing season owes nothing when the rollover judges, and a whole Spielplan when it writes.
 
-    The hook makes the interleaving a fact rather than a race -- the draw runs to completion inside
-    the very call the demotion is made from. `REQ-ACTIVATE-002` makes what a missed judgement writes
-    permanent: a season moved to `past` holding unplayed fixtures can be activated by nothing.
+    A missed judgement is unrecoverable: `REQ-ACTIVATE-002` never promotes a `past` season back.
     """
 
     def test_the_rollover_is_refused_on_the_fixtures_drawn_under_it(self, mongo_replica_set_url: str):
@@ -276,9 +274,8 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
         )
 
         # `REQ-ACTIVATE-001` reads the outgoing season's fixtures, and it held none when this request
-        # first judged: the refusal can only come from a judgement made after the draw committed.
-        # Paired with the statuses, so a rollover that lands names what it left behind -- a season
-        # moved to `past` holding fixtures nobody has played, which no endpoint can undo.
+        # first judged, so only a second judgement can refuse. The statuses ride along, naming the
+        # `past` season a landed rollover left unplayed.
         assert (outcome, statuses) == (ACTIVATE_SAISON_UNFINISHED, {OUTGOING: "active", TARGET: "future"})
         assert season_reads == 2, "the callback judged once, so the write conflicted without being re-judged"
 
@@ -316,15 +313,9 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
 
 
 class TestARivalRolloverLandingMidRolloverIsJudgedAgain:
-    """The target holds `active` when the rollover judges and `past` when it writes, another administrator having promoted a rival.
+    """The target holds `active` when the rollover judges and `past` when it writes, a rival having been promoted.
 
-    `REQ-ACTIVATE-002` is what a missed judgement breaks here: the points, the groups and the table
-    of a finished season are the record of what happened, and promoting it back reopens all three.
-
-    Two incumbents are seeded, the state `tests/core/test_unenforced.py::TestExactlyOneActiveSeason`
-    holds no store-level constraint against. Without the second one this case proves nothing: the
-    only write left would be `{"status": "active"}` onto a target this request's own snapshot still
-    reads as active, which changes no field, takes no write conflict and is never re-judged.
+    Two seasons hold `active` here, which `app/core/domain.py :: UNENFORCED` says nothing prevents.
     """
 
     def test_a_target_demoted_under_the_rollover_is_refused_as_past(self, mongo_replica_set_url: str):
@@ -341,8 +332,9 @@ class TestARivalRolloverLandingMidRolloverIsJudgedAgain:
         outcome, season_reads, statuses, unplayed = on_a_league(
             mongo_replica_set_url,
             body,
-            # Re-activating an incumbent is the operation: nothing else leaves a target another
-            # rollover can demote out from under it.
+            # Both incumbents matter: a rival's rollover demotes the target out from under this one,
+            # and with only one seeded the demotion matches nothing -- the promotion then changes no
+            # field, takes no write conflict and is never re-judged.
             saisons=[saison_document(OUTGOING, "active"), saison_document(TARGET, "active"), saison_document(RIVAL, "future")],
             entered=(OUTGOING, TARGET, RIVAL),
             drawn=(OUTGOING, TARGET, RIVAL),

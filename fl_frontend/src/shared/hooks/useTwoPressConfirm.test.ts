@@ -1,59 +1,169 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { describe, it } from "node:test";
+import { registerHooks } from "node:module";
+import { before, beforeEach, describe, it } from "node:test";
+
+// Type-only, so nothing is imported at load: the hook module is pulled in from `before`, below.
+import type { useTwoPressConfirm } from "./useTwoPressConfirm.ts";
+
+/** The one `useState` cell, held across the presses of a test the way a mounted component holds it. */
+let cell: unknown;
+let cellFilled = false;
+let inFlight = false;
 
 /**
- * Source text rather than a render: the repository has no DOM runner, and every claim below is about
- * the ORDER of statements inside `press`, which no exported value carries.
+ * The renderer, in the two hooks `press` actually needs. It is DRIVEN rather than read here because a
+ * source-order assertion is satisfied by an arming branch that no longer exits.
  */
-const SOURCE = readFileSync(path.resolve(import.meta.dirname, "useTwoPressConfirm.ts"), "utf8");
+export function useState<T>(initial: T | (() => T)): [T, (next: T) => void] {
+  if (!cellFilled) {
+    cell = typeof initial === "function" ? (initial as () => T)() : initial;
+    cellFilled = true;
+  }
+  // The setter writes the cell and re-renders nothing: a later `render()` reads it back, which is
+  // React's own sequence and what makes two presses two separate reads of the armed state.
+  return [cell as T, (next: T) => void (cell = next)];
+}
 
-/** The press handler alone, up to the return that follows it. */
-const PRESS = (SOURCE.split("const press = (write: () => Promise<void>) => {")[1] ?? "").split("return {")[0] ?? "";
+export function useTransition(): [boolean, (scope: () => void) => void] {
+  return [
+    inFlight,
+    (scope) => {
+      inFlight = true;
+      void Promise.resolve(scope() as unknown).finally(() => (inFlight = false));
+    },
+  ];
+}
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    // Narrowed to the file under test, so nothing else loaded in this process loses React.
+    if (specifier === "react" && context.parentURL !== undefined && context.parentURL.endsWith("/useTwoPressConfirm.ts")) {
+      return { url: import.meta.url, shortCircuit: true };
+    }
+    return nextResolve(specifier, context);
+  },
+});
+
+type Control = ReturnType<typeof useTwoPressConfirm>;
+
+/* Loaded from `before`, never at the top level: the hook's `react` import resolves back into THIS
+   module, and a top-level await would still be running. Renamed off `use`, which is the whole of what
+   `react-hooks/rules-of-hooks` grades a call site by. */
+let twoPressConfirm!: typeof useTwoPressConfirm;
+
+before(async () => {
+  twoPressConfirm = (await import("./useTwoPressConfirm.ts")).useTwoPressConfirm;
+});
+
+/** One render pass. React reads the cell fresh on each, and so does the stub above. */
+const render = (guard?: () => boolean): Control => twoPressConfirm(guard);
+
+/** One turn of the loop — long enough for a settled write's continuation to have run. */
+const settled = (): Promise<void> => new Promise<void>((resolve) => void setTimeout(resolve, 0));
+
+/** A write the test finishes by hand, so an assertion can stand while the request is in flight. */
+function gated(): { write: () => Promise<void>; finish: () => void; calls: () => number } {
+  let calls = 0;
+  let finish = (): void => {};
+  const answered = new Promise<void>((resolve) => (finish = resolve));
+
+  return {
+    write: () => {
+      calls += 1;
+      return answered;
+    },
+    finish: () => finish(),
+    calls: () => calls,
+  };
+}
 
 describe("the two-press confirm", () => {
-  /* First, because a boundary string that stopped matching leaves the slice empty and every
-     assertion over it would then fail for something that is not the defect. */
-  it("cuts the press handler out of the file before reading it", () => {
-    assert.ok(PRESS.includes("startWriting("), "the write is outside the handler's slice");
-    assert.ok(!PRESS.includes("export function"), "the handler's slice runs on past the hook");
+  beforeEach(() => {
+    cellFilled = false;
+    inFlight = false;
   });
 
-  /* Two presses, and the second one writes. Without the arming branch ahead of the write the alert
-     never renders and one press is the whole confirmation, on writes nothing reverses. */
-  it("arms on the first press and writes on the second", () => {
-    const arming = PRESS.indexOf("if (!isConfirming)");
-    const writing = PRESS.indexOf("startWriting(");
+  /* Drop the arming branch's `return` and the FIRST press writes — the whole confirmation gone from
+     eight irreversible operations at once, with the alert never rendered. */
+  it("arms on the first press and writes nothing", () => {
+    const gate = gated();
 
-    assert.ok(arming !== -1, "no arming branch in press");
-    assert.ok(writing !== -1, "press starts no transition");
-    assert.ok(arming < writing, "the first press writes, so the alert never renders");
+    render().press(gate.write);
+
+    assert.equal(gate.calls(), 0, "the first press wrote");
+    assert.equal(render().isConfirming, true, "the first press did not arm the control");
   });
 
-  /* Ahead of the arming branch is the whole of it: a guard behind it runs on the first press only,
-     and an editor's fields stay live until the second one. */
-  it("runs the guard before arming and again before writing", () => {
-    const guard = PRESS.indexOf("!guard()");
-    const arming = PRESS.indexOf("if (!isConfirming)");
+  /* The second press, and exactly one write out of the pair. A press that armed and wrote would
+     report two here. */
+  it("writes exactly once on the second press", async () => {
+    const gate = gated();
 
-    assert.ok(guard !== -1, "press consults no guard");
-    assert.ok(guard < arming, "a draft typed after arming is discarded by the write");
+    render().press(gate.write);
+    render().press(gate.write);
+    gate.finish();
+    await settled();
+
+    assert.equal(gate.calls(), 1, "the pair of presses did not send exactly one write");
   });
 
-  /* A refused guard has to leave the control unarmed as well as unpressed, or the alert stays open
-     saying a write is one press away that the next press will refuse again. */
-  it("disarms the control when the guard refuses", () => {
-    const refusal = (PRESS.split("!guard())")[1] ?? "").split("if (!isConfirming)")[0] ?? "";
+  /* A refused guard leaves the control as it found it. Drop the refusal branch's `return` and the
+     press arms instead: the toast says the draft is unsaved and the control offers the write anyway. */
+  it("neither writes nor arms when the guard refuses the first press", () => {
+    const gate = gated();
 
-    assert.match(refusal, /setIsConfirming\(false\)/);
+    render(() => false).press(gate.write);
+
+    assert.equal(gate.calls(), 0, "a refused guard let the write through");
+    assert.equal(render().isConfirming, false, "a refused guard armed the control");
   });
 
-  /* Clear it before the await and the alert, the destructive fill and the closed cancel all drop the
-     moment the request starts, leaving a pending write with the resting control's appearance. */
-  it("holds the armed state until the write has answered", () => {
-    const body = PRESS.split("startWriting(async () => {")[1] ?? "";
+  /* The guard's second run, which is the whole of why it stands ahead of the arming branch: the
+     editor's fields stay live between the presses, so a draft typed in that window has to refuse
+     the write. Guard the arming press alone and this press sends it. */
+  it("refuses the write when the guard turns down the confirming press", async () => {
+    const gate = gated();
+    let allowed = true;
+    const guard = (): boolean => allowed;
 
-    assert.ok(body.indexOf("await write()") < body.indexOf("setIsConfirming(false)"), "the armed state drops while the write is in flight");
+    render(guard).press(gate.write);
+    allowed = false;
+    render(guard).press(gate.write);
+    await settled();
+
+    assert.equal(gate.calls(), 0, "a draft typed after arming was written over");
+    assert.equal(render().isConfirming, false, "the refusal left the alert standing over a write it refuses again");
+  });
+
+  /* The open alert, the destructive fill and the closed cancel are what say a press is in flight,
+     and clearing the armed state before the response drops all three at once. */
+  it("holds the armed state and reports the write until it answers", async () => {
+    const gate = gated();
+
+    render().press(gate.write);
+    render().press(gate.write);
+
+    const during = render();
+    assert.equal(during.isConfirming, true, "the armed state dropped while the write was in flight");
+    assert.equal(during.isPending, true, "the control does not report its own write in flight");
+
+    gate.finish();
+    await settled();
+
+    const after = render();
+    assert.equal(after.isConfirming, false, "the answered write left the control armed");
+    assert.equal(after.isPending, false, "the answered write left the control reporting a request");
+  });
+
+  /* „Abbrechen“ is offered only while armed, so what it has to do is put the control back where the
+     first press found it. */
+  it("disarms on cancel", () => {
+    const gate = gated();
+
+    render().press(gate.write);
+    render().cancel();
+
+    assert.equal(render().isConfirming, false, "cancel left the control armed");
+    assert.equal(gate.calls(), 0, "cancel wrote");
   });
 });

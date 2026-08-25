@@ -464,13 +464,10 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
         assert aborted.cached is not None
 
     def test_a_log_row_refused_after_the_clear_takes_the_cleared_watermark_back(self, mongo_replica_set_url: str):
-        """Drop `session=` from the watermark clear in `undraw_spielplan` and this fails.
+        """Drop `session=` from the watermark clear and this fails.
 
-        The case above cannot: refusing the `$unset` ITSELF aborts whether or not the write is bound
-        to the transaction. Here the `$unset` succeeds and the log row it writes about itself is what
-        the server refuses -- so an unbound clear has already committed by then, and the abort that
-        restores the fixtures and the matchdays cannot reach it. What that leaves is a season holding
-        a full schedule and claiming none, which `docs/backend/spec.md :: I46` says cannot occur.
+        Not the case above: refusing the `$unset` aborts bound or not. Here it succeeds and its own
+        log row is refused, so an unbound clear would already have committed, past the abort's reach.
         """
 
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> AbortedUndraw:
@@ -561,13 +558,7 @@ def a_season_undrawn_beside_another(url: str) -> NeighbouringSeasons:
 
 
 class TestAnUndrawReachesNoOtherSeason:
-    """That the removals are bounded by their `saison_id`, proved against a season standing beside the one undrawn.
-
-    `delete_many` takes exactly what its filter names, so a `db_filter` that lost its `saison_id`
-    empties both collections outright -- every season's fixtures and every season's matchdays. A
-    suite seeding ONE season cannot tell that apart from a correct removal: everything it counts is
-    scoped to that season and comes back zero either way.
-    """
+    """That the removals are bounded by their `saison_id`, proved against a season standing beside the one undrawn."""
 
     def test_the_neighbours_fixtures_all_survive(self, mongo_replica_set_url: str):
         """Empty the fixture delete's `db_filter` and this fails; with one season seeded, the whole db tier stays green."""
@@ -688,11 +679,10 @@ async def call_patch_spiel(
 
 
 def seeding_payload(stored: dict[str, Any], team_id: ObjectId) -> FLPatchSpielDataPayload:
-    """The editor's own save for taking a bracket slot over: clear `team1_quelle`, then name the club.
+    """The editor's own save for taking a bracket slot over: clear `team1_quelle`, name the club.
 
-    Every other field is resubmitted as stored, the payload being written wholesale -- which is what
-    the admin form posts and what `app/api/spiele/services.py :: find_wiring_refusal` names as the
-    way past a maintained side.
+    Written wholesale, so every field is stated; this is the route
+    `app/api/spiele/services.py :: find_wiring_refusal` names past a maintained side.
     """
 
     return FLPatchSpielDataPayload.model_validate(
@@ -764,11 +754,10 @@ def a_bracket_slot_seeded_by_hand(url: str) -> SeededBracket:
 
 
 class TestABracketSlotSeededByHandKeepsTheWholeSpielplan:
-    """The pre-season work a `future` season accumulates, against the only status either destructive window opens on.
+    """The pre-season work a `future` season accumulates before the first kick-off.
 
-    Seeding the bracket by hand is what an admin does between the draw and the first kick-off, so the
-    window stands open exactly while the data it would destroy is most likely to exist. Nothing else
-    on the fixture changes: no result, no cancellation, no booking, no note and no date.
+    `future` is the only status either destructive window opens on, so the window stands open
+    exactly while the hand-seeded data it would destroy is most likely to exist.
     """
 
     def test_the_pick_reaches_the_document_through_the_ordinary_write_path(self, mongo_replica_set_url: str):

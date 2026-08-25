@@ -29,10 +29,9 @@ export const DECLARED_RULES: readonly DeclaredRule[] = DOMAIN.split("Rule(")
   }));
 
 /**
- * Every refusal one endpoint declares. Matched as whole tokens rather than by substring, because
- * several operations are a prefix of another — `DELETE /spieler/{spieler_id}` of the erasure beside
- * it, `POST /teams/{team_id}/saisons` of the replacement — and a substring match hands one endpoint's
- * codes to its neighbour, in the direction that leaves a real refusal unmapped.
+ * Every refusal one endpoint declares. Whole tokens rather than a substring match: several
+ * operations are a prefix of another, and matching by substring hands one endpoint's codes to its
+ * neighbour, leaving a real refusal unmapped.
  */
 export function declaredCodes(operation: string): string[] {
   const codes = DECLARED_RULES.filter((rule) => rule.operations.includes(operation)).map((rule) => rule.code);
@@ -41,11 +40,10 @@ export function declaredCodes(operation: string): string[] {
 }
 
 /**
- * One declaration's source, up to the declaration named after it — or to the end of the module, for
- * the declaration written last, which is what `to === null` says.
+ * One declaration's source, up to the one named after it — `to === null` reaches the module's end.
  *
- * Empty when either boundary is missing, so a boundary string that stopped matching fails the test
- * that pins the cut rather than every assertion reading the slice.
+ * Empty when either boundary is missing, so a boundary that stopped matching fails the test
+ * pinning the cut, not every assertion reading the slice.
  */
 export function sliceBetween(source: string, from: string, to: string | null): string {
   const start = source.indexOf(from);

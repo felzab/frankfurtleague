@@ -128,12 +128,12 @@ def entry_rows(
 ) -> list[dict[str, Any]]:
     """Every club of a full season as its `saison_teams` row; `short_gruppe` leaves one group a club down.
 
-    The groups are INTERLEAVED, so entry order and group membership disagree: a draw partitioning by
-    list position pairs clubs that never meet. `offset` moves both ObjectId runs along, which is how
-    a second season is seeded holding none of the first's rows and none of its clubs.
+    `offset` moves both ObjectId runs along, seeding a second season that shares no row and no club.
     """
 
     rows: list[dict[str, Any]] = []
+    # Interleaved, so entry order and group membership disagree: a draw partitioning by list
+    # position pairs clubs that never meet.
     for index, (seat, gruppe) in enumerate(product(range(teams), offered_gruppen(groups))):
         if gruppe == short_gruppe and seat == teams - 1:
             continue
@@ -1042,13 +1042,7 @@ def a_season_replaced_beside_another(url: str) -> NeighbouringSeasons:
 
 
 class TestAConfirmedReplaceReachesNoOtherSeason:
-    """That the replace's two deletes are bounded by their `saison_id`, proved against a season standing beside the one redrawn.
-
-    `delete_many` takes exactly what its filter names, so a `db_filter` that lost its `saison_id`
-    empties both collections outright before the redraw writes the subject's fixtures back. A suite
-    seeding ONE season cannot tell that apart from a correct replace: it counts the subject alone,
-    and the subject is whole either way.
-    """
+    """That the replace's two deletes are bounded by their `saison_id`, proved against a season standing beside the one redrawn."""
 
     def test_the_neighbours_fixtures_all_survive(self, mongo_replica_set_url: str):
         """Empty the fixture delete's `db_filter` in `generate_spielplan` and this fails; with one season seeded, nothing does."""

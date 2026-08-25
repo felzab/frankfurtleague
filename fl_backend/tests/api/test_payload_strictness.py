@@ -133,17 +133,22 @@ BODY_CASES = _cases(BODY_MODELS)
 PAYLOAD_SIDE_CASES = _cases(PAYLOAD_SIDE)
 READ_SIDE_CASES = _cases(READ_SIDE)
 
+# The blocks a request body reaches that a read parses too -- exactly where the rule below leaves
+# `extra` lax, and so exactly where an undeclared key is dropped rather than refused.
+LAX_CASES = _cases(model for model in PAYLOAD_SIDE if _a_read_parses_it(model))
+
 # `empty_parameter_set_mark` defaults to skip, so a sweep that matched nothing would pass in silence.
 assert BODY_CASES, "no route declares a request body; the app, or the way a body is declared, has moved"
 assert READ_SIDE_CASES, "nothing is left on the read side; the split between the two has moved"
+assert LAX_CASES, "no payload-side block is lax; the exemption below, and the property holding it safe, no longer have a subject"
 
 
 @pytest.mark.parametrize("label,model", BODY_CASES, ids=[label for label, _ in BODY_CASES])
 def test_a_request_body_refuses_a_key_no_model_declares(label: str, model: type[BaseModel]):
-    """An ignored key hides a typo and hides client drift, and on one payload it chose which fixtures a draw destroyed.
+    """Why an ignored key matters is `docs/backend/spec.md :: I49`; the case here is narrower.
 
-    The other errors here are the missing required fields. What is asserted is that the undeclared
-    key is among the reasons, and reported against itself rather than against something else.
+    Every model raises its missing required fields too, so what is asserted is that the undeclared
+    key is among the reasons and is reported against itself.
     """
 
     with pytest.raises(ValidationError) as failure:
@@ -158,10 +163,7 @@ def test_a_request_body_refuses_a_key_no_model_declares(label: str, model: type[
 def test_a_model_is_strict_exactly_where_no_read_parses_it(label: str, model: type[BaseModel]):
     """The whole taxonomy as ONE equivalence, rather than two lists somebody has to keep in step.
 
-    Strict wherever nothing but a request body reaches the class. Lax the moment a read parses it
-    too: this database holds documents carrying keys no model declares -- which is why the draw
-    writes its shape as dotted keys -- and a read refusing one answers 500 for the whole list it is
-    in (`docs/backend/spec.md :: I36`).
+    Where the line falls, and why a read may not refuse, is `docs/backend/spec.md :: I49`.
     """
 
     shared = _a_read_parses_it(model)
@@ -171,7 +173,7 @@ def test_a_model_is_strict_exactly_where_no_read_parses_it(label: str, model: ty
 
 
 def test_no_model_a_read_parses_refuses_an_undeclared_key():
-    """The half a payload-side edit breaks in silence: `extra` is inherited, so forbidding on a shared base reaches every read under it.
+    """The half a payload-side edit breaks in silence, `extra` being inherited.
 
     One assertion over the whole read side rather than a case each: these are the models NOT under
     decision here, so the useful output is the list of any that turned strict.
@@ -213,10 +215,20 @@ class TestTheStrictHalf:
 class TestTheLaxHalf:
     """One stored document per block a read shares with a payload, each carrying a key no model declares.
 
-    Every one is a decision rather than an omission: `app/api/saisons/admin_router.py` writes the
-    draw's shape as DOTTED keys precisely because validating `rules` drops what it does not declare,
-    so a whole-object write would erase whatever a season holds beyond the model.
+    Lax by decision rather than by omission (`docs/backend/spec.md :: I49`).
     """
+
+    def test_every_field_of_a_lax_block_is_required(self):
+        """Why the exemption above is not a hole.
+
+        A key misspelled here is dropped and the field it meant left missing, so the body is refused
+        anyway. Give `win_points` a default and a mistyped one answers 200, leaving the points
+        where they were.
+        """
+
+        defaulted = [f"{label}.{name}" for label, model in LAX_CASES for name, field in model.model_fields.items() if not field.is_required()]
+
+        assert defaulted == [], f"{defaulted} carry a default inside a block that forbids nothing, so a key misspelled into one is accepted"
 
     def test_a_season_whose_rules_carry_an_undeclared_key_still_reads(self, saison):
         stored = saison()

@@ -7,7 +7,16 @@ from app.api.spiele.services import apply_payload_to_spiel
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.domain import AGGREGATES
-from tests.core.app_source import REMOVAL_HELPERS, WRITE_HELPERS, declared, removals, transactional_callbacks
+from tests.core.app_source import (
+    DRIVER_READS,
+    READ_HELPERS,
+    REMOVAL_HELPERS,
+    WRITE_HELPERS,
+    crud_helpers_taking_a_session,
+    declared,
+    removals,
+    transactional_callbacks,
+)
 
 # The one of the two that keeps NO pre-image, so the filter is all the log holds of what it took --
 # and the log stores a filter's values as text (`app/core/crud.py :: erase_many_from_db`).
@@ -157,6 +166,70 @@ class TestEveryWriteInsideATransactionCarriesIt:
             f"{callback.where} calls {helper}"
             for callback in transactional_callbacks(SESSION_TAKING_HELPERS)
             for helper, carries in callback.writes
+            if not carries
+        ]
+
+        assert loose == []
+
+
+class TestEveryReadInsideATransactionCarriesIt:
+    """That what a callback judges is read inside the transaction it writes in.
+
+    A read left off the session sees a document this callback already wrote as it stood before, and
+    two of them can straddle a commit and compose a state the database never held.
+    """
+
+    def test_every_crud_helper_taking_a_session_is_named_by_one_of_the_three_sets(self):
+        """The floor under every clause here: rename a helper in `app/core/crud.py`, or add a fourth read, and this fails.
+
+        Each sweep recognises a helper by name, so one no set names is a call site all of them pass
+        over while looking wired.
+        """
+
+        assert READ_HELPERS | SESSION_TAKING_HELPERS == crud_helpers_taking_a_session()
+
+    def test_the_sweep_sees_both_kinds_of_read_and_one_in_every_callback_promising_them(self):
+        """A matcher that matches nothing passes the read clause below over any application at all."""
+
+        callbacks = transactional_callbacks(SESSION_TAKING_HELPERS)
+        seen = {helper for callback in callbacks for helper, _ in callback.reads}
+
+        assert seen & READ_HELPERS, "no callback is seen reading through `app/core/crud.py` at all"
+
+        # The half that can go inert on its own: it rests on the receiver still being spelled
+        # `*_collection`, which is a convention rather than a name this repository owns.
+        assert seen & DRIVER_READS, "no direct driver read is seen, so the receiver rule matches nothing"
+
+        # The vacuous pass: a callback promising a reader that its judgement is read in-session,
+        # every read of which sits in some helper this sweep does not follow.
+        unseen = [callback.where for callback in callbacks if callback.promises_in_session and not callback.reads]
+
+        assert unseen == []
+
+    def test_every_call_handing_the_session_on_is_placed(self):
+        """Drop a name from `DRIVER_READS` and this fails, where the read clause below would only go quiet.
+
+        A call handing `session=` on is a read, a write, or a hand-off to a helper answering for its
+        own; anything else no rule here reaches.
+        """
+
+        unplaced = [
+            f"{callback.where} calls {helper}" for callback in transactional_callbacks(SESSION_TAKING_HELPERS) for helper in callback.unplaced
+        ]
+
+        assert unplaced == []
+
+    def test_no_read_inside_one_is_left_off_its_session(self):
+        """Drop `session=` from any of the seven reads in `judge_and_write_the_rules` and this fails; the db tier does not.
+
+        That read judges the season as whatever committed last left it, and the patch beneath it
+        lands in a snapshot that never held it.
+        """
+
+        loose = [
+            f"{callback.where} reads with {helper}"
+            for callback in transactional_callbacks(SESSION_TAKING_HELPERS)
+            for helper, carries in callback.reads
             if not carries
         ]
 

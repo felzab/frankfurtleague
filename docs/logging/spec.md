@@ -1,6 +1,6 @@
 # Logging — spec
 
-**Verified against:** `0f969073`, 2026-08-22\
+**Verified against:** `b5dd123f`, 2026-08-26\
 **Scope:** the correlation id and the second header the edge controls beside it, the log stream on
 all three surfaces, the browser-crash path, and the development formats.
 
@@ -170,16 +170,16 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 
 ## 3. Violation → remedy
 
-| Symptom                                               | Cause                                                                               | Remedy                                                                                                                   |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| A page view has an nginx line and no application line | A cache hit issued no request                                                       | Working as intended (1.1). The edge line is the record                                                                   |
-| A frontend error's id matches no page view            | A cache fill minted its own id                                                      | Join on `fetch_correlation_id`, not `correlation_id` (1.1)                                                               |
-| A total backend outage reports HTTP 200               | The error boundary streams after headers are sent, so status is no health signal    | Monitor `GET /api/v0/system/is_live` through the edge (`fl_backend/app/api/system/router.py :: check_is_live`)           |
-| Log lines vanish after a deploy                       | `up -d --force-recreate` replaces the container and its log file                    | Copy the stream off the host before deploying (1.2)                                                                      |
-| One digest matches many unrelated incidents           | A digest names an error class, not an incident — Next derives it from the message   | Search on digest plus time plus route, then follow the `FE-RSC-001` line's id                                            |
-| Non-JSON lines appear in a stream                     | nginx's error log and both services' boot lines are outside the contract            | Working as intended (1.2, section 4). A parser skips non-`{` lines                                                       |
-| A log line carries personal data                      | A handler logged a rejected value rather than the field that carried it             | Log the field NAME; the value belongs in neither the message nor an extra (L9)                                           |
-| A stored action holds a submitted value               | L9 binds the log stream; the action log is a collection and keeps values on purpose | Working as intended — a restore replays the document a write replaced ([`docs/backend/spec.md`](../backend/spec.md) I42) |
+| Symptom                                               | Cause                                                                               | Remedy                                                                                                                                                                               |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A page view has an nginx line and no application line | A cache hit issued no request                                                       | Working as intended (1.1). The edge line is the record                                                                                                                               |
+| A frontend error's id matches no page view            | A cache fill minted its own id                                                      | Join on `fetch_correlation_id`, not `correlation_id` (1.1)                                                                                                                           |
+| A total backend outage reports HTTP 200               | The error boundary streams after headers are sent, so status is no health signal    | Monitor `GET /api/v0/system/is_live` through the edge (`fl_backend/app/api/system/router.py :: check_is_live`)                                                                       |
+| Log lines vanish after a deploy                       | `up -d --force-recreate` replaces the container and its log file                    | Copy the stream off the host before deploying (1.2)                                                                                                                                  |
+| One digest matches many unrelated incidents           | A digest names an error class, not an incident — Next derives it from the message   | Search on digest plus time plus route, then follow the `FE-RSC-001` line's id                                                                                                        |
+| Non-JSON lines appear in a stream                     | nginx's error log and both services' boot lines are outside the contract            | Working as intended (1.2, section 4). A parser skips non-`{` lines                                                                                                                   |
+| A log line carries personal data                      | A handler logged a rejected value rather than the field that carried it             | Log the field NAME; the value belongs in neither the message nor an extra (L9)                                                                                                       |
+| A stored action holds a submitted value               | L9 binds the log stream; the action log is a collection and keeps values on purpose | Working as intended — a restore replays the document a write replaced, and a person's erasure destroys the values those rows hold ([`docs/backend/spec.md`](../backend/spec.md) I42) |
 
 ## 4. Known-open
 

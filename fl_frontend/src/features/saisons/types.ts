@@ -55,7 +55,7 @@ export type SaisonOffeneSpiel = {
   id: string;
   spielNr: number;
   datum: string | null;
-  /** `Team A – Team B`, with a placeholder where the bracket has not filled a side yet. */
+  /** The two sides joined by `gegen`, with a placeholder where the bracket has not filled one yet. */
   paarung: string;
 };
 

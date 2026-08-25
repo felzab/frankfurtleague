@@ -13,7 +13,10 @@ function sliceBetween(from: string, to: string): string {
   return start === -1 || end === -1 ? "" : PANEL.slice(start, end);
 }
 
-const HANDLER = sliceBetween("const handleReplace = () => {", "// Rendered only while");
+/* Bounded by the next statement rather than by the comment above it: a slice ending at a comment
+   grows silently the moment that comment is reworded, and the assertions over it stop being about
+   the handler. */
+const HANDLER = sliceBetween("const handleReplace = () => {", "const missingPickHint");
 /** What this panel puts INSIDE the shared shell; the announcement itself is `ConfirmReveal`'s. */
 const ARMED = sliceBetween("<ConfirmReveal>", "</ConfirmReveal>");
 
@@ -22,6 +25,7 @@ describe("the replacement panel", () => {
      over it would then pass or fail for something that is not the defect. */
   it("cuts the handler and the armed alert out of the file before reading them", () => {
     assert.ok(HANDLER.includes("replaceSaisonTeamAction("), "the write is outside the handler's slice");
+    assert.ok(!HANDLER.includes("<section"), "the handler's slice runs on into the markup");
     assert.ok(ARMED.includes("Angesetzte Spiele"), "the armed alert's readout is outside its slice");
   });
 

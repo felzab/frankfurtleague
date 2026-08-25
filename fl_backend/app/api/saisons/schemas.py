@@ -217,9 +217,9 @@ class FLGenerateSpielplanPayload(BaseModel):
     number moves by omission. `REQ-SPIELPLAN-005` bounds a confirmed one.
     """
 
-    # The payload the rule was found on: a misspelled `shape` validates as ABSENT, and an absent
-    # one still runs the destructive replace off the season's OLD rules -- so an ignored key chose
-    # which fixtures were destroyed, under a 201 reporting a shape that never moved.
+    # The payload `docs/backend/spec.md :: I49` was found on: a misspelled `shape` validates as
+    # ABSENT, so a confirmed replace destroys fixtures off the season's OLD rules, under a 201
+    # reporting a shape that never moved.
     model_config = ConfigDict(extra="forbid")
 
     replace: bool = Field(default=False)
