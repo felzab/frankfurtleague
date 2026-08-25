@@ -80,8 +80,8 @@ translates a filter term or a tie-break chain its own way. The rest is what a wr
 call: a refusal turned into the 409 it means, a retirement written as a date on `inactive_since`, a create
 stamped live, and one action-log row appended per write (`app/core/recording.py`). Recording at the one
 chokepoint every write already passes through is what makes that log complete by construction rather than by
-discipline; what a single-document write records, and what one touching a whole set records instead, are
-[`spec.md`](spec.md) I39 and I40. A handler reaches for Motor directly only to iterate a cursor, to sort a single-document read,
+discipline; what a single-document write records, what one touching a whole set records instead, and what a removal records, are
+[`spec.md`](spec.md) I39, I40 and I48. A handler reaches for Motor directly only to iterate a cursor, to sort a single-document read,
 to count without reading the documents, or where absence is a meaningful answer rather than a 404.
 One contract governs the module: a `*_one_*` helper raises on a miss and never returns `None` —
 [`spec.md`](spec.md) I2.

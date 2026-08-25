@@ -185,9 +185,11 @@ for the stale page that reaches the write anyway.
 (`REQ-SPIELPLAN-001`) unless the request confirms a REPLACE, and `/spiele` has neither a create nor
 a delete, so nothing exists for an undo to call — a replaced draw's rows are gone and there is no
 endpoint to write them back. A replace is held to a `future` season with nothing recorded against any fixture
-(`REQ-SPIELPLAN-005`) — no result, no cancellation, no venue and no referee, a date alone
-excepted — so what it destroys is a schedule nobody has played, and only the dates and kickoff
-times somebody entered, and the action log keeps
+(`REQ-SPIELPLAN-005`), which
+`fl_frontend/src/features/saisons/constants.ts :: RECORDED_FACTS_NONE` names for the administrator and
+`fl_backend/app/api/saisons/services.py :: RECORDED_FACT_FIELDS` is the one home of — a date and a
+kickoff time alone excepted, being what a replace exists to redo — so what it destroys is a schedule
+nobody has played and nobody has touched since the draw wrote it, and the action log keeps
 an image of every removed document ([`docs/backend/spec.md`](../backend/spec.md) I48) — which is a record for a person to
 read, never a restore this app can offer. `FormSpielplanSection` confirms in place behind a
 two-press escalation that shows the rules and the shape they produce, which is the same answer the

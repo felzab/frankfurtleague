@@ -257,8 +257,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.SAISON_TEAMS: {
         "$jsonSchema": _object(
-            # Transcribed from the documents: this junction has no Pydantic model of the ROW, and no
-            # `inactive_since` -- a team never leaves a season (`docs/backend/spec.md :: I19`).
+            # Transcribed from the documents: this junction has no Pydantic model of the ROW. A club
+            # leaves by an `austritt` or by a replacement repointing the row, never by retiring it, so
+            # there is no `inactive_since` here (`docs/backend/spec.md :: I19`).
             required=("_id", "saison_id", "team_id", "gruppe", "austritt", "name", "shorthand"),
             properties={
                 "_id": {"bsonType": "objectId"},
