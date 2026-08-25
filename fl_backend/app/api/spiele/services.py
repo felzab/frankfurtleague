@@ -17,9 +17,10 @@ from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
     FLSonderereignis,
     FLSpiel,
+    FLSpielCommon,
     FLSpieleFilterParams,
     FLSpielElfmeterschiessen,
-    FLSpielJoined,
+    FLSpielJoinedInternal,
     FLSpielOrtField,
     FLSpielOrtFieldPayload,
     FLSpielQuelle,
@@ -28,7 +29,7 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterField,
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamField,
-    FLSpielTeamFieldJoined,
+    FLSpielTeamFieldJoinedInternal,
     FLSpielTeamFieldPayload,
 )
 from app.api.teams.schemas import FLGruppenNames
@@ -86,10 +87,17 @@ def _joined_side(side: Literal["team1", "team2"]) -> Mapping[str, Any]:
     # Not `$getField`, which needs MongoDB 5.0: the test tier's container cannot speak for the
     # production server's version.
     matching_row = {"$filter": {"input": f"${SAISON_TEAMS_AS_NAME}", "cond": {"$eq": ["$$this.team_id", f"${side}.team_id"]}}}
-    joined_record = {
+    # ONE `$let` for both keys, so the tier that reads the type and the tier that reads the record
+    # can never be answered off different rows.
+    joined_state = {
         "$let": {
             "vars": {"row": {"$first": matching_row}},
-            "in": {"$ifNull": ["$$row.austritt", None]},
+            "in": {
+                "austritt": {"$ifNull": ["$$row.austritt", None]},
+                # A field path on a null or absent record resolves to missing, which `$ifNull` reads
+                # as "no way out recorded" -- the same answer the null record itself gives.
+                "austritt_type": {"$ifNull": ["$$row.austritt.type", None]},
+            },
         }
     }
 
@@ -99,7 +107,7 @@ def _joined_side(side: Literal["team1", "team2"]) -> Mapping[str, Any]:
             # never becomes an object holding only an austritt.
             {"$eq": [f"${side}", None]},
             None,
-            {"$mergeObjects": [f"${side}", {"austritt": joined_record}]},
+            {"$mergeObjects": [f"${side}", joined_state]},
         ]
     }
 
@@ -109,7 +117,11 @@ def build_spiele_pipeline(
     sort_by: Sequence[tuple[str, int]] | None = None,
     limit: int | None = None,
 ) -> list[Mapping[str, Any]]:
-    """Every match read runs this; `austritt` joins on each document's OWN `saison_id` (`docs/backend/spec.md :: I32`)."""
+    """Every match read runs this; the withdrawal joins on each document's OWN `saison_id` (`docs/backend/spec.md :: I32`).
+
+    Both spellings are projected and each read model declares the one it serves: the document is
+    the data, the model the allow-list.
+    """
 
     pipeline: list[Mapping[str, Any]] = [{"$match": db_filter}]
 
@@ -203,7 +215,7 @@ def _is_same_team(left: FLSpielTeamField | None, right: FLSpielTeamField | None)
     return left.team_id == right.team_id
 
 
-def _fixtures_depending_on_a_cycle(by_nr: Mapping[int, FLSpiel]) -> frozenset[int]:
+def _fixtures_depending_on_a_cycle(by_nr: Mapping[int, FLSpielCommon]) -> frozenset[int]:
     """Every fixture depending, directly or transitively, on a cyclic chain: nothing downstream is derivable."""
 
     IN_PROGRESS, DONE = 1, 2
@@ -242,7 +254,7 @@ class BracketResolution:
 
 
 def _seed_from_gruppe(
-    spiel: FLSpiel,
+    spiel: FLSpielCommon,
     quelle: FLSpielQuelleGruppe,
     standings: Mapping[FLGruppenNames, DecidedStanding],
     faults: list[FLBracketFault],
@@ -283,10 +295,10 @@ def _seed_from_gruppe(
 
 
 def _occupant_of(
-    spiel: FLSpiel,
+    spiel: FLSpielCommon,
     stored: FLSpielTeamField | None,
     quelle: FLSpielQuelle | None,
-    by_nr: Mapping[int, FLSpiel],
+    by_nr: Mapping[int, FLSpielCommon],
     standings: Mapping[FLGruppenNames, DecidedStanding],
     tainted: frozenset[int],
     memo: dict[int, ResolvedSides],
@@ -318,7 +330,7 @@ def _occupant_of(
 
 def _resolve_sides(
     spiel_nr: int,
-    by_nr: Mapping[int, FLSpiel],
+    by_nr: Mapping[int, FLSpielCommon],
     standings: Mapping[FLGruppenNames, DecidedStanding],
     tainted: frozenset[int],
     memo: dict[int, ResolvedSides],
@@ -364,7 +376,7 @@ def _resolve_sides(
 def _outcome_of(
     spiel_nr: int,
     ausgang: str,
-    by_nr: Mapping[int, FLSpiel],
+    by_nr: Mapping[int, FLSpielCommon],
     standings: Mapping[FLGruppenNames, DecidedStanding],
     tainted: frozenset[int],
     memo: dict[int, ResolvedSides],
@@ -411,7 +423,7 @@ def _fault_order(fault: FLBracketFault) -> tuple[int, str, str, int]:
     return (fault.spiel_nr, fault.reason, "", 0)
 
 
-def resolve_bracket(spiele: Iterable[FLSpiel], standings: Mapping[FLGruppenNames, DecidedStanding]) -> BracketResolution:
+def resolve_bracket(spiele: Iterable[FLSpielCommon], standings: Mapping[FLGruppenNames, DecidedStanding]) -> BracketResolution:
     """Every fixture whose slots disagree with its wiring. Pass ONE season: `spiel_nr` repeats across seasons."""
 
     by_nr = {spiel.spiel_nr: spiel for spiel in spiele}
@@ -876,13 +888,17 @@ def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielD
     return None
 
 
-def find_departed_occupants(spiele: Sequence[FLSpielJoined]) -> list[FLBracketFaultOccupant]:
-    """Every fixture fielding a team that left the season before its date; an UNDATED fixture is reported, and every phase counts."""
+def find_departed_occupants(spiele: Sequence[FLSpielJoinedInternal]) -> list[FLBracketFaultOccupant]:
+    """Every fixture fielding a team that left the season before its date; an UNDATED fixture is reported, and every phase counts.
+
+    The internal fixture: the ordering is against the DAY a club left, which no served side
+    carries.
+    """
 
     faults: list[FLBracketFaultOccupant] = []
     for spiel in sorted(spiele, key=lambda entry: (entry.saison_id, entry.spiel_nr)):
         for side in ("team1", "team2"):
-            occupant: FLSpielTeamFieldJoined | None = getattr(spiel, side)
+            occupant: FLSpielTeamFieldJoinedInternal | None = getattr(spiel, side)
             if occupant is None or occupant.austritt is None:
                 continue
 
@@ -907,7 +923,7 @@ def find_departed_occupants(spiele: Sequence[FLSpielJoined]) -> list[FLBracketFa
     return faults
 
 
-def find_double_entries(spiele: Sequence[FLSpiel]) -> list[FLBracketFaultSpieltag]:
+def find_double_entries(spiele: Sequence[FLSpielCommon]) -> list[FLBracketFaultSpieltag]:
     """`REQ-SPIELTAG-001`'s state, wherever a double entry got stored.
 
     Grouped by matchday, never by season: nothing ties a fixture's `saison_id` to its matchday's.

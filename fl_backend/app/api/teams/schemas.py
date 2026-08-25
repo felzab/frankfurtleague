@@ -87,7 +87,27 @@ class FLTeamRecord(_TeamWritable):
     inactive_since: CustomOptionalDateString
 
 
-class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLTeam]]]):
+class FLGruppenTeam(BaseModel):
+    """One row of a league table: what a standing shows and nothing more.
+
+    Narrower than `FLTeam` on purpose: a public CLIENT component renders this, so every field is
+    serialised into the page, and a club's address is a school's street.
+    """
+
+    id: CustomObjectId
+    name: CustomNonEmptyString
+    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+    statistik: FLTeamStatistik
+    # The TYPE alone: a row marks that a club is out, and the club's own page publishes the reason
+    # and the date.
+    austritt_type: FLAustrittType | None
+    # Fixtures neither counted nor called off in the `statistik_scope` asked for, so points are still
+    # to be awarded here. REQUIRED with no default: a caller that forgot it would silently strip a
+    # placing (`docs/backend/spec.md :: I24b`).
+    anzahl_ausstehende_spiele: int = Field(ge=0)
+
+
+class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLGruppenTeam]]]):
     """The four groups, always all four, in standing order.
 
     Built by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak
@@ -152,7 +172,13 @@ class FLPatchSaisonTeamPayload(BaseModel):
     austritt: FLAustritt | None
 
 
-class FLTeamsFilterParams(BaseModel):
+class FLPublicTeamsFilterParams(BaseModel):
+    """What `GET /teams` may narrow on. `include_inactive` is on the admin model below alone.
+
+    A standings row names no leaving date, so a base-tier read that un-hid a retired club would say
+    nothing about which one had left (`READ-SQUAD-002`).
+    """
+
     # No `team_id`: one team by its id is addressed by `GET /teams/{team_id}`; this narrows a list.
     saison_id: str | None = None
     gruppe: FLGruppenNames | None = None
@@ -163,7 +189,6 @@ class FLTeamsFilterParams(BaseModel):
     # left, so the two combine without either having to imply the other.
     austritt_type: FLAustrittType | None = None
     in_gruppen: bool | None = None
-    include_inactive: bool = False
 
     # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the
     # playoff-polluted one.
@@ -172,6 +197,18 @@ class FLTeamsFilterParams(BaseModel):
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: Literal["name"] = Field(default="name")
     order: Literal["asc", "desc"] = Field(default="asc")
+
+
+class FLTeamsFilterParams(FLPublicTeamsFilterParams):
+    """The same filters plus the one switch a base-tier caller is not offered.
+
+    An extension rather than a second declaration, as `FLSpielerAdminSingleResponse` is: two
+    spellings of one filter set drift on every field they share.
+    """
+
+    # Retired CLUBS, for the admin pickers and for `GET /teams/{team_id}`, which is handed an id
+    # rather than discovering one.
+    include_inactive: bool = False
 
 
 class FLTeamSingleFilterParams(BaseModel):

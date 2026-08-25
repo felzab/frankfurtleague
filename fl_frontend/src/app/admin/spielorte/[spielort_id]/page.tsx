@@ -25,8 +25,8 @@ async function AdminSpielortEditContent({ params }: { params: NextPageProps<{ sp
   await connection();
   const spielortId = await resolveSpielortId(params);
 
-  // The list read, already cached under the tag this page's write clears. `include_inactive`, or
-  // a retired venue's own editor answers not-found.
+  // The list read, which serves the address and the rent this form round-trips. `include_inactive`,
+  // or a retired venue's own editor answers not-found.
   const spielorteRes = await getSpielorte({ include_inactive: true });
   const spielort = spielorteRes.spielorte.find((candidate) => candidate.id === spielortId);
   if (!spielort) {

@@ -39,7 +39,7 @@ function TeamNameLine({
     <TeamPopoverMenu
       teamName={team.name}
       teamId={team.team_id}
-      teamAustritt={team.austritt?.type ?? null}
+      teamAustritt={team.austritt_type}
       placement="top"
       onNavigate={onNavigate}>
       <strong className="fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-200">{team.name}</strong>

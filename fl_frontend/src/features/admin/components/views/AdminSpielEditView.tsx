@@ -14,7 +14,7 @@ import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { categorizeActionRequired } from "../../utils";
 import { useAdmin } from "../providers/AdminContextProvider";
 
-import type { FLSpiel, FLSpielWithDraftFields } from "@/features/spiele/schemas";
+import type { FLSpielAdmin, FLSpielWithDraftFields } from "@/features/spiele/schemas";
 import type { ActionRequiredCategory } from "@/features/spiele/types";
 
 /**
@@ -22,7 +22,7 @@ import type { ActionRequiredCategory } from "@/features/spiele/types";
  * takes the lookup lists as props (frontend spec I12). It runs `categorizeActionRequired` over the one
  * fixture, so that rule has a single copy.
  */
-export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; today: string }) {
+export function AdminSpielEditView({ spielData, today }: { spielData: FLSpielAdmin; today: string }) {
   const router = useRouter();
   const { teams, spielorte, schiedsrichter, saisonSpiele } = useAdmin();
 

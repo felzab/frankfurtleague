@@ -33,6 +33,12 @@ REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
 # corpus needs -- either one would make the gate read the fixture text as this file's own comment.
 HASH: Final = "#"
 QUOTES: Final = '"' * 3
+QUOTE: Final = chr(34)
+NEWLINE: Final = chr(10)
+# Built for a second reason on top of that one: python refuses to compile a source file holding a
+# NUL, so the byte this case plants cannot be written here even escaped past the gate's own reader.
+NUL_BYTE: Final = chr(0)
+CR_BYTE: Final = chr(13)
 
 PLACEHOLDER_SHA: Final = "0000000"
 STAMP_DATE: Final = "2026-08-10"
@@ -44,6 +50,7 @@ NOTES: Final = "docs/notes.md"
 # file no scan reads, so a citation can name something unreadable without `unreadable` firing too.
 TWIN_NOTES: Final = "docs/frontend/notes.md"
 UNDECODABLE: Final = "docs/data.bin"
+GITATTRIBUTES: Final = ".gitattributes"
 SAMPLE: Final = "fl_backend/app/sample.py"
 SECOND_SAMPLE: Final = "fl_backend/app/second.py"
 THIRD_SAMPLE: Final = "fl_backend/app/spare.py"
@@ -127,7 +134,7 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
         for verdict in sorted(checks[name])
     ]
     return {
-        ".gitattributes": _page("* text=auto eol=lf"),
+        GITATTRIBUTES: _page("* text=auto eol=lf", "*.bin binary"),
         ROOT_README: _page(
             _heading(1, "Fixture repository"),
             "",
@@ -847,6 +854,11 @@ def _plant_segment_map() -> None:
     _replace(SWEEP, FOLDER_SEGMENT, "| Folders | `docs/**` |\n| Also the documents | `docs/**` |")
 
 
+def _write_bytes(root: Path, rel: str, text: str) -> None:
+    """A plant's exact bytes, `_write` being the same call. Named so a byte plant reads as deliberate."""
+    (root / rel).write_bytes(text.encode("utf-8"))
+
+
 def _plant_crlf() -> None:
     """An ASCII path and one outside it, because the finding carries the path git spelled.
 
@@ -856,6 +868,17 @@ def _plant_crlf() -> None:
     root = _gate().root
     for rel in (NOTES, UMLAUT_MODULE):
         (root / rel).write_bytes(_read(rel).replace("\n", "\r\n").encode("utf-8"))
+
+
+def _plant_binary_bytes() -> None:
+    """A NUL and a CR, in the two files a byte plant reaches without a second check speaking.
+
+    Either byte stops the comment reader, which then offers a sample module's path-shaped
+    literals to `bare-path`.
+    """
+    root = _gate().root
+    _write_bytes(root, NOTES, _read(NOTES) + NEWLINE + "a" + NUL_BYTE + "b" + NEWLINE)
+    _write_bytes(root, UMLAUT_MODULE, _read(UMLAUT_MODULE) + NEWLINE + "SEPARATOR = " + QUOTE + "a" + CR_BYTE + "b" + QUOTE + NEWLINE)
 
 
 def _plant_unreadable() -> None:
@@ -1138,6 +1161,7 @@ CASES: Final[tuple[Case, ...]] = (
         _fails("bare-path", SAMPLE, UMLAUT_MODULE, TOML_CONFIG, YAML_CONFIG, JSON_CONFIG, CONF_FILE, SHELL_FILE, DOCKERFILE),
         _plant_bare_paths,
     ),
+    Case("binary-byte", _fails("binary-byte", NOTES, UMLAUT_MODULE), _plant_binary_bytes),
     Case("branch-scope", _reports("branch-scope", *[BRANCH_DIFF] * 3), _plant_branch_scope, _undo_branch_scope),
     Case("branch-impact", _fails("branch-impact", BACKEND_SPEC), lambda: _append(SAMPLE, "EXTRA = 2")),
     Case("check-registry", _fails("check-registry", CURRENCY, CURRENCY, CURRENCY), _plant_check_registry),
@@ -1279,6 +1303,24 @@ def test_an_untracked_ranked_page_is_read_as_a_page_nobody_added() -> None:
     finally:
         _reset()
     assert reported[("fail", "roadmap-shape", TOOLING_ROADMAP)] == 1, "an untracked ranked page passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_only_a_gitattributes_declaration_exempts_a_file_from_the_byte_check() -> None:
+    """The corpus binary is passed over because `.gitattributes` says so, not because of its bytes.
+
+    Only withdrawing the declaration can prove that: a suffix list answers the same either way.
+    """
+    _reset()
+    root = _gate().root
+    declaration = "*.bin binary"
+    assert declaration in _read(GITATTRIBUTES), "the corpus no longer declares its binary"
+    _write_bytes(root, GITATTRIBUTES, _read(GITATTRIBUTES).replace(declaration + NEWLINE, ""))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "binary-byte", UNDECODABLE)] == 1, "an undeclared binary was passed over anyway: " + _shape(reported)
     _assert_corpus_restored()
 
 

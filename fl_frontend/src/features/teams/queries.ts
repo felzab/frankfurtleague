@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
@@ -7,14 +8,14 @@ import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
 import { FLTeamsMembershipsResponseSchema, FLTeamsResponseSchema, FLTeamsSingleResponseSchema } from "./schemas";
 
 import type { FLTeamsMembershipsResponse, FLTeamsResponse, FLTeamsSingleResponse } from "./schemas";
-import type { FLTeamsFilterParams, FLTeamSingleFilterParams } from "./types";
+import type { FLPublicTeamsFilterParams, FLTeamsFilterParams, FLTeamSingleFilterParams } from "./types";
 
 /**
  * Statistics are derived from the match documents on every read, so a Spiel result edit moves this
  * response without touching a team document — which is why
  * `fl_frontend/src/features/spiele/actions.ts` invalidates `teams`.
  */
-export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeamsResponse> {
+export async function getTeams(filters: FLPublicTeamsFilterParams = {}): Promise<FLTeamsResponse> {
   "use cache";
 
   // `saison_id` is the only granular tag: a rename reaches every open season at once, and a
@@ -53,14 +54,36 @@ export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams 
   });
 }
 
+/** One in-flight admin club read per filter set, held for the length of one render pass. */
+const adminTeamsInFlight = cache((): Map<string, Promise<FLTeamsResponse>> => new Map());
+
+/**
+ * A season's clubs for the admin surfaces, a planned season's included — `getTeams` refuses that
+ * season, though a club is entered into one while planned. **Uncached**: `docs/frontend/spec.md` §1.2.
+ */
+export function getAdminTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeamsResponse> {
+  // Keyed on the filters SERIALIZED, for the reason `fl_frontend/src/features/spiele/queries.ts :: getAdminSpiele` gives.
+  const key = JSON.stringify(filters, Object.keys(filters).sort());
+  const held = adminTeamsInFlight().get(key);
+  if (held !== undefined) return held;
+
+  const started = runWithIncomingCorrelationId(() =>
+    apiClient<FLTeamsResponse>("/teams/list/admin", FLTeamsResponseSchema, { authType: "admin", params: filters }),
+  );
+  adminTeamsInFlight().set(key, started);
+
+  return started;
+}
+
 /**
  * Every team with every membership, for the admin surfaces — the season-scoped reads cannot answer a
  * club-centric question.
- *
- * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, never on caller identity.
  */
-export async function getTeamMemberships(): Promise<FLTeamsMembershipsResponse> {
-  return runWithIncomingCorrelationId(() =>
+// React's `cache` memoizes per RENDER PASS, never across requests -- unlike `"use cache"`, whose
+// key is the arguments, not the caller, so an admin read there becomes a slot of authorized data
+// any caller reaches. One pass, one round trip.
+export const getTeamMemberships = cache(async (): Promise<FLTeamsMembershipsResponse> =>
+  runWithIncomingCorrelationId(() =>
     apiClient<FLTeamsMembershipsResponse>("/teams/memberships", FLTeamsMembershipsResponseSchema, { authType: "admin" }),
-  );
-}
+  ),
+);

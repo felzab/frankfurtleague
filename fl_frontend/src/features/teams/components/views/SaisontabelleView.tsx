@@ -61,12 +61,13 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
       role="list"
       className={`${CARDS_CASCADE} relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8`}>
       {typedObjectEntries(gruppenData).map(([gruppe, teamsData]) => {
-        /* Derived, never row indices: a disqualified team holds no place, one that has played
-           nothing has no placing, and the seeding passes over both. */
+        /* Derived, never row indices: a club that has left the season holds no place, and the
+           seeding passes over it too. */
         const qualifying = computeQualifyingTeamIds({ teams: teamsData, qualifiersPerGroup });
 
         /* Numbered as a `Platz` is, not as a row index, so the ordinal is what the bracket's
-           "2. der Gruppe A" names. A row the count passes over reads `N/A`. */
+           "2. der Gruppe A" names. The map IS the rule: an absent club is the cell's `N/A`, which
+           the cell must never decide for itself. */
         const platzByTeamId = computePlatzByTeamId(teamsData);
 
         return (
@@ -132,7 +133,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         {/* Colour is never the only carrier: a screen reader gets the same fact the
                             rule and the legend give, in the cell that states the place. */}
                         {qualifying.has(teamData.id) && <span className="sr-only">KO-Runden-Platz: </span>}
-                        {(teamData.statistik.anzahl_gespielte_spiele === 0 ? undefined : platzByTeamId.get(teamData.id)) ?? "N/A"}
+                        {platzByTeamId.get(teamData.id) ?? "N/A"}
                       </Table.Cell>
 
                       {/* `overflow-visible` stays — the Austritt badge is translated outside this
@@ -142,20 +143,20 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         <TeamPopoverMenu
                           teamName={teamData.name}
                           teamId={teamData.id}
-                          teamAustritt={teamData.austritt?.type ?? null}>
+                          teamAustritt={teamData.austritt_type}>
                           <span className="fluid-xs text-foreground hover:text-brand hidden max-w-full min-w-0 truncate font-medium transition-colors lg:block">
                             {`${teamData.name} (${teamData.shorthand})`}
                           </span>
                           <span className="fluid-sm text-foreground hover:text-brand block font-medium transition-colors lg:hidden">
                             {teamData.shorthand}
                           </span>
-                          {teamData.austritt !== null && (
+                          {teamData.austritt_type !== null && (
                             <Badge
                               size="sm"
                               placement="top-right"
-                              aria-label={austrittZustand(teamData.austritt.type)}
+                              aria-label={austrittZustand(teamData.austritt_type)}
                               className="fluid-xxs! bg-danger/10 text-danger-strong translate-x-5 -translate-y-2 rounded-md border-none p-1 font-extrabold uppercase lg:translate-x-6">
-                              {austrittKuerzel(teamData.austritt.type)}
+                              {austrittKuerzel(teamData.austritt_type)}
                             </Badge>
                           )}
                         </TeamPopoverMenu>

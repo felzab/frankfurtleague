@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `a468e858`, 2026-08-21\
+**Verified against:** `7b85b7ab`, 2026-08-22\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -60,54 +60,63 @@ answer.
 
 ### 1.2 Cached reads
 
-| Function                                       | Slice          | Lifetime  | Tags                                             |
-| ---------------------------------------------- | -------------- | --------- | ------------------------------------------------ |
-| `getSpiele`                                    | spiele         | `hours`   | `spiele` + `spiele:saison_id:{id}` when filtered |
-| `getTeams`                                     | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
-| `getTeam`                                      | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
-| `getSaisons`                                   | saisons        | `days`    | `saisons`                                        |
-| `getCurrentSaison`                             | saisons        | `days`    | `saisons`                                        |
-| `getSpieler`                                   | spieler        | `days`    | `spieler`                                        |
-| `getSpieltage`                                 | spieltage      | `days`    | `spieltage`                                      |
-| `getSpieltagById`                              | spieltage      | `days`    | `spieltage`                                      |
-| `getSpielorte`                                 | spielorte      | `days`    | `spielorte`                                      |
-| `getSchiedsrichter`                            | schiedsrichter | `days`    | `schiedsrichter`                                 |
-| `checkIsLive`, `checkIsReady`, `getSystemInfo` | system         | `minutes` | `system`                                         |
+| Function                                       | Slice     | Lifetime  | Tags                                             |
+| ---------------------------------------------- | --------- | --------- | ------------------------------------------------ |
+| `getSpiele`                                    | spiele    | `hours`   | `spiele` + `spiele:saison_id:{id}` when filtered |
+| `getTeams`                                     | teams     | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
+| `getTeam`                                      | teams     | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
+| `getSaisons`                                   | saisons   | `days`    | `saisons`                                        |
+| `getCurrentSaison`                             | saisons   | `days`    | `saisons`                                        |
+| `getSpieler`                                   | spieler   | `days`    | `spieler`                                        |
+| `getSpieltage`                                 | spieltage | `days`    | `spieltage`                                      |
+| `checkIsLive`, `checkIsReady`, `getSystemInfo` | system    | `minutes` | `system`                                         |
 
-**Uncached, deliberately:** the admin-authed reads — `getAdminSpiel`, `getAdminSpieleActionRequired`,
-`getTeamMemberships`, `getSpielerMemberships` and `getAktionen`. Admin-authorized data does not
-belong in a shared cache, and `getAdminSpieleActionRequired`'s `bracket_faults` are derived per request
-over the stored bracket, so a
-cached copy would be wrong the moment a document moved under it. `getAktionen` could not be cached even if
-the tier allowed it: an action-log row carries the document its write replaced, so one shared entry would
-hold data from every collection at once. None carries a cache tag either: a tag
+**Uncached, deliberately: every admin-tier read** — `getAdminSaisons`, `getAdminTeams`,
+`getTeamMemberships`, `getAdminSpiele`, `getAdminSpiel`, `getAdminSpieleActionRequired`,
+`getAdminSpieltage`, `getAdminSpieltagById`, `getSpielerMemberships`, `getSpielorte`,
+`getSchiedsrichter` and `getAktionen`. **The tier settles it on its own: `"use cache"` keys on the
+arguments rather than on caller identity, so one shared entry would be a slot of admin-authorized data
+any caller could reach.** A reason of their own stands behind `getAdminSpieleActionRequired`, whose
+`bracket_faults` are derived per request over the stored bracket, so a cached copy would be wrong the
+moment a document moved under it, and behind `getAktionen`, whose rows each carry the document a write
+replaced — one entry holding data from every collection at once. None carries a cache tag either: a tag
 only means something inside a cache scope. Each seeds the request's correlation scope, which a
 `"use cache"` read cannot ([`docs/logging/spec.md`](../logging/spec.md#11-the-correlation-id)).
 
-**The cost is one backend request per call site, not per page load.** `apiClient` bounds every call
-with an `AbortController` timeout signal, and Next's `fetch` memoization opts out the moment a signal
-is present, so a page reading the same data from more than one boundary pays for each. A create modal
-beside its own list is the shape that does it, in `/admin/teams` as in `/admin/spieler`: a single page
-view produces a backend line for each boundary that reads.
+**A page reading one of them from more than one boundary shares a single round trip, and that
+sharing is NOT the data cache.** `fl_frontend/src/core/api.ts :: apiClient` bounds every call with an
+`AbortController` timeout signal, and Next's own `fetch` memoization opts out the moment a signal is
+present, so nothing dedupes such a read by default: a create modal beside its own list would pay a
+backend request for each, which is the shape `/admin/teams` and `/admin/spieler` have. React's `cache`
+supplies the dedupe instead. It holds the in-flight promise for the length of ONE request and shares it
+across that request's boundaries alone, so no later request can reach it and the confinement above
+stands intact, where `"use cache"` would hand every caller the same stored entry. **A memo
+over a FILTERED read keys on the filters serialized**, in a `cache()`-scoped `Map` —
+`fl_frontend/src/features/spiele/queries.ts :: getAdminSpiele`, `getAdminTeams` and `getAdminSpieltage`
+each hold one — because React's `cache` compares an argument by identity, so an object literal written
+at a call site would miss every time and memoize nothing.
 
 **`getAdminSpiel` is `GET /spiele/{spiel_id}/admin`, and it is one of the uncached reads above.** It
-serves the rent and the referee's Entschädigung, and is the tier that will still carry them once the
-public reads stop — `docs/backend/spec.md` §4's Known-open row records that both ship to anonymous
-visitors today, `FLSpielOrtField` inheriting a required `mietpreis` from its payload. It is admin-tier
-— and `"use cache"` keys on arguments rather than on caller identity, which would make one shared entry
-a slot of admin-authorized data any caller could reach. Nothing is given up by that: the match editor is
+serves the rent and the referee's Entschädigung, and it is the only fixture read that carries either —
+the base-tier reads answer a fixture shape without them
+([`docs/backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). It is admin-tier, so it is
+uncached for the reason the class above gives. Nothing is given up by that: the match editor is
 addressed by match id with no season in the URL, so a granular season tag has nothing to key on, and a
 season tag would be wrong even where one is available, because a match write resolves the whole bracket
-and rewrites fixtures the request never named. What staying uncached buys while both fields are still
-public is freshness rather than confinement: the editor seeds from the fixture as it stands, so a save
-cannot write back a copy that went stale in a cache. Nothing projects per caller either, a response whose
-shape follows the credential being one no Zod mirror can express. It resolves `null` for an unknown id,
+and rewrites fixtures the request never named. What staying uncached adds on top of that confinement is
+freshness: the editor seeds from the fixture as it stands, so a save cannot write back a copy that went
+stale in a cache. **The withholding is a response model per endpoint, never a projection per caller:**
+each endpoint names the model it answers, and a shape declared that way is one a Zod mirror can be held
+to (I17) — where an endpoint narrowing its response by the credential would answer a shape its own
+published component never states. It resolves `null` for an unknown id,
 which the editor page turns into `notFound()`, and rethrows every other error.
 
 **A cached read that answers `null` for an unknown id converts the 404 INSIDE the cached function.** A
 production build redacts an error thrown out of a `"use cache"` scope to a digest-only `Error`, which a
-catch at the call site can never recognise, so `getSpieltagById` and `getTeam` each catch their own 404
-where the directive can still see it.
+catch at the call site can never recognise, so `getTeam` catches its own 404 where the directive can
+still see it. The uncached reads that resolve `null` the same way — `getAdminSpiel` and
+`getAdminSpieltagById` — are under no such constraint, and catch where they do only because that is
+where the id is known.
 
 **`getTeam` is `GET /teams/{team_id}` and is tagged exactly as `getTeams` is** — it reads the same
 documents through the same derivation, so a result edit moves it too. It resolves
@@ -192,14 +201,14 @@ can offer a pair the other refuses.
 | -------------------------------- | -------------- | -------------------------------------------------------------------- |
 | `patchAdminSpielDataAction`      | spiele         | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}` |
 | `previewAdminSpielDataAction`    | spiele         | **nothing** — it writes nothing (`dry_run=true`)                     |
-| `postSpielortAction`             | spielorte      | `spielorte`                                                          |
-| `patchSpielortAction`            | spielorte      | `spielorte`, `spiele`                                                |
-| `deleteSpielortAction`           | spielorte      | `spielorte`                                                          |
-| `reactivateSpielortAction`       | spielorte      | `spielorte`                                                          |
-| `postSchiedsrichterAction`       | schiedsrichter | `schiedsrichter`                                                     |
-| `patchSchiedsrichterAction`      | schiedsrichter | `schiedsrichter`, `spiele`                                           |
-| `deleteSchiedsrichterAction`     | schiedsrichter | `schiedsrichter`                                                     |
-| `reactivateSchiedsrichterAction` | schiedsrichter | `schiedsrichter`                                                     |
+| `postSpielortAction`             | spielorte      | **nothing** — no cached read holds a venue                           |
+| `patchSpielortAction`            | spielorte      | `spiele`                                                             |
+| `deleteSpielortAction`           | spielorte      | **nothing**                                                          |
+| `reactivateSpielortAction`       | spielorte      | **nothing**                                                          |
+| `postSchiedsrichterAction`       | schiedsrichter | **nothing** — no cached read holds a referee                         |
+| `patchSchiedsrichterAction`      | schiedsrichter | `spiele`                                                             |
+| `deleteSchiedsrichterAction`     | schiedsrichter | **nothing**                                                          |
+| `reactivateSchiedsrichterAction` | schiedsrichter | **nothing**                                                          |
 | `postTeamAction`                 | teams          | `teams`, + `teams:saison_id:{id}`                                    |
 | `patchTeamAction`                | teams          | `teams`, `spiele`                                                    |
 | `deleteTeamAction`               | teams          | `teams`                                                              |
@@ -223,8 +232,11 @@ can offer a pair the other refuses.
 | `handleSignIn`                   | auth           | —                                                                    |
 | `signOutAction`                  | auth           | —                                                                    |
 
-The venue, referee and team patch actions also invalidate `spiele` because the backend fans a rename
-out into the match documents embedding it — so match data really has changed. The team patch stays on
+**The venue, referee and team patch actions invalidate `spiele` because the backend fans a rename out
+into the match documents embedding it** — so match data really has changed. For the venue and the
+referee that is the whole of what a write can reach: their own reads are admin-tier and uncached
+(§1.2), so no entry exists for a create, a retirement or a reactivation to clear, and a retirement
+moves `inactive_since` alone, which no match document carries. The team patch stays on
 base tags alone: a club rename reaches its `saison_teams` rows and its matches in every season that is
 not `past` ([`docs/backend/spec.md`](../backend/spec.md) I13), and the action holds no list of which
 seasons those are, so no granular tag names them. `patchSaisonTeamAction` invalidates the `spiele` pair for a different
@@ -299,6 +311,9 @@ These satisfy both and exist:
 - **No tag keys on a resource the app cannot write.** The system endpoints are the whole of that
   category: nothing writes them, so nothing could invalidate such a tag and it would stand until
   expiry whatever it was named.
+- **No tag names a read that is not cached**, which is the mirror of that and reaches the admin-tier
+  reads (§1.2). An `updateTag` on one clears nothing, and it reads at the call site as invalidation
+  of data no entry ever held.
 - **No `saisons:`, `spieler:` or `spieltage:` season tag**, though all three have write surfaces.
   These fail (b) rather than (a): a season is not season-scoped data but IS the season, `getSaisons`
   reads every one of them in a single call, one spieler read spans every season while the public
@@ -424,8 +439,10 @@ every Zod schema against the component that publishes it, discovering the schema
 tree and importing them dynamically — so a new feature slice is covered without an edit, and `core`
 gains no static import of `features` (I9). A shape with no counterpart is exempted by name in that
 file with the reason none can exist, and the exemptions are held to the same standard as the pairs:
-a third assertion fails on an entry whose shape is gone, or has since gained the counterpart it
-records as impossible.
+one assertion fails on an entry whose shape is gone, or has since gained the counterpart it records as
+impossible, and another on an exempted enum alias reaching no published use site — an alias exempted as
+inlined is compared only through the sites that inline it, so members reaching none of them are compared
+nowhere while the exemption still reads as covered.
 
 **`fl_frontend/src/core/apiRequests.test.ts` compares that same document against the REQUESTS, where
 `apiContract.test.ts` compares it against the shapes.** It resolves every `apiClient` call under `src/`

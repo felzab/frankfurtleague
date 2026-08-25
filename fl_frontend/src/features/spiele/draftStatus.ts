@@ -7,6 +7,7 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLSonderereignis,
   FLSpiel,
+  FLSpielAdmin,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
   FLSpielQuelle,
@@ -17,8 +18,9 @@ import type {
 import type { ActionRequiredCategory } from "./types";
 
 /**
- * A cleared currency field is `null` and an unpicked placing `NaN`, so a draft is not an `FLSpiel` —
- * but `FLSpiel` is assignable to this, which lets one descriptor `read` serve stored and draft both.
+ * A cleared currency field is `null` and an unpicked placing `NaN`, so a draft is not an
+ * `FLSpielAdmin` — but that IS assignable to this, which lets one descriptor `read` serve stored and
+ * draft both.
  */
 export type FLSpielDraftFields = {
   datum: string | null;
@@ -391,7 +393,7 @@ export function deriveSpielDraftStatus({
   expectedCategories,
   fieldErrors,
 }: {
-  stored: FLSpiel;
+  stored: FLSpielAdmin;
   draft: FLSpielDraftFields;
   expectedCategories: ReadonlySet<ActionRequiredCategory>;
   fieldErrors: FieldErrors;

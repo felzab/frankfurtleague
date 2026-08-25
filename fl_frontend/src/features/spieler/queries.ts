@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
@@ -23,11 +24,12 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
 /**
  * `getSpieler` cannot serve the admin surfaces at any filter setting — backend spec I33 carries the
  * reasons.
- *
- * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, never on caller identity.
  */
-export async function getSpielerMemberships(): Promise<FLSpielerMembershipsResponse> {
-  return runWithIncomingCorrelationId(() =>
+// React's `cache` memoizes per RENDER PASS, never across requests -- unlike `"use cache"`, whose
+// key is the arguments, not the caller, so an admin read there becomes a slot of authorized data
+// any caller reaches. One pass, one round trip.
+export const getSpielerMemberships = cache(async (): Promise<FLSpielerMembershipsResponse> =>
+  runWithIncomingCorrelationId(() =>
     apiClient<FLSpielerMembershipsResponse>("/spieler/memberships", FLSpielerMembershipsResponseSchema, { authType: "admin" }),
-  );
-}
+  ),
+);

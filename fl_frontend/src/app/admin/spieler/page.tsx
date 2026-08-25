@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { getSaisons } from "@/features/saisons/queries";
+import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { AdminCreateSpielerModal } from "@/features/spieler/components/modals/AdminCreateSpielerModal";
 import { AdminSpielerView } from "@/features/spieler/components/views/AdminSpielerView";
@@ -53,10 +53,11 @@ export default function AdminSpielerPage(props: NextPageProps) {
 
 async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
-  const requestedSaisonId = await resolveSaisonId(searchParams);
-  // Its own round trip although the list repeats the read: no admin read is cached, and
-  // `apiClient`'s timeout signal opts every call out of Next's fetch memoization.
-  const [saisonsRes, teamsRes, spielerRes] = await Promise.all([getSaisons(), getTeamMemberships(), getSpielerMemberships()]);
+  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
+  // Repeating the table's read costs nothing: React's `cache` shares one round trip per render pass.
+  // Not `"use cache"`, a cross-request store keyed on arguments rather than the caller:
+  // `fl_frontend/src/features/saisons/queries.ts :: getAdminSaisons`.
+  const [saisonsRes, teamsRes, spielerRes] = await Promise.all([getAdminSaisons(), getTeamMemberships(), getSpielerMemberships()]);
 
   // Running and planned both, unlike the club create's planned-only rule: a squad is filled in
   // during its season.
@@ -92,9 +93,9 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
  */
 async function SpielerTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
-  const requestedSaisonId = await resolveSaisonId(searchParams);
+  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
-  const [membershipsRes, saisonsRes, teamsRes] = await Promise.all([getSpielerMemberships(), getSaisons(), getTeamMemberships()]);
+  const [membershipsRes, saisonsRes, teamsRes] = await Promise.all([getSpielerMemberships(), getAdminSaisons(), getTeamMemberships()]);
   const saisons = saisonsRes.saisons;
   const activeSaisonId = saisons.find((saison) => saison.status === "active")?.id;
   const selectedSaisonId = requestedSaisonId ?? activeSaisonId ?? saisons[0]?.id ?? "";

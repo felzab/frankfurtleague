@@ -100,6 +100,9 @@ LS_FILES_EOL_RE: Final = re.compile(r"^i/(\S+)\s+w/(\S+)\s+attr/(.*?)\s*\t(.*)$"
 NON_LF_WORKTREE: Final[tuple[str, ...]] = ("crlf", "mixed")
 # What `.gitattributes` gives `*.bat` and `*.cmd`, and the only thing that exempts a file.
 CRLF_MANDATED: Final = "eol=crlf"
+# What `.gitattributes`' `binary` macro expands to, and the only thing that exempts a file from
+# `check_binary_bytes`: content cannot decide it, the byte hunted there being what misleads git.
+DECLARED_BINARY: Final = "-text"
 
 # The closing sections are fixed so a growing contract cannot push Invariants down and silently
 # repoint every citation of section 3 — which is what makes an invariant number safe to cite.
@@ -535,6 +538,70 @@ def check_line_endings() -> list[Finding]:
             continue
         detail = f"the working tree holds {worktree.upper()} line endings, and `{attributes}` mandates LF"
         found.append(Finding("fail", "line-endings", rel, detail))
+    return found
+
+
+def _byte_site(data: bytes, offset: int) -> str:
+    """One byte's place, spelled for both tools a reader reaches for: an editor and a hex dump."""
+    line = data.count(b"\n", 0, offset) + 1
+    # `rfind` answers -1 where no newline precedes the byte, which makes the subtraction offset + 1.
+    column = offset - data.rfind(b"\n", 0, offset)
+    return f"offset {offset} (line {line}, column {column})"
+
+
+def check_binary_bytes() -> list[Finding]:
+    """No file `.gitattributes` declares as text holds a NUL or a stray CR.
+
+    Either stops git classifying its endings, so the LF mandate lapses -- and nothing else
+    reports it, both being legal inside a string literal.
+    """
+    listing = git("ls-files", "--eol", "-z")
+    if listing is None:
+        # A run that cannot list the tree read no bytes, and silence would be indistinguishable
+        # from a clean answer.
+        detail = "git could not list the tree, so no tracked file was read for a NUL or a CR byte"
+        return [Finding("fail", "binary-byte", ".gitattributes", detail)]
+
+    found: list[Finding] = []
+    for line in listing.split("\x00"):
+        if (match := LS_FILES_EOL_RE.match(line)) is None:
+            continue
+        worktree, attributes, rel = match.group(2), match.group(3), match.group(4)
+        # An exact token, never a substring: the exemption must not widen to an attribute that
+        # merely ends in the word, which is how a rule like this grows to cover a source file.
+        if DECLARED_BINARY in attributes.split():
+            continue
+        path = REPO_ROOT / rel
+        # A staged deletion and a sparse checkout both leave a tracked path with no bytes on disk.
+        # Judging one would fail a rename halfway through it.
+        if not path.is_file():
+            continue
+        try:
+            data = path.read_bytes()
+        except OSError as error:
+            found.append(Finding("fail", "binary-byte", rel, f"could not be opened, so nothing proved it holds no NUL and no CR: {error}"))
+            continue
+        if (offset := data.find(b"\x00")) >= 0:
+            detail = (
+                f"a NUL byte at {_byte_site(data, offset)}. git then reads this file as binary, so `.gitattributes`' LF "
+                "mandate stops applying to it and its diff becomes unreadable -- and no formatter, linter, type checker or "
+                "test sees the byte, a NUL being legal inside a string literal. Repair: put the character that belongs "
+                "there in its place, and save the file as UTF-8 with LF."
+            )
+            found.append(Finding("fail", "binary-byte", rel, detail))
+        # CRLF where LF is mandated is `check_line_endings`' finding. Reporting it here as well would
+        # give one file two repairs; what is left is the CR that check cannot see, git having given
+        # up on the file rather than classified its endings.
+        if worktree in NON_LF_WORKTREE or CRLF_MANDATED in attributes:
+            continue
+        if (offset := data.find(b"\r")) >= 0:
+            detail = (
+                f"a CR byte at {_byte_site(data, offset)}. Every line here ends with LF alone, and a CR git cannot read as "
+                "part of a CRLF pair leaves it unable to classify this file's endings, so `.gitattributes`' LF mandate "
+                "lapses and CRLF commits through unwarned, while the diff still reads. Repair: delete the byte, and save "
+                "the file as UTF-8 with LF."
+            )
+            found.append(Finding("fail", "binary-byte", rel, detail))
     return found
 
 

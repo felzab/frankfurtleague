@@ -12,7 +12,7 @@ import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 // Not async on purpose: awaiting the guard here would make the whole admin shell a dynamic hole.
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AdminShell saisonMetadataDisplay={<SaisonMetadataDisplay />}>
+    <AdminShell saisonMetadataDisplay={<SaisonMetadataDisplay tier="admin" />}>
       {/* Not redundant with `loading.tsx`, which Next nests INSIDE this boundary: this one covers the
           guard's session round-trip, which sits above the page segment. */}
       <Suspense fallback={<ContentLoader />}>

@@ -121,6 +121,7 @@ Severity = Literal["fail", "report"]
 CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "anchor": frozenset({"fail"}),
     "bare-path": frozenset({"fail"}),
+    "binary-byte": frozenset({"fail"}),
     "branch-impact": frozenset({"fail"}),
     "branch-scope": frozenset({"report"}),
     "check-registry": frozenset({"fail"}),

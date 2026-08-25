@@ -2,7 +2,7 @@ from datetime import date
 from typing import Any, Iterable, Mapping, Sequence
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
-from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.schemas import FLSaisonRules, FLSaisonStatus
 from app.api.spiele.schemas import MAX_QUALIFIERS, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSaisonPhase, FLSpiel
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
@@ -17,6 +17,25 @@ def with_schedule(saison_raw: Mapping[str, Any]) -> dict[str, Any]:
     """
 
     return {**saison_raw, "schedule": [entry.__dict__ for entry in schedule_for(FLSaisonRules.model_validate(saison_raw["rules"]))]}
+
+
+# A season still being drawn up is the base tier's to know nothing about, its very existence included.
+WITHHELD_FROM_BASE_TIER: FLSaisonStatus = "future"
+
+
+def base_tier_status_term(requested: FLSaisonStatus | None = None) -> dict[str, Any]:
+    """The `status` term every base-tier season read runs; `requested` is the caller's own filter.
+
+    NARROWED, never fetched then hidden: a withheld season matches nothing, so `DB-COMMON-001`'s 404
+    stays true and no 403 confirms the season exists.
+    """
+
+    if requested is None:
+        return {"status": {"$ne": WITHHELD_FROM_BASE_TIER}}
+
+    # Both operators: an explicit `?status=future` then matches nothing, rather than the narrowing
+    # being overwritten by the term the caller asked for.
+    return {"status": {"$eq": requested, "$ne": WITHHELD_FROM_BASE_TIER}}
 
 
 # What each code below refuses is `docs/logging/error-codes.md`.

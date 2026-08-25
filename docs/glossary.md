@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `a468e858`, 2026-08-21\
+**Verified against:** `7b85b7ab`, 2026-08-22\
 **Purpose:** the German domain vocabulary — what each term is, where it lives, and what catches people.
 
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs. Translating
@@ -30,7 +30,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `Spiel` — one match
 
 **Is:** the central entity — fixtures, results, the league table and the bracket are all views of matches.\
-**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpiel` stored, `FLSpielJoined` served; `fl_frontend/src/features/spiele/schemas.ts :: FLSpielSchema` mirrors the served shape alone.\
+**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpiel` stored, `:: FLSpielJoined` served to the base tier and `:: FLSpielJoinedAdmin` to the match editor; the frontend mirrors are `fl_frontend/src/features/spiele/schemas.ts :: FLSpielSchema` and `:: FLSpielAdminSchema`.\
 **Trap:** both teams are embedded rather than referenced, so a club rename fans out into the matches of every season that is not `past` and a finished season keeps the name it was played under; the embedded name rides on no payload and is composed from the season's junction row on every write; either side is null while its occupant is unknown; and a season's fixtures are created once, so `/spiele` has no POST and no DELETE.\
 **See:** backend spec I13 for the fan-out and its scope, I32 for the joined field, I26 for the two absences.
 
@@ -51,22 +51,22 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `Spieler` — player
 
 **Is:** a person, whose season-specific facts — squad membership, captaincy, retirement — live on a `saison_spieler` junction rather than on the person.\
-**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpieler`, flattened by `fl_backend/app/api/spieler/services.py :: build_spieler_pipeline`.\
-**Trap:** only `vorname` is required and `nummer` is free text; `FLSpieler` is one player against one season and carries no `saison_id`, so the admin list reads `GET /spieler/memberships` instead.\
+**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpieler` is the stored person flattened against one season and reaches no endpoint; `:: FLSpielerPublic` is what `fl_backend/app/api/spieler/services.py :: build_spieler_pipeline` projects for the base tier.\
+**Trap:** only `vorname` is required and `nummer` is free text; the base tier reads a surname as an initial (`READ-PUPIL-001`) and is served no `stufe` (`READ-PUPIL-002`), no consent record and neither squad flag, so no public squad list marks a captain; and `FLSpieler` is one player against one season and carries no `saison_id`, so the admin list reads `GET /spieler/memberships` instead.\
 **See:** backend spec I33 for that read, I35 for the closed sets.
 
 ### `Schiedsrichter` — referee
 
-**Is:** a referee, embedded on a match as `{schiedsrichter_id, name, payment}` — the shape the DOCUMENT stores, which the match payload does not mirror.\
-**In code:** the `schiedsrichter` collection — `fl_backend/app/core/collections.py :: Collection`.\
-**Trap:** deletion is soft, and a rename must fan out into the embedded copy on every match carrying it — every season's, unlike a club's, because a referee is not season-scoped.\
+**Is:** a referee, embedded on a match as `{schiedsrichter_id, name, payment}` — the shape the DOCUMENT stores, which the match payload does not mirror and which a base-tier fixture read serves without the `payment`.\
+**In code:** the `schiedsrichter` collection — `fl_backend/app/core/collections.py :: Collection`; the embedded copy is `fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterField`, narrowed to `:: FLSpielSchiedsrichterFieldPublic` for the base tier.\
+**Trap:** deletion is soft, and a rename must fan out into the embedded copy on every match carrying it — every season's, unlike a club's, because a referee is not season-scoped; and the collection's own read is admin-tier, a referee being a pupil whose `kontakt` and `schule` are private (`READ-CONTACT-001`) beside a `default_payment` that is money (`READ-MONEY-001`).\
 **See:** backend spec I13 for the fan-out, I3 for what the match payload carries instead.
 
 ### `Spielort` — venue, playing location
 
-**Is:** a venue, embedded on a match as `{spielort_id, name, maps_link, mietpreis}` — the shape the DOCUMENT stores, which the match payload does not mirror.\
-**In code:** the `spielorte` collection — `fl_backend/app/core/collections.py :: Collection`.\
-**Trap:** `maps_link` is **not** a URL despite the name — free text built server-side and searched on Google Maps, so it carries no scheme check.\
+**Is:** a venue, embedded on a match as `{spielort_id, name, maps_link, mietpreis}` — the shape the DOCUMENT stores, which the match payload does not mirror and which a base-tier fixture read serves without the `mietpreis`.\
+**In code:** the `spielorte` collection — `fl_backend/app/core/collections.py :: Collection`; the embedded copy is `fl_backend/app/api/spiele/schemas.py :: FLSpielOrtField`, narrowed to `:: FLSpielOrtFieldPublic` for the base tier.\
+**Trap:** `maps_link` is **not** a URL despite the name — free text built server-side and searched on Google Maps, so it carries no scheme check — and it is the venue's whole postal address in one string, composed by `fl_backend/app/api/spielorte/admin_router.py :: _maps_link` from the name and the address's own `fl_backend/app/shared/schemas/addresses.py :: to_string`. It rides on every base-tier fixture read that names a venue, while the collection's own read, structured `address` included, is admin-tier (`READ-ADDRESS-001`).\
 **See:** backend spec I13 for the fan-out, I3 for what the match payload carries instead.
 
 ### `Aktion` — one recorded write, and what it replaced
@@ -174,14 +174,14 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `is_nachgetragen` — entered later, retrospectively added
 
 **Is:** a marker on a squad entry added after the season had already started.\
-**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpieler`, on the `saison_spieler` junction.\
+**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSaisonSpielerRow`, the `saison_spieler` row's own declared shape.\
 **Trap:** every junction payload requires it with no default, and the admin create form derives it from the chosen season's status rather than asking, so it is always an answer rather than a value nobody chose.\
 **See:** backend spec I34.
 
 ### `is_captain` — the squad's captain for one season
 
 **Is:** captaincy within one team for one season, held on the `saison_spieler` junction rather than on the person.\
-**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpieler`.\
+**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSaisonSpielerRow`, beside `is_nachgetragen`.\
 **Trap:** no rule the database enforces makes it unique — a co-captaincy is a real arrangement — and `fl_backend/app/shared/schemas/custom.py :: PERSON_NAME_PATTERN` on the write payloads is what stops a captaincy marker being typed inside a name instead.\
 **See:** backend spec I36 for the write-payload name pattern.
 
@@ -202,21 +202,21 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `mietpreis` · `default_mietpreis` — rental price
 
 **Is:** two fields and never one copy — `mietpreis` is what one fixture paid for its venue, carried on the copy a match embeds; `default_mietpreis` is the venue's own current price. Both are an `int` with `ge=0`.\
-**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielOrtFieldPayload` carries `mietpreis` and the stored `:: FLSpielOrtField` inherits it; `fl_backend/app/api/spielorte/schemas.py :: FLSpielort` carries `default_mietpreis`.\
+**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielOrtFieldPayload` carries `mietpreis`, and the stored `:: FLSpielOrtField` declares it again over `:: FLSpielOrtFieldPublic`, the base-tier read shape without it; `fl_backend/app/api/spielorte/schemas.py :: FLSpielort` carries `default_mietpreis`.\
 **Trap:** `mietpreis` is **submitted** where the `name` and `maps_link` beside it on the same embedded venue are composed by the server (I3) — it is what _that_ fixture agreed to pay rather than a copy of anything, which is also why a venue's price change never fans out although its name and `maps_link` do. Neither field carries a Pydantic default, because both patches write their payload back wholesale and a default would overwrite a real rent with `0`.\
-**See:** backend spec I6 and I3, and [`domain.md`](domain.md) for the fan-out this is deliberately left out of.
+**See:** backend spec I6 and I3, [backend spec §1.1](backend/spec.md#11-endpoint-inventory) for which fixture read serves it, and [`domain.md`](domain.md) for the fan-out this is deliberately left out of.
 
 ### `payment` · `default_payment` — referee fee
 
 **Is:** the same split as `mietpreis` — `payment` is what one fixture paid its referee, `default_payment` the referee's own current fee. Both are an `int` with `ge=0`.\
-**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPayload` carries `payment` and the stored `:: FLSpielSchiedsrichterField` inherits it; `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter` carries `default_payment`.\
-**Trap:** no default on either, no fan-out, and `payment` stays on the match payload while the `name` beside it is composed — all three for `mietpreis`'s reasons.\
+**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPayload` carries `payment`, and the stored `:: FLSpielSchiedsrichterField` declares it again over `:: FLSpielSchiedsrichterFieldPublic`, the base-tier read shape without it; `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter` carries `default_payment`.\
+**Trap:** no default on either, no fan-out, `payment` stays on the match payload while the `name` beside it is composed, and the base tier is served without it — every one of them for `mietpreis`'s reasons.\
 **See:** backend spec I6.
 
 ### `saison_teams` · `saison_spieler` — the season junctions
 
-**Is:** two collections with **no stored-document model** — the fields of a row are declared by the `$jsonSchema` validator alone — joined at read time into a team or a player, which is what makes "a team" and "a player" season-scoped at all.\
-**In code:** `fl_backend/app/core/collections.py :: Collection`, with the row's fields in `fl_backend/app/core/constraints.py :: COLLECTION_VALIDATORS`. Each junction's own write endpoints echo the row back — `fl_backend/app/api/teams/schemas.py :: FLSaisonTeamResponse` and `fl_backend/app/api/spieler/schemas.py :: FLSaisonSpielerResponse`, each assembled from what the write just stored rather than being a model the stored row is read through.\
+**Is:** two collections joined at read time into a team or a player, which is what makes "a team" and "a player" season-scoped at all. Neither is read through a model: `saison_teams` has none at all, its fields declared by the `$jsonSchema` validator alone, and `saison_spieler`'s is a declared shape no stored row is validated against.\
+**In code:** `fl_backend/app/core/collections.py :: Collection`, with the row's fields in `fl_backend/app/core/constraints.py :: COLLECTION_VALIDATORS` and `saison_spieler`'s declared shape in `fl_backend/app/api/spieler/schemas.py :: FLSaisonSpielerRow`. Each junction's own write endpoints echo the row back — `fl_backend/app/api/teams/schemas.py :: FLSaisonTeamResponse` and `fl_backend/app/api/spieler/schemas.py :: FLSaisonSpielerResponse`, each assembled from what the write just stored rather than being a model the stored row is read through.\
 **Trap:** they differ on the way out — `saison_spieler` carries `inactive_since` because a player leaves a squad, while `saison_teams` has no DELETE and an `austritt` record is the only way out of a season. A junction row is addressed under its entity at `/teams/{team_id}/saisons/{saison_id}`, where `saisons` names the junction row rather than a season — except the group swap, which writes two rows at once and so is addressed on the season.\
 **See:** backend spec I19 for the missing DELETE, I7 for the routers, I38 for the swap.
 

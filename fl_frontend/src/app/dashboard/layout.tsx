@@ -19,5 +19,5 @@ export const metadata: Metadata = {
  * wins the race, and nothing else here suspends. `admin/layout.tsx` is the opposite case.
  */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardShell saisonMetadataDisplay={<SaisonMetadataDisplay />}>{children}</DashboardShell>;
+  return <DashboardShell saisonMetadataDisplay={<SaisonMetadataDisplay tier="base" />}>{children}</DashboardShell>;
 }

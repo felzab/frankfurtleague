@@ -1,9 +1,11 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
 from motor.motor_asyncio import AsyncIOMotorClientSession
 
+from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import (
     FLPatchSaisonTeamPayload,
     FLPatchTeamPayload,
@@ -12,13 +14,20 @@ from app.api.teams.schemas import (
     FLPostTeamPayload,
     FLPostTeamResponse,
     FLSaisonTeamResponse,
+    FLTeamListAdapter,
     FLTeamRecord,
+    FLTeamsFilterParams,
+    FLTeamsGroupedResponse,
+    FLTeamsListResponse,
     FLTeamsMembershipsResponse,
+    FLTeamsResponse,
     FLTeamWithMembershipsListAdapter,
     FLTeamWriteResponse,
 )
 from app.api.teams.services import (
+    build_gruppen,
     build_team_memberships_pipeline,
+    build_team_pipeline,
     find_club_entry_refusal,
     find_entry_refusal,
     find_gruppe_move_refusal,
@@ -67,6 +76,48 @@ async def get_team_memberships(teams_collection: TeamsCollection) -> FLTeamsMemb
     teams_raw = await aggregate_many_from_db(collection=teams_collection, pipeline=build_team_memberships_pipeline())
 
     return FLTeamsMembershipsResponse(teams=FLTeamWithMembershipsListAdapter.validate_python(teams_raw))
+
+
+# Two static segments, as `GET /saisons/list/admin` has, so the admin tier lists every season-scoped
+# resource under one shape. No id route at this prefix ends in `/admin`, so none can shadow this one.
+@router.get("/list/admin", response_model=FLTeamsResponse, summary="Teams for a Saison, for the admin surfaces")
+async def get_teams_for_admin(
+    teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
+    filters: FLTeamsFilterParams = Depends(),
+) -> FLTeamsResponse:
+    """
+    List a season's teams for the admin surfaces, a `future` season's included.
+
+    Same filters and shapes as `GET /teams`, without its season gate: a club is entered while its
+    season is still planned, so an admin who cannot see one cannot enter it.
+    """
+
+    # The whole body below mirrors `app/api/teams/router.py :: get_teams`, which cannot be called
+    # here: the gate is inside it, and refusing the planned season is the one thing this must not do.
+    filters.saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
+
+    teams = FLTeamListAdapter.validate_python(
+        await aggregate_many_from_db(
+            collection=teams_collection,
+            pipeline=build_team_pipeline(filters=filters, rules=saison_rules),
+        )
+    )
+    if not filters.in_gruppen:
+        return FLTeamsListResponse(teams=teams)
+
+    # Narrowed to the set the statistics counted, so a head-to-head tiebreak weighs the same matches.
+    spiele_filter: dict[str, Any] = {"saison_id": filters.saison_id}
+    if filters.statistik_scope == "gruppenphase":
+        spiele_filter["saison_phase"] = "gruppenphase"
+
+    spiele = FLSpielListAdapter.validate_python(await pull_many_from_db(collection=spiele_collection, db_filter=spiele_filter))
+
+    return FLTeamsGroupedResponse(
+        gruppen=build_gruppen(teams=teams, spiele=spiele, rules=saison_rules),
+        qualifiers_per_group=saison_rules.qualifiers_per_group,
+    )
 
 
 @router.post("", response_model=FLPostTeamResponse, status_code=201, summary="Create a team")

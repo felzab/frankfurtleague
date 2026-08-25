@@ -19,8 +19,9 @@ export const FLGruppenNamesSchema = z.enum(["A", "B", "C", "D"], { error: "Bitte
 export type FLGruppenNames = z.infer<typeof FLGruppenNamesSchema>;
 
 /**
- * Mirrors `FLAustritt`. A team is out of a season exactly when `FLTeam.austritt` is not null — no
- * boolean beside it on either side of the wire, so no reader has two answers.
+ * Mirrors `FLAustritt`. A team is out of a season exactly when `FLTeam.austritt` is not null, and
+ * never a boolean beside it. `FLGruppenTeam.austritt_type` marks the same fact on the grouped row,
+ * reusing this enum rather than adding an answer.
  */
 export const FLAustrittSchema = z.object({
   // German error because the junction editor binds this schema to its inputs, and an untouched
@@ -74,16 +75,35 @@ export const FLTeamSchema = z.object({
 export type FLTeam = z.infer<typeof FLTeamSchema>;
 
 /**
+ * Mirrors `FLGruppenTeam` — one row of a league table, and narrower than `FLTeamSchema` by design.
+ * The table is rendered by a client component, so everything here is serialised into a public page,
+ * and no cell reads a club's address.
+ */
+export const FLGruppenTeamSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  name: z.string().nonempty(),
+  shorthand: z.string().length(2),
+  statistik: FLTeamStatistikSchema,
+  // The record's TYPE alone, reusing the enum rather than restating it: a row marks that a club is
+  // out of the season, and the club's own page publishes the reason and the date.
+  austritt_type: FLAustrittSchema.shape.type.nullable(),
+  // Fixtures neither counted nor called off, so points are still to be awarded here. This is the
+  // term that lets a club yet to play its first fixture hold a placing (`docs/backend/spec.md :: I24b`).
+  anzahl_ausstehende_spiele: z.int().nonnegative(),
+});
+export type FLGruppenTeam = z.infer<typeof FLGruppenTeamSchema>;
+
+/**
  * All four keys are required: the backend seeds every group, and an omitted one fails this parse.
  *
  * Each list arrives in STANDING order. **Never re-sort one here** — the same ordering seeds the
  * playoff bracket.
  */
 export const FLGruppenSchema = z.object({
-  A: z.array(FLTeamSchema),
-  B: z.array(FLTeamSchema),
-  C: z.array(FLTeamSchema),
-  D: z.array(FLTeamSchema),
+  A: z.array(FLGruppenTeamSchema),
+  B: z.array(FLGruppenTeamSchema),
+  C: z.array(FLGruppenTeamSchema),
+  D: z.array(FLGruppenTeamSchema),
 });
 export type FLGruppen = z.infer<typeof FLGruppenSchema>;
 

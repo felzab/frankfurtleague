@@ -28,27 +28,22 @@ export const FLEinwilligungSchema = z.object({
 });
 export type FLEinwilligung = z.infer<typeof FLEinwilligungSchema>;
 
-// Mirrors the backend `FLSpieler`, and must be exactly as nullable as it is: a null on a field
-// declared non-nullable throws `APIMalformedDataError` on an otherwise valid response.
-export const FLSpielerSchema = z.object({
+/**
+ * Mirrors `FLSpielerPublic` — an ALLOW-LIST: every field is one the squad table renders. `nachname`
+ * arrives as an INITIAL carrying its own dot (`READ-PUPIL-001`), so a joined name and an avatar
+ * letter read as they would from a whole surname.
+ */
+export const FLSpielerPublicSchema = z.object({
   id: CustomObjectIdStringSchema,
   vorname: z.string(),
   nachname: z.string().nullable(),
-  einwilligung: FLEinwilligungSchema,
-  stufe: FLSpielerStufeSchema.nullable(),
   nummer: z.string().nullable(),
   position: FLSpielerPositionSchema.nullable(),
-  is_nachgetragen: z.boolean(),
-  is_captain: z.boolean(),
-  team_id: CustomObjectIdStringSchema,
-  // Declared because the backend sends it: zod's default strip mode discards an undeclared field
-  // with no error.
-  inactive_since: CustomDateStringSchema.nullable(),
 });
-export type FLSpieler = z.infer<typeof FLSpielerSchema>;
+export type FLSpielerPublic = z.infer<typeof FLSpielerPublicSchema>;
 
 export const FLSpielerListResponseSchema = BaseAPIResponseSchema.extend({
-  spieler: z.array(FLSpielerSchema),
+  spieler: z.array(FLSpielerPublicSchema),
 });
 export type FLSpielerListResponse = z.infer<typeof FLSpielerListResponseSchema>;
 
@@ -78,6 +73,9 @@ export const FLSpielerWithMembershipsSchema = z.object({
   nachname: z.string().nullable(),
   // The day the PERSON left the league; a squad row's own retirement is on the membership.
   inactive_since: CustomDateStringSchema.nullable(),
+  // Nullable rather than optional, mirroring the backend default: a person stored before consent
+  // was collected has no record, and this tier is the only one that may read one.
+  einwilligung: FLEinwilligungSchema.nullable(),
   memberships: z.array(FLSpielerMembershipSchema),
 });
 export type FLSpielerWithMemberships = z.infer<typeof FLSpielerWithMembershipsSchema>;
@@ -182,16 +180,17 @@ export const FLCreateSpielerFormPayloadSchema = z.object({
 export type FLCreateSpielerFormPayload = z.infer<typeof FLCreateSpielerFormPayloadSchema>;
 
 /**
- * Mirrors `FLSpielerSingleResponse` — the person, and only the person: team, number, position and
- * stufe are season-scoped, so a player addressed without a season has none of them.
+ * Mirrors `FLSpielerAdminSingleResponse` — the person alone, which is all the three admin
+ * name-writes echo: squad fields are season-scoped and this path names no season. The base tier's
+ * `FLSpielerSingleResponse` has no caller here, so no mirror.
  */
-export const FLSpielerSingleResponseSchema = BaseAPIResponseSchema.extend({
+export const FLSpielerAdminSingleResponseSchema = BaseAPIResponseSchema.extend({
   spieler_id: CustomObjectIdStringSchema,
   vorname: z.string().nonempty(),
   nachname: z.string().nullable(),
   inactive_since: CustomDateStringSchema.nullable(),
 });
-export type FLSpielerSingleResponse = z.infer<typeof FLSpielerSingleResponseSchema>;
+export type FLSpielerAdminSingleResponse = z.infer<typeof FLSpielerAdminSingleResponseSchema>;
 
 export const FLSpielerWriteResponseSchema = BaseAPIResponseSchema.extend({
   spieler_id: CustomObjectIdStringSchema,

@@ -12,9 +12,9 @@ import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOv
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { Key } from "@heroui/react";
-import type { FLSaison } from "../../schemas";
+import type { SaisonSelectorOption } from "../../types";
 
-export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]; currentSaison: FLSaison }) {
+export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSelectorOption[]; currentSaison: SaisonSelectorOption }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

@@ -34,7 +34,7 @@ import type {
   FLReactivateSpielerPayload,
   FLSaisonSpielerKeyPayload,
   FLSaisonSpielerResponse,
-  FLSpielerSingleResponse,
+  FLSpielerAdminSingleResponse,
 } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
 
@@ -132,7 +132,7 @@ export async function postSpielerAction(
 
 export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Promise<{
   success: boolean;
-  spieler?: FLSpielerSingleResponse;
+  spieler?: FLSpielerAdminSingleResponse;
   message?: string;
   error?: string;
   fieldErrors?: FieldErrors;
@@ -165,7 +165,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
 
 export async function deleteSpielerAction(
   rawPayload: FLDeleteSpielerPayload,
-): Promise<{ success: boolean; spieler?: FLSpielerSingleResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<{ success: boolean; spieler?: FLSpielerAdminSingleResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("deleteSpielerAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -194,7 +194,7 @@ export async function deleteSpielerAction(
 
 export async function reactivateSpielerAction(
   rawPayload: FLReactivateSpielerPayload,
-): Promise<{ success: boolean; spieler?: FLSpielerSingleResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<{ success: boolean; spieler?: FLSpielerAdminSingleResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("reactivateSpielerAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

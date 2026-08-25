@@ -3,12 +3,12 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { AdminSaisonEditView } from "@/features/saisons/components/views/AdminSaisonEditView";
-import { getSaisons } from "@/features/saisons/queries";
+import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
 import { buildGruppenSwapContext, buildSpieltagBound, holdsDrawnSpiele } from "@/features/saisons/utils";
-import { getSpiele } from "@/features/spiele/queries";
-import { getSpieltage } from "@/features/spieltage/queries";
-import { getTeams } from "@/features/teams/queries";
+import { getAdminSpiele } from "@/features/spiele/queries";
+import { getAdminSpieltage } from "@/features/spieltage/queries";
+import { getAdminTeams } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
@@ -34,7 +34,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
 
   // The whole list, not `GET /saisons/{id}`: the rollover panel also needs whichever season holds
   // `active`, which a read by id cannot name.
-  const saisonsRes = await getSaisons();
+  const saisonsRes = await getAdminSaisons();
   const saison = saisonsRes.saisons.find((candidate) => candidate.id === saisonId);
   if (!saison) {
     notFound();
@@ -43,21 +43,20 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const outgoing = saisonsRes.saisons.find((candidate) => candidate.status === "active") ?? null;
   const outgoingSaisonId = outgoing === null || outgoing.id === saison.id ? null : outgoing.id;
 
-  // The argument matches the one `/admin/saisons` warms, so both pages share a `"use cache"` entry.
   const [spieltageRes, outgoingSpieleRes, teamsRes, playoffSpieleRes, gruppenSpieleRes] = await Promise.all([
-    getSpieltage({ saison_id: saison.id }),
+    getAdminSpieltage({ saison_id: saison.id }),
     // Only where there is something to warn about: only a `future` season has a rollover to present —
     // the running one has nothing to switch to, a `past` one is refused (`REQ-ACTIVATE-002`) — and no
     // incumbent means no outgoing fixtures.
-    outgoingSaisonId === null || saison.status !== "future" ? Promise.resolve(null) : getSpiele({ saison_id: outgoingSaisonId }),
+    outgoingSaisonId === null || saison.status !== "future" ? Promise.resolve(null) : getAdminSpiele({ saison_id: outgoingSaisonId }),
     // `include_inactive` because an admin picker hiding a retired club that still holds a junction
     // row would make a swap the endpoint accepts look impossible.
-    getTeams({ saison_id: saison.id, include_inactive: true }),
+    getAdminTeams({ saison_id: saison.id, include_inactive: true }),
     // `playoffs` is exactly the set `REQ-SWAP-002` counts, so the page asks the endpoint's own
     // question rather than filtering a whole season here.
-    getSpiele({ saison_id: saison.id, saison_phase: "playoffs" }),
+    getAdminSpiele({ saison_id: saison.id, saison_phase: "playoffs" }),
     // The other half of the same question (`REQ-SWAP-004`), narrowed to the phase the rule asks about.
-    getSpiele({ saison_id: saison.id, saison_phase: "gruppenphase" }),
+    getAdminSpiele({ saison_id: saison.id, saison_phase: "gruppenphase" }),
   ]);
 
   /**
@@ -85,7 +84,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
 
   /**
    * The generator's own preconditions, off reads this page already makes: the watermark rides on the
-   * season, and `REQ-SPIELPLAN-002` counts exactly the rows `getSpieltage` lists for it.
+   * season, and `REQ-SPIELPLAN-002` counts exactly the rows `getAdminSpieltage` lists for it.
    */
   const spielplan: SaisonSpielplanContext = {
     spielplan: saison.spielplan,

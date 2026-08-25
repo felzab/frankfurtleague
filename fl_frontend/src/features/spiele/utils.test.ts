@@ -16,16 +16,18 @@ import {
   formatQuelle,
   formatSpielDisplay,
   formatSpielUpdateMessage,
+  formatUndoScopeWarning,
   groupBracketFaultsBySpielId,
   listDependentSpiele,
   listFeederSpiele,
+  listMovedSpiele,
   quelleKey,
   spielStateKey,
   toPatchPayload,
 } from "./utils.ts";
 
 import type { FLAustrittType } from "../teams/schemas.ts";
-import type { FLBracketFault, FLSpiel, FLSpielAdvancement } from "./schemas.ts";
+import type { FLBracketFault, FLSpiel, FLSpielAdmin, FLSpielAdvancement, FLSpielBooking } from "./schemas.ts";
 
 const TODAY = "2026-07-29";
 
@@ -420,7 +422,7 @@ function fieldedTwice(side: "team1" | "team2"): FLBracketFault {
 }
 
 describe("toPatchPayload and buildUndoPayloads", () => {
-  const fixture = (spielNr: number, ergebnis: string | null): FLSpiel =>
+  const fixture = (spielNr: number, ergebnis: string | null): FLSpielAdmin =>
     ({
       id: `6890a1b2c3d4e5f6071800${String(spielNr).padStart(2, "0")}`,
       spiel_nr: spielNr,
@@ -435,7 +437,11 @@ describe("toPatchPayload and buildUndoPayloads", () => {
       ort: null,
       schiedsrichter: null,
       ergebnis,
-    }) as FLSpiel;
+    }) as FLSpielAdmin;
+
+  /** The ordinary case, every moved fixture having been read back; the gap is its own test below. */
+  const bookingsFor = (moved: readonly FLSpiel[]): Map<string, FLSpielBooking> =>
+    new Map(moved.map((spiel) => [spiel.id, { ort: null, schiedsrichter: null }]));
 
   it("carries every field the write path would otherwise overwrite with nothing", () => {
     // The payload is `$set` wholesale, so an omitted field is erased by the very request meant to
@@ -460,7 +466,7 @@ describe("toPatchPayload and buildUndoPayloads", () => {
     // The regression this guards is the undo's: reopening the SAME fixture after its values changed
     // must remount the editor, or every field keeps what its `useState` initialiser was seeded with.
     const before = fixture(29, null);
-    const after = { ...before, uhrzeit: "20:15:00" } as FLSpiel;
+    const after = { ...before, uhrzeit: "20:15:00" } as FLSpielAdmin;
 
     assert.notEqual(spielStateKey(before), spielStateKey(after));
   });
@@ -478,7 +484,7 @@ describe("toPatchPayload and buildUndoPayloads", () => {
     // The editor seeds its pickers from these copies, so a rename fanned out into the fixture has to
     // remount the tree. The key is the SEED's mirror, which the payload is only part of.
     const before = fixture(29, null);
-    const renamed = { ...before, team1: { ...before.team1, name: "Team A II" } } as FLSpiel;
+    const renamed = { ...before, team1: { ...before.team1, name: "Team A II" } } as FLSpielAdmin;
 
     assert.notEqual(spielStateKey(before), spielStateKey(renamed));
   });
@@ -486,7 +492,7 @@ describe("toPatchPayload and buildUndoPayloads", () => {
   it("ignores a change to a field no draft atom holds", () => {
     // `ergebnis` is derived by the backend and is on no payload, so it cannot reset a form that never
     // showed it as editable state — the key is the draft's mirror, not the whole document.
-    const played = { ...fixture(29, null), ergebnis: "2:0" } as FLSpiel;
+    const played = { ...fixture(29, null), ergebnis: "2:0" } as FLSpielAdmin;
 
     assert.equal(spielStateKey(fixture(29, null)), spielStateKey(played));
   });
@@ -505,9 +511,9 @@ describe("toPatchPayload and buildUndoPayloads", () => {
         name: "Team A",
         tore: 2,
         shorthand: "TA",
-        austritt: { type: "rueckzug", grund: "Die Schule hat den Standort geschlossen", datum: "2026-03-01" },
+        austritt_type: "rueckzug",
       },
-    } as FLSpiel;
+    } as FLSpielAdmin;
 
     assert.deepEqual(Object.keys(toPatchPayload(joined).team1 ?? {}).sort(), ["team_id", "tore"]);
   });
@@ -519,7 +525,7 @@ describe("toPatchPayload and buildUndoPayloads", () => {
       ...fixture(29, null),
       ort: { spielort_id: "6890a1b2c3d4e5f607180101", name: "Halle Nord", maps_link: "https://maps.example/nord", mietpreis: 120 },
       schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607180202", name: "R. Meier", payment: 35 },
-    } as FLSpiel;
+    } as FLSpielAdmin;
     const payload = toPatchPayload(booked);
 
     assert.deepEqual(payload.ort, { spielort_id: "6890a1b2c3d4e5f607180101", mietpreis: 120 });
@@ -536,8 +542,10 @@ describe("toPatchPayload and buildUndoPayloads", () => {
     // Deliberately not in bracket order: the season list's order must not decide the replay's.
     const season = [later, edited, semi];
 
+    const moved = listMovedSpiele(edited, season, [29, 30]);
+
     assert.deepEqual(
-      buildUndoPayloads(edited, season, [29, 30]).map((payload) => payload.spiel_id),
+      buildUndoPayloads(edited, moved, bookingsFor(moved)).map((payload) => payload.spiel_id),
       [edited.id, later.id, semi.id],
     );
   });
@@ -545,21 +553,68 @@ describe("toPatchPayload and buildUndoPayloads", () => {
   it("restores only the fixtures the save actually reported", () => {
     const edited = fixture(25, "1:3");
     const semi = fixture(29, "2:0");
-    const season = [edited, semi, fixture(30, "0:0")];
+    const moved = listMovedSpiele(edited, [edited, semi, fixture(30, "0:0")], [29]);
 
     assert.deepEqual(
-      buildUndoPayloads(edited, season, [29]).map((payload) => payload.spiel_id),
+      buildUndoPayloads(edited, moved, bookingsFor(moved)).map((payload) => payload.spiel_id),
       [edited.id, semi.id],
     );
   });
 
   it("never lists the edited fixture twice when the save also reported it", () => {
     const edited = fixture(25, "1:3");
+    const moved = listMovedSpiele(edited, [edited], [25]);
 
     assert.deepEqual(
-      buildUndoPayloads(edited, [edited], [25]).map((payload) => payload.spiel_id),
+      buildUndoPayloads(edited, moved, bookingsFor(moved)).map((payload) => payload.spiel_id),
       [edited.id],
     );
+  });
+
+  it("takes a moved fixture's rent from the booking read, the season list carrying none", () => {
+    const edited = fixture(25, "1:3");
+    const semi = fixture(29, "2:0");
+    const moved = listMovedSpiele(edited, [edited, semi], [29]);
+    const bookings: Map<string, FLSpielBooking> = new Map([
+      [semi.id, { ort: { spielort_id: "6890a1b2c3d4e5f607180101", name: "Halle Nord", maps_link: "x", mietpreis: 120 }, schiedsrichter: null }],
+    ]);
+
+    assert.deepEqual(buildUndoPayloads(edited, moved, bookings)[1]?.ort, { spielort_id: "6890a1b2c3d4e5f607180101", mietpreis: 120 });
+  });
+
+  it("leaves out a moved fixture whose booking never came back, rather than guessing its rent", () => {
+    // `$set` writes the payload wholesale, so a made-up rent would be stored as the agreed one.
+    const edited = fixture(25, "1:3");
+    const moved = listMovedSpiele(edited, [edited, fixture(29, "2:0")], [29]);
+
+    assert.deepEqual(
+      buildUndoPayloads(edited, moved, new Map()).map((payload) => payload.spiel_id),
+      [edited.id],
+    );
+  });
+});
+
+describe("formatUndoScopeWarning", () => {
+  /* The read behind the undo fails whole -- a forbidden session, a network fault, a malformed
+     answer -- so the warning covers every moved fixture or none, never a subset. */
+  it("names the one moved fixture the undo will not restore", () => {
+    assert.equal(
+      formatUndoScopeWarning([{ spiel_nr: 29 }]),
+      "Spielort und Schiedsrichter von Spiel 29 konnten nicht gelesen werden; „Rückgängig“ stellt daher nur das bearbeitete Spiel wieder her",
+    );
+  });
+
+  it("names several in the plural, in the season's own list form", () => {
+    assert.equal(
+      formatUndoScopeWarning([{ spiel_nr: 29 }, { spiel_nr: 30 }, { spiel_nr: 31 }]),
+      "Spielort und Schiedsrichter der Spiele 29, 30 und 31 konnten nicht gelesen werden; " +
+        "„Rückgängig“ stellt daher nur das bearbeitete Spiel wieder her",
+    );
+  });
+
+  // The save moved nothing, so the undo restores everything it was ever going to.
+  it("says nothing when the save moved no fixture", () => {
+    assert.equal(formatUndoScopeWarning([]), "");
   });
 });
 

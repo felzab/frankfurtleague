@@ -10,7 +10,10 @@ from app.shared.schemas.responses import BaseAPIResponse
 # does not, and the two ends must accept and refuse the same shirt.
 SQUAD_NUMMER_PATTERN = r"^[0-9]{1,4}$"
 
-FLSpielerSortOptions = Literal["vorname", "nachname", "stufe", "nummer", "position"]
+# Every option is a field the base tier serves: ordering by a key reads it out, whether or not the
+# response carries it (`READ-PUPIL-001`, `READ-PUPIL-002`). No admin read takes a sort parameter, so
+# there is one Literal.
+FLSpielerSortOptions = Literal["vorname", "nummer", "position"]
 
 # In the order a squad sheet lists them. `sort_by="position"` sorts the STRING, so a public squad
 # list is alphabetical instead.
@@ -36,12 +39,17 @@ class FLEinwilligung(BaseModel):
     erteilt_von: Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
     # The day consent was given, and `None` for a carry-over: nobody was asked, so no day exists.
     datum: CustomOptionalDateString
-    # `None` means UNCONFIRMED, which is not the same as absent -- a public squad list reads this.
+    # `None` means UNCONFIRMED, which is not the same as absent: the admin membership read serves
+    # this so a carried-over record shows as awaiting a confirmation rather than merely dateless.
     bestaetigt_am: CustomOptionalDateString
 
 
 class _SpielerPerson(BaseModel):
-    """The person's own two fields, shared so a read of one player and a read of their memberships cannot drift apart."""
+    """The person's own two fields, shared so no read of a player declares them differently.
+
+    The tiers put different CONTENT in `nachname` -- the base one an initial (`READ-PUPIL-001`)
+    -- which is a projection's business and not a declaration's.
+    """
 
     vorname: CustomNonEmptyString
     nachname: str | None
@@ -60,11 +68,36 @@ class _SaisonSpielerWritable(BaseModel):
     is_captain: bool
 
 
+class FLSpielerPublic(_SpielerPerson):
+    """One squad row as the BASE TIER serves it -- all an anonymous visitor may read.
+
+    `build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the
+    `stufe` is gone (`READ-PUPIL-002`), and the consent record with it.
+    """
+
+    # An ALLOW-LIST: every field is one this surface needs. Deriving it by subtracting what looks
+    # sensitive puts each later addition to the document on the wire until somebody notices -- which
+    # is how a consent record came to be published.
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+
+    # Defaulted because an unnarrowed read joins LOOSELY: a person whose every squad row is retired
+    # survives the unwind, and `$project` omits a joined key rather than nulling it. Required fields
+    # would 500 the list over an ordinary retirement.
+    nummer: str | None = None
+    position: FLSpielerPosition | None = None
+
+
 class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
+    """The person as STORED, flattened against one season. A declared shape: NO endpoint returns it.
+
+    `fl_backend/tests/core/test_constraints.py` mirrors the `spieler` validator against it, and
+    `GET /spieler` answers with `FLSpielerPublic` instead.
+    """
+
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
     # Re-declared with defaults where the junction requires them: a squad row written before either
-    # field existed still has to read back, and a read model that 422s makes that row unreachable.
+    # field existed still has to be describable, and a model that 422s describes it as impossible.
     is_nachgetragen: bool = False
     is_captain: bool = False
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
@@ -75,7 +108,7 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     einwilligung: FLEinwilligung
 
 
-FLSpielerListAdapter = TypeAdapter(list[FLSpieler])
+FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
 
 
 class FLSaisonSpielerRow(BaseModel):
@@ -101,13 +134,15 @@ class FLSaisonSpielerRow(BaseModel):
 
 
 class FLSpielerFilterParams(BaseModel):
+    """What `GET /spieler` may narrow on -- never a field the response withholds.
+
+    A filter on a withheld one rebuilds it from squads of one (`READ-PUPIL-002`), and
+    `include_inactive` would un-hide rows this tier serves no marker for (`READ-SQUAD-002`).
+    """
+
     # NOT paths: these narrow which players come back rather than naming one.
     team_id: CustomObjectId | None = None
     saison_id: str | None = None
-    is_nachgetragen: bool | None = None
-    # A closed set, so a misspelled year comes back 422 rather than as an empty squad.
-    stufe: FLSpielerStufe | None = None
-    include_inactive: bool = False
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: FLSpielerSortOptions = Field(default="position")
@@ -159,19 +194,28 @@ class FLPatchSaisonSpielerPayload(_SaisonSpielerPayload):
 
 
 class FLSpielerListResponse(BaseAPIResponse):
-    spieler: list[FLSpieler]
+    spieler: list[FLSpielerPublic]
 
 
 class FLSpielerSingleResponse(BaseAPIResponse):
-    """One player, from `GET /spieler/{spieler_id}`.
+    """One player as the BASE TIER serves them -- an allow-list of what this surface needs.
 
-    The person alone: `FLSpieler`'s squad fields are season-scoped, and inventing a season would make
-    the answer depend on a default the caller never stated.
+    Squad fields are season-scoped, and inventing a season would make the answer depend on a default
+    nobody stated. `nachname` is an INITIAL here (`READ-PUPIL-001`).
     """
 
     spieler_id: CustomObjectId
     vorname: str
     nachname: str | None
+
+
+class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
+    """The same player echoed back to the admin who just wrote them, with their surname whole.
+
+    `inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public
+    surface renders a pupil's leaving date.
+    """
+
     inactive_since: str | None
 
 
@@ -214,6 +258,10 @@ class FLSpielerWithMemberships(_SpielerPerson):
 
     # The day the PERSON left the league; a squad row retires independently, on the membership above.
     inactive_since: CustomOptionalDateString
+    # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Defaulted
+    # where `FLSpieler` requires it, because this model reads STORED rows and one written before the
+    # field existed would 500 the whole list.
+    einwilligung: FLEinwilligung | None = None
     memberships: list[FLSpielerMembership]
 
 

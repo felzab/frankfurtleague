@@ -13,7 +13,10 @@ from app.api.saisons.schemas import (
     FLPostSaisonPayload,
     FLPostSaisonResponse,
     FLSaison,
+    FLSaisonListAdapter,
     FLSaisonRules,
+    FLSaisonsFilterParams,
+    FLSaisonsListResponse,
     FLSaisonSpielplan,
     FLSwapGruppenPayload,
     FLSwapGruppenResponse,
@@ -31,7 +34,17 @@ from app.api.spiele.schemas import KNOCKOUT_PHASES, SONDEREREIGNIS_PRODUCING_A_R
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import find_gruppe_swap_refusal, fixtures_newly_fielding_a_departed_club
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import (
+    build_query,
+    build_sort,
+    patch_many_in_db,
+    patch_one_in_db,
+    post_many_to_db,
+    post_one_to_db,
+    pull_many_from_db,
+    pull_one_from_db,
+    refuse,
+)
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -161,6 +174,31 @@ async def _rewrite_gruppenphase_sides(
     # The fixtures, not the sides: `modified_count` double-counts a fixture fielding both clubs, and
     # reports 0 where the value already matched.
     return len({spiel_id for spiel_ids in by_pass.values() for spiel_id in spiel_ids})
+
+
+# Two segments, because `GET /saisons/{saison_id}` is declared first and would answer a single static
+# one: a season id is a plain four-character string, so the `objectid` convertor cannot separate them
+# (`docs/backend/spec.md :: I37`).
+@router.get("/list/admin", response_model=FLSaisonsListResponse, summary="Every Saison for the admin surfaces")
+async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: FLSaisonsFilterParams = Depends()) -> FLSaisonsListResponse:
+    """
+    List every season, the `future` ones `GET /saisons` withholds included.
+
+    The admin surfaces read here because a season is created `future` and clubs are entered while it
+    still is, so an admin who cannot see one cannot run the league.
+    """
+
+    db_filter = build_query(filters, terms={"status"})
+    db_sort = build_sort(sort_by=filters.sort_by, order=filters.order)
+
+    saisons_raw = await pull_many_from_db(
+        collection=saisons_collection,
+        db_filter=db_filter,
+        limit=filters.limit,
+        sort_by=db_sort,
+    )
+
+    return FLSaisonsListResponse(saisons=FLSaisonListAdapter.validate_python([with_schedule(raw) for raw in saisons_raw]))
 
 
 @router.post("", response_model=FLPostSaisonResponse, status_code=201, summary="Create a Saison")

@@ -51,8 +51,6 @@ export async function postSchiedsrichterAction(
       return { success: false, error: "Beim Anlegen des neuen Schiedsrichters ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    updateTag("schiedsrichter");
-
     return {
       success: Boolean(postOperation.acknowledged),
       created_id: postOperation.created_id,
@@ -84,8 +82,7 @@ export async function patchSchiedsrichterAction(
       return { success: false, error: "Beim Bearbeiten der Schiedsrichter-Daten ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    updateTag("schiedsrichter");
-    // A rename fans the name into every match; a match keeps its own fee.
+    // A rename fans the name into every match, the one cached read it reaches; a match keeps its own fee.
     updateTag("spiele");
 
     return {
@@ -128,8 +125,6 @@ export async function deleteSchiedsrichterAction(
       return { success: false, error: "Beim Stilllegen des Schiedsrichters ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    updateTag("schiedsrichter");
-
     return {
       success: Boolean(postOperation.acknowledged),
       updated_document: postOperation.updated_document,
@@ -139,7 +134,7 @@ export async function deleteSchiedsrichterAction(
 }
 
 /**
- * `schiedsrichter` alone, unlike the patch: this write moves only `inactive_since`, which no match
+ * Nothing to invalidate, unlike the patch: this write moves only `inactive_since`, which no match
  * document carries. The endpoint refuses nothing — a referee coming back carries no fixtures.
  */
 export async function reactivateSchiedsrichterAction(
@@ -164,8 +159,6 @@ export async function reactivateSchiedsrichterAction(
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: "Beim Reaktivieren des Schiedsrichters ist ein unerwarteter Fehler aufgetreten" };
     }
-
-    updateTag("schiedsrichter");
 
     return {
       success: Boolean(reactivateOperation.acknowledged),

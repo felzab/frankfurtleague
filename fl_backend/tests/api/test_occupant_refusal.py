@@ -9,7 +9,7 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLPatchSpielDataPayload,
     FLSpiel,
-    FLSpielJoinedListAdapter,
+    FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
 )
 from app.api.spiele.services import (
@@ -907,14 +907,14 @@ class TestApplyingARelease:
 
 
 def joined(*, nr: int, datum: str | None, side_disqualified_from: str | None, side: str = "team1") -> dict[str, Any]:
-    """Carries the whole `austritt` record, so a fault can name its effective day."""
+    """Carries the whole `austritt` record, so a fault can name its effective day: the internal side."""
 
     def occupant(team_id: str, name: str, disqualified_from: str | None) -> dict[str, Any]:
         # `type` is set and never varied: the rule reads the DATE, so a `rueckzug` would exercise
         # the same branch with a different word in it.
         record = None if disqualified_from is None else {"type": "disqualifikation", "grund": "Nicht angetreten", "datum": disqualified_from}
 
-        return {**team(team_id, name), "austritt": record}
+        return {**team(team_id, name), "austritt": record, "austritt_type": None if record is None else record["type"]}
 
     return {
         "_id": MATCH_ID.format(nr),
@@ -937,7 +937,7 @@ def joined(*, nr: int, datum: str | None, side_disqualified_from: str | None, si
 
 
 def occupant_faults(*fixtures: dict[str, Any]) -> list:
-    return find_departed_occupants(FLSpielJoinedListAdapter.validate_python(list(fixtures)))
+    return find_departed_occupants(FLSpielJoinedInternalListAdapter.validate_python(list(fixtures)))
 
 
 class TestTheDisqualifiedOccupantFault:

@@ -7,8 +7,9 @@ from app.api.spiele.schemas import (
     FLBracketFault,
     FLSpiel,
     FLSpielAdvancement,
+    FLSpielCommon,
     FLSpielJoined,
-    FLSpielJoinedListAdapter,
+    FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
     FLSpielQuelleGruppe,
     FLSpielReleasedSide,
@@ -37,7 +38,7 @@ async def _resolve_one_saison(
     teams_collection: AsyncIOMotorCollection,
     saison_id: str,
     rules: FLSaisonRules,
-    spiele: Sequence[FLSpiel],
+    spiele: Sequence[FLSpielCommon],
     session: AsyncIOMotorClientSession | None = None,
 ) -> BracketResolution:
     """One season's bracket resolved against its own standings.
@@ -91,14 +92,16 @@ async def find_bracket_faults(
     rather than served as one whose unread seasons hold no faults (`docs/backend/spec.md :: I45`).
     """
 
-    spiele = FLSpielJoinedListAdapter.validate_python(
+    # The INTERNAL fixture: `find_departed_occupants` orders a fault on the DAY a club left, which
+    # no served side carries. The declared return is the base-tier shape the caller answers with.
+    spiele = FLSpielJoinedInternalListAdapter.validate_python(
         await aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={}))
     )
     saisons_raw = await pull_many_from_db(collection=saisons_collection, db_filter={}, projection={"rules": 1}, limit=LIST_LIMIT_DEFAULT + 1)
     if len(saisons_raw) > LIST_LIMIT_DEFAULT:
         raise ValueError(f"the archive holds more than {LIST_LIMIT_DEFAULT} seasons, which is more than one read can report on")
 
-    by_saison: dict[str, list[FLSpiel]] = {}
+    by_saison: dict[str, list[FLSpielCommon]] = {}
     for spiel in spiele:
         by_saison.setdefault(spiel.saison_id, []).append(spiel)
 
@@ -133,7 +136,7 @@ async def find_bracket_faults(
     faults.extend(double_entries)
     faulted_ids.update(fault.spiel_id for fault in double_entries)
 
-    faulted_spiele = [spiel for spiel in spiele if spiel.id in faulted_ids]
+    faulted_spiele: list[FLSpielJoined] = [spiel for spiel in spiele if spiel.id in faulted_ids]
 
     return faults, faulted_spiele
 

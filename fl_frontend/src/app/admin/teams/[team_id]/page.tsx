@@ -2,10 +2,10 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { getSaisons } from "@/features/saisons/queries";
+import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { buildGruppenSwapContext } from "@/features/saisons/utils";
-import { getSpiele } from "@/features/spiele/queries";
+import { getAdminSpiele } from "@/features/spiele/queries";
 import { AdminTeamEditView } from "@/features/teams/components/views/AdminTeamEditView";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
@@ -41,11 +41,11 @@ async function AdminTeamEditContent({
 }) {
   await connection();
   const teamId = await resolveTeamId(params);
-  const requestedSaisonId = await resolveSaisonId(searchParams);
+  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
   // One read carries the record and every membership; the season list answers which season is
   // selected and its state.
-  const [membershipsRes, saisonsRes] = await Promise.all([getTeamMemberships(), getSaisons()]);
+  const [membershipsRes, saisonsRes] = await Promise.all([getTeamMemberships(), getAdminSaisons()]);
   const saisons = saisonsRes.saisons;
   const selectedSaison = requestedSaisonId
     ? saisons.find((saison) => saison.id === requestedSaisonId)
@@ -64,9 +64,9 @@ async function AdminTeamEditContent({
   // The first read is the group lock's, counted over the club's own fixtures as `patch_saison_team`
   // counts them; the other two are the swap control's: `REQ-SWAP-002`, `REQ-SWAP-004`, `REQ-SWAP-005`.
   const [teamSpieleRes, playoffSpieleRes, gruppenSpieleRes] = await Promise.all([
-    membership === null ? Promise.resolve(null) : getSpiele({ saison_id: selectedSaison.id, team_id: teamId, limit: 1 }),
-    getSpiele({ saison_id: selectedSaison.id, saison_phase: "playoffs" }),
-    getSpiele({ saison_id: selectedSaison.id, saison_phase: "gruppenphase" }),
+    membership === null ? Promise.resolve(null) : getAdminSpiele({ saison_id: selectedSaison.id, team_id: teamId, limit: 1 }),
+    getAdminSpiele({ saison_id: selectedSaison.id, saison_phase: "playoffs" }),
+    getAdminSpiele({ saison_id: selectedSaison.id, saison_phase: "gruppenphase" }),
   ]);
   // Whatever the season's status, because a `future` season is drawn before it is activated, so a
   // drawn one is the ordinary pre-activation state rather than an unreachable one (`REQ-ENTER-004`).
@@ -88,7 +88,7 @@ async function AdminTeamEditContent({
 
   /**
    * Through the derivation the season editor uses, so both entry points grade a pair identically.
-   * The club list is narrowed out of the memberships read already made, not a second `getTeams`.
+   * The club list is narrowed out of the memberships read already made, not a second `getAdminTeams`.
    */
   const swap: SaisonGruppenSwapContext = buildGruppenSwapContext({
     teams: membershipsRes.teams.flatMap((candidate) => {

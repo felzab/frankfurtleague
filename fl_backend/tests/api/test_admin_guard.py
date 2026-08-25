@@ -58,6 +58,15 @@ MUTATIONS = [(path, method) for path, method in PUBLISHED_OPERATIONS if method !
 # without editing this file, so pinning the number would ask for a bump and prove nothing.
 MINIMUM_EXPECTED_MUTATIONS = 25
 
+# The reads that are NOT base-tier. Enumerated because nothing about a GET tells the inventory which
+# tier it belongs to, and parametrised below so a revert of one of the four names that one.
+ADMIN_READS = [
+    ("/api/v0/spielorte", "get"),
+    ("/api/v0/spielorte/{spielort_id}", "get"),
+    ("/api/v0/schiedsrichter", "get"),
+    ("/api/v0/schiedsrichter/{schiedsrichter_id}", "get"),
+]
+
 
 def guards_of(route: APIRoute) -> set[Callable[..., Any]]:
     """`set[Callable]` rather than `set[object]`: `set` is invariant, so the narrower element type is not assignable."""
@@ -74,6 +83,14 @@ def test_the_published_surface_and_the_mounted_routes_are_the_same_set():
 def test_every_mutation_is_admin_guarded(path: str, method: str):
     """Parametrised rather than looped, so a failure names the method and path it broke on."""
     assert verify_access_admin in guards_of(ROUTES_BY_OPERATION[(path, method)]), f"{method.upper()} {path} is not admin-guarded"
+
+
+@pytest.mark.parametrize(("path", "method"), ADMIN_READS, ids=lambda value: value)
+def test_the_reference_reads_are_admin_guarded(path: str, method: str):
+    """A venue's rent and a referee's contact details ride on these four, so a guard reverted to `verify_access_base` publishes them."""
+    assert (path, method) in ROUTES_BY_OPERATION, f"{method.upper()} {path} is not mounted -- this list names a route that moved"
+
+    assert guards_of(ROUTES_BY_OPERATION[(path, method)]) == {verify_access_admin}, f"{method.upper()} {path} is not admin-guarded"
 
 
 @pytest.mark.parametrize(("path", "method"), PUBLISHED_OPERATIONS, ids=lambda value: value)

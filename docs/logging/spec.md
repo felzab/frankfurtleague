@@ -1,6 +1,6 @@
 # Logging — spec
 
-**Verified against:** `a468e858`, 2026-08-21\
+**Verified against:** `0f969073`, 2026-08-22\
 **Scope:** the correlation id and the second header the edge controls beside it, the log stream on
 all three surfaces, the browser-crash path, and the development formats.
 
@@ -50,9 +50,9 @@ carries a freshly minted id of its own (`fl_frontend/src/core/api.ts :: apiClien
 - A **cache fill**'s backend access line joins to the frontend error if the fill fails, because the
   error carries the fill's id — but never to the page view that triggered the fill.
 - An **uncached read inside a page render** runs under the real request id, seeding the scope
-  explicitly. The admin-authed reads are the ones in this position, never cached and listed in
-  [`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) — and being uncached is what makes
-  the seeding legal, since `headers()` inside a `"use cache"` scope raises
+  explicitly. The admin-tier reads are the ones in this position, outside any `"use cache"` scope
+  and listed in [`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) — and being
+  uncached is what makes the seeding legal, since `headers()` inside a `"use cache"` scope raises
   `next-request-in-use-cache` rather than failing quietly.
 - A **server action** and a **route handler** run with the real request id end to end: their backend
   lines carry the same id as the nginx line.
@@ -164,7 +164,7 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | L5  | Every request gets exactly one backend access line, id and duration on it              | `fl_backend/tests/api/test_error_responses.py :: TestAccessLine`                                                                     |
 | L6  | A thrown API error never escapes a server action                                       | `fl_frontend/src/shared/utils/actionError.test.ts`                                                                                   |
 | L7  | The `X-Correlation-ID` a visitor sends is discarded at the edge                        | `nginx/prod.conf :: proxy_set_header X-Correlation-ID` (unconditional)                                                               |
-| L8  | Every uncached admin-authed read runs inside `runWithIncomingCorrelationId`            | review — the set is listed in [`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) §1.2                                    |
+| L8  | Every uncached admin-tier read runs inside `runWithIncomingCorrelationId`              | review — the set is listed in [`docs/frontend/spec.md`](../frontend/spec.md#12-cached-reads) §1.2                                    |
 | L9  | A log line names a REJECTED FIELD, never the value submitted for it                    | review — `fl_backend/app/core/logging.py :: STRUCTURED_EXTRAS` bounds what travels as a field; message text is unchecked             |
 | L10 | The `X-FL-Actor` a visitor sends is cleared on every proxied path that reaches a write | `nginx/prod.conf :: proxy_set_header X-FL-Actor`, set at server level and inherited by every location declaring no header of its own |
 
@@ -174,7 +174,7 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | A page view has an nginx line and no application line | A cache hit issued no request                                                       | Working as intended (1.1). The edge line is the record                                                                   |
 | A frontend error's id matches no page view            | A cache fill minted its own id                                                      | Join on `fetch_correlation_id`, not `correlation_id` (1.1)                                                               |
-| A total backend outage reports HTTP 200               | The error boundary streams after headers are sent, so status is no health signal    | Monitor `GET /api/v0/system/is_live` through the edge (`fl_backend/app/core/security.py`)                                |
+| A total backend outage reports HTTP 200               | The error boundary streams after headers are sent, so status is no health signal    | Monitor `GET /api/v0/system/is_live` through the edge (`fl_backend/app/api/system/router.py :: check_is_live`)           |
 | Log lines vanish after a deploy                       | `up -d --force-recreate` replaces the container and its log file                    | Copy the stream off the host before deploying (1.2)                                                                      |
 | One digest matches many unrelated incidents           | A digest names an error class, not an incident — Next derives it from the message   | Search on digest plus time plus route, then follow the `FE-RSC-001` line's id                                            |
 | Non-JSON lines appear in a stream                     | nginx's error log and both services' boot lines are outside the contract            | Working as intended (1.2, section 4). A parser skips non-`{` lines                                                       |

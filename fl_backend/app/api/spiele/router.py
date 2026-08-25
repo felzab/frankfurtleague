@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.saisons.crud import pull_current_saison_id
+from app.api.saisons.visibility import refuse_withheld_saison, saison_is_withheld
 from app.api.spiele.schemas import (
     FLSpieleFilterParams,
     FLSpieleListResponse,
@@ -33,13 +34,19 @@ async def get_spiele(
     """
     List Spiele matching the given filters.
 
-    Omitting `saison_id` returns the CURRENT season. `saison_phase` accepts `playoffs` as an alias
-    for "any phase except gruppenphase", and `ausstehend` includes today.
+    Omitting `saison_id` returns the CURRENT season; one this tier may not read lists nothing.
+    `saison_phase` aliases `playoffs` to "any phase but gruppenphase"; `ausstehend` includes today.
     """
 
     # Resolved here, never as a field default, which cannot reach the database.
     if filters.saison_id is None:
         filters.saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
+
+    # Only where the caller NAMED one: the resolve above answers with the `active` season or 404s.
+    # Empty rather than 404, because an id naming no season already lists nothing here and a
+    # withheld one must not read differently.
+    elif await saison_is_withheld(saisons_collection=saisons_collection, saison_id=filters.saison_id):
+        return FLSpieleListResponse(spiele=[])
 
     db_filter = build_spiele_filter(filters=filters, today=today)
     db_sort = build_spiele_sort(sort_by=filters.sort_by, order=filters.order)
@@ -57,12 +64,16 @@ async def get_spiele(
 
 
 @router.get(by_id("spiel_id"), response_model=FLSpieleSingleResponse, summary="One Spiel")
-async def get_spiel(spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection) -> FLSpieleSingleResponse:
+async def get_spiel(
+    spiel_id: CustomRouteObjectId,
+    spiele_collection: SpieleCollection,
+    saisons_collection: SaisonsCollection,
+) -> FLSpieleSingleResponse:
     """
     Return one match by its id.
 
-    No season is resolved and no status derived: the match carries its own `saison_id`, and
-    `spiel_status` is a property of a query rather than of a match.
+    The season is read to gate it and for nothing else: the match carries its own `saison_id`, and
+    `spiel_status` is a property of a query. 404 for a season this tier may not read.
     """
 
     # The 404 is raised here because an aggregation returning nothing is an empty list, not `None`.
@@ -73,5 +84,9 @@ async def get_spiel(spiel_id: CustomRouteObjectId, spiele_collection: SpieleColl
     )
     if not spiele_raw:
         raise DocumentNotFoundException(filter={"_id": spiel_id}, error_code=DOCUMENT_NOT_FOUND)
+
+    # The fixture's OWN season, after the read: a match of a season being drawn up then misses for
+    # the same reason an id naming no match does.
+    await refuse_withheld_saison(saisons_collection=saisons_collection, saison_id=str(spiele_raw[0]["saison_id"]))
 
     return FLSpieleSingleResponse(spiel=FLSpielJoined.model_validate(spiele_raw[0]))

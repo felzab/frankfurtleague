@@ -8,7 +8,7 @@ from app.api.saisons.schemas import (
     FLSaisonsListResponse,
     FLSaisonsSingleResponse,
 )
-from app.api.saisons.services import with_schedule
+from app.api.saisons.services import base_tier_status_term, with_schedule
 from app.core.config import API_VERSION
 from app.core.crud import build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection
@@ -23,12 +23,14 @@ router = APIRouter(
 @router.get("", response_model=FLSaisonsListResponse, summary="List Saisons")
 async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsFilterParams = Depends()) -> FLSaisonsListResponse:
     """
-    List seasons, optionally filtered by status (`past`, `active`, `future`).
+    List the seasons the public may read, optionally narrowed to `past` or `active`.
 
-    Unlike the other resources, this does NOT default to the current season.
+    Unlike the other resources, this does NOT default to the current season. A `future` season is
+    withheld here and served by `GET /saisons/list/admin`.
     """
 
-    db_filter = build_query(filters, terms={"status"})
+    # `compiled` last, so the narrowing replaces the raw `status` the dump wrote for the caller.
+    db_filter = build_query(filters, terms={"status"}, compiled=base_tier_status_term(filters.status))
     db_sort = build_sort(sort_by=filters.sort_by, order=filters.order)
 
     saisons_raw = await pull_many_from_db(
@@ -59,8 +61,12 @@ async def get_current_saison(
 # help here, a season id being a four-character string (`docs/backend/spec.md :: I37`).
 @router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
 async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> FLSaisonsSingleResponse:
-    """Return one season by its four-character id; 404 when none carries it, rather than an empty list."""
+    """Return one season by its id; 404 when none carries it, rather than an empty list.
 
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
+    A `future` season is one of those: it is withheld from this tier by the FILTER, so the miss is a
+    genuine one and nothing here has to know it was withheld.
+    """
+
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id, **base_tier_status_term()})
 
     return FLSaisonsSingleResponse(saison=FLSaison.model_validate(with_schedule(saison_raw)))

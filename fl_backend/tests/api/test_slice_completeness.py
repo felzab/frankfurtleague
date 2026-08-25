@@ -222,9 +222,16 @@ CLASHING_FIRST, CLASHING_SECOND, WITH_THE_DEPARTED = 1, 2, 3
 
 
 def _joined_side(team_id: str, name: str, austritt: dict[str, Any] | None = None) -> dict[str, Any]:
-    """One side as `build_spiele_pipeline` serves it: the stored copy plus the junction record joined onto it."""
+    """One side as `build_spiele_pipeline` serves it: the stored copy plus both spellings of the junction record joined onto it."""
 
-    return {"team_id": team_id, "name": name, "shorthand": name[:2].upper(), "tore": None, "austritt": austritt}
+    return {
+        "team_id": team_id,
+        "name": name,
+        "shorthand": name[:2].upper(),
+        "tore": None,
+        "austritt": austritt,
+        "austritt_type": None if austritt is None else austritt["type"],
+    }
 
 
 def faulted_archive(spiel: PayloadFactory) -> list[dict[str, Any]]:

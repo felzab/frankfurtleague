@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `a468e858`, 2026-08-21\
+**Verified against:** `0f969073`, 2026-08-22\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
@@ -11,6 +11,11 @@ the `error_code` field.**
 The taxonomy is `<AREA>-<SUBJECT>-<NNN>`, and the area names the side that must act: `REQ-*` the request was
 wrong, `DB-*` the database refused or failed, `SRV-*` the server itself failed, `FE-*` a frontend-side
 failure class. A new failure mode gets a new code, never a reused one.
+
+**`READ-*` shares that shape and is not an error code.** A read rule refuses nothing, so it reaches no
+response body, no log line and no row on this page, and the `RULES` correspondence below is scanned over
+`REQ-` alone. What a read rule governs is which tier a field is served
+([`docs/backend/spec.md`](../backend/spec.md#17-read-rules) §1.7).
 
 | Section                                           | Answers                                         |
 | ------------------------------------------------- | ----------------------------------------------- |
@@ -34,6 +39,10 @@ excused set, without which the exclusion list could grow to cover a real domain 
 Every domain refusal is a 409, for one reason: nothing about the payload is malformed, so the same request
 would have succeeded against a different state of the database
 (`fl_backend/app/core/exceptions.py :: DocumentConflictException`).
+
+**`DB-COMMON-001` is also what a season the base tier may not read answers**, deliberately the same code
+and body an id naming nothing gets ([`docs/backend/spec.md`](../backend/spec.md) I47), so a 404 carrying
+it is never on its own proof that the document is absent.
 
 **A refusal comparing a payload against the document it replaces names a step, never a state**: `REQ-RULES-001`,
 `REQ-RULES-004`, `REQ-RULES-006`, `REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010` and

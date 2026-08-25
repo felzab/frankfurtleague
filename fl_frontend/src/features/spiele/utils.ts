@@ -9,7 +9,9 @@ import type {
   FLPatchSpielDataPayload,
   FLSonderereignis,
   FLSpiel,
+  FLSpielAdmin,
   FLSpielAdvancement,
+  FLSpielBooking,
   FLSpielQuelle,
   FLSpielReleasedSide,
   FLSpielStatus,
@@ -238,7 +240,7 @@ export const toPayloadSide = (side: FLSpielTeamField | null): FLSpielTeamFieldPa
  * values still exist. Every field is listed rather than spread: the write path `$set`s wholesale,
  * so one omitted is overwritten with nothing.
  */
-export const toPatchPayload = (spiel: FLSpiel): FLPatchSpielDataPayload => ({
+export const toPatchPayload = (spiel: FLSpielAdmin): FLPatchSpielDataPayload => ({
   // No `ergebnis`: the backend derives it from the goals and refuses to accept one
   // (`docs/backend/spec.md` I3).
   spiel_id: spiel.id,
@@ -263,7 +265,7 @@ export const toPatchPayload = (spiel: FLSpiel): FLPatchSpielDataPayload => ({
  * The server composes those copies, so a rename reaching this fixture still has to re-key a mounted
  * editor, or the picker keeps showing the old club.
  */
-const toEditorSeed = (spiel: FLSpiel) => ({
+const toEditorSeed = (spiel: FLSpielAdmin) => ({
   ...toPatchPayload(spiel),
   team1: toStoredSide(spiel.team1),
   team2: toStoredSide(spiel.team2),
@@ -276,24 +278,52 @@ const toEditorSeed = (spiel: FLSpiel) => ({
  * when an undo restores values — the fixture id alone would keep showing what the mounted editor
  * was seeded with until a reload.
  */
-export const spielStateKey = (spiel: FLSpiel): string => `${spiel.id}:${JSON.stringify(toEditorSeed(spiel))}`;
+export const spielStateKey = (spiel: FLSpielAdmin): string => `${spiel.id}:${JSON.stringify(toEditorSeed(spiel))}`;
+
+/** The fixtures a save moved, which the undo has to restore alongside the one that was edited. */
+export const listMovedSpiele = (
+  edited: { id: string },
+  saisonSpiele: readonly FLSpiel[],
+  affectedSpielNummern: readonly number[],
+): FLSpiel[] => {
+  const affected = new Set(affectedSpielNummern);
+  return saisonSpiele.filter((spiel) => spiel.id !== edited.id && affected.has(spiel.spiel_nr));
+};
 
 /**
  * **Order is the whole correctness argument.** The edited fixture goes first, so the resolution
- * puts the occupants back downstream before each voided result is written. Reversed, the undo
- * reports success having restored nothing.
+ * puts the occupants back before each voided result is written. A fixture whose booking never came
+ * back is left out: a guess would be stored as the real rent.
  */
 export const buildUndoPayloads = (
-  edited: FLSpiel,
-  saisonSpiele: readonly FLSpiel[],
-  affectedSpielNummern: readonly number[],
+  edited: FLSpielAdmin,
+  moved: readonly FLSpiel[],
+  bookings: ReadonlyMap<string, FLSpielBooking>,
 ): FLPatchSpielDataPayload[] => {
-  const affected = new Set(affectedSpielNummern);
+  const restorable = moved.flatMap((spiel) => {
+    const booking = bookings.get(spiel.id);
+    if (booking === undefined) return [];
 
-  return [
-    toPatchPayload(edited),
-    ...saisonSpiele.filter((spiel) => spiel.id !== edited.id && affected.has(spiel.spiel_nr)).map(toPatchPayload),
-  ];
+    // The season list holds the fixture as it stood BEFORE the save, which is what the undo puts
+    // back; the booking comes from the read beside it, the resolution rewriting slots and results
+    // and never a ground or a referee.
+    return [toPatchPayload({ ...spiel, ...booking })];
+  });
+
+  return [toPatchPayload(edited), ...restorable];
+};
+
+/**
+ * What an undo will NOT put back. A FAILED booking read leaves every moved fixture without one,
+ * which `buildUndoPayloads` cannot tell from a fixture that is gone — so the caller, which can,
+ * says so rather than letting the toast promise a whole one.
+ */
+export const formatUndoScopeWarning = (moved: readonly { spiel_nr: number }[]): string => {
+  if (moved.length === 0) return "";
+
+  const subject = moved.length === 1 ? `von Spiel ${joinSpiele(moved)}` : `der Spiele ${joinSpiele(moved)}`;
+
+  return `Spielort und Schiedsrichter ${subject} konnten nicht gelesen werden; „Rückgängig“ stellt daher nur das bearbeitete Spiel wieder her`;
 };
 
 /** The one spelling of the route, so a renamed segment cannot leave two surfaces disagreeing. */

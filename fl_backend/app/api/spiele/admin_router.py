@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Body, Depends, Query
 from motor.motor_asyncio import AsyncIOMotorClientSession
 
-from app.api.saisons.crud import pull_saison_id_and_rules
+from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
 from app.api.spiele.crud import (
     advance_bracket_winners,
     find_bracket_faults,
@@ -21,8 +21,11 @@ from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielBookingListAdapter,
     FLSpieleActionRequiredResponse,
-    FLSpieleSingleResponse,
+    FLSpieleAdminSingleResponse,
+    FLSpieleFilterParams,
+    FLSpieleListResponse,
     FLSpielJoined,
+    FLSpielJoinedAdmin,
     FLSpielJoinedListAdapter,
     FLSpielListAdapter,
 )
@@ -31,7 +34,9 @@ from app.api.spiele.services import (
     ResolvedReferences,
     SpieltagRelease,
     apply_payload_to_spiel,
+    build_spiele_filter,
     build_spiele_pipeline,
+    build_spiele_sort,
     find_booking_refusal,
     find_clash_refusal,
     find_eligibility_refusal,
@@ -65,6 +70,41 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spiele",
     dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
 )
+
+
+# Two static segments, matching `GET /saisons/list/admin`. Declared before `{spiel_id}/admin`, whose
+# only separation from this path is the `objectid` convertor (`docs/backend/spec.md :: I37`).
+@router.get("/list/admin", response_model=FLSpieleListResponse, summary="Spiele for the admin surfaces")
+async def get_spiele_for_admin(
+    spiele_collection: SpieleCollection,
+    saisons_collection: SaisonsCollection,
+    filters: FLSpieleFilterParams = Depends(),
+    today: str = Depends(get_german_date_str),
+) -> FLSpieleListResponse:
+    """
+    List a season's Spiele for the admin surfaces, a `future` season's included.
+
+    Same filters and shape as `GET /spiele`, without its season gate -- which lists a planned season
+    as empty, so every admin surface counting fixtures reads zero.
+    """
+
+    # Mirrors `app/api/spiele/router.py :: get_spiele`, which cannot be called here: the gate is
+    # inside it, and emptying the planned season is the one thing this must not do.
+    if filters.saison_id is None:
+        filters.saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
+
+    # The joined pipeline, for `get_spiele_action_required`'s reason: a plain `find` drops `austritt`.
+    spiele_raw = await aggregate_many_from_db(
+        collection=spiele_collection,
+        pipeline=build_spiele_pipeline(
+            db_filter=build_spiele_filter(filters=filters, today=today),
+            sort_by=build_spiele_sort(sort_by=filters.sort_by, order=filters.order),
+            limit=filters.limit,
+        ),
+        limit=filters.limit,
+    )
+
+    return FLSpieleListResponse(spiele=FLSpielJoinedListAdapter.validate_python(spiele_raw))
 
 
 @router.get("/action_required", response_model=FLSpieleActionRequiredResponse, summary="Spiele needing attention")
@@ -122,13 +162,13 @@ async def get_spiele_action_required(
 
 # A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this
 # same prefix, so whichever router registered first would answer both.
-@router.get(f"{by_id('spiel_id')}/admin", response_model=FLSpieleSingleResponse, summary="One Spiel for the admin editor")
-async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection) -> FLSpieleSingleResponse:
+@router.get(f"{by_id('spiel_id')}/admin", response_model=FLSpieleAdminSingleResponse, summary="One Spiel for the admin editor")
+async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection) -> FLSpieleAdminSingleResponse:
     """
-    Return one match in the joined shape `GET /spiele/{spiel_id}` serves, under the admin key.
+    Return one match in the joined shape, plus the two figures the base tier withholds.
 
-    The editor reads here rather than there because it round-trips `ort.mietpreis` and
-    `schiedsrichter.payment`, which belong to the admin tier.
+    The editor reads here because it round-trips `ort.mietpreis` and `schiedsrichter.payment`,
+    which are admin-tier (`READ-MONEY-001`).
     """
 
     spiele_raw = await aggregate_many_from_db(
@@ -139,7 +179,7 @@ async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: 
     if not spiele_raw:
         raise DocumentNotFoundException(filter={"_id": spiel_id}, error_code=DOCUMENT_NOT_FOUND)
 
-    return FLSpieleSingleResponse(spiel=FLSpielJoined.model_validate(spiele_raw[0]))
+    return FLSpieleAdminSingleResponse(spiel=FLSpielJoinedAdmin.model_validate(spiele_raw[0]))
 
 
 @router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel")
