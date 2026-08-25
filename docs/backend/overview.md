@@ -1,6 +1,6 @@
 # Backend — overview
 
-**Verified against:** `a468e858`, 2026-08-21\
+**Verified against:** `7b85b7ab`, 2026-08-22\
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB, with a read router and a write router per resource. The
@@ -20,7 +20,7 @@ fl_backend/
 │   │                  routing · exceptions · exception_handlers · middlewares · logging
 │   │                  collections · constraints · domain — the declarations read as data
 │   ├── api/<entity>/  one package per entity: router · admin_router · schemas · services · crud
-│   │                  saisons adds cache.py and schedule.py; aktionen has two of the five
+│   │                  saisons adds cache · schedule · spielplan · visibility; aktionen has two of the five
 │   └── shared/        schemas reused across entities (addresses, kontakt, custom types)
 └── tests/             pytest — schema constraints by default; `-m db` adds a real mongod
 ```
@@ -37,15 +37,22 @@ are mounted under `/api/v{API_VERSION}`, a constant of the code rather than a se
 
 Bearer keys, not user identities:
 
-| Key      | Guards                                                 | Used by                          |
-| -------- | ------------------------------------------------------ | -------------------------------- |
-| `base`   | every read router                                      | every normal page load           |
-| `admin`  | every write router, and the action log's read-only one | every mutation, and the log read |
-| `system` | `/system/is_ready` and `/system/info`                  | health and diagnostics           |
+| Key      | Guards                                                        | Used by                                           |
+| -------- | ------------------------------------------------------------- | ------------------------------------------------- |
+| `base`   | the read routers behind the public pages                      | every normal page load                            |
+| `admin`  | every write router, and every read the base tier may not make | every mutation, and the admin surfaces' own reads |
+| `system` | `/system/is_ready` and `/system/info`                         | health and diagnostics                            |
 
 Guards sit on the `APIRouter` rather than on an endpoint, so an endpoint reaches the wrong authorization only
-by being written in the wrong file ([`spec.md`](spec.md) I7). `/system/is_live` is deliberately unguarded: it
-is the container healthcheck, and a healthcheck that needs a secret fails for the wrong reasons.
+by being written in the wrong file ([`spec.md`](spec.md) I7). What the file name does not settle is the tier:
+a read router declares its own, so a reference slice only the admin surfaces read is guarded `admin`
+throughout. No response shape follows the caller's key either — a tier served less is served by a different
+endpoint, which is why a read carries an `/admin` twin. [`spec.md`](spec.md) §1.1 is which tier answers each
+endpoint, and its `READ-*` rules are what each is served.
+
+The `system` slice carries no blanket guard at all: the endpoints needing one declare it themselves, and
+`/system/is_live` is deliberately unguarded — it is the container healthcheck, and a healthcheck that needs a
+secret fails for the wrong reasons.
 
 Every admin router declares `bind_actor` in that same `dependencies` list, which is what attributes a write to
 the administrator who made it — and refuses one it cannot attribute, before the handler runs

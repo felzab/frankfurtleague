@@ -368,7 +368,7 @@ class TestTheWithheldSeasonReadsAsOneThatWasNeverCreated:
 @pytest.mark.db
 @pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
 class TestAReadableSeasonIsServedInFull:
-    """The control for every refusal above: the same six reads, one status along."""
+    """The control for every refusal above: the same reads, one status along."""
 
     def test_its_squads_are_listed(self, saison_id: str, mongo_replica_set_url: str):
         response = on_a_league(mongo_replica_set_url, lambda database: read_teams(database, saison_id))

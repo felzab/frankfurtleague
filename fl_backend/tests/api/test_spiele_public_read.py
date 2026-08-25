@@ -37,7 +37,7 @@ MIETPREIS_KEY = "mietpreis"
 PAYMENT_KEY = "payment"
 MONEY_KEYS = frozenset({MIETPREIS_KEY, PAYMENT_KEY})
 
-# What `READ-WITHDRAWAL-001` keeps off a fixture: the free text naming a school and the day it took
+# What `docs/backend/spec.md :: I32` keeps off a served fixture side: the free text naming a school and the day it took
 # effect. Spelled as a DOCUMENT spells them, for `MONEY_KEYS`' reason.
 AUSTRITT_DETAIL_KEYS = frozenset({"grund", "datum"})
 AUSTRITT_TYPE_KEY = "austritt_type"
@@ -298,7 +298,7 @@ class TestTheFixtureShapes:
         assert parsed.schiedsrichter is not None and parsed.schiedsrichter.payment == PAYMENT
 
     def test_the_raw_document_carries_the_whole_withdrawal(self):
-        """The control for the three below: without it, every absence would pass on a document that never held a reason."""
+        """The control for the cases below: without it, every absence would pass on a document that never held a reason."""
 
         assert AUSTRITT_DETAIL_KEYS <= keys_under(joined_document(), "team2")
 

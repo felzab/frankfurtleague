@@ -552,8 +552,8 @@ def _byte_site(data: bytes, offset: int) -> str:
 def check_binary_bytes() -> list[Finding]:
     """No file `.gitattributes` declares as text holds a NUL or a stray CR.
 
-    Either makes git call the file binary, so the LF mandate stops applying and the diff turns
-    opaque -- and nothing else reports it, both being legal inside a string literal.
+    Either stops git classifying its endings, so the LF mandate lapses -- and nothing else
+    reports it, both being legal inside a string literal.
     """
     listing = git("ls-files", "--eol", "-z")
     if listing is None:
@@ -597,8 +597,8 @@ def check_binary_bytes() -> list[Finding]:
         if (offset := data.find(b"\r")) >= 0:
             detail = (
                 f"a CR byte at {_byte_site(data, offset)}. Every line here ends with LF alone, and a CR git cannot read as "
-                "part of a CRLF pair makes it treat the file as binary, so `.gitattributes`' LF mandate stops applying to "
-                "it and its diff becomes unreadable. Repair: delete the byte, and save the file as UTF-8 with LF."
+                "part of a CRLF pair stops it classifying this file's endings, so `.gitattributes`' LF mandate stops applying "
+                "to it. The diff still reads. Repair: delete the byte, and save the file as UTF-8 with LF."
             )
             found.append(Finding("fail", "binary-byte", rel, detail))
     return found

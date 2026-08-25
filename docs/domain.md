@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `a468e858`, 2026-08-21
+**Verified against:** `7b85b7ab`, 2026-08-22
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
@@ -122,9 +122,13 @@ What none of that touches is the point:
 - a venue's **`mietpreis`** and a referee's **`payment`** do not fan out, and they are the fields that **stay
   on the match payload** while the names beside them are composed. Each is what _this fixture_ agreed to pay
   rather than a copy of a default, so fanning one out would rewrite history and composing one would replace an
-  agreed figure with a current price nobody agreed to.
+  agreed figure with a current price nobody agreed to. **On the payload is not the same as on a read**: a
+  base-tier fixture read serves neither figure, and which tier is served what is
+  [`backend/spec.md`](backend/spec.md)'s `READ-*` rules.
 - an **`austritt`** is not embedded at all. It is joined from the junction on every read, so recording
-  one reaches every surface at once instead of needing a fan-out.
+  one reaches every surface at once instead of needing a fan-out. How much of it a read serves is a separate
+  question: a fixture's side and a league-table row carry which way the club left, and the record behind that
+  stays on the club's own read — another of those `READ-*` rules.
 
 ### Retirement never cascades
 
@@ -152,7 +156,8 @@ a soft delete could stamp. A `spiele.spieltag_id` therefore cannot dangle: nothi
 ## When a field may be edited
 
 `domain.py :: FIELD_POLICIES` answers this per field, wherever the answer is not plainly "whenever you like";
-`domain.py :: Editability` defines the values it answers with.
+`domain.py :: Editability` defines the values it answers with. Who may READ a field is a separate axis neither
+of them touches — [Where each layer enforces what](#where-each-layer-enforces-what).
 
 **`COMPOSED` versus `DERIVED` is not a hair-split.** `spiele.ergebnis` is never accepted from a client and
 _is_ stored, composed server-side so the string cannot disagree with the goals it formats.
@@ -268,6 +273,12 @@ illegal ratio beside the field that holds it
 (`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/banners.ts :: buildSaisonBanners`),
 and `find_rules_refusal` still runs either way, because a stale form and a direct request each reach the
 endpoint.
+
+**The table above is about validity — may this value exist? Read visibility is a different question: may
+this caller see a value that legitimately does?** Neither the validators nor the refusal functions can settle
+who may see it, both judging a document and never a caller: the guard on the router decides who may make a
+read at all, and the response model decides what that read serves. Which tier is served which field is
+[`backend/spec.md`](backend/spec.md)'s `READ-*` rules.
 
 ---
 

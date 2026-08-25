@@ -1,6 +1,6 @@
 # Currency
 
-**Verified against:** `889c31dd`, 2026-08-19\
+**Verified against:** `0f969073`, 2026-08-22\
 **Applies to:** every stamped page, and every change that touches what a documented claim
 describes.
 
@@ -119,7 +119,7 @@ docs scope. This table is the one place its checks are listed; the script's docs
 | `unreadable`        | A tracked file cannot be decoded as UTF-8                                                                                                                                                                                                 | Fail    |
 | `segment-map`       | `/docs:audit`'s segment table does not partition the tree — a tracked file belongs to no segment or to more than one, or the table itself is missing                                                                                      | Fail    |
 | `line-endings`      | A tracked text file holds CRLF in the working tree where `.gitattributes` mandates LF                                                                                                                                                     | Fail    |
-| `binary-byte`       | A tracked text file holds a NUL byte, or a CR that is not part of a CRLF pair — either makes git read the file as binary, so the LF mandate stops applying and no formatter, linter or test sees the byte                                 | Fail    |
+| `binary-byte`       | A tracked text file holds a NUL byte, or a CR that is not part of a CRLF pair — either stops git classifying its endings, so the LF mandate lapses and no formatter, linter or test sees the byte                                         | Fail    |
 | `stamp`             | The stamped SHA is not in this clone — usually a shallow clone, not a defect                                                                                                                                                              | Report  |
 | `history`           | A COR-3 history phrase appears in the branch diff — the hits must be read                                                                                                                                                                 | Report  |
 | `sha`               | A commit named in prose resolves to nothing in this clone — the hits must be read                                                                                                                                                         | Report  |

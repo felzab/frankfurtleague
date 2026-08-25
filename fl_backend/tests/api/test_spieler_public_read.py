@@ -103,7 +103,7 @@ def _legacy_squad_row(key: str, **fields: Any) -> dict[str, Any]:
 
 
 def _filters(**overrides: Any) -> FLSpielerFilterParams:
-    """`model_validate`, not the constructor: several cases pass a key the model no longer declares, which is each of those cases' assertion."""
+    """`model_validate`, not the constructor: several cases pass a key the model does not declare, which is each of those cases' assertion."""
 
     return FLSpielerFilterParams.model_validate({"team_id": TEAM_OID, "saison_id": SAISON, **overrides})
 
@@ -368,7 +368,7 @@ class TestTheBaseTierReadExecuted:
         assert (served["nummer"], served["position"]) == ("7", "Angriff")
 
     def test_a_row_written_before_the_squad_flags_existed_still_reads(self, mongo_container: Any):
-        """The allow-list names neither flag, so a row missing both is no longer a shape the read can trip over."""
+        """The allow-list names neither flag, so a row missing both is not a shape the read can trip over."""
         assert self._by_vorname(mongo_container)["Timo"]["nummer"] == "5"
 
     def test_the_rendered_name_is_the_forename_and_an_initial(self, mongo_container: Any):
@@ -385,7 +385,7 @@ class TestTheBaseTierReadExecuted:
         assert len(narrowed) == 5
 
     def test_the_backdated_flag_cannot_narrow_the_list_either(self, mongo_container: Any):
-        """Two requests would otherwise partition the squad by a fact the response withholds -- one fewer than `?stufe=` needed."""
+        """Two requests would otherwise partition the squad by a fact the response withholds -- fewer than `?stufe=` needed."""
         narrowed = self._by_vorname(mongo_container, _filters(is_nachgetragen=True))
 
         assert len(narrowed) == 5

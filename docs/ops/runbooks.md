@@ -1,6 +1,6 @@
 # Ops — runbooks
 
-**Verified against:** `a468e858`, 2026-08-21\
+**Verified against:** `0f969073`, 2026-08-22\
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
@@ -55,10 +55,11 @@ string, which every row already holding a date satisfies.
 
 **A property declared OUTSIDE `required` is the weaker case, and only for a key nothing stores yet.** An
 absent key passes, which is the whole of what `required` decides; a stored key of the wrong shape fails
-exactly as it would inside the list. `saisons.spielplan` owes no backfill because no season holds that key at
-all — declaring a shape over a key some row already carries is an ordinary constraint change, and `--check`
-is what tells the two apart. The order does not change either way: `--check` from the new checkout while the old
-image still serves, then `--apply` or the deploy's own boot to attach the validators
+exactly as it would inside the list. `saisons.spielplan` is declared that way, and `--check` is what says
+whether any season already carries the key — declaring a shape over a key some row already holds is an
+ordinary constraint change, and assuming which of the two you are in is what this procedure replaces.
+The order does not change either way: `--check` from the new checkout while the old image still serves,
+then `--apply` or the deploy's own boot to attach the validators
 (`fl_backend/app/core/db.py :: lifespan` applies them before it yields, so a new image attaches before it
 serves), then `--check` again.
 
@@ -88,11 +89,13 @@ Re-run `--check` afterwards.
 **The junction failure that does stop the site is the other report**, the validator one: a `saison_teams`
 row missing `name` takes `PATCH /spiele/{spiel_id}` down for every fixture in that season, the save and
 its `dry_run` preview alike, because `fl_backend/app/api/spiele/crud.py :: pull_saison_membership` indexes
-that field directly — and it takes `GET /teams` for that season with it, the season's copy of the club's
-name being what the read projects. **It does not stop at that season's own reads:**
+that field directly — and it takes the season's club reads with it: the name is what
+`fl_backend/app/api/teams/services.py :: build_team_pipeline` projects, and `GET /teams`, `GET /teams/{team_id}`
+and the admin twin `GET /teams/list/admin` (`fl_backend/app/api/teams/admin_router.py :: get_teams_for_admin`)
+are each built on that pipeline. **It does not stop at that season's own reads:**
 `fl_backend/app/api/spiele/crud.py :: find_bracket_faults` derives the whole archive's faults in one request
-and resolves every season whose knockout slots draw on a group placing against that same `GET /teams`
-pipeline, so one such row fails `GET /spiele/action_required` for the entire league — a `past` season's row
+and resolves every season whose knockout slots draw on a group placing against that same pipeline, so one
+such row fails `GET /spiele/action_required` for the entire league — a `past` season's row
 included, which is the one nobody thinks to suspect. The two reports are independent: an orphan row can carry
 a perfectly good name, and a row missing its name can name a club that exists.
 

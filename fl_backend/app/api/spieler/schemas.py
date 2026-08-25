@@ -47,7 +47,7 @@ class FLEinwilligung(BaseModel):
 class _SpielerPerson(BaseModel):
     """The person's own two fields, shared so no read of a player declares them differently.
 
-    The two tiers put different CONTENT in `nachname` -- the base one an initial (`READ-PUPIL-001`)
+    The tiers put different CONTENT in `nachname` -- the base one an initial (`READ-PUPIL-001`)
     -- which is a projection's business and not a declaration's.
     """
 

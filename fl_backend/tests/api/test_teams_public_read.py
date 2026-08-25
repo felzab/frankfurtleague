@@ -117,7 +117,7 @@ def on_a_league(container: Any, body: Body) -> Any:
 
 
 def base_filters(**overrides: Any) -> BaseModel:
-    """`model_validate`, not the constructor: a case passes the key the base model no longer declares, which is that case's assertion."""
+    """`model_validate`, not the constructor: a case passes the key the base model does not declare, which is that case's assertion."""
 
     return BASE_FILTERS.model_validate({"saison_id": SAISON, **overrides})
 

@@ -1,6 +1,6 @@
 # Core rules
 
-**Verified against:** `889c31dd`, 2026-08-19\
+**Verified against:** `0f969073`, 2026-08-22\
 **Applies to:** every written artifact — module headers, symbol docs, inline comments, `docs/`
 pages, prompts, command files, commit messages and pull request bodies.
 
@@ -220,6 +220,6 @@ the widening is the cheaper repair every time it is offered. Taken twice, the sh
 nothing and every page becomes its own.
 
 **Enforced by:** gate check `readme-cap` for a README's line cap; gate checks `spec-spine`,
-`invariant-row`, `overview-spine`, `glossary-entry` and `module-header` for the shapes they hold. A
-README's remaining shape and a rule's own are review judgment, as is whether a deviation was repaired
-by moving the content or by widening the shape: both leave a green gate.
+`invariant-row`, `overview-spine`, `glossary-entry`, `module-header` and `rule-shape` for the shapes
+they hold. A README's remaining shape is review judgment, as is whether a deviation was repaired by
+moving the content or by widening the shape: both leave a green gate.

@@ -1,6 +1,6 @@
 # The documentation corpus
 
-**Verified against:** `a468e858`, 2026-08-21\
+**Verified against:** `0f969073`, 2026-08-22\
 **Applies to:** the `docs/` tree — its layers, its layout, and every README in the repository.
 
 | ID    | Rule                              |

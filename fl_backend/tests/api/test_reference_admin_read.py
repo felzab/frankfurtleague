@@ -77,7 +77,7 @@ READ_PATHS = [
     pytest.param(f"{SCHIEDSRICHTER}/{FIRST_SCHIEDSRICHTER_ID}", id="one referee"),
 ]
 
-# What no base credential may reach any more, and what these reads must therefore still carry.
+# What no base credential may reach, and what these reads must therefore carry.
 VENUE_PRIVILEGED = ("address", "default_mietpreis")
 REFEREE_PRIVILEGED = ("kontakt", "schule", "default_payment")
 
