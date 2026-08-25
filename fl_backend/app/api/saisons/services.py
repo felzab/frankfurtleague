@@ -81,6 +81,7 @@ def find_rules_refusal(
     largest_squad: int = 0,
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
     drawn_fixtures: int = 0,
+    recorded_fixtures: int = 0,
 ) -> WriteRefusal | None:
     """Why these rules must be refused, or `None`.
 
@@ -102,10 +103,14 @@ def find_rules_refusal(
     # may not drop past sends an admin to the wrong repair. Compared by value, so a resubmission
     # passes (`docs/backend/spec.md :: I44`).
 
-    # `REQ-RULES-004` and `REQ-RULES-006` stay unreachable through this route: both read a figure
-    # derived from fixtures, so whenever either could fire this has already refused the same field.
-    # Unreachable, not wrong.
-    if stored is not None and drawn_fixtures > 0:
+    # `REQ-RULES-004` and `REQ-RULES-006` read a figure derived from fixtures, so outside the window
+    # below this refuses the same field first; inside it, they are what bound the redraw instead.
+
+    # STEPS ASIDE in the window `REQ-SPIELPLAN-005` opens: the draw can be run again there, and a
+    # shape frozen against a season nobody has played would leave one drawn from the wrong rules
+    # unrepairable for good.
+    redraw_is_offered = saison_status == "future" and recorded_fixtures == 0
+    if stored is not None and drawn_fixtures > 0 and not redraw_is_offered:
         redrawn = [field for field in SHAPE_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if redrawn:
             return WriteRefusal(
@@ -322,6 +327,11 @@ SPIELPLAN_SAISON_FINISHED = "REQ-SPIELPLAN-003"
 # `teams_per_group`, short or over, and no club standing outside them.
 SPIELPLAN_GRUPPEN_OFF_RULES = "REQ-SPIELPLAN-004"
 
+# ONE code for both halves of the window a confirmed replace runs in -- `future`, and nothing played
+# -- because neither names work an admin can go and do: `status` moves one way, and a played result
+# is the record.
+SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW = "REQ-SPIELPLAN-005"
+
 
 def find_spielplan_refusal(
     *,
@@ -331,6 +341,9 @@ def find_spielplan_refusal(
     watermark: Mapping[str, Any] | None,
     rules: FLSaisonRules,
     occupancy_by_gruppe: Mapping[FLGruppenNames, int],
+    # NEITHER defaults: a caller that forgot `recorded_fixtures` would replace a season already played.
+    replace: bool,
+    recorded_fixtures: int,
 ) -> WriteRefusal | None:
     """Why drawing this season's Spielplan must be refused, or `None`.
 
@@ -338,7 +351,9 @@ def find_spielplan_refusal(
     filling repairs first, because `REQ-SPIELPLAN-004` alone names work an admin can go and do.
     """
 
-    if fixtures_drawn > 0:
+    # What a confirmed replace is about to delete is no reason to turn it away, so `REQ-SPIELPLAN-001`
+    # and `REQ-SPIELPLAN-002` step aside for one. `REQ-SPIELPLAN-005` below is what bounds it instead.
+    if fixtures_drawn > 0 and not replace:
         # The FIXTURES are the guard, never the watermark: a draw written outside this endpoint
         # carries none, and offering to draw over one is the single thing this must not do.
         held = (
@@ -349,18 +364,27 @@ def find_spielplan_refusal(
 
         return WriteRefusal(
             error_code=SPIELPLAN_ALREADY_DRAWN,
-            message=f"the season already holds a Spielplan ({held}); drawing one is a one-way operation",
+            message=f"the season already holds a Spielplan ({held}); drawing again would replace it, and a replace is confirmed",
         )
 
-    if spieltage_held > 0:
+    if spieltage_held > 0 and not replace:
         return WriteRefusal(
             error_code=SPIELPLAN_MATCHDAYS_HELD,
             message=f"the season already holds {spieltage_held} matchday(s); the draw writes the whole list at once and merges with none",
         )
 
+    # Whether the season holds anything to delete or not: the flag is the operation the caller asked
+    # for, and one flag meaning a replace here and a first draw there is the ambiguity this closes.
+    if replace and (saison_status != "future" or recorded_fixtures > 0):
+        return WriteRefusal(
+            error_code=SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
+            message=f"a replace deletes every matchday and fixture the season holds, and this one is {saison_status} and holds "
+            f"{recorded_fixtures} fixture(s) that already happened; it runs only on a future season with nothing played",
+        )
+
     # `past` alone, never `future`-only: activation is one-way, so a season activated before its draw
-    # would otherwise be unschedulable for good. `REQ-ACTIVATE-003` is the other half, keeping the
-    # state rare rather than unreachable.
+    # would otherwise be unschedulable for good, and `REQ-ACTIVATE-003` keeps the state rare. A
+    # REPLACE is `future`-only, above.
     if saison_status == "past":
         return WriteRefusal(
             error_code=SPIELPLAN_SAISON_FINISHED,

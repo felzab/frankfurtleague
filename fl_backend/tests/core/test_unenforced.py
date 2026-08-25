@@ -188,6 +188,13 @@ def _swap(**overrides: Any):
 # which is how a removal would arrive without naming one.
 DRIVER_REMOVALS = frozenset({"bulk_write", "delete_many", "delete_one", "drop", "drop_collection", "find_one_and_delete"})
 
+# The half `app/core/crud.py` implements a helper for, and the only half any module may call. Its
+# complement is banned everywhere, that module included.
+RECORDED_REMOVALS = frozenset({"delete_many", "delete_one"})
+
+# `app/core/recording.py` writes the log's own rows and removes nothing, so it is not among these.
+REMOVAL_MODULES = ("app/core/crud.py",)
+
 # `app/core/crud.py`'s writing half: a call to one of these is where a document changes.
 WRITE_HELPERS = frozenset({"insert_live", "patch_many_in_db", "patch_one_in_db", "post_one_to_db", "set_inactive_since"})
 
@@ -434,16 +441,28 @@ class TestNoBracketFaultIsStored:
 
 
 class TestNoPurgeReachesARetiredRow:
-    """That no module in the application removes a document, which is what leaves `inactive_since` the whole of deletion."""
+    """That a removal reaches the driver from `app/core/crud.py` alone, the module recording what it removes.
 
-    def test_nothing_under_app_removes_a_document(self):
+    Deletion is that module's removal helpers and `inactive_since`, so a purge built later is logged
+    by construction rather than by discipline.
+    """
+
+    def test_a_removal_reaches_the_driver_from_one_module_alone(self):
         """The application entire, not its write helpers: several routers reach the driver for reads, so a removal would need no helper."""
 
-        # The sweep's own floor: `insert_one` IS found, so an empty removal list means there is none
-        # rather than that nothing is being read.
-        assert _driver_calls(frozenset({"insert_one"}))
+        # The floor is the banned set itself: a removal IS found, so emptying `DRIVER_REMOVALS` or
+        # dropping `delete_many` from it fails here, rather than leaving the two assertions below
+        # green over a sweep that matches nothing.
+        reaching_the_driver = _driver_calls(DRIVER_REMOVALS)
 
-        assert _driver_calls(DRIVER_REMOVALS) == []
+        assert reaching_the_driver
+
+        # The four `app/core/crud.py` implements no helper for: a call to one is a removal that
+        # records nothing, wherever it stands. `drop` and `drop_collection` could not be recorded at
+        # all -- neither names a filter, and neither leaves an image.
+        assert _driver_calls(DRIVER_REMOVALS - RECORDED_REMOVALS) == []
+
+        assert [call for call in reaching_the_driver if not call.startswith(REMOVAL_MODULES)] == []
 
 
 class TestAGroupPhaseEveryClubLeaves:
@@ -568,7 +587,9 @@ class TestAStoredPreImageIsNeverRevalidated:
     """That the log's copy of a document is typed as data, so a migration cannot make an old row unreadable."""
 
     def test_the_stored_image_is_typed_as_data(self):
-        assert FLAktion.model_fields["before"].annotation == dict[str, Any] | None
+        """Two arms because a removal takes a set, and neither names a field of any collection."""
+
+        assert FLAktion.model_fields["before"].annotation == dict[str, Any] | list[dict[str, Any]] | None
 
     def test_the_validator_asks_no_more_of_it(self):
         """The other end of the same claim: a `$jsonSchema` tightening it would refuse the write rather than the read."""

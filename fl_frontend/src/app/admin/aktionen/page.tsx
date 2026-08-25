@@ -36,7 +36,12 @@ async function AktionenTable() {
   await connection();
   const aktionenRes = await getAktionen();
 
-  const rows: AdminAktionRow[] = aktionenRes.aktionen.map(({ before, ...aktion }) => ({ ...aktion, standGesichert: before !== null }));
+  // An empty ARRAY is a removal whose filter matched nothing, which secured no document — distinct
+  // from null, which is a write that kept no image at all, and the two must not badge alike.
+  const rows: AdminAktionRow[] = aktionenRes.aktionen.map(({ before, ...aktion }) => ({
+    ...aktion,
+    standGesichert: Array.isArray(before) ? before.length > 0 : before !== null,
+  }));
 
   return <AdminAktionenView aktionen={rows} />;
 }

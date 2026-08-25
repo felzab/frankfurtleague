@@ -83,7 +83,6 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLReactivateSpielerPayload: "the reactivate POST takes its id from the path and has no request body",
   FLSaisonSpielerKeyPayload: "the junction's DELETE and reactivate take both ids from the path, with no request body",
   FLActivateSaisonPayload: "the activate POST takes its id from the path and has no request body",
-  FLGenerateSpielplanPayload: "the Spielplan POST takes its id from the path and has no request body",
   FLSchiedsrichterKeyPayload: "the referee's DELETE and reactivate take the id from the path, with no request body",
   FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
@@ -107,6 +106,8 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSpieltagPayload: ["id"],
   // The season is the resource acted on, so it is the path; the control still has to know which.
   FLSwapGruppenPayload: ["saison_id"],
+  // The draw's own season, for the same reason. Its body carries the replace confirmation alone.
+  FLGenerateSpielplanPayload: ["id"],
   // A junction row is addressed by its natural key, so BOTH ids live in the request URI.
   FLPostSaisonTeamPayload: ["team_id"],
   FLPatchSaisonTeamPayload: ["team_id", "saison_id"],

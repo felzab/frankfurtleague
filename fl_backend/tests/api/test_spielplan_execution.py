@@ -11,12 +11,13 @@ from pymongo.errors import OperationFailure
 from app.api.saisons.admin_router import generate_spielplan
 from app.api.saisons.cache import invalidate_saison_cache, read_cached_saison, store_cached_saison
 from app.api.saisons.schedule import group_matchdays, total_group_matches
-from app.api.saisons.schemas import FLGenerateSpielplanResponse, FLSaisonRules
+from app.api.saisons.schemas import FLGenerateSpielplanPayload, FLGenerateSpielplanResponse, FLSaisonRules
 from app.api.saisons.services import (
     RULES_BRACKET_IMPOSSIBLE,
     SPIELPLAN_ALREADY_DRAWN,
     SPIELPLAN_GRUPPEN_OFF_RULES,
     SPIELPLAN_MATCHDAYS_HELD,
+    SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
     SPIELPLAN_SAISON_FINISHED,
 )
 from app.api.saisons.spielplan import BRACKET_SEEDING
@@ -201,7 +202,9 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None) -> Any
     return asyncio.run(_run())
 
 
-async def call_draw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> FLGenerateSpielplanResponse:
+async def call_draw(
+    database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, *, replace: bool = False, today: str = TODAY
+) -> FLGenerateSpielplanResponse:
     return await generate_spielplan(
         saison_id=SAISON_ID,
         saisons_collection=database[Collection.SAISONS],
@@ -209,7 +212,8 @@ async def call_draw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) 
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         db=client,
-        today=TODAY,
+        spielplan_data=FLGenerateSpielplanPayload(replace=replace),
+        today=today,
     )
 
 
@@ -748,3 +752,207 @@ class TestTheSeasonCacheIsDroppedOnlyByADrawThatCommitted:
             return read_cached_saison(SAISON_ID)
 
         assert on_a_seeded_saison(mongo_replica_set_url, body, seed=Seed(saison=saison_document(status="past"))) is not None
+
+
+# The replace's own day, so a watermark the first draw left behind reads as one rather than passing
+# for the new one.
+REDRAWN_TODAY = "2026-08-25"
+
+# One field on one fixture, so nothing else about the season moves to reach a state
+# `app/api/saisons/admin_router.py :: _has_taken_place` calls recorded.
+A_RECORD = "abgebrochen"
+
+
+async def document_ids(database: AsyncIOMotorDatabase) -> set[Any]:
+    """Every id the season's two drawn collections hold, which is what says a document is GONE rather than replaced by as many."""
+
+    found: set[Any] = set()
+    for collection in (Collection.SPIELTAGE, Collection.SPIELE):
+        found |= {row["_id"] for row in await database[collection].find({}, {"_id": 1}).to_list(length=None)}
+
+    return found
+
+
+@dataclass(frozen=True)
+class ReplacedSeason:
+    """One season drawn, then drawn again over the top, as a later request would find it."""
+
+    first: FLGenerateSpielplanResponse
+    second: FLGenerateSpielplanResponse
+    first_ids: set[Any]
+    spieltage: list[dict[str, Any]]
+    spiele: list[dict[str, Any]]
+    watermark: Any
+    log: list[dict[str, Any]]
+
+
+def a_replaced_season(url: str) -> ReplacedSeason:
+    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> ReplacedSeason:
+        first = await call_draw(database, client)
+        # Read between the two calls: afterwards nothing tells a surviving row from a fresh one
+        # carrying the same numbers.
+        first_ids = await document_ids(database)
+
+        second = await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
+
+        return ReplacedSeason(
+            first=first,
+            second=second,
+            first_ids=first_ids,
+            spieltage=await database[Collection.SPIELTAGE].find({}).sort("_id", 1).to_list(length=None),
+            spiele=await database[Collection.SPIELE].find({}).sort("spiel_nr", 1).to_list(length=None),
+            watermark=await watermark_now(database),
+            log=await database[Collection.AKTIONEN].find({}).sort("_id", 1).to_list(length=None),
+        )
+
+    replaced = on_a_seeded_saison(url, body)
+
+    assert replaced.first_ids, "the first draw wrote nothing, so the replace had nothing to remove"
+
+    return replaced
+
+
+class TestAConfirmedReplaceRedrawsTheWholeSeason:
+    """`REQ-SPIELPLAN-005`'s write half: the season's two lists are removed and drawn again inside one transaction."""
+
+    def test_no_document_of_the_first_draw_survives(self, mongo_replica_set_url: str):
+        """Drop either delete and this fails: a replace is these rows being GONE, never as many fresh ones standing beside them."""
+
+        replaced = a_replaced_season(mongo_replica_set_url)
+        surviving = {row["_id"] for row in (*replaced.spieltage, *replaced.spiele)}
+
+        assert surviving & replaced.first_ids == set()
+        assert surviving, "the replace removed the season and drew nothing back"
+
+    def test_the_season_holds_exactly_one_whole_draw_afterwards(self, mongo_replica_set_url: str):
+        """Delete only `spiele` and this fails: the fresh matchdays collide with the surviving ones on their own unique index."""
+
+        replaced = a_replaced_season(mongo_replica_set_url)
+        expected = expected_counts(FLSaisonRules.model_validate(saison_document()["rules"]))
+
+        assert (len(replaced.spieltage), len(replaced.spiele)) == expected
+        assert (replaced.second.spieltage, replaced.second.spiele) == expected
+
+    def test_every_fixture_hangs_on_a_matchday_the_replace_itself_wrote(self, mongo_replica_set_url: str):
+        """Hang a fresh fixture on a surviving matchday and this fails: the two lists go as one set (`docs/backend/spec.md :: I46`)."""
+
+        replaced = a_replaced_season(mongo_replica_set_url)
+        matchdays = {row["_id"] for row in replaced.spieltage}
+
+        assert [row["spiel_nr"] for row in replaced.spiele if row["spieltag_id"] not in matchdays] == []
+
+    def test_the_watermark_is_the_one_the_replace_wrote(self, mongo_replica_set_url: str):
+        """Leave the watermark to the first draw and this fails: the season would claim a Spielplan drawn on a day it was not."""
+
+        replaced = a_replaced_season(mongo_replica_set_url)
+
+        assert replaced.watermark == {"generiert_am": REDRAWN_TODAY, "spieltage": len(replaced.spieltage), "spiele": len(replaced.spiele)}
+
+    def test_the_log_records_each_removal_with_every_pre_image(self, mongo_replica_set_url: str):
+        """Use `delete_many` rather than `delete_many_from_db` and the schedule goes unrecorded (`docs/backend/spec.md :: I48`)."""
+
+        replaced = a_replaced_season(mongo_replica_set_url)
+
+        assert [(row["collection"], row["operation"], row["modified_count"]) for row in replaced.log] == [
+            (str(Collection.SPIELTAGE), "insert_many", replaced.first.spieltage),
+            (str(Collection.SPIELE), "insert_many", replaced.first.spiele),
+            (str(Collection.SAISONS), "patch_one", None),
+            (str(Collection.SPIELE), "delete_many", replaced.first.spiele),
+            (str(Collection.SPIELTAGE), "delete_many", replaced.first.spieltage),
+            (str(Collection.SPIELTAGE), "insert_many", replaced.second.spieltage),
+            (str(Collection.SPIELE), "insert_many", replaced.second.spiele),
+            (str(Collection.SAISONS), "patch_one", None),
+        ]
+        # The hand-assigned dates, venues and referees a redrawn season loses are recoverable from
+        # these images alone, so a count with no array would be half a record.
+        assert [len(row["before"]) for row in replaced.log if row["operation"] == "delete_many"] == [
+            replaced.first.spiele,
+            replaced.first.spieltage,
+        ]
+
+
+class TestAnAbortedReplaceLeavesTheSeasonStanding:
+    """The deletes and the redraw are one transaction, so a fixture insert that falls takes the removal back with it."""
+
+    def test_both_collections_keep_every_document_the_replace_would_have_removed(self, mongo_replica_set_url: str):
+        """Move either delete outside the callback and this fails: the season would be left holding no schedule at all."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> AbortedDraw:
+            await call_draw(database, client)
+            standing = await document_ids(database)
+
+            # Narrowed AFTER the first draw, so what falls is the replace's own insert, by which
+            # point both deletes have run.
+            await database.command(
+                "collMod", str(Collection.SPIELE), validator=NARROWED_VALIDATORS[Collection.SPIELE], validationLevel="strict"
+            )
+
+            with pytest.raises(OperationFailure) as failure:
+                await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
+
+            code, field_named = refused_write(failure.value)
+            spieltage, spiele = await counts_now(database)
+
+            assert await document_ids(database) == standing, "a rolled-back replace left the season's own draw removed"
+
+            return AbortedDraw(
+                write_error=code,
+                refused_field=field_named,
+                spieltage=spieltage,
+                spiele=spiele,
+                watermark=await watermark_now(database),
+                log=await database[Collection.AKTIONEN].count_documents({}),
+                cached=read_cached_saison(SAISON_ID),
+            )
+
+        aborted = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        # On the code, so this cannot pass because the replace fell before it deleted anything.
+        assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {aborted.write_error}"
+        assert aborted.refused_field == "datum"
+        assert aborted.watermark == {"generiert_am": TODAY, "spieltage": aborted.spieltage, "spiele": aborted.spiele}
+        # The first draw's three rows and nothing else: the deletes are recorded in-session, so the
+        # abort takes their rows back too.
+        assert aborted.log == 3
+
+
+class TestTheReplaceWindowIsReachedThroughTheRoute:
+    """`REQ-SPIELPLAN-005` WIRED: the endpoint reads the season's status and its own fixtures inside the transaction."""
+
+    def test_a_running_season_is_refused_the_replace_and_keeps_its_draw(self, mongo_replica_set_url: str):
+        """Wire `replace` past the window and this fails: an active league would lose the schedule it is playing."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            drawn = await call_draw(database, client)
+            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "active"}})
+            standing = await document_ids(database)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
+
+            return drawn, standing, refused.value, await document_ids(database), await watermark_now(database)
+
+        drawn, standing, refused, surviving, watermark = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert refused.error_code == SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
+        assert surviving == standing
+        assert watermark == {"generiert_am": TODAY, "spieltage": drawn.spieltage, "spiele": drawn.spiele}
+
+    def test_a_single_recorded_fixture_is_refused_the_replace(self, mongo_replica_set_url: str):
+        """Count the records off anything but the stored rows and this fails: one abandoned match is the whole refusal."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await call_draw(database, client)
+            await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": {"sonderereignis": A_RECORD}})
+            standing = await document_ids(database)
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
+
+            return refused.value, standing, await document_ids(database)
+
+        refused, standing, surviving = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert refused.error_code == SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
+        assert "1 fixture(s)" in refused.error_detail["message"]
+        assert surviving == standing

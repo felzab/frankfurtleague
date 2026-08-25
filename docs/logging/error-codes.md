@@ -52,8 +52,10 @@ over: a matchday patch carries `beginn` and `ende` together, so an `ende`-only e
 (`docs/backend/spec.md :: I44`).
 
 **The draw freezes a season's SHAPE alone**: `REQ-RULES-011` names `number_of_groups`, `teams_per_group` and
-`qualifiers_per_group`, the rules the fixtures were drawn from. What a season scores by stays editable until the
-season turns `past`, where `REQ-RULES-005` freezes it.
+`qualifiers_per_group`, the rules the fixtures were drawn from. The freeze steps aside for a season that is `future`
+and holds nothing recorded — the window a confirmed replace runs in (`REQ-SPIELPLAN-005`) — because a season drawn
+from the wrong rules would otherwise be unrepairable. What a season scores by stays editable until the season turns
+`past`, where `REQ-RULES-005` freezes it.
 
 | Code                  | Status | Meaning                                                                                                                             |
 | --------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -74,7 +76,7 @@ season turns `past`, where `REQ-RULES-005` freezes it.
 | `REQ-RULES-008`       | 409    | A step put `draw_points` over `win_points`, or widened an excess already there                                                      |
 | `REQ-RULES-009`       | 409    | `max_kadergroesse` would drop below the largest squad the season already holds                                                      |
 | `REQ-RULES-010`       | 409    | A step paired a level `forfeit_ergebnis` with rules that produce a knockout round                                                   |
-| `REQ-RULES-011`       | 409    | A drawn season changed one of the SHAPE rules its fixtures were drawn from                                                          |
+| `REQ-RULES-011`       | 409    | A drawn season changed one of the SHAPE rules its fixtures were drawn from, outside the window a replace runs in                    |
 | `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures with no result and no `sonderereignis` that awards none                                    |
 | `REQ-ACTIVATE-002`    | 409    | A `past` season was activated — refused unconditionally, since it would reopen the points and groups its table derives from         |
 | `REQ-ACTIVATE-003`    | 409    | A season holding no fixtures was activated, which would take the league live with nothing to play                                   |
@@ -89,19 +91,24 @@ season turns `past`, where `REQ-RULES-005` freezes it.
 | `REQ-ENTER-003`       | 409    | A team was entered into, or moved to, a group already holding `teams_per_group` rows                                                |
 | `REQ-ENTER-004`       | 409    | A group change reached a team that already holds a fixture in that season, whatever the season's status                             |
 | `REQ-ENTER-005`       | 409    | A club that has left the LEAGUE was entered into a season, rather than reactivated first                                            |
-| `REQ-SPIELPLAN-001`   | 409    | A season already holding fixtures was asked to draw one, and a Spielplan is drawn once                                              |
-| `REQ-SPIELPLAN-002`   | 409    | A season already holding matchdays was asked to draw one, and the draw writes the whole list at once                                |
+| `REQ-SPIELPLAN-001`   | 409    | A season already holding fixtures was asked to draw one, and the request confirmed no replace                                       |
+| `REQ-SPIELPLAN-002`   | 409    | A season already holding matchdays was asked to draw one, and the request confirmed no replace                                      |
 | `REQ-SPIELPLAN-003`   | 409    | A Spielplan was drawn for a season already `past`                                                                                   |
 | `REQ-SPIELPLAN-004`   | 409    | A Spielplan was drawn while an offered group is off the size its rules ask, or a club stands in a group the season does not offer   |
+| `REQ-SPIELPLAN-005`   | 409    | A replace of a season's Spielplan was confirmed for a season that is not `future`, or that already holds a recorded fixture         |
 | `REQ-SWAP-001`        | 409    | A group swap named something other than two clubs of that season standing in different groups                                       |
 | `REQ-SWAP-002`        | 409    | A group swap reached a season with a knockout fixture already played, abandoned, forfeited or holding a goal count                  |
 | `REQ-SWAP-003`        | 409    | A group swap reached a `past` season, whose table is derived from the groups it would exchange                                      |
 | `REQ-SWAP-004`        | 409    | A group swap named a club whose Gruppenphase fixture was played, abandoned, forfeited or given a goal count                         |
 | `REQ-SWAP-005`        | 409    | A group swap would have BROKEN a Spieltag, leaving a club in two of its matches                                                     |
 | `REQ-SWAP-006`        | 409    | A group swap would field a club that has left the season on a fixture dated on or after its exit, or on an undated one              |
+| `REQ-REPLACE-001`     | 409    | A club was replaced in a `past` season, whose fixtures are the record of who played                                                 |
+| `REQ-REPLACE-002`     | 409    | A club was replaced whose fixture in that season was played, abandoned, forfeited or holding a goal count                           |
+| `REQ-REPLACE-003`     | 409    | A replacement named an incoming club that already holds a row in the season, or named one club on both ends                         |
 | `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                                                                |
 | `REQ-RETIRE-003`      | 409    | A venue still booked for an unplayed fixture was asked to retire                                                                    |
 | `REQ-RETIRE-004`      | 409    | A referee still assigned to an unplayed fixture was asked to retire                                                                 |
+| `REQ-PURGE-001`       | 409    | A player still in the league was asked to be erased; the erasure needs them retired first                                           |
 | `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved                                                       |
 | `REQ-BOOKING-001`     | 409    | A venue or a referee NEWLY assigned to a fixture is unknown or retired — one already stored survives its target's retirement        |
 | `REQ-CLASH-001`       | 409    | A venue or a referee would serve two fixtures less than four hours apart                                                            |

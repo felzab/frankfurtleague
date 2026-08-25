@@ -172,6 +172,14 @@ class FLPatchSaisonTeamPayload(BaseModel):
     austritt: FLAustritt | None
 
 
+class FLReplaceSaisonTeamPayload(BaseModel):
+    """Which club takes this season's row over. The path names the club going OUT."""
+
+    # The only field: the row keeps the group it stands in, and its copy of the identity is reseeded
+    # from the incoming club, so a client-supplied name could only disagree with it.
+    incoming_team_id: CustomObjectId
+
+
 class FLPublicTeamsFilterParams(BaseModel):
     """What `GET /teams` may narrow on. `include_inactive` is on the admin model below alone.
 
@@ -277,6 +285,27 @@ class FLSaisonTeamResponse(BaseAPIResponse):
     # entry and rewritten by the rename fan-out, so a client supplying it could only be stale.
     name: CustomNonEmptyString
     shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+
+
+class FLReplaceSaisonTeamResponse(BaseAPIResponse):
+    """The junction row as the replacement left it, plus the fan-out it carried into the fixtures.
+
+    No `austritt`: a replacement clears it, so the field could hold only one value here and would
+    state nothing.
+    """
+
+    saison_id: str
+    outgoing_team_id: CustomObjectId
+    incoming_team_id: CustomObjectId
+    # Untouched by the replacement, and echoed because the arriving club has to be told which group
+    # it now stands in.
+    gruppe: FLGruppenNames
+    # Reseeded from the incoming club, exactly as entry seeds them.
+    name: CustomNonEmptyString
+    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+    # Reported rather than assumed, as `FLPatchTeamResponse` reports its own: this fan-out is the
+    # half of the endpoint that fails silently (`docs/backend/spec.md :: I13`).
+    fanned_out_to_spiele: int
 
 
 FLTeamsResponse = Annotated[

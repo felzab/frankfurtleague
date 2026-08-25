@@ -35,16 +35,16 @@ export const AKTION_OPERATION_LABELS: Record<FLAktion["operation"], string> = {
   insert_many: "Mehrere angelegt",
   patch_one: "Geändert",
   patch_many: "Sammeländerung",
-  delete_many: "Mehrere gelöscht",
-  // Named apart from the removal above because the difference is what can still be recovered: this
-  // one kept no copy, that being the whole of what an erasure is.
-  erase_many: "Endgültig gelöscht",
+  // Told apart on the one axis that differs — whether the log kept a copy. Naming one by count and
+  // the other by finality would compare two axes, and imply the first is reversible in its own
+  // collection, which it is not.
+  delete_many: "Gelöscht, mit Kopie",
+  erase_many: "Gelöscht, ohne Kopie",
 };
 
 /**
- * The pairs `AdminSaisonsTable` already carries, at the same `/15` fill with its `-strong` ink. The fan-out and the
- * bulk create take the warning pair, because they touched records nobody named, so they ask to be read rather than
- * skimmed.
+ * The pairs `AdminSaisonsTable` carries, at the same `/15` fill. The fan-out and the bulk create take warning, having
+ * touched records nobody named. Both removals take danger: they differ in what the log kept, never in severity.
  */
 export const AKTION_OPERATION_TINTS: Record<FLAktion["operation"], string> = {
   insert: "bg-success/15 text-success-strong",

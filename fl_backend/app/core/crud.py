@@ -177,17 +177,25 @@ async def delete_many_from_db(
     *,
     collection: AsyncIOMotorCollection,
     db_filter: Mapping[str, Any],
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncIOMotorClientSession,
 ) -> DeleteResult:
-    """Remove a set and keep every image, in one log row (`docs/backend/spec.md :: I47`).
+    """Remove a set and keep every image, in one log row (`docs/backend/spec.md :: I48`).
 
-    The images are read first and unbounded: a cap here would log fewer documents than the delete
-    took, and the shortfall would look like a smaller action rather than a lost record.
+    Read first and unbounded: a cap would log fewer documents than the delete took, and the
+    shortfall would read as a smaller action rather than a lost record.
     """
 
+    # `session` carries no default, unlike the helpers above: the read and the delete are two
+    # statements, so outside a transaction they see different sets and the images would then name a
+    # document this call never removed.
     before = await collection.find(filter=db_filter, session=session).to_list(length=None)
 
     result = await collection.delete_many(filter=db_filter, session=session)
+
+    if result.deleted_count != len(before):
+        # Unreachable under snapshot isolation, which is what makes the pair safe. Kept because the
+        # cost of it being wrong is a log row nobody can trust, and the count is free to compare.
+        raise RuntimeError(f"{collection.name}: removed {result.deleted_count} documents against {len(before)} images")
 
     await record_write(
         collection=collection,
@@ -205,14 +213,16 @@ async def erase_many_from_db(
     *,
     collection: AsyncIOMotorCollection,
     db_filter: Mapping[str, Any],
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncIOMotorClientSession,
 ) -> DeleteResult:
-    """Remove a set and keep NO image, for an erasure whose subject is the values themselves.
+    """Remove a set and keep NO image, the values themselves being what an erasure destroys.
 
-    The filter and the count are what a completed erasure has to be able to show; an image would be
-    a fresh copy of exactly what was erased, written by the erasure (`docs/backend/spec.md :: I47`).
+    Filter on IDS alone: the log stores a filter's values as text, so one naming a person would
+    preserve what this call destroys (`docs/backend/spec.md :: I48`).
     """
 
+    # `session` carries no default here for its own reason: an erasure is one transaction over the
+    # person, their squad rows and the log, and any one of the three alone leaves it defeated.
     result = await collection.delete_many(filter=db_filter, session=session)
 
     await record_write(

@@ -59,7 +59,7 @@ class FLAktion(BaseModel):
     document_id: str | None
     db_filter: dict[str, str] | None
     # A list is `delete_many`'s: a removal follows no write a restore could replay, so one row
-    # carries every image it took (`docs/backend/spec.md :: I47`).
+    # carries every image it took (`docs/backend/spec.md :: I48`).
     before: dict[str, Any] | list[dict[str, Any]] | None
     modified_count: int | None
     redacted_at: str | None

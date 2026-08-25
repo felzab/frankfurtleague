@@ -167,6 +167,9 @@ const THE_PAGE_SEASON = "the page's selected season, parsed at `.length(4)` befo
 
 const NO_FORM_AT_ALL = "a row button's whole argument: an id in the path, no request body, no form";
 
+/** The draw is the one payload here with a body and still no field: its confirmation is an escalation, not an input. */
+const DRAW_HAS_NO_FIELDS = "the draw's panel: the season is in the path and the replace is a two-press escalation, neither being an input";
+
 /**
  * A nullable object is refused on its own path only for a value that is neither the object nor
  * `null` — a shape the typed payload builders cannot produce. Its fields are swept individually.
@@ -180,7 +183,7 @@ const RECORD_ITSELF = "the record's own path: refusable only on a shape the type
  */
 const EXEMPT: Record<string, Record<string, string>> = {
   FLActivateSaisonPayloadSchema: { id: NO_FORM_AT_ALL },
-  FLGenerateSpielplanPayloadSchema: { id: NO_FORM_AT_ALL },
+  FLGenerateSpielplanPayloadSchema: { id: DRAW_HAS_NO_FIELDS, replace: DRAW_HAS_NO_FIELDS },
   FLDeleteSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
   FLDeleteTeamPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateSpielerPayloadSchema: { id: NO_FORM_AT_ALL },

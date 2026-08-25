@@ -7,6 +7,7 @@ from pymongo import ReturnDocument
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
+    FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
     FLPatchSaisonPayload,
     FLPatchSaisonResponse,
@@ -37,6 +38,7 @@ from app.core.config import API_VERSION
 from app.core.crud import (
     build_query,
     build_sort,
+    delete_many_from_db,
     patch_many_in_db,
     patch_one_in_db,
     post_many_to_db,
@@ -293,8 +295,15 @@ async def patch_saison(
         phase_of_spieltag[spieltag["_id"]] = spieltag["saison_phase"]
 
     per_spieltag: dict[Any, int] = {}
-    async for spiel in spiele_collection.find({"saison_id": saison_id}, {"spieltag_id": 1}):
+    recorded_fixtures = 0
+    # One cursor for both figures, so what `REQ-RULES-011` freezes and what lifts that freeze cannot
+    # be read off two different sets of rows.
+    async for spiel in spiele_collection.find(
+        {"saison_id": saison_id}, {"spieltag_id": 1, "team1.tore": 1, "team2.tore": 1, "ergebnis": 1, "sonderereignis": 1}
+    ):
         per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
+        if _has_taken_place(spiel):
+            recorded_fixtures += 1
 
     # Every fixture of the season, whichever matchday it hangs on: what `REQ-RULES-011` freezes is the
     # draw, and a fixture pointing at another season's matchday came out of this season's rules too.
@@ -328,6 +337,7 @@ async def patch_saison(
             largest_squad=largest_squad,
             attached_by_phase=attached_by_phase,
             drawn_fixtures=drawn_fixtures,
+            recorded_fixtures=recorded_fixtures,
         )
     )
 
@@ -568,13 +578,16 @@ async def generate_spielplan(
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
     db: DBClient,
+    # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
+    # a season by leaving the flag out.
+    spielplan_data: Annotated[FLGenerateSpielplanPayload, Body(default_factory=FLGenerateSpielplanPayload)],
     today: str = Depends(get_german_date_str),
 ) -> FLGenerateSpielplanResponse:
     """
-    Draw the whole season at once: every matchday and every fixture, in one transaction.
+    Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
 
-    ONE-WAY, like activation, and nothing it writes carries a date. A half-written draw could not be
-    repaired here, `/spiele` having neither a create nor a delete.
+    `replace` DELETES both lists and draws them again in that transaction, only while the season is
+    `future` with nothing played (`REQ-SPIELPLAN-005`).
     """
 
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
@@ -602,14 +615,26 @@ async def generate_spielplan(
             gruppe = row["gruppe"]
             occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
 
+        # LISTED rather than counted, as the group swap's callback lists its own: one read answers
+        # `REQ-SPIELPLAN-001` and supplies what `REQ-SPIELPLAN-005` weighs, so the two cannot
+        # disagree about what a replace would destroy.
+        stored_spiele = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": saison_id},
+            projection=["team1.tore", "team2.tore", "ergebnis", "sonderereignis"],
+            session=session,
+        )
+
         refuse(
             find_spielplan_refusal(
                 saison_status=str(saison_raw["status"]),
-                fixtures_drawn=await spiele_collection.count_documents({"saison_id": saison_id}, session=session),
+                fixtures_drawn=len(stored_spiele),
                 spieltage_held=await spieltage_collection.count_documents({"saison_id": saison_id}, session=session),
                 watermark=saison_raw.get("spielplan"),
                 rules=rules,
                 occupancy_by_gruppe=occupancy,
+                replace=spielplan_data.replace,
+                recorded_fixtures=sum(1 for spiel in stored_spiele if _has_taken_place(spiel)),
             )
         )
 
@@ -643,6 +668,13 @@ async def generate_spielplan(
                 for row in entered_rows
             ],
         )
+
+        # Both collections together (`docs/backend/spec.md :: I46`), fixtures first: the reverse of
+        # the write order below, so neither the log's rows nor a restore replaying them holds a
+        # fixture whose matchday is gone.
+        if spielplan_data.replace:
+            await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
+            await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
 
         # Matchdays first: every fixture already carries the `spieltag_id` of a row in this list, the
         # draw having generated both ids together rather than reading one back.

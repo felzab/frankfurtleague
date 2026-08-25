@@ -184,6 +184,16 @@ class FLActivateSaisonResponse(BaseAPIResponse):
     deactivated: int
 
 
+class FLGenerateSpielplanPayload(BaseModel):
+    """Whether this draw may REPLACE what the season already holds.
+
+    An absent body and `replace: false` are one request -- the first draw -- so no client destroys a
+    season by omission. `REQ-SPIELPLAN-005` bounds a confirmed one.
+    """
+
+    replace: bool = Field(default=False)
+
+
 class FLGenerateSpielplanResponse(BaseAPIResponse):
     """What the draw wrote, flat rather than nested.
 

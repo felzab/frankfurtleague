@@ -2,10 +2,13 @@ from typing import Any, Mapping
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.saisons.services import (
+    RULES_SHAPE_AFTER_DRAW,
     SPIELPLAN_ALREADY_DRAWN,
     SPIELPLAN_GRUPPEN_OFF_RULES,
     SPIELPLAN_MATCHDAYS_HELD,
+    SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
     SPIELPLAN_SAISON_FINISHED,
+    find_rules_refusal,
     find_spielplan_refusal,
 )
 from app.api.teams.schemas import FLGruppenNames
@@ -34,6 +37,8 @@ def refusal_for(
     watermark: Mapping[str, Any] | None = None,
     occupancy: Mapping[FLGruppenNames, int] = FULL,
     rules: FLSaisonRules = RULES,
+    replace: bool = False,
+    recorded: int = 0,
 ) -> WriteRefusal | None:
     return find_spielplan_refusal(
         saison_status=saison_status,
@@ -42,6 +47,8 @@ def refusal_for(
         watermark=watermark,
         rules=rules,
         occupancy_by_gruppe=occupancy,
+        replace=replace,
+        recorded_fixtures=recorded,
     )
 
 
@@ -248,6 +255,147 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
             watermark=None,
             rules=two_groups,
             occupancy_by_gruppe={"A": 6, "B": 6},
+            replace=False,
+            recorded_fixtures=0,
         )
 
         assert refusal is None
+
+
+class TestAConfirmedReplaceStepsPastWhatItDeletes:
+    """`REQ-SPIELPLAN-001` and `REQ-SPIELPLAN-002` name what a replace is about to remove, so neither may turn one away."""
+
+    def test_a_season_already_holding_a_whole_spielplan_is_replaced(self):
+        """Drop `and not replace` from the fixture guard and this fails, the replace refused over the rows it deletes."""
+
+        assert refusal_for(replace=True, fixtures_drawn=67, spieltage_held=8) is None
+
+    def test_a_season_holding_matchdays_and_no_fixture_is_replaced(self):
+        """The matchday guard's own step-aside, and the shape a draw stopped between its two writes would leave."""
+
+        assert refusal_for(replace=True, spieltage_held=8) is None
+
+    def test_a_group_off_its_size_still_refuses_a_confirmed_replace(self):
+        """Gate `REQ-SPIELPLAN-004` on `replace` too and this fails: a replace draws the same fixtures, so it needs the same groups."""
+
+        refusal = refusal_for(replace=True, fixtures_drawn=67, spieltage_held=8, occupancy={**FULL, "B": 4})
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+
+
+class TestAReplaceRunsOnlyInsideItsWindow:
+    """`REQ-SPIELPLAN-005`, both halves under one code: `future`, and nothing played.
+
+    Asymmetric with `REQ-SPIELPLAN-003`: that one refuses `past` alone, so a running season may be
+    drawn a FIRST time on a status the replace is refused on.
+    """
+
+    def test_a_confirmed_replace_of_an_undrawn_future_season_is_permitted(self):
+        """The control: a rule refusing every confirmed replace would pass every case below."""
+
+        assert refusal_for(replace=True) is None
+
+    def test_a_running_season_is_refused_the_replace_it_would_be_permitted_a_first_draw(self):
+        """Widen the window to `!= "past"` and this fails, which is the whole asymmetry with `REQ-SPIELPLAN-003`."""
+
+        refusal = refusal_for(replace=True, saison_status="active", fixtures_drawn=67, spieltage_held=8)
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
+
+    def test_a_past_season_reads_the_replace_window_rather_than_the_draw_freeze(self):
+        """Judge this after `REQ-SPIELPLAN-003` and it fails: an admin who asked to replace reads the whole window, not half of it."""
+
+        refusal = refusal_for(replace=True, saison_status="past", fixtures_drawn=67, spieltage_held=8)
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
+
+    def test_one_fixture_that_already_happened_refuses_the_replace(self):
+        """Drop the `recorded_fixtures` half and this fails: the replace would delete the record of a match that was played."""
+
+        refusal = refusal_for(replace=True, fixtures_drawn=67, spieltage_held=8, recorded=1)
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
+
+    def test_a_replace_of_a_season_holding_nothing_is_bounded_by_the_window_too(self):
+        """Gate the window on there being something to delete and this fails: the flag would then mean a replace here and a first draw there."""
+
+        refusal = refusal_for(replace=True, saison_status="active")
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
+
+    def test_the_message_names_the_status_and_how_many_fixtures_happened(self):
+        """A bare code sends an admin to the database; both halves are what say which one closed the window."""
+
+        refusal = refusal_for(replace=True, saison_status="active", fixtures_drawn=67, spieltage_held=8, recorded=3)
+
+        assert refusal is not None
+        assert "active" in refusal.message
+        assert "3 fixture(s)" in refusal.message
+
+    def test_an_unconfirmed_draw_is_judged_by_the_draw_rules_alone(self):
+        """Read the window off the season rather than off the flag and this fails: a running season's first draw is permitted."""
+
+        refusal = refusal_for(saison_status="active", fixtures_drawn=67, spieltage_held=8)
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_ALREADY_DRAWN
+
+
+# A season already drawn, and the widening `REQ-RULES-011` freezes. A raise, so no narrowing rule
+# answers before it (`REQ-RULES-002`, `REQ-RULES-003` and `REQ-RULES-006` all read the other way).
+DRAWN_FIXTURES = 67
+WIDER_SHAPE = RULES.model_copy(update={"teams_per_group": 8})
+
+
+def shape_refusal_for(*, saison_status: str = "future", recorded: int = 0) -> WriteRefusal | None:
+    return find_rules_refusal(
+        saison_status=saison_status,
+        stored=RULES,
+        proposed=WIDER_SHAPE,
+        occupancy_by_gruppe={},
+        highest_wired_platz=0,
+        drawn_fixtures=DRAWN_FIXTURES,
+        recorded_fixtures=recorded,
+    )
+
+
+class TestTheShapeFreezeStepsAsideInTheSameWindow:
+    """`REQ-RULES-011` stops refusing where `REQ-SPIELPLAN-005` opens, which is why it is proved here.
+
+    A season drawn from the wrong rules is otherwise unrepairable: the draw freezes the shape a
+    fresh draw would have to run from.
+    """
+
+    def test_a_future_season_with_nothing_played_may_change_the_shape_it_was_drawn_from(self):
+        """Drop the carve-out and this fails: the rules that produced a wrong draw could never be corrected."""
+
+        assert shape_refusal_for() is None
+
+    def test_a_running_season_keeps_the_freeze(self):
+        """Widen the carve-out past `future` and this fails: a league mid-season would move the rules its fixtures came out of."""
+
+        refusal = shape_refusal_for(saison_status="active")
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+
+    def test_a_finished_season_keeps_the_freeze(self):
+        """The season whose table is scored from these rules on every read, and the state no replace reopens."""
+
+        refusal = shape_refusal_for(saison_status="past")
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+
+    def test_one_fixture_that_already_happened_keeps_the_freeze(self):
+        """Drop the `recorded_fixtures` half and this fails: a played match's own rules would move under it."""
+
+        refusal = shape_refusal_for(recorded=1)
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW

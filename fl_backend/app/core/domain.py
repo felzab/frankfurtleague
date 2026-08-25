@@ -203,7 +203,9 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "One recorded write. Held true against nothing: a row is a statement that a write happened, "
             "which stays true however the document it names changes afterwards. So it is in no boundary "
             "with the collection it records, and carries no reference to it -- `document_id` names a row "
-            "that may since have been deleted, and a row surviving its subject is the point rather than a leak."
+            "that may since have been deleted. A row surviving its subject is the point where the subject is a fixture or a "
+            "season. Where the subject is a PERSON it is instead the leak, which is why a pupil's erasure reaches in here and "
+            "redacts the values in place rather than dropping the row (`docs/backend/spec.md :: I42`)."
         ),
     ),
 )
@@ -266,12 +268,14 @@ REFERENCES: tuple[Reference, ...] = (
         target=Collection.SPIELTAGE,
         on_reference_created=Action.NO_ACTION,
         on_target_change=Action.NO_ACTION,
-        on_target_removed=Action.NO_ACTION,
+        on_target_removed=Action.CASCADE,
         note=(
             "No request creates this reference at all: the field is on no payload and `/spiele` has no POST, "
             "so whatever writes a fixture carries the check itself. "
             "Nothing is embedded, so a re-dated matchday is picked up on the next read. "
-            "No endpoint removes a matchday either, a season's matchdays being generated once, so the reference cannot dangle."
+            "A matchday is removed only by a confirmed replace (`REQ-SPIELPLAN-005`), which removes the season's fixtures in the "
+            "same transaction and draws both afresh, so the reference cannot dangle -- not because nothing is ever removed, but "
+            "because neither collection is removed without the other (`docs/backend/spec.md :: I46`)."
         ),
     ),
     Reference(
@@ -323,9 +327,10 @@ REFERENCES: tuple[Reference, ...] = (
         note=(
             "`post_saison_team` reads the club, so entry naming one `teams` does not hold is a 404 and entry naming a "
             "RETIRED one is refused (`REQ-ENTER-005`); that same read seeds this row's `name` and `shorthand`, which a "
-            "rename then rewrites while the season is not `past`. A row naming no club predates that read -- the entry "
-            "resolved nothing before it -- and is now reachable only by a database "
-            "edit, and `report_relations` is what surfaces one. "
+            "rename then rewrites while the season is not `past`; a REPLACEMENT is the third writer of all three, reseeding them "
+            "from the incoming club. A row naming no club predates that read -- the entry resolved nothing before it -- and is now "
+            "reachable only by a database edit; `report_relations` is what surfaces one, and the replacement is what repairs one, "
+            "which is why it resolves the INCOMING club alone and never the outgoing one. "
             "Retiring a club is refused while a running or planned season holds it (`REQ-RETIRE-001`). A "
             "past season's rows survive the retirement, because those seasons still happened."
         ),
@@ -341,7 +346,8 @@ REFERENCES: tuple[Reference, ...] = (
             "`post_saison_team` reads the season for its status and its capacity, so entry into one that does not exist is a 404. "
             "The season's `rules` bound these rows, so narrowing `number_of_groups` or `teams_per_group` "
             "below what they occupy is refused (`REQ-RULES-002`, `REQ-RULES-003`). There is no row delete "
-            "either: a team leaves a season only by an austritt."
+            "either: a club leaves a season by an austritt, or by a replacement repointing its row at another club, and the row "
+            "itself survives both."
         ),
     ),
     Reference(
@@ -402,7 +408,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "spielplan",
         Editability.CONTROL_ONLY,
         "`POST /saisons/{saison_id}/spielplan`, which stamps it in the transaction that writes the matchdays and "
-        "fixtures; a season already carrying one is refused (`REQ-SPIELPLAN-001`), the draw being one-way",
+        "fixtures; a season already carrying one is refused (`REQ-SPIELPLAN-001`) unless the request confirms a REPLACE, which "
+        "`REQ-SPIELPLAN-005` holds to a `future` season with nothing recorded and which restamps this in the same transaction",
         "app.api.saisons.admin_router.generate_spielplan",
     ),
     FieldPolicy(
@@ -491,9 +498,10 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELTAGE,
         "position",
         Editability.IMMUTABLE,
-        "written once by `POST /saisons/{saison_id}/spielplan` (`app/api/saisons/spielplan.py`), which numbers each "
-        "phase's rounds as it draws them; on no payload afterwards, and a slot its phase already holds is refused "
-        "by `uniq_saison_id_saison_phase_position`",
+        "written by `POST /saisons/{saison_id}/spielplan` (`app/api/saisons/spielplan.py`), which numbers each phase's "
+        "rounds as it draws them; on no payload afterwards, so a stored row keeps its slot, and a slot its phase already "
+        "holds is refused by `uniq_saison_id_saison_phase_position`. A confirmed replace (`REQ-SPIELPLAN-005`) removes the "
+        "season's rows and draws fresh ones rather than renumbering any",
     ),
     FieldPolicy(
         Collection.TEAMS,
@@ -570,7 +578,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELE,
         "spiel_nr",
         Editability.IMMUTABLE,
-        "a season's fixtures are created once; `/spiele` has no POST and no DELETE",
+        "a stored fixture's number never changes; `/spiele` has no POST and no DELETE, and the season's whole set is written by the "
+        "draw and replaced wholesale by a confirmed replace (`REQ-SPIELPLAN-005`), which is season-scoped and declares neither verb",
     ),
     FieldPolicy(Collection.SPIELE, "saison_id", Editability.IMMUTABLE, "for the reason `spiel_nr` is"),
     FieldPolicy(
@@ -898,7 +907,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ENTER-005",
-        operation="POST /teams/{team_id}/saisons",
+        operation="POST /teams/{team_id}/saisons · POST /teams/{team_id}/saisons/{saison_id}/replace",
         aggregate="Saison",
         summary="a club that has left the LEAGUE is entered into no season until it is reactivated",
         implemented_by="app.api.teams.services.find_club_entry_refusal",
@@ -939,6 +948,15 @@ RULES: tuple[Rule, ...] = (
         summary="a season with an offered group off `teams_per_group`, or a club outside the offered groups, is not drawn",
         implemented_by="app.api.saisons.services.find_spielplan_refusal",
         tested_by="tests/api/test_spielplan_refusal.py::TestWhetherEveryOfferedGroupHoldsItsSize",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SPIELPLAN-005",
+        operation="POST /saisons/{saison_id}/spielplan",
+        aggregate="Saison",
+        summary="a confirmed replace reaches no season but a `future` one that holds nothing already played",
+        implemented_by="app.api.saisons.services.find_spielplan_refusal",
+        tested_by="tests/api/test_spielplan_refusal.py::TestAReplaceRunsOnlyInsideItsWindow",
         multi_document=True,
     ),
     Rule(
@@ -993,6 +1011,33 @@ RULES: tuple[Rule, ...] = (
         summary="no group swap moving a departed club onto a fixture dated on or after its exit, an UNDATED one included",
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
         tested_by="tests/api/test_gruppe_swap_refusal.py::TestASwapNeverFieldsADisqualifiedClub",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-REPLACE-001",
+        operation="POST /teams/{team_id}/saisons/{saison_id}/replace",
+        aggregate="Saison",
+        summary="no replacement in a `past` season, whose fixtures and the table derived from them are the record of who played",
+        implemented_by="app.api.teams.services.find_replacement_refusal",
+        tested_by="tests/api/test_saison_team_replacement_refusal.py::TestWhichSeasonsAreOpenToAReplacement",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-REPLACE-002",
+        operation="POST /teams/{team_id}/saisons/{saison_id}/replace",
+        aggregate="Saison",
+        summary="no replacement once the outgoing club's fixture has been played, abandoned, forfeited or given a goal count",
+        implemented_by="app.api.teams.services.find_replacement_refusal",
+        tested_by="tests/api/test_saison_team_replacement_refusal.py::TestTheOutgoingClubMustHavePlayedNothing",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-REPLACE-003",
+        operation="POST /teams/{team_id}/saisons/{saison_id}/replace",
+        aggregate="Saison",
+        summary="no replacement by a club already holding a row in the season, one club named on both ends included",
+        implemented_by="app.api.teams.services.find_replacement_refusal",
+        tested_by="tests/api/test_saison_team_replacement_refusal.py::TestTheIncomingClubMustBeNewToTheSeason",
         multi_document=True,
     ),
     Rule(
@@ -1168,6 +1213,14 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_containment_refusals.py::TestASquadCap",
         multi_document=True,
     ),
+    Rule(
+        code="REQ-PURGE-001",
+        operation="DELETE /spieler/{spieler_id}/erasure",
+        aggregate="Spieler",
+        summary="a player still in the league is not erased, retirement being the step that comes first",
+        implemented_by="app.api.spieler.services.find_erasure_refusal",
+        tested_by="tests/api/test_spieler_erasure_execution.py::TestTheErasureIsRefusedUntilTheyAreRetired",
+    ),
 )
 
 
@@ -1233,7 +1286,11 @@ UNENFORCED: tuple[Unenforced, ...] = (
     ),
     Unenforced(
         subject="a retired row's eventual purge",
-        reason="`inactive_since` is a date so a purge can select on it; the purge itself is not built (roadmap BE-12).",
+        reason=(
+            "`inactive_since` is a date so a purge can select on it; no RETENTION sweep is built (roadmap BE-12). A pupil's "
+            "erasure removes one named person on request and is not that sweep -- it selects a subject, never an age, and "
+            "`REQ-PURGE-001` makes retirement its precondition rather than its trigger."
+        ),
         near=("REQ-RETIRE-001",),
         proven_by="tests/core/test_unenforced.py::TestNoPurgeReachesARetiredRow",
     ),
