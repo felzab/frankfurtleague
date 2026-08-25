@@ -2,13 +2,15 @@ from typing import Any, Mapping
 
 import pytest
 
-from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
+from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules, FLSpielplanShape
 from app.api.saisons.services import (
+    SAISON_SPAN_BELOW_SCHEDULE,
     SPIELPLAN_ALREADY_DRAWN,
     SPIELPLAN_GRUPPEN_OFF_RULES,
     SPIELPLAN_MATCHDAYS_HELD,
     SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
     SPIELPLAN_SAISON_FINISHED,
+    find_saison_span_refusal,
     find_spielplan_refusal,
     holds_a_recorded_fact,
 )
@@ -432,3 +434,46 @@ class TestWhatCountsAsRecordedAgainstAFixture:
         """Rescheduling is what a replace is FOR, so a dated fixture stays replaceable and the log keeps the dates."""
 
         assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, "datum": "2026-05-01", "uhrzeit": "18:00:00"}) is False
+
+
+# A season created exactly as long as its own rules ask for: three group matchdays and one final in
+# four days. The draw is the one write that can then widen the count without touching the span.
+TIGHT_SPAN = ("2026-05-01", "2026-05-04")
+TIGHT_RULES = RULES.model_copy(update={"number_of_groups": 2, "teams_per_group": 4, "qualifiers_per_group": 1})
+
+# `qualifiers_per_group` is the free lever: `REQ-SPIELPLAN-004` pins the other two to the clubs
+# standing in the groups, and each doubling of the product adds a knockout round.
+WIDENED_SHAPE = FLSpielplanShape(number_of_groups=2, teams_per_group=4, qualifiers_per_group=4)
+
+
+def span_refusal_for(rules: FLSaisonRules) -> WriteRefusal | None:
+    """`REQ-DATE-005` as the draw asks it: the season's own span, and no dated matchday to contain."""
+
+    return find_saison_span_refusal(start_date=TIGHT_SPAN[0], end_date=TIGHT_SPAN[1], rules=rules, spieltag_spans=[])
+
+
+class TestTheShapeADrawRunsFromIsMeasuredAgainstTheSeasonsSpan:
+    """`REQ-DATE-005` over the draw's own three, which decide how many matchdays a season takes.
+
+    The draw writes all three, so it can move that count on a season whose span was measured
+    against the numbers it replaces.
+    """
+
+    def test_the_season_as_it_was_created_is_long_enough_for_its_own_rules(self):
+        """The control, and what `POST /saisons` already measured: the state below is one the draw alone reaches."""
+
+        assert span_refusal_for(TIGHT_RULES) is None
+
+    def test_the_shape_the_draw_would_run_from_is_refused(self):
+        """Measure the STORED rules and this fails: the four matchdays the season was created for still fit its four days."""
+
+        refusal = span_refusal_for(TIGHT_RULES.model_copy(update=WIDENED_SHAPE.model_dump()))
+
+        assert refusal is not None
+        assert refusal.error_code == SAISON_SPAN_BELOW_SCHEDULE
+        assert "6 matchday(s)" in refusal.message
+
+    def test_the_draws_own_refusal_lets_that_shape_through(self):
+        """Why the endpoint owes a call of its own: this rule reads the groups and who stands in them, and no date at all."""
+
+        assert refusal_for(rules=TIGHT_RULES.model_copy(update=WIDENED_SHAPE.model_dump()), occupancy={"A": 4, "B": 4}) is None

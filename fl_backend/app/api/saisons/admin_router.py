@@ -645,6 +645,18 @@ async def generate_spielplan(
             )
         )
 
+        # After the rules, as `post_saison` is: a bracket with no shape implies no matchday count
+        # worth measuring. Empty spans -- the draw dates nothing, and a replace has every stored
+        # matchday still to delete below.
+        refuse(
+            find_saison_span_refusal(
+                start_date=str(saison_raw["start_date"]),
+                end_date=str(saison_raw["end_date"]),
+                rules=rules,
+                spieltag_spans=[],
+            )
+        )
+
         # `find_wiring_refusal`, `judge_spieltag_occupancy`, `find_clash_refusal` and
         # `find_eligibility_refusal` are all unasked: each judges ONE payload against a stored season,
         # and would see a draw half written. The construction is what is verified instead.
@@ -675,8 +687,9 @@ async def generate_spielplan(
         await post_many_to_db(collection=spieltage_collection, documents=drawn.spieltage, session=session)
         await post_many_to_db(collection=spiele_collection, documents=drawn.spiele, session=session)
 
-        # Dotted keys, and only where the payload states a shape: a whole `rules` object here would
-        # make this endpoint a second writer for the rules the draw is not a function of.
+        # Dotted keys, and only where the payload states a shape: a whole `rules` object would write
+        # the six rules the draw is no function of, and drop any sub-key `FLSaisonRules` ignores --
+        # the merged copy lost it at validation.
         shape = spielplan_data.shape
         shape_written = {} if shape is None else {f"rules.{rule}": value for rule, value in shape.model_dump().items()}
 

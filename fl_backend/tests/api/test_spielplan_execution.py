@@ -22,6 +22,7 @@ from app.api.saisons.schemas import (
 from app.api.saisons.services import (
     RULES_BRACKET_IMPOSSIBLE,
     RULES_SHAPE_AFTER_DRAW,
+    SAISON_SPAN_BELOW_SCHEDULE,
     SPIELPLAN_ALREADY_DRAWN,
     SPIELPLAN_GRUPPEN_OFF_RULES,
     SPIELPLAN_MATCHDAYS_HELD,
@@ -87,13 +88,18 @@ def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualif
     }
 
 
-def saison_document(*, status: str = "future", rules: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Every key spelled out: the shipped `saisons` validator is attached before this is inserted."""
+def saison_document(
+    *, status: str = "future", rules: dict[str, Any] | None = None, start_date: str = "2026-01-01", end_date: str = "2026-06-30"
+) -> dict[str, Any]:
+    """Every key spelled out: the shipped `saisons` validator is attached before this is inserted.
+
+    The default span is half a year, so `REQ-DATE-005` is what no case not about it can be refused on.
+    """
 
     return {
         "_id": SAISON_ID,
-        "start_date": "2026-01-01",
-        "end_date": "2026-06-30",
+        "start_date": start_date,
+        "end_date": end_date,
         "status": status,
         "rules": rules or rules_document(),
     }
@@ -1142,10 +1148,19 @@ def a_season_drawn_from(url: str, *, seed: Seed, shape: FLSpielplanShape | None,
     return on_a_seeded_saison(url, body, seed=seed)
 
 
-def a_short_seed() -> Seed:
+# A `rules` sub-key no model declares. The `saisons` validator admits it, `app/core/constraints.py ::
+# _object` emitting no `additionalProperties`, and `FLSaisonRules` ignores it -- so only a write that
+# names its paths can leave it standing.
+UNDECLARED_RULE: dict[str, Any] = {"spielzeit_minuten": 25}
+
+
+def a_short_seed(*, extra_rules: Mapping[str, Any] | None = None) -> Seed:
     """A season created with the placeholder shape, holding only the clubs that turned up: six, across two groups."""
 
-    return Seed(entered=entry_rows(groups=SHORT_GROUPS, teams=SHORT_PER_GROUP))
+    return Seed(
+        saison=saison_document(rules={**rules_document(), **(extra_rules or {})}),
+        entered=entry_rows(groups=SHORT_GROUPS, teams=SHORT_PER_GROUP),
+    )
 
 
 def the_short_shape() -> FLSpielplanShape:
@@ -1173,12 +1188,21 @@ class TestADrawStoresTheShapeItRanFrom:
         assert (drawn.response.spieltage, drawn.response.spiele) == expected
 
     def test_the_rules_the_draw_is_no_function_of_are_left_where_they_stand(self, mongo_replica_set_url: str):
-        """Write the whole rules object here and this fails: `PATCH` would stop being the one writer for the rules the draw never reads."""
+        """`$set` the shape as a whole `rules` object and this fails: the six rules it does not carry would be gone from the season."""
 
         drawn = a_season_drawn_from(mongo_replica_set_url, seed=a_short_seed(), shape=the_short_shape())
         untouched = {rule: value for rule, value in rules_document().items() if rule not in the_short_shape().model_dump()}
 
         assert {rule: drawn.rules[rule] for rule in untouched} == untouched
+
+    def test_a_rules_sub_key_no_model_declares_survives_the_draw(self, mongo_replica_set_url: str):
+        """`$set` the MERGED `rules` object and this fails: it holds what `FLSaisonRules` declares, so a hand-added key is silently dropped."""
+
+        drawn = a_season_drawn_from(mongo_replica_set_url, seed=a_short_seed(extra_rules=UNDECLARED_RULE), shape=the_short_shape())
+
+        assert {rule: drawn.rules.get(rule) for rule in UNDECLARED_RULE} == UNDECLARED_RULE
+        # Beside the shape it moved, so this cannot pass on a draw that wrote nothing at all.
+        assert drawn.rules["qualifiers_per_group"] == NARROWED_QUALIFIERS
 
     def test_a_draw_that_states_no_shape_leaves_every_rule_alone(self, mongo_replica_set_url: str):
         """The control: a `$set` running unconditionally would pass every case above and rewrite a season that asked for nothing."""
@@ -1285,6 +1309,70 @@ class TestAShapeTheSeasonCannotBeDrawnFromIsRefused:
         assert refused.rules == rules_document()
         assert refused.kept_its_draw, "a refused redraw removed the season's own draw"
         assert refused.watermark["generiert_am"] == TODAY
+
+
+# Two groups of four into a single final: three group matchdays and the final, in a season of
+# exactly four days -- the shortest span `POST /saisons` accepts for those rules.
+TIGHT_GROUPS = 2
+TIGHT_PER_GROUP = 4
+TIGHT_SPAN = ("2026-05-01", "2026-05-04")
+
+# The free lever: `REQ-SPIELPLAN-004` pins the other two to the clubs standing in the groups, while
+# each doubling of `number_of_groups` x `qualifiers_per_group` adds a knockout round.
+WIDENED_QUALIFIERS = 4
+
+
+def a_tight_seed() -> Seed:
+    """A season as long as its own rules ask and no longer, every offered group full."""
+
+    return Seed(
+        saison=saison_document(
+            rules=rules_document(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=NARROWED_QUALIFIERS),
+            start_date=TIGHT_SPAN[0],
+            end_date=TIGHT_SPAN[1],
+        ),
+        entered=entry_rows(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP),
+    )
+
+
+def the_tight_shape(*, qualifiers: int) -> FLSpielplanShape:
+    return a_shape(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=qualifiers)
+
+
+class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
+    """`REQ-DATE-005` WIRED over the draw's own three, which decide how many matchdays a season takes.
+
+    `POST /saisons` measured the span against the rules the season was created with, and the draw
+    replaces three of them.
+    """
+
+    def test_a_shape_implying_more_matchdays_than_the_season_has_days_is_refused(self, mongo_replica_set_url: str):
+        """Drop the span call and this fails: six matchdays land in a four-day season, and no two may share a day."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            with pytest.raises(DocumentConflictException) as refused:
+                await call_draw(database, client, shape=the_tight_shape(qualifiers=WIDENED_QUALIFIERS))
+
+            return refused.value, await stored_rules(database), await counts_now(database), await watermark_now(database)
+
+        refused, rules, counts, watermark = on_a_seeded_saison(mongo_replica_set_url, body, seed=a_tight_seed())
+
+        assert refused.error_code == SAISON_SPAN_BELOW_SCHEDULE
+        assert counts == (0, 0), "a refused draw wrote a schedule the season has no room for"
+        # Read back rather than inferred from the refusal: the shape stored beside no fixtures would
+        # come back `REQ-DATE-005` on the next patch of any rule at all.
+        assert rules == rules_document(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=NARROWED_QUALIFIERS)
+        assert watermark is None
+
+    def test_a_shape_the_season_has_exactly_room_for_is_drawn(self, mongo_replica_set_url: str):
+        """The control: four matchdays fit four days, so an off-by-one -- or a span read off another season -- refuses a legal draw."""
+
+        drawn = a_season_drawn_from(mongo_replica_set_url, seed=a_tight_seed(), shape=the_tight_shape(qualifiers=NARROWED_QUALIFIERS))
+        expected = expected_counts(
+            FLSaisonRules.model_validate(rules_document(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=NARROWED_QUALIFIERS))
+        )
+
+        assert (len(drawn.spieltage), len(drawn.spiele)) == expected
 
 
 class TestAnAbortedRedrawLeavesTheOldRulesWithTheOldDraw:

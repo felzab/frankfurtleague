@@ -60,6 +60,11 @@ FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers
 # `REQ-RULES-006` reads the narrowing direction alone.
 SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_groups", "teams_per_group", "qualifiers_per_group")
 
+# The one of the three a REDRAW moves. `REQ-SPIELPLAN-004` asks every offered group for exactly
+# `teams_per_group`, so a redraw carrying either of the others is refused for the groups then off
+# their size; qualifiers touch no group's occupancy at all.
+REDRAWABLE_SHAPE_FIELD = "qualifiers_per_group"
+
 
 def _forfeit_draws_a_knockout(rules: FLSaisonRules) -> bool:
     """Whether these rules compose a knockout no-show as a level result.
@@ -108,10 +113,22 @@ def find_rules_refusal(
     if stored is not None and drawn_fixtures > 0:
         redrawn = [field for field in SHAPE_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if redrawn:
+            # Per field, the two repairs being different jobs: raising a pinned one needs clubs
+            # entered between the removal and the draw, and lowering one is refused by
+            # `REQ-RULES-002` or `REQ-RULES-003` while the clubs stand, withdrawn or not.
+            pinned = [field for field in redrawn if field != REDRAWABLE_SHAPE_FIELD]
+
+            repairs: list[str] = []
+            if REDRAWABLE_SHAPE_FIELD in redrawn:
+                repairs.append(f"{REDRAWABLE_SHAPE_FIELD} moves by drawing the Spielplan again with the new number")
+            if pinned:
+                repairs.append(
+                    f"the clubs entered fix {' and '.join(pinned)}, so undraw the Spielplan, change the entries, then draw the Spielplan again"
+                )
+
             return WriteRefusal(
                 error_code=RULES_SHAPE_AFTER_DRAW,
-                message=f"the season's {drawn_fixtures} fixtures are already drawn from these rules; "
-                f"{', '.join(redrawn)} move only with the fixtures, so draw the Spielplan again carrying the new numbers",
+                message=f"the season's {drawn_fixtures} fixtures are already drawn from these rules; {'; '.join(repairs)}",
             )
 
     # Before the bracket rule, being narrower: it names two fields an admin can compare, where the

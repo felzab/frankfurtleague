@@ -841,7 +841,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-005",
-        operation="POST /saisons · PATCH /saisons/{saison_id}",
+        operation="POST /saisons · PATCH /saisons/{saison_id} · POST /saisons/{saison_id}/spielplan",
         aggregate="Saison",
         summary="a season shorter than the matchdays its own rules imply is refused",
         implemented_by="app.api.saisons.services.find_saison_span_refusal",
