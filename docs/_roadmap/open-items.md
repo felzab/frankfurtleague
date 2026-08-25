@@ -142,10 +142,11 @@ somewhere else. That destruction is now recorded
 and attributable. Making it **recoverable** past the fifteen-second undo is what this entry still
 carries.
 
-**Two writes sit outside what any restore could replay, and for different reasons.** A pupil's
-erasure keeps no image at all, the values being what it destroys; a confirmed replace of a season's
-draw keeps an array of every removed document, and `/spiele` has neither a create nor a delete, so
-nothing exists to replay one into (`docs/backend/spec.md :: I48`, `:: I26`). Both are records for a
+**Two kinds of write sit outside what any restore could replay — a pupil's erasure, and taking a
+season's draw away — and for different reasons.** The erasure keeps no image at all, the values being
+what it destroys; the removal, whether a confirmed replace or an undraw that writes none back, keeps
+an array of every removed document, and `/spiele` has neither a create nor a delete, so nothing
+exists to replay one into (`docs/backend/spec.md :: I48`, `:: I26`). Both are records for a
 person to read rather than anything a restore can reach, which is a bound on this entry rather than
 work inside it.
 
@@ -450,11 +451,15 @@ so every club still has to be entered before it runs, and a wizard reaching it e
 rather than left half-drawn. A season already holding a fixture or a matchday is refused too
 (`-001`, `-002`) **unless the request confirms a replace**, which removes both lists and draws them
 again inside the same transaction; `REQ-SPIELPLAN-005` holds that to a `future` season with nothing
-recorded, and `REQ-RULES-011`'s freeze on the shape rules steps aside in the same window, so a
-season drawn from the wrong rules is repairable. The draw is therefore repeatable for as long as the
+recorded. The replace CARRIES the new shape rules and writes them in that same transaction, which
+is what makes a season drawn from the wrong numbers repairable: a season's shape rules and its
+draw are one fact, so `REQ-RULES-011` keeps them off the patch entirely rather than lifting. The draw is therefore repeatable for as long as the
 setup lasts, and a flow that draws early and draws again after a correction is a shape the API
 supports — at the price of a confirmation, because a replace destroys the whole schedule rather than
-the part that was wrong, and nothing writes one back. Today it is a panel an admin presses on
+the part that was wrong, and nothing writes one back. **What a replace reaches is the qualifier count**, the group
+shape being fixed by the clubs already entered; `DELETE /saisons/{saison_id}/spielplan` undraws the
+season instead, which is the way back from a group shape guessed wrong, and
+[`docs/domain.md`](../domain.md) carries the sequence. Today it is a panel an admin presses on
 `/admin/saisons/[saison_id]` once the clubs are in
 (`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx`),
 which is the hand-run sequence this entry is about rather than a flow.
@@ -633,17 +638,18 @@ that lands, followed by a further write nothing can take back.
 
 **It does not, and each surviving multi-write path argues itself at the line.**
 
-| The path                                                           | How it writes                                                                                         |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `fl_backend/app/api/saisons/admin_router.py :: activate_saison`    | A transaction, demoting whichever season holds `active` and promoting the target inside it            |
-| `fl_backend/app/api/saisons/admin_router.py :: swap_gruppen`       | `with_transaction`, judging through the session so a retry after a write conflict re-reads            |
-| `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`    | `with_transaction` around the save, the sides another fixture gives up, and the bracket's resolution  |
-| `fl_backend/app/api/saisons/admin_router.py :: generate_spielplan` | `with_transaction` over the judgement, a confirmed replace's removals, both inserts and the watermark |
-| `fl_backend/app/api/spieler/admin_router.py :: erase_spieler`      | `with_transaction` over the person, every squad row and the log rows the erasure redacts              |
-| `fl_backend/app/api/teams/admin_router.py :: replace_saison_team`  | `with_transaction` over the season's fixtures and then the junction row that changes hands            |
+| The path                                                           | How it writes                                                                                                               |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `fl_backend/app/api/saisons/admin_router.py :: activate_saison`    | A transaction, demoting whichever season holds `active` and promoting the target inside it                                  |
+| `fl_backend/app/api/saisons/admin_router.py :: swap_gruppen`       | `with_transaction`, judging through the session so a retry after a write conflict re-reads                                  |
+| `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`    | `with_transaction` around the save, the sides another fixture gives up, and the bracket's resolution                        |
+| `fl_backend/app/api/saisons/admin_router.py :: generate_spielplan` | `with_transaction` over the judgement, a confirmed replace's removals, both inserts and the watermark                       |
+| `fl_backend/app/api/saisons/admin_router.py :: undraw_spielplan`   | `with_transaction` over the judgement, both removals and the `$unset` that clears the watermark                             |
+| `fl_backend/app/api/spieler/admin_router.py :: erase_spieler`      | `with_transaction` over the person, every squad row and the log rows the erasure redacts                                    |
+| `fl_backend/app/api/teams/admin_router.py :: replace_saison_team`  | `with_transaction` over the season's fixtures, the junction row that changes hands, and the outgoing club's live squad rows |
 
-**The draw, the erasure and the replacement sit outside that reading, and each was read on its own
-rather than by a sweep** — which is the entry's point restated: the rule holds because whoever wrote
+**The draw, the undraw, the erasure and the replacement sit outside that reading, and each was read on
+its own rather than by a sweep** — which is the entry's point restated: the rule holds because whoever wrote
 each of them chose to follow it, and nothing tells the next one.
 
 **What the sweep found instead are neighbouring shapes, and each is already answered.**
@@ -1107,8 +1113,8 @@ not grow while it waits.
 **`inactive_since` is a date rather than a flag so that a retired row can eventually be purged**, and
 no sweep selects on it.
 
-**One removal exists and it is not that sweep.** `DELETE /spieler/{spieler_id}/erasure` takes the
-person, every one of their squad rows and their values in the action log, in one transaction, and
+**The one removal of a retired row is `DELETE /spieler/{spieler_id}/erasure`, and it is not that
+sweep.** It takes the person, every one of their squad rows and their values in the action log, in one transaction, and
 `REQ-PURGE-001` makes retirement its PRECONDITION rather than its trigger — so it answers a request
 about one named subject and never a date about many
 (`fl_backend/app/core/domain.py :: UNENFORCED`). It narrows this entry rather than closing it: what
@@ -1142,9 +1148,10 @@ than rediscovered.
   cheapest by a distance.
 
 `saisons`, `saison_teams` and `spieltage` carry no such field and need none. Nothing removes a
-`saisons` or a `saison_teams` row at all, and a `spieltage` row is removed only wholesale, by a
-confirmed replace of the season's draw that writes fresh ones in the same transaction
-(`REQ-SPIELPLAN-005`) — so none of them can accumulate a row a purge would have to find.
+`saisons` or a `saison_teams` row at all, and a `spieltage` row is removed only with the season's whole
+draw — by a confirmed replace that writes fresh ones in the same transaction (`REQ-SPIELPLAN-005`), or by
+an undraw that writes none back (`REQ-SPIELPLAN-006`) — so none of them can accumulate a row a purge
+would have to find.
 
 ### 21 · BE-25 — A club's street address is served to an anonymous caller
 
@@ -1194,9 +1201,12 @@ compares no sentence against the code it describes. The register is also what
 propagates rather than staying put.
 
 **Decide which is wrong before editing either, and the constant is not the swap's alone.**
-`REQ-REPLACE-002` and `REQ-SPIELPLAN-005` are judged over it too, so adding `ausgefallen` would also
-stop a club replacement and a confirmed redraw on any season holding a called-off fixture — the case
-each of those is meant to be able to move. If the summaries are right, the constant is missing
+`fl_backend/app/api/teams/services.py :: has_taken_place` reads it for `REQ-REPLACE-002` as well, so
+adding `ausgefallen` would also stop a club replacement on any season holding a called-off fixture —
+the case that refusal is meant to be able to move. The draw's own window reads no such membership:
+`fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact` treats ANY `sonderereignis` as
+recorded, so a called-off fixture already closes it and the constant reaches neither the replace nor
+the undraw. If the summaries are right, the constant is missing
 `ausgefallen`, and every refusal reading it lets through a fixture nobody will replay. If the
 constant is right, the summaries want "abandoned" in place of "called off" — which is how `REQ-REPLACE-002` already
 words the same membership, so the register states both readings and matches the code in only one of

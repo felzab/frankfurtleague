@@ -97,9 +97,10 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     case "REQ-RULES-011":
       return {
         error:
-          "Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Gruppen, Teams pro Gruppe und " +
-          "Qualifikanten ändern sich deshalb nur zusammen mit dem Spielplan: Lege den Spielplan mit den neuen Zahlen neu an — beides " +
-          "entsteht in einem Schritt. Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar.",
+          "Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Die Qualifikanten änderst Du, " +
+          "indem Du den Spielplan mit der neuen Zahl neu anlegst — beides entsteht in einem Schritt. Gruppen und Teams pro Gruppe " +
+          "hängen dagegen an den Teams, die in dieser Saison stehen: Nimm dafür zuerst den Spielplan zurück, passe die Teams an und " +
+          "lege ihn danach neu an. Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar.",
       };
     case "REQ-RULES-006":
       return {

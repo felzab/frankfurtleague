@@ -168,6 +168,14 @@ recorded, so it destroys a schedule nobody has played. Neither collection is rem
 is why a `spiele.spieltag_id` still cannot dangle — not because nothing takes the matchday away, but because
 nothing takes it away without the fixtures that point at it.
 
+An **undraw** of a season's draw removes the same two sets and writes nothing back: it takes the season's
+`spiele` and `spieltage` rows away and clears the `spielplan` watermark in one transaction, returning the
+season to undrawn. `REQ-SPIELPLAN-006` holds it to the replace's window, so what it destroys is a schedule
+nobody has played, and it judges that window on the OPERATION rather than on what there is to remove —
+a season nobody has drawn is answered rather than refused, the state asked for being the state it is
+already in. What it is FOR is [the rules below](#a-seasons-rules-are-the-interesting-case) rather than
+tidiness.
+
 A pupil's **erasure** removes the person and every one of their squad rows, and redacts that person's values
 in the action log, as one transaction over all three. `REQ-PURGE-001` requires the person to be retired
 first. Any one of the three alone would leave the erasure defeated while reporting success: the squad read
@@ -203,12 +211,19 @@ There are three answers here, and a field can be under more than one of them.
 - **Frozen once the season's fixtures are drawn** (`:: SHAPE_RULES_FIELDS`, `REQ-RULES-011`) — the numbers
   the fixture list was generated from, fixed in either direction from the moment the season holds a fixture
   at all. Raising one of them is what nothing else refuses, and it would leave every matchday expecting
-  matches nobody drew. **The freeze lifts exactly where the fixtures can be drawn again** — a `future` season
-  with nothing recorded, which is the window a confirmed replace runs in (`REQ-SPIELPLAN-005`) — so a season
-  drawn from the wrong numbers is repaired by drawing it again rather than left wrong for good. **What it
-  turns on is the draw and that window, never `status` alone**: an `active` season is held to its shape, and
-  so is a `future` one already holding a recorded fixture. `qualifiers_per_group` sits in both sets, and a
-  finished season is told it is finished first.
+  matches nobody drew. **The freeze does not lift, and it is not a dead end**: a season's shape rules and its
+  draw are ONE fact, so the numbers move only with the fixtures they produced — the draw's own payload carries
+  them, and the transaction that removes the old fixtures writes the new numbers and draws from them together
+  (`REQ-SPIELPLAN-005`). A patch is simply not the verb. **What the freeze turns on is the draw, never `status`
+  alone**: an `active` season is held to its shape and so is a `future` one, and a finished season is told it is
+  finished first. **What a replace can move is `qualifiers_per_group`**, which leaves the groups as they
+  stand. It reaches neither of the other two: `REQ-SPIELPLAN-004` asks every offered group to hold exactly
+  `teams_per_group`, and after a legal draw each of them does — so RAISING either number needs clubs entered
+  first, and a drawn season refuses an entry, the group being full (`REQ-ENTER-003`) or not offered at all
+  (`REQ-ENTER-002`). **That is what an undraw opens**: undraw, patch the rules, enter the clubs, draw again,
+  with the group moves a drawn season locks (`REQ-ENTER-004`) open again in between. LOWERING either stays
+  refused while the clubs stand (`REQ-RULES-002`, `REQ-RULES-003`), no endpoint taking a club back out of a
+  season.
 - **Never narrowed below what already exists**, because the data below would be stranded. What decides
   membership here is what the field bounds: `max_kadergroesse` caps stored squad rows and so may not drop
   below the largest squad a season holds, while `erlaubte_stufen` narrows freely even on a finished season,

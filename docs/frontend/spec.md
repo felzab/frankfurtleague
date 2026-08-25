@@ -39,7 +39,7 @@ The Notes column lists everything a slice holds beyond the four columns and its 
 | `teams`          |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + season junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `teamDraftStatus.ts`, `types.ts`, `utils.ts`, tests                                                                                                               |
 | `saisons`        |   ✅    |    ✅     |   ✅    |   ✅    | Create, edit, rollover, group swap, the Spielplan draw — no delete, and the draw's `replace` is sent where the season already holds one; `constants.ts`, `facets.ts`, `resolvers.ts`, `saisonDraftStatus.ts`, `types.ts`, `utils.ts`, tests |
 | `spieler`        |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + squad junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `shorthandChip.ts`, `spielerDraftStatus.ts`, `types.ts`, `utils.ts`, tests                                                                                         |
-| `spieltage`      |   ✅    |    ✅     |   ✅    |   ✅    | Re-dating alone — the `saisons` draw creates them and a confirmed replace of that draw removes them; `constants.ts`, `facets.ts`, `resolvers.ts`, `spieltagDraftStatus.ts`, `types.ts`, `utils.ts`, tests                                   |
+| `spieltage`      |   ✅    |    ✅     |   ✅    |   ✅    | Re-dating alone — the `saisons` draw creates them, and a replace or an undraw of that draw removes them; `constants.ts`, `facets.ts`, `resolvers.ts`, `spieltagDraftStatus.ts`, `types.ts`, `utils.ts`, tests                               |
 | `aktionen`       |   ✅    |     —     |    —    |   ✅    | Read-only; the action log is written by the backend on every admin write, never from here; `constants.ts`, `facets.ts`, `types.ts`, `utils.ts`, tests                                                                                       |
 | `system`         |   ✅    |     —     |    —    |   ✅    | Read-only; nothing else                                                                                                                                                                                                                     |
 | `admin`          |   ✅    |     —     |    —    |    —    | Aggregator; `constants.ts`, `types.ts`, `utils.ts`, tests                                                                                                                                                                                   |
@@ -212,40 +212,43 @@ locked Gruppe row, which fixes that page's club as one side. Both call `swapGrup
 grade a pair through `fl_frontend/src/features/saisons/utils.ts :: findSwapPartnerRefusal`, so neither
 can offer a pair the other refuses.
 
-| Action                           | Slice          | Invalidates                                                          |
-| -------------------------------- | -------------- | -------------------------------------------------------------------- |
-| `patchAdminSpielDataAction`      | spiele         | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}` |
-| `previewAdminSpielDataAction`    | spiele         | **nothing** — it writes nothing (`dry_run=true`)                     |
-| `postSpielortAction`             | spielorte      | **nothing** — no cached read holds a venue                           |
-| `patchSpielortAction`            | spielorte      | `spiele`                                                             |
-| `deleteSpielortAction`           | spielorte      | **nothing**                                                          |
-| `reactivateSpielortAction`       | spielorte      | **nothing**                                                          |
-| `postSchiedsrichterAction`       | schiedsrichter | **nothing** — no cached read holds a referee                         |
-| `patchSchiedsrichterAction`      | schiedsrichter | `spiele`                                                             |
-| `deleteSchiedsrichterAction`     | schiedsrichter | **nothing**                                                          |
-| `reactivateSchiedsrichterAction` | schiedsrichter | **nothing**                                                          |
-| `postTeamAction`                 | teams          | `teams`, + `teams:saison_id:{id}`                                    |
-| `patchTeamAction`                | teams          | `teams`, `spiele`                                                    |
-| `deleteTeamAction`               | teams          | `teams`                                                              |
-| `reactivateTeamAction`           | teams          | `teams`                                                              |
-| `postSaisonTeamAction`           | teams          | `teams`, + `teams:saison_id:{id}`                                    |
-| `patchSaisonTeamAction`          | teams          | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}` |
-| `postSpielerAction`              | spieler        | `spieler`                                                            |
-| `patchSpielerAction`             | spieler        | `spieler`                                                            |
-| `deleteSpielerAction`            | spieler        | `spieler`                                                            |
-| `reactivateSpielerAction`        | spieler        | `spieler`                                                            |
-| `postSaisonSpielerAction`        | spieler        | `spieler`                                                            |
-| `patchSaisonSpielerAction`       | spieler        | `spieler`                                                            |
-| `deleteSaisonSpielerAction`      | spieler        | `spieler`                                                            |
-| `reactivateSaisonSpielerAction`  | spieler        | `spieler`                                                            |
-| `postSaisonAction`               | saisons        | `saisons`                                                            |
-| `patchSaisonAction`              | saisons        | `saisons`, `teams`                                                   |
-| `activateSaisonAction`           | saisons        | `saisons`, `spiele`, `spieltage`, `teams`                            |
-| `swapGruppenAction`              | saisons        | `teams`, `spiele`, + both `:saison_id:{id}`                          |
-| `generateSpielplanAction`        | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`  |
-| `patchSpieltagAction`            | spieltage      | `spieltage`                                                          |
-| `handleSignIn`                   | auth           | —                                                                    |
-| `signOutAction`                  | auth           | —                                                                    |
+| Action                           | Slice          | Invalidates                                                                                         |
+| -------------------------------- | -------------- | --------------------------------------------------------------------------------------------------- |
+| `patchAdminSpielDataAction`      | spiele         | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                                |
+| `previewAdminSpielDataAction`    | spiele         | **nothing** — it writes nothing (`dry_run=true`)                                                    |
+| `postSpielortAction`             | spielorte      | **nothing** — no cached read holds a venue                                                          |
+| `patchSpielortAction`            | spielorte      | `spiele`                                                                                            |
+| `deleteSpielortAction`           | spielorte      | **nothing**                                                                                         |
+| `reactivateSpielortAction`       | spielorte      | **nothing**                                                                                         |
+| `postSchiedsrichterAction`       | schiedsrichter | **nothing** — no cached read holds a referee                                                        |
+| `patchSchiedsrichterAction`      | schiedsrichter | `spiele`                                                                                            |
+| `deleteSchiedsrichterAction`     | schiedsrichter | **nothing**                                                                                         |
+| `reactivateSchiedsrichterAction` | schiedsrichter | **nothing**                                                                                         |
+| `anonymiseSchiedsrichterAction`  | schiedsrichter | **nothing** — the referee list is uncached, a fixture embeds only the name, and the log is uncached |
+| `postTeamAction`                 | teams          | `teams`, + `teams:saison_id:{id}`                                                                   |
+| `patchTeamAction`                | teams          | `teams`, `spiele`                                                                                   |
+| `deleteTeamAction`               | teams          | `teams`                                                                                             |
+| `reactivateTeamAction`           | teams          | `teams`                                                                                             |
+| `postSaisonTeamAction`           | teams          | `teams`, + `teams:saison_id:{id}`                                                                   |
+| `patchSaisonTeamAction`          | teams          | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                                |
+| `replaceSaisonTeamAction`        | teams          | `spiele`, `teams`, `spieler`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                     |
+| `postSpielerAction`              | spieler        | `spieler`                                                                                           |
+| `patchSpielerAction`             | spieler        | `spieler`                                                                                           |
+| `deleteSpielerAction`            | spieler        | `spieler`                                                                                           |
+| `eraseSpielerAction`             | spieler        | `spieler`                                                                                           |
+| `reactivateSpielerAction`        | spieler        | `spieler`                                                                                           |
+| `postSaisonSpielerAction`        | spieler        | `spieler`                                                                                           |
+| `patchSaisonSpielerAction`       | spieler        | `spieler`                                                                                           |
+| `deleteSaisonSpielerAction`      | spieler        | `spieler`                                                                                           |
+| `reactivateSaisonSpielerAction`  | spieler        | `spieler`                                                                                           |
+| `postSaisonAction`               | saisons        | `saisons`                                                                                           |
+| `patchSaisonAction`              | saisons        | `saisons`, `teams`                                                                                  |
+| `activateSaisonAction`           | saisons        | `saisons`, `spiele`, `spieltage`, `teams`                                                           |
+| `swapGruppenAction`              | saisons        | `teams`, `spiele`, + both `:saison_id:{id}`                                                         |
+| `generateSpielplanAction`        | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                                 |
+| `patchSpieltagAction`            | spieltage      | `spieltage`                                                                                         |
+| `handleSignIn`                   | auth           | —                                                                                                   |
+| `signOutAction`                  | auth           | —                                                                                                   |
 
 **The venue, referee and team patch actions invalidate `spiele` because the backend fans a rename out
 into the match documents embedding it** — so match data really has changed. For the venue and the
@@ -302,11 +305,11 @@ which is why the split is in one place per slice rather than at each call site.
 
 **Every resource with write endpoints has an action calling them** — `spiele`, `teams`, `spieler`,
 `spielorte`, `schiedsrichter`, `saisons` and `spieltage`, every one of them now through a page-owned
-editor. **The claim is per resource: four admin-tier writes reach the app through no action at
-all** — a pupil's erasure, a referee's anonymisation, the replacement of a club on a season's
-junction row, and the draw's `replace`
-([`docs/backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). Each destroys or hands on what
-nothing here can put back. The other absences are
+editor. **The claim is per resource, and four of these writes are irreversible** — a pupil's erasure, a
+referee's anonymisation, the replacement of a club on a season's junction row, and the draw's
+`replace` ([`docs/backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). Each destroys or
+hands on what nothing here can put back, so each confirms in place and none offers an undo beside
+it. The other absences are
 deliberate rather than unbuilt: there is no `DELETE /saisons/{id}`, because a season that is over is
 `past`; no action writes `saisons.status` except `activateSaisonAction`, which reaches it only through
 the one endpoint that may; and a matchday is drawn with its season and re-dated afterwards but never
@@ -365,10 +368,11 @@ There is no invalidation endpoint for these caches and none may be added.
 
 Each of the three has an admin page that invalidates as it saves (`updateTag` inside the action), so
 an edit made through the app is visible at once and only a hand edit goes around it — the symptom a
-hand edit produces, and its remedy, are [`docs/ops/spec.md`](../ops/spec.md) §3. **A write sent to an
-endpoint no action calls leaves exactly the same staleness**, invalidation living in the action and
-not in the API. §1.3 names those endpoints, and the sharpest case is a pupil's erasure: the person is
-gone from the database while the cached `spieler` entry goes on serving them.
+hand edit produces, and its remedy, are [`docs/ops/spec.md`](../ops/spec.md) §3. **A write sent straight to the
+API leaves exactly the same staleness**, invalidation living in the action and not in the endpoint.
+The sharpest case is a pupil's erasure: through the app the action clears the `spieler` tag as it
+saves, while the same call made by hand leaves the person gone from the database and the cached read
+still serving them.
 
 To make an edit visible sooner, recreate the frontend container — the cache lives in its
 filesystem, so recreation starts empty at the cost of every cached page, not three tags.
