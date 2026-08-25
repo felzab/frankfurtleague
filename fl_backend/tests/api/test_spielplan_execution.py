@@ -48,6 +48,14 @@ DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
 
+# A SECOND season, drawn beside the one under test and never asked to be redrawn: what a removal
+# that lost its `saison_id` would take with it.
+NEIGHBOUR_SAISON_ID = "2025"
+
+# The neighbour's rows are minted well clear of the subject's, so the two seasons share no `_id`
+# and no club. A neighbour left standing can then only be the filter's doing.
+NEIGHBOUR_OID_OFFSET = 100
+
 # Fixed rather than the real day, so the watermark's date is a value this file chose.
 TODAY = "2026-08-21"
 
@@ -89,7 +97,12 @@ def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualif
 
 
 def saison_document(
-    *, status: str = "future", rules: dict[str, Any] | None = None, start_date: str = "2026-01-01", end_date: str = "2026-06-30"
+    *,
+    saison_id: str = SAISON_ID,
+    status: str = "future",
+    rules: dict[str, Any] | None = None,
+    start_date: str = "2026-01-01",
+    end_date: str = "2026-06-30",
 ) -> dict[str, Any]:
     """Every key spelled out: the shipped `saisons` validator is attached before this is inserted.
 
@@ -97,7 +110,7 @@ def saison_document(
     """
 
     return {
-        "_id": SAISON_ID,
+        "_id": saison_id,
         "start_date": start_date,
         "end_date": end_date,
         "status": status,
@@ -105,11 +118,19 @@ def saison_document(
     }
 
 
-def entry_rows(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, short_gruppe: str | None = None) -> list[dict[str, Any]]:
+def entry_rows(
+    *,
+    saison_id: str = SAISON_ID,
+    offset: int = 0,
+    groups: int = GROUPS,
+    teams: int = TEAMS_PER_GROUP,
+    short_gruppe: str | None = None,
+) -> list[dict[str, Any]]:
     """Every club of a full season as its `saison_teams` row; `short_gruppe` leaves one group a club down.
 
     The groups are INTERLEAVED, so entry order and group membership disagree: a draw partitioning by
-    list position pairs clubs that never meet.
+    list position pairs clubs that never meet. `offset` moves both ObjectId runs along, which is how
+    a second season is seeded holding none of the first's rows and none of its clubs.
     """
 
     rows: list[dict[str, Any]] = []
@@ -119,9 +140,9 @@ def entry_rows(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, short_grup
 
         rows.append(
             {
-                "_id": ObjectId(f"6890a1b2c3d4e5f6074{index:05d}"),
-                "saison_id": SAISON_ID,
-                "team_id": ObjectId(f"6890a1b2c3d4e5f6075{index:05d}"),
+                "_id": ObjectId(f"6890a1b2c3d4e5f6074{index + offset:05d}"),
+                "saison_id": saison_id,
+                "team_id": ObjectId(f"6890a1b2c3d4e5f6075{index + offset:05d}"),
                 "gruppe": gruppe,
                 "austritt": None,
                 "name": f"{gruppe}{seat + 1}-Schule",
@@ -170,12 +191,16 @@ def a_stored_fixture() -> dict[str, Any]:
 
 @dataclass(frozen=True)
 class Seed:
-    """One season as the database holds it when the draw is asked for."""
+    """One season as the database holds it when the draw is asked for, and a second beside it where a case asks for one."""
 
     saison: dict[str, Any] = field(default_factory=saison_document)
     entered: list[dict[str, Any]] = field(default_factory=entry_rows)
     spiele: list[dict[str, Any]] = field(default_factory=list)
     spieltage: list[dict[str, Any]] = field(default_factory=list)
+    #: Seeded only by a case about what a removal must NOT reach: a database holding one season
+    #: answers the same whether the removal was scoped or took the collection.
+    neighbour: dict[str, Any] | None = None
+    neighbour_entered: list[dict[str, Any]] = field(default_factory=list)
 
 
 Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
@@ -208,6 +233,10 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None) -> Any
             if seeded.spiele:
                 await database[Collection.SPIELE].insert_many(seeded.spiele)
 
+            if seeded.neighbour is not None:
+                await database[Collection.SAISONS].insert_one(seeded.neighbour)
+                await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
+
             return await body(database, client)
         finally:
             await client.drop_database(DATABASE_NAME)
@@ -220,12 +249,13 @@ async def call_draw(
     database: AsyncIOMotorDatabase,
     client: AsyncIOMotorClient,
     *,
+    saison_id: str = SAISON_ID,
     replace: bool = False,
     today: str = TODAY,
     shape: FLSpielplanShape | None = None,
 ) -> FLGenerateSpielplanResponse:
     return await generate_spielplan(
-        saison_id=SAISON_ID,
+        saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spiele_collection=database[Collection.SPIELE],
@@ -271,15 +301,16 @@ async def call_patch_rules(database: AsyncIOMotorDatabase, **overrides: Any) -> 
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        db=database.client,
     )
 
 
-async def counts_now(database: AsyncIOMotorDatabase) -> tuple[int, int]:
+async def counts_now(database: AsyncIOMotorDatabase, *, saison_id: str = SAISON_ID) -> tuple[int, int]:
     """The season's matchdays and fixtures, read outside any transaction -- what a later request would see."""
 
     return (
-        await database[Collection.SPIELTAGE].count_documents({"saison_id": SAISON_ID}),
-        await database[Collection.SPIELE].count_documents({"saison_id": SAISON_ID}),
+        await database[Collection.SPIELTAGE].count_documents({"saison_id": saison_id}),
+        await database[Collection.SPIELE].count_documents({"saison_id": saison_id}),
     )
 
 
@@ -959,6 +990,87 @@ class TestAConfirmedReplaceRedrawsTheWholeSeason:
             replaced.first.spiele,
             replaced.first.spieltage,
         ]
+
+
+@dataclass(frozen=True)
+class NeighbouringSeasons:
+    """Two drawn seasons, one of them replaced, each collection counted for each season separately."""
+
+    replaced: FLGenerateSpielplanResponse
+    subject_spieltage: int
+    subject_spiele: int
+    neighbour_drawn: FLGenerateSpielplanResponse
+    neighbour_spieltage: int
+    neighbour_spiele: int
+
+
+def a_season_replaced_beside_another(url: str) -> NeighbouringSeasons:
+    """Draw both seasons, close the neighbour, then replace the subject's draw alone."""
+
+    seed = Seed(
+        neighbour=saison_document(saison_id=NEIGHBOUR_SAISON_ID),
+        neighbour_entered=entry_rows(saison_id=NEIGHBOUR_SAISON_ID, offset=NEIGHBOUR_OID_OFFSET),
+    )
+
+    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> NeighbouringSeasons:
+        neighbour_drawn = await call_draw(database, client, saison_id=NEIGHBOUR_SAISON_ID)
+
+        # Demoted to `past` after its draw: what an unscoped removal takes from a finished season is
+        # the fixture set its league table is scored from on every read.
+        await database[Collection.SAISONS].update_one({"_id": NEIGHBOUR_SAISON_ID}, {"$set": {"status": "past"}})
+
+        await call_draw(database, client)
+        replaced = await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
+
+        subject_spieltage, subject_spiele = await counts_now(database)
+        neighbour_spieltage, neighbour_spiele = await counts_now(database, saison_id=NEIGHBOUR_SAISON_ID)
+
+        return NeighbouringSeasons(
+            replaced=replaced,
+            subject_spieltage=subject_spieltage,
+            subject_spiele=subject_spiele,
+            neighbour_drawn=neighbour_drawn,
+            neighbour_spieltage=neighbour_spieltage,
+            neighbour_spiele=neighbour_spiele,
+        )
+
+    neighbours = on_a_seeded_saison(url, body, seed=seed)
+
+    assert neighbours.neighbour_drawn.spiele > 0, "the neighbour was drawn nothing, so its survival proves nothing"
+
+    return neighbours
+
+
+class TestAConfirmedReplaceReachesNoOtherSeason:
+    """That the replace's two deletes are bounded by their `saison_id`, proved against a season standing beside the one redrawn.
+
+    `delete_many` takes exactly what its filter names, so a `db_filter` that lost its `saison_id`
+    empties both collections outright before the redraw writes the subject's fixtures back. A suite
+    seeding ONE season cannot tell that apart from a correct replace: it counts the subject alone,
+    and the subject is whole either way.
+    """
+
+    def test_the_neighbours_fixtures_all_survive(self, mongo_replica_set_url: str):
+        """Empty the fixture delete's `db_filter` in `generate_spielplan` and this fails; with one season seeded, nothing does."""
+
+        neighbours = a_season_replaced_beside_another(mongo_replica_set_url)
+
+        assert neighbours.neighbour_spiele == neighbours.neighbour_drawn.spiele
+
+    def test_the_neighbours_matchdays_all_survive(self, mongo_replica_set_url: str):
+        """Its own case, never a pair compared as one: a comparison of the two together passes while half the neighbour is gone."""
+
+        neighbours = a_season_replaced_beside_another(mongo_replica_set_url)
+
+        assert neighbours.neighbour_spieltage == neighbours.neighbour_drawn.spieltage
+
+    def test_the_season_asked_for_is_the_one_redrawn(self, mongo_replica_set_url: str):
+        """The floor for the two above: a replace that removed nothing would leave every neighbour standing too."""
+
+        neighbours = a_season_replaced_beside_another(mongo_replica_set_url)
+
+        assert (neighbours.subject_spieltage, neighbours.subject_spiele) == (neighbours.replaced.spieltage, neighbours.replaced.spiele)
+        assert neighbours.replaced.spiele > 0
 
 
 class TestAnAbortedReplaceLeavesTheSeasonStanding:

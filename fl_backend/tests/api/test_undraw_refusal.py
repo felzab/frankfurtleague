@@ -41,12 +41,20 @@ class TestAnUndrawRunsOnlyInsideItsWindow:
         assert refusal.error_code == SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
 
     def test_one_fixture_carrying_a_record_is_refused(self):
-        """Drop the `recorded_fixtures` half and this fails: a result, a cancellation, a booking or a note would be destroyed."""
+        """Drop the `recorded_fixtures` half and this fails: a result, a booking, a note or a hand-seeded bracket slot would be destroyed."""
 
         refusal = refusal_for(recorded=1)
 
         assert refusal is not None
         assert refusal.error_code == SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
+
+    def test_the_message_enumerates_every_category_that_closes_the_window(self):
+        """The sentence is what an admin repairs from, so it goes stale the moment `holds_a_recorded_fact` weighs one more field."""
+
+        refusal = refusal_for(recorded=1)
+
+        assert refusal is not None
+        assert "a result, a cancellation, a booking, a note or a side moved off the draw" in refusal.message
 
     def test_the_message_names_the_status_and_how_many_fixtures_hold_a_record(self):
         """A bare code sends an admin to the database; both halves are what say which one closed the window."""

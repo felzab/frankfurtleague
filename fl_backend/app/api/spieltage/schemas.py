@@ -1,6 +1,6 @@
 from typing import Literal, Self
 
-from pydantic import BaseModel, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from app.api.spiele.schemas import FLSaisonPhase
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
@@ -42,6 +42,8 @@ class FLSpieltageFilterParams(BaseModel):
 
 
 class FLPatchSpieltagPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     # The span alone: `saison_id`, `saison_phase` and `position` are settled when the season's
     # schedule is generated, and the fixtures drawn against them are not rewritten here.
 

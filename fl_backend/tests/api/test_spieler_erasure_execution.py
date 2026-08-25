@@ -9,6 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.spieler.admin_router import (
+    delete_saison_spieler,
     delete_spieler,
     erase_spieler,
     patch_saison_spieler,
@@ -35,6 +36,15 @@ DATABASE_NAME = "fl_spieler_erasure_test"
 DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
+# A second season, so one person holds a LIVE squad row and a RETIRED one at once: a redaction
+# narrowed to either shape leaves the other's images standing.
+FORMER_SAISON_ID = "2025"
+
+# Distinctive rather than "Mustermann": sweeping a whole database for a name is evidence of absence
+# only where a hit could not be coincidence, and the seed data is full of German words and dates.
+ERASED_VORNAME = "Zorbanax"
+OTHER_VORNAME = "Quillhilde"
+LONE_VORNAME = "Wraxlington"
 
 # Fixed rather than generated, so a failure names the same club every run.
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607420001")
@@ -73,11 +83,18 @@ def on_a_league(url: str, body: Body) -> Any:
             await client.drop_database(DATABASE_NAME)
             database = client[DATABASE_NAME]
 
-            await database[Collection.SAISONS].insert_one({"_id": SAISON_ID, "status": "active", "rules": dict(RULES)})
+            await database[Collection.SAISONS].insert_many(
+                [
+                    {"_id": SAISON_ID, "status": "active", "rules": dict(RULES)},
+                    {"_id": FORMER_SAISON_ID, "status": "past", "rules": dict(RULES)},
+                ]
+            )
+            # Both clubs in both seasons, so either pupil can be put in a squad in either one.
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
-                    {"saison_id": SAISON_ID, "team_id": HOME_TEAM_OID, "gruppe": "A"},
-                    {"saison_id": SAISON_ID, "team_id": AWAY_TEAM_OID, "gruppe": "B"},
+                    {"saison_id": saison_id, "team_id": team_id, "gruppe": gruppe}
+                    for saison_id in (SAISON_ID, FORMER_SAISON_ID)
+                    for team_id, gruppe in ((HOME_TEAM_OID, "A"), (AWAY_TEAM_OID, "B"))
                 ]
             )
             for name in (Collection.SPIELER, Collection.SAISON_SPIELER, Collection.AKTIONEN):
@@ -92,46 +109,74 @@ def on_a_league(url: str, body: Body) -> Any:
 
 
 async def a_pupil_with_a_history(database: AsyncIOMotorDatabase, *, vorname: str, team_id: ObjectId, retired: bool) -> ObjectId:
-    """A person created, put in a squad and then edited on BOTH rows, through the real endpoints.
+    """A person created, put in two squads and then edited on every row, through the real endpoints.
 
-    The edits are the point: an `insert` row carries no image, so a person seeded from creates
-    alone would leave every redaction assertion below passing vacuously.
+    The edits are the point: an `insert` row carries no image, so a person seeded from creates alone
+    leaves every redaction assertion below passing vacuously.
     """
 
     created = await post_spieler(
-        spieler_data=FLPostSpielerPayload(vorname=vorname, nachname="Mustermann"),
+        # Surname derived from the given name, so one sweep of a whole database still tells two apart.
+        spieler_data=FLPostSpielerPayload(vorname=vorname, nachname=f"{vorname}-Mustermann"),
         spieler_collection=database[Collection.SPIELER],
         today=TODAY,
     )
     spieler_id = ObjectId(created.spieler_id)
 
-    await post_saison_spieler(
-        spieler_id=spieler_id,
-        saison_spieler_data=FLPostSaisonSpielerPayload(
-            saison_id=SAISON_ID, team_id=team_id, nummer="10", position="Angriff", stufe="Q2", is_nachgetragen=False, is_captain=False
-        ),
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-    )
-    await patch_saison_spieler(
-        spieler_id=spieler_id,
-        saison_id=SAISON_ID,
-        saison_spieler_data=FLPatchSaisonSpielerPayload(
-            team_id=team_id, nummer="7", position="Abwehr", stufe="Q2", is_nachgetragen=False, is_captain=True
-        ),
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
+    for saison_id, worn, then_worn in ((FORMER_SAISON_ID, "41", "42"), (SAISON_ID, "10", "7")):
+        await post_saison_spieler(
+            spieler_id=spieler_id,
+            saison_spieler_data=FLPostSaisonSpielerPayload(
+                saison_id=saison_id, team_id=team_id, nummer=worn, position="Angriff", stufe="Q2", is_nachgetragen=False, is_captain=False
+            ),
+            saison_spieler_collection=database[Collection.SAISON_SPIELER],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+        )
+        await patch_saison_spieler(
+            spieler_id=spieler_id,
+            saison_id=saison_id,
+            saison_spieler_data=FLPatchSaisonSpielerPayload(
+                team_id=team_id, nummer=then_worn, position="Abwehr", stufe="Q2", is_nachgetragen=False, is_captain=True
+            ),
+            saison_spieler_collection=database[Collection.SAISON_SPIELER],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+        )
+
+    # The earlier squad is LEFT, which is a shape the erasure has to reach as well: a row recording
+    # what somebody wore stays about them after they stop wearing it.
+    await delete_saison_spieler(
+        spieler_id=spieler_id, saison_id=FORMER_SAISON_ID, saison_spieler_collection=database[Collection.SAISON_SPIELER], today=TODAY
     )
     await patch_spieler(
         spieler_id=spieler_id,
-        spieler_data=FLPatchSpielerPayload(vorname=vorname, nachname="Musterfrau"),
+        spieler_data=FLPatchSpielerPayload(vorname=vorname, nachname=f"{vorname}-Musterfrau"),
         spieler_collection=database[Collection.SPIELER],
     )
 
     if retired:
         await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY)
+
+    return spieler_id
+
+
+async def a_pupil_who_never_joined_a_squad(database: AsyncIOMotorDatabase) -> ObjectId:
+    """A person created, renamed and retired who holds no squad row, so the redaction's squad branch names no id."""
+
+    created = await post_spieler(
+        spieler_data=FLPostSpielerPayload(vorname=LONE_VORNAME, nachname=f"{LONE_VORNAME}-Mustermann"),
+        spieler_collection=database[Collection.SPIELER],
+        today=TODAY,
+    )
+    spieler_id = ObjectId(created.spieler_id)
+
+    await patch_spieler(
+        spieler_id=spieler_id,
+        spieler_data=FLPatchSpielerPayload(vorname=LONE_VORNAME, nachname=f"{LONE_VORNAME}-Musterfrau"),
+        spieler_collection=database[Collection.SPIELER],
+    )
+    await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY)
 
     return spieler_id
 
@@ -171,6 +216,30 @@ async def log_rows_naming(database: AsyncIOMotorDatabase, spieler_id: ObjectId) 
     )
 
 
+async def images_in_the_whole_log(database: AsyncIOMotorDatabase) -> list[dict[str, Any]]:
+    """Every image the log still holds, read WITHOUT the endpoint's `(collection, document_id)` filter.
+
+    `log_rows_naming` reproduces that filter, so a shape the endpoint misses the helper misses too.
+    This asks what a row CONTAINS instead.
+    """
+
+    rows = await database[Collection.AKTIONEN].find({"before": {"$ne": None}}).to_list(length=None)
+
+    return [image for row in rows for image in (row["before"] if isinstance(row["before"], list) else [row["before"]])]
+
+
+def images_naming(images: list[dict[str, Any]], spieler_id: ObjectId) -> list[dict[str, Any]]:
+    """The images that ARE this person or point at them, from whichever collection they were recorded."""
+
+    return [image for image in images if spieler_id in (image.get("_id"), image.get("spieler_id"))]
+
+
+async def every_collection_as_text(database: AsyncIOMotorDatabase) -> str:
+    """The whole database rendered, so a value can be looked for where nobody thought to put it."""
+
+    return str([await database[name].find().to_list(length=None) for name in await database.list_collection_names()])
+
+
 class TestARetiredPupilIsErasedWhole:
     """D83 through the endpoint: the person, their squad rows and their values in the log, or none of the three."""
 
@@ -196,7 +265,7 @@ class TestARetiredPupilIsErasedWhole:
 
         erased, remaining = on_a_league(mongo_replica_set_url, body)
 
-        assert (erased, remaining) == (1, 0)
+        assert (erased, remaining) == (2, 0)
 
     def test_another_pupil_keeps_their_squad_row(self, mongo_replica_set_url: str):
         """The over-breadth floor: catches a removal filtered on the collection rather than on `spieler_id`."""
@@ -211,7 +280,7 @@ class TestARetiredPupilIsErasedWhole:
                 await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": other_id}),
             )
 
-        assert on_a_league(mongo_replica_set_url, body) == (1, 1)
+        assert on_a_league(mongo_replica_set_url, body) == (1, 2)
 
     def test_every_log_row_naming_them_is_emptied_and_stamped(self, mongo_replica_set_url: str):
         """Catches a redaction that stamps without clearing the image, and one that clears without stamping.
@@ -287,7 +356,85 @@ class TestARetiredPupilIsErasedWhole:
         assert {row["collection"] for row in rows} == {str(Collection.SPIELER), str(Collection.SAISON_SPIELER)}
         # No image by construction, and unstamped: an erasure has to be able to show its own filter and count.
         assert all(row["before"] is None and row["redacted_at"] is None and row["db_filter"] for row in rows)
-        assert sum(row["modified_count"] for row in rows) == 2
+        assert sum(row["modified_count"] for row in rows) == 3
+
+
+class TestNothingOfTheirsIsLeftAnywhere:
+    """The floor under the class above, which asks where the endpoint looked: these ask what is left."""
+
+    def test_no_image_anywhere_in_the_log_still_names_them(self, mongo_replica_set_url: str):
+        """Catches an erasure reaching their LIVE squad rows alone: the squad they left keeps its images.
+
+        The retired row and its seeded image are asserted first, so a fixture that stopped producing
+        either fails here rather than passing vacuously.
+        """
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            spieler_id = await a_pupil_with_a_history(database, vorname=ERASED_VORNAME, team_id=HOME_TEAM_OID, retired=True)
+            left_behind = await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id, "inactive_since": {"$ne": None}})
+            seeded = images_naming(await images_in_the_whole_log(database), spieler_id)
+            await call_erasure(database, client, spieler_id)
+
+            return left_behind, seeded, images_naming(await images_in_the_whole_log(database), spieler_id)
+
+        left_behind, seeded, surviving = on_a_league(mongo_replica_set_url, body)
+
+        assert left_behind == 1, "the seeded person held no retired squad row"
+        assert [image for image in seeded if image.get("saison_id") == FORMER_SAISON_ID], "the squad they left recorded no image"
+        assert surviving == []
+
+    def test_no_name_of_theirs_survives_anywhere_in_the_database(self, mongo_replica_set_url: str):
+        """Catches a value left in a collection the erasure never names -- every one of them is read.
+
+        The other pupil's replaced surname is asserted present, without which a database emptied
+        wholesale would pass.
+        """
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            spieler_id = await a_pupil_with_a_history(database, vorname=ERASED_VORNAME, team_id=HOME_TEAM_OID, retired=True)
+            await a_pupil_with_a_history(database, vorname=OTHER_VORNAME, team_id=AWAY_TEAM_OID, retired=False)
+            await call_erasure(database, client, spieler_id)
+
+            return await every_collection_as_text(database)
+
+        rendered = on_a_league(mongo_replica_set_url, body)
+
+        # Both surnames carry the given name, so one substring answers for all three of their values.
+        assert ERASED_VORNAME not in rendered
+        # Their REPLACED surname, not their live one: only what an edit replaced is ever in the log.
+        assert f"{OTHER_VORNAME}-Mustermann" in rendered
+
+
+class TestAPupilWhoNeverJoinedASquad:
+    """The redaction's empty squad branch: an `$in` of no ids has to match nothing rather than everything."""
+
+    def test_every_other_squad_rows_images_are_left_standing(self, mongo_replica_set_url: str):
+        """Catches an empty id list widened to match every squad row, which would empty the log for the whole league."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            other_id = await a_pupil_with_a_history(database, vorname=OTHER_VORNAME, team_id=AWAY_TEAM_OID, retired=False)
+            response = await call_erasure(database, client, await a_pupil_who_never_joined_a_squad(database))
+
+            return response.erased_saison_spieler, images_naming(await images_in_the_whole_log(database), other_id)
+
+        erased, theirs = on_a_league(mongo_replica_set_url, body)
+
+        assert erased == 0
+        assert [image for image in theirs if image.get("saison_id")], "an empty id list swept the other pupil's squad rows"
+
+    def test_their_own_record_is_erased_all_the_same(self, mongo_replica_set_url: str):
+        """Catches an erasure that only reaches a person who held a squad row."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            spieler_id = await a_pupil_who_never_joined_a_squad(database)
+            await call_erasure(database, client, spieler_id)
+
+            return await database[Collection.SPIELER].count_documents({"_id": spieler_id}), await every_collection_as_text(database)
+
+        remaining, rendered = on_a_league(mongo_replica_set_url, body)
+
+        assert remaining == 0
+        assert LONE_VORNAME not in rendered
 
 
 class TestTheErasureIsRefusedUntilTheyAreRetired:
@@ -321,7 +468,7 @@ class TestTheErasureIsRefusedUntilTheyAreRetired:
                 await database[Collection.AKTIONEN].count_documents({"redacted_at": {"$ne": None}}),
             )
 
-        assert on_a_league(mongo_replica_set_url, body) == (1, 1, 0)
+        assert on_a_league(mongo_replica_set_url, body) == (1, 2, 0)
 
     def test_retiring_them_first_lets_the_same_call_through(self, mongo_replica_set_url: str):
         """The floor under the refusal: without it, a blanket failure would read as the precondition working."""
@@ -334,7 +481,7 @@ class TestTheErasureIsRefusedUntilTheyAreRetired:
 
         response = on_a_league(mongo_replica_set_url, body)
 
-        assert (response.erased_saison_spieler, response.acknowledged) == (1, 1)
+        assert (response.erased_saison_spieler, response.acknowledged) == (2, 1)
 
 
 class TestAHalfDoneErasureCommitsNothing:
@@ -371,6 +518,6 @@ class TestAHalfDoneErasureCommitsNothing:
 
         # Asserted on the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the redaction, got code {code}"
-        assert (people, squad_rows) == (1, 1), "the removals survived a redaction that failed"
+        assert (people, squad_rows) == (1, 2), "the removals survived a redaction that failed"
         assert [row for row in rows if row["before"] is not None], "the log lost its images to a transaction that never committed"
         assert all(row["redacted_at"] is None for row in rows)

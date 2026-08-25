@@ -3358,7 +3358,7 @@
     "/api/v0/saisons/{saison_id}/activate": {
       "post": {
         "summary": "Make this the active Saison",
-        "description": "Make this the active season, moving whichever holds `active` to `past`.\n\nThe only path to `status: \"active\"`. One transaction, so the league never briefly holds no\nactive season, nor two. The outgoing must be finished, and a `past` target refused.",
+        "description": "Make this the active season, moving whichever holds `active` to `past`.\n\nThe only path to `status: \"active\"`. One transaction judges and writes, so the league never\nbriefly holds no active season, nor two, and neither season can be drawn or undrawn under the\njudgement. The outgoing must be finished, and a `past` target refused.",
         "operationId": "activate_saison_api_v0_saisons__saison_id__activate_post",
         "security": [
           {
@@ -3962,6 +3962,7 @@
             "title": "Stadt"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "strasse",
@@ -4500,6 +4501,7 @@
             ]
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "FLGenerateSpielplanPayload",
         "description": "Whether this draw may REPLACE what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission. `REQ-SPIELPLAN-005` bounds a confirmed one."
@@ -4670,6 +4672,7 @@
             "$ref": "#/components/schemas/FLSaisonRules"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "start_date",
@@ -4762,6 +4765,7 @@
             "title": "Is Captain"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "team_id",
@@ -4797,6 +4801,7 @@
             ]
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "gruppe",
@@ -4832,6 +4837,7 @@
             "title": "Default Payment"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "kontakt",
@@ -5023,6 +5029,7 @@
             "title": "Notiz"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "sonderereignis",
@@ -5125,6 +5132,7 @@
             "title": "Nachname"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "vorname",
@@ -5149,6 +5157,7 @@
             "title": "Default Mietpreis"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "address",
@@ -5196,6 +5205,7 @@
             "title": "Ende"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "beginn",
@@ -5234,6 +5244,7 @@
             "$ref": "#/components/schemas/FLAddressPayload"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name",
@@ -5298,6 +5309,7 @@
             "title": "Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "start_date",
@@ -5398,6 +5410,7 @@
             "title": "Saison Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "team_id",
@@ -5430,6 +5443,7 @@
             "title": "Gruppe"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "saison_id",
@@ -5466,6 +5480,7 @@
             "title": "Default Payment"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "kontakt",
@@ -5518,6 +5533,7 @@
             "title": "Nachname"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "vorname"
@@ -5541,6 +5557,7 @@
             "title": "Default Mietpreis"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "address",
@@ -5602,6 +5619,7 @@
             "$ref": "#/components/schemas/FLAddressPayload"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name",
@@ -5642,6 +5660,7 @@
             "title": "Incoming Team Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "incoming_team_id"
@@ -6843,6 +6862,7 @@
             "title": "Mietpreis"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "spielort_id",
@@ -7050,6 +7070,7 @@
             "title": "Payment"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "schiedsrichter_id",
@@ -7159,7 +7180,7 @@
           "tore"
         ],
         "title": "FLSpielTeamFieldPayload",
-        "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the season's `saison_teams` row is where a club's name lives, so a copy\na client typed could only disagree with it. The server composes them."
+        "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the season's `saison_teams` row is where a club's name lives, so a copy\na client typed could only disagree with it. The server composes them.\n\nA submitted copy is IGNORED rather than refused, alone among the payload models: the stored and\nthe joined sides below EXTEND this one and `extra` is inherited, so refusing here would answer\n500 for a fixture read over a document carrying a key no model declares."
       },
       "FLSpieleActionRequiredResponse": {
         "properties": {
@@ -7839,6 +7860,7 @@
             "title": "Qualifiers Per Group"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "number_of_groups",
@@ -8001,6 +8023,7 @@
             "title": "Team2 Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "team1_id",

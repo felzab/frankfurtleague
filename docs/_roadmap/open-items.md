@@ -640,7 +640,7 @@ that lands, followed by a further write nothing can take back.
 
 | The path                                                           | How it writes                                                                                                               |
 | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `fl_backend/app/api/saisons/admin_router.py :: activate_saison`    | A transaction, demoting whichever season holds `active` and promoting the target inside it                                  |
+| `fl_backend/app/api/saisons/admin_router.py :: activate_saison`    | `with_transaction`, judging on in-session reads, then demoting whichever season holds `active` and promoting the target     |
 | `fl_backend/app/api/saisons/admin_router.py :: swap_gruppen`       | `with_transaction`, judging through the session so a retry after a write conflict re-reads                                  |
 | `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`    | `with_transaction` around the save, the sides another fixture gives up, and the bracket's resolution                        |
 | `fl_backend/app/api/saisons/admin_router.py :: generate_spielplan` | `with_transaction` over the judgement, a confirmed replace's removals, both inserts and the watermark                       |

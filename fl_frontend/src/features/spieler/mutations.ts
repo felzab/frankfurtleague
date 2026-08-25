@@ -30,8 +30,8 @@ export async function postSpieler(payload: FLPostSpielerPayload): Promise<FLSpie
   });
 }
 
-// The ids go in the PATH, never the body — a backend payload model that saw one would drop it
-// silently (frontend spec 1.3). No fan-out: squad lists read the name through a `$lookup`.
+// The ids go in the PATH, never the body — a backend payload model that saw one refuses the whole
+// body (frontend spec 1.3). No fan-out: squad lists read the name through a `$lookup`.
 export async function patchSpieler({ id, ...fields }: FLPatchSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
   return apiClient<FLSpielerAdminSingleResponse>(`/spieler/${id}`, FLSpielerAdminSingleResponseSchema, {
     method: "PATCH",

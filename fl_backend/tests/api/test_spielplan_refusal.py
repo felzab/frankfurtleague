@@ -366,6 +366,14 @@ class TestAReplaceRunsOnlyInsideItsWindow:
         assert "active" in refusal.message
         assert "3 fixture(s)" in refusal.message
 
+    def test_the_message_enumerates_every_category_that_closes_the_window(self):
+        """The sentence is what an admin repairs from, so it goes stale the moment `holds_a_recorded_fact` weighs one more field."""
+
+        refusal = refusal_for(replace=True, saison_status="active", recorded=1)
+
+        assert refusal is not None
+        assert "a result, a cancellation, a booking, a note or a side moved off the draw" in refusal.message
+
     def test_an_unconfirmed_draw_is_judged_by_the_draw_rules_alone(self):
         """Read the window off the season rather than off the flag and this fails: a running season's first draw is permitted."""
 
@@ -375,15 +383,34 @@ class TestAReplaceRunsOnlyInsideItsWindow:
         assert refusal.error_code == SPIELPLAN_ALREADY_DRAWN
 
 
-# A fixture exactly as the draw wrote it: every field a record could land in, empty. No `notiz` key
-# at all, which is the shape `app/api/saisons/spielplan.py :: _spiel` leaves.
+ADLER = "68f0a1b2c3d4e5f607600011"
+BIEBER = "68f0a1b2c3d4e5f607600012"
+
+# A GROUP fixture exactly as the draw wrote it: both sides seated, no wiring, every field a record
+# could land in empty. No `notiz` key at all, which is the shape `app/api/saisons/spielplan.py ::
+# _spiel` leaves.
 UNTOUCHED_FIXTURE: Mapping[str, Any] = {
+    "saison_phase": "gruppenphase",
     "ergebnis": None,
+    "elfmeterschiessen": None,
     "sonderereignis": None,
-    "team1": {"tore": None},
-    "team2": {"tore": None},
+    "team1": {"team_id": ADLER, "tore": None},
+    "team2": {"team_id": BIEBER, "tore": None},
+    "team1_quelle": None,
+    "team2_quelle": None,
     "ort": {"spielort_id": None},
     "schiedsrichter": {"schiedsrichter_id": None},
+}
+
+# The OTHER shape the same draw writes, and the one an admin seeds by hand: a knockout slot wired to
+# a placing and holding nobody.
+UNTOUCHED_BRACKET: Mapping[str, Any] = {
+    **UNTOUCHED_FIXTURE,
+    "saison_phase": "viertelfinale",
+    "team1": None,
+    "team2": None,
+    "team1_quelle": {"type": "gruppe", "gruppe": "A", "platz": 1},
+    "team2_quelle": {"type": "gruppe", "gruppe": "B", "platz": 2},
 }
 
 
@@ -402,8 +429,9 @@ class TestWhatCountsAsRecordedAgainstAFixture:
             ({"sonderereignis": "nichtantreten_team1"}, "a no-show"),
             ({"sonderereignis": "ausgefallen"}, "a cancellation, which `has_taken_place` reads as untouched"),
             ({"sonderereignis": "annulliert"}, "an annulment, for the same reason"),
-            ({"team1": {"tore": 0}}, "a goal count standing without a result"),
-            ({"team2": {"tore": 0}}, "the same count on the other side, which a loop over one slot would miss"),
+            ({"team1": {"team_id": ADLER, "tore": 0}}, "a goal count standing without a result"),
+            ({"team2": {"team_id": BIEBER, "tore": 0}}, "the same count on the other side, which a loop over one slot would miss"),
+            ({"elfmeterschiessen": {"team1": 4, "team2": 3}}, "a shoot-out, which reaches the document beside a result and only there"),
             ({"ort": {"spielort_id": "68f0a1b2c3d4e5f607600001"}}, "a booked venue"),
             ({"schiedsrichter": {"schiedsrichter_id": "68f0a1b2c3d4e5f607600002"}}, "a booked referee"),
             ({"notiz": "Platz gesperrt"}, "an admin's note, which only `PATCH /spiele/{spiel_id}` writes"),
@@ -416,6 +444,11 @@ class TestWhatCountsAsRecordedAgainstAFixture:
         """The floor: a predicate answering True for everything would pass every case above."""
 
         assert holds_a_recorded_fact(UNTOUCHED_FIXTURE) is False
+
+    def test_a_bracket_slot_the_draw_left_alone_does_not_either(self):
+        """The second floor, and the one that matters: read a WIRED empty slot as touched and no drawn season is ever replaceable."""
+
+        assert holds_a_recorded_fact(UNTOUCHED_BRACKET) is False
 
     @pytest.mark.parametrize(
         ("empty", "why"),
@@ -434,6 +467,68 @@ class TestWhatCountsAsRecordedAgainstAFixture:
         """Rescheduling is what a replace is FOR, so a dated fixture stays replaceable and the log keeps the dates."""
 
         assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, "datum": "2026-05-01", "uhrzeit": "18:00:00"}) is False
+
+
+class TestASideMovedOffTheDrawClosesTheWindow:
+    """Bracket seeding is what a `future` season accumulates, and `future` is the only status either window opens on.
+
+    The fixture patch writes both sides and both `quelle`s wholesale, so every shape below is one an
+    admin reaches through the ordinary editor.
+    """
+
+    @pytest.mark.parametrize(
+        ("edited", "why"),
+        [
+            (
+                {"team1_quelle": None, "team1": {"team_id": ADLER, "tore": None}},
+                "the manual pick `find_wiring_refusal` invites -- clear the quelle, then name the team",
+            ),
+            ({"team1_quelle": None}, "the same clearance with nobody named yet, which the draw never leaves either"),
+            (
+                {"team1": {"team_id": ADLER, "tore": None}},
+                "a slot the bracket resolution seeded from a decided group, its wiring still standing",
+            ),
+        ],
+    )
+    def test_a_bracket_slot_that_is_no_longer_wired_and_empty_is_recorded(self, edited: Mapping[str, Any], why: str):
+        assert holds_a_recorded_fact({**UNTOUCHED_BRACKET, **edited}) is True, why
+
+    @pytest.mark.parametrize(
+        ("edited", "why"),
+        [
+            ({"team1": None}, "the side a Spieltag release empties, which the draw writes on no group fixture"),
+            (
+                {"team1_quelle": {"type": "gruppe", "gruppe": "A", "platz": 1}},
+                "wiring on a group fixture, which `REQ-WIRING-001` refuses and a hand edit can still store",
+            ),
+        ],
+    )
+    def test_a_group_fixture_that_is_no_longer_occupied_and_unwired_is_recorded(self, edited: Mapping[str, Any], why: str):
+        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, **edited}) is True, why
+
+    def test_swapping_one_group_occupant_for_another_is_NOT_seen(self):
+        """The rule's limit, stated so it is not mistaken for a gap nobody noticed.
+
+        The draw seats both sides of every group fixture, so "holds a side" is true of all of them
+        and no stored field tells the draw's occupant from a replacement.
+        """
+
+        swapped = {**UNTOUCHED_FIXTURE, "team1": {"team_id": "68f0a1b2c3d4e5f607600013", "tore": None}}
+
+        assert holds_a_recorded_fact(swapped) is False
+
+    def test_the_phase_is_what_decides_which_shape_is_expected(self):
+        """Read the pair without the phase and this fails: each fixture is judged against the OTHER phase's drawn shape."""
+
+        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, "saison_phase": "viertelfinale"}) is True
+        assert holds_a_recorded_fact({**UNTOUCHED_BRACKET, "saison_phase": "gruppenphase"}) is True
+
+    def test_a_fixture_reaching_the_predicate_without_a_phase_is_recorded(self):
+        """Drop `saison_phase` from the projection and every window shuts rather than opening on a season somebody drew by hand."""
+
+        no_phase = {key: value for key, value in UNTOUCHED_FIXTURE.items() if key != "saison_phase"}
+
+        assert holds_a_recorded_fact(no_phase) is True
 
 
 # A season created exactly as long as its own rules ask for: three group matchdays and one final in

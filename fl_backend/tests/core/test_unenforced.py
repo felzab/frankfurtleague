@@ -1,29 +1,45 @@
 import ast
-import functools
 import inspect
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any, Callable
 
 import pytest
 from bson import ObjectId
 
 from app.api.aktionen.schemas import FLAktion
-from app.api.saisons.admin_router import _spieltag_clashes, activate_saison
+from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaisonRules
-from app.api.saisons.services import find_rules_refusal
+from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
+from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.schemas import (
+    SONDEREREIGNIS_KEEPING_ITS_SLOT,
+    SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLBracketFaultGruppe,
     FLBracketFaultOccupant,
     FLBracketFaultQuelle,
     FLBracketFaultSpiel,
     FLPatchSpielDataPayload,
+    FLSpiel,
     FLSpielJoinedInternal,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
 )
-from app.api.spiele.services import SaisonMembership, find_departed_occupants, find_eligibility_refusal, resolve_bracket
-from app.api.spieler.admin_router import post_spieler
+from app.api.spiele.services import (
+    STATE_RESULT_ON_A_NON_EVENT,
+    SaisonMembership,
+    find_booking_refusal,
+    find_clash_refusal,
+    find_departed_occupants,
+    find_eligibility_refusal,
+    find_fixture_date_refusal,
+    find_result_removal_refusal,
+    find_state_refusal,
+    find_wiring_refusal,
+    judge_spieltag_occupancy,
+    resolve_bracket,
+)
+from app.api.spieler.admin_router import delete_saison_spieler, delete_spieler, post_spieler
 from app.api.spieler.schemas import FLPostSpielerPayload
 from app.api.spieler.services import find_squad_refusal
 from app.api.spieltage.admin_router import patch_spieltag
@@ -31,11 +47,24 @@ from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refus
 from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES
+from tests.core.app_source import (
+    COLLECTION_ARGUMENT_SUFFIX,
+    WRITE_HELPERS,
+    app_calls,
+    callee,
+    calls_in,
+    declared,
+    module_of,
+    parsed,
+    removals,
+    transactional_callbacks,
+)
 
 PayloadFactory = Callable[..., dict[str, Any]]
 
-BACKEND_ROOT = Path(__file__).resolve().parents[2]
-APP_ROOT = BACKEND_ROOT / "app"
+# The callback `activate_saison` runs as one transaction, which is where both `status` writes
+# stand. Named because two rules below read it and neither should re-derive it.
+ACTIVATION_CALLBACK = "judge_and_roll_the_league_over"
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 SPIELTAG_ONE = "6890a1b2c3d4e5f607210001"
@@ -114,6 +143,16 @@ def filled_bracket_slot(spiel: PayloadFactory) -> list[FLSpielJoinedInternal]:
     )
 
 
+def _submitted(stored_field: dict[str, Any] | None, *, keeping: tuple[str, ...]) -> dict[str, Any] | None:
+    """One stored sub-document narrowed to what its PAYLOAD declares.
+
+    A stored side, venue and referee each carry a composed name the server owns, and the payload
+    models refuse one -- so resubmitting a document verbatim is not the save an admin makes.
+    """
+
+    return None if stored_field is None else {key: stored_field[key] for key in keeping}
+
+
 def _resubmit(season_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPayload:
     """The stored fixture as its own payload: the no-op save every occupant rule turns on."""
 
@@ -121,17 +160,16 @@ def _resubmit(season_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPay
 
     return FLPatchSpielDataPayload.model_validate(
         {
-            "spiel_id": stored["_id"],
             "sonderereignis": stored["sonderereignis"],
-            "team1": stored["team1"],
-            "team2": stored["team2"],
+            "team1": _submitted(stored["team1"], keeping=("team_id", "tore")),
+            "team2": _submitted(stored["team2"], keeping=("team_id", "tore")),
             "team1_quelle": stored["team1_quelle"],
             "team2_quelle": stored["team2_quelle"],
             "elfmeterschiessen": stored["elfmeterschiessen"],
             "datum": stored["datum"],
             "uhrzeit": stored["uhrzeit"],
-            "ort": stored["ort"],
-            "schiedsrichter": stored["schiedsrichter"],
+            "ort": _submitted(stored["ort"], keeping=("spielort_id", "mietpreis")),
+            "schiedsrichter": _submitted(stored["schiedsrichter"], keeping=("schiedsrichter_id", "payment")),
             "notiz": stored.get("notiz"),
         }
     )
@@ -196,15 +234,8 @@ RECORDED_REMOVALS = frozenset({"delete_many"})
 # `app/core/recording.py` writes the log's own rows and removes nothing, so it is not among these.
 REMOVAL_MODULES = ("app/core/crud.py",)
 
-# A retention sweep would call one of these selecting on an age, a shape the module rule above
-# cannot refuse: the call would sit in a router, exactly like every legitimate removal.
-REMOVAL_HELPERS = frozenset({"delete_many_from_db", "erase_many_from_db"})
-
 # The day a row retired, and so the field a retention sweep would select on.
 RETIREMENT_FIELD = "inactive_since"
-
-# `app/core/crud.py`'s writing half: a call to one of these is where a document changes.
-WRITE_HELPERS = frozenset({"insert_live", "patch_many_in_db", "patch_one_in_db", "post_one_to_db", "set_inactive_since"})
 
 # The arguments those helpers take their document from. A filter and a projection name a field too,
 # and neither writes it.
@@ -218,72 +249,17 @@ DRIVER_WRITES = frozenset(
 WRITE_MODULES = ("app/core/crud.py", "app/core/recording.py")
 
 
-@functools.cache
-def _parsed(file: Path) -> ast.Module:
-    """Cached across the sweeps below, several of which read the same file."""
-
-    return ast.parse(file.read_text(encoding="utf-8"))
-
-
-def _module_of(function: Callable[..., Any]) -> Path:
-    """The file declaring `function`, resolved through the import so a module that moves needs no path written here."""
-
-    return Path(inspect.getsourcefile(function) or "")
-
-
-def _declared(function: Callable[..., Any]) -> ast.FunctionDef | ast.AsyncFunctionDef:
-    """One imported function as its own source declares it, which is what lets a check read the code rather than the object."""
-
-    found = [
-        node
-        for node in ast.walk(_parsed(_module_of(function)))
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == function.__name__
-    ]
-
-    assert len(found) == 1, f"{function.__name__} is declared {len(found)} times, so a sweep over its body proves nothing"
-
-    return found[0]
-
-
-def _callee(call: ast.Call) -> str:
-    """The name at a call site: the attribute where a driver method is called on a collection, the bare name for a helper."""
-
-    if isinstance(call.func, ast.Attribute):
-        return call.func.attr
-
-    return call.func.id if isinstance(call.func, ast.Name) else ""
-
-
-def _calls_in(node: ast.AST, scope: str) -> Iterator[tuple[str, ast.Call]]:
-    """Every call under `node`, each paired with the innermost function around it, so a nested helper answers for its own."""
-
-    for child in ast.iter_child_nodes(node):
-        if isinstance(child, ast.Call):
-            yield scope, child
-
-        inner = child.name if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else scope
-        yield from _calls_in(child, inner)
-
-
-def _app_calls() -> Iterator[tuple[str, str, ast.Call]]:
-    """Every call the application makes, with the module and the function around it."""
-
-    for path in sorted(APP_ROOT.rglob("*.py")):
-        module = path.relative_to(BACKEND_ROOT).as_posix()
-        yield from ((module, scope, call) for scope, call in _calls_in(_parsed(path), "<module>"))
-
-
 def _driver_calls(methods: frozenset[str]) -> list[str]:
     """Where the application calls one of `methods`, each as its module and the function holding the call."""
 
-    return sorted({f"{module} :: {scope}" for module, scope, call in _app_calls() if _callee(call) in methods})
+    return sorted({f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in methods})
 
 
 def _literal_writes_of(field: str) -> set[tuple[str, str]]:
     """Every write naming `field` in a literal document, as the function making it and the value it sets."""
 
     writes: set[tuple[str, str]] = set()
-    for _, scope, call in _app_calls():
+    for _, scope, call in app_calls():
         for keyword in call.keywords:
             if keyword.arg not in WRITE_DOCUMENTS:
                 continue
@@ -299,56 +275,10 @@ def _literal_writes_of(field: str) -> set[tuple[str, str]]:
     return writes
 
 
-def _removal_filter_strings() -> set[str]:
-    """Every string a removal helper's literal `db_filter` names.
+def _callers_of(module: Path, called: str) -> set[str]:
+    """Every function in one module that calls `called`, by name."""
 
-    The FILTER alone: `REQ-PURGE-001` reads `inactive_since` as the erasure's PRECONDITION, and
-    SELECTING on it is the sweep. Operators ride along, so a field nested under `$and` is seen.
-    """
-
-    named: set[str] = set()
-    for _, _, call in _app_calls():
-        if _callee(call) not in REMOVAL_HELPERS:
-            continue
-
-        for keyword in call.keywords:
-            if keyword.arg != "db_filter":
-                continue
-
-            # A LITERAL filter, which is every removal the application makes today. One composed
-            # into a variable would pass unseen, as `_literal_writes_of` is bounded the same way.
-            named |= {node.value for node in ast.walk(keyword.value) if isinstance(node, ast.Constant) and isinstance(node.value, str)}
-
-    return named
-
-
-def _opens_a_transaction(node: ast.AST) -> bool:
-    """Whether one `async with` opens the transaction itself, rather than the session it is started on."""
-
-    if not isinstance(node, ast.AsyncWith):
-        return False
-
-    opened = [call for item in node.items for call in ast.walk(item.context_expr) if isinstance(call, ast.Call)]
-
-    return any(_callee(call) == "start_transaction" for call in opened)
-
-
-def _transactional_writes(function: Callable[..., Any]) -> set[tuple[str, bool]]:
-    """Every write one function makes inside a transaction block, each with whether it carries the session."""
-
-    return {
-        (_callee(call), any(keyword.arg == "session" for keyword in call.keywords))
-        for block in ast.walk(_declared(function))
-        if _opens_a_transaction(block)
-        for call in ast.walk(block)
-        if isinstance(call, ast.Call) and _callee(call) in WRITE_HELPERS
-    }
-
-
-def _callers_of(module: Path, callee: str) -> set[str]:
-    """Every function in one module that calls `callee`, by name."""
-
-    return {scope for scope, call in _calls_in(_parsed(module), "<module>") if _callee(call) == callee}
+    return {scope for scope, call in calls_in(parsed(module), "<module>") if callee(call) == called}
 
 
 def _calls_of(function: Callable[..., Any]) -> set[str]:
@@ -356,7 +286,7 @@ def _calls_of(function: Callable[..., Any]) -> set[str]:
 
     name = function.__name__
 
-    return {_callee(call) for scope, call in _calls_in(_declared(function), name) if scope == name}
+    return {callee(call) for scope, call in calls_in(declared(function), name) if scope == name}
 
 
 class TestExactlyOneActiveSeason:
@@ -388,8 +318,12 @@ class TestExactlyOneActiveSeason:
 
         # `post_saison` writes the constant `future` at create, which no second season contradicts;
         # `active` and the demotion to `past` are one function's, which is what lets one transaction
-        # hold the pair.
-        assert _literal_writes_of("status") == {("post_saison", "future"), ("activate_saison", "past"), ("activate_saison", "active")}
+        # hold the pair. That function is the callback the activation runs, not the endpoint.
+        assert _literal_writes_of("status") == {
+            ("post_saison", "future"),
+            (ACTIVATION_CALLBACK, "past"),
+            (ACTIVATION_CALLBACK, "active"),
+        }
 
     def test_no_season_payload_carries_the_field(self):
         """The route the sweep above cannot see: the patch writes its payload wholesale, so a `status` field would ride along unnamed."""
@@ -398,9 +332,16 @@ class TestExactlyOneActiveSeason:
         assert not {"status"} & set(FLPatchSaisonPayload.model_fields)
 
     def test_the_demotion_and_the_promotion_share_one_transaction(self):
-        """Both writes inside the activation's transaction block, each with whether it carries that block's session."""
+        """Both writes inside the callback the activation runs as one transaction, each carrying its session.
 
-        assert _transactional_writes(activate_saison) == {("patch_many_in_db", True), ("patch_one_in_db", True)}
+        Split them across two callbacks and this fails: a demotion that committed without the
+        promotion would leave the league with no active season at all.
+        """
+
+        activation = [entry for entry in transactional_callbacks(WRITE_HELPERS) if entry.where.endswith(ACTIVATION_CALLBACK)]
+
+        assert len(activation) == 1, f"{ACTIVATION_CALLBACK} is run by {len(activation)} transactions"
+        assert set(activation[0].writes) == {("patch_many_in_db", True), ("patch_one_in_db", True)}
 
 
 class TestAMatchdayOffItsImpliedCount:
@@ -417,10 +358,10 @@ class TestAMatchdayOffItsImpliedCount:
     def test_the_implied_count_is_read_for_the_echo_and_nothing_else(self):
         """`expected_matches` is the figure a mismatch would be measured against, so where it is called is where a refusal could form."""
 
-        module = _module_of(with_expected_matches)
+        module = module_of(with_expected_matches)
 
         assert _callers_of(module, "expected_matches") == {"with_expected_matches"}
-        assert _callers_of(_module_of(patch_spieltag), "expected_matches") == set()
+        assert _callers_of(module_of(patch_spieltag), "expected_matches") == set()
 
 
 class TestASharedSquadNumber:
@@ -507,7 +448,7 @@ class TestNoPurgeReachesARetiredRow:
     def test_no_removal_selects_on_the_day_a_row_retired(self):
         """A sweep's SHAPE, never a count of its callers: the module rule above admits one written inside `app/core/crud.py`."""
 
-        selected_on = _removal_filter_strings()
+        selected_on = {field for removal in removals() for field in removal.names}
 
         # The floor is a filter being seen at all: a sweep reading the wrong keyword would match
         # nothing and pass the assertion below over any application, retention sweep included.
@@ -591,7 +532,7 @@ class TestAPersonWithNoSquadRow:
         # The REACTIVATE for the same reason as the other two: a club replacement retires the
         # outgoing club's rows without moving their `team_id`, so reviving one restores a live row
         # for a club the season no longer holds -- the state `REQ-SQUAD-001` refuses.
-        assert _callers_of(_module_of(post_spieler), find_squad_refusal.__name__) == {
+        assert _callers_of(module_of(post_spieler), find_squad_refusal.__name__) == {
             "post_saison_spieler",
             "patch_saison_spieler",
             "reactivate_saison_spieler",
@@ -679,7 +620,7 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
 
         keyed_on = {
             key.value: ast.unparse(value)
-            for node in ast.walk(_declared(patch_spieltag))
+            for node in ast.walk(declared(patch_spieltag))
             if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict)
             for key, value in zip(node.value.keys, node.value.values, strict=True)
             if isinstance(key, ast.Constant)
@@ -697,3 +638,120 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
 
         assert counts["gruppenphase"] > 1
         assert knockout and set(knockout.values()) == {1}
+
+
+def _stamped_by(endpoint: Callable[..., Any]) -> set[str]:
+    """The collections one endpoint hands `set_inactive_since`, read off its own call site."""
+
+    return {
+        keyword.value.id
+        for scope, call in calls_in(declared(endpoint), endpoint.__name__)
+        if scope == endpoint.__name__ and callee(call) == "set_inactive_since"
+        for keyword in call.keywords
+        if keyword.arg == "collection" and isinstance(keyword.value, ast.Name)
+    }
+
+
+class TestARetiredPersonKeepsALiveSquadRow:
+    """That retiring a person stamps `spieler` alone, and that a squad row is left by an endpoint of its own."""
+
+    def test_the_person_retire_is_handed_no_squad_collection(self):
+        """A collection an endpoint never receives is one it cannot cascade into, whatever its body turns out to say."""
+
+        taken = {argument.arg for argument in declared(delete_spieler).args.args}
+
+        assert {name for name in taken if name.endswith(COLLECTION_ARGUMENT_SUFFIX)} == {"spieler_collection"}
+
+    def test_the_two_retirements_are_stamped_by_two_endpoints(self):
+        """One helper, two subjects: the person's day and the row's are written by separate routes, and neither consults the other."""
+
+        assert _stamped_by(delete_spieler) == {"spieler_collection"}
+        assert _stamped_by(delete_saison_spieler) == {"saison_spieler_collection"}
+
+
+# Every refusal `PATCH /spiele/{spiel_id}` runs, which is the whole of what could gate a result on
+# the season's status.
+FIXTURE_PATCH_REFUSALS = (
+    find_booking_refusal,
+    find_clash_refusal,
+    find_eligibility_refusal,
+    find_fixture_date_refusal,
+    find_result_removal_refusal,
+    find_state_refusal,
+    find_wiring_refusal,
+    judge_spieltag_occupancy,
+)
+
+
+class TestAFutureSeasonHoldingRecordedResults:
+    """That nothing the fixture patch refuses on can see the season's status, and that the windows reading it take the record apart from it."""
+
+    def test_nothing_the_patch_refuses_on_is_handed_the_status(self):
+        """Both routes to it: no refusal takes the status, and the fixture slice they are given carries no such field either."""
+
+        for refusal in FIXTURE_PATCH_REFUSALS:
+            assert "saison_status" not in inspect.signature(refusal).parameters, refusal.__name__
+
+        assert "status" not in FLSpiel.model_fields
+
+    def test_the_set_above_is_every_refusal_the_endpoint_runs(self):
+        """A hand-kept list is a sweep that quietly sees less, so a refusal added to the patch fails here rather than going unweighed."""
+
+        named = {refusal.__name__ for refusal in FIXTURE_PATCH_REFUSALS}
+        # Nested scopes included: the endpoint runs most of these inside its transaction callback,
+        # and a sweep stopping at the outer body would find none of them and pass on emptiness.
+        run = {
+            callee(call)
+            for _, call in calls_in(declared(patch_spiel_data), patch_spiel_data.__name__)
+            if callee(call).endswith("_refusal") or callee(call).startswith("judge_")
+        }
+
+        assert run == named, f"unweighed: {sorted(run - named)}; weighed but no longer run: {sorted(named - run)}"
+
+    def test_both_windows_take_the_record_and_the_status_as_two_figures(self):
+        """`REQ-SPIELPLAN-005` and `REQ-SPIELPLAN-006` share one sentence for the same reason: neither infers the record from the status."""
+
+        for refusal in (find_spielplan_refusal, find_undraw_refusal):
+            assert {"saison_status", "recorded_fixtures"} <= set(inspect.signature(refusal).parameters), refusal.__name__
+
+
+def _abandoned(*, tore: tuple[int | None, int | None]) -> FLPatchSpielDataPayload:
+    """An abandonment as the editor saves it, with a decided score or with none."""
+
+    return FLPatchSpielDataPayload.model_validate(
+        {
+            "sonderereignis": "abgebrochen",
+            "team1": {"team_id": ADLER, "tore": tore[0]},
+            "team2": {"team_id": BIEBER, "tore": tore[1]},
+            "team1_quelle": None,
+            "team2_quelle": None,
+            "elfmeterschiessen": None,
+            "datum": FEEDER_DATE,
+            "uhrzeit": "18:00:00",
+            "ort": None,
+            "schiedsrichter": None,
+            "notiz": None,
+        }
+    )
+
+
+class TestAnAbandonedFixtureAndItsResult:
+    """That an abandonment is refused neither for carrying a score nor for carrying none, while the rule that would bar it stays live."""
+
+    @pytest.mark.parametrize("tore", [(None, None), (3, 1)], ids=["nothing recorded", "a decided score"])
+    def test_the_state_rule_passes_an_abandonment_either_way(self, tore):
+        assert find_state_refusal(_abandoned(tore=tore)) is None
+
+    def test_the_same_payload_under_an_event_awarding_nothing_is_refused(self):
+        """The control, because a rule that refused nothing at all would pass the two above without meaning anything."""
+
+        cancelled = _abandoned(tore=(3, 1)).model_copy(update={"sonderereignis": "ausgefallen"})
+        refusal = find_state_refusal(cancelled)
+
+        assert refusal is not None and refusal.error_code == STATE_RESULT_ON_A_NON_EVENT
+
+    def test_it_sits_outside_the_set_that_awards_nothing(self):
+        """The partition is what leaves it out: a fixture that used its slot is not one recording an absence."""
+
+        assert "abgebrochen" in SONDEREREIGNIS_KEEPING_ITS_SLOT
+        assert "abgebrochen" not in SONDEREREIGNIS_WITHOUT_A_RESULT

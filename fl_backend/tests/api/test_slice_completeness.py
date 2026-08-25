@@ -17,6 +17,7 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
 )
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from tests.payloads import spiel_patch_body
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 SAISON_ID = "2026"
@@ -45,7 +46,7 @@ def payload(spiel: PayloadFactory) -> FLPatchSpielDataPayload:
 
     stored = spiel()
 
-    return FLPatchSpielDataPayload.model_validate({field: stored.get(field) for field in FLPatchSpielDataPayload.model_fields})
+    return FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored))
 
 
 class TestARefusalNeverPermitsWhatItCannotSee:

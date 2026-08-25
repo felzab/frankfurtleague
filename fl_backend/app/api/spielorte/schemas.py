@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
@@ -21,6 +21,8 @@ class _SpielortWritable(BaseModel):
 # No `id` on any payload: the path names the venue, the body describes the change (RFC 5789). The
 # bounded address sits here rather than on the writable base, which the read model shares.
 class _SpielortPayload(_SpielortWritable):
+    model_config = ConfigDict(extra="forbid")
+
     address: FLAddressPayload
 
 

@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Mapping, Union
 
-from pydantic import BaseModel, Field, RootModel, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, RootModel, TypeAdapter
 
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH, TEAM_DESCRIPTION_MAX_LENGTH, TEAM_SHORTHAND_LENGTH
@@ -145,6 +145,8 @@ class FLTeamsMembershipsResponse(BaseAPIResponse):
 # Private for `_TeamWritable`'s reason. The bounded address sits here rather than on that base, which
 # `FLTeam`, `FLTeamRecord` and `FLTeamWithMemberships` share.
 class _TeamPayload(_TeamWritable):
+    model_config = ConfigDict(extra="forbid")
+
     address: FLAddressPayload
 
 
@@ -161,11 +163,15 @@ class FLPatchTeamPayload(_TeamPayload):
 class FLPostSaisonTeamPayload(BaseModel):
     """One team's membership of one season. `team_id` comes from the path, `saison_id` from here."""
 
+    model_config = ConfigDict(extra="forbid")
+
     saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
     gruppe: FLGruppenNames
 
 
 class FLPatchSaisonTeamPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     gruppe: FLGruppenNames
     # No `default=None`: `PATCH` replaces both writable fields wholesale, so an omitted key would
     # silently reinstate a team.
@@ -174,6 +180,8 @@ class FLPatchSaisonTeamPayload(BaseModel):
 
 class FLReplaceSaisonTeamPayload(BaseModel):
     """Which club takes this season's row over. The path names the club going OUT."""
+
+    model_config = ConfigDict(extra="forbid")
 
     # The only field: the row keeps the group it stands in, and its copy of the identity is reseeded
     # from the incoming club, so a client-supplied name could only disagree with it.

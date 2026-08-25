@@ -16,6 +16,7 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamFieldPayload,
 )
+from tests.payloads import spiel_patch_body
 
 
 def test_accepts_a_valid_spiel(spiel):
@@ -242,22 +243,7 @@ class TestPatchPayload:
     """The admin write path. Its empty-string coercion is what lets the form clear a field."""
 
     def _payload(self, spiel_factory, **overrides):
-        base = spiel_factory()
-        return {
-            "spiel_id": base["_id"],
-            "sonderereignis": base["sonderereignis"],
-            "team1": base["team1"],
-            "team2": base["team2"],
-            "team1_quelle": base["team1_quelle"],
-            "team2_quelle": base["team2_quelle"],
-            "elfmeterschiessen": base["elfmeterschiessen"],
-            "datum": base["datum"],
-            "uhrzeit": base["uhrzeit"],
-            "ort": base["ort"],
-            "schiedsrichter": base["schiedsrichter"],
-            "notiz": base.get("notiz"),
-            **overrides,
-        }
+        return spiel_patch_body(spiel_factory(), **overrides)
 
     def test_accepts_a_valid_payload(self, spiel):
         assert FLPatchSpielDataPayload.model_validate(self._payload(spiel)).datum == "2026-03-15"
@@ -338,10 +324,13 @@ class TestPatchPayload:
 
         assert kept in model.model_fields
 
-    def test_a_submitted_name_never_reaches_the_payload(self, spiel):
-        """The other end of the same claim: an old client still sending one is answered, and its copy is dropped."""
+    def test_a_submitted_side_name_never_reaches_the_payload(self, spiel):
+        """The other end of the same claim, on the one block that still takes a key it does not declare.
+
+        The stored side EXTENDS this payload, so refusing here would 500 a fixture read; the venue
+        and the referee refuse theirs instead (`fl_backend/tests/api/test_payload_strictness.py`).
+        """
 
         parsed = FLPatchSpielDataPayload.model_validate(self._payload(spiel))
 
         assert parsed.team1 is not None and not hasattr(parsed.team1, "name")
-        assert parsed.ort is not None and not hasattr(parsed.ort, "name")

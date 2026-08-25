@@ -172,8 +172,7 @@ than as a bare failure. It is an ordinary `PATCH` and meets the rules the save m
 tab has since narrowed comes back as a refusal instead of a restore — which is correct, and the toast
 reports the change as still standing.
 
-**Two writes on a page-owned editor have no undo, and neither is an omission.** The rollover is the
-first: it
+**Where a page-owned editor's write has no undo, the absence is never an omission.** The rollover
 changes what every public page shows to a visitor who named no season, for two seasons at once and
 immediately, so there is no window in which it goes unnoticed. It confirms in place instead. There is
 also nothing for an undo to call — re-activating the season the rollover demoted is refused
@@ -181,7 +180,7 @@ also nothing for an undo to call — re-activating the season the rollover demot
 it does for an unfinished incumbent, and `activateSaisonAction` answers each refusal in its own words
 for the stale page that reaches the write anyway.
 
-**The draw is the second, and it is destructive rather than reversible**:
+**The draw is destructive rather than reversible**:
 `POST /saisons/{saison_id}/spielplan` refuses a season that already carries fixtures
 (`REQ-SPIELPLAN-001`) unless the request confirms a REPLACE, and `/spiele` has neither a create nor
 a delete, so nothing exists for an undo to call — a replaced draw's rows are gone and there is no
@@ -198,9 +197,21 @@ request asks for cannot come apart.
 `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.ts :: spielplanBlockedReason`
 closes the panel outside `REQ-SPIELPLAN-005`'s window rather than on any drawn season, and the armed
 state names the matchdays and fixtures the press removes. No undo stands behind it: the rows are
-gone and `/spiele` has no create to replay them into. **`REQ-RULES-011`'s carve-out reaches the
-rules panel through that same window**, so the three shape rules are editable exactly while the draw
-they produced can be replaced — which is the repair path a wrong draw has.
+gone and `/spiele` has no create to replay them into. **The three shape rules move with the draw
+rather than in the rules panel**: `REQ-RULES-011` freezes them once fixtures exist, and
+`FormRegelnSection` locks all three on a drawn season. `qualifiers_per_group` rides on the draw's own
+payload, so a redraw carries it in one step. `number_of_groups` and `teams_per_group` are functions of
+which clubs stand in the season, and `REQ-SPIELPLAN-004` asks every offered group for exactly
+`teams_per_group`, so after a legal draw no club can be entered and a redraw asking for a different
+group shape is refused for the groups then off their size. Their repair is the undraw below.
+
+**The undraw reopens the two the replace cannot move**:
+`DELETE /saisons/{saison_id}/spielplan` returns the season to undrawn, where the patch and the entry
+endpoints both open again, so undraw, fix the rules, enter the clubs, draw again is the loop a wrong
+group shape is repaired by. It runs in the replace's own window (`REQ-SPIELPLAN-006`) and is judged on
+the operation rather than on what there is to remove, so a season already undrawn is answered with
+zeros rather than refused, and `FormSpielplanRuecknahmeSection` grades that answer as `info`. No undo
+stands behind it either, for the same reason the replace has none.
 
 **The group swap also confirms in place, for a different reason: it is its own inverse**. Running it
 again on the same pair restores the season, so a fifteen-second window and a route handler of its
@@ -246,6 +257,7 @@ can offer a pair the other refuses.
 | `activateSaisonAction`           | saisons        | `saisons`, `spiele`, `spieltage`, `teams`                                                           |
 | `swapGruppenAction`              | saisons        | `teams`, `spiele`, + both `:saison_id:{id}`                                                         |
 | `generateSpielplanAction`        | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                                 |
+| `undrawSpielplanAction`          | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                                 |
 | `patchSpieltagAction`            | spieltage      | `spieltage`                                                                                         |
 | `handleSignIn`                   | auth           | —                                                                                                   |
 | `signOutAction`                  | auth           | —                                                                                                   |
@@ -300,7 +312,7 @@ the group field where the group is what was refused.
 `DELETE /schiedsrichter/{id}`, `PATCH /spiele/{spiel_id}`. There is no admin-prefixed route namespace,
 and adding one would split a resource's writes from its reads. The payload
 schemas still carry `id`, because they back the admin forms, so each function in `mutations.ts` splits
-it off before sending the body. **A backend payload model that saw an `id` would drop it silently**,
+it off before sending the body. **A backend payload model that saw an `id` refuses the whole body** (`fl_backend/tests/api/test_payload_strictness.py`),
 which is why the split is in one place per slice rather than at each call site.
 
 **Every resource with write endpoints has an action calling them** — `spiele`, `teams`, `spieler`,
@@ -460,6 +472,11 @@ There are no component tests and no end-to-end suite.
 **Several tests sweep the source tree rather than exercise a function** — that is how a rule no linter
 can express is held, `fl_frontend/src/core/refusalPaths.test.ts` (I34) and
 `fl_frontend/src/shared/components/ui/formSubmit.test.ts` (I32) among them.
+`fl_frontend/src/core/refusalRegister.ts` is the one the slices' own tests read: it parses
+`fl_backend/app/core/domain.py` at test time and answers which refusal codes an operation declares, so
+each slice asserts its mapper covers the endpoint's own set rather than a list somebody typed. Every
+caller binds that set and asserts it before iterating it, because a loop over an operation the register
+no longer names runs zero times and proves nothing.
 `fl_frontend/src/core/apiContract.test.ts` reads the committed `fl_backend/openapi.json` and compares
 every Zod schema against the component that publishes it, discovering the schema modules by walking the
 tree and importing them dynamically — so a new feature slice is covered without an edit, and `core`
@@ -871,7 +888,7 @@ data: the shared one never learns about `expected`, and the narrow one holds no 
 | A matchday list looks right and the playoff bracket's columns are in the wrong order                                                                                             | Something re-sorted the matchdays on this side, so `orderRoundsByWiring` anchored on the wrong round                                                                           | I27 — remove the sort; the order arrives correct from `order_spieltage`                                                                                                                                                                                                                                                                                                    |
 | A matchday sits in the wrong place in the list                                                                                                                                   | Its stored `position` is wrong, or it sits in the wrong `saison_phase`                                                                                                         | I27 — no surface repairs either: both are the season's draw's, on no payload and written once                                                                                                                                                                                                                                                                              |
 | A season is edited in Compass and the change never appears                                                                                                                       | A hand edit invalidates nothing; only an action does                                                                                                                           | I16 — accept the daily bound or recreate the containers; the backend caches seasons for ten minutes of its own, so the frontend one alone is not enough (`docs/ops/spec.md` §3)                                                                                                                                                                                            |
-| A field the admin form sends never reaches the database                                                                                                                          | The backend model does not declare it, and Pydantic drops it silently                                                                                                          | I3 — pass it as an action argument, never on the patch body                                                                                                                                                                                                                                                                                                                |
+| A field the admin form sends never reaches the database                                                                                                                          | The Zod mirror does not declare it, so `strip` removes it before the body is sent; a key that did reach the backend would be refused rather than dropped                       | I3 — pass it as an action argument, never on the patch body                                                                                                                                                                                                                                                                                                                |
 | Pressing Speichern resets every edited field to its stored value, and the save confirmation opens listing 0 Hinweise                                                             | The form passes a function to `action`, so React resets it on submit and react-aria pushes each field's mount-time value back through `onChange`                               | I32 — submit through `runOnSubmit`; §1.10 carries the chain and why nothing in the toolchain reports it                                                                                                                                                                                                                                                                    |
 | Saving is refused with "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt", and no field is marked                                                       | The submit was refused on a path this form renders no input for: a draft field carrying a value whose inputs have unmounted, or a payload key that never had one               | I33 — a conditional field is retracted by its own condition. I34 — a payload key with no input is either given one or entered in `refusalPaths.test.ts`'s exemption table with the reason it is unreachable, so the toast stands only for a path somebody decided about                                                                                                    |
 | The image build fails on a page that builds locally                                                                                                                              | A page fetches without `await connection()`; the builder has no backend                                                                                                        | I6 — add the guard before the fetch; it need not sit in the default export                                                                                                                                                                                                                                                                                                 |

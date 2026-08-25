@@ -28,6 +28,7 @@ from app.api.spiele.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
+from tests.payloads import spiel_patch_body
 
 pytestmark = pytest.mark.db
 
@@ -454,9 +455,7 @@ async def payload_for(database: AsyncIOMotorDatabase, spiel_id: ObjectId, **over
     stored = await database[Collection.SPIELE].find_one({"_id": spiel_id})
     assert stored is not None, f"the seed holds no fixture {spiel_id}"
 
-    unchanged = {field: stored.get(field) for field in FLPatchSpielDataPayload.model_fields}
-
-    return FLPatchSpielDataPayload.model_validate({**unchanged, **overrides})
+    return FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides))
 
 
 async def read_spiel(database: AsyncIOMotorDatabase, spiel_id: ObjectId) -> FLSpiel:

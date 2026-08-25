@@ -283,31 +283,74 @@ ACTIVATE_TARGET_UNDRAWN = "REQ-ACTIVATE-003"
 _NAMED_UNPLAYED = 5
 
 
-# The projection `holds_a_recorded_fact` reads, beside the predicate itself: a field dropped from one
-# and left in the other reads a recorded fixture as untouched, and every window judged on the count
-# then opens on a season somebody has played.
+# The projection `holds_a_recorded_fact` reads, beside the predicate itself: a field in one and not
+# the other reads a recorded fixture as untouched. `saison_phase` is the entry that is no record --
+# it tells the two shapes the draw writes apart.
 RECORDED_FACT_FIELDS: tuple[str, ...] = (
+    "saison_phase",
+    "team1.team_id",
+    "team2.team_id",
     "team1.tore",
     "team2.tore",
+    "team1_quelle",
+    "team2_quelle",
     "ergebnis",
+    "elfmeterschiessen",
     "sonderereignis",
     "ort.spielort_id",
     "schiedsrichter.schiedsrichter_id",
     "notiz",
 )
 
+# The one phase `app/api/saisons/spielplan.py :: draw_spielplan` fills the sides of. Every other it
+# wires and leaves empty, and that difference is the whole of what `_a_side_is_off_the_draw` reads.
+DRAWN_HOLDING_ITS_SIDES: FLSaisonPhase = "gruppenphase"
+
+
+def _a_side_is_off_the_draw(spiel: Mapping[str, Any]) -> bool:
+    """Whether either side departs from what the draw leaves on this fixture's phase.
+
+    A group fixture is drawn OCCUPIED and unwired, a bracket fixture WIRED and empty, so any other
+    pairing is an edit: a hand-picked slot, a cleared quelle, an emptied side.
+    """
+
+    # A document with no `saison_phase` reads as a bracket, so every group fixture then counts as
+    # recorded: the projection always carries the key, and a missing one must refuse rather than
+    # widen the window it decides.
+    is_bracket = spiel.get("saison_phase") != DRAWN_HOLDING_ITS_SIDES
+
+    for slot in ("team1", "team2"):
+        occupied = (spiel.get(slot) or {}).get("team_id") is not None
+        wired = spiel.get(f"{slot}_quelle") is not None
+
+        # Both directions in ONE comparison against the phase: "holds a side" alone is true of every
+        # group fixture the draw wrote, and would shut the window on every drawn season.
+        if (occupied, wired) != (not is_bracket, is_bracket):
+            return True
+
+    return False
+
 
 def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     """Whether anything has been entered against this fixture since the draw wrote it.
 
-    Wider than `has_taken_place`: the replace's window is nothing recorded at all, so a called-off
-    fixture, a merely booked one and a noted one all close it. A date does not.
+    Wider than `has_taken_place`: the window is nothing recorded, so a called-off fixture, a booked
+    one, a noted one and one whose sides moved all close it. A date does not.
     """
 
     if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") is not None:
         return True
 
+    # Beside `ergebnis` rather than behind it: `apply_payload_to_spiel` keeps a shoot-out only where
+    # it stores a result too, so one standing alone is a hand edit -- which is the same route the
+    # goals below and the note further down are read for.
+    if spiel.get("elfmeterschiessen") is not None:
+        return True
+
     if any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2")):
+        return True
+
+    if _a_side_is_off_the_draw(spiel):
         return True
 
     # STRIPPED, never compared to None: the draw writes no key, clearing a note stores null, and
@@ -381,6 +424,19 @@ SPIELPLAN_GRUPPEN_OFF_RULES = "REQ-SPIELPLAN-004"
 SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW = "REQ-SPIELPLAN-005"
 
 
+def _outside_the_planning_window(*, saison_status: str, recorded_fixtures: int) -> str:
+    """The window's second half in words, for the replace and the undraw alike.
+
+    Spelled ONCE: the sentence enumerates what `holds_a_recorded_fact` counts, and two copies of it
+    disagree the moment that predicate weighs one more field.
+    """
+
+    return (
+        f"and this one is {saison_status} and holds {recorded_fixtures} fixture(s) carrying a result, a cancellation, a booking, "
+        "a note or a side moved off the draw; it runs only on a planned season with nothing entered against it"
+    )
+
+
 def find_spielplan_refusal(
     *,
     saison_status: str,
@@ -436,9 +492,8 @@ def find_spielplan_refusal(
     if replace and not replace_is_offered:
         return WriteRefusal(
             error_code=SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
-            message=f"a replace deletes every matchday and fixture the season holds, and this one is {saison_status} and holds "
-            f"{recorded_fixtures} fixture(s) carrying a result, a cancellation, a booking or a note; it runs only on a planned season "
-            "with nothing entered against it",
+            message="a replace deletes every matchday and fixture the season holds, "
+            + _outside_the_planning_window(saison_status=saison_status, recorded_fixtures=recorded_fixtures),
         )
 
     # `past` alone, never `future`-only: activation is one-way, so a season activated before its draw
@@ -496,7 +551,6 @@ def find_undraw_refusal(*, saison_status: str, recorded_fixtures: int) -> WriteR
 
     return WriteRefusal(
         error_code=SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW,
-        message=f"removing a Spielplan deletes every matchday and fixture the season holds, and this one is {saison_status} and holds "
-        f"{recorded_fixtures} fixture(s) carrying a result, a cancellation, a booking or a note; it runs only on a planned season "
-        "with nothing entered against it",
+        message="removing a Spielplan deletes every matchday and fixture the season holds, "
+        + _outside_the_planning_window(saison_status=saison_status, recorded_fixtures=recorded_fixtures),
     )

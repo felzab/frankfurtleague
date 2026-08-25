@@ -6,6 +6,7 @@ from bson import ObjectId
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpielListAdapter
 from app.api.spiele.services import WIRING_UNSUPPORTED, find_wiring_refusal
 from app.core.exceptions import WriteRefusal
+from tests.payloads import spiel_patch_body
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 
@@ -58,23 +59,7 @@ def refusal_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) ->
     """Everything as stored plus `overrides`, so a case overriding nothing asserts that an unchanged save is legal."""
 
     stored = next(doc for doc in season_docs if doc["spiel_nr"] == nr)
-    payload = FLPatchSpielDataPayload.model_validate(
-        {
-            "spiel_id": stored["_id"],
-            "sonderereignis": stored["sonderereignis"],
-            "team1": stored["team1"],
-            "team2": stored["team2"],
-            "team1_quelle": stored["team1_quelle"],
-            "team2_quelle": stored["team2_quelle"],
-            "elfmeterschiessen": stored["elfmeterschiessen"],
-            "datum": stored["datum"],
-            "uhrzeit": stored["uhrzeit"],
-            "ort": stored["ort"],
-            "schiedsrichter": stored["schiedsrichter"],
-            "notiz": stored.get("notiz"),
-            **overrides,
-        }
-    )
+    payload = FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides))
 
     # A real `ObjectId`, as the route convertor hands one: bson's never equals its string spelling.
     return find_wiring_refusal(ObjectId(stored["_id"]), payload, FLSpielListAdapter.validate_python(season_docs))

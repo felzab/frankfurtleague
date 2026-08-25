@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 # The three are imported rather than restated. Acyclic: none of these slices' MODELS imports this
 # file -- `teams/services.py` does, and no model there.
@@ -96,6 +96,8 @@ class _SaisonWritable(BaseModel):
 
 
 class _SaisonPayload(_SaisonWritable):
+    model_config = ConfigDict(extra="forbid")
+
     @model_validator(mode="after")
     def the_season_ends_after_it_starts(self) -> Self:
         """The rule a `past` season's edit can still fail: its dates stay editable so a mistyped one can be repaired."""
@@ -152,6 +154,8 @@ class FLSwapGruppenPayload(BaseModel):
     group nobody stands in.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     team1_id: CustomObjectId
     team2_id: CustomObjectId
 
@@ -199,6 +203,8 @@ class FLSpielplanShape(BaseModel):
     of it would take the rest off a season about to stop matching it.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     number_of_groups: NumberOfGroups
     teams_per_group: TeamsPerGroup
     qualifiers_per_group: QualifiersPerGroup
@@ -210,6 +216,11 @@ class FLGenerateSpielplanPayload(BaseModel):
     An absent body is a first draw off the season's own rules: nothing is destroyed and no
     number moves by omission. `REQ-SPIELPLAN-005` bounds a confirmed one.
     """
+
+    # The payload the rule was found on: a misspelled `shape` validates as ABSENT, and an absent
+    # one still runs the destructive replace off the season's OLD rules -- so an ignored key chose
+    # which fixtures were destroyed, under a 201 reporting a shape that never moved.
+    model_config = ConfigDict(extra="forbid")
 
     replace: bool = Field(default=False)
 

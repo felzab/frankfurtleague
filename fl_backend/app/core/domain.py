@@ -1391,4 +1391,42 @@ UNENFORCED: tuple[Unenforced, ...] = (
         proven_by="tests/core/test_unenforced.py::TestAPhaseDatedAgainstTheOrderItIsPlayedIn",
         surfaced_by="/admin/spieltage",
     ),
+    Unenforced(
+        subject="a person retired while holding a live squad row",
+        reason=(
+            "A rule here would make an admin empty every squad the person ever played in before retiring them, which is the "
+            "archive falsified to satisfy a precondition. The two retirements are independent instead: `READ-SQUAD-001` "
+            "filters a squad by the ROW's retirement and never the person's, and a row is left by its own austritt. The list "
+            "carries both as separate badges, so a retired person whose squad row still stands reads as exactly that."
+        ),
+        near=("REQ-RETIRE-001", "REQ-SQUAD-001"),
+        proven_by="tests/core/test_unenforced.py::TestARetiredPersonKeepsALiveSquadRow",
+        surfaced_by="/admin/spieler",
+    ),
+    Unenforced(
+        subject="a `future` season holding recorded results",
+        reason=(
+            "Binding a result to the season's status would make activation the precondition for recording a match already "
+            "played, and activation is one-way. That the two can disagree is designed for rather than tolerated: both windows "
+            "that destroy a draw take the recorded count and the status as two arguments rather than inferring either from "
+            "the other. The season's Spielplan panel names what was entered as the reason the draw can no longer be replaced "
+            "or taken back."
+        ),
+        near=("REQ-SPIELPLAN-005", "REQ-SPIELPLAN-006"),
+        proven_by="tests/core/test_unenforced.py::TestAFutureSeasonHoldingRecordedResults",
+        surfaced_by="/admin/saisons/[saison_id]",
+    ),
+    Unenforced(
+        subject="an abandoned fixture carrying any result, or none",
+        reason=(
+            "An abandonment has two lawful outcomes -- the score it reached is awarded, or the match is replayed -- and this "
+            "competition has no rule choosing between them, so a refusal either way would invent one. Every other event is "
+            "named by the `REQ-STATE-*` pair; this one keeps its slot, which is what puts it outside the set awarding nothing. "
+            "It is chased for a result like any other, the triage list's cancelled set leaving it out, and the editor warns "
+            "beside the event that a decided score will count for the table."
+        ),
+        near=("REQ-STATE-002", "REQ-STATE-003"),
+        proven_by="tests/core/test_unenforced.py::TestAnAbandonedFixtureAndItsResult",
+        surfaced_by="/admin/spiele/[spiel_id]",
+    ),
 )

@@ -80,13 +80,60 @@ def failure_message_of(exc: DuplicateKeyError) -> str:
 
 
 async def motor_db_exception_handler(request: Request, exc: PyMongoError):
+    # `str(exc)` quotes the document the server refused -- `consideredValue` under a validator, the
+    # whole `op` under a bulk write -- and a traceback renders it a second time in its last line.
     fl_logger.error(
-        f"Database crash: {str(exc) or NO_DATA_TEXT}",
-        exc_info=True,
+        f"Database crash ({type(exc).__name__}, code {getattr(exc, 'code', None)}): {refused_properties_of(exc) or NO_DATA_TEXT}",
         extra={"error_code": "DB-FAIL-001"},
     )
 
     return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "DB-FAIL-001")
+
+
+# Walked by NAME and never over every key: a refused value sits under `consideredValue` and can
+# itself be an array of documents, which a walk over every key would descend into. An unlisted key
+# costs a field name in the line, never a value.
+_REFUSAL_BRANCHES = ("schemaRulesNotSatisfied", "propertiesNotSatisfied", "details")
+
+
+def refused_properties_of(exc: PyMongoError) -> list[dict[str, str]]:
+    """Which property a document validator refused, which keyword refused it and why.
+
+    Never `consideredValue`: `rejected_fields_of` withholds one for the same reason, and the
+    validators cover every field of every collection, a person's names included.
+    """
+
+    details: Mapping[str, Any] = getattr(exc, "details", None) or {}
+    # A bulk write reports one entry per refused document; every other write reports at the top.
+    refusals = details.get("writeErrors") or [details]
+
+    return [entry for refusal in refusals for entry in _refused_under((refusal.get("errInfo") or {}).get("details") or {}, path="")]
+
+
+def _refused_under(rule: Any, *, path: str) -> list[dict[str, str]]:
+    """Every property refused under `rule`, keyed by its dotted path.
+
+    Total over whatever the driver hands it: a handler that raises while handling leaves the caller
+    with no answer, and only the server decides a refusal report's shape.
+    """
+
+    if not isinstance(rule, Mapping):
+        return []
+
+    name = rule.get("propertyName")
+    here = _dotted(path, name) if name else path
+    entries = [
+        {"loc": _dotted(here, missing), "type": "required", "msg": "property is missing"} for missing in rule.get("missingProperties", ())
+    ]
+
+    if "reason" in rule:
+        entries.append({"loc": here or NO_DATA_TEXT, "type": str(rule.get("operatorName", "")), "msg": str(rule["reason"])})
+
+    return entries + [entry for branch in _REFUSAL_BRANCHES for child in rule.get(branch, ()) for entry in _refused_under(child, path=here)]
+
+
+def _dotted(path: str, name: Any) -> str:
+    return f"{path}.{name}" if path else str(name)
 
 
 async def invalid_bson_oid_exception_handler(request: Request, exc: InvalidId):
