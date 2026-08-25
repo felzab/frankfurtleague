@@ -52,6 +52,7 @@ from app.core.crud import (
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
+    SaisonSpielerCollection,
     SaisonTeamsCollection,
     SpieleCollection,
     TeamsCollection,
@@ -442,13 +443,15 @@ async def replace_saison_team(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
+    saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
+    today: str = Depends(get_german_date_str),
 ) -> FLReplaceSaisonTeamResponse:
     """
     Hand this season's junction row, and every fixture on it, to another club.
 
-    The row's `team_id`, its identity copy and its `austritt` move with the club's side of each
-    fixture, in ONE transaction: the schedule, its shape and its dates survive.
+    Its `team_id`, identity copy, `austritt` and every fixture side move, and the outgoing club's
+    live squad rows are retired, in ONE transaction: the schedule survives.
     """
 
     # Outside the transaction, as the group swap reads it: an unknown season is a 404 about the
@@ -533,6 +536,16 @@ async def replace_saison_team(
             session=session,
         )
 
+        # Retired, not moved: the players did not transfer, and a row left standing would name a
+        # season its club now holds no junction row in -- what `REQ-SQUAD-001` refuses to create.
+        # LIVE rows alone, so an earlier exit keeps its own date.
+        retired_squad = await patch_many_in_db(
+            collection=saison_spieler_collection,
+            db_filter={"saison_id": saison_id, "team_id": team_id, "inactive_since": None},
+            update={"$set": {"inactive_since": today}},
+            session=session,
+        )
+
         # Built from the AFTER image, so the echo cannot describe a row this write did not land; a
         # stored `gruppe` outside A-D raises here and aborts the transaction rather than answering.
         return FLReplaceSaisonTeamResponse(
@@ -543,6 +556,7 @@ async def replace_saison_team(
             name=updated_raw["name"],
             shorthand=updated_raw["shorthand"],
             fanned_out_to_spiele=fanned_out,
+            retired_squad_rows=retired_squad.modified_count,
         )
 
     # One transaction over every write: a row handed over while its fixtures are not leaves the

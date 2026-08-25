@@ -288,7 +288,7 @@ class FLSaisonTeamResponse(BaseAPIResponse):
 
 
 class FLReplaceSaisonTeamResponse(BaseAPIResponse):
-    """The junction row as the replacement left it, plus the fan-out it carried into the fixtures.
+    """The junction row as the replacement left it, plus what it reached beyond that row.
 
     No `austritt`: a replacement clears it, so the field could hold only one value here and would
     state nothing.
@@ -306,6 +306,9 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     # Reported rather than assumed, as `FLPatchTeamResponse` reports its own: this fan-out is the
     # half of the endpoint that fails silently (`docs/backend/spec.md :: I13`).
     fanned_out_to_spiele: int
+    # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
+    # it, and zero is a real answer -- a club can hold a junction row and no squad at all.
+    retired_squad_rows: int
 
 
 FLTeamsResponse = Annotated[

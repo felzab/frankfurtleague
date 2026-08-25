@@ -2692,7 +2692,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/replace": {
       "post": {
         "summary": "Replace a club in a season, keeping its schedule",
-        "description": "Hand this season's junction row, and every fixture on it, to another club.\n\nThe row's `team_id`, its identity copy and its `austritt` move with the club's side of each\nfixture, in ONE transaction: the schedule, its shape and its dates survive.",
+        "description": "Hand this season's junction row, and every fixture on it, to another club.\n\nIts `team_id`, identity copy, `austritt` and every fixture side move, and the outgoing club's\nlive squad rows are retired, in ONE transaction: the schedule survives.",
         "operationId": "replace_saison_team_api_v0_teams__team_id__saisons__saison_id__replace_post",
         "security": [
           {
@@ -5643,6 +5643,10 @@
           "fanned_out_to_spiele": {
             "type": "integer",
             "title": "Fanned Out To Spiele"
+          },
+          "retired_squad_rows": {
+            "type": "integer",
+            "title": "Retired Squad Rows"
           }
         },
         "type": "object",
@@ -5653,10 +5657,11 @@
           "gruppe",
           "name",
           "shorthand",
-          "fanned_out_to_spiele"
+          "fanned_out_to_spiele",
+          "retired_squad_rows"
         ],
         "title": "FLReplaceSaisonTeamResponse",
-        "description": "The junction row as the replacement left it, plus the fan-out it carried into the fixtures.\n\nNo `austritt`: a replacement clears it, so the field could hold only one value here and would\nstate nothing."
+        "description": "The junction row as the replacement left it, plus what it reached beyond that row.\n\nNo `austritt`: a replacement clears it, so the field could hold only one value here and would\nstate nothing."
       },
       "FLSaison": {
         "properties": {

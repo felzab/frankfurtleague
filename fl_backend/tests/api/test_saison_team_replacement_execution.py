@@ -4,6 +4,7 @@ from typing import Any, Awaitable, Callable, Sequence
 import pytest
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pydantic import ValidationError
 
 from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import FLReplaceSaisonTeamPayload
@@ -57,6 +58,16 @@ SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072600f1")
 
 INCOMING_SIDE = {"team_id": INCOMING, "name": "Incoming", "shorthand": "IN", "tore": None}
 
+# The day the replacement runs, and a departure from the same squad that predates it.
+REPLACED_ON = "2026-04-15"
+LEFT_EARLIER_ON = "2026-03-01"
+
+# A prefix of their own, so a squad row's id cannot be mistaken for a club's in a failure message.
+SQUAD_ROW_ID = "6890a1b2c3d4e5f60726a{:03d}"
+SQUAD_PERSON_ID = "6890a1b2c3d4e5f60726b{:03d}"
+
+LIVE_IN_THE_OUTGOING_SQUAD = 2
+
 
 def junction(team_id: ObjectId, gruppe: str, austritt: dict[str, Any] | None = None) -> dict[str, Any]:
     """A dict rather than a model: `saison_teams` is the one collection with no model of the row."""
@@ -64,6 +75,50 @@ def junction(team_id: ObjectId, gruppe: str, austritt: dict[str, Any] | None = N
     name, shorthand = PLAYED_AS[team_id]
 
     return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": gruppe, "austritt": austritt, "name": name, "shorthand": shorthand}
+
+
+def default_junctions() -> list[dict[str, Any]]:
+    """The season's four rows, built per call so a test may seed a different set without editing this one."""
+
+    return [junction(WITHDRAWN, "A", dict(EXIT)), junction(RIVAL, "A"), junction(ENTERED, "B"), junction(PHANTOM, "B")]
+
+
+def squad_row(
+    index: int,
+    *,
+    team_id: ObjectId,
+    inactive_since: str | None,
+    saison_id: str = SAISON_ID,
+    person: int | None = None,
+) -> dict[str, Any]:
+    """One `saison_spieler` row, keyed back by its `nummer`. A live one carries an explicit `None`, which is what the retirement matches on.
+
+    `person` names the `spieler_id`, so one player can hold a row in two seasons.
+    """
+
+    return {
+        "_id": ObjectId(SQUAD_ROW_ID.format(index)),
+        "spieler_id": ObjectId(SQUAD_PERSON_ID.format(index if person is None else person)),
+        "saison_id": saison_id,
+        "team_id": team_id,
+        "is_nachgetragen": False,
+        "is_captain": False,
+        "stufe": "Q2",
+        "position": "Angriff",
+        "nummer": str(index),
+        "inactive_since": inactive_since,
+    }
+
+
+# The outgoing club's live squad, a row that left it earlier, another club's squad in the same
+# season, and row 1's own player one season back -- the four sets the retirement has to tell apart.
+SQUAD_ROWS = [
+    squad_row(1, team_id=WITHDRAWN, inactive_since=None),
+    squad_row(2, team_id=WITHDRAWN, inactive_since=None),
+    squad_row(3, team_id=WITHDRAWN, inactive_since=LEFT_EARLIER_ON),
+    squad_row(4, team_id=RIVAL, inactive_since=None),
+    squad_row(5, team_id=WITHDRAWN, inactive_since=None, saison_id=PRIOR_SAISON_ID, person=1),
+]
 
 
 def club(team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]:
@@ -143,6 +198,7 @@ def on_a_seeded_season(
     *,
     spiele: Sequence[dict[str, Any]] | None = None,
     saison_status: str = "active",
+    junctions: Sequence[dict[str, Any]] | None = None,
 ) -> Any:
     """One client and event loop per call: Motor binds to the loop it first ran on. A transaction cannot create a collection.
 
@@ -158,13 +214,12 @@ def on_a_seeded_season(
             await database[Collection.SAISONS].insert_many(
                 [{"_id": SAISON_ID, "status": saison_status}, {"_id": PRIOR_SAISON_ID, "status": "past"}]
             )
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [junction(WITHDRAWN, "A", dict(EXIT)), junction(RIVAL, "A"), junction(ENTERED, "B"), junction(PHANTOM, "B")]
-            )
+            await database[Collection.SAISON_TEAMS].insert_many(list(default_junctions() if junctions is None else junctions))
             # No document for PHANTOM, which is the whole point of that junction row.
             await database[Collection.TEAMS].insert_many(
                 [club(WITHDRAWN), club(INCOMING), club(RIVAL), club(ENTERED), club(RETIRED, inactive_since="2026-02-01")]
             )
+            await database[Collection.SAISON_SPIELER].insert_many(list(SQUAD_ROWS))
             await database.create_collection(Collection.SPIELE)
             await database[Collection.SPIELE].insert_many(list(SEASON_FIXTURES if spiele is None else spiele))
 
@@ -192,7 +247,9 @@ async def call_replace(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
         db=client,
+        today=REPLACED_ON,
     )
 
 
@@ -212,6 +269,14 @@ async def spiele_now(database: AsyncIOMotorDatabase) -> dict[int, dict[str, Any]
     return {row["spiel_nr"]: row for row in rows}
 
 
+async def squad_now(database: AsyncIOMotorDatabase) -> dict[int, dict[str, Any]]:
+    """Every squad row of every season, keyed by the `nummer` its seed carries."""
+
+    rows = await database[Collection.SAISON_SPIELER].find({}).to_list(length=None)
+
+    return {int(row["nummer"]): row for row in rows}
+
+
 async def _row_after(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, team_id: ObjectId = WITHDRAWN) -> Any:
     await call_replace(database, client, team_id=team_id)
 
@@ -222,6 +287,12 @@ async def _spiele_after(database: AsyncIOMotorDatabase, client: AsyncIOMotorClie
     await call_replace(database, client)
 
     return await spiele_now(database)
+
+
+async def _squad_after(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    await call_replace(database, client)
+
+    return await squad_now(database)
 
 
 async def _refused(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, incoming: ObjectId = INCOMING) -> Any:
@@ -340,6 +411,69 @@ class TestAllFourLayersMoveTogether:
         assert (response.gruppe, response.name, response.shorthand) == (row["gruppe"], row["name"], row["shorthand"])
 
 
+class TestTheOutgoingClubsSquadIsRetired:
+    """The fifth surface, the one that does not move: `REQ-SQUAD-001` refuses a squad row whose club holds no junction row for the season."""
+
+    def test_the_live_rows_are_stamped_with_the_day_of_the_replacement(self, mongo_replica_set_url: str):
+        """Kills leaving them standing: a season-and-team read of `GET /spieler` goes on serving the outgoing club's squad."""
+
+        squad = on_a_seeded_season(mongo_replica_set_url, _squad_after)
+
+        assert (squad[1]["inactive_since"], squad[2]["inactive_since"]) == (REPLACED_ON, REPLACED_ON)
+
+    def test_a_row_that_left_the_squad_earlier_keeps_its_own_date(self, mongo_replica_set_url: str):
+        """Kills dropping `inactive_since: None` from the filter, which rewrites the date of a departure that had already happened."""
+
+        squad = on_a_seeded_season(mongo_replica_set_url, _squad_after)
+
+        assert squad[3]["inactive_since"] == LEFT_EARLIER_ON
+
+    def test_the_players_stay_with_the_club_they_registered_for(self, mongo_replica_set_url: str):
+        """Kills repointing `team_id` at the incoming club: nobody transferred, and that club registers a squad of its own."""
+
+        squad = on_a_seeded_season(mongo_replica_set_url, _squad_after)
+
+        assert {squad[index]["team_id"] for index in (1, 2, 3)} == {WITHDRAWN}
+
+    def test_another_clubs_squad_in_the_same_season_is_untouched(self, mongo_replica_set_url: str):
+        """Kills a filter missing `team_id`, which would empty every squad in the season."""
+
+        squad = on_a_seeded_season(mongo_replica_set_url, _squad_after)
+
+        assert squad[4]["inactive_since"] is None
+
+    def test_the_same_player_in_another_season_is_untouched(self, mongo_replica_set_url: str):
+        """Kills a filter missing `saison_id`: row 5 is row 1's own player, in the same club, one season back."""
+
+        squad = on_a_seeded_season(mongo_replica_set_url, _squad_after)
+
+        assert squad[5]["inactive_since"] is None
+
+    def test_the_count_reports_what_the_write_touched(self, mongo_replica_set_url: str):
+        """`docs/backend/spec.md :: I13`. Kills a count assumed rather than taken from the write, which the rows themselves then contradict."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            response = await call_replace(database, client)
+            return response.retired_squad_rows, await squad_now(database)
+
+        retired, squad = on_a_seeded_season(mongo_replica_set_url, body)
+
+        assert retired == LIVE_IN_THE_OUTGOING_SQUAD
+        assert retired == sum(1 for row in squad.values() if row["inactive_since"] == REPLACED_ON)
+
+    def test_an_abort_takes_the_retirement_back(self, mongo_replica_set_url: str):
+        """Kills dropping `session=`, which retires a squad for a replacement that never landed. The echo rejects the stored `gruppe`."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            with pytest.raises(ValidationError):
+                await call_replace(database, client)
+            return await squad_now(database)
+
+        squad = on_a_seeded_season(mongo_replica_set_url, body, junctions=[junction(WITHDRAWN, "Z", dict(EXIT)), junction(RIVAL, "A")])
+
+        assert [squad[index]["inactive_since"] for index in (1, 2)] == [None, None]
+
+
 class TestTheReplacementReachesNothingElse:
     def test_a_fixture_between_two_other_clubs_is_untouched(self, mongo_replica_set_url: str):
         """Kills a fan-out filtered on the season alone, which passes every assertion about the sides that did move."""
@@ -392,10 +526,18 @@ class TestAPhantomRowIsRepaired:
     def test_a_row_with_no_austritt_is_replaceable(self, mongo_replica_set_url: str):
         """The phantom row carries none. Kills a gate demanding a recorded exit, which a replacement before activation never has."""
 
-        row = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _row_after(database, client, team_id=PHANTOM))
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            before = await row_of(database, PHANTOM)
+            await call_replace(database, client, team_id=PHANTOM)
+            return before, await row_of(database, INCOMING)
 
-        assert row is not None
-        assert row["austritt"] is None
+        seeded, row = on_a_seeded_season(mongo_replica_set_url, body)
+
+        # The floor is the seed: read back after the write, `austritt` is `None` whether the
+        # endpoint cleared it or never named it, so the case rests on the row going in without one.
+        assert seeded is not None and seeded["austritt"] is None
+
+        assert row is not None, "a gate refused the row this endpoint exists to repair"
 
 
 class TestAClubThatHasPlayedIsNotReplaced:
