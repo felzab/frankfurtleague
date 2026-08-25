@@ -597,8 +597,9 @@ def check_binary_bytes() -> list[Finding]:
         if (offset := data.find(b"\r")) >= 0:
             detail = (
                 f"a CR byte at {_byte_site(data, offset)}. Every line here ends with LF alone, and a CR git cannot read as "
-                "part of a CRLF pair stops it classifying this file's endings, so `.gitattributes`' LF mandate stops applying "
-                "to it. The diff still reads. Repair: delete the byte, and save the file as UTF-8 with LF."
+                "part of a CRLF pair leaves it unable to classify this file's endings, so `.gitattributes`' LF mandate "
+                "lapses and CRLF commits through unwarned, while the diff still reads. Repair: delete the byte, and save "
+                "the file as UTF-8 with LF."
             )
             found.append(Finding("fail", "binary-byte", rel, detail))
     return found

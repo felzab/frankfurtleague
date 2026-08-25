@@ -255,7 +255,7 @@ def test_the_admin_read_carries_what_the_match_editor_prefills_a_fixture_from(se
 
 @pytest.mark.db
 def test_the_street_address_is_still_public_through_the_maps_link(seeded_url: str):
-    """`READ-ADDRESS-001`: the parts left the public tier because `maps_link` already carries them.
+    """`READ-ADDRESS-001`: the parts are admin-tier because `maps_link` already carries them.
 
     COMPOSED here rather than seeded, so the equality holds
     `app/api/spielorte/admin_router.py :: _maps_link` and not a string this file wrote.

@@ -675,8 +675,8 @@ def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
 def _standing_row(team: FLTeam, still_to_play: int) -> FLGruppenTeam:
     """One ranked team as the table publishes it, with the still-to-play term the placing rule needs.
 
-    Narrowed on purpose: this response reaches a public client component, which renders none of the
-    club's address (`READ-ADDRESS-001`).
+    Narrowed on purpose: this response reaches a public client component, so every field on it is in
+    the page source whether a column renders it or not.
     """
 
     return FLGruppenTeam(

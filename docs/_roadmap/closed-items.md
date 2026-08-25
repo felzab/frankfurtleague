@@ -11,10 +11,11 @@ counted. A row is cited by its ID, and its position carries no meaning. What eac
 the rule that the row is a pointer while the closing commit's body is the record — is in
 [`protocol.md`](protocol.md#the-closed-row).
 
-**`OPS-8` and `OPS-40` are in no roadmap file, and neither number is taken.** Nothing records what
-`OPS-8` was. `OPS-40` was the shared write-shape block missing `open(path, "w")`, filed and fixed
-inside one uncommitted tree, so no commit exists for a closed row to point at; both bash guards in
-`.claude/hooks/` carry the shape.
+**`OPS-8` and `OPS-40` are in no roadmap file, and nothing takes either number.** Nothing records
+what `OPS-8` was. `OPS-40` was the shared write-shape block missing `open(path, "w")`, withdrawn
+before it reached a ranked page, so it has no row here. The fix is
+[`4cc32fa0`](https://github.com/felzab/frankfurtleague/commit/4cc32fa0), whose body records it, and
+both bash guards in `.claude/hooks/` carry the shape.
 
 **Forty-seven rows carry an em dash where a closing commit should be**, and every one belongs to the
 `scripts/` and CI rebuild. Forty-six were triaged out rather than worked — thirty-seven on
