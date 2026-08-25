@@ -3,10 +3,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
-const DOMAIN = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "domain.py"), "utf8");
 /** Whitespace-collapsed: the panel's copy is JSX text, so the formatter picks its line breaks. */
 const PANEL = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminSchiedsrichterEditForm", "FormAnonymisierenSection.tsx"),
@@ -25,36 +26,15 @@ const PAGE = readFileSync(
 /** The backend redaction the panel's copy describes, read where it is written. */
 const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
 
-/** What separates the operations one rule is declared against, in the backend's own register. */
-const OPERATION_SEPARATOR = " · ";
-
 const ANONYMISE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren";
 
-/**
- * Every refusal one endpoint declares, read off the backend's register. Source text rather than an
- * import: the register is Python, and a `"use server"` module may export nothing but async actions.
- */
-function declaredCodes(operation: string): string[] {
-  const codes = DOMAIN.split("Rule(")
-    .slice(1)
-    .filter((entry) => (/operation="([^"]+)"/.exec(entry)?.[1] ?? "").split(OPERATION_SEPARATOR).includes(operation))
-    .map((entry) => /code="([^"]+)"/.exec(entry)?.[1] ?? "");
-
-  return [...new Set(codes)].sort();
-}
-
-/** One declaration's source, up to the declaration named after it. */
-function sliceFrom(from: string, to: string | null): string {
-  const start = ACTIONS.indexOf(from);
-  if (start === -1) return "";
-  const end = to === null ? ACTIONS.length : ACTIONS.indexOf(to, start + from.length);
-
-  return end === -1 ? "" : ACTIONS.slice(start, end);
-}
-
 /* The anonymisation is the last declaration in the module, so its slice runs to the end of the file. */
-const ANONYMISE_ACTION = sliceFrom("export async function anonymiseSchiedsrichterAction", null);
-const RETIRE_ACTION = sliceFrom("export async function deleteSchiedsrichterAction", "export async function reactivateSchiedsrichterAction");
+const ANONYMISE_ACTION = sliceBetween(ACTIONS, "export async function anonymiseSchiedsrichterAction", null);
+const RETIRE_ACTION = sliceBetween(
+  ACTIONS,
+  "export async function deleteSchiedsrichterAction",
+  "export async function reactivateSchiedsrichterAction",
+);
 
 describe("the anonymisation against the backend's refusal register", () => {
   /* First, because a boundary string that stopped matching leaves the slices empty and every
@@ -120,19 +100,22 @@ describe("the anonymisation's copy", () => {
   });
 
   it("arms before it writes", () => {
-    assert.match(PANEL, /if \(!isConfirming\) \{ setIsConfirming\(true\); return; \}/, "the panel writes on the first press");
-    assert.match(PANEL, /Bist Du Dir sicher\?/, "the armed panel announces nothing");
-    assert.match(PANEL, /role="alert"/, "the escalation replaces the copy in place with no announcement");
+    // The two-press ORDER is the shared hook's and is pinned once at `shared/hooks/useTwoPressConfirm.test.ts`;
+    // what is panel-local is that the write is reached only through `press`, never from the bare handler.
+    assert.match(PANEL, /press\(async \(\) => \{/, "the panel writes outside the armed press");
+    assert.match(PANEL, /<ConfirmReveal>/, "the escalation replaces the copy in place with no announcement");
   });
 
   /* The refresh below remounts the form onto the cleared record, so an unsaved draft goes with it —
      the editor refuses to arm while one is open, and it is checked on BOTH presses. */
   it("refuses to run over an unsaved draft", () => {
-    assert.match(PANEL, /if \(!onBeforeAnonymise\(\)\) \{ setIsConfirming\(false\); return; \}/, "the panel arms over an unsaved draft");
-    assert.match(EDIT_FORM, /onBeforeAnonymise=\{guardAgainstDraft\}/, "the editor wires no draft guard to the panel");
+    // Handed to the hook, which runs it before arming AND before writing -- that order is pinned at
+    // `shared/hooks/useTwoPressConfirm.test.ts`, and the guard itself at `shared/utils/draftGuard.ts`.
+    assert.match(PANEL, /useTwoPressConfirm\(onBeforeAnonymise\)/, "the panel arms over an unsaved draft");
+    assert.match(EDIT_FORM, /onBeforeAnonymise=\{\(\) => guardAgainstDraft\(/, "the editor wires no draft guard to the panel");
     assert.match(
-      EDIT_FORM,
-      /const guardAgainstDraft = \(\): boolean => \{ if \(!isDirty\) return true;/,
+      readFileSync(path.resolve(import.meta.dirname, "../../shared/utils/draftGuard.ts"), "utf8"),
+      /export function guardAgainstDraft\(isDirty: boolean/,
       "the guard no longer reads the draft",
     );
   });
@@ -140,7 +123,9 @@ describe("the anonymisation's copy", () => {
   /* What the guard warns about is the LOSS the remount causes. A write-back is what happens with no
      refresh at all, which is the test below — the two failures are opposite and cannot share words. */
   it("warns about losing the draft, not about writing it back", () => {
-    const warning = /appToast\.warning\("Erst speichern", \{ description: ([\s\S]*?)\}\);/.exec(EDIT_FORM)?.[1] ?? "";
+    // The toast moved into the shared guard, so what the editor now passes is the subject the draft
+    // is in the way of; the sentence around it lives at `shared/utils/draftGuard.ts`.
+    const warning = /guardAgainstDraft\(\s*isDirty,\s*"([^"]*)"/.exec(EDIT_FORM)?.[1] ?? "";
 
     assert.notEqual(warning, "", "the guard no longer warns at all");
     assert.match(warning, /verwerfen|verworfen/, "the guard does not say the unsaved changes are lost");
@@ -155,9 +140,8 @@ describe("the anonymisation's copy", () => {
 });
 
 describe("the refresh that lands the cleared record", () => {
-  /* The page keys the view on the stored record, so the refresh is what remounts the form onto the
-     cleared one. Without it the boxes keep the deleted values, the draft reads as clean, and the
-     next save writes them back. */
+  /* Both halves or neither: without the key the refresh remounts nothing, and without the refresh
+     the boxes keep the deleted values and the next save writes them back. */
   it("refreshes after the write, onto a view the page keys on the record", () => {
     assert.match(PANEL, /appToast\.success\("Kontaktdaten gelöscht"[\s\S]*?router\.refresh\(\);/, "the cleared record never reaches the form");
     assert.match(PAGE, /key=\{JSON\.stringify\(schiedsrichter\)\}/, "the view no longer remounts when the record changes");

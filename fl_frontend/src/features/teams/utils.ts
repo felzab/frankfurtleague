@@ -28,12 +28,11 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], mem
 };
 
 /**
- * The one route back for a squad row this write took out: its own club has to hold a place in the
- * season again, and `REQ-ENTER-001` admits a club only to a `future` one.
+ * `REQ-SQUAD-001` judges the row's `team_id` on the PATCH as well as on the reactivate, so a row
+ * reassigned to a club this season holds comes back without its own club returning.
  */
-const SQUAD_STAYS_OUT =
-  "Reaktivieren lässt sich ein solcher Eintrag erst, wenn das ausscheidende Team wieder in dieser Saison steht — " +
-  "und aufnehmen lässt sich ein Team nur in eine geplante Saison.";
+const SQUAD_REPAIR =
+  "Um einen solchen Eintrag zu reaktivieren, bearbeite den Spieler und weise den Eintrag im Bereich „Kader“ einem Team dieser Saison zu.";
 
 /**
  * What one replacement moved, for the report that follows it. The squad half says AUSTRAGEN: this
@@ -64,7 +63,7 @@ export const describeReplacementUmfang = ({
       ? "Ein Kadereintrag des ausscheidenden Teams wurde ausgetragen."
       : `${String(retiredSquadRows)} Kadereinträge des ausscheidenden Teams wurden ausgetragen.`;
 
-  return `${spiele} ${ausgetragen} ${SQUAD_STAYS_OUT}`;
+  return `${spiele} ${ausgetragen} ${SQUAD_REPAIR}`;
 };
 
 /**

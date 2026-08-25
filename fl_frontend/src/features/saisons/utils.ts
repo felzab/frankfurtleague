@@ -40,16 +40,47 @@ export function hasTakenPlace(spiel: FLSpiel): boolean {
 }
 
 /**
- * **Mirrors `fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact`**, which is what
- * `REQ-SPIELPLAN-005` counts. Wider than `hasTakenPlace`: any `sonderereignis` closes the replace,
- * and so do a venue, a referee and a note. A date does not.
+ * The one phase `fl_backend/app/api/saisons/spielplan.py :: draw_spielplan` fills the sides of.
+ * Every other it wires and leaves empty, and that difference is the whole of what
+ * `aSideIsOffTheDraw` reads.
+ */
+const DRAWN_HOLDING_ITS_SIDES: FLSaisonPhase = "gruppenphase";
+
+/**
+ * **Mirrors `fl_backend/app/api/saisons/services.py :: _a_side_is_off_the_draw`.** A group fixture
+ * is drawn OCCUPIED and unwired and a bracket fixture WIRED and empty, so every other pairing is an
+ * edit somebody made.
+ */
+function aSideIsOffTheDraw(spiel: FLSpiel): boolean {
+  // Both facts read against the PHASE and never alone: "holds a side" is true of every group fixture
+  // the draw wrote, and would shut the window on every drawn season.
+  const drawn = spiel.saison_phase === DRAWN_HOLDING_ITS_SIDES ? { occupied: true, wired: false } : { occupied: false, wired: true };
+
+  const sides = [
+    [spiel.team1, spiel.team1_quelle],
+    [spiel.team2, spiel.team2_quelle],
+  ] as const;
+
+  return sides.some(([seite, quelle]) => (seite !== null) !== drawn.occupied || (quelle !== null) !== drawn.wired);
+}
+
+/**
+ * **Mirrors `fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact`**,
+ * `REQ-SPIELPLAN-005`'s own count. Wider than `hasTakenPlace`: every `sonderereignis` closes the
+ * replace, and so does anything the draw did not write. A date does not.
  */
 export function holdsARecordedFact(spiel: FLSpiel): boolean {
   // EVERY `sonderereignis`, the two cancellations included. This asks what has been ENTERED against
   // the fixture rather than what it awards, which is why `hasTakenPlace`'s narrower set is wrong here.
   if (spiel.ergebnis !== null || spiel.sonderereignis !== null) return true;
 
+  // Beside `ergebnis` rather than behind it: a save stores a shoot-out only where it stores a result
+  // too, so one standing alone reached the document by the hand edit route the goals below cover.
+  if (spiel.elfmeterschiessen !== null) return true;
+
   if ((spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null) return true;
+
+  if (aSideIsOffTheDraw(spiel)) return true;
 
   // TRIMMED, never compared to null: the draw writes no note, and a hand edit at the database can
   // leave `""` behind, which is not a record anybody entered.
@@ -230,9 +261,9 @@ export function describeSpielplanUmfang(spieltage: number, spiele: number): stri
 }
 
 /**
- * How many of a season's fixtures already carry a date or a kickoff time, as a readout row states it.
- * **One phrase for both destructive confirmations**: the replace and the undraw throw away the same
- * scheduling, and two copies of the sentence could grade the same season differently.
+ * **One phrase for every armed confirmation's fixture count**: the replace, the undraw and the club
+ * replacement each state one, and two copies of it could grade the same figure differently. The
+ * label above the row carries whose fixtures they are.
  */
 export function describeAngesetzteSpiele(angesetzt: number): string {
   return angesetzt === 0 ? "Keine" : angesetzt === 1 ? "ein Spiel" : `${String(angesetzt)} Spiele`;

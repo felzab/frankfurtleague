@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { RECORDED_FACTS_ANY, RECORDED_FACTS_NONE } from "./constants.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
   buildSpielplanBestand,
@@ -60,12 +61,28 @@ describe("holdsDrawnSpiele", () => {
 });
 
 describe("buildSpielplanBestand", () => {
-  /** An ordinary undated fixture: nothing recorded, nothing scheduled, which is what a fresh draw writes. */
-  const FRISCH: FLSpiel = {
+  const TEAM_1 = "2".repeat(24);
+  const TEAM_2 = "3".repeat(24);
+
+  const seite = (tore: number | null, teamId: string): FLSpiel["team1"] => ({
+    team_id: teamId,
+    tore,
+    name: "SV Beispiel",
+    shorthand: "SVB",
+    austritt_type: null,
+  });
+
+  const QUELLE: FLSpiel["team1_quelle"] = { type: "gruppe", gruppe: "A", platz: 1 };
+
+  /**
+   * A group fixture as the draw leaves it: both sides OCCUPIED, neither wired, nothing entered. An
+   * empty-sided one is an EMPTIED fixture instead, which is a state the endpoint counts.
+   */
+  const GRUPPENSPIEL: FLSpiel = {
     id: "0".repeat(24),
     spieltag_id: "1".repeat(24),
-    team1: null,
-    team2: null,
+    team1: seite(null, TEAM_1),
+    team2: seite(null, TEAM_2),
     team1_quelle: null,
     team2_quelle: null,
     datum: null,
@@ -81,29 +98,44 @@ describe("buildSpielplanBestand", () => {
     notiz: null,
   };
 
-  const seite = (tore: number | null): FLSpiel["team1"] => ({
-    team_id: "2".repeat(24),
-    tore,
-    name: "SV Beispiel",
-    shorthand: "SVB",
-    austritt_type: null,
-  });
+  /** A bracket fixture as the draw leaves it — WIRED and empty, the exact inverse of the group shape. */
+  const KOSPIEL: FLSpiel = {
+    ...GRUPPENSPIEL,
+    saison_phase: "halbfinale",
+    team1: null,
+    team2: null,
+    team1_quelle: QUELLE,
+    team2_quelle: { type: "spiel", spiel_nr: 3, ausgang: "sieger" },
+  };
 
-  const spiel = (fields: Partial<FLSpiel> = {}): FLSpiel => ({ ...FRISCH, ...fields });
+  const spiel = (fields: Partial<FLSpiel> = {}): FLSpiel => ({ ...GRUPPENSPIEL, ...fields });
+  const koSpiel = (fields: Partial<FLSpiel> = {}): FLSpiel => ({ ...KOSPIEL, ...fields });
 
+  // Two helpers rather than one: `saison_phase` decides how a fixture is read, so a bracket document
+  // handed to the group list would be a state no season reaches.
   const bestandOf = (...spiele: FLSpiel[]) => buildSpielplanBestand({ gruppenSpiele: spiele, playoffSpiele: [] });
+  const koBestandOf = (...spiele: FLSpiel[]) => buildSpielplanBestand({ gruppenSpiele: [], playoffSpiele: spiele });
 
   const ORT: FLSpiel["ort"] = { spielort_id: "3".repeat(24), name: "Platz 1", maps_link: "https://example.invalid" };
   const SCHIRI: FLSpiel["schiedsrichter"] = { schiedsrichter_id: "4".repeat(24), name: "A. Beispiel" };
 
+  /* BOTH shapes the draw writes, because the predicate reads them as inverses. Judge a side without
+     its phase and one of the two reads as an edit, which shuts the window on every drawn season. */
   it("counts a freshly drawn season as holding fixtures and nothing else", () => {
-    assert.deepEqual(bestandOf(spiel(), spiel(), spiel()), { spiele: 3, erfasst: 0, angesetzt: 0 });
+    assert.deepEqual(buildSpielplanBestand({ gruppenSpiele: [spiel(), spiel()], playoffSpiele: [koSpiel()] }), {
+      spiele: 3,
+      erfasst: 0,
+      angesetzt: 0,
+    });
   });
 
   /* `playoffs` is every phase but `gruppenphase`, so a season whose only played fixture sits in the
-     bracket would be replaced over a recorded result if one read were dropped. */
+     bracket would be replaced over a recorded result if one read were dropped. The tie is a played
+     one: which CLAUSE answers belongs to the cases below. */
   it("counts both halves of the season's partition", () => {
-    assert.deepEqual(buildSpielplanBestand({ gruppenSpiele: [spiel()], playoffSpiele: [spiel({ ergebnis: "3:1" })] }), {
+    const gespielt = koSpiel({ team1: seite(2, TEAM_1), team2: seite(1, TEAM_2), ergebnis: "2:1" });
+
+    assert.deepEqual(buildSpielplanBestand({ gruppenSpiele: [spiel()], playoffSpiele: [gespielt] }), {
       spiele: 2,
       erfasst: 1,
       angesetzt: 0,
@@ -123,11 +155,65 @@ describe("buildSpielplanBestand", () => {
   });
 
   /* The clause a reader would not predict, and the endpoint has it: a fixture can hold one side's
-     goals with no `ergebnis` at all, and replacing it would delete a number somebody entered. */
+     goals with no `ergebnis` at all, and replacing it would delete a number somebody entered. Zero is
+     one of them, which is why the drawn sides carry `null`. */
   it("counts a lone goal count on either side as recorded", () => {
-    assert.equal(bestandOf(spiel({ team1: seite(2) })).erfasst, 1);
-    assert.equal(bestandOf(spiel({ team2: seite(0) })).erfasst, 1);
-    assert.equal(bestandOf(spiel({ team1: seite(null), team2: seite(null) })).erfasst, 0);
+    assert.equal(bestandOf(spiel({ team1: seite(2, TEAM_1) })).erfasst, 1);
+    assert.equal(bestandOf(spiel({ team2: seite(0, TEAM_2) })).erfasst, 1);
+  });
+
+  /* Stored only beside a result, so one standing alone got there by hand. Read `ergebnis` for both
+     and a replace deletes a shoot-out whose fixture the same press was told held nothing. */
+  it("counts a shoot-out standing without a result", () => {
+    assert.equal(bestandOf(spiel({ elfmeterschiessen: { team1: 5, team2: 4 } })).erfasst, 1);
+  });
+
+  /* `_a_side_is_off_the_draw`'s group half, one clause per assertion: the draw leaves a group fixture
+     occupied, so an emptied side is somebody's edit. */
+  it("counts a group fixture whose side was emptied", () => {
+    assert.equal(bestandOf(spiel({ team1: null })).erfasst, 1);
+    assert.equal(bestandOf(spiel({ team2: null })).erfasst, 1);
+  });
+
+  /* The other group clause: the draw wires no group side, so a provenance on one was put there by
+     hand. The side is left occupied, so no other clause can be what answers. */
+  it("counts a group fixture carrying a provenance", () => {
+    assert.equal(bestandOf(spiel({ team1_quelle: QUELLE })).erfasst, 1);
+    assert.equal(bestandOf(spiel({ team2_quelle: QUELLE })).erfasst, 1);
+  });
+
+  /* The bracket half inverts it: the draw leaves the slot EMPTY, so an occupied one was filled by
+     somebody — by hand, or by the resolution the group phase feeds. The provenance is left standing,
+     so the clause below cannot be what answers. */
+  it("counts a bracket slot that holds a club", () => {
+    assert.equal(koBestandOf(koSpiel({ team1: seite(null, TEAM_1) })).erfasst, 1);
+    assert.equal(koBestandOf(koSpiel({ team2: seite(null, TEAM_2) })).erfasst, 1);
+  });
+
+  /* Clearing the provenance is the one way out of automatic upkeep, and it is the edit the shared
+     German calls a Herkunft. The slot is left empty, so the occupancy clause cannot be what answers. */
+  it("counts a bracket slot whose provenance was cleared", () => {
+    assert.equal(koBestandOf(koSpiel({ team1_quelle: null })).erfasst, 1);
+    assert.equal(koBestandOf(koSpiel({ team2_quelle: null })).erfasst, 1);
+  });
+
+  /* The state the window was judged wrong on: an admin seeded ONE slot by hand, which fills the side
+     and clears its provenance together, over a draw that is otherwise untouched. */
+  it("counts a bracket slot seeded by hand over an otherwise untouched draw", () => {
+    const seeded = koSpiel({ team1: seite(null, TEAM_1), team1_quelle: null });
+
+    assert.deepEqual(buildSpielplanBestand({ gruppenSpiele: [spiel(), spiel()], playoffSpiele: [seeded] }), {
+      spiele: 3,
+      erfasst: 1,
+      angesetzt: 0,
+    });
+  });
+
+  /* The phase is the whole of what tells the two shapes apart, so one pairing is the draw's own under
+     one phase and an edit under the other. Hardcode either shape and one of these reads 0. */
+  it("reads one pairing as drawn or as an edit, according to the phase", () => {
+    assert.equal(koBestandOf({ ...GRUPPENSPIEL, saison_phase: "finale" }).erfasst, 1);
+    assert.equal(bestandOf({ ...KOSPIEL, saison_phase: "gruppenphase" }).erfasst, 1);
   });
 
   /* A booking is work the draw did not write, so the endpoint counts it and the replace closes on it.
@@ -300,5 +386,31 @@ describe("buildSpieltagBound", () => {
 
   it("binds only the end a dated matchday reaches", () => {
     assert.deepEqual(buildSpieltagBound([spieltag(null, "2025-10-05")]), { startMax: null, endMin: "2025-10-05" });
+  });
+});
+
+describe("the German the two windows share", () => {
+  /* One sentence behind six call sites, so the panels and the two refusals cannot come to name
+     different categories. Both articles are checked: German inflects the list, not just joins it. */
+  it("names every category the endpoint counts, in both articles", () => {
+    for (const [none, any] of [
+      ["kein Ergebnis", "ein Ergebnis"],
+      ["kein Ausfall", "ein Ausfall"],
+      ["kein Ort", "ein Ort"],
+      ["kein Schiedsrichter", "ein Schiedsrichter"],
+      ["keine Notiz", "eine Notiz"],
+      ["keine von Hand geänderte Herkunft", "eine von Hand geänderte Herkunft"],
+    ] as const) {
+      assert.ok(RECORDED_FACTS_NONE.includes(none), `the shared sentence drops ${none}`);
+      assert.ok(RECORDED_FACTS_ANY.includes(any), `the shared sentence drops ${any}`);
+    }
+  });
+
+  /* `Herkunft` is bracket-scoped on purpose: the predicate cannot always tell a hand-swapped group
+     occupant from the draw's own, so a noun reaching group sides would promise detection it lacks. */
+  it("claims nothing about every manual change being caught", () => {
+    for (const sentence of [RECORDED_FACTS_NONE, RECORDED_FACTS_ANY]) {
+      assert.doesNotMatch(sentence, /Änderung|geändertes Team|Aufstellung|Besetzung/);
+    }
   });
 });

@@ -15,6 +15,7 @@ export const formPanel = tv({
   variants: {
     tone: {
       neutral: {},
+      /** Grades the act ON OFFER, so a panel takes it only where there is still something to press. */
       danger: {
         root: "border-danger/30",
         header: "border-danger/20 bg-danger/5",

@@ -75,8 +75,7 @@ export function FormAustrittSection({
                 Eine <strong>Disqualifikation</strong> spricht die Liga aus; einen <strong>Rückzug</strong> erklärt das Team selbst.
               </li>
               <li>
-                Sollen die Spiele an ein anderes Team gehen, ist <strong>Team ersetzen</strong> auf der Saisonseite der Weg — nicht der
-                Austritt.
+                Sollen die Spiele an ein anderes Team gehen, ist <strong>Team ersetzen</strong> auf der Saisonseite der Weg, nicht der Austritt.
               </li>
               <li>
                 Der <strong>Grund ist öffentlich</strong> und erscheint wie eingegeben.

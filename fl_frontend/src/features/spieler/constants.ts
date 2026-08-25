@@ -40,3 +40,12 @@ export const ERASURE_NEEDS_RETIREMENT =
  */
 export const REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
   "Reaktivieren lässt sich der Eintrag erst, wenn Du ihn oben im Bereich „Kader“ einem Team dieser Saison zuweist und speicherst.";
+
+/**
+ * The same refusal for a reader standing on the player LIST, where the repair is a page away and no
+ * badge beside the row reports the state. The sibling above points within the editor's own page, so
+ * one sentence cannot serve both readers.
+ */
+export const LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
+  "Das Team dieses Kadereintrags ist in dieser Saison nicht mehr dabei. Bearbeite den Spieler und weise den Eintrag " +
+  "im Bereich „Kader“ einem Team dieser Saison zu.";

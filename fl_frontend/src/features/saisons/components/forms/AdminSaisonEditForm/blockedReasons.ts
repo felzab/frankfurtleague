@@ -1,3 +1,5 @@
+import { RECORDED_FACTS_ANY } from "@/features/saisons/constants";
+
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
 
 /** Everything the draw control and the undraw beside it are decided from, read from one page render. */
@@ -28,9 +30,9 @@ function isReplaceWindowOpen({ saisonStatus, erfassteSpieleCount }: SpielplanCon
 export type UndrawControlInput = Omit<SpielplanControlInput, "hasKoRunden">;
 
 /**
- * Whether the season holds anything a draw put there. **One expression for all three readers**: the
- * replace flag, the reason that gates it and the undraw's offer must agree on what "drawn" means, and
- * a copy of it could confirm a replace on a season the undraw considers empty.
+ * **One expression for all three readers**: the replace flag, the reason gating it and the undraw's
+ * offer must agree on what "drawn" means, or a copy could confirm a replace on a season the undraw
+ * considers empty.
  */
 function holdsADraw({ hasSpielplan, hasDrawnSpiele, spieltageCount }: UndrawControlInput): boolean {
   return hasSpielplan || hasDrawnSpiele || spieltageCount > 0;
@@ -56,7 +58,7 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
     // admin can go and do, so each sentence only says which half closed the window.
     return saisonStatus !== "future"
       ? "Der Spielplan dieser Saison steht. Neu anlegen lässt er sich nur, solange die Saison geplant ist."
-      : "In dieser Saison ist schon etwas eingetragen: ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter oder eine Notiz. Der Spielplan lässt sich dann nicht mehr neu anlegen.";
+      : `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. Der Spielplan lässt sich dann nicht mehr neu anlegen.`;
   }
 
   // `past` alone, never `future`-only, as
@@ -83,9 +85,8 @@ export function spielplanReplacesDraw(input: SpielplanControlInput): boolean {
 }
 
 /**
- * Why taking the draw back is closed, or `null` while it is on offer. **A courtesy and not the
- * control**: `fl_backend/app/api/saisons/services.py :: find_undraw_refusal` weighs the window
- * itself, and this only stops the page offering an act it already knows the answer to.
+ * The undraw's half of the same question, and **a courtesy rather than the control** exactly as the
+ * draw's above is: `fl_backend/app/api/saisons/services.py :: find_undraw_refusal` decides it.
  */
 export function spielplanUndrawBlockedReason(input: UndrawControlInput): string | null {
   const { saisonStatus, erfassteSpieleCount } = input;
@@ -99,7 +100,7 @@ export function spielplanUndrawBlockedReason(input: UndrawControlInput): string 
   if (saisonStatus !== "future") return "Zurücknehmen lässt sich der Spielplan nur, solange die Saison geplant ist.";
 
   if (erfassteSpieleCount > 0)
-    return "In dieser Saison ist schon etwas eingetragen: ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter oder eine Notiz. Der Spielplan lässt sich dann nicht mehr zurücknehmen.";
+    return `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. Der Spielplan lässt sich dann nicht mehr zurücknehmen.`;
 
   return null;
 }

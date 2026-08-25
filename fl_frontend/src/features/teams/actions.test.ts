@@ -3,41 +3,17 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
+import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const DOMAIN = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "domain.py"), "utf8");
-
-/** What separates the operations one rule is declared against, in the backend's own register. */
-const OPERATION_SEPARATOR = " · ";
-
-/**
- * Every refusal one endpoint can answer with, read off the backend's own register. Source text
- * rather than an import: a `"use server"` module may export nothing but async actions, so the
- * mapping functions cannot be reached any other way.
- */
-function declaredCodes(operation: string): string[] {
-  const codes = DOMAIN.split("Rule(")
-    .slice(1)
-    .filter((entry) => (/operation="([^"]+)"/.exec(entry)?.[1] ?? "").split(OPERATION_SEPARATOR).includes(operation))
-    .map((entry) => /code="([^"]+)"/.exec(entry)?.[1] ?? "");
-
-  return [...new Set(codes)].sort();
-}
-
-/** One declaration's source, up to the declaration named after it. */
-function sliceBetween(from: string, to: string): string {
-  const start = ACTIONS.indexOf(from);
-  const end = ACTIONS.indexOf(to, start + from.length);
-
-  return start === -1 || end === -1 ? "" : ACTIONS.slice(start, end);
-}
 
 /* `REQ-ENTER-005` is answered TWICE in this file, once per mapper, so a search over the whole source
    is satisfied by whichever function happens to carry the arm. Every assertion below reads the one
    slice it is about. */
-const ENTRY_MAP = sliceBetween("function mapEntryRefusal", "function mapReplacementRefusal");
-const REPLACEMENT_MAP = sliceBetween("function mapReplacementRefusal", "export async function postTeamAction");
-const REPLACE_ACTION = ACTIONS.slice(ACTIONS.indexOf("export async function replaceSaisonTeamAction"));
+const ENTRY_MAP = sliceBetween(ACTIONS, "function mapEntryRefusal", "function mapReplacementRefusal");
+const REPLACEMENT_MAP = sliceBetween(ACTIONS, "function mapReplacementRefusal", "export async function postTeamAction");
+/* The last declaration in the module, so its slice runs to the end of the file. */
+const REPLACE_ACTION = sliceBetween(ACTIONS, "export async function replaceSaisonTeamAction", null);
 
 /**
  * The German one branch returns, and not the reasoning above it: several comments here name the very
@@ -49,6 +25,12 @@ function messageIn(slice: string, code: string): string {
   return /return "([^"]*)";/.exec(branch)?.[1] ?? "";
 }
 
+/* Each operation is named once. Written twice, a route rename could be answered on one of the two
+   and leave the other reading a string the register no longer holds. */
+const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
+const REPLACEMENT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/replace";
+
+const ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
 const REPLACEMENT_CODES = ["REQ-ENTER-005", "REQ-REPLACE-001", "REQ-REPLACE-002", "REQ-REPLACE-003"];
 
 describe("the team actions against the backend's refusal register", () => {
@@ -68,14 +50,20 @@ describe("the team actions against the backend's refusal register", () => {
   /* `POST /teams/{team_id}/saisons` is a prefix of the replacement's operation, so a substring match
      would hand the entry's codes to the replacement and the replacement's to the entry. */
   it("reads each junction operation as a whole token, not as a prefix", () => {
-    assert.deepEqual(declaredCodes("POST /teams/{team_id}/saisons"), ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"]);
-    assert.deepEqual(declaredCodes("POST /teams/{team_id}/saisons/{saison_id}/replace"), REPLACEMENT_CODES);
+    assert.deepEqual(declaredCodes(ENTRY_OPERATION), ENTRY_CODES);
+    assert.deepEqual(declaredCodes(REPLACEMENT_OPERATION), REPLACEMENT_CODES);
   });
 
   /* A code missing from the mapper is rethrown, and `toActionErrorResult` answers a 409 with the
      message about an entry that already exists — confidently wrong for three of these four. */
   it("maps every refusal the replacement endpoint declares", () => {
-    for (const code of declaredCodes("POST /teams/{team_id}/saisons/{saison_id}/replace"))
+    const declared = declaredCodes(REPLACEMENT_OPERATION);
+
+    // Asserted before the loop rather than left to it: an operation the register stopped naming
+    // declares nothing, the loop then runs zero times, and a green result would claim the mapper
+    // covers an endpoint whose refusals it has in fact stopped reading.
+    assert.deepEqual(declared, REPLACEMENT_CODES);
+    for (const code of declared)
       assert.ok(REPLACEMENT_MAP.includes(`error.serverErrorCode === "${code}"`), `${code} reaches the admin as a generic conflict`);
   });
 
@@ -133,9 +121,8 @@ describe("the German each replacement refusal renders", () => {
     assert.doesNotMatch(message, /[Ll]ösche|[Ee]ntferne/);
   });
 
-  /* One code, two pictures: a club named on both ends lands here too, the row being replaced being one
-     that club holds. And the condition is a `saison_teams` row of ANY kind, so „spielt“ is false for a
-     withdrawn club, which holds one and plays nothing. */
+  /* Both shapes at once: the row being replaced is itself a row the incoming club holds, so a club
+     named on both ends lands on this code too. */
   it("covers both shapes of the already-entered refusal, without claiming the club plays", () => {
     const message = messageIn(REPLACEMENT_MAP, "REQ-REPLACE-003");
 

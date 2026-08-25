@@ -13,7 +13,7 @@ from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchie
 from app.api.schiedsrichter.services import ANONYMISED_KONTAKT
 from app.core.collections import Collection
 from app.core.constraints import SUPPORT_INDEXES, apply_constraints
-from app.core.recording import build_redaction_filter, log_stamp
+from app.core.recording import build_redaction_filter
 from app.shared.schemas.kontakt import FLKontakt
 
 DATABASE_NAME = "fl_schiedsrichter_anonymisierung_test"
@@ -45,8 +45,13 @@ KONTAKT = {
 }
 
 # Injected through `get_germany_now`, so the stamp under test is not the wall clock. Summer time,
-# which is what makes the conversion visible: one instant is 12:30 in Frankfurt and 10:30 in the log.
+# which is what puts an offset on the conversion below.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+
+# The instant above as a log row spells it: 12:30 in Frankfurt is 10:30 in the log. Written out
+# rather than computed from `log_stamp`, a stored stamp compared against the function that produced
+# it agreeing with any conversion of it, including none.
+REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
 # Read off the declaration rather than typed here, so renaming the index fails at its one source.
 TARGET_INDEX = next(index for index in SUPPORT_INDEXES if index.collection == Collection.AKTIONEN and "document_id" in dict(index.keys))
@@ -279,7 +284,7 @@ def test_every_log_row_naming_them_is_emptied_and_stamped(mongo_replica_set_url:
     assert [row for row in seeded if row["before"] is not None], "the seeded log held no image to redact"
     assert len(rows) > len(seeded), "the anonymisation's own patch recorded no row"
     assert all(row["before"] is None for row in rows)
-    assert {row["redacted_at"] for row in rows} == {log_stamp(NOW)}
+    assert {row["redacted_at"] for row in rows} == {REDACTED_AT}
 
 
 @pytest.mark.db
@@ -300,7 +305,7 @@ def test_the_row_the_anonymisations_own_patch_wrote_is_redacted_too(mongo_replic
     assert seeded, "the seeded history left no row to tell the new one from"
     assert len(added) == 1
     assert added[0]["before"] is None
-    assert added[0]["redacted_at"] == log_stamp(NOW)
+    assert added[0]["redacted_at"] == REDACTED_AT
 
 
 @pytest.mark.db

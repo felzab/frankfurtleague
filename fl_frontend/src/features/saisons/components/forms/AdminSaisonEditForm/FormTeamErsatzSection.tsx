@@ -1,97 +1,34 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ArrowRight } from "@gravity-ui/icons";
 
-import { Button, Label, ListBox, Select } from "@heroui/react";
+import { Button } from "@heroui/react";
 
+import { describeAngesetzteSpiele } from "@/features/saisons/utils";
 import { replaceSaisonTeamAction } from "@/features/teams/actions";
 import { Callout } from "@/shared/components/ui/Callout";
-import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_LABEL, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
+import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { confirmButton } from "@/shared/components/ui/formButtons";
+import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
-import { PANEL_REVEAL } from "@/shared/components/ui/motion";
-import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
+import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 
 import { describePlatz, describeUebernommeneSpiele } from "./replacementOffer";
 
 import type { SaisonReplacementContext } from "@/features/saisons/types";
-import type { Key } from "@heroui/react";
+import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";
 
 /** The pair's accessible name, and the sentence the disabled button points at. Both render once here. */
 const PAIR_LABEL_ID = "teamwechsel-paar";
 const BUTTON_HINT_ID = "teamwechsel-hinweis";
-
-/** One row of either picker. `refusal` is why it cannot be taken, rendered beside its name. */
-type PickerOption = { id: string; name: string; meta: string | null; refusal: string | null };
-
-/**
- * One side of the replacement. A refused option stays VISIBLE and disabled rather than disappearing,
- * which is the swap's rule and `GruppeSelect`'s: an admin should see why, not wonder where it went.
- */
-function TeamPicker({
-  label,
-  placeholder,
-  value,
-  options,
-  onChange,
-  isDisabled,
-}: {
-  label: string;
-  placeholder: string;
-  value: PickerOption | null;
-  options: readonly PickerOption[];
-  onChange: (id: string) => void;
-  isDisabled: boolean;
-}) {
-  const handleChange = (key: Key | null) => {
-    const picked = options.find((option) => option.id === key?.toString());
-    if (picked) onChange(picked.id);
-  };
-
-  return (
-    <Select
-      aria-label={label}
-      value={value?.id ?? undefined}
-      onChange={handleChange}
-      isDisabled={isDisabled}
-      className="w-full">
-      {/* HeroUI's own `Label`, for the reason the swap's picker gives: an `aria-label` alone leaves
-          the trigger unlabelled for anything reading the DOM rather than the a11y tree. */}
-      <Label className={FIELD_LABEL}>{label}</Label>
-      <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
-        {/* From the prop rather than `Select.Value`, which can lag a render behind and would show
-            HeroUI's English placeholder — `GruppeSelect`'s reason, and `SaisonSelector`'s. */}
-        <span className={value ? "" : "text-foreground-muted"}>
-          {value === null ? placeholder : value.meta === null ? value.name : `${value.name} (${value.meta})`}
-        </span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
-      </Select.Trigger>
-      <Select.Popover className={`${overlayPanel()} mt-2 max-h-72 overflow-y-auto p-1.5`}>
-        <ListBox aria-label={label}>
-          {options.map((option) => {
-            const note = option.refusal ?? option.meta;
-            return (
-              <ListBox.Item
-                key={option.id}
-                id={option.id}
-                textValue={option.name}
-                isDisabled={option.refusal !== null}
-                className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-base) data-disabled:cursor-not-allowed data-disabled:opacity-40">
-                <span className="min-w-0 truncate">{option.name}</span>
-                {note !== null && <span className="fluid-xs text-foreground-muted shrink-0 font-semibold">{note}</span>}
-              </ListBox.Item>
-            );
-          })}
-        </ListBox>
-      </Select.Popover>
-    </Select>
-  );
-}
 
 /**
  * On `POST /teams/{team_id}/saisons/{saison_id}/replace`: a season's junction row, and every fixture
@@ -109,17 +46,17 @@ export function FormTeamErsatzSection({
   isFinishedSaison: boolean;
 }) {
   const router = useRouter();
-  const [isReplacing, startReplacing] = useTransition();
-  const [isConfirming, setIsConfirming] = useState(false);
   const [outgoingId, setOutgoingId] = useState<string | null>(null);
   const [incomingId, setIncomingId] = useState<string | null>(null);
 
   const outgoing = ersatz.rows.find((row) => row.teamId === outgoingId) ?? null;
   const incoming = ersatz.candidates.find((candidate) => candidate.id === incomingId) ?? null;
 
+  const { isConfirming, isPending: isReplacing, press, cancel } = useTwoPressConfirm();
+
   // `REQ-REPLACE-002` in the form: a fixture carrying a record would be credited to the arriving
   // club, so the row it stands on cannot be handed over.
-  const outgoingOptions: PickerOption[] = ersatz.rows.map((row) => ({
+  const outgoingOptions: RefusableOption[] = ersatz.rows.map((row) => ({
     id: row.teamId,
     name: row.name,
     meta: row.gruppe === null ? "ohne Teamdaten" : `Gruppe ${row.gruppe}`,
@@ -128,7 +65,7 @@ export function FormTeamErsatzSection({
 
   // The outgoing club holds a row here too, so the first arm is also what keeps one club off both
   // ends of the same wechsel — the second picture behind `REQ-REPLACE-003`.
-  const incomingOptions: PickerOption[] = ersatz.candidates.map((candidate) => ({
+  const incomingOptions: RefusableOption[] = ersatz.candidates.map((candidate) => ({
     id: candidate.id,
     name: candidate.name,
     meta: null,
@@ -139,21 +76,15 @@ export function FormTeamErsatzSection({
   const hasPickableCandidate = incomingOptions.some((option) => option.refusal === null);
   const isOffered = !isFinishedSaison && ersatz.rows.length > 0 && hasPickableRow && hasPickableCandidate;
 
-  // The tone grades the act on offer, as the draw's and the rollover's do: nothing a later edit
-  // reverses, but only where there is still something to press.
   const panel = formPanel({ tone: isOffered ? "danger" : "neutral" });
 
   const handleReplace = () => {
+    // Ahead of `press`, so a half-made pair neither arms nor writes. Both are `const`, which is what
+    // carries the narrowing into the closure below.
     if (outgoing === null || incoming === null) return;
 
-    if (!isConfirming) {
-      setIsConfirming(true);
-      return;
-    }
-
-    startReplacing(async () => {
+    press(async () => {
       const res = await replaceSaisonTeamAction({ team_id: outgoing.teamId, saison_id: saisonId, incoming_team_id: incoming.id });
-      setIsConfirming(false);
 
       if (!res.success) {
         appToast.danger("Wechsel fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
@@ -257,14 +188,14 @@ export function FormTeamErsatzSection({
               role="group"
               aria-labelledby={PAIR_LABEL_ID}
               className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-              <TeamPicker
+              <RefusableSelect
                 label="Ausscheidendes Team"
                 placeholder="Team wählen"
                 value={outgoingOptions.find((option) => option.id === outgoingId) ?? null}
                 options={outgoingOptions}
                 onChange={(id) => {
                   setOutgoingId(id);
-                  setIsConfirming(false);
+                  cancel();
                 }}
                 isDisabled={isReplacing}
               />
@@ -279,14 +210,14 @@ export function FormTeamErsatzSection({
                   height={16}
                 />
               </div>
-              <TeamPicker
+              <RefusableSelect
                 label="Nachrückendes Team"
                 placeholder="Team wählen"
                 value={incomingOptions.find((option) => option.id === incomingId) ?? null}
                 options={incomingOptions}
                 onChange={(id) => {
                   setIncomingId(id);
-                  setIsConfirming(false);
+                  cancel();
                 }}
                 isDisabled={isReplacing || outgoing === null}
               />
@@ -297,7 +228,7 @@ export function FormTeamErsatzSection({
                 severity="info"
                 title="Zu diesem Team gibt es keine Daten mehr">
                 Der Platz steht in der Saison, das Team dahinter ist aber nicht mehr angelegt: Es hat keine eigene Seite, und seine Gruppe lässt
-                sich hier nicht anzeigen. Der Wechsel gibt den Platz trotzdem weiter — das nachrückende Team steht danach in der Gruppe, die auf
+                sich hier nicht anzeigen. Der Wechsel gibt den Platz trotzdem weiter. Das nachrückende Team steht danach in der Gruppe, die auf
                 dem Platz eingetragen ist.
               </Callout>
             )}
@@ -314,37 +245,23 @@ export function FormTeamErsatzSection({
               </Callout>
             )}
 
-            {/* Escalated in place, the swap's and the draw's shape: without `role="alert"` the only
-                signal is the button label quietly changing. */}
             {isConfirming && outgoing !== null && incoming !== null && (
-              <div
-                role="alert"
-                className={`${PANEL_REVEAL} bg-danger/5 border-danger/20 flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
-                <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
-
-                {/* Inside the alert rather than beside it, the draw's reason: this IS what the press is
-                    judged on, and a region announced without it asks for agreement to nothing. */}
+              <ConfirmReveal>
                 <div className="flex w-full flex-col gap-y-1">
                   <h3 className={FORM_SECTION_HEADING}>Was {incoming.name} übernimmt</h3>
                   <dl className="flex w-full flex-col gap-y-1">
-                    <div className="flex flex-row items-baseline justify-between gap-x-3">
-                      <dt className="fluid-xxs text-foreground-muted font-bold">Platz in der Saison</dt>
-                      <dd className="fluid-xs text-foreground min-w-0 text-right font-semibold">
-                        {outgoing.gruppe === null ? "Nicht bekannt" : `Gruppe ${outgoing.gruppe}`}
-                      </dd>
-                    </div>
-                    <div className="flex flex-row items-baseline justify-between gap-x-3">
-                      <dt className="fluid-xxs text-foreground-muted font-bold">Angesetzte Spiele</dt>
-                      <dd className="fluid-xs text-foreground min-w-0 text-right font-semibold">
-                        {outgoing.spiele === 0 ? "Keine" : outgoing.spiele === 1 ? "ein Spiel" : `${String(outgoing.spiele)} Spiele`}
-                      </dd>
-                    </div>
-                    <div className="flex flex-row items-baseline justify-between gap-x-3">
-                      <dt className="fluid-xxs text-foreground-muted font-bold">Austritt von {outgoing.name}</dt>
-                      <dd className="fluid-xs text-foreground min-w-0 text-right font-semibold">
-                        {outgoing.hasAustritt ? "wird aufgehoben" : "keiner eingetragen"}
-                      </dd>
-                    </div>
+                    <ConfirmReadoutRow
+                      label="Platz in der Saison"
+                      value={outgoing.gruppe === null ? "Nicht bekannt" : `Gruppe ${outgoing.gruppe}`}
+                    />
+                    <ConfirmReadoutRow
+                      label="Angesetzte Spiele"
+                      value={describeAngesetzteSpiele(outgoing.spiele)}
+                    />
+                    <ConfirmReadoutRow
+                      label={`Austritt von ${outgoing.name}`}
+                      value={outgoing.hasAustritt ? "wird aufgehoben" : "keiner eingetragen"}
+                    />
                   </dl>
                 </div>
 
@@ -353,18 +270,21 @@ export function FormTeamErsatzSection({
                   der Verwaltung nicht: Die Kadereinträge von {outgoing.name} bleiben ausgetragen, auch wenn Du die beiden Teams anschließend
                   erneut wechselst.
                 </p>
-              </div>
+              </ConfirmReveal>
             )}
 
             <div className="flex w-full flex-col gap-y-1.5">
-              <div className="flex w-full flex-row flex-wrap items-center gap-3">
+              <ConfirmActionRow
+                isConfirming={isConfirming}
+                isPending={isReplacing}
+                onCancel={cancel}>
                 <Button
                   type="button"
                   variant="primary"
                   aria-describedby={!isReplacing && isMissingAPick ? BUTTON_HINT_ID : undefined}
                   isDisabled={isReplacing || isMissingAPick}
                   onPress={handleReplace}
-                  className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
+                  className={confirmButton(isConfirming)}>
                   {!isConfirming && (
                     <ArrowRight
                       aria-hidden="true"
@@ -374,17 +294,7 @@ export function FormTeamErsatzSection({
                   )}
                   {isReplacing ? "Wird ersetzt..." : isConfirming ? "Ja, Team ersetzen" : "Team ersetzen"}
                 </Button>
-                {isConfirming && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    isDisabled={isReplacing}
-                    onPress={() => setIsConfirming(false)}
-                    className={formButton({ intent: "cancel" })}>
-                    Abbrechen
-                  </Button>
-                )}
-              </div>
+              </ConfirmActionRow>
               {/* Adjacent to the control it describes, and pointed at by `aria-describedby` — the swap's
                   treatment for a control disabled for a reason the page already shows. */}
               {!isReplacing && isMissingAPick && (

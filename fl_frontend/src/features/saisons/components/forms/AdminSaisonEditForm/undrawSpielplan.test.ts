@@ -3,11 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-/**
- * Source text rather than a render, `spielplanReplace.test.ts`'s idiom and for its reason: the
- * repository has no DOM runner, and every claim below is about copy and branching inside one `.tsx`
- * no exported value carries.
- */
+/** Source text rather than a render, `oneWayGuards.test.ts`'s idiom and for its reason. */
 const SOURCE = readFileSync(path.resolve(import.meta.dirname, "FormSpielplanRuecknahmeSection.tsx"), "utf8");
 
 /** The action file, for the one claim that is about two sites agreeing rather than about this panel. */
@@ -21,10 +17,10 @@ const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..",
 const flatten = (jsx: string): string => jsx.replaceAll('{" "}', " ").replace(/\s+/g, " ");
 
 /**
- * The armed alert alone: from the heading it opens with to the button row that follows it. Anchored
- * on the copy rather than on `role="alert"`, which the comment above the alert also names.
+ * The armed alert alone — what this panel puts INSIDE the shared shell. The heading, the announcement
+ * and the reveal itself belong to `ConfirmReveal` and are asserted at its own home.
  */
-const ARMED = flatten((SOURCE.split("Bist Du Dir sicher?")[1] ?? "").split("flex-row flex-wrap items-center")[0] ?? "");
+const ARMED = flatten((SOURCE.split("<ConfirmReveal>")[1] ?? "").split("</ConfirmReveal>")[0] ?? "");
 
 /** The panel's own hint, where the conditions on an undraw are spelled out for a reader. */
 const HINWEIS = flatten((SOURCE.split("Hinweis zum Zurücknehmen")[1] ?? "").split("</InfoHint>")[0] ?? "");
@@ -42,15 +38,15 @@ describe("the undraw panel", () => {
     assert.ok(!HANDLER.includes("<section"), "the handler's slice runs on into the markup");
   });
 
-  /* Two presses, and the second one writes. Without the arming branch ahead of the write the alert
-     never renders and one press is the whole confirmation, on a write nothing reverses. */
-  it("arms in place before it writes, and announces the armed state", () => {
-    const arming = HANDLER.indexOf("if (!isConfirming)");
-    const writing = HANDLER.indexOf("startUndrawing(");
+  /* Two presses, and the second one writes. Call the action outside `press` and one press is the whole
+     confirmation, on a write nothing reverses — the arming itself is `useTwoPressConfirm`'s to keep. */
+  it("sends the write through the two-press control, and announces the armed state", () => {
+    const arming = HANDLER.indexOf("press(async () => {");
+    const writing = HANDLER.indexOf("undrawSpielplanAction(");
 
-    assert.ok(arming !== -1, "no arming branch in handleUndraw");
-    assert.ok(arming < writing, "the first press writes, so the alert below it is never read");
-    assert.match(SOURCE, /role="alert"/);
+    assert.ok(arming !== -1, "handleUndraw no longer presses through useTwoPressConfirm");
+    assert.ok(arming < writing, "the write stands outside the armed branch");
+    assert.match(SOURCE, /<ConfirmReveal>/);
   });
 
   /* Drop the flag from the button and a second press during the request sends a second DELETE. The
@@ -59,9 +55,8 @@ describe("the undraw panel", () => {
     assert.match(SOURCE, /isDisabled=\{isUndrawing \|\| blockedReason !== null\}/);
   });
 
-  /* The endpoint answers a season already undrawn with 200 and zeroes rather than a refusal, so a
-     success grade there would claim work nobody did and a danger grade would report a failure that
-     did not happen. `watermark_cleared` is read too: a season can hold one with no rows behind it. */
+  /* `watermark_cleared` is in the predicate because a season can hold the watermark with no rows
+     behind it, and clearing that is work. */
   it("grades a response that removed nothing apart, rather than as a failure", () => {
     assert.match(HANDLER, /res\.undraw\.spieltage === 0 && res\.undraw\.spiele === 0 && !res\.undraw\.watermark_cleared/);
     assert.match(HANDLER, /removedNothing \? appToast\.info : appToast\.success/);
@@ -89,12 +84,11 @@ describe("the undraw panel", () => {
     assert.doesNotMatch(SOURCE, /Rückgängig machen|children: "Rückgängig"/);
   });
 
-  /* Short by one and this fails. Every category `holds_a_recorded_fact` counts closes the window, and
-     a hint listing four of five sends an admin hunting a result their note is holding shut. */
-  it("names every category that closes the undraw, the note included", () => {
-    for (const kind of [/kein Ergebnis/, /kein Ausfall/, /kein Ort/, /kein Schiedsrichter/, /keine Notiz/]) {
-      assert.match(HINWEIS, kind);
-    }
+  /* The shared sentence and never a copy of it: six call sites spell this list, and the categories
+     themselves are pinned by `fl_frontend/src/features/saisons/utils.test.ts`. */
+  it("renders the shared list rather than spelling its own", () => {
+    assert.match(HINWEIS, /\{RECORDED_FACTS_NONE\}/);
+    assert.doesNotMatch(HINWEIS, /kein Ergebnis/, "the panel spells the list a second time");
   });
 
   /* This press is the first half of the repair `REQ-RULES-011` sends an admin on, so the panel names

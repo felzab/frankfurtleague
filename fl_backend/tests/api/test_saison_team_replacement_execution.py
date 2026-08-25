@@ -15,6 +15,7 @@ from app.api.teams.services import (
     REPLACE_SAISON_FINISHED,
 )
 from app.core.collections import Collection
+from app.core.constraints import apply_constraints
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 
 pytestmark = pytest.mark.db
@@ -53,6 +54,32 @@ PLAYED_AS = {
 }
 
 EXIT = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-04-01"}
+
+# Required by the shipped `saisons` validator and read by nothing below: no case here turns on a rule.
+RULES = {
+    "win_points": 3,
+    "draw_points": 1,
+    "qualifiers_per_group": 2,
+    "number_of_groups": 4,
+    "teams_per_group": 4,
+    "tiebreak_order": "tordifferenz",
+    "max_kadergroesse": 18,
+    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
+    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
+}
+
+# Likewise for `teams`: a club carries an address and nothing in this suite reads one.
+CLUB_ADDRESS = {"strasse": "Hanauer Landstrasse", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
+
+# The `spiele` keys the shipped validator requires and no case here moves: a fixture nobody has
+# assigned a source, a pitch, a referee or a shoot-out.
+UNFILLED_SPIEL_FIELDS: dict[str, Any] = {
+    "team1_quelle": None,
+    "team2_quelle": None,
+    "ort": None,
+    "schiedsrichter": None,
+    "elfmeterschiessen": None,
+}
 
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072600f1")
 
@@ -124,7 +151,16 @@ SQUAD_ROWS = [
 def club(team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]:
     name, shorthand = CLUB_NAMES[team_id]
 
-    return {"_id": team_id, "name": name, "shorthand": shorthand, "inactive_since": inactive_since}
+    return {
+        "_id": team_id,
+        "name": name,
+        "shorthand": shorthand,
+        "description": "",
+        "full_name": f"{name}-Schule Frankfurt",
+        "website_url": f"https://{shorthand.lower()}.example.de",
+        "address": dict(CLUB_ADDRESS),
+        "inactive_since": inactive_since,
+    }
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
@@ -156,6 +192,7 @@ def gruppen_fixture(
         "uhrzeit": "18:00:00",
         "team1": side(home, tore[0]),
         "team2": side(away, tore[1]),
+        **UNFILLED_SPIEL_FIELDS,
         "ergebnis": ergebnis,
         "sonderereignis": sonderereignis,
     }
@@ -173,6 +210,7 @@ def knockout_fixture(spiel_nr: int, home: ObjectId) -> dict[str, Any]:
         "uhrzeit": "18:00:00",
         "team1": side(home),
         "team2": None,
+        **UNFILLED_SPIEL_FIELDS,
         "ergebnis": None,
         "sonderereignis": None,
     }
@@ -199,10 +237,12 @@ def on_a_seeded_season(
     spiele: Sequence[dict[str, Any]] | None = None,
     saison_status: str = "active",
     junctions: Sequence[dict[str, Any]] | None = None,
+    constrained: bool = True,
 ) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on. A transaction cannot create a collection.
+    """One client and event loop per call: Motor binds to the loop it first ran on.
 
-    `active` by default, because a withdrawal mid-season is what this endpoint is for.
+    `active` by default: a mid-season withdrawal is what this endpoint is for. The SHIPPED
+    validators too, `constrained=False` being the case whose subject is a row they forbid.
     """
 
     async def _run() -> Any:
@@ -211,8 +251,17 @@ def on_a_seeded_season(
             await client.drop_database(DATABASE_NAME)
             database = client[DATABASE_NAME]
 
+            if constrained:
+                await apply_constraints(database)
+            else:
+                await database.create_collection(Collection.SPIELE)
+
+            # Each season spans its own calendar year, so the two seeded spans do not overlap.
             await database[Collection.SAISONS].insert_many(
-                [{"_id": SAISON_ID, "status": saison_status}, {"_id": PRIOR_SAISON_ID, "status": "past"}]
+                [
+                    {"_id": year, "start_date": f"{year}-01-01", "end_date": f"{year}-06-30", "status": status, "rules": dict(RULES)}
+                    for year, status in ((SAISON_ID, saison_status), (PRIOR_SAISON_ID, "past"))
+                ]
             )
             await database[Collection.SAISON_TEAMS].insert_many(list(default_junctions() if junctions is None else junctions))
             # No document for PHANTOM, which is the whole point of that junction row.
@@ -220,7 +269,6 @@ def on_a_seeded_season(
                 [club(WITHDRAWN), club(INCOMING), club(RIVAL), club(ENTERED), club(RETIRED, inactive_since="2026-02-01")]
             )
             await database[Collection.SAISON_SPIELER].insert_many(list(SQUAD_ROWS))
-            await database.create_collection(Collection.SPIELE)
             await database[Collection.SPIELE].insert_many(list(SEASON_FIXTURES if spiele is None else spiele))
 
             return await body(database, client)
@@ -469,7 +517,14 @@ class TestTheOutgoingClubsSquadIsRetired:
                 await call_replace(database, client)
             return await squad_now(database)
 
-        squad = on_a_seeded_season(mongo_replica_set_url, body, junctions=[junction(WITHDRAWN, "Z", dict(EXIT)), junction(RIVAL, "A")])
+        # UNCONSTRAINED, alone in this file: `Z` is no group the shipped validator admits, and the
+        # defence under test is the endpoint's own guard against a stored one that got past it.
+        squad = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            junctions=[junction(WITHDRAWN, "Z", dict(EXIT)), junction(RIVAL, "A")],
+            constrained=False,
+        )
 
         assert [squad[index]["inactive_since"] for index in (1, 2)] == [None, None]
 

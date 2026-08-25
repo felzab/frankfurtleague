@@ -3,18 +3,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-/**
- * Source text rather than a render, `oneWayGuards.test.ts`'s idiom and for its reason: the repository
- * has no DOM runner, and every claim below is about copy and branching inside one `.tsx` no exported
- * value carries.
- */
+/** Source text rather than a render, `oneWayGuards.test.ts`'s idiom and for its reason. */
 const SOURCE = readFileSync(path.resolve(import.meta.dirname, "FormSpielplanSection.tsx"), "utf8");
 
 /**
- * The armed alert alone: from the heading it opens with to the button row that follows it. Anchored
- * on the copy rather than on `role="alert"`, which the comment above the alert also names.
+ * The armed alert alone — what this panel puts INSIDE the shared shell. The heading, the announcement
+ * and the reveal itself belong to `ConfirmReveal` and are asserted at its own home.
  */
-const ARMED = (SOURCE.split("Bist Du Dir sicher?")[1] ?? "").split("flex-row flex-wrap items-center")[0] ?? "";
+const ARMED = (SOURCE.split("<ConfirmReveal>")[1] ?? "").split("</ConfirmReveal>")[0] ?? "";
 
 /** The armed alert's scope section alone, which is the half the new numbers invalidate. */
 const ENTSTEHT = ARMED.split("Daraus entsteht")[1] ?? "";
@@ -23,6 +19,14 @@ const ENTSTEHT = ARMED.split("Daraus entsteht")[1] ?? "";
 const HINWEIS = (SOURCE.split("Hinweis zum Spielplan")[1] ?? "").split("</InfoHint>")[0] ?? "";
 
 describe("the draw panel's destructive confirmation", () => {
+  /* First, because a boundary string that stopped matching leaves the slices empty — and half the
+     assertions below are `doesNotMatch`, which an empty string passes without reading the panel. */
+  it("cuts the armed alert, its scope section and the hint out of the file before reading them", () => {
+    assert.ok(ARMED.includes("Daraus entsteht"), "the armed alert's readout is outside its slice");
+    assert.ok(ENTSTEHT.includes("<dl"), "the scope section is outside its slice");
+    assert.ok(HINWEIS.includes("<li>"), "the hint's list is outside its slice");
+  });
+
   /* Hardcode the flag and this fails: `false` asks for a draw the endpoint refuses, `true` confirms
      a destruction on a season holding nothing. Send the shape always and a first draw claims
      numbers nobody typed. */
@@ -45,6 +49,17 @@ describe("the draw panel's destructive confirmation", () => {
      move between the two presses, and the second press sends whatever the fields hold then. */
   it("freezes the three numbers once the control is armed", () => {
     assert.match(SOURCE, /isReadOnly=\{isConfirming \|\| isGenerating\}/);
+  });
+
+  /* Call the action outside `press` and one press is the whole confirmation, on a write that redraws
+     rather than restoring. The arming branch itself is `useTwoPressConfirm`'s to keep. */
+  it("sends the write through the two-press control, and announces the armed state", () => {
+    const arming = SOURCE.indexOf("press(async () => {");
+    const writing = SOURCE.indexOf("generateSpielplanAction(");
+
+    assert.ok(arming !== -1, "handleGenerate no longer presses through useTwoPressConfirm");
+    assert.ok(arming < writing, "the write stands outside the armed branch");
+    assert.match(SOURCE, /<ConfirmReveal>/);
   });
 
   /* Read the armed rows off the stored rules again and this fails. The press STORES the numbers, so
@@ -71,12 +86,11 @@ describe("the draw panel's destructive confirmation", () => {
     assert.match(ARMED, /zusammen mit dem Spielplan gespeichert/);
   });
 
-  /* Short by one and this fails. Every category `holds_a_recorded_fact` counts closes the replace,
-     and a hint listing three of four sends an admin hunting a result their note is holding shut. */
-  it("names every category that closes the replace, the note included", () => {
-    for (const kind of [/kein Ergebnis/, /kein Ausfall/, /kein Ort/, /kein Schiedsrichter/, /keine Notiz/]) {
-      assert.match(HINWEIS, kind);
-    }
+  /* The shared sentence and never a copy of it: six call sites spell this list, and the categories
+     themselves are pinned by `fl_frontend/src/features/saisons/utils.test.ts`. */
+  it("renders the shared list rather than spelling its own", () => {
+    assert.match(HINWEIS, /\{RECORDED_FACTS_NONE\}/);
+    assert.doesNotMatch(HINWEIS, /kein Ergebnis/, "the panel spells the list a second time");
   });
 
   /* Lift the deletion copy out of its branch and this fails: a first draw would then claim to remove

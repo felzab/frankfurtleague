@@ -3,11 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-/**
- * Source text rather than a render: the repository has no DOM runner, and every claim below is about
- * the words a panel puts in front of an admin or the order of two statements inside a press handler
- * — neither of which any exported value carries.
- */
+/** Source text rather than a render, `oneWayGuards.test.ts`'s idiom and for its reason. */
 const PANEL = readFileSync(path.resolve(import.meta.dirname, "FormTeamErsatzSection.tsx"), "utf8");
 
 function sliceBetween(from: string, to: string): string {
@@ -18,7 +14,8 @@ function sliceBetween(from: string, to: string): string {
 }
 
 const HANDLER = sliceBetween("const handleReplace = () => {", "// Rendered only while");
-const ARMED = sliceBetween("Bist Du Dir sicher?", '<div className="flex w-full flex-col gap-y-1.5">');
+/** What this panel puts INSIDE the shared shell; the announcement itself is `ConfirmReveal`'s. */
+const ARMED = sliceBetween("<ConfirmReveal>", "</ConfirmReveal>");
 
 describe("the replacement panel", () => {
   /* First, because a boundary string that stopped matching leaves a slice empty and every assertion
@@ -44,11 +41,8 @@ describe("the replacement panel", () => {
     assert.match(ARMED, /ausgetragen/);
   });
 
-  /* AUSTRAGEN is what happens to a squad row, STILLLEGEN to the person across the whole league. The
-     endpoint stamps `saison_spieler` and touches no `spieler` document, so the second word would tell
-     an admin that these pupils had just left every season there is. The same press's toast is held to
-     the same word by `fl_frontend/src/features/teams/utils.test.ts :: describeReplacementUmfang`.
-     The rows are stamped rather than removed, so a deletion word is wrong in the other direction. */
+  /* Both wrong directions at once: `stillgelegt` would claim these pupils left every season there
+     is, and a deletion word that the rows went rather than being stamped. */
   it("words the squad as its entries being ausgetragen, never as a Stilllegung or a deletion", () => {
     assert.match(PANEL, /Kadereinträge[\s\S]{0,160}ausgetragen/);
     assert.doesNotMatch(PANEL, /Kadereinträge[\s\S]{0,160}(gelöscht|entfernt|stillgelegt)/);
@@ -64,15 +58,15 @@ describe("the replacement panel", () => {
     assert.match(PANEL, /Zurücknehmen lässt sich der Wechsel in der Verwaltung nicht/);
   });
 
-  /* The swap's and the draw's shape: two presses, and the second one writes. Without the arming
-     branch ahead of the write the alert never renders and one press is the whole confirmation. */
-  it("arms in place before it writes, and announces the armed state", () => {
-    const arming = HANDLER.indexOf("if (!isConfirming)");
-    const writing = HANDLER.indexOf("startReplacing(");
+  /* The swap's and the draw's shape: two presses, and the second one writes. Call the action outside
+     `press` and one press is the whole confirmation; the arming is `useTwoPressConfirm`'s to keep. */
+  it("sends the write through the two-press control, and announces the armed state", () => {
+    const arming = HANDLER.indexOf("press(async () => {");
+    const writing = HANDLER.indexOf("replaceSaisonTeamAction(");
 
-    assert.ok(arming !== -1, "no arming branch in handleReplace");
-    assert.ok(arming < writing, "the first press writes, so the alert below it is never read");
-    assert.match(PANEL, /role="alert"/);
+    assert.ok(arming !== -1, "handleReplace no longer presses through useTwoPressConfirm");
+    assert.ok(arming < writing, "the write stands outside the armed branch");
+    assert.match(PANEL, /<ConfirmReveal>/);
   });
 
   /* The payload names the outgoing club in the path and the incoming one in the body. Swap the two

@@ -96,11 +96,12 @@ export function AdminSpielerEditView({
                   </Button>
                 )}
 
-                {/* Worth saying here — it changes what the page below means — though the control for
-                    it is at the form's foot. */}
+                {/* Here, though the control is at the form's foot: it changes what the page below means.
+                    The TINT separates a season-scoped exit from the league-wide badge beside it,
+                    `bg-warning` against `bg-muted`, so the season goes unnamed as on every admin list. */}
                 {rowInactiveSince !== null && (
                   <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>
-                    Nicht im Kader {saison.saisonId} seit {formatSpielDatum(rowInactiveSince)}
+                    Ausgetragen seit {formatSpielDatum(rowInactiveSince)}
                   </span>
                 )}
               </div>

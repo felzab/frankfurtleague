@@ -89,15 +89,14 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   /**
    * The generator's own preconditions, off reads this page already makes: the watermark rides on the
    * season, and `REQ-SPIELPLAN-002` counts exactly the rows `getAdminSpieltage` lists for it.
-   *
-   * `bestand` comes off the SAME two fixture reads the swap needs, so no request is added for it. Its
-   * `erfasst` half must keep mirroring `holds_a_recorded_fact`, the predicate `REQ-SPIELPLAN-005`
-   * counts with: too wide closes a replace the endpoint allows, too narrow offers one it refuses.
    */
   const spielplan: SaisonSpielplanContext = {
     spielplan: saison.spielplan,
     spieltageCount: spieltageRes.spieltage.length,
     schedule: saison.schedule,
+    // Off the two fixture reads the swap already needs. Its `erfasst` half must keep mirroring
+    // `holds_a_recorded_fact`: too wide closes a replace `REQ-SPIELPLAN-005` allows, too narrow
+    // offers one it refuses.
     bestand: buildSpielplanBestand({ gruppenSpiele: gruppenSpieleRes.spiele, playoffSpiele: playoffSpieleRes.spiele }),
   };
 

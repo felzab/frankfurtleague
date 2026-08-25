@@ -43,9 +43,8 @@ describe("spielplanBlockedReason", () => {
     assert.doesNotMatch(finished ?? "", /geplant|läuft schon/);
   });
 
-  /* `REQ-SPIELPLAN-001` and `REQ-SPIELPLAN-002` step aside for a confirmed replace, and this page
-     confirms one wherever there is something to destroy. Each state below therefore OFFERS the
-     control on a planned season with nothing entered. */
+  /* Both codes step aside for a confirmed replace (`blockedReasons.ts :: spielplanBlockedReason`),
+     which this page confirms wherever there is something to destroy. */
   it("offers a replace on each state that holds something to destroy", () => {
     for (const held of [{ hasSpielplan: true }, { hasDrawnSpiele: true }, { spieltageCount: 1 }]) {
       assert.equal(spielplanBlock(held), null, `${JSON.stringify(held)} still closes the control`);
@@ -60,9 +59,9 @@ describe("spielplanBlockedReason", () => {
 
     const erfasst = spielplanBlock({ ...DRAWN, erfassteSpieleCount: 1 }) ?? "";
     assert.match(erfasst, /schon etwas eingetragen/);
-    // Every category `holds_a_recorded_fact` counts, the note included. Drop one and an admin whose
-    // season is closed by a cancellation, a booking or a note goes looking for a result that is not there.
-    for (const kind of [/Ergebnis/, /Ausfall/, /Ort/, /Schiedsrichter/, /Notiz/]) assert.match(erfasst, kind);
+    // Every category `holds_a_recorded_fact` counts. Drop one and an admin whose season is closed by
+    // a cancellation, a booking, a note or a hand-seeded slot hunts for a result that is not there.
+    for (const kind of [/Ergebnis/, /Ausfall/, /Ort/, /Schiedsrichter/, /Notiz/, /Herkunft/]) assert.match(erfasst, kind);
   });
 
   /* A running season may still be drawn a FIRST time (`REQ-SPIELPLAN-003` refuses `past` alone), so
@@ -128,9 +127,7 @@ describe("spielplanBlockedReason", () => {
 });
 
 describe("spielplanUndrawBlockedReason", () => {
-  /* Not a refusal the endpoint has: `find_undraw_refusal` answers an already-undrawn season 200 with
-     zeroes, because that is the state asked for. Offering the press would ask an admin to confirm the
-     destruction of nothing, so the panel closes it here and says which state it is in. */
+  /* The endpoint has no refusal for this state, so nothing but the panel closes the press. */
   it("closes the control on a season with nothing drawn to take back", () => {
     const empty = undrawBlock() ?? "";
 

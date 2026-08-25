@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Calendar } from "@gravity-ui/icons";
@@ -9,15 +9,18 @@ import { Button, Label } from "@heroui/react";
 
 import { generateSpielplanAction } from "@/features/saisons/actions";
 import { SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
-import { PHASE_LABELS } from "@/features/saisons/constants";
+import { PHASE_LABELS, RECORDED_FACTS_NONE } from "@/features/saisons/constants";
 import { buildSpielplanVorschau, describeAngesetzteSpiele, describeSpielplanUmfang } from "@/features/saisons/utils";
 import { Callout } from "@/shared/components/ui/Callout";
+import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
+import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { DisabledHint } from "@/shared/components/ui/DisabledHint";
-import { formButton } from "@/shared/components/ui/formButtons";
+import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
-import { PANEL_REVEAL } from "@/shared/components/ui/motion";
+import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -57,25 +60,13 @@ export function FormSpielplanSection({
   onBeforeGenerate: () => boolean;
 } & SaisonSpielplanContext) {
   const router = useRouter();
-  const [isGenerating, startGenerating] = useTransition();
-  const [isConfirming, setIsConfirming] = useState(false);
+  const { isConfirming, isPending: isGenerating, press, cancel } = useTwoPressConfirm(onBeforeGenerate);
 
   // The season's stored three, which a first draw keeps and a replace may move. Re-initialised by
   // the remount `page.tsx`'s key forces once the draw has written new ones.
   const [shape, setShape] = useState<FLSpielplanShape>(() => readShape(rules));
 
   const vorschau = buildSpielplanVorschau(schedule);
-
-  /** One label-and-value row of the armed preview, the match editor's draft readout in shape. */
-  const renderVorschauRow = (label: string, value: string) => (
-    // Keyed on the label, which is unique inside each list: one of the lists below is mapped.
-    <div
-      key={label}
-      className="flex flex-row items-baseline justify-between gap-x-3">
-      <dt className="fluid-xxs text-foreground-muted font-bold">{label}</dt>
-      <dd className="fluid-xs text-foreground min-w-0 text-right font-semibold">{value}</dd>
-    </div>
-  );
 
   const controlInput = {
     saisonStatus,
@@ -96,29 +87,15 @@ export function FormSpielplanSection({
   const shapeRows = describeShapeRows(readShape(rules), shape);
   const isShapeMoved = shapeRows.some((row) => row.isChanged);
 
-  // The tone grades the act on offer, as the rollover's does: nothing a later edit reverses, but only
-  // where there is still something to press.
   const panel = formPanel({ tone: blockedReason === null ? "danger" : "neutral" });
 
   const handleGenerate = () => {
-    // Checked on BOTH presses: the fields stay live between arming and confirming, and this draw
-    // READS the rules it is guarded against. A draft typed in that window would go with the refresh
-    // while the draw ran on the season's saved ones.
-    if (!onBeforeGenerate()) {
-      setIsConfirming(false);
-      return;
-    }
-
-    if (!isConfirming) {
-      setIsConfirming(true);
-      return;
-    }
-
-    startGenerating(async () => {
+    // What makes the guard's second run load-bearing here: this draw READS the rules it is guarded
+    // against, so a draft typed after arming would go with the refresh while the draw used the stored ones.
+    press(async () => {
       // The shape rides along on a REPLACE alone: a first draw carries none, which is what tells the
       // endpoint to draw from the season's stored numbers and move nothing.
       const res = await generateSpielplanAction({ id: saisonId, replace: replacesDraw, shape: replacesDraw ? shape : undefined });
-      setIsConfirming(false);
 
       if (!res.success) {
         appToast.danger(replacesDraw ? "Spielplan nicht neu angelegt" : "Spielplan nicht angelegt", {
@@ -158,9 +135,8 @@ export function FormSpielplanSection({
               </li>
               <li>
                 <strong>Neu anlegen</strong> lässt sich der Spielplan nur, solange die Saison geplant ist und zu keinem ihrer Spiele etwas
-                eingetragen wurde — kein Ergebnis, kein Ausfall, kein Ort, kein Schiedsrichter und keine Notiz. Dabei werden die vorhandenen
-                Spieltage und Spiele <strong>gelöscht</strong>, mit jedem Termin und jeder Uhrzeit, die schon eingetragen sind. Zurückholen
-                lässt sich das in der Verwaltung nicht.
+                eingetragen wurde: {RECORDED_FACTS_NONE}. Dabei werden die vorhandenen Spieltage und Spiele <strong>gelöscht</strong>, mit jedem
+                Termin und jeder Uhrzeit, die schon eingetragen sind. Zurückholen lässt sich das in der Verwaltung nicht.
               </li>
               <li>
                 <strong>Gruppen</strong>, <strong>Teams pro Gruppe</strong> und <strong>Qualifikanten</strong> gehören zum Spielplan: Sobald
@@ -206,13 +182,13 @@ export function FormSpielplanSection({
             <h3 className={FORM_SECTION_HEADING}>Aufbau des neuen Spielplans</h3>
             <p className="fluid-xs text-foreground-muted font-medium">
               Aus diesen drei Zahlen entsteht der Spielplan. Änderst Du sie hier, gelten sie mit dem neuen Spielplan zusammen auch als Regeln
-              dieser Saison — im Abschnitt Regeln lassen sie sich deshalb nicht mehr einzeln ändern.
+              dieser Saison. Im Abschnitt Regeln lassen sie sich deshalb nicht mehr einzeln ändern.
             </p>
             {/* Said beside the boxes, not only in the hint: after a draw every offered group holds
                 exactly its full count, so the two upper numbers move only once the groups do. */}
             <p className="fluid-xs text-foreground-muted font-medium">
               <strong>Qualifikanten</strong> kannst Du hier allein ändern. <strong>Gruppen</strong> und <strong>Teams pro Gruppe</strong> gelten
-              erst, wenn die Gruppen dieser Saison genau dazu passen — verteile die Teams also vorher über die <strong>Teamseite</strong>.
+              erst, wenn die Gruppen dieser Saison genau dazu passen. Verteile die Teams also vorher über die <strong>Teamseite</strong>.
             </p>
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
               {SHAPE_FIELDS.map(({ key: shapeKey, label, minValue, maxValue }) => (
@@ -234,16 +210,8 @@ export function FormSpielplanSection({
           </div>
         )}
 
-        {/* Escalated in place, the rollover's and the swap's shape: without `role="alert"` the only
-            signal is the button label quietly changing. */}
         {isConfirming && (
-          <div
-            role="alert"
-            className={`${PANEL_REVEAL} bg-danger/5 border-danger/20 flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
-            <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
-
-            {/* Inside the alert rather than beside it: the numbers ARE what the press is judged on,
-                and a region announced without them asks for agreement to an unnamed season. */}
+          <ConfirmReveal>
             <div className="flex w-full flex-col gap-y-3">
               {/* The loss before the gain: what this press destroys is the part of it that cannot be
                   looked up again afterwards. */}
@@ -251,11 +219,16 @@ export function FormSpielplanSection({
                 <div className="flex w-full flex-col gap-y-1">
                   <h3 className={FORM_SECTION_HEADING}>Was dabei gelöscht wird</h3>
                   <dl className="flex w-full flex-col gap-y-1">
-                    {renderVorschauRow("Bisher angelegt", describeSpielplanUmfang(spieltageCount, bestand.spiele))}
+                    <ConfirmReadoutRow
+                      label="Bisher angelegt"
+                      value={describeSpielplanUmfang(spieltageCount, bestand.spiele)}
+                    />
                     {/* No refusal reads this figure, which is why it is stated: a fully dated season is
-                        replaced as readily as an undated one. A venue or a referee cannot be standing
-                        here at all — either closes the control one panel up. */}
-                    {renderVorschauRow("Mit Termin oder Uhrzeit", describeAngesetzteSpiele(bestand.angesetzt))}
+                        replaced as readily as an undated one. */}
+                    <ConfirmReadoutRow
+                      label="Mit Termin oder Uhrzeit"
+                      value={describeAngesetzteSpiele(bestand.angesetzt)}
+                    />
                   </dl>
                 </div>
               )}
@@ -264,7 +237,16 @@ export function FormSpielplanSection({
                   to a redraw is agreeing to the season's new shape in the same breath. */}
               <div className="flex w-full flex-col gap-y-1">
                 <h3 className={FORM_SECTION_HEADING}>{isShapeMoved ? "Aufbau, den diese Saison bekommt" : "Aufbau dieser Saison"}</h3>
-                <dl className="flex w-full flex-col gap-y-1">{shapeRows.map((row) => renderVorschauRow(row.label, row.value))}</dl>
+                <dl className="flex w-full flex-col gap-y-1">
+                  {shapeRows.map((row) => (
+                    // Keyed on the label, which is unique inside this list.
+                    <ConfirmReadoutRow
+                      key={row.label}
+                      label={row.label}
+                      value={row.value}
+                    />
+                  ))}
+                </dl>
                 {isShapeMoved && (
                   <p className="fluid-xxs text-foreground leading-normal font-medium">
                     Diese Zahlen werden zusammen mit dem Spielplan gespeichert und sind danach die Regeln dieser Saison.
@@ -284,14 +266,17 @@ export function FormSpielplanSection({
                   </p>
                 ) : (
                   <dl className="flex w-full flex-col gap-y-1">
-                    {renderVorschauRow("Umfang", describeSpielplanUmfang(vorschau.spieltage, vorschau.spiele))}
+                    <ConfirmReadoutRow
+                      label="Umfang"
+                      value={describeSpielplanUmfang(vorschau.spieltage, vorschau.spiele)}
+                    />
                     {/* The label agrees with the list under it, and an empty list still reads `Keine`:
                         rules reaching no bracket close the control, so a blank value here would mean
                         the schedule moved under an already armed panel. */}
-                    {renderVorschauRow(
-                      vorschau.koRunden.length === 1 ? "KO-Runde" : "KO-Runden",
-                      vorschau.koRunden.length === 0 ? "Keine" : vorschau.koRunden.map((phase) => PHASE_LABELS[phase]).join(", "),
-                    )}
+                    <ConfirmReadoutRow
+                      label={vorschau.koRunden.length === 1 ? "KO-Runde" : "KO-Runden"}
+                      value={vorschau.koRunden.length === 0 ? "Keine" : vorschau.koRunden.map((phase) => PHASE_LABELS[phase]).join(", ")}
+                    />
                   </dl>
                 )}
               </div>
@@ -304,10 +289,13 @@ export function FormSpielplanSection({
                 ? `Saison ${saisonId} verliert damit ihre bisherigen Spieltage und alle ihre Spiele, mit jedem Termin und jeder Uhrzeit, die schon eingetragen sind. Danach steht ein frisch gezogener Spielplan ganz ohne Termine. Zurückholen lässt sich der alte in der Verwaltung nicht.`
                 : `Saison ${saisonId} bekommt sofort ihre Spieltage und alle ihre Spiele. Rückgängig lässt sich das in der Verwaltung nicht machen.`}
             </p>
-          </div>
+          </ConfirmReveal>
         )}
 
-        <div className="flex w-full flex-row flex-wrap items-center gap-3">
+        <ConfirmActionRow
+          isConfirming={isConfirming}
+          isPending={isGenerating}
+          onCancel={cancel}>
           {/* The reason is said on the control itself rather than only in the panel above it, the
               treatment the rollover established. `isGenerating` is left out: it ends by itself. */}
           <DisabledHint reason={isGenerating ? null : blockedReason}>
@@ -316,7 +304,7 @@ export function FormSpielplanSection({
               variant="primary"
               isDisabled={isGenerating || blockedReason !== null}
               onPress={handleGenerate}
-              className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
+              className={confirmButton(isConfirming)}>
               {!isConfirming && (
                 <Calendar
                   aria-hidden="true"
@@ -337,17 +325,7 @@ export function FormSpielplanSection({
                     : "Spielplan anlegen"}
             </Button>
           </DisabledHint>
-          {isConfirming && (
-            <Button
-              type="button"
-              variant="secondary"
-              isDisabled={isGenerating}
-              onPress={() => setIsConfirming(false)}
-              className={formButton({ intent: "cancel" })}>
-              Abbrechen
-            </Button>
-          )}
-        </div>
+        </ConfirmActionRow>
       </div>
     </section>
   );

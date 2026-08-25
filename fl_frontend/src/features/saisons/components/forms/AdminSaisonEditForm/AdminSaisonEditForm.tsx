@@ -21,6 +21,7 @@ import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
+import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import { buildSaisonBanners } from "./banners";
 import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
@@ -216,17 +217,6 @@ export function AdminSaisonEditForm({
     leavePage();
   };
 
-  /**
-   * Both one-way controls revalidate the route, so an unsaved draft would go with the replaced props.
-   * Each says what is in the way rather than discarding silently or stacking a second dialog.
-   */
-  const guardAgainstDraft = (whatIsInTheWay: string): boolean => {
-    if (!isDirty) return true;
-
-    appToast.warning("Erst speichern", { description: whatIsInTheWay });
-    return false;
-  };
-
   const requestSave = () => {
     // Snapshotted rather than read live: a background revalidation re-deriving the banners under an
     // open dialog would move the list the reader agreed to.
@@ -398,15 +388,15 @@ export function AdminSaisonEditForm({
             hasDrawnSpiele={hasDrawnSpiele}
             onBeforeGenerate={() =>
               guardAgainstDraft(
+                isDirty,
                 "Der Spielplan entsteht aus den gespeicherten Regeln, und das Anlegen lädt die Seite neu. Speichere die Änderungen zuerst.",
               )
             }
           />
 
           {/* Directly under the draw it reverses, so the repair `REQ-RULES-011` names reads in the
-              order it is walked: take the Spielplan back here, adjust the rules and the teams, then
-              draw again one panel up. Its own panel, never a second control inside that one: both
-              are open at once on a drawn planned season, and one armed state cannot serve two. */}
+              order it is walked. Its own panel and not a control inside that one: both are open at
+              once on a drawn planned season, and one armed state cannot serve two. */}
           <FormSpielplanRuecknahmeSection
             saisonId={saison.id}
             saisonStatus={saison.status}
@@ -415,7 +405,7 @@ export function AdminSaisonEditForm({
             bestand={spielplan.bestand}
             hasDrawnSpiele={hasDrawnSpiele}
             onBeforeUndraw={() =>
-              guardAgainstDraft("Das Zurücknehmen lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
+              guardAgainstDraft(isDirty, "Das Zurücknehmen lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
             }
           />
 
@@ -428,7 +418,7 @@ export function AdminSaisonEditForm({
             rollover={rollover}
             hasDrawnSpiele={hasDrawnSpiele}
             onBeforeActivate={() =>
-              guardAgainstDraft("Die Umstellung lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
+              guardAgainstDraft(isDirty, "Die Umstellung lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
             }
             banners={banners}
           />

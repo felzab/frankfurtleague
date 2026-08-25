@@ -141,6 +141,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           lead: "Alle Austragungsorte, mit Adresse und Mietpreis.",
           points: [
             { term: "Anlegen", detail: "über die Schaltfläche oben rechts." },
+            { term: "Bearbeiten", detail: "der Stift öffnet die Spielortseite mit Spielort, Adresse und Miete." },
             { term: "Stilllegen", detail: "nimmt den Ort aus den Auswahllisten, ohne ihn zu löschen." },
           ],
           note: "Ein stillgelegter Ort bleibt in jedem Spiel stehen, das ihn schon nennt.",
@@ -208,6 +209,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           lead: "Alle Schiedsrichter, mit Kontaktdaten und Entschädigung.",
           points: [
             { term: "Anlegen", detail: "über die Schaltfläche oben rechts." },
+            { term: "Bearbeiten", detail: "der Stift öffnet die Schiedsrichterseite mit Person, Kontakt und Honorar." },
             { term: "Stilllegen", detail: "nimmt die Person aus den Auswahllisten, ohne sie zu löschen." },
             {
               term: "Kontaktdaten löschen",

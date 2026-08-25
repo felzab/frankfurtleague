@@ -3,13 +3,13 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-// Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { ERASURE_NEEDS_RETIREMENT } from "./constants.ts";
+// Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { ERASURE_NEEDS_RETIREMENT, LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "./constants.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
-const DOMAIN = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "domain.py"), "utf8");
 /** Whitespace-collapsed: the panel's copy is JSX text, so the formatter picks its line breaks. */
 const PANEL = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminSpielerEditForm", "FormLoeschenSection.tsx"),
@@ -25,46 +25,28 @@ const EDIT_FORM = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminSpielerEditForm", "AdminSpielerEditForm.tsx"),
   "utf8",
 ).replace(/\s+/g, " ");
+/** The list that reaches the same reactivate from a row, collapsed for the reason `PANEL` is. */
+const TABLE = readFileSync(path.resolve(import.meta.dirname, "components", "collections", "AdminSpielerTable.tsx"), "utf8").replace(
+  /\s+/g,
+  " ",
+);
 /** The page that hands the panel its figures, collapsed for the same reason. */
 const PAGE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "spieler", "[spieler_id]", "page.tsx"), "utf8").replace(
   /\s+/g,
   " ",
 );
 
-/** What separates the operations one rule is declared against, in the backend's own register. */
-const OPERATION_SEPARATOR = " · ";
-
 const ERASURE_OPERATION = "DELETE /spieler/{spieler_id}/erasure";
-
-/**
- * Every refusal one endpoint declares, read off the backend's register. Source text rather than an
- * import: the register is Python, and a `"use server"` module may export nothing but async actions.
- */
-function declaredCodes(operation: string): string[] {
-  const codes = DOMAIN.split("Rule(")
-    .slice(1)
-    .filter((entry) => (/operation="([^"]+)"/.exec(entry)?.[1] ?? "").split(OPERATION_SEPARATOR).includes(operation))
-    .map((entry) => /code="([^"]+)"/.exec(entry)?.[1] ?? "");
-
-  return [...new Set(codes)].sort();
-}
-
-/** One declaration's source, up to the declaration named after it. */
-function sliceBetween(from: string, to: string): string {
-  const start = ACTIONS.indexOf(from);
-  const end = ACTIONS.indexOf(to, start + from.length);
-
-  return start === -1 || end === -1 ? "" : ACTIONS.slice(start, end);
-}
+const ERASURE_CODES = ["REQ-PURGE-001"];
 
 /* Read per slice rather than over the file: two mappers live here, and a search over the whole
    source is satisfied by whichever one happens to carry the arm. */
-const ERASURE_MAP = sliceBetween("function mapErasureRefusal", "export async function postSpielerAction");
-const ERASE_ACTION = sliceBetween("export async function eraseSpielerAction", "export async function postSaisonSpielerAction");
-const SQUAD_MAP = sliceBetween("function mapSquadRefusal", "export async function postSpielerAction");
-const CREATE_ACTION = sliceBetween("export async function postSpielerAction", "export async function patchSpielerAction");
+const ERASURE_MAP = sliceBetween(ACTIONS, "function mapErasureRefusal", "export async function postSpielerAction");
+const ERASE_ACTION = sliceBetween(ACTIONS, "export async function eraseSpielerAction", "export async function postSaisonSpielerAction");
+const SQUAD_MAP = sliceBetween(ACTIONS, "function mapSquadRefusal", "export async function postSpielerAction");
+const CREATE_ACTION = sliceBetween(ACTIONS, "export async function postSpielerAction", "export async function patchSpielerAction");
 /* The last declaration in the module, so its slice runs to the end of the file. */
-const REACTIVATE_ROW_ACTION = ACTIONS.slice(ACTIONS.indexOf("export async function reactivateSaisonSpielerAction"));
+const REACTIVATE_ROW_ACTION = sliceBetween(ACTIONS, "export async function reactivateSaisonSpielerAction", null);
 
 /** One arm of the squad mapper, up to the arm declared after it. */
 function squadBranch(code: string): string {
@@ -85,12 +67,18 @@ describe("the erasure action against the backend's refusal register", () => {
   /* `DELETE /spieler/{spieler_id}` is a prefix of the erasure's operation, so a substring match here
      would read the soft delete's codes as the erasure's. */
   it("reads the erasure's operation as a whole token, not as a prefix", () => {
-    assert.deepEqual(declaredCodes(ERASURE_OPERATION), ["REQ-PURGE-001"]);
+    assert.deepEqual(declaredCodes(ERASURE_OPERATION), ERASURE_CODES);
     assert.deepEqual(declaredCodes("DELETE /spieler/{spieler_id}"), [], "the soft delete now declares a rule the erasure's mapper answers");
   });
 
   it("maps every refusal the erasure endpoint declares", () => {
-    for (const code of declaredCodes(ERASURE_OPERATION))
+    const declared = declaredCodes(ERASURE_OPERATION);
+
+    // Asserted before the loop rather than left to it: an operation the register stopped naming
+    // declares nothing, the loop then runs zero times, and a green result would claim the mapper
+    // covers an endpoint whose refusals it has in fact stopped reading.
+    assert.deepEqual(declared, ERASURE_CODES);
+    for (const code of declared)
       assert.ok(ERASURE_MAP.includes(`serverErrorCode === "${code}"`), `${code} reaches the admin as an unhandled conflict`);
   });
 
@@ -135,9 +123,10 @@ describe("the erasure's copy", () => {
   /* The escalation is two presses, the draw's shape. One press would put a permanent removal behind
      the same gesture as a name edit. */
   it("arms before it writes", () => {
-    assert.match(PANEL, /if \(!isConfirming\) \{ setIsConfirming\(true\); return; \}/, "the panel writes on the first press");
-    assert.match(PANEL, /Bist Du Dir sicher\?/, "the armed panel announces nothing");
-    assert.match(PANEL, /role="alert"/, "the escalation replaces the copy in place with no announcement");
+    // The two-press ORDER is the shared hook's and is pinned once at `shared/hooks/useTwoPressConfirm.test.ts`;
+    // what is panel-local is that the write is reached only through `press`, never from the bare handler.
+    assert.match(PANEL, /press\(async \(\) => \{/, "the panel writes outside the armed press");
+    assert.match(PANEL, /<ConfirmReveal>/, "the escalation replaces the copy in place with no announcement");
   });
 });
 
@@ -147,7 +136,7 @@ describe("what the erasure moves", () => {
   it("invalidates the spieler tag alone", () => {
     assert.ok(ERASE_ACTION.includes("invalidateSpieler();"), "the erasure leaves the erased player in the cached squad read");
     assert.ok(!ERASE_ACTION.includes("updateTag("), "the erasure invalidates a tag its endpoint does not move");
-    assert.match(ACTIONS, /function invalidateSpieler\(\): void \{\s*updateTag\("spieler"\);/, "invalidateSpieler moved off the base tag");
+    assert.match(ACTIONS, /function invalidateSpieler\(\)[^{]*\{\s*updateTag\("spieler"\);/, "invalidateSpieler moved off the base tag");
   });
 
   it("reports how much it removed, which nothing can be looked up again afterwards", () => {
@@ -254,5 +243,47 @@ describe("the reactivate's gate on the editor", () => {
   it("names the condition the pre-austragen copy rests on", () => {
     assert.ok(!AUSTRAGEN_PANEL.includes("jederzeit"), "the unconditional promise is back above the austragen control");
     assert.match(AUSTRAGEN_PANEL, /solange sein Team in der Saison dabei ist/, "the copy states no condition at all");
+  });
+});
+
+/** One row action's props, up to the tag that closes it. */
+function rowActionSlice(label: string): string {
+  const start = TABLE.indexOf(`label="${label}"`);
+  const end = TABLE.indexOf("/>", start);
+
+  return start === -1 || end === -1 ? "" : TABLE.slice(start, end);
+}
+
+describe("the reactivate's gate on the list", () => {
+  /* The same endpoint is reached from a row, and the list holds what decides the refusal already:
+     the season's junction rows for the facet, against the row's stored club. */
+  it("derives the gate from the season's teams and the row's stored club", () => {
+    assert.match(
+      TABLE,
+      /const isRowTeamInSaison = row === null \|\| saisonTeams\.some\(\(team\) => team\.teamId === row\.team_id\);/,
+      "the gate is derived from something other than this season's team list",
+    );
+    assert.match(
+      TABLE,
+      /const rowBlockedReason = isRowTeamInSaison \? null : LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON;/,
+      "the gate reads the wrong way round, or points the reader at the editor's own page",
+    );
+  });
+
+  it("gates the squad row's restore on it", () => {
+    assert.ok(rowActionSlice("Kadereintrag reaktivieren").includes("disabledReason={rowBlockedReason}"), "the row action is offered ungated");
+  });
+
+  /* `stilllegen` and `austragen` are two subjects, and `POST /spieler/{id}/reactivate` refuses
+     nothing: gating the person's restore on the squad row's club would refuse a live operation. */
+  it("leaves the person's own restore alone", () => {
+    assert.ok(!rowActionSlice("Spieler reaktivieren").includes("disabledReason"), "the PERSON's reactivate picked up the squad row's gate");
+  });
+
+  /* The editor's sentence points inside the editor. A reader on the list is a page away from the
+     repair, so the two are separate strings and neither may drift onto the other's reader. */
+  it("says the refusal where the list's reader stands", () => {
+    assert.notEqual(LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_A_TEAM_IN_SAISON, "the list borrowed the editor's sentence");
+    assert.ok(!LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON.includes("oben"), "the list's sentence points at a place the list does not have");
   });
 });

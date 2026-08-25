@@ -20,13 +20,15 @@ const ACTION_SHAPE = `text-foreground-muted flex ${ROW_ACTION_SIZE} shrink-0 ite
 
 const ACTION_LINK_CLASS = `${ACTION_SHAPE} hover:bg-hover hover:text-brand`;
 
-const ACTION_BUTTON_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover data-hovered:text-brand`;
-
 /**
  * `disabled:pointer-events-none` is load-bearing: a disabled control dispatches no pointer event and none reaches an
  * ancestor either, so `DisabledHint`'s wrapper is the hit target only once this makes the button transparent.
  */
-const DANGER_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover-danger data-hovered:text-danger-strong disabled:pointer-events-none`;
+const ACTION_BUTTON_SHAPE = `${ACTION_SHAPE} disabled:pointer-events-none`;
+
+const ACTION_BUTTON_CLASS = `${ACTION_BUTTON_SHAPE} data-hovered:bg-hover data-hovered:text-brand`;
+
+const DANGER_CLASS = `${ACTION_BUTTON_SHAPE} data-hovered:bg-hover-danger data-hovered:text-danger-strong`;
 
 export function RowActionLink({
   href,
@@ -73,23 +75,46 @@ export function RowActionCopy({ label, ariaLabel, onPress }: { label: string; ar
   );
 }
 
-/** Shown in `RowActionDelete`'s place on a retired row. No confirmation step: one press of the delete reverses it. */
-export function RowActionRestore({ label, ariaLabel, onPress }: { label: string; ariaLabel: string; onPress: () => void }) {
-  return (
-    <IconTooltip label={label}>
-      <Button
-        isIconOnly
-        aria-label={ariaLabel}
-        variant="ghost"
-        className={ACTION_BUTTON_CLASS}
-        onPress={onPress}>
-        <ArrowRotateLeft
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </Button>
-    </IconTooltip>
+/**
+ * Shown in `RowActionDelete`'s place on a retired row. No confirmation step: one press of the delete reverses it.
+ *
+ * It takes the delete's `disabledReason`, whose note below carries the mechanism for both.
+ */
+export function RowActionRestore({
+  label,
+  ariaLabel,
+  onPress,
+  disabledReason,
+}: {
+  label: string;
+  ariaLabel: string;
+  onPress: () => void;
+  /**
+   * The refusal this row can already see, or null while the return is offered. Offering what the endpoint refuses is one
+   * defect whichever control reaches it, and a list reaches the squad row's reactivate as its editor does.
+   */
+  disabledReason?: string | null;
+}) {
+  const button = (
+    <Button
+      isIconOnly
+      aria-label={ariaLabel}
+      variant="ghost"
+      isDisabled={disabledReason != null}
+      className={ACTION_BUTTON_CLASS}
+      onPress={onPress}>
+      <ArrowRotateLeft
+        aria-hidden="true"
+        width={18}
+        height={18}
+      />
+    </Button>
+  );
+
+  return disabledReason != null ? (
+    <DisabledHint reason={disabledReason}>{button}</DisabledHint>
+  ) : (
+    <IconTooltip label={label}>{button}</IconTooltip>
   );
 }
 

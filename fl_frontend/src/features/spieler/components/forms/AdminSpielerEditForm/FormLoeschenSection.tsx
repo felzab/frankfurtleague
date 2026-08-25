@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { TrashBin } from "@gravity-ui/icons";
@@ -10,12 +9,15 @@ import { Button } from "@heroui/react";
 import { eraseSpielerAction } from "@/features/spieler/actions";
 import { ERASURE_NEEDS_RETIREMENT } from "@/features/spieler/constants";
 import { Callout } from "@/shared/components/ui/Callout";
+import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
+import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { DisabledHint } from "@/shared/components/ui/DisabledHint";
-import { formButton } from "@/shared/components/ui/formButtons";
+import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
-import { PANEL_REVEAL } from "@/shared/components/ui/motion";
+import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 
 /**
@@ -37,32 +39,16 @@ export function FormLoeschenSection({
   membershipCount: number;
 }) {
   const router = useRouter();
-  const [isErasing, startErasing] = useTransition();
-  const [isConfirming, setIsConfirming] = useState(false);
+  // No draft guard, unlike the anonymisation's: that one leaves a form standing whose next save would
+  // write the cleared values back. Here the press removes the subject the draft describes.
+  const { isConfirming, isPending: isErasing, press, cancel } = useTwoPressConfirm();
 
   const blockedReason = isRetired ? null : ERASURE_NEEDS_RETIREMENT;
-  // The tone grades the act on offer, as the rollover's does: only where there is something to press.
   const panel = formPanel({ tone: blockedReason === null ? "danger" : "neutral" });
 
-  /** One label-and-value row of the armed panel, the draw's readout in shape. */
-  const renderUmfangRow = (label: string, value: string) => (
-    <div className="flex flex-row items-baseline justify-between gap-x-3">
-      <dt className="fluid-xxs text-foreground-muted font-bold">{label}</dt>
-      <dd className="fluid-xs text-foreground min-w-0 text-right font-semibold">{value}</dd>
-    </div>
-  );
-
   const handleErase = () => {
-    // No draft guard, unlike the anonymisation's: that one leaves a form standing whose next save
-    // would write the cleared values back. Here the press removes the subject the draft describes.
-    if (!isConfirming) {
-      setIsConfirming(true);
-      return;
-    }
-
-    startErasing(async () => {
+    press(async () => {
       const res = await eraseSpielerAction({ id: spielerId });
-      setIsConfirming(false);
 
       if (!res.success) {
         appToast.danger("Spieler nicht gelöscht", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
@@ -120,22 +106,23 @@ export function FormLoeschenSection({
           </Callout>
         )}
 
-        {/* Escalated in place, the draw's and the rollover's shape: without `role="alert"` the only
-            signal is the button label quietly changing. */}
         {isConfirming && (
-          <div
-            role="alert"
-            className={`${PANEL_REVEAL} bg-danger/5 border-danger/20 flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
-            <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
-
-            {/* Inside the alert rather than beside it: the figures ARE what the press is judged on,
-                and a region announced without them asks for agreement to an unnamed person. */}
+          <ConfirmReveal>
             <div className="flex w-full flex-col gap-y-1">
               <h3 className={FORM_SECTION_HEADING}>Was dabei gelöscht wird</h3>
               <dl className="flex w-full flex-col gap-y-1">
-                {renderUmfangRow("Person", fullName)}
-                {renderUmfangRow("Kadereinträge", String(membershipCount))}
-                {renderUmfangRow("Änderungsprotokoll", "Angaben werden geleert")}
+                <ConfirmReadoutRow
+                  label="Person"
+                  value={fullName}
+                />
+                <ConfirmReadoutRow
+                  label="Kadereinträge"
+                  value={String(membershipCount)}
+                />
+                <ConfirmReadoutRow
+                  label="Änderungsprotokoll"
+                  value="Angaben werden geleert"
+                />
               </dl>
             </div>
 
@@ -145,10 +132,13 @@ export function FormLoeschenSection({
               {fullName} verschwindet damit aus der Verwaltung und von jeder öffentlichen Seite. Zurückholen lässt sich das nicht: weder die
               Person noch ihre Kadereinträge noch ihre Angaben im Änderungsprotokoll.
             </p>
-          </div>
+          </ConfirmReveal>
         )}
 
-        <div className="flex w-full flex-row flex-wrap items-center gap-3">
+        <ConfirmActionRow
+          isConfirming={isConfirming}
+          isPending={isErasing}
+          onCancel={cancel}>
           {/* The reason is said on the control as well as in the body above it, the treatment the
               rollover established. `isErasing` is left out: it ends by itself. */}
           <DisabledHint reason={isErasing ? null : blockedReason}>
@@ -157,7 +147,7 @@ export function FormLoeschenSection({
               variant="primary"
               isDisabled={isErasing || blockedReason !== null}
               onPress={handleErase}
-              className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
+              className={confirmButton(isConfirming)}>
               {!isConfirming && (
                 <TrashBin
                   aria-hidden="true"
@@ -170,17 +160,7 @@ export function FormLoeschenSection({
               {isErasing ? "Löscht..." : isConfirming ? "Ja, Spieler endgültig löschen" : "Spieler endgültig löschen"}
             </Button>
           </DisabledHint>
-          {isConfirming && (
-            <Button
-              type="button"
-              variant="secondary"
-              isDisabled={isErasing}
-              onPress={() => setIsConfirming(false)}
-              className={formButton({ intent: "cancel" })}>
-              Abbrechen
-            </Button>
-          )}
-        </div>
+        </ConfirmActionRow>
       </div>
     </section>
   );

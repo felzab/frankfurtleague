@@ -25,8 +25,8 @@ from app.api.spieler.schemas import (
 )
 from app.api.spieler.services import ERASURE_NOT_RETIRED
 from app.core.collections import Collection
+from app.core.constraints import apply_constraints
 from app.core.exceptions import DocumentConflictException
-from app.core.recording import log_stamp
 
 pytestmark = pytest.mark.db
 
@@ -51,9 +51,14 @@ HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607420001")
 AWAY_TEAM_OID = ObjectId("6890a1b2c3d4e5f607420002")
 
 TODAY = "2026-04-01"
-# Injected through `get_germany_now`, so the stamp under test is not the wall clock. Summer time, which
-# is what makes the conversion visible: one instant is 12:30 in Frankfurt and 10:30 in the log.
+# Injected through `get_germany_now`, so the stamp under test is not the wall clock. Summer time,
+# which is what puts an offset on the conversion below.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+
+# The instant above as a log row spells it: 12:30 in Frankfurt is 10:30 in the log. Written out
+# rather than computed from `log_stamp`, a stored stamp compared against the function that produced
+# it agreeing with any conversion of it, including none.
+REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
 RULES = {
     "win_points": 3,
@@ -73,8 +78,8 @@ Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
 def on_a_league(url: str, body: Body) -> Any:
     """One client and event loop per call: Motor binds to the loop it first ran on.
 
-    Every collection the erasure touches is created up front, a transaction being unable to create a
-    namespace -- and `aktionen` has to exist before `collMod` can narrow it.
+    The SHIPPED validators, so a document production would refuse fails here too, and every
+    collection created -- a transaction cannot, and `collMod` needs `aktionen` first.
     """
 
     async def _run() -> Any:
@@ -83,22 +88,24 @@ def on_a_league(url: str, body: Body) -> Any:
             await client.drop_database(DATABASE_NAME)
             database = client[DATABASE_NAME]
 
+            await apply_constraints(database)
+
+            # Each season spans its own calendar year, so the two seeded spans do not overlap.
             await database[Collection.SAISONS].insert_many(
                 [
-                    {"_id": SAISON_ID, "status": "active", "rules": dict(RULES)},
-                    {"_id": FORMER_SAISON_ID, "status": "past", "rules": dict(RULES)},
+                    {"_id": year, "start_date": f"{year}-01-01", "end_date": f"{year}-06-30", "status": status, "rules": dict(RULES)}
+                    for year, status in ((SAISON_ID, "active"), (FORMER_SAISON_ID, "past"))
                 ]
             )
-            # Both clubs in both seasons, so either pupil can be put in a squad in either one.
+            # Both clubs in both seasons, so either pupil can be put in a squad in either one. The
+            # season's own copy of each identity is required and never read: this suite is about people.
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
-                    {"saison_id": saison_id, "team_id": team_id, "gruppe": gruppe}
+                    {"saison_id": saison_id, "team_id": team_id, "gruppe": gruppe, "austritt": None, "name": name, "shorthand": short}
                     for saison_id in (SAISON_ID, FORMER_SAISON_ID)
-                    for team_id, gruppe in ((HOME_TEAM_OID, "A"), (AWAY_TEAM_OID, "B"))
+                    for team_id, gruppe, name, short in ((HOME_TEAM_OID, "A", "Heim-Schule", "HS"), (AWAY_TEAM_OID, "B", "Gast-Schule", "GS"))
                 ]
             )
-            for name in (Collection.SPIELER, Collection.SAISON_SPIELER, Collection.AKTIONEN):
-                await database.create_collection(name)
 
             return await body(database, client)
         finally:
@@ -303,7 +310,7 @@ class TestARetiredPupilIsErasedWhole:
         assert [row for row in before_erasure if row["before"] is not None], "the seeded log held no image to redact"
         assert len(before_erasure) == counted == len(stamped)
         assert all(row["before"] is None for row in stamped)
-        assert {row["redacted_at"] for row in stamped} == {log_stamp(NOW)}
+        assert {row["redacted_at"] for row in stamped} == {REDACTED_AT}
 
     def test_another_pupils_log_rows_keep_their_images(self, mongo_replica_set_url: str):
         """Catches an `$or` branch matching on `collection` alone, which would empty the whole log."""

@@ -89,7 +89,7 @@ function mapReplacementRefusal(error: unknown): string | null {
 
   if (error.serverErrorCode === "REQ-REPLACE-001") {
     // No reload repairs a finished season, so the sentence names the seasons still open instead.
-    return "Diese Saison ist abgeschlossen, und ihre Spiele sind der Nachweis darüber, wer gespielt hat — ein Wechsel würde ihn umschreiben. Ersetzen lässt sich ein Team nur in einer laufenden oder geplanten Saison.";
+    return "Diese Saison ist abgeschlossen. Ihre Spiele sind der Nachweis darüber, wer gespielt hat, und ein Wechsel würde ihn umschreiben. Ersetzen lässt sich ein Team nur in einer laufenden oder geplanten Saison.";
   }
   if (error.serverErrorCode === "REQ-REPLACE-002") {
     // The four shapes that leave a record, and only those: an ausgefallenes or annulliertes Spiel
@@ -101,7 +101,7 @@ function mapReplacementRefusal(error: unknown): string | null {
     // One code, two pictures: a club named on both ends lands here too, because the row being
     // replaced is one that club holds. PLATZ and never „spielt“ — the condition is a `saison_teams`
     // row of ANY kind, and a withdrawn club still holds one.
-    return "Das nachrückende Team hat in dieser Saison schon einen Platz, oder Du hast für beide Seiten dasselbe Team gewählt. Nachrücken kann nur ein Team, das in dieser Saison noch keinen Platz hat — ein ausgeschiedenes Team behält seinen.";
+    return "Das nachrückende Team hat in dieser Saison schon einen Platz, oder Du hast für beide Seiten dasselbe Team gewählt. Nachrücken kann nur ein Team, das in dieser Saison noch keinen Platz hat. Ein ausgeschiedenes Team behält seinen.";
   }
   if (error.serverErrorCode === "REQ-ENTER-005") {
     // The club the admin PICKED, never the one whose page is open, so the reactivation is not the

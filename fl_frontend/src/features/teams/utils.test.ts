@@ -279,9 +279,8 @@ describe("describeReplacementUmfang", () => {
     assert.doesNotMatch(umfang(0, 0), /hatte das ausscheidende Team keine/);
   });
 
-  /* AUSTRAGEN is what happens to a squad row, STILLLEGEN to the person across the league. The
-     endpoint stamps `saison_spieler` and touches no `spieler` document, so the second word reports
-     pupils out of every pick list there is. */
+  /* `stillgelegt` would report these pupils out of every pick list there is, the endpoint stamping
+     `saison_spieler` and touching no `spieler` document. */
   it("never calls a squad row's retirement a Stilllegung", () => {
     for (const report of [umfang(0, 0), umfang(2, 1), umfang(2, 9)]) {
       assert.doesNotMatch(report, /stillgelegt|Stilllegen/, "the report retires the people rather than their squad entries");
@@ -289,15 +288,16 @@ describe("describeReplacementUmfang", () => {
     }
   });
 
-  /* Final on a running season: reviving the row needs its own club back in the season
-     (`REQ-SQUAD-001`), and `REQ-ENTER-001` admits a club only to a `future` one. */
-  it("says a retired entry stays out, and says it only where it retired one", () => {
+  /* The repair is a reassignment, never the outgoing club's return: `REQ-SQUAD-001` judges the row's
+     `team_id` on the PATCH as well, so no season status stands between the row and its squad. */
+  it("names the reassignment as the repair, and names it only where it retired a row", () => {
     for (const report of [umfang(0, 1), umfang(3, 9)]) {
-      assert.match(report, /Reaktivieren lässt sich ein solcher Eintrag erst/);
-      assert.match(report, /nur in eine geplante Saison/);
+      assert.match(report, /Um einen solchen Eintrag zu reaktivieren/);
+      assert.match(report, /Bereich „Kader“ einem Team dieser Saison zu/);
+      assert.doesNotMatch(report, /geplante Saison|wieder in dieser Saison steht/, "the report names a repair the rule does not ask for");
     }
 
-    assert.doesNotMatch(umfang(3, 0), /Reaktivieren/, "nothing was retired and the report warns about it anyway");
+    assert.doesNotMatch(umfang(3, 0), /[Rr]eaktivieren/, "nothing was retired and the report warns about it anyway");
   });
 
   /* It lands in a toast with no figures beside it, so each half has to stand as a sentence. */

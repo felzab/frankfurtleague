@@ -6,7 +6,11 @@ import { buildReplacementContext, describePlatz, describeUebernommeneSpiele } fr
 import type { FLSpiel } from "../../../../spiele/schemas.ts";
 import type { FLAustritt } from "../../../../teams/schemas.ts";
 
-/** An ordinary undated fixture with no side filled — what a fresh draw writes into a bracket slot. */
+/**
+ * A fixture with neither side filled, each case supplying the clubs it is about. Deliberately not a
+ * shape the draw writes: `buildReplacementContext` reads no phase and no provenance, so one would
+ * suggest it grades something it does not.
+ */
 const LEER: FLSpiel = {
   id: "0".repeat(24),
   spieltag_id: "1".repeat(24),

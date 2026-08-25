@@ -19,6 +19,7 @@ import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
+import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import { buildSchiedsrichterBanners } from "./banners";
 import { FormAnonymisierenSection } from "./FormAnonymisierenSection";
@@ -185,19 +186,6 @@ export function AdminSchiedsrichterEditForm({
     leavePage();
   };
 
-  /**
-   * The anonymisation refreshes the route, and the page keys this view on the stored record — so the
-   * form remounts on the cleared one and an unsaved draft goes with it.
-   */
-  const guardAgainstDraft = (): boolean => {
-    if (!isDirty) return true;
-
-    appToast.warning("Erst speichern", {
-      description: "Das Löschen lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen. Speichere oder verwirf sie zuerst.",
-    });
-    return false;
-  };
-
   const requestSave = () => {
     // Snapshotted rather than read live: a background revalidation would move the list under an
     // open dialog, and the reader agreed to the one the gate stopped on.
@@ -338,7 +326,14 @@ export function AdminSchiedsrichterEditForm({
             schiedsrichterId={schiedsrichter.id}
             name={schiedsrichter.name}
             kontakt={schiedsrichter.kontakt}
-            onBeforeAnonymise={guardAgainstDraft}
+            // The page keys this view on the STORED record, so the write's refresh remounts the form
+            // onto the cleared one — an unsaved draft would go with it.
+            onBeforeAnonymise={() =>
+              guardAgainstDraft(
+                isDirty,
+                "Das Löschen lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen. Speichere oder verwirf sie zuerst.",
+              )
+            }
           />
         </EditFormLayout>
 

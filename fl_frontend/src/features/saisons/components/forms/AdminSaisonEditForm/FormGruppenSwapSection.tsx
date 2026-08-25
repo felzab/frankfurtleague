@@ -1,26 +1,27 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ArrowRightArrowLeft } from "@gravity-ui/icons";
 
-import { Button, Label, ListBox, Select } from "@heroui/react";
+import { Button } from "@heroui/react";
 
 import { swapGruppenAction } from "@/features/saisons/actions";
 import { findSwapPartnerRefusal } from "@/features/saisons/utils";
 import { Callout } from "@/shared/components/ui/Callout";
-import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { confirmButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
-import { PANEL_REVEAL } from "@/shared/components/ui/motion";
-import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
+import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
-import type { Key } from "@heroui/react";
+import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";
 
 /** The pair's accessible name, and the sentence the disabled button points at. Both render once here. */
 const PAIR_LABEL_ID = "gruppentausch-paar";
@@ -33,69 +34,6 @@ const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
   played: "hat schon gespielt",
   spieltagClash: "zweimal am Spieltag",
 };
-
-/**
- * One side of the swap. An `unpickable` club stays VISIBLE and disabled rather than disappearing,
- * which is `GruppeSelect`'s rule for a full group: an admin should see why, not wonder where it went.
- */
-function SwapTeamSelect({
-  label,
-  value,
-  onChange,
-  teams,
-  unpickable,
-  isDisabled,
-}: {
-  label: string;
-  value: SaisonSwapTeam | null;
-  onChange: (team: SaisonSwapTeam) => void;
-  teams: readonly SaisonSwapTeam[];
-  /** Club ids this side must not take, with the reason to show beside each. */
-  unpickable: ReadonlyMap<string, string>;
-  isDisabled: boolean;
-}) {
-  const handleChange = (key: Key | null) => {
-    const picked = teams.find((team) => team.id === key?.toString());
-    if (picked) onChange(picked);
-  };
-
-  return (
-    <Select
-      aria-label={label}
-      value={value?.id ?? undefined}
-      onChange={handleChange}
-      isDisabled={isDisabled}
-      className="w-full">
-      {/* HeroUI's own `Label`, not a bare span: it wires `for`/`id` onto the trigger, which an
-          `aria-label` alone leaves unlabelled for anything reading the DOM rather than the a11y tree. */}
-      <Label className={FIELD_LABEL}>{label}</Label>
-      <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
-        {/* From the prop rather than `Select.Value`: the collection can lag a render behind and would
-            show HeroUI's English placeholder — `GruppeSelect`'s reason, and `SaisonSelector`'s. */}
-        <span className={value ? "" : "text-foreground-muted"}>{value ? `${value.name} (Gruppe ${value.gruppe})` : "Team wählen"}</span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
-      </Select.Trigger>
-      <Select.Popover className={`${overlayPanel()} mt-2 max-h-72 overflow-y-auto p-1.5`}>
-        <ListBox aria-label={label}>
-          {teams.map((team) => {
-            const reason = unpickable.get(team.id);
-            return (
-              <ListBox.Item
-                key={team.id}
-                id={team.id}
-                textValue={team.name}
-                isDisabled={reason !== undefined}
-                className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-base) data-disabled:cursor-not-allowed data-disabled:opacity-40">
-                <span className="min-w-0 truncate">{team.name}</span>
-                <span className="fluid-xs text-foreground-muted shrink-0 font-semibold">{reason ?? `Gruppe ${team.gruppe}`}</span>
-              </ListBox.Item>
-            );
-          })}
-        </ListBox>
-      </Select.Popover>
-    </Select>
-  );
-}
 
 /**
  * **What makes the pair read as one operation** rather than three controls a reader assembles.
@@ -137,8 +75,7 @@ export function FormGruppenSwapSection({
 }) {
   const router = useRouter();
   const panel = formPanel();
-  const [isSwapping, startSwapping] = useTransition();
-  const [isConfirming, setIsConfirming] = useState(false);
+  const { isConfirming, isPending: isSwapping, press, cancel } = useTwoPressConfirm();
   const [first, setFirst] = useState<SaisonSwapTeam | null>(null);
   const [second, setSecond] = useState<SaisonSwapTeam | null>(null);
 
@@ -171,30 +108,44 @@ export function FormGruppenSwapSection({
     }
   }
 
-  const handleFirstChange = (team: SaisonSwapTeam) => {
+  /** The season's clubs as one picker offers them, refused by whichever map that side reads. */
+  const optionsFrom = (refusals: ReadonlyMap<string, string>): RefusableOption[] =>
+    swap.teams.map((team) => ({
+      id: team.id,
+      name: team.name,
+      meta: `Gruppe ${team.gruppe}`,
+      refusal: refusals.get(team.id) ?? null,
+    }));
+
+  const firstOptions = optionsFrom(unpickable);
+  const secondOptions = optionsFrom(unpickableForSecond);
+
+  const handleFirstChange = (id: string) => {
+    const team = swap.teams.find((candidate) => candidate.id === id);
+    if (team === undefined) return;
+
     setFirst(team);
-    setIsConfirming(false);
+    cancel();
     // Cleared rather than kept: a disabled row left selected is a pair the button would send and the
     // endpoint would refuse.
     if (second && findSwapPartnerRefusal(team, second) !== null) setSecond(null);
   };
 
-  const handleSecondChange = (team: SaisonSwapTeam) => {
+  const handleSecondChange = (id: string) => {
+    const team = swap.teams.find((candidate) => candidate.id === id);
+    if (team === undefined) return;
+
     setSecond(team);
-    setIsConfirming(false);
+    cancel();
   };
 
   const handleSwap = () => {
+    // Ahead of `press`, so a half-made pair neither arms nor writes. Both are `const`, which is what
+    // carries the narrowing into the closure below.
     if (first === null || second === null) return;
 
-    if (!isConfirming) {
-      setIsConfirming(true);
-      return;
-    }
-
-    startSwapping(async () => {
+    press(async () => {
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: first.id, team2_id: second.id });
-      setIsConfirming(false);
 
       if (!res.success) {
         appToast.danger("Tausch fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
@@ -290,24 +241,24 @@ export function FormGruppenSwapSection({
               role="group"
               aria-labelledby={PAIR_LABEL_ID}
               className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-              <SwapTeamSelect
+              <RefusableSelect
                 label="Team"
-                value={first}
+                placeholder="Team wählen"
+                value={firstOptions.find((option) => option.id === first?.id) ?? null}
+                options={firstOptions}
                 onChange={handleFirstChange}
-                teams={swap.teams}
-                unpickable={unpickable}
                 isDisabled={isSwapping}
               />
               <SwapConnective
                 first={first}
                 second={second}
               />
-              <SwapTeamSelect
+              <RefusableSelect
                 label="Tauscht Gruppen mit"
-                value={second}
+                placeholder="Team wählen"
+                value={secondOptions.find((option) => option.id === second?.id) ?? null}
+                options={secondOptions}
                 onChange={handleSecondChange}
-                teams={swap.teams}
-                unpickable={unpickableForSecond}
                 isDisabled={isSwapping || first === null}
               />
             </div>
@@ -325,29 +276,27 @@ export function FormGruppenSwapSection({
               </Callout>
             )}
 
-            {/* Escalated in place, the rollover's shape: without `role="alert"` the only signal is the
-                button label quietly changing. */}
             {isConfirming && first !== null && second !== null && (
-              <div
-                role="alert"
-                className={`${PANEL_REVEAL} bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm`}>
-                <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
+              <ConfirmReveal>
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
                   Der Tausch gilt sofort und ist auf jeder Tabelle dieser Saison sichtbar. Rückgängig machst Du ihn, indem Du dieselben beiden
                   Teams noch einmal tauschst.
                 </p>
-              </div>
+              </ConfirmReveal>
             )}
 
             <div className="flex w-full flex-col gap-y-1.5">
-              <div className="flex w-full flex-row flex-wrap items-center gap-3">
+              <ConfirmActionRow
+                isConfirming={isConfirming}
+                isPending={isSwapping}
+                onCancel={cancel}>
                 <Button
                   type="button"
                   variant="primary"
                   aria-describedby={!isSwapping && isMissingAPick ? BUTTON_HINT_ID : undefined}
                   isDisabled={isSwapping || isMissingAPick}
                   onPress={handleSwap}
-                  className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
+                  className={confirmButton(isConfirming)}>
                   {!isConfirming && (
                     <ArrowRightArrowLeft
                       aria-hidden="true"
@@ -357,17 +306,7 @@ export function FormGruppenSwapSection({
                   )}
                   {isSwapping ? "Tauscht..." : isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen"}
                 </Button>
-                {isConfirming && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    isDisabled={isSwapping}
-                    onPress={() => setIsConfirming(false)}
-                    className={formButton({ intent: "cancel" })}>
-                    Abbrechen
-                  </Button>
-                )}
-              </div>
+              </ConfirmActionRow>
               {/* Adjacent to the control it describes, and pointed at by `aria-describedby` — the
                   treatment `FormErgebnisSection` established for a control disabled for a reason the
                   page already shows. */}
