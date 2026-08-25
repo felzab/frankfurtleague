@@ -35,6 +35,10 @@ export const AKTION_OPERATION_LABELS: Record<FLAktion["operation"], string> = {
   insert_many: "Mehrere angelegt",
   patch_one: "Geändert",
   patch_many: "Sammeländerung",
+  delete_many: "Mehrere gelöscht",
+  // Named apart from the removal above because the difference is what can still be recovered: this
+  // one kept no copy, that being the whole of what an erasure is.
+  erase_many: "Endgültig gelöscht",
 };
 
 /**
@@ -47,4 +51,6 @@ export const AKTION_OPERATION_TINTS: Record<FLAktion["operation"], string> = {
   insert_many: "bg-warning/15 text-warning-strong",
   patch_one: "bg-info/15 text-info-strong",
   patch_many: "bg-warning/15 text-warning-strong",
+  delete_many: "bg-danger/15 text-danger-strong",
+  erase_many: "bg-danger/15 text-danger-strong",
 };

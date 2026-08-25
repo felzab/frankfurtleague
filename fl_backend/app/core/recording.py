@@ -13,14 +13,14 @@ makes retention and the erasure redaction this module's problem rather than the 
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Literal, Mapping
+from typing import Any, Literal, Mapping, Sequence
 
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 
 from app.core.collections import Collection
 from app.core.logging import correlation_id_var
 
-Operation = Literal["insert", "insert_many", "patch_one", "patch_many"]
+Operation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
 
 # What a write not made through a request is attributed to -- a migration, a script, a fixture. The
 # spelling matches `app/core/logging.py :: NO_REQUEST_SENTINEL`, so one grep finds both.
@@ -70,7 +70,7 @@ async def record_write(
     operation: Operation,
     document_id: Any = None,
     db_filter: Mapping[str, Any] | None = None,
-    before: Mapping[str, Any] | None = None,
+    before: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None = None,
     modified_count: int | None = None,
     session: AsyncIOMotorClientSession | None = None,
 ) -> None:
@@ -99,7 +99,7 @@ async def record_write(
         "operation": operation,
         "document_id": document_id,
         "db_filter": _stringify_filter(db_filter) if db_filter is not None else None,
-        "before": dict(before) if before is not None else None,
+        "before": _stored_image(before),
         "modified_count": modified_count,
         # Set when a person is erased and their values are overwritten here. Null means the row still
         # holds what it recorded (`docs/backend/spec.md :: I42`).
@@ -109,6 +109,22 @@ async def record_write(
     # The target's own database handle, not an injected one: that is what keeps this module off
     # `app/core/db.py`'s import path and out of a cycle.
     await collection.database[Collection.AKTIONEN].insert_one(row, session=session)
+
+
+def _stored_image(before: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None) -> dict[str, Any] | list[dict[str, Any]] | None:
+    """One document for a patch, an array for a removal that took a set.
+
+    A removal follows no earlier write a restore could replay, so the images ARE the record; an array
+    keeps one action in one row, which is what `insert_many` does from the other direction.
+    """
+
+    if before is None:
+        return None
+
+    if isinstance(before, Mapping):
+        return dict(before)
+
+    return [dict(document) for document in before]
 
 
 def _stringify_filter(db_filter: Mapping[str, Any]) -> dict[str, str]:

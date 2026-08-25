@@ -18,7 +18,7 @@ from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollectio
 from pydantic import BaseModel
 from pymongo import ReturnDocument
 from pymongo.errors import BulkWriteError
-from pymongo.results import InsertManyResult, InsertOneResult, UpdateResult
+from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, UpdateResult
 
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException, WriteRefusal
 from app.core.recording import record_write
@@ -169,6 +169,59 @@ async def post_many_to_db(
     # Neither an id nor a `before`: the call named no single document, and a create replaced nothing.
     # The count goes where a fan-out puts its own, so one field answers "how many did this touch".
     await record_write(collection=collection, operation="insert_many", modified_count=len(result.inserted_ids), session=session)
+
+    return result
+
+
+async def delete_many_from_db(
+    *,
+    collection: AsyncIOMotorCollection,
+    db_filter: Mapping[str, Any],
+    session: AsyncIOMotorClientSession | None = None,
+) -> DeleteResult:
+    """Remove a set and keep every image, in one log row (`docs/backend/spec.md :: I47`).
+
+    The images are read first and unbounded: a cap here would log fewer documents than the delete
+    took, and the shortfall would look like a smaller action rather than a lost record.
+    """
+
+    before = await collection.find(filter=db_filter, session=session).to_list(length=None)
+
+    result = await collection.delete_many(filter=db_filter, session=session)
+
+    await record_write(
+        collection=collection,
+        operation="delete_many",
+        db_filter=db_filter,
+        before=before,
+        modified_count=result.deleted_count,
+        session=session,
+    )
+
+    return result
+
+
+async def erase_many_from_db(
+    *,
+    collection: AsyncIOMotorCollection,
+    db_filter: Mapping[str, Any],
+    session: AsyncIOMotorClientSession | None = None,
+) -> DeleteResult:
+    """Remove a set and keep NO image, for an erasure whose subject is the values themselves.
+
+    The filter and the count are what a completed erasure has to be able to show; an image would be
+    a fresh copy of exactly what was erased, written by the erasure (`docs/backend/spec.md :: I47`).
+    """
+
+    result = await collection.delete_many(filter=db_filter, session=session)
+
+    await record_write(
+        collection=collection,
+        operation="erase_many",
+        db_filter=db_filter,
+        modified_count=result.deleted_count,
+        session=session,
+    )
 
     return result
 
