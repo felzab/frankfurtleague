@@ -151,6 +151,24 @@ class TestTheBaseTierFilterSurface:
         """A standings row names no leaving date, so a read un-hiding retired clubs has no way to say which ones they are (`READ-SQUAD-002`)."""
         assert "include_inactive" not in BASE_FILTERS.model_fields
 
+    def test_the_base_tier_filter_set_is_exactly_this(self):
+        """Every term the base tier may narrow on. A filter is part of the shape a read serves.
+
+        The difference against the admin model cannot stand in: that model inherits this one, so a
+        term added here propagates there and the difference is unchanged.
+        """
+        assert set(BASE_FILTERS.model_fields) == {
+            "saison_id",
+            "gruppe",
+            "in_gruppen",
+            "has_austritt",
+            "austritt_type",
+            "statistik_scope",
+            "sort_by",
+            "order",
+            "limit",
+        }
+
     def test_the_admin_filters_are_that_same_set_plus_the_switch(self):
         """Moved rather than dropped: the season editor has to list a retired club that still holds a junction row."""
         assert "include_inactive" in ADMIN_FILTERS.model_fields

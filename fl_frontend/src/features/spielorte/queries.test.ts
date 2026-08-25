@@ -60,6 +60,13 @@ function directivesIn(file: string): string[] {
   const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
   const directives: string[] = [];
 
+  /* A prologue at the top of the FILE caches every export in it, which Next supports and which no
+     function node carries, so the module's own leading statements are read before any function's. */
+  for (const statement of source.statements) {
+    if (!ts.isExpressionStatement(statement) || !ts.isStringLiteral(statement.expression)) break;
+    directives.push(statement.expression.text);
+  }
+
   source.forEachChild(function walk(node: ts.Node): void {
     if ((ts.isFunctionDeclaration(node) || ts.isArrowFunction(node) || ts.isFunctionExpression(node)) && node.body && ts.isBlock(node.body)) {
       for (const statement of node.body.statements) {

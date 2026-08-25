@@ -9,6 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 from pymongo import MongoClient
 
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielJoined,
@@ -196,6 +197,7 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
     try:
         client.drop_database(database_name)
         database = client[database_name]
+        invalidate_saison_cache()
         database[Collection.SPIELE].insert_one(stored_document())
         database[Collection.SAISON_TEAMS].insert_one(junction_row())
 
@@ -204,6 +206,13 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
         client.drop_database(database_name)
         client.close()
 
+
+# The whole membership of each base-tier embedded shape, so a field added to one is named here or
+# fails. The admin twin inherits it, which is why a relation between the two cannot stand in.
+PUBLIC_EMBEDDED_FIELDS = [
+    pytest.param(FLSpielOrtFieldPublic, frozenset({"spielort_id", "name", "maps_link"}), id="the venue"),
+    pytest.param(FLSpielSchiedsrichterFieldPublic, frozenset({"schiedsrichter_id", "name"}), id="the referee"),
+]
 
 # (the base-tier shape, the money-bearing shape it is narrowed from, the figure separating the two).
 EMBEDDED_PAIRS = [
@@ -227,15 +236,15 @@ class TestTheEmbeddedShapes:
 
         assert money in admin_model.model_fields
 
-    @pytest.mark.parametrize(("public_model", "admin_model", "money"), EMBEDDED_PAIRS)
-    def test_the_base_tier_field_set_is_a_strict_subset(self, public_model: type[BaseModel], admin_model: type[BaseModel], money: str):
-        """Catches an admin-tier field added to the base-tier shape later, which naming today's two figures cannot.
+    @pytest.mark.parametrize(("public_model", "public_fields"), PUBLIC_EMBEDDED_FIELDS)
+    def test_the_base_tier_shape_declares_exactly_these_fields(self, public_model: type[BaseModel], public_fields: frozenset[str]):
+        """An allow-list is one only while its whole membership is pinned.
 
-        Strict rather than merely contained: equal sets would mean the two tiers had stopped
-        differing at all.
+        A subset relation against the admin model cannot do it: that model inherits this one, so a
+        field added here propagates there and the relation survives unchanged.
         """
 
-        assert set(public_model.model_fields) < set(admin_model.model_fields)
+        assert set(public_model.model_fields) == public_fields
 
 
 class TestTheJoinedSideShapes:
@@ -260,10 +269,14 @@ class TestTheJoinedSideShapes:
 
         assert "austritt" in FLSpielTeamFieldJoinedInternal.model_fields
 
-    def test_the_served_side_field_set_is_a_strict_subset(self):
-        """Catches a field added to the served side later, which naming today's one cannot."""
+    def test_the_served_side_declares_exactly_these_fields(self):
+        """The served side's whole membership, since the internal shape inherits it.
 
-        assert set(FLSpielTeamFieldJoined.model_fields) < set(FLSpielTeamFieldJoinedInternal.model_fields)
+        A subset relation would survive a field added here, because it would propagate to the shape
+        it is being compared against.
+        """
+
+        assert set(FLSpielTeamFieldJoined.model_fields) == {"team_id", "name", "shorthand", "tore", "austritt_type"}
 
 
 class TestTheFixtureShapes:
