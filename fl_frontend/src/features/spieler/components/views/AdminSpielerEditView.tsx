@@ -19,18 +19,21 @@ import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spie
 /**
  * Every exit routes through the form's discard guard.
  *
- * **The header owns the PERSON's retirement, the form's foot the squad row's.** Two controls that
- * read alike invite the wrong one.
+ * **The header owns the PERSON's retirement, the form's foot the squad row's** — two controls that
+ * read alike invite the wrong one. The erasure is neither, and sits below both.
  */
 export function AdminSpielerEditView({
   spieler,
   saison,
   teams,
+  membershipCount,
 }: {
   spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null };
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
   teams: SpielerTeamOption[];
+  /** Squad rows across EVERY season, for the erasure panel — this page shows one season's. */
+  membershipCount: number;
 }) {
   const router = useRouter();
   const [isWritingStatus, startWritingStatus] = useTransition();
@@ -56,6 +59,7 @@ export function AdminSpielerEditView({
         spieler={spieler}
         saison={saison}
         teams={teams}
+        membershipCount={membershipCount}
         registerRequestLeave={(requestLeave) => {
           requestLeaveRef.current = requestLeave;
         }}

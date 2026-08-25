@@ -35,10 +35,10 @@ export const FLAktionSchema = z.object({
   document_id: z.string().nullable(),
   db_filter: z.record(z.string(), z.string()).nullable(),
   // The replaced document, in whatever shape its own collection gives it. An array is a removal's,
-  // which took a set and holds every image it removed (`docs/backend/spec.md :: I47`).
+  // which took a set and holds every image it removed (`docs/backend/spec.md :: I48`).
   before: z.union([z.record(z.string(), z.unknown()), z.array(z.record(z.string(), z.unknown()))]).nullable(),
   modified_count: z.int().nullable(),
-  // Set once a person's erasure has overwritten the values this row recorded.
+  // Set once a person's erasure, or a referee's anonymisation, has overwritten the values this row recorded.
   redacted_at: z.string().nullable(),
 });
 export type FLAktion = z.infer<typeof FLAktionSchema>;

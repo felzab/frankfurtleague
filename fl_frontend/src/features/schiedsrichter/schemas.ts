@@ -20,11 +20,21 @@ export const FLPatchSchiedsrichterPayloadSchema = z.object({
 });
 export type FLPatchSchiedsrichterPayload = z.infer<typeof FLPatchSchiedsrichterPayloadSchema>;
 
-/** The retire and reactivate calls: an id in the path, no request body. */
+/** The retire and its reactivate: an id in the path, no request body. */
 export const FLSchiedsrichterKeyPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
 });
 export type FLSchiedsrichterKeyPayload = z.infer<typeof FLSchiedsrichterKeyPayloadSchema>;
+
+/**
+ * The ANONYMISATION's whole argument: the id in the path, no request body. Its own schema, not the
+ * reversible pair's key above — a shared payload would let a caller reach the deletion while reading
+ * as a retirement.
+ */
+export const FLAnonymiseSchiedsrichterPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+});
+export type FLAnonymiseSchiedsrichterPayload = z.infer<typeof FLAnonymiseSchiedsrichterPayloadSchema>;
 
 export const FLSchiedsrichterSchema = z.object({
   id: CustomObjectIdStringSchema,
@@ -58,7 +68,11 @@ export const FLPatchSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend(
 });
 export type FLPatchSchiedsrichterResponse = z.infer<typeof FLPatchSchiedsrichterResponseSchema>;
 
-/** What the retire and the reactivate both echo: the backend serves one model for the pair. */
+/**
+ * What the retire, the reactivate and the anonymisation echo: one backend model for the three.
+ *
+ * The anonymisation answers with the referee still standing — cleared `kontakt`, `name` untouched.
+ */
 export const FLSchiedsrichterWriteResponseSchema = BaseAPIResponseSchema.extend({
   updated_document: FLSchiedsrichterSchema,
 });

@@ -27,12 +27,14 @@ import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
 import { FormRolloverSection } from "./FormRolloverSection";
 import { FormSpielplanSection } from "./FormSpielplanSection";
+import { FormTeamErsatzSection } from "./FormTeamErsatzSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
 
 import type { FLPatchSaisonPayload, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
   SaisonDraftFields,
   SaisonGruppenSwapContext,
+  SaisonReplacementContext,
   SaisonRolloverContext,
   SaisonSpielplanContext,
   SaisonSpieltagBound,
@@ -71,6 +73,7 @@ export function AdminSaisonEditForm({
   saison,
   rollover,
   swap,
+  ersatz,
   spielplan,
   hasDrawnSpiele,
   spieltagBound,
@@ -81,6 +84,8 @@ export function AdminSaisonEditForm({
   rollover: SaisonRolloverContext;
   /** This season's clubs and their groups, plus the knockout count that closes the swap. */
   swap: SaisonGruppenSwapContext;
+  /** This season's junction rows, and the league's clubs that could take one of them over. */
+  ersatz: SaisonReplacementContext;
   /** The season's draw watermark and its matchday count, which decide whether a draw is still offered. */
   spielplan: SaisonSpielplanContext;
   /** Whether the season holds fixtures, which is what freezes the rules they were drawn from. */
@@ -367,6 +372,15 @@ export function AdminSaisonEditForm({
           <FormGruppenSwapSection
             saisonId={saison.id}
             swap={swap}
+            isFinishedSaison={saison.status === "past"}
+          />
+
+          {/* Beside the swap, which it reads as a sibling of — both hand a junction row on — and
+              ahead of the two panels that move the season itself. Its class is theirs, though: it
+              writes on press and no later edit reverses it. */}
+          <FormTeamErsatzSection
+            saisonId={saison.id}
+            ersatz={ersatz}
             isFinishedSaison={saison.status === "past"}
           />
 

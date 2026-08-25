@@ -1,6 +1,12 @@
 import { apiClient } from "@/core/api";
 
-import { FLPatchTeamResponseSchema, FLPostTeamResponseSchema, FLSaisonTeamResponseSchema, FLTeamWriteResponseSchema } from "./schemas";
+import {
+  FLPatchTeamResponseSchema,
+  FLPostTeamResponseSchema,
+  FLReplaceSaisonTeamResponseSchema,
+  FLSaisonTeamResponseSchema,
+  FLTeamWriteResponseSchema,
+} from "./schemas";
 
 import type {
   FLDeleteTeamPayload,
@@ -11,6 +17,8 @@ import type {
   FLPostTeamPayload,
   FLPostTeamResponse,
   FLReactivateTeamPayload,
+  FLReplaceSaisonTeamPayload,
+  FLReplaceSaisonTeamResponse,
   FLSaisonTeamResponse,
   FLTeamWriteResponse,
 } from "./schemas";
@@ -63,6 +71,16 @@ export async function postSaisonTeam({ team_id, ...body }: FLPostSaisonTeamPaylo
 export async function patchSaisonTeam({ team_id, saison_id, ...body }: FLPatchSaisonTeamPayload): Promise<FLSaisonTeamResponse> {
   return apiClient<FLSaisonTeamResponse>(`/teams/${team_id}/saisons/${saison_id}`, FLSaisonTeamResponseSchema, {
     method: "PATCH",
+    authType: "admin",
+    body: JSON.stringify(body),
+  });
+}
+
+// The row is addressed by its natural key and the club taking it over rides in the body: the path
+// names the club going OUT, which is why a phantom row naming no club is repairable through here.
+export async function replaceSaisonTeam({ team_id, saison_id, ...body }: FLReplaceSaisonTeamPayload): Promise<FLReplaceSaisonTeamResponse> {
+  return apiClient<FLReplaceSaisonTeamResponse>(`/teams/${team_id}/saisons/${saison_id}/replace`, FLReplaceSaisonTeamResponseSchema, {
+    method: "POST",
     authType: "admin",
     body: JSON.stringify(body),
   });

@@ -118,7 +118,11 @@ export function SaisonRuleNumberField({
   maxValue,
   isReadOnly,
 }: {
-  name: string;
+  /**
+   * The field's path in the payload, so `Form`'s `validationErrors` reach it by name. Left out by a
+   * control that is not a field of the page's payload, which then carries no server message either.
+   */
+  name?: string;
   label: ReactNode;
   value: number;
   onChange: (next: number) => void;

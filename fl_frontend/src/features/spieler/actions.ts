@@ -7,9 +7,11 @@ import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
+import { ERASURE_NEEDS_RETIREMENT } from "./constants";
 import {
   deleteSaisonSpieler,
   deleteSpieler,
+  eraseSpieler,
   patchSaisonSpieler,
   patchSpieler,
   postSaisonSpieler,
@@ -20,21 +22,25 @@ import {
 import {
   FLCreateSpielerFormPayloadSchema,
   FLDeleteSpielerPayloadSchema,
+  FLEraseSpielerPayloadSchema,
   FLPatchSaisonSpielerPayloadSchema,
   FLPatchSpielerPayloadSchema,
   FLPostSaisonSpielerPayloadSchema,
   FLReactivateSpielerPayloadSchema,
   FLSaisonSpielerKeyPayloadSchema,
 } from "./schemas";
+import { describeErasureUmfang } from "./utils";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLDeleteSpielerPayload,
+  FLEraseSpielerPayload,
   FLPatchSpielerPayload,
   FLReactivateSpielerPayload,
   FLSaisonSpielerKeyPayload,
   FLSaisonSpielerResponse,
   FLSpielerAdminSingleResponse,
+  FLSpielerErasureResponse,
 } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
 
@@ -43,20 +49,27 @@ const ALREADY_IN_SAISON =
   "Dieser Spieler hat in dieser Saison bereits einen Kadereintrag, möglicherweise einen ausgetragenen. " +
   "Reaktiviere den Eintrag, statt einen neuen anzulegen.";
 
+// Reachable with no picker on screen: a reactivate names the row's STORED club, which a replacement
+// can have taken out of the season.
+const SQUAD_TEAM_NOT_IN_SAISON =
+  "Das Team dieses Kadereintrags ist in dieser Saison nicht dabei. Weise den Eintrag im Bereich „Kader“ auf der Seite " +
+  "des Spielers zuerst einem Team dieser Saison zu.";
+
 /** Base tag only: the cached spieler read spans every season. */
 function invalidateSpieler(): void {
   updateTag("spieler");
 }
 
 /**
- * The membership refusal lands on the field that caused it — the team picker. The cap belongs to no
- * field: it is a fact about the season's rules, and the reactivate path renders no form at all.
+ * Two shapes for one refusal: the field message marks the team picker, and the sentence beside it is
+ * what a reactivate toasts, that path rendering no field at all. The cap belongs to no field
+ * either — it is a fact about the season's rules.
  */
 function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   if (error.serverErrorCode === "REQ-SQUAD-001") {
-    return { fieldErrors: { team_id: "Dieses Team ist in der gewählten Saison nicht dabei." } };
+    return { error: SQUAD_TEAM_NOT_IN_SAISON, fieldErrors: { team_id: "Dieses Team ist in der gewählten Saison nicht dabei." } };
   }
   if (error.serverErrorCode === "REQ-SQUAD-003") {
     return {
@@ -65,6 +78,17 @@ function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
         "oder trage zuerst einen anderen Spieler aus.",
     };
   }
+  return null;
+}
+
+/**
+ * The erasure's precondition, or `null` when the 409 is something else. It lands on no field: the
+ * control is a panel with nothing to fill in, and the repair it names is on another page.
+ */
+function mapErasureRefusal(error: unknown): string | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  if (error.serverErrorCode === "REQ-PURGE-001") return ERASURE_NEEDS_RETIREMENT;
   return null;
 }
 
@@ -110,7 +134,9 @@ export async function postSpielerAction(
       // A 409 here cannot be the player's own duplicate row, but it CAN be a squad refusal naming
       // something the admin can act on, so the reason is appended.
       const refusal = mapSquadRefusal(error);
-      const because = refusal ? ` ${refusal.error ?? Object.values(refusal.fieldErrors ?? {})[0] ?? ""}` : "";
+      // The field message first: this path HAS a picker, so the short sentence written for it is also
+      // the one that reads best appended here. The cap carries no field message and falls through.
+      const because = refusal ? ` ${Object.values(refusal.fieldErrors ?? {})[0] ?? refusal.error ?? ""}` : "";
 
       return {
         success: false,
@@ -217,6 +243,47 @@ export async function reactivateSpielerAction(
       success: Boolean(reactivateOperation.acknowledged),
       spieler: reactivateOperation,
       message: "Spieler reaktiviert!",
+    };
+  });
+}
+
+/**
+ * Erases the person: their record, every squad row they hold and their values in the log, in one
+ * transaction. **No undo is offered and none exists** — nothing writes the person back, and the log
+ * deliberately keeps no image of them.
+ */
+export async function eraseSpielerAction(
+  rawPayload: FLEraseSpielerPayload,
+): Promise<{ success: boolean; erasure?: FLSpielerErasureResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+  return runAdminMutation("eraseSpielerAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLEraseSpielerPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    let erasure;
+    try {
+      erasure = await eraseSpieler(validated.data);
+    } catch (error) {
+      const refusal = mapErasureRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
+    // The base `spieler` tag alone: this removed the person and their squad rows, which is what the
+    // cached public squad read joins. A club's read joins no pupil, a Spiel embeds none, and the log
+    // is admin-tier and uncached.
+    invalidateSpieler();
+
+    return {
+      success: true,
+      erasure,
+      message: describeErasureUmfang(erasure.erased_saison_spieler, erasure.redacted_aktionen),
     };
   });
 }

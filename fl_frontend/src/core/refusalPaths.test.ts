@@ -106,6 +106,8 @@ const NAME_TEMPLATE_BINDINGS: Record<string, readonly string[]> = {
   fieldName: ["team1", "team2"],
   slot: ["team1", "team2"],
   namePrefix: ["address"],
+  // The draw renders its three shape fields from one table, so these paths resolve only here.
+  shapeKey: ["number_of_groups", "teams_per_group", "qualifiers_per_group"],
 };
 
 function templateIdentifiers(): Set<string> {
@@ -170,6 +172,14 @@ const NO_FORM_AT_ALL = "a row button's whole argument: an id in the path, no req
 /** The draw is the one payload here with a body and still no field: its confirmation is an escalation, not an input. */
 const DRAW_HAS_NO_FIELDS = "the draw's panel: the season is in the path and the replace is a two-press escalation, neither being an input";
 
+/** A panel rather than a row button, as the erasure's is. */
+const ANONYMISATION_HAS_NO_FIELDS =
+  "the anonymisation's panel: the id is in the path and the confirmation is a two-press escalation, neither being an input";
+
+/** A panel rather than a row button, which is why `NO_FORM_AT_ALL` would read wrong beside it. */
+const ERASURE_HAS_NO_FIELDS =
+  "the erasure's panel: the id is in the path and the confirmation is a two-press escalation, neither being an input";
+
 /**
  * A nullable object is refused on its own path only for a value that is neither the object nor
  * `null` — a shape the typed payload builders cannot produce. Its fields are swept individually.
@@ -183,8 +193,10 @@ const RECORD_ITSELF = "the record's own path: refusable only on a shape the type
  */
 const EXEMPT: Record<string, Record<string, string>> = {
   FLActivateSaisonPayloadSchema: { id: NO_FORM_AT_ALL },
-  FLGenerateSpielplanPayloadSchema: { id: DRAW_HAS_NO_FIELDS, replace: DRAW_HAS_NO_FIELDS },
+  FLGenerateSpielplanPayloadSchema: { id: DRAW_HAS_NO_FIELDS, replace: DRAW_HAS_NO_FIELDS, shape: RECORD_ITSELF },
   FLDeleteSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
+  FLEraseSpielerPayloadSchema: { id: ERASURE_HAS_NO_FIELDS },
+  FLAnonymiseSchiedsrichterPayloadSchema: { id: ANONYMISATION_HAS_NO_FIELDS },
   FLDeleteTeamPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateTeamPayloadSchema: { id: NO_FORM_AT_ALL },
@@ -205,6 +217,11 @@ const EXEMPT: Record<string, Record<string, string>> = {
 
   FLPostSaisonTeamPayloadSchema: { team_id: IN_THE_PATH, saison_id: THE_PAGE_SEASON },
   FLPatchSaisonTeamPayloadSchema: { team_id: IN_THE_PATH, saison_id: IN_THE_PATH, austritt: RECORD_ITSELF },
+  FLReplaceSaisonTeamPayloadSchema: {
+    team_id: IN_THE_PATH,
+    saison_id: IN_THE_PATH,
+    incoming_team_id: "picked from clubs the panel already graded, each id off a parsed record",
+  },
 
   FLPostSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,

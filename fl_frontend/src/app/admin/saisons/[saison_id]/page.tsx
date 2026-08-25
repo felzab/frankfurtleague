@@ -2,13 +2,14 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { buildReplacementContext } from "@/features/saisons/components/forms/AdminSaisonEditForm/replacementOffer";
 import { AdminSaisonEditView } from "@/features/saisons/components/views/AdminSaisonEditView";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
-import { buildGruppenSwapContext, buildSpieltagBound, holdsDrawnSpiele } from "@/features/saisons/utils";
+import { buildGruppenSwapContext, buildSpielplanBestand, buildSpieltagBound, holdsDrawnSpiele } from "@/features/saisons/utils";
 import { getAdminSpiele } from "@/features/spiele/queries";
 import { getAdminSpieltage } from "@/features/spieltage/queries";
-import { getAdminTeams } from "@/features/teams/queries";
+import { getAdminTeams, getTeamMemberships } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
@@ -43,7 +44,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const outgoing = saisonsRes.saisons.find((candidate) => candidate.status === "active") ?? null;
   const outgoingSaisonId = outgoing === null || outgoing.id === saison.id ? null : outgoing.id;
 
-  const [spieltageRes, outgoingSpieleRes, teamsRes, playoffSpieleRes, gruppenSpieleRes] = await Promise.all([
+  const [spieltageRes, outgoingSpieleRes, teamsRes, playoffSpieleRes, gruppenSpieleRes, ligaTeamsRes] = await Promise.all([
     getAdminSpieltage({ saison_id: saison.id }),
     // Only where there is something to warn about: only a `future` season has a rollover to present —
     // the running one has nothing to switch to, a `past` one is refused (`REQ-ACTIVATE-002`) — and no
@@ -57,6 +58,9 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     getAdminSpiele({ saison_id: saison.id, saison_phase: "playoffs" }),
     // The other half of the same question (`REQ-SWAP-004`), narrowed to the phase the rule asks about.
     getAdminSpiele({ saison_id: saison.id, saison_phase: "gruppenphase" }),
+    // The league-wide read, for the replacement's incoming side alone: a club arriving into this
+    // season is by definition in none of its reads. Skipped where `REQ-REPLACE-001` closes the panel.
+    saison.status === "past" ? Promise.resolve(null) : getTeamMemberships(),
   ]);
 
   /**
@@ -85,11 +89,16 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   /**
    * The generator's own preconditions, off reads this page already makes: the watermark rides on the
    * season, and `REQ-SPIELPLAN-002` counts exactly the rows `getAdminSpieltage` lists for it.
+   *
+   * `bestand` comes off the SAME two fixture reads the swap needs, so no request is added for it. Its
+   * `erfasst` half must keep mirroring `holds_a_recorded_fact`, the predicate `REQ-SPIELPLAN-005`
+   * counts with: too wide closes a replace the endpoint allows, too narrow offers one it refuses.
    */
   const spielplan: SaisonSpielplanContext = {
     spielplan: saison.spielplan,
     spieltageCount: spieltageRes.spieltage.length,
     schedule: saison.schedule,
+    bestand: buildSpielplanBestand({ gruppenSpiele: gruppenSpieleRes.spiele, playoffSpiele: playoffSpieleRes.spiele }),
   };
 
   /**
@@ -98,6 +107,19 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
    */
   const swap: SaisonGruppenSwapContext = buildGruppenSwapContext({
     teams: teamsRes.format === "list" ? teamsRes.teams : [],
+    gruppenSpiele: gruppenSpieleRes.spiele,
+    playoffSpiele: playoffSpieleRes.spiele,
+  });
+
+  /**
+   * The replacement's two sides, off the reads above. Its rows are NOT `swap.teams`: a junction row
+   * whose club is gone reaches no club read, and handing exactly such a row on is what the operation
+   * is for — so the fixtures supply it.
+   */
+  const ersatz = buildReplacementContext({
+    saisonId: saison.id,
+    teams: teamsRes.format === "list" ? teamsRes.teams : [],
+    ligaTeams: ligaTeamsRes?.teams ?? [],
     gruppenSpiele: gruppenSpieleRes.spiele,
     playoffSpiele: playoffSpieleRes.spiele,
   });
@@ -119,6 +141,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       }}
       rollover={rollover}
       swap={swap}
+      ersatz={ersatz}
       spielplan={spielplan}
       hasDrawnSpiele={hasDrawnSpiele}
       spieltagBound={spieltagBound}

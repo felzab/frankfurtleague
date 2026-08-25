@@ -173,6 +173,12 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
               term: "Stilllegen",
               detail: "nimmt die Person aus den Auswahllisten. Ihre Kadereinträge bleiben in jeder gespielten Saison erhalten.",
             },
+            {
+              term: "Löschen",
+              detail:
+                "entfernt eine stillgelegte Person endgültig — mit allen Kadereinträgen und ihren Angaben im Änderungsprotokoll. " +
+                "Zurückholen lässt sich das nicht.",
+            },
           ],
           note: "Ein Kadereintrag wird getrennt davon ausgetragen und behält dabei Nummer, Position und Stufe.",
         },
@@ -186,6 +192,12 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           points: [
             { term: "Anlegen", detail: "über die Schaltfläche oben rechts." },
             { term: "Stilllegen", detail: "nimmt die Person aus den Auswahllisten, ohne sie zu löschen." },
+            {
+              term: "Kontaktdaten löschen",
+              detail:
+                "entfernt E-Mail und Telefonnummer endgültig, auch aus dem Änderungsprotokoll. " +
+                "Der Schiedsrichter selbst bleibt mit seinem Namen bestehen, weil jedes Spiel ihn nennt.",
+            },
           ],
           note: "Eine stillgelegte Person bleibt in jedem Spiel stehen, das sie schon nennt.",
         },
@@ -207,7 +219,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             {
               term: "Art",
               detail:
-                "was geschehen ist. Eine Sammeländerung trifft alle Datensätze eines Filters auf einmal. „Mehrere angelegt“ benennt keinen einzelnen Datensatz, sondern nur die Zahl.",
+                "was geschehen ist. Eine Sammeländerung trifft alle Datensätze eines Filters auf einmal. „Mehrere angelegt“ benennt keinen einzelnen Datensatz, sondern nur die Zahl. „Gelöscht, ohne Stand“ heißt, dass zu dieser Zeile bewusst kein früherer Datensatz aufbewahrt wurde — so werden die Angaben einer Person entfernt.",
             },
             { term: "Stand gesichert", detail: "der Datensatz von vor der Änderung liegt in dieser Zeile." },
             { term: "Vorgangsnummer", detail: "kopiere sie und suche danach, um jede Zeile eines einzelnen Speicherns zu sehen." },

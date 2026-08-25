@@ -48,13 +48,16 @@ export async function activateSaison({ id }: FLActivateSaisonPayload): Promise<F
 }
 
 /**
- * Draws the season's whole matchday and fixture list in one transaction. No body: the id is the whole
- * argument. **One-way**: `REQ-SPIELPLAN-001` refuses a second draw, so nothing here retries on a 409.
+ * Draws the season's matchdays and fixtures in one transaction. **`replace` makes the same call
+ * DESTRUCTIVE**: it deletes the rows it replaces, and nothing writes them back. `shape` moves the
+ * three shape rules with them. Nothing here retries on a 409.
  */
-export async function generateSpielplan({ id }: FLGenerateSpielplanPayload): Promise<FLGenerateSpielplanResponse> {
+export async function generateSpielplan({ id, ...confirmation }: FLGenerateSpielplanPayload): Promise<FLGenerateSpielplanResponse> {
   return apiClient<FLGenerateSpielplanResponse>(`/saisons/${id}/spielplan`, FLGenerateSpielplanResponseSchema, {
     method: "POST",
     authType: "admin",
+    // `{}` where the caller named no flag, which the endpoint reads as the first draw.
+    body: JSON.stringify(confirmation),
   });
 }
 

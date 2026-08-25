@@ -1,0 +1,190 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+
+import { TrashBin } from "@gravity-ui/icons";
+
+import { Button } from "@heroui/react";
+
+import { anonymiseSchiedsrichterAction } from "@/features/schiedsrichter/actions";
+import { formButton } from "@/shared/components/ui/formButtons";
+import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { formPanel } from "@/shared/components/ui/formPanel";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { PANEL_REVEAL } from "@/shared/components/ui/motion";
+import { appToast } from "@/shared/utils/appToast";
+
+import type { FLKontakt } from "@/shared/schemas";
+
+/** What an empty field reads as in the armed readout — absent here, and possibly still in the log. */
+const NOT_RECORDED = "Nicht hinterlegt";
+
+/**
+ * The referee's anonymisation, on `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`. **A
+ * confirmation step and no undo**: one press clears the telephone number and email address on the
+ * row, and every log row's whole pre-image.
+ */
+export function FormAnonymisierenSection({
+  schiedsrichterId,
+  name,
+  kontakt,
+  onBeforeAnonymise,
+}: {
+  schiedsrichterId: string;
+  name: string;
+  /**
+   * The STORED contact record, never the draft: this write clears what is saved. Read for the
+   * readout alone — an emptied field is not an empty log, so an empty record still has work to do.
+   */
+  kontakt: FLKontakt;
+  /** Runs before the write; `false` cancels. The editor refuses while a draft is unsaved. */
+  onBeforeAnonymise: () => boolean;
+}) {
+  const router = useRouter();
+  const [isAnonymising, startAnonymising] = useTransition();
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  const panel = formPanel({ tone: "danger" });
+
+  /** One label-and-value row of the armed readout, the draw's panel in shape. */
+  const renderUmfangRow = (label: string, value: string) => (
+    <div className="flex flex-row items-baseline justify-between gap-x-3">
+      <dt className="fluid-xxs text-foreground-muted font-bold">{label}</dt>
+      <dd className="fluid-xs text-foreground min-w-0 text-right font-semibold">{value}</dd>
+    </div>
+  );
+
+  const handleAnonymise = () => {
+    // Checked on BOTH presses, as the draw's guard is: the fields stay live between arming and
+    // confirming, and the refresh below remounts the form, so a draft typed in that window is lost.
+    if (!onBeforeAnonymise()) {
+      setIsConfirming(false);
+      return;
+    }
+
+    if (!isConfirming) {
+      setIsConfirming(true);
+      return;
+    }
+
+    startAnonymising(async () => {
+      const res = await anonymiseSchiedsrichterAction({ id: schiedsrichterId });
+      setIsConfirming(false);
+
+      if (!res.success) {
+        appToast.danger("Kontaktdaten nicht gelöscht", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+        return;
+      }
+
+      appToast.success("Kontaktdaten gelöscht", { description: res.message });
+      // Load-bearing, not cosmetic: the page keys the view on the stored record, so this is what
+      // remounts the form onto the cleared one. Without it the boxes keep the deleted values, the
+      // draft reads as clean, and the next save of any field writes them back.
+      router.refresh();
+    });
+  };
+
+  return (
+    <section className={panel.root()}>
+      <div className={panel.header()}>
+        <h2 className={panel.heading()}>
+          Kontaktdaten löschen
+          <InfoHint label="Hinweis zum Löschen der Kontaktdaten">
+            <p>Der Weg, Kontaktdaten ganz aus der Verwaltung zu entfernen.</p>
+            <ul>
+              <li>
+                Gelöscht werden <strong>E-Mail und Telefonnummer</strong> im Eintrag des Schiedsrichters.
+              </li>
+              <li>
+                Der <strong>Schiedsrichter bleibt bestehen</strong>, mit seinem Namen: Jedes Spiel nennt ihn, und ohne seine Zeile stünde bei
+                diesen Spielen kein Name mehr.
+              </li>
+              <li>
+                Er lässt sich weiter für Spiele einteilen, und <strong>neue Kontaktdaten</strong> kannst Du jederzeit wieder eintragen.
+              </li>
+              <li>
+                Im <strong>Änderungsprotokoll</strong> wird bei jeder Zeile, die ihn betrifft, der <strong>gesicherte Stand gelöscht</strong> —
+                nicht nur die Kontaktdaten, sondern alles, was dort von ihm gespeichert war, etwa ein früherer Name. Was wann geschehen ist,
+                bleibt lesbar.
+              </li>
+              <li>
+                Die Felder oben zu leeren und zu speichern ist <strong>etwas anderes</strong>: Die alten Angaben stehen dann weiterhin im
+                Protokoll. <strong>Zurückholen lässt sich das Gelöschte nicht.</strong>
+              </li>
+            </ul>
+          </InfoHint>
+        </h2>
+      </div>
+
+      <div className={panel.body()}>
+        <p className="fluid-sm text-foreground font-medium">
+          Das Löschen entfernt E-Mail und Telefonnummer von <strong>{name}</strong> aus seinem Eintrag. Im Änderungsprotokoll wird dazu der
+          gesicherte Stand jeder Zeile gelöscht, die ihn betrifft — also auch alles andere, was dort noch von ihm steht. Der Schiedsrichter
+          selbst bleibt mit seinem Namen bestehen, und jedes Spiel behält ihn.
+        </p>
+
+        {/* Escalated in place, the draw's and the rollover's shape: without `role="alert"` the only
+            signal is the button label quietly changing. */}
+        {isConfirming && (
+          <div
+            role="alert"
+            className={`${PANEL_REVEAL} bg-danger/5 border-danger/20 flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
+            <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
+
+            {/* Inside the alert rather than beside it: the values ARE what the press is judged on, and
+                a region announced without them asks for agreement to unnamed data. */}
+            <div className="flex w-full flex-col gap-y-1">
+              <h3 className={FORM_SECTION_HEADING}>Was dabei gelöscht wird</h3>
+              <dl className="flex w-full flex-col gap-y-1">
+                {renderUmfangRow("E-Mail", kontakt.email ?? NOT_RECORDED)}
+                {renderUmfangRow("Telefon", kontakt.telefon ?? NOT_RECORDED)}
+                {/* The log's own words for the pre-image it stores, so the readout names what the row
+                    loses rather than a subset of it: the redaction clears the WHOLE stand. */}
+                {renderUmfangRow("Änderungsprotokoll", "Gesicherter Stand wird gelöscht")}
+              </dl>
+            </div>
+
+            {/* No restore is named on purpose: nothing in the system holds the old values once the
+                row and the log have both been cleared. */}
+            <p className="fluid-xxs text-foreground leading-normal font-medium">
+              E-Mail und Telefonnummer von {name} werden gelöscht. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht,
+              die ihn betrifft — auch alles andere, was dort noch von ihm steht. Zurückholen lässt sich das nicht. <strong>{name}</strong>{" "}
+              bleibt als Schiedsrichter bestehen, mit Namen und mit allen Spielen, und lässt sich weiter einteilen.
+            </p>
+          </div>
+        )}
+
+        <div className="flex w-full flex-row flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="primary"
+            isDisabled={isAnonymising}
+            onPress={handleAnonymise}
+            className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
+            {!isConfirming && (
+              <TrashBin
+                aria-hidden="true"
+                width={18}
+                height={18}
+              />
+            )}
+            {/* The object stays in the label: on a danger panel under a trash icon, a bare „Ja, endgültig
+                löschen“ reads as the referee going — the one thing this control does not do. */}
+            {isAnonymising ? "Löscht..." : isConfirming ? "Ja, Kontaktdaten endgültig löschen" : "Kontaktdaten löschen"}
+          </Button>
+          {isConfirming && (
+            <Button
+              type="button"
+              variant="secondary"
+              isDisabled={isAnonymising}
+              onPress={() => setIsConfirming(false)}
+              className={formButton({ intent: "cancel" })}>
+              Abbrechen
+            </Button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}

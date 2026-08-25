@@ -24,3 +24,11 @@ export function orderStufen(erlaubt: readonly FLSpielerStufe[]): FLSpielerStufe[
  * produces the message, because the action validates the payload and returns the field error.
  */
 export const NUMMER_MAX_LENGTH = 4;
+
+/**
+ * `REQ-PURGE-001` in German, said once — the REPAIR rather than the state, which the Callout beside
+ * the control carries. A race, somebody reactivating the player in another tab, then toasts the
+ * sentence that control already showed.
+ */
+export const ERASURE_NEEDS_RETIREMENT =
+  "Lege den Spieler zuerst still — in der Spielerliste, über „Stilllegen“ in seiner Zeile. " + "Danach lässt er sich endgültig löschen.";

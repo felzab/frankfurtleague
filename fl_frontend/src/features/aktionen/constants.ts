@@ -35,11 +35,11 @@ export const AKTION_OPERATION_LABELS: Record<FLAktion["operation"], string> = {
   insert_many: "Mehrere angelegt",
   patch_one: "Geändert",
   patch_many: "Sammeländerung",
-  // Told apart on the one axis that differs — whether the log kept a copy. Naming one by count and
-  // the other by finality would compare two axes, and imply the first is reversible in its own
-  // collection, which it is not.
-  delete_many: "Gelöscht, mit Kopie",
-  erase_many: "Gelöscht, ohne Kopie",
+  // Only the erasure states the log's side, because only it is true of every such row: a removal
+  // that matched nothing keeps no image either, and the `Stand gesichert` badge already answers
+  // that question per row rather than per operation.
+  delete_many: "Gelöscht",
+  erase_many: "Gelöscht, ohne Stand",
 };
 
 /**

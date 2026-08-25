@@ -180,9 +180,30 @@ export const FLActivateSaisonPayloadSchema = z.object({
 });
 export type FLActivateSaisonPayload = z.infer<typeof FLActivateSaisonPayloadSchema>;
 
-/** An id in the path and no request body, the activation's shape: the season is the whole argument. */
+/**
+ * The three rules a season's fixture list is a function of. **All three or none**: the draw is one
+ * function of the whole shape, so half of it would leave the rest on a season that stopped matching.
+ * Picked from the rules, so each bound is stated once.
+ */
+export const FLSpielplanShapeSchema = FLSaisonRulesSchema.pick({
+  number_of_groups: true,
+  teams_per_group: true,
+  qualifiers_per_group: true,
+});
+export type FLSpielplanShape = z.infer<typeof FLSpielplanShapeSchema>;
+
+/**
+ * An id in the path, plus the replace confirmation and the shape this draw runs from.
+ *
+ * **`.optional()`, never `.default(...)`**: a Zod default is required on output, which `apiContract`
+ * fails. Both left out is the first draw, which destroys nothing.
+ */
 export const FLGenerateSpielplanPayloadSchema = z.object({
   id: z.string().length(4),
+  replace: z.boolean().optional(),
+  // Nullable as well as optional, mirroring `FLSpielplanShape | None`: either spelling means "draw
+  // from the season's stored numbers", which is what `REQ-RULES-011` freezes every other route out of.
+  shape: FLSpielplanShapeSchema.nullable().optional(),
 });
 export type FLGenerateSpielplanPayload = z.infer<typeof FLGenerateSpielplanPayloadSchema>;
 
@@ -225,6 +246,19 @@ export const FLGenerateSpielplanResponseSchema = BaseAPIResponseSchema.extend({
   generiert_am: CustomDateStringSchema,
 });
 export type FLGenerateSpielplanResponse = z.infer<typeof FLGenerateSpielplanResponseSchema>;
+
+/**
+ * What removing the Spielplan took away. The watermark is reported apart from the two counts: it is
+ * the one thing a season can hold with neither collection behind it, so a zero pair does not mean
+ * the season was already undrawn.
+ */
+export const FLUndrawSpielplanResponseSchema = BaseAPIResponseSchema.extend({
+  saison_id: z.string().length(4),
+  spieltage: z.int().nonnegative(),
+  spiele: z.int().nonnegative(),
+  watermark_cleared: z.boolean(),
+});
+export type FLUndrawSpielplanResponse = z.infer<typeof FLUndrawSpielplanResponseSchema>;
 
 /**
  * The groups are what LANDED rather than what was intended: the backend writes from this object, which

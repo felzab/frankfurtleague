@@ -28,6 +28,44 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], mem
 };
 
 /**
+ * The one route back for a squad row this write took out: its own club has to hold a place in the
+ * season again, and `REQ-ENTER-001` admits a club only to a `future` one.
+ */
+const SQUAD_STAYS_OUT =
+  "Reaktivieren lässt sich ein solcher Eintrag erst, wenn das ausscheidende Team wieder in dieser Saison steht — " +
+  "und aufnehmen lässt sich ein Team nur in eine geplante Saison.";
+
+/**
+ * What one replacement moved, for the report that follows it. The squad half says AUSTRAGEN: this
+ * write stamps `saison_spieler` rows, and STILLLEGEN is what happens to the person across the league.
+ */
+export const describeReplacementUmfang = ({
+  fannedOutToSpiele,
+  retiredSquadRows,
+}: {
+  fannedOutToSpiele: number;
+  retiredSquadRows: number;
+}): string => {
+  const spiele =
+    fannedOutToSpiele === 0
+      ? "Für das ausscheidende Team war noch kein Spiel angesetzt."
+      : fannedOutToSpiele === 1
+        ? "Ein angesetztes Spiel wurde übernommen."
+        : `${String(fannedOutToSpiele)} angesetzte Spiele wurden übernommen.`;
+
+  const ausgetragen =
+    retiredSquadRows === 1
+      ? "Ein Kadereintrag des ausscheidenden Teams wurde ausgetragen."
+      : `${String(retiredSquadRows)} Kadereinträge des ausscheidenden Teams wurden ausgetragen.`;
+
+  // The count is of LIVE rows, so zero says the squad stood empty and never that the club had no
+  // players: one whose players were all ausgetragen first — the usual order — reports zero too.
+  const kader = retiredSquadRows === 0 ? "Im Kader des ausscheidenden Teams stand kein Spieler." : `${ausgetragen} ${SQUAD_STAYS_OUT}`;
+
+  return `${spiele} ${kader}`;
+};
+
+/**
  * `fl_backend/app/api/teams/services.py :: _may_hold_a_platz`, over the row that endpoint serves.
  * One rule, so the table and the bracket cannot name different qualifiers
  * (`docs/backend/spec.md :: I24b`).

@@ -3,6 +3,7 @@ import { apiClient } from "@/core/api";
 import { FLPatchSchiedsrichterResponseSchema, FLPostSchiedsrichterResponseSchema, FLSchiedsrichterWriteResponseSchema } from "./schemas";
 
 import type {
+  FLAnonymiseSchiedsrichterPayload,
   FLPatchSchiedsrichterPayload,
   FLPatchSchiedsrichterResponse,
   FLPostSchiedsrichterPayload,
@@ -43,6 +44,15 @@ export async function deleteSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): 
 // retirement a state rather than a disappearance.
 export async function reactivateSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<FLSchiedsrichterWriteResponse> {
   return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}/reactivate`, FLSchiedsrichterWriteResponseSchema, {
+    method: "POST",
+    authType: "admin",
+  });
+}
+
+// Clears `kontakt.telefon` and `kontakt.email` on the row, and every log row's whole saved
+// pre-image, in one transaction. The row and its `name` stay: every Spiel embeds the pair.
+export async function anonymiseSchiedsrichter({ id }: FLAnonymiseSchiedsrichterPayload): Promise<FLSchiedsrichterWriteResponse> {
+  return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}/anonymisieren`, FLSchiedsrichterWriteResponseSchema, {
     method: "POST",
     authType: "admin",
   });

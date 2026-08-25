@@ -147,6 +147,7 @@ describe("the saison actions against the backend's refusal register", () => {
       "REQ-SPIELPLAN-002",
       "REQ-SPIELPLAN-003",
       "REQ-SPIELPLAN-004",
+      "REQ-SPIELPLAN-005",
     ]);
     for (const code of declared) assert.ok(SPIELPLAN_MAP.includes(`case "${code}":`), `${code} reaches the admin as a generic failure`);
   });

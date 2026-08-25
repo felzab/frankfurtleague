@@ -227,21 +227,26 @@ export function FormRegelnSection({
                 Die Saison ist abgeschlossen, deshalb sind Punkte, die Reihenfolge bei Punktgleichheit und die Qualifikanten festgeschrieben.
               </p>
             )}
+            {/* The repair is named, not withheld: these three move only as part of a draw, so the
+                sentence sends the admin to the panel that holds both halves of that one operation. */}
             {isDrawnSaison && (
               <p>
                 Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Gruppen, Teams pro Gruppe und
-                Qualifikanten stehen damit fest. Andere Zahlen würden einen neuen Spielplan verlangen, und Spiele legt die Verwaltung nicht an.
+                Qualifikanten ändern sich deshalb nur zusammen mit dem Spielplan: Lege den Spielplan mit den neuen Zahlen neu an — beides
+                entsteht in einem Schritt.
               </p>
             )}
             {/* Spelled out per case rather than listing the always-open fields: under one freeze the
                 other's fields are still editable, and leaving them out would read as closing them. */}
-            <p>
-              {isFinishedSaison && isDrawnSaison
-                ? "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
-                : isFinishedSaison
-                  ? "Gruppen, Teams pro Gruppe, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
-                  : "Punkte, die Reihenfolge bei Punktgleichheit, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."}
-            </p>
+            {(isFinishedSaison || isDrawnSaison) && (
+              <p>
+                {isFinishedSaison && isDrawnSaison
+                  ? "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
+                  : isFinishedSaison
+                    ? "Gruppen, Teams pro Gruppe, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
+                    : "Punkte, die Reihenfolge bei Punktgleichheit, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."}
+              </p>
+            )}
           </div>
         )}
       </div>

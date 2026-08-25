@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { buildSpielplanVorschau, buildSpieltagBound, describeSpielplanUmfang, holdsDrawnSpiele, searchWithoutSaisonId } from "./utils.ts";
+import {
+  buildSpielplanBestand,
+  buildSpielplanVorschau,
+  buildSpieltagBound,
+  describeSpielplanUmfang,
+  holdsDrawnSpiele,
+  searchWithoutSaisonId,
+} from "./utils.ts";
+
+import type { FLSpiel } from "../spiele/schemas.ts";
 
 describe("searchWithoutSaisonId", () => {
   it("returns a bare ? when the season was the only parameter", () => {
@@ -46,6 +55,117 @@ describe("holdsDrawnSpiele", () => {
 
   it("answers false only for a season with neither", () => {
     assert.equal(holdsDrawnSpiele({ gruppenSpiele: [], playoffSpiele: [] }), false);
+  });
+});
+
+describe("buildSpielplanBestand", () => {
+  /** An ordinary undated fixture: nothing recorded, nothing scheduled, which is what a fresh draw writes. */
+  const FRISCH: FLSpiel = {
+    id: "0".repeat(24),
+    spieltag_id: "1".repeat(24),
+    team1: null,
+    team2: null,
+    team1_quelle: null,
+    team2_quelle: null,
+    datum: null,
+    uhrzeit: null,
+    ort: null,
+    schiedsrichter: null,
+    ergebnis: null,
+    elfmeterschiessen: null,
+    spiel_nr: 1,
+    sonderereignis: null,
+    saison_phase: "gruppenphase",
+    saison_id: "2026",
+    notiz: null,
+  };
+
+  const seite = (tore: number | null): FLSpiel["team1"] => ({
+    team_id: "2".repeat(24),
+    tore,
+    name: "SV Beispiel",
+    shorthand: "SVB",
+    austritt_type: null,
+  });
+
+  const spiel = (fields: Partial<FLSpiel> = {}): FLSpiel => ({ ...FRISCH, ...fields });
+
+  const bestandOf = (...spiele: FLSpiel[]) => buildSpielplanBestand({ gruppenSpiele: spiele, playoffSpiele: [] });
+
+  const ORT: FLSpiel["ort"] = { spielort_id: "3".repeat(24), name: "Platz 1", maps_link: "https://example.invalid" };
+  const SCHIRI: FLSpiel["schiedsrichter"] = { schiedsrichter_id: "4".repeat(24), name: "A. Beispiel" };
+
+  it("counts a freshly drawn season as holding fixtures and nothing else", () => {
+    assert.deepEqual(bestandOf(spiel(), spiel(), spiel()), { spiele: 3, erfasst: 0, angesetzt: 0 });
+  });
+
+  /* `playoffs` is every phase but `gruppenphase`, so a season whose only played fixture sits in the
+     bracket would be replaced over a recorded result if one read were dropped. */
+  it("counts both halves of the season's partition", () => {
+    assert.deepEqual(buildSpielplanBestand({ gruppenSpiele: [spiel()], playoffSpiele: [spiel({ ergebnis: "3:1" })] }), {
+      spiele: 2,
+      erfasst: 1,
+      angesetzt: 0,
+    });
+  });
+
+  /* Mirrors `holds_a_recorded_fact`, which takes EVERY `sonderereignis`. Reach for `hasTakenPlace`'s
+     narrower set instead and this fails: a called-off season would be offered a replace the endpoint
+     answers with `REQ-SPIELPLAN-005`. */
+  it("counts a cancellation as recorded, alongside an abandonment and a no-show", () => {
+    assert.equal(bestandOf(spiel({ sonderereignis: "abgebrochen" })).erfasst, 1);
+    assert.equal(bestandOf(spiel({ sonderereignis: "nichtantreten_team1" })).erfasst, 1);
+    assert.equal(bestandOf(spiel({ sonderereignis: "nichtantreten_team2" })).erfasst, 1);
+
+    assert.equal(bestandOf(spiel({ sonderereignis: "ausgefallen" })).erfasst, 1);
+    assert.equal(bestandOf(spiel({ sonderereignis: "annulliert" })).erfasst, 1);
+  });
+
+  /* The clause a reader would not predict, and the endpoint has it: a fixture can hold one side's
+     goals with no `ergebnis` at all, and replacing it would delete a number somebody entered. */
+  it("counts a lone goal count on either side as recorded", () => {
+    assert.equal(bestandOf(spiel({ team1: seite(2) })).erfasst, 1);
+    assert.equal(bestandOf(spiel({ team2: seite(0) })).erfasst, 1);
+    assert.equal(bestandOf(spiel({ team1: seite(null), team2: seite(null) })).erfasst, 0);
+  });
+
+  /* A booking is work the draw did not write, so the endpoint counts it and the replace closes on it.
+     Leave either out and the panel offers a press that comes back a 409. */
+  it("counts a venue and a referee as recorded, which is what closes the replace", () => {
+    assert.equal(bestandOf(spiel({ ort: ORT })).erfasst, 1);
+    assert.equal(bestandOf(spiel({ schiedsrichter: SCHIRI })).erfasst, 1);
+  });
+
+  /* Drop the note clause and this fails: an admin's note is work the draw never wrote, so the
+     endpoint counts it and a replace offered over one comes back a 409. Trim rather than compare to
+     null: a blank is no record. */
+  it("counts a note as recorded, and a blank one as nothing", () => {
+    assert.equal(bestandOf(spiel({ notiz: "Platz gesperrt" })).erfasst, 1);
+
+    assert.equal(bestandOf(spiel({ notiz: "   " })).erfasst, 0);
+    assert.equal(bestandOf(spiel({ notiz: "" })).erfasst, 0);
+  });
+
+  /* A date does NOT close the window, so it is the one thing the confirmation still has to name. Add
+     the bookings back here and the readout claims a loss on a season the control never offers. */
+  it("counts a date and a kickoff time as scheduled, and a booking as neither", () => {
+    assert.equal(bestandOf(spiel({ datum: "2026-05-09" })).angesetzt, 1);
+    assert.equal(bestandOf(spiel({ uhrzeit: "14:30" })).angesetzt, 1);
+
+    assert.equal(bestandOf(spiel({ ort: ORT })).angesetzt, 0);
+    assert.equal(bestandOf(spiel({ schiedsrichter: SCHIRI })).angesetzt, 0);
+  });
+
+  /* The two figures answer different questions, and only `erfasst` closes the replace. A merely dated
+     season is replaceable, which is precisely why the other figure is carried at all. */
+  it("keeps the scheduled count out of the recorded one", () => {
+    const bestand = bestandOf(spiel({ datum: "2026-05-09", uhrzeit: "14:30" }), spiel({ ergebnis: "1:1" }));
+
+    assert.deepEqual(bestand, { spiele: 2, erfasst: 1, angesetzt: 1 });
+  });
+
+  it("counts nothing for a season holding no fixtures", () => {
+    assert.deepEqual(buildSpielplanBestand({ gruppenSpiele: [], playoffSpiele: [] }), { spiele: 0, erfasst: 0, angesetzt: 0 });
   });
 });
 

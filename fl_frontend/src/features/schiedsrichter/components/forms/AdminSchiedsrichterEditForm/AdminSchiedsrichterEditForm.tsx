@@ -21,6 +21,7 @@ import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarnin
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 
 import { buildSchiedsrichterBanners } from "./banners";
+import { FormAnonymisierenSection } from "./FormAnonymisierenSection";
 import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
 import { FormPersonSection } from "./FormPersonSection";
@@ -184,6 +185,19 @@ export function AdminSchiedsrichterEditForm({
     leavePage();
   };
 
+  /**
+   * The anonymisation refreshes the route, and the page keys this view on the stored record — so the
+   * form remounts on the cleared one and an unsaved draft goes with it.
+   */
+  const guardAgainstDraft = (): boolean => {
+    if (!isDirty) return true;
+
+    appToast.warning("Erst speichern", {
+      description: "Das Löschen lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen. Speichere oder verwirf sie zuerst.",
+    });
+    return false;
+  };
+
   const requestSave = () => {
     // Snapshotted rather than read live: a background revalidation would move the list under an
     // open dialog, and the reader agreed to the one the gate stopped on.
@@ -315,6 +329,16 @@ export function AdminSchiedsrichterEditForm({
             onChange={setDefaultPayment}
             onFieldChanged={validatePicked}
             banners={banners}
+          />
+
+          {/* Last on the page, the position the season editor's rollover holds: the one control here
+              that writes on press and that no later edit reverses. The STORED contact record, never
+              the draft — this clears what is saved. */}
+          <FormAnonymisierenSection
+            schiedsrichterId={schiedsrichter.id}
+            name={schiedsrichter.name}
+            kontakt={schiedsrichter.kontakt}
+            onBeforeAnonymise={guardAgainstDraft}
           />
         </EditFormLayout>
 

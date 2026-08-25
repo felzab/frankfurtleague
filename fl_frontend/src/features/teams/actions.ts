@@ -7,7 +7,7 @@ import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam } from "./mutations";
+import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam, replaceSaisonTeam } from "./mutations";
 import {
   FLCreateTeamFormPayloadSchema,
   FLDeleteTeamPayloadSchema,
@@ -15,10 +15,20 @@ import {
   FLPatchTeamPayloadSchema,
   FLPostSaisonTeamPayloadSchema,
   FLReactivateTeamPayloadSchema,
+  FLReplaceSaisonTeamPayloadSchema,
 } from "./schemas";
+import { describeReplacementUmfang } from "./utils";
 
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLDeleteTeamPayload, FLPatchTeamPayload, FLReactivateTeamPayload, FLSaisonTeamResponse, FLTeamRecord } from "./schemas";
+import type {
+  FLDeleteTeamPayload,
+  FLPatchTeamPayload,
+  FLReactivateTeamPayload,
+  FLReplaceSaisonTeamPayload,
+  FLReplaceSaisonTeamResponse,
+  FLSaisonTeamResponse,
+  FLTeamRecord,
+} from "./schemas";
 import type { SaisonTeamEnterDraft, SaisonTeamMembershipDraft, TeamCreateDraft } from "./types";
 
 // The shorthand's unique index spans retired clubs and creating never revives, so the message names
@@ -59,6 +69,42 @@ function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
       error:
         "Dieses Team ist inzwischen stillgelegt und kann in keine Saison aufgenommen werden. Reaktiviere es über den Kopf der Seite und nimm es danach hier auf.",
     };
+  }
+  return null;
+}
+
+/**
+ * Every refusal a replacement can answer with. Its own mapper beside `mapEntryRefusal`: the two
+ * answer `REQ-ENTER-005` about different clubs, and one message would be wrong on one of them.
+ */
+function mapReplacementRefusal(error: unknown): string | null {
+  if (!(error instanceof APIBadStatusError)) return null;
+
+  // The three subjects the endpoint actually resolves. The outgoing club is not among them — a row
+  // naming a club that no longer exists is what this endpoint REPAIRS — so no message may claim it.
+  if (error.statusCode === 404) {
+    return "Saison, Saison-Zugehörigkeit oder das nachrückende Team wurde nicht gefunden. Lade die Seite neu und wähle erneut.";
+  }
+  if (error.statusCode !== 409) return null;
+
+  if (error.serverErrorCode === "REQ-REPLACE-001") {
+    // No reload repairs a finished season, so the sentence names the seasons still open instead.
+    return "Diese Saison ist abgeschlossen, und ihre Spiele sind der Nachweis darüber, wer gespielt hat — ein Wechsel würde ihn umschreiben. Ersetzen lässt sich ein Team nur in einer laufenden oder geplanten Saison.";
+  }
+  if (error.serverErrorCode === "REQ-REPLACE-002") {
+    // The four shapes that leave a record, and only those: an ausgefallenes or annulliertes Spiel
+    // leaves none, so naming either would send the admin looking at a fixture that is still free.
+    return "In dieser Saison ist für das ausscheidende Team schon etwas eingetragen: Mindestens ein Spiel trägt ein Ergebnis, Tore, einen Abbruch oder ein Nichtantreten. Beim Wechsel würde das dem nachrückenden Team zugeschrieben. Trage für das ausscheidende Team stattdessen einen Austritt ein.";
+  }
+  if (error.serverErrorCode === "REQ-REPLACE-003") {
+    // One code, two pictures: the backend catches a club named on both ends in this arm, because
+    // the row being replaced is itself a row that club holds.
+    return "Das nachrückende Team spielt in dieser Saison schon — oder Du hast für beide Seiten dasselbe Team gewählt. Nachrücken kann nur ein Team, das in dieser Saison noch nicht dabei ist.";
+  }
+  if (error.serverErrorCode === "REQ-ENTER-005") {
+    // The club the admin PICKED, never the one whose page is open, so the reactivation is not the
+    // one `mapEntryRefusal` points at.
+    return "Das nachrückende Team ist stillgelegt und kann in keine Saison aufgenommen werden. Reaktiviere es über den Kopf seiner eigenen Team-Seite und wähle es danach hier erneut.";
   }
   return null;
 }
@@ -327,6 +373,69 @@ export async function patchSaisonTeamAction(
       success: true,
       saison_team: saisonTeam,
       message: "Saison-Zugehörigkeit gespeichert!",
+    };
+  });
+}
+
+/**
+ * One season's junction row, and every fixture standing on it, change hands. The schedule survives;
+ * the outgoing club's `austritt` does not, because the row keeps only one, and its live squad rows
+ * for the season are retired.
+ */
+export async function replaceSaisonTeamAction(
+  rawPayload: FLReplaceSaisonTeamPayload,
+): Promise<{ success: boolean; replacement?: FLReplaceSaisonTeamResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+  return runAdminMutation("replaceSaisonTeamAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLReplaceSaisonTeamPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    // A 409 the mapper does not claim is the unique index on the junction's natural key, which the
+    // generic conflict message already describes correctly.
+    let replacement;
+    try {
+      replacement = await replaceSaisonTeam(validated.data);
+    } catch (error) {
+      const refusal = mapReplacementRefusal(error);
+      if (refusal !== null) {
+        return { success: false, error: refusal };
+      }
+      throw error;
+    }
+
+    if (!replacement.acknowledged) {
+      return { success: false, error: "Beim Wechsel des Teams ist ein unerwarteter Fehler aufgetreten" };
+    }
+
+    // BOTH pairs, as the group swap invalidates them: the league table now names another club, and
+    // the same transaction rewrote that club's side of every fixture the season holds for it.
+    invalidateSeasonScoped("teams", validated.data.saison_id);
+    invalidateSeasonScoped("spiele", validated.data.saison_id);
+    // The third read this write moves: the same transaction retired the outgoing club's squad, and
+    // the public squad read matches on `inactive_since`. Base tag only, which is `invalidateSpieler`'s
+    // rule — that read spans every season.
+    updateTag("spieler");
+
+    // Both halves said at zero too: the squad is the half of this write that reaches no page the
+    // admin is looking at, so "none were" is as much the answer as a number is.
+    const umfang = describeReplacementUmfang({
+      fannedOutToSpiele: replacement.fanned_out_to_spiele,
+      retiredSquadRows: replacement.retired_squad_rows,
+    });
+
+    return {
+      success: true,
+      replacement,
+      // The cleared austritt as STATE rather than an event: the response carries no austritt, so
+      // whether one stood here is a fact this action lacks. Named, not „dieses Team“ — the sentences
+      // between point at the outgoing club.
+      message: `${replacement.name} spielt jetzt in Gruppe ${replacement.gruppe}. ${umfang} Für ${replacement.name} ist in dieser Saison kein Austritt eingetragen.`,
     };
   });
 }
