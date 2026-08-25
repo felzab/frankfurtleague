@@ -1,7 +1,8 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
-from motor.motor_asyncio import AsyncIOMotorCollection
+from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.schemas import (
@@ -11,6 +12,7 @@ from app.api.spieler.schemas import (
     FLPostSpielerPayload,
     FLSaisonSpielerResponse,
     FLSpielerAdminSingleResponse,
+    FLSpielerErasureResponse,
     FLSpielerMembershipsResponse,
     FLSpielerWithMemberships,
     FLSpielerWriteResponse,
@@ -18,19 +20,35 @@ from app.api.spieler.schemas import (
 from app.api.spieler.services import (
     build_live_squad_filter,
     build_spieler_memberships_pipeline,
+    find_erasure_refusal,
     find_squad_capacity_refusal,
     find_squad_refusal,
     registration_einwilligung,
 )
+from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse, set_inactive_since
+from app.core.crud import (
+    aggregate_many_from_db,
+    erase_many_from_db,
+    insert_live,
+    patch_many_in_db,
+    patch_one_in_db,
+    post_one_to_db,
+    pull_one_from_db,
+    refuse,
+    set_inactive_since,
+)
 from app.core.dependencies import (
+    AktionenCollection,
+    DBClient,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
     SpielerCollection,
     get_german_date_str,
+    get_germany_now,
 )
+from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
@@ -181,6 +199,72 @@ async def reactivate_spieler(
     updated_raw = await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=None)
 
     return _as_single(updated_raw)
+
+
+@router.delete(f"{by_id('spieler_id')}/erasure", response_model=FLSpielerErasureResponse, summary="Erase a Spieler (hard delete)")
+async def erase_spieler(
+    spieler_id: CustomRouteObjectId,
+    spieler_collection: SpielerCollection,
+    saison_spieler_collection: SaisonSpielerCollection,
+    aktionen_collection: AktionenCollection,
+    db: DBClient,
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLSpielerErasureResponse:
+    """
+    Erase a player: the person, their squad rows, and their values in the log.
+
+    HARD and refused until retirement (`REQ-PURGE-001`); the soft `DELETE` stays.
+    No log row is dropped: images are emptied in place and stamped (`docs/backend/spec.md :: I42`).
+    """
+
+    async def erase_the_person_and_their_record(session: AsyncIOMotorClientSession) -> FLSpielerErasureResponse:
+        """Judge, then remove both collections and redact the log. Everything judged is read in-session."""
+
+        stored_raw = await pull_one_from_db(
+            collection=spieler_collection,
+            db_filter={"_id": spieler_id},
+            projection=["inactive_since"],
+            session=session,
+        )
+        refuse(find_erasure_refusal(inactive_since=stored_raw.get("inactive_since")))
+
+        # Read BEFORE the removal and unbounded: a log row names a squad row by its own `_id`, which
+        # nothing can recover once the row is gone, so a capped read would leave the rows it dropped
+        # holding this person's values with no way left to find them.
+        squad_rows = await aggregate_many_from_db(
+            collection=saison_spieler_collection,
+            pipeline=[{"$match": {"spieler_id": spieler_id}}, {"$project": {"_id": 1}}],
+            session=session,
+        )
+
+        # The squad rows first: the public read `$lookup`s outward from the person, so a row left
+        # behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
+        erased_rows = await erase_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
+        await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
+
+        # Last, and it passes over the two rows the removals above just recorded: those carry a
+        # filter and a count and no `document_id`, so the erasure stays legible as an action.
+        redacted = await patch_many_in_db(
+            collection=aktionen_collection,
+            db_filter=build_redaction_filter(
+                # The squad branch is empty where the person held no row, which matches nothing.
+                [(Collection.SPIELER, [spieler_id]), (Collection.SAISON_SPIELER, [row["_id"] for row in squad_rows])]
+            ),
+            update=build_redaction_update(at=log_stamp(germany_now)),
+            session=session,
+        )
+
+        return FLSpielerErasureResponse(
+            spieler_id=spieler_id,
+            erased_saison_spieler=erased_rows.deleted_count,
+            redacted_aktionen=redacted.modified_count,
+        )
+
+    # ONE transaction over all THREE (D83): a person removed while the log still holds their
+    # values reports an erasure that did not happen. `with_transaction` over a bare one -- the
+    # callback re-reads everything it judges, so a retry is safe.
+    async with await db.start_session() as session:
+        return await session.with_transaction(erase_the_person_and_their_record)
 
 
 @router.post(f"{by_id('spieler_id')}/saisons", response_model=FLSaisonSpielerResponse, status_code=201, summary="Add a Spieler to a squad")

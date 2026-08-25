@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `7b85b7ab`, 2026-08-22
+**Verified against:** `d668d82e`, 2026-08-25
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
@@ -30,12 +30,12 @@ counter-intuitive and every one of the mistakes is expensive.
 
 ## The facts that shape everything else
 
-| Fact                                                         | Consequence                                                                                                 |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| A `Team` and a `Spieler` document are **season-independent** | Everything season-scoped about a club or a squad lives on the `saison_teams` and `saison_spieler` junctions |
-| A season's `rules` **decide the shape of the competition**   | Narrowing one below what already exists strands data, and is refused                                        |
-| A **match write is a season write**                          | Entering a result resolves the whole bracket in the same transaction                                        |
-| Retirement is **a date, never a delete**                     | `inactive_since` is a date string; nothing in this system hard-deletes a row                                |
+| Fact                                                         | Consequence                                                                                                                    |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| A `Team` and a `Spieler` document are **season-independent** | Everything season-scoped about a club or a squad lives on the `saison_teams` and `saison_spieler` junctions                    |
+| A season's `rules` **decide the shape of the competition**   | Narrowing one below what already exists strands data, and is refused                                                           |
+| A **match write is a season write**                          | Entering a result resolves the whole bracket in the same transaction                                                           |
+| Retirement is **a date, never a delete**                     | `inactive_since` is a date string; a retirement never removes a row, and the operations that do remove one are not retirements |
 
 The German vocabulary is load-bearing and is defined in [`glossary.md`](glossary.md).
 
@@ -60,14 +60,25 @@ are on `saison_teams`; its league table is on neither, being derived from the ma
 **`spieltage` is its own aggregate even though `spiele` points at it.** Its `position` is unique among the
 other matchdays of its phase and its expected match count comes from the season's rules, so no invariant
 holds a matchday and its fixtures true together. A reference is not a boundary — and the one operation that
-does write both, the season's draw, writes them as a `Saison` decision rather than as a matchday one.
+does write both, the season's draw, writes them as a `Saison` decision rather than as a matchday one — a
+confirmed replace of that draw included.
 
 **`aktionen` is in a boundary with nothing, and that is the decision rather than an oversight.** It is its own
-aggregate in `domain.py :: AGGREGATES` with no members, because no invariant holds a log row and any other
-document true together: what binds a row to the write it records is the **transaction they share**, not a
-reference. It carries no reference out and nothing points at it, so `domain.py :: REFERENCES` holds no row for it
-in either direction — `aktionen.document_id` is a copy of the id a write touched rather than a pointer this system
-resolves, and the document it names may be edited or retired afterwards with nothing rewriting the row to match.
+aggregate in `domain.py :: AGGREGATES` with no members, because a row states that a write happened, and that
+stays true however the document it names changes afterwards — so nothing has to be rewritten to keep a log row
+true, and no invariant holds one and another document in agreement. What binds a row to the write it records is
+the **transaction they share**, not a reference.
+
+**A boundary is what must be true together; what must not outlive a person is a different question**, and it is
+that question which reaches in here. A row keeps an image of the document a write replaced, so a person's own
+details sit in the log too, and a write destroying them redacts the rows holding them in the same transaction —
+`docs/backend/spec.md :: I42` is that contract, and a pupil's
+[erasure](#deletion-is-rare-and-each-one-is-its-own-decision) is one write held to it.
+
+`aktionen.document_id` is the id a write touched, copied: **a redaction resolves it and nothing maintains it**.
+The document it names may since have been edited, retired or removed outright with no row here brought up to
+date, and the redaction is not the exception — it empties what a row recorded rather than matching it to what
+its subject now says.
 
 ---
 
@@ -99,8 +110,10 @@ That last case is the one most easily misread as a constraint, and it is why tho
 with the check they _do_ perform named in the note. A `RESTRICT` there would say the write itself resolves
 the club, which these two do not — they lean on the entry that did.
 
-**`aktionen` appears in `REFERENCES` in neither direction, on purpose** — its `document_id` is a copy of an id
-rather than a reference anything maintains, and [Aggregates](#aggregates) carries the reading.
+**`aktionen` appears in `REFERENCES` in neither direction, on purpose** — nothing refuses a `document_id` it
+cannot resolve, nothing rewrites one when its document changes, and nothing acts when that document goes, which
+is the whole of what a row here would state. A write that reads the field is not a reference either;
+[Aggregates](#aggregates) carries that reading.
 
 ### The fan-outs, and what they deliberately leave alone
 
@@ -143,13 +156,28 @@ does not already hold it (`REQ-BOOKING-001`). Both judge the reference being mad
 stored, which is what keeps `REQ-RETIRE-003` and `REQ-RETIRE-004` able to let a venue or a referee retire
 while played fixtures still name them.
 
-### There is no delete
+### Deletion is rare, and each one is its own decision
 
-No endpoint removes a `saisons`, `saison_teams`, `spiele` or `spieltage` document, and each absence is its
-own decision: removing a season orphans every `saison_id` in the database, a team leaves a season only by an
-`austritt` record, a season's fixtures and matchdays are drawn in one operation that refuses a second run and
-are then recorded, re-dated or moved, and `spieltage` carries no `inactive_since`, so a matchday has no field
-a soft delete could stamp. A `spiele.spieltag_id` therefore cannot dangle: nothing takes the matchday away.
+Removal is normally a date rather than a delete: `inactive_since` retires a row and clearing it revives one.
+Where a document is removed outright, the removal is what the operation is for rather than a side effect of
+something else.
+
+A confirmed **replace** of a season's draw removes that season's `spiele` and `spieltage` rows and writes
+fresh ones, in one transaction. `REQ-SPIELPLAN-005` holds it to a season that is `future` and has nothing
+recorded, so it destroys a schedule nobody has played. Neither collection is removed without the other, which
+is why a `spiele.spieltag_id` still cannot dangle — not because nothing takes the matchday away, but because
+nothing takes it away without the fixtures that point at it.
+
+A pupil's **erasure** removes the person and every one of their squad rows, and redacts that person's values
+in the action log, as one transaction over all three. `REQ-PURGE-001` requires the person to be retired
+first. Any one of the three alone would leave the erasure defeated while reporting success: the squad read
+joins from the person outward, so an orphaned row is invisible, and a log row holding what was erased is
+exactly the record the erasure exists to remove.
+
+The absences that remain are decisions too. No endpoint removes a `saisons` document, because that
+would orphan every `saison_id` in the database. No endpoint removes a `saison_teams` row either: a club
+leaves a season by an `austritt` record, or by a replacement repointing that row at another club, and the row
+survives both.
 
 ---
 
@@ -174,11 +202,13 @@ There are three answers here, and a field can be under more than one of them.
   before.
 - **Frozen once the season's fixtures are drawn** (`:: SHAPE_RULES_FIELDS`, `REQ-RULES-011`) — the numbers
   the fixture list was generated from, fixed in either direction from the moment the season holds a fixture
-  at all. **This one turns on the draw and not on `status`**, so it binds an `active` or a `future` season
-  the same way; raising one of them is what nothing else refuses, and it would leave every matchday expecting
-  matches nobody drew — with no repair available, the draw being the one writer of a matchday and refusing a
-  season that already holds one. `qualifiers_per_group` sits in both sets, and a finished season is told it
-  is finished first.
+  at all. Raising one of them is what nothing else refuses, and it would leave every matchday expecting
+  matches nobody drew. **The freeze lifts exactly where the fixtures can be drawn again** — a `future` season
+  with nothing recorded, which is the window a confirmed replace runs in (`REQ-SPIELPLAN-005`) — so a season
+  drawn from the wrong numbers is repaired by drawing it again rather than left wrong for good. **What it
+  turns on is the draw and that window, never `status` alone**: an `active` season is held to its shape, and
+  so is a `future` one already holding a recorded fixture. `qualifiers_per_group` sits in both sets, and a
+  finished season is told it is finished first.
 - **Never narrowed below what already exists**, because the data below would be stranded. What decides
   membership here is what the field bounds: `max_kadergroesse` caps stored squad rows and so may not drop
   below the largest squad a season holds, while `erlaubte_stufen` narrows freely even on a finished season,
@@ -284,15 +314,16 @@ read at all, and the response model decides what that read serves. Which tier is
 
 ## Keeping this true
 
-| If you                                                | You must also                                                                                                                        | Caught by                                                                                  |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Add a `REQ-*` refusal under `app/api/`                | Add its row to `RULES`, with an `implemented_by` that reaches the code and a `tested_by` that asserts on it                          | `test_domain.py`                                                                           |
-| Move a refusal out from under the row that claims it  | Repoint `implemented_by`, or move the code with it                                                                                   | `test_domain.py`                                                                           |
-| Rewrite a test class to assert on the message instead | Leave the code in it, or repoint `tested_by` at a class that asserts on the code                                                     | `test_domain.py`                                                                           |
-| Add a collection                                      | Place it in exactly one aggregate                                                                                                    | `test_domain.py`                                                                           |
-| Give a collection an `inactive_since`                 | Declare when that field may be written                                                                                               | `test_domain.py`                                                                           |
-| Add any other field that is not plainly editable      | Add its `FieldPolicy`                                                                                                                | Nothing — the test resolves the policies that are declared and cannot see one nobody wrote |
-| Decide _not_ to enforce something                     | Add it to `UNENFORCED` with its reason, its `near` codes, its `proven_by` class and, where a page shows the state, its `surfaced_by` | Every field of the entry, once the entry exists; nothing catches a state nobody declared   |
+| If you                                                  | You must also                                                                                                                                                                                                                                       | Caught by                                                                                                                                                                                            |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Add a `REQ-*` refusal under `app/api/`                  | Add its row to `RULES`, with an `implemented_by` that reaches the code and a `tested_by` that asserts on it                                                                                                                                         | `test_domain.py`                                                                                                                                                                                     |
+| Answer with a code the API has not answered with before | Give it a row in [`logging/error-codes.md`](logging/error-codes.md) with the status it carries and restamp that page (CUR-3), and write its German where its feature maps refusals — [What a write must do](#what-a-write-must-do) names both sites | Nothing — an unmapped code falls through to what `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult` answers a bare 409 with, telling an admin the entry duplicates one that exists |
+| Move a refusal out from under the row that claims it    | Repoint `implemented_by`, or move the code with it                                                                                                                                                                                                  | `test_domain.py`                                                                                                                                                                                     |
+| Rewrite a test class to assert on the message instead   | Leave the code in it, or repoint `tested_by` at a class that asserts on the code                                                                                                                                                                    | `test_domain.py`                                                                                                                                                                                     |
+| Add a collection                                        | Place it in exactly one aggregate                                                                                                                                                                                                                   | `test_domain.py`                                                                                                                                                                                     |
+| Give a collection an `inactive_since`                   | Declare when that field may be written                                                                                                                                                                                                              | `test_domain.py`                                                                                                                                                                                     |
+| Add any other field that is not plainly editable        | Add its `FieldPolicy`                                                                                                                                                                                                                               | Nothing — the test resolves the policies that are declared and cannot see one nobody wrote                                                                                                           |
+| Decide _not_ to enforce something                       | Add it to `UNENFORCED` with its reason, its `near` codes, its `proven_by` class and, where a page shows the state, its `surfaced_by`                                                                                                                | Every field of the entry, once the entry exists; nothing catches a state nobody declared                                                                                                             |
 
 **What the test holds is the claim, never the address.** A callable at `implemented_by` is not enough: it has
 to reach the constant holding that rule's code, same-module helpers followed, so a refusal that moved out

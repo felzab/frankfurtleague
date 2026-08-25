@@ -27,13 +27,14 @@ from app.api.saisons.services import (
     find_rules_refusal,
     find_saison_span_refusal,
     find_spielplan_refusal,
+    holds_a_recorded_fact,
     unplayed_spiel_nrs,
     with_schedule,
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
-from app.api.spiele.schemas import KNOCKOUT_PHASES, SONDEREREIGNIS_PRODUCING_A_RECORD, FLSpielListAdapter
+from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.schemas import FLGruppenNames
-from app.api.teams.services import find_gruppe_swap_refusal, fixtures_newly_fielding_a_departed_club
+from app.api.teams.services import find_gruppe_swap_refusal, fixtures_newly_fielding_a_departed_club, has_taken_place
 from app.core.config import API_VERSION
 from app.core.crud import (
     build_query,
@@ -65,20 +66,8 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
 )
 
-# No `tore`: goals belong to whoever scored them, and `_has_taken_place` leaves none to move.
+# No `tore`: goals belong to whoever scored them, and `has_taken_place` leaves none to move.
 SWAPPED_SIDE_KEYS: tuple[str, ...] = ("team_id", "name", "shorthand")
-
-
-def _has_taken_place(spiel: Mapping[str, Any]) -> bool:
-    """Whether this fixture happened. NOT `unplayed_spiel_nrs` negated: a half-entered score reads unfinished there."""
-
-    # An abandonment and a no-show each left a record the exchange would rewrite. A fixture called
-    # off or struck out left none, so its sides are still free to move.
-    if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") in SONDEREREIGNIS_PRODUCING_A_RECORD:
-        return True
-
-    # A fixture can hold `team1.tore` with no `ergebnis` at all, and nothing refuses that shape.
-    return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
 
 
 def _spieltag_clashes(
@@ -299,10 +288,22 @@ async def patch_saison(
     # One cursor for both figures, so what `REQ-RULES-011` freezes and what lifts that freeze cannot
     # be read off two different sets of rows.
     async for spiel in spiele_collection.find(
-        {"saison_id": saison_id}, {"spieltag_id": 1, "team1.tore": 1, "team2.tore": 1, "ergebnis": 1, "sonderereignis": 1}
+        {"saison_id": saison_id},
+        # `holds_a_recorded_fact`'s fields, bookings included: the freeze lifts only where
+        # `REQ-SPIELPLAN-005` grants the redraw, so a narrower count here unfreezes a season the
+        # replace refuses, stranding it on rules it was not drawn from.
+        {
+            "spieltag_id": 1,
+            "team1.tore": 1,
+            "team2.tore": 1,
+            "ergebnis": 1,
+            "sonderereignis": 1,
+            "ort.spielort_id": 1,
+            "schiedsrichter.schiedsrichter_id": 1,
+        },
     ):
         per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
-        if _has_taken_place(spiel):
+        if holds_a_recorded_fact(spiel):
             recorded_fixtures += 1
 
     # Every fixture of the season, whichever matchday it hangs on: what `REQ-RULES-011` freezes is the
@@ -502,7 +503,7 @@ async def swap_gruppen(
             session=session,
         )
 
-        # Listed too, so both windows are decided by `_has_taken_place` rather than by one predicate
+        # Listed too, so both windows are decided by `has_taken_place` rather than by one predicate
         # here and a `$or` filter there.
         knockout_spiele = await pull_many_from_db(
             collection=spiele_collection,
@@ -517,8 +518,8 @@ async def swap_gruppen(
                 team1_gruppe=gruppe_of.get(swap_data.team1_id),
                 team2_gruppe=gruppe_of.get(swap_data.team2_id),
                 saison_status=str(saison_raw["status"]),
-                played_knockout_fixtures=sum(1 for spiel in knockout_spiele if _has_taken_place(spiel)),
-                played_gruppenphase_fixtures=sum(1 for spiel in gruppenphase_spiele if _has_taken_place(spiel)),
+                played_knockout_fixtures=sum(1 for spiel in knockout_spiele if has_taken_place(spiel)),
+                played_gruppenphase_fixtures=sum(1 for spiel in gruppenphase_spiele if has_taken_place(spiel)),
                 clashing_spieltage=_spieltag_clashes(
                     team_ids=both_ids,
                     gruppenphase_spiele=gruppenphase_spiele,
@@ -586,8 +587,8 @@ async def generate_spielplan(
     """
     Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
 
-    `replace` DELETES both lists and draws them again in that transaction, only while the season is
-    `future` with nothing played (`REQ-SPIELPLAN-005`).
+    `replace` DELETES both lists and draws them again, only on a `future` season carrying
+    no result, cancellation or booking (`REQ-SPIELPLAN-005`).
     """
 
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
@@ -621,7 +622,9 @@ async def generate_spielplan(
         stored_spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id},
-            projection=["team1.tore", "team2.tore", "ergebnis", "sonderereignis"],
+            # The booking fields are here for `REQ-SPIELPLAN-005` alone: a venue or a referee is
+            # work a replace would destroy, and its window closes on one exactly as on a result.
+            projection=["team1.tore", "team2.tore", "ergebnis", "sonderereignis", "ort.spielort_id", "schiedsrichter.schiedsrichter_id"],
             session=session,
         )
 
@@ -634,7 +637,7 @@ async def generate_spielplan(
                 rules=rules,
                 occupancy_by_gruppe=occupancy,
                 replace=spielplan_data.replace,
-                recorded_fixtures=sum(1 for spiel in stored_spiele if _has_taken_place(spiel)),
+                recorded_fixtures=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
             )
         )
 

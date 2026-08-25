@@ -134,6 +134,16 @@ class TestWhatCountsAsARecord:
     def test_a_result_is_a_record(self):
         assert has_taken_place(fixture(ergebnis="2:1")) is True
 
+    def test_each_group_holds_exactly_the_events_named_here(self):
+        """The membership the two cases below read but cannot state.
+
+        Parametrizing off a tuple covers a member ADDED and never one removed, and a tuple emptied
+        outright parametrizes nothing -- which pytest skips rather than fails.
+        """
+
+        assert set(SONDEREREIGNIS_PRODUCING_A_RECORD) == {"abgebrochen", "nichtantreten_team1", "nichtantreten_team2"}
+        assert set(SONDEREREIGNIS_WITHOUT_A_RESULT) == {"ausgefallen", "annulliert"}
+
     @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_PRODUCING_A_RECORD)
     def test_every_record_producing_event_counts(self, sonderereignis):
         """Read off the constant, so an event added to it cannot slip past this rule while the suite stays green."""

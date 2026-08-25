@@ -332,6 +332,11 @@ class TestExactlyOneActiveSeason:
     """That no store-level constraint holds two seasons apart, and that one transaction is the whole of what does."""
 
     def test_no_unique_index_reaches_the_status_field(self):
+        # The floor: `saisons` carries no unique index at all, so what proves the sweep read
+        # something is a key it DOES find. Without it an emptied `UNIQUE_INDEXES` leaves the claim
+        # below passing over nothing.
+        assert "saison_id" in {key for index in UNIQUE_INDEXES for key in index.keys}
+
         covering = [index.name for index in UNIQUE_INDEXES if "status" in index.keys]
 
         assert not covering, f"{covering} would make this a database guarantee, and the entry claims it is not"
@@ -391,6 +396,10 @@ class TestASharedSquadNumber:
     """That nothing compares one squad row's number against another's, at either end."""
 
     def test_no_unique_index_reaches_a_squad_number(self):
+        # The floor: the squad junction IS uniquely indexed, so the empty result below is `nummer`
+        # going unkeyed rather than a sweep over nothing.
+        assert [index for index in UNIQUE_INDEXES if index.collection == Collection.SAISON_SPIELER]
+
         covering = [index.name for index in UNIQUE_INDEXES if "nummer" in index.keys]
 
         assert not covering

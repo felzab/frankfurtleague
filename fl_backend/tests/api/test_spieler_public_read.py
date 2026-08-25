@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Any, Awaitable, Callable, Sequence, get_args
+from typing import Any, Awaitable, Callable, Mapping, Sequence, get_args
 
 import pytest
 from bson import ObjectId
@@ -20,6 +20,10 @@ from app.api.spieler.schemas import (
     FLSpielerSortOptions,
 )
 from app.api.spieler.services import build_spieler_memberships_pipeline, build_spieler_pipeline, public_initial
+from app.core.config import API_VERSION
+from app.core.crud import aggregate_many_from_db
+from app.main import create_app
+from tests.config import build_test_config
 
 DATABASE_NAME = "fl_spieler_public_read_test"
 
@@ -34,6 +38,12 @@ PUBLIC_FIELDS = {"id", "vorname", "nachname", "nummer", "position"}
 # `stufe` and `einwilligung` are the two confidentiality rules; the rest fails the allow-list, which
 # asks what the surface renders rather than what looks sensitive. An unrendered field still ships.
 WITHHELD_FIELDS = ["stufe", "einwilligung", "team_id", "is_nachgetragen", "is_captain", "inactive_since"]
+
+# What a caller may actually SEND: the filter model's fields plus anything declared beside them.
+# Constructing a filter object asks for nothing -- `extra="ignore"` drops an undeclared key first.
+BASE_QUERY_PARAMETERS = {
+    parameter["name"] for parameter in create_app(build_test_config()).openapi()["paths"][f"/api/v{API_VERSION}/spieler"]["get"]["parameters"]
+}
 
 SPIELER_OIDS = {
     "Mueller": ObjectId("6890a1b2c3d4e5f607390011"),
@@ -102,10 +112,10 @@ def _legacy_squad_row(key: str, **fields: Any) -> dict[str, Any]:
     return row
 
 
-def _filters(**overrides: Any) -> FLSpielerFilterParams:
-    """`model_validate`, not the constructor: several cases pass a key the model does not declare, which is each of those cases' assertion."""
+def _filters() -> FLSpielerFilterParams:
+    """One team's squad in one season -- the narrowing every case below shares."""
 
-    return FLSpielerFilterParams.model_validate({"team_id": TEAM_OID, "saison_id": SAISON, **overrides})
+    return FLSpielerFilterParams(team_id=TEAM_OID, saison_id=SAISON)
 
 
 def _project(filters: FLSpielerFilterParams | None = None) -> dict[str, Any]:
@@ -193,22 +203,17 @@ class TestTheProjection:
         """Stored on the PERSON rather than the junction, so it rode along on a `1` nobody had to name."""
         assert "einwilligung" not in _project()
 
-    def test_the_surname_is_computed_rather_than_passed_through(self):
-        """A `1` here is the whole surname, so the redaction has to be an expression."""
-        assert _project()["nachname"] != 1
-
     def test_the_level_is_gone_from_the_shape_and_from_every_way_of_asking_for_it(self):
         """Serving no `stufe` while `?stufe=` still narrowed would leave the fact readable one level at a time."""
         assert "stufe" not in _project()
-        assert "stufe" not in FLSpielerFilterParams.model_fields
+        assert "stufe" not in BASE_QUERY_PARAMETERS
         assert "stufe" not in get_args(FLSpielerSortOptions)
 
     def test_the_backdated_flag_is_gone_from_the_shape_and_from_every_way_of_asking_for_it(self):
         """The same sentence one field up: `is_nachgetragen` is withheld too, so a request per value would partition the squad by it."""
         assert "is_nachgetragen" not in _project()
-        assert "is_nachgetragen" not in FLSpielerFilterParams.model_fields
+        assert "is_nachgetragen" not in BASE_QUERY_PARAMETERS
         assert "is_nachgetragen" not in get_args(FLSpielerSortOptions)
-        assert all("is_nachgetragen" not in str(stage) for stage in _lookup_pipeline(_filters(is_nachgetragen=False)))
 
     def test_the_public_sort_does_not_tiebreak_on_the_surname(self):
         """A tie-break is the last place an ordering could still depend on a field the response withholds."""
@@ -236,8 +241,7 @@ class TestTheProjection:
     def test_the_squad_row_s_retirement_narrows_unconditionally(self):
         """The other half, with no switch: this tier serves no field marking a row it would un-hide (`READ-SQUAD-002`)."""
         assert {"$match": {"inactive_since": None}} in _lookup_pipeline()
-        assert {"$match": {"inactive_since": None}} in _lookup_pipeline(_filters(include_inactive=True))
-        assert "include_inactive" not in FLSpielerFilterParams.model_fields
+        assert "include_inactive" not in BASE_QUERY_PARAMETERS
 
 
 class TestTheSeasonsThisTierMayNotRead:
@@ -296,6 +300,14 @@ class TestTheBaseTierReadExecuted:
     def _by_vorname(self, container: Any, filters: FLSpielerFilterParams | None = None) -> dict[str, dict[str, Any]]:
         return {row["vorname"]: row for row in self._read(container, filters)["spieler"]}
 
+    def _rows(self, container: Any, filters: FLSpielerFilterParams | None = None) -> list[Mapping[str, Any]]:
+        """What mongod yields for the pipeline, one step BEFORE `FLSpielerPublic`, which declares five fields and drops the rest either way."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            return await aggregate_many_from_db(collection=database.spieler, pipeline=build_spieler_pipeline(filters or _filters()))
+
+        return on_a_database(container, body)
+
     def test_the_corpus_really_holds_what_the_response_must_not(self, mongo_container: Any):
         """First, because every assertion below would pass just as well against a seed that stored neither."""
 
@@ -330,10 +342,9 @@ class TestTheBaseTierReadExecuted:
         """`READ-SQUAD-001`, which the admin sidemenu already promises: Stilllegen empties the pickers and leaves the Kadereintrag standing."""
         assert "Jonas" in self._by_vorname(mongo_container)
 
-    def test_a_retired_squad_row_stays_out_and_nothing_asks_for_it_back(self, mongo_container: Any):
+    def test_a_retired_squad_row_stays_out(self, mongo_container: Any):
         """The retirement this read does filter on, so dropping the person's match cannot be mistaken for dropping both."""
         assert "Nils" not in self._by_vorname(mongo_container)
-        assert "Nils" not in self._by_vorname(mongo_container, _filters(include_inactive=True))
 
     def test_a_person_whose_every_squad_row_is_retired_still_reads(self, mongo_container: Any):
         """Neither id narrows, so the join is loose: Nils survives the unwind with no `saison_data`, and `$project` leaves both keys off."""
@@ -358,8 +369,13 @@ class TestTheBaseTierReadExecuted:
         assert self._by_vorname(mongo_container)["Lena"]["nachname"] is None
 
     @pytest.mark.parametrize("field", WITHHELD_FIELDS)
-    def test_a_withheld_field_reaches_no_row_of_the_response(self, mongo_container: Any, field: str):
-        assert all(field not in row for row in self._read(mongo_container)["spieler"])
+    def test_a_withheld_field_reaches_no_row_the_pipeline_yields(self, mongo_container: Any, field: str):
+        """The allow-list `$project` builds, as mongod resolves it. A key added there is a leak the response shape hides."""
+        rows = self._rows(mongo_container)
+
+        # `all` over an empty list passes, and a join that stopped matching would empty it.
+        assert len(rows) == 5
+        assert all(field not in row for row in rows)
 
     def test_the_squad_facts_the_table_renders_survive(self, mongo_container: Any):
         """The allow-list is not a blanket refusal: a shirt and a position are columns on the page."""
@@ -377,18 +393,6 @@ class TestTheBaseTierReadExecuted:
 
         assert " ".join(part for part in (served["vorname"], served["nachname"]) if part) == "Maxim M."
         assert served["nachname"][0] == "M"
-
-    def test_the_level_cannot_narrow_the_list(self, mongo_container: Any):
-        """One request per level would otherwise reconstruct every pupil's `stufe` out of squads of one."""
-        narrowed = self._by_vorname(mongo_container, _filters(stufe="Q3"))
-
-        assert len(narrowed) == 5
-
-    def test_the_backdated_flag_cannot_narrow_the_list_either(self, mongo_container: Any):
-        """Two requests would otherwise partition the squad by a fact the response withholds -- fewer than `?stufe=` needed."""
-        narrowed = self._by_vorname(mongo_container, _filters(is_nachgetragen=True))
-
-        assert len(narrowed) == 5
 
     def test_the_order_is_by_position_then_forename(self, mongo_container: Any):
         """The default sort, unchanged by the redaction -- and MongoDB puts the null position first."""

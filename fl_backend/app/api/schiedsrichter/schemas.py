@@ -69,7 +69,7 @@ class FLPatchSchiedsrichterResponse(BaseAPIResponse):
 
 
 class FLSchiedsrichterWriteResponse(BaseAPIResponse):
-    """Shared by delete and reactivate — both answer with the referee as they now stand."""
+    """Shared by delete, reactivate and anonymisieren — each answers with the referee as they now stand."""
 
     updated_document: FLSchiedsrichter
 

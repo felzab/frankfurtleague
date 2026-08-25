@@ -204,7 +204,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "which stays true however the document it names changes afterwards. So it is in no boundary "
             "with the collection it records, and carries no reference to it -- `document_id` names a row "
             "that may since have been deleted. A row surviving its subject is the point where the subject is a fixture or a "
-            "season. Where the subject is a PERSON it is instead the leak, which is why a pupil's erasure reaches in here and "
+            "season. Where the subject is a PERSON it is instead the leak, which is why a pupil's erasure and a referee's anonymisation both reach in here and "
             "redacts the values in place rather than dropping the row (`docs/backend/spec.md :: I42`)."
         ),
     ),

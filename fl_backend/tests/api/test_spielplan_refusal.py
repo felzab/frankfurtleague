@@ -1,5 +1,7 @@
 from typing import Any, Mapping
 
+import pytest
+
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.saisons.services import (
     RULES_SHAPE_AFTER_DRAW,
@@ -10,6 +12,7 @@ from app.api.saisons.services import (
     SPIELPLAN_SAISON_FINISHED,
     find_rules_refusal,
     find_spielplan_refusal,
+    holds_a_recorded_fact,
 )
 from app.api.teams.schemas import FLGruppenNames
 from app.core.exceptions import WriteRefusal
@@ -100,6 +103,32 @@ class TestASeasonAlreadyDrawn:
 
         assert refusal is not None
         assert refusal.error_code == SPIELPLAN_ALREADY_DRAWN
+
+    def test_a_season_inside_the_replace_window_is_offered_the_replace(self):
+        """The remedy exists here, and naming it is what turns a 409 into a next step."""
+
+        refusal = refusal_for(fixtures_drawn=67, spieltage_held=8)
+
+        assert refusal is not None
+        assert "a replace is confirmed" in refusal.message
+
+    @pytest.mark.parametrize(
+        ("saison_status", "recorded", "why"),
+        [
+            ("active", 0, "a running season, which `REQ-SPIELPLAN-005` refuses on its status"),
+            ("past", 0, "a finished season, refused on its status too"),
+            ("future", 1, "a planned season one fixture has already been entered against"),
+        ],
+    )
+    def test_a_season_outside_the_replace_window_is_not_offered_one(self, saison_status: str, recorded: int, why: str):
+        """State the remedy unconditionally and this fails: an admin who confirms the replace meets a second 409."""
+
+        refusal = refusal_for(fixtures_drawn=67, spieltage_held=8, saison_status=saison_status, recorded=recorded)
+
+        assert refusal is not None, why
+        assert refusal.error_code == SPIELPLAN_ALREADY_DRAWN
+        assert "a replace is confirmed" not in refusal.message
+        assert "no replace can remove it" in refusal.message
 
 
 class TestASeasonHoldingMatchdays:
@@ -399,3 +428,49 @@ class TestTheShapeFreezeStepsAsideInTheSameWindow:
 
         assert refusal is not None
         assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+
+
+# A fixture exactly as the draw wrote it: every field a record could land in, empty.
+UNTOUCHED_FIXTURE: Mapping[str, Any] = {
+    "ergebnis": None,
+    "sonderereignis": None,
+    "team1": {"tore": None},
+    "team2": {"tore": None},
+    "ort": {"spielort_id": None},
+    "schiedsrichter": {"schiedsrichter_id": None},
+}
+
+
+class TestWhatCountsAsRecordedAgainstAFixture:
+    """`holds_a_recorded_fact`, which is what the endpoint counts for `REQ-SPIELPLAN-005`.
+
+    The refusal reads a COUNT, so no test of it reaches this: the window closes on a cancellation
+    and on a booking as well as on a result.
+    """
+
+    @pytest.mark.parametrize(
+        ("recorded", "why"),
+        [
+            ({"ergebnis": "2:1"}, "a result"),
+            ({"sonderereignis": "abgebrochen"}, "an abandonment"),
+            ({"sonderereignis": "nichtantreten_team1"}, "a no-show"),
+            ({"sonderereignis": "ausgefallen"}, "a cancellation, which `has_taken_place` reads as untouched"),
+            ({"sonderereignis": "annulliert"}, "an annulment, for the same reason"),
+            ({"team1": {"tore": 0}}, "a goal count standing without a result"),
+            ({"team2": {"tore": 0}}, "the same count on the other side, which a loop over one slot would miss"),
+            ({"ort": {"spielort_id": "68f0a1b2c3d4e5f607600001"}}, "a booked venue"),
+            ({"schiedsrichter": {"schiedsrichter_id": "68f0a1b2c3d4e5f607600002"}}, "a booked referee"),
+        ],
+    )
+    def test_a_fixture_carrying_one_of_these_closes_the_window(self, recorded: Mapping[str, Any], why: str):
+        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, **recorded}) is True, why
+
+    def test_a_fixture_the_draw_left_alone_does_not(self):
+        """The floor: a predicate answering True for everything would pass every case above."""
+
+        assert holds_a_recorded_fact(UNTOUCHED_FIXTURE) is False
+
+    def test_a_date_and_a_kickoff_time_leave_the_window_open(self):
+        """Rescheduling is what a replace is FOR, so a dated fixture stays replaceable and the log keeps the dates."""
+
+        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, "datum": "2026-05-01", "uhrzeit": "18:00:00"}) is False

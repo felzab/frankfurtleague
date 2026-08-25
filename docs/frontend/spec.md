@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `7b85b7ab`, 2026-08-22\
+**Verified against:** `d668d82e`, 2026-08-25\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -31,21 +31,21 @@
 
 The Notes column lists everything a slice holds beyond the four columns and its `components/` folder.
 
-| Slice            | queries | mutations | actions | schemas | Notes                                                                                                                                                                           |
-| ---------------- | :-----: | :-------: | :-----: | :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `spiele`         |   ✅    |    ✅     |   ✅    |   ✅    | Owns the Spiel write path; `draftStatus.ts`, `facets.ts`, `resolvers.ts`, `types.ts`, `utils.ts`, tests                                                                         |
-| `spielorte`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `resolvers.ts`, `spielortDraftStatus.ts`, `types.ts`, `utils.ts`, tests                                                                 |
-| `schiedsrichter` |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `resolvers.ts`, `schiedsrichterDraftStatus.ts`, `types.ts`, tests                                                                       |
-| `teams`          |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + season junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `teamDraftStatus.ts`, `types.ts`, `utils.ts`, tests                                                   |
-| `saisons`        |   ✅    |    ✅     |   ✅    |   ✅    | Create, edit, rollover, group swap, the Spielplan draw — no delete; `constants.ts`, `facets.ts`, `resolvers.ts`, `saisonDraftStatus.ts`, `types.ts`, `utils.ts`, tests          |
-| `spieler`        |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + squad junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `shorthandChip.ts`, `spielerDraftStatus.ts`, `types.ts`, `utils.ts`, tests                             |
-| `spieltage`      |   ✅    |    ✅     |   ✅    |   ✅    | Re-dating alone — the `saisons` draw creates them and nothing deletes one; `constants.ts`, `facets.ts`, `resolvers.ts`, `spieltagDraftStatus.ts`, `types.ts`, `utils.ts`, tests |
-| `aktionen`       |   ✅    |     —     |    —    |   ✅    | Read-only; the action log is written by the backend on every admin write, never from here; `constants.ts`, `facets.ts`, `types.ts`, `utils.ts`, tests                           |
-| `system`         |   ✅    |     —     |    —    |   ✅    | Read-only; nothing else                                                                                                                                                         |
-| `admin`          |   ✅    |     —     |    —    |    —    | Aggregator; `constants.ts`, `types.ts`, `utils.ts`, tests                                                                                                                       |
-| `auth`           |    —    |     —     |   ✅    |    —    | `handleSignIn` + `signOutAction`; nothing else                                                                                                                                  |
-| `dashboard`      |    —    |     —     |    —    |    —    | Components + `constants.ts`                                                                                                                                                     |
-| `meta`           |    —    |     —     |    —    |    —    | Components + `constants.ts`, `types.ts`                                                                                                                                         |
+| Slice            | queries | mutations | actions | schemas | Notes                                                                                                                                                                                                            |
+| ---------------- | :-----: | :-------: | :-----: | :-----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spiele`         |   ✅    |    ✅     |   ✅    |   ✅    | Owns the Spiel write path; `draftStatus.ts`, `facets.ts`, `resolvers.ts`, `types.ts`, `utils.ts`, tests                                                                                                          |
+| `spielorte`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `resolvers.ts`, `spielortDraftStatus.ts`, `types.ts`, `utils.ts`, tests                                                                                                  |
+| `schiedsrichter` |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `resolvers.ts`, `schiedsrichterDraftStatus.ts`, `types.ts`, tests                                                                                                        |
+| `teams`          |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + season junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `teamDraftStatus.ts`, `types.ts`, `utils.ts`, tests                                                                                    |
+| `saisons`        |   ✅    |    ✅     |   ✅    |   ✅    | Create, edit, rollover, group swap, the Spielplan draw — no delete, and no action sends the draw's `replace`; `constants.ts`, `facets.ts`, `resolvers.ts`, `saisonDraftStatus.ts`, `types.ts`, `utils.ts`, tests |
+| `spieler`        |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + squad junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `shorthandChip.ts`, `spielerDraftStatus.ts`, `types.ts`, `utils.ts`, tests                                                              |
+| `spieltage`      |   ✅    |    ✅     |   ✅    |   ✅    | Re-dating alone — the `saisons` draw creates them and a confirmed replace of that draw removes them; `constants.ts`, `facets.ts`, `resolvers.ts`, `spieltagDraftStatus.ts`, `types.ts`, `utils.ts`, tests        |
+| `aktionen`       |   ✅    |     —     |    —    |   ✅    | Read-only; the action log is written by the backend on every admin write, never from here; `constants.ts`, `facets.ts`, `types.ts`, `utils.ts`, tests                                                            |
+| `system`         |   ✅    |     —     |    —    |   ✅    | Read-only; nothing else                                                                                                                                                                                          |
+| `admin`          |   ✅    |     —     |    —    |    —    | Aggregator; `constants.ts`, `types.ts`, `utils.ts`, tests                                                                                                                                                        |
+| `auth`           |    —    |     —     |   ✅    |    —    | `handleSignIn` + `signOutAction`; nothing else                                                                                                                                                                   |
+| `dashboard`      |    —    |     —     |    —    |    —    | Components + `constants.ts`                                                                                                                                                                                      |
+| `meta`           |    —    |     —     |    —    |    —    | Components + `constants.ts`, `types.ts`                                                                                                                                                                          |
 
 `utils.ts`, `resolvers.ts` and `facets.ts` are sanctioned optional modules. `utils.ts` and
 `resolvers.ts` exist separately from `queries.ts` because they hold non-caching code, and folding them
@@ -78,8 +78,8 @@ answer.
 arguments rather than on caller identity, so one shared entry would be a slot of admin-authorized data
 any caller could reach.** A reason of their own stands behind `getAdminSpieleActionRequired`, whose
 `bracket_faults` are derived per request over the stored bracket, so a cached copy would be wrong the
-moment a document moved under it, and behind `getAktionen`, whose rows each carry the document a write
-replaced — one entry holding data from every collection at once. None carries a cache tag either: a tag
+moment a document moved under it, and behind `getAktionen`, whose rows carry the documents a write
+replaced or removed — one entry holding data from every collection at once. None carries a cache tag either: a tag
 only means something inside a cache scope. Each seeds the request's correlation scope, which a
 `"use cache"` read cannot ([`docs/logging/spec.md`](../logging/spec.md#11-the-correlation-id)).
 
@@ -181,11 +181,24 @@ also nothing for an undo to call — re-activating the season the rollover demot
 it does for an unfinished incumbent, and `activateSaisonAction` answers each refusal in its own words
 for the stale page that reaches the write anyway.
 
-**The draw is the second, and it is one-way**: `POST /saisons/{saison_id}/spielplan` refuses a season
-that already carries a Spielplan (`REQ-SPIELPLAN-001`), and `/spiele` has neither a create nor a
-delete, so nothing exists for an undo to call. `FormSpielplanSection` confirms in place behind a
+**The draw is the second, and it is destructive rather than reversible**:
+`POST /saisons/{saison_id}/spielplan` refuses a season that already carries fixtures
+(`REQ-SPIELPLAN-001`) unless the request confirms a REPLACE, and `/spiele` has neither a create nor
+a delete, so nothing exists for an undo to call — a replaced draw's rows are gone and there is no
+endpoint to write them back. A replace is held to a `future` season with nothing recorded
+(`REQ-SPIELPLAN-005`), so what it destroys is a schedule nobody has played, and the action log keeps
+an image of every removed document ([`docs/backend/spec.md`](../backend/spec.md) I48) — which is a record for a person to
+read, never a restore this app can offer. `FormSpielplanSection` confirms in place behind a
 two-press escalation that shows the rules and the shape they produce, which is the same answer the
-rollover gives to the same problem.
+rollover gives to the same problem. **That escalation sends the `replace` where the season already holds a draw**, and the flag is
+decided from the same input as the sentence beside it, so what an admin agrees to and what the
+request asks for cannot come apart.
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.ts :: spielplanBlockedReason`
+closes the panel outside `REQ-SPIELPLAN-005`'s window rather than on any drawn season, and the armed
+state names the matchdays and fixtures the press removes. No undo stands behind it: the rows are
+gone and `/spiele` has no create to replay them into. **`REQ-RULES-011`'s carve-out reaches the
+rules panel through that same window**, so the three shape rules are editable exactly while the draw
+they produced can be replaced — which is the repair path a wrong draw has.
 
 **The group swap also confirms in place, for a different reason: it is its own inverse**. Running it
 again on the same pair restores the season, so a fifteen-second window and a route handler of its
@@ -287,7 +300,11 @@ which is why the split is in one place per slice rather than at each call site.
 
 **Every resource with write endpoints has an action calling them** — `spiele`, `teams`, `spieler`,
 `spielorte`, `schiedsrichter`, `saisons` and `spieltage`, every one of them now through a page-owned
-editor. The absences are
+editor. **The claim is per resource: four admin-tier writes reach the app through no action at
+all** — a pupil's erasure, a referee's anonymisation, the replacement of a club on a season's
+junction row, and the draw's `replace`
+([`docs/backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). Each destroys or hands on what
+nothing here can put back. The other absences are
 deliberate rather than unbuilt: there is no `DELETE /saisons/{id}`, because a season that is over is
 `past`; no action writes `saisons.status` except `activateSaisonAction`, which reaches it only through
 the one endpoint that may; and a matchday is drawn with its season and re-dated afterwards but never
@@ -346,7 +363,10 @@ There is no invalidation endpoint for these caches and none may be added.
 
 Each of the three has an admin page that invalidates as it saves (`updateTag` inside the action), so
 an edit made through the app is visible at once and only a hand edit goes around it — the symptom a
-hand edit produces, and its remedy, are [`docs/ops/spec.md`](../ops/spec.md) §3.
+hand edit produces, and its remedy, are [`docs/ops/spec.md`](../ops/spec.md) §3. **A write sent to an
+endpoint no action calls leaves exactly the same staleness**, invalidation living in the action and
+not in the API. §1.3 names those endpoints, and the sharpest case is a pupil's erasure: the person is
+gone from the database while the cached `spieler` entry goes on serving them.
 
 To make an edit visible sooner, recreate the frontend container — the cache lives in its
 filesystem, so recreation starts empty at the cost of every cached page, not three tags.

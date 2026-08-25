@@ -160,6 +160,10 @@ SQUAD_TEAM_NOT_IN_SAISON = "REQ-SQUAD-001"
 # What every code here refuses is `docs/logging/error-codes.md`.
 SQUAD_FULL = "REQ-SQUAD-003"
 
+# D60's precondition on the erasure: retirement is the reversible half of the same intent, and a
+# person still in the league is one somebody would notice missing.
+ERASURE_NOT_RETIRED = "REQ-PURGE-001"
+
 
 def registration_einwilligung(*, today: str) -> FLEinwilligung:
     """The consent record `POST /spieler` composes for a pupil being registered today.
@@ -236,6 +240,22 @@ def find_squad_capacity_refusal(*, squad_size: int, max_kadergroesse: int) -> Wr
         return WriteRefusal(
             error_code=SQUAD_FULL,
             message=f"the squad is full ({squad_size}/{max_kadergroesse} {noun}); a season's rules cap how many players a team may field in it",
+        )
+
+    return None
+
+
+def find_erasure_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
+    """Why this person may not be erased, or `None`.
+
+    Retirement first (`REQ-PURGE-001`): the erasure answers no undo, so the step that does have one
+    has to have been taken and left standing.
+    """
+
+    if inactive_since is None:
+        return WriteRefusal(
+            error_code=ERASURE_NOT_RETIRED,
+            message="the player is still in the league; retire them first, because an erasure removes every trace and cannot be undone",
         )
 
     return None

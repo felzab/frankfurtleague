@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -11,11 +12,20 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichter,
     FLSchiedsrichterWriteResponse,
 )
-from app.api.schiedsrichter.services import find_referee_retire_refusal
+from app.api.schiedsrichter.services import ANONYMISED_KONTAKT, find_referee_retire_refusal
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
+from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, pull_many_from_db, refuse, set_inactive_since
-from app.core.dependencies import DBClient, SchiedsrichterCollection, SpieleCollection, get_german_date_str
+from app.core.dependencies import (
+    AktionenCollection,
+    DBClient,
+    SchiedsrichterCollection,
+    SpieleCollection,
+    get_german_date_str,
+    get_germany_now,
+)
+from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -124,3 +134,47 @@ async def reactivate_schiedsrichter(
     updated_document_raw = await set_inactive_since(collection=schiedsrichter_collection, db_filter={"_id": schiedsrichter_id}, when=None)
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
+
+
+@router.post(
+    f"{by_id('schiedsrichter_id')}/anonymisieren",
+    response_model=FLSchiedsrichterWriteResponse,
+    summary="Clear a Schiedsrichter's contact details",
+)
+async def anonymise_schiedsrichter(
+    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_collection: SchiedsrichterCollection,
+    aktionen_collection: AktionenCollection,
+    db: DBClient,
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLSchiedsrichterWriteResponse:
+    """Null the referee's telephone number and email address, in the row and in the log.
+
+    The row and its `name` stay: every Spiel embeds both, so a removal would strand copies.
+    No precondition -- details may go while they still officiate.
+    """
+
+    async def clear_the_details_and_the_record(session: AsyncIOMotorClientSession) -> FLSchiedsrichterWriteResponse:
+        updated_document_raw = await patch_one_in_db(
+            collection=schiedsrichter_collection,
+            db_filter={"_id": schiedsrichter_id},
+            update={"$set": ANONYMISED_KONTAKT},
+            session=session,
+        )
+
+        # AFTER the patch, so it reaches the row that patch itself just wrote -- the one holding the
+        # values being cleared. Redacting first would leave exactly that copy behind.
+        await patch_many_in_db(
+            collection=aktionen_collection,
+            db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
+            update=build_redaction_update(at=log_stamp(germany_now)),
+            session=session,
+        )
+
+        return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
+
+    # ONE transaction over both (D83): a referee cleared while the log still holds their details
+    # reports an anonymisation that did not happen. `with_transaction` over a bare one -- the
+    # callback derives both writes from the path id, so a retry is safe.
+    async with await db.start_session() as session:
+        return await session.with_transaction(clear_the_details_and_the_record)

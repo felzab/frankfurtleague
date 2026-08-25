@@ -8,12 +8,19 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.saisons.admin_router import generate_spielplan
+from app.api.saisons.admin_router import generate_spielplan, patch_saison
 from app.api.saisons.cache import invalidate_saison_cache, read_cached_saison, store_cached_saison
 from app.api.saisons.schedule import group_matchdays, total_group_matches
-from app.api.saisons.schemas import FLGenerateSpielplanPayload, FLGenerateSpielplanResponse, FLSaisonRules
+from app.api.saisons.schemas import (
+    FLGenerateSpielplanPayload,
+    FLGenerateSpielplanResponse,
+    FLPatchSaisonPayload,
+    FLPatchSaisonResponse,
+    FLSaisonRules,
+)
 from app.api.saisons.services import (
     RULES_BRACKET_IMPOSSIBLE,
+    RULES_SHAPE_AFTER_DRAW,
     SPIELPLAN_ALREADY_DRAWN,
     SPIELPLAN_GRUPPEN_OFF_RULES,
     SPIELPLAN_MATCHDAYS_HELD,
@@ -214,6 +221,29 @@ async def call_draw(
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(replace=replace),
         today=today,
+    )
+
+
+async def call_patch_rules(database: AsyncIOMotorDatabase, **overrides: Any) -> FLPatchSaisonResponse:
+    """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes.
+
+    The seed's own dates, so `REQ-DATE-004` and `REQ-DATE-005` cannot be what a refusal is about.
+    """
+
+    seeded = saison_document()
+
+    return await patch_saison(
+        saison_id=SAISON_ID,
+        saison_data=FLPatchSaisonPayload(
+            start_date=seeded["start_date"],
+            end_date=seeded["end_date"],
+            rules=FLSaisonRules.model_validate({**rules_document(), **overrides}),
+        ),
+        saisons_collection=database[Collection.SAISONS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        spiele_collection=database[Collection.SPIELE],
+        spieltage_collection=database[Collection.SPIELTAGE],
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
     )
 
 
@@ -759,8 +789,36 @@ class TestTheSeasonCacheIsDroppedOnlyByADrawThatCommitted:
 REDRAWN_TODAY = "2026-08-25"
 
 # One field on one fixture, so nothing else about the season moves to reach a state
-# `app/api/saisons/admin_router.py :: _has_taken_place` calls recorded.
+# `app/api/saisons/services.py :: holds_a_recorded_fact` calls recorded.
 A_RECORD = "abgebrochen"
+
+# Every key the `spiele` validator asks of a booking, so the seeding update is a document production
+# would accept rather than one this file invented.
+A_BOOKED_ORT: dict[str, Any] = {
+    "spielort_id": ObjectId("6890a1b2c3d4e5f607760101"),
+    "name": "Sporthalle Nord",
+    "maps_link": "https://maps.test/nord",
+    "mietpreis": 120,
+}
+A_BOOKED_SCHIEDSRICHTER: dict[str, Any] = {
+    "schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607760102"),
+    "name": "R. Mustermann",
+    "payment": 40,
+}
+
+# One fixture carrying one of these closes the window `REQ-SPIELPLAN-005` opens and `REQ-RULES-011`
+# steps aside in. Only the first is played by `has_taken_place`, so the three under it are what say
+# both windows read `holds_a_recorded_fact`.
+RECORDS_CLOSING_THE_WINDOW = (
+    pytest.param({"sonderereignis": A_RECORD}, id="an abandonment"),
+    pytest.param({"sonderereignis": "ausgefallen"}, id="a cancellation, which has_taken_place reads as untouched"),
+    pytest.param({"ort": A_BOOKED_ORT}, id="a booked venue"),
+    pytest.param({"schiedsrichter": A_BOOKED_SCHIEDSRICHTER}, id="a booked referee"),
+)
+
+# Wider than the drawn shape, so `REQ-RULES-003` and `REQ-RULES-006` both read the other way and
+# `REQ-RULES-011` is the only rule that can answer.
+WIDER_PER_GROUP = 6
 
 
 async def document_ids(database: AsyncIOMotorDatabase) -> set[Any]:
@@ -938,12 +996,13 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
         assert surviving == standing
         assert watermark == {"generiert_am": TODAY, "spieltage": drawn.spieltage, "spiele": drawn.spiele}
 
-    def test_a_single_recorded_fixture_is_refused_the_replace(self, mongo_replica_set_url: str):
-        """Count the records off anything but the stored rows and this fails: one abandoned match is the whole refusal."""
+    @pytest.mark.parametrize("record", RECORDS_CLOSING_THE_WINDOW)
+    def test_a_single_recorded_fixture_is_refused_the_replace(self, mongo_replica_set_url: str, record: dict[str, Any]):
+        """Count these off anything but the stored rows and this fails; drop either booking from the projection and the last two do."""
 
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
             await call_draw(database, client)
-            await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": {"sonderereignis": A_RECORD}})
+            await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
             standing = await document_ids(database)
 
             with pytest.raises(DocumentConflictException) as refused:
@@ -956,3 +1015,42 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
         assert refused.error_code == SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
         assert "1 fixture(s)" in refused.error_detail["message"]
         assert surviving == standing
+
+
+class TestTheShapeFreezeLiftsInTheSameWindowTheReplaceRunsIn:
+    """`REQ-RULES-011`'s carve-out WIRED, over the season the cases above judge the replace on.
+
+    `patch_saison` counts these fixtures itself, so a count drifting from the draw's unfreezes a
+    season whose repairing redraw `REQ-SPIELPLAN-005` then refuses.
+    """
+
+    def test_a_drawn_future_season_with_nothing_recorded_may_change_the_shape_it_was_drawn_from(self, mongo_replica_set_url: str):
+        """The control: a carve-out that never lifted would pass every case below."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await call_draw(database, client)
+
+            return await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP)
+
+        patched = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert patched.updated_document.rules.teams_per_group == WIDER_PER_GROUP
+
+    @pytest.mark.parametrize("record", RECORDS_CLOSING_THE_WINDOW)
+    def test_one_fixture_carrying_a_record_keeps_the_freeze(self, mongo_replica_set_url: str, record: dict[str, Any]):
+        """Read this count with `has_taken_place` and the last three fail: the season would take rules no draw of it can be run from."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await call_draw(database, client)
+            await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
+
+            with pytest.raises(DocumentConflictException) as refused:
+                await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP)
+
+            return refused.value, await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
+
+        refused, stored = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert refused.error_code == RULES_SHAPE_AFTER_DRAW
+        # Read back, not inferred from the refusal: a rule raised after the write would refuse and store.
+        assert stored is not None and stored["rules"]["teams_per_group"] == TEAMS_PER_GROUP

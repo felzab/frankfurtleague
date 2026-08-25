@@ -223,6 +223,20 @@ class FLSpielerWriteResponse(BaseAPIResponse):
     spieler_id: CustomObjectId
 
 
+class FLSpielerErasureResponse(BaseAPIResponse):
+    """What the erasure removed, and NOT an echo of the person.
+
+    A response repeating their names or their consent record would be a fresh copy of exactly what
+    was erased, handed back over the wire.
+    """
+
+    spieler_id: CustomObjectId
+    erased_saison_spieler: int
+    # Every log row naming the person or one of those squad rows, images emptied and stamped
+    # (`docs/backend/spec.md :: I42`). No row is dropped, so this is never a deletion count.
+    redacted_aktionen: int
+
+
 class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
     """A junction row, which has no read model of its own -- so it is echoed as it was written."""
 

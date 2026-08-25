@@ -106,9 +106,9 @@ def find_rules_refusal(
     # `REQ-RULES-004` and `REQ-RULES-006` read a figure derived from fixtures, so outside the window
     # below this refuses the same field first; inside it, they are what bound the redraw instead.
 
-    # STEPS ASIDE in the window `REQ-SPIELPLAN-005` opens: the draw can be run again there, and a
-    # shape frozen against a season nobody has played would leave one drawn from the wrong rules
-    # unrepairable for good.
+    # STEPS ASIDE in the window `REQ-SPIELPLAN-005` opens, on the SAME count: freezing the shape of a
+    # season nothing is recorded against leaves a wrong draw unrepairable, and a wider count here
+    # unfreezes one the redraw is then refused on.
     redraw_is_offered = saison_status == "future" and recorded_fixtures == 0
     if stored is not None and drawn_fixtures > 0 and not redraw_is_offered:
         redrawn = [field for field in SHAPE_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
@@ -271,6 +271,22 @@ ACTIVATE_TARGET_UNDRAWN = "REQ-ACTIVATE-003"
 _NAMED_UNPLAYED = 5
 
 
+def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
+    """Whether anything has been entered against this fixture since the draw wrote it.
+
+    Wider than `has_taken_place`: the replace's window is nothing recorded at all, so a called-off
+    fixture and a merely booked one both close it. A date does not.
+    """
+
+    if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") is not None:
+        return True
+
+    if any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2")):
+        return True
+
+    return (spiel.get("ort") or {}).get("spielort_id") is not None or (spiel.get("schiedsrichter") or {}).get("schiedsrichter_id") is not None
+
+
 def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
     """The fixture numbers of every match still waiting to be played, in order.
 
@@ -351,6 +367,10 @@ def find_spielplan_refusal(
     filling repairs first, because `REQ-SPIELPLAN-004` alone names work an admin can go and do.
     """
 
+    # `REQ-SPIELPLAN-005`'s window, named here because `REQ-SPIELPLAN-001` is judged FIRST and would
+    # otherwise offer a replace this refuses, sending an admin who confirms into a second 409.
+    replace_is_offered = saison_status == "future" and recorded_fixtures == 0
+
     # What a confirmed replace is about to delete is no reason to turn it away, so `REQ-SPIELPLAN-001`
     # and `REQ-SPIELPLAN-002` step aside for one. `REQ-SPIELPLAN-005` below is what bounds it instead.
     if fixtures_drawn > 0 and not replace:
@@ -362,9 +382,15 @@ def find_spielplan_refusal(
             else f"{fixtures_drawn} fixtures this endpoint did not write"
         )
 
+        remedy = (
+            "drawing again would replace it, and a replace is confirmed"
+            if replace_is_offered
+            else "no replace can remove it: that runs only on a planned season with nothing entered against it"
+        )
+
         return WriteRefusal(
             error_code=SPIELPLAN_ALREADY_DRAWN,
-            message=f"the season already holds a Spielplan ({held}); drawing again would replace it, and a replace is confirmed",
+            message=f"the season already holds a Spielplan ({held}); {remedy}",
         )
 
     if spieltage_held > 0 and not replace:
@@ -375,11 +401,12 @@ def find_spielplan_refusal(
 
     # Whether the season holds anything to delete or not: the flag is the operation the caller asked
     # for, and one flag meaning a replace here and a first draw there is the ambiguity this closes.
-    if replace and (saison_status != "future" or recorded_fixtures > 0):
+    if replace and not replace_is_offered:
         return WriteRefusal(
             error_code=SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
             message=f"a replace deletes every matchday and fixture the season holds, and this one is {saison_status} and holds "
-            f"{recorded_fixtures} fixture(s) that already happened; it runs only on a future season with nothing played",
+            f"{recorded_fixtures} fixture(s) carrying a result, a cancellation or a booking; it runs only on a planned season "
+            "with nothing entered against it",
         )
 
     # `past` alone, never `future`-only: activation is one-way, so a season activated before its draw
