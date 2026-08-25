@@ -356,8 +356,8 @@ export function FormSaisonSection({
                 Eine <strong>andere Saison</strong> wählst Du im Seitenmenü aus.
               </li>
               <li>
-                Der <strong>Austritt</strong> unten ist der einzige Weg aus einer Saison. Er wird als Disqualifikation oder als Rückzug
-                eingetragen.
+                Der <strong>Austritt</strong> unten nimmt dieses Team aus der Saison, als Disqualifikation oder als Rückzug. Seine Spiele
+                bleiben dabei bei ihm; <strong>Team ersetzen</strong> auf der Saisonseite gibt sie an ein anderes Team weiter.
               </li>
               <li>
                 Die <strong>Gruppe</strong> ist nur änderbar, solange für dieses Team noch keine Spiele angelegt sind.

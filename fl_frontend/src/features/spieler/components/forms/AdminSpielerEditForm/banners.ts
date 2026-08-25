@@ -1,3 +1,4 @@
+import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "@/features/spieler/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { SpielerSaisonMembership } from "@/features/spieler/types";
@@ -23,6 +24,7 @@ export function buildSpielerBanners({
   saisonStatus,
   isMember,
   rowInactiveSince,
+  isRowTeamInSaison,
   isNachgetragen,
   isTeamChanged,
   newlySharedNummer,
@@ -33,6 +35,8 @@ export function buildSpielerBanners({
   isMember: boolean;
   /** The day the squad ROW was retired, or `null` — also `null` when there is no row at all. */
   rowInactiveSince: string | null;
+  /** Whether the row's STORED club still holds a place in this season. Read only where a row is retired. */
+  isRowTeamInSaison: boolean;
   isNachgetragen: boolean;
   isTeamChanged: boolean;
   /** The shirt this draft would put a SECOND wearer on, or `null` — never a number already shared. */
@@ -76,7 +80,11 @@ export function buildSpielerBanners({
       id: "spieler.row-retired-since",
       severity: "info",
       title: `Ausgetragen seit ${formatSpielDatum(rowInactiveSince)}`,
-      body: `Der Spieler zählt in der Saison ${saisonId} zu keinem Kader. Nummer, Position und Stufe sind gespeichert und kehren beim Reaktivieren zurück.`,
+      // The promise splits where the reactivate does: it names the row's STORED club, and a
+      // replacement can have taken that club out of the season since the row was written.
+      body: isRowTeamInSaison
+        ? `Der Spieler zählt in der Saison ${saisonId} zu keinem Kader. Nummer, Position und Stufe sind gespeichert und kehren beim Reaktivieren zurück.`
+        : `Das Team dieses Kadereintrags ist in der Saison ${saisonId} nicht mehr dabei. Nummer, Position und Stufe bleiben gespeichert. ${REACTIVATION_NEEDS_A_TEAM_IN_SAISON}`,
       inline: "austragen",
     });
   }

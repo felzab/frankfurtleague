@@ -133,13 +133,15 @@ describe("the German each replacement refusal renders", () => {
     assert.doesNotMatch(message, /[Ll]ösche|[Ee]ntferne/);
   });
 
-  /* One code, two pictures: the backend catches a club named on both ends in this arm, because the row
-     being replaced is itself a row that club holds. A message naming one misdirects the other. */
-  it("covers both shapes of the already-entered refusal", () => {
+  /* One code, two pictures: a club named on both ends lands here too, the row being replaced being one
+     that club holds. And the condition is a `saison_teams` row of ANY kind, so „spielt“ is false for a
+     withdrawn club, which holds one and plays nothing. */
+  it("covers both shapes of the already-entered refusal, without claiming the club plays", () => {
     const message = messageIn(REPLACEMENT_MAP, "REQ-REPLACE-003");
 
-    assert.match(message, /spielt in dieser Saison schon/);
+    assert.match(message, /schon einen Platz/);
     assert.match(message, /dasselbe Team/);
+    assert.doesNotMatch(message, /spielt/, "a withdrawn club holds a row and plays nothing");
   });
 
   /* Both mappers answer `REQ-ENTER-005`, about different clubs: the entry is refused for the club

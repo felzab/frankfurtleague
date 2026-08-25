@@ -41,14 +41,19 @@ describe("the replacement panel", () => {
     assert.match(ARMED, /Platz in der Saison/);
     assert.match(ARMED, /Angesetzte Spiele/);
     assert.match(ARMED, /Austritt von/);
-    assert.match(ARMED, /stillgelegt/);
+    assert.match(ARMED, /ausgetragen/);
   });
 
-  /* The squad rows are stamped `inactive_since`, never removed, and the registration survives. Word
-     it as a deletion and an admin reads a reversible retirement as an erasure. */
-  it("words the squad as a retirement rather than a deletion", () => {
-    assert.match(PANEL, /Spieler[\s\S]{0,120}stillgelegt/);
-    assert.doesNotMatch(PANEL, /Spieler[\s\S]{0,120}(gelöscht|entfernt|ausgetragen)/);
+  /* AUSTRAGEN is what happens to a squad row, STILLLEGEN to the person across the whole league. The
+     endpoint stamps `saison_spieler` and touches no `spieler` document, so the second word would tell
+     an admin that these pupils had just left every season there is. The same press's toast is held to
+     the same word by `fl_frontend/src/features/teams/utils.test.ts :: describeReplacementUmfang`.
+     The rows are stamped rather than removed, so a deletion word is wrong in the other direction. */
+  it("words the squad as its entries being ausgetragen, never as a Stilllegung or a deletion", () => {
+    assert.match(PANEL, /Kadereinträge[\s\S]{0,160}ausgetragen/);
+    assert.doesNotMatch(PANEL, /Kadereinträge[\s\S]{0,160}(gelöscht|entfernt|stillgelegt)/);
+    // A CLUB's league-wide retirement keeps the word, which is why only its use on people is forbidden.
+    assert.doesNotMatch(PANEL, /Spieler[\s\S]{0,160}stillgelegt/);
   });
 
   /* `/api/admin/teams/undo` restores through a PATCH addressing the row by `team_id` in the path, so

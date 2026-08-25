@@ -1,6 +1,6 @@
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
 
-/** Everything both halves of the draw control's state are decided from, read from one page render. */
+/** Everything the draw control and the undraw beside it are decided from, read from one page render. */
 export type SpielplanControlInput = {
   saisonStatus: FLSaisonStatus;
   /** Whether the season carries the generator's watermark. */
@@ -24,18 +24,30 @@ function isReplaceWindowOpen({ saisonStatus, erfassteSpieleCount }: SpielplanCon
   return saisonStatus === "future" && erfassteSpieleCount === 0;
 }
 
+/** The undraw's half of the same input. `hasKoRunden` describes a bracket a removal never draws. */
+export type UndrawControlInput = Omit<SpielplanControlInput, "hasKoRunden">;
+
+/**
+ * Whether the season holds anything a draw put there. **One expression for all three readers**: the
+ * replace flag, the reason that gates it and the undraw's offer must agree on what "drawn" means, and
+ * a copy of it could confirm a replace on a season the undraw considers empty.
+ */
+function holdsADraw({ hasSpielplan, hasDrawnSpiele, spieltageCount }: UndrawControlInput): boolean {
+  return hasSpielplan || hasDrawnSpiele || spieltageCount > 0;
+}
+
 /**
  * Why the draw is closed, or `null` while it is on offer. **A courtesy and not the control**: the
  * draw endpoint refuses each of these itself, over both its refusal passes, and this only stops the
  * page offering an act it already knows the answer to.
  */
 export function spielplanBlockedReason(input: SpielplanControlInput): string | null {
-  const { saisonStatus, hasSpielplan, hasDrawnSpiele, spieltageCount, hasKoRunden } = input;
+  const { saisonStatus, hasKoRunden } = input;
 
   // `REQ-SPIELPLAN-001` and `REQ-SPIELPLAN-002` each step aside for a confirmed replace, and this
   // page confirms one wherever there is something to destroy, so neither closes the control alone.
   // The window below bounds the offer instead.
-  const replacesDraw = hasSpielplan || hasDrawnSpiele || spieltageCount > 0;
+  const replacesDraw = holdsADraw(input);
 
   // Ahead of the `past` freeze, exactly as `find_spielplan_refusal` orders the two: an admin whose
   // press would replace reads the whole window rather than the half of it a status names.
@@ -67,7 +79,29 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
  * a replace the reason function has already closed the control for.
  */
 export function spielplanReplacesDraw(input: SpielplanControlInput): boolean {
-  return spielplanBlockedReason(input) === null && (input.hasSpielplan || input.hasDrawnSpiele || input.spieltageCount > 0);
+  return spielplanBlockedReason(input) === null && holdsADraw(input);
+}
+
+/**
+ * Why taking the draw back is closed, or `null` while it is on offer. **A courtesy and not the
+ * control**: `fl_backend/app/api/saisons/services.py :: find_undraw_refusal` weighs the window
+ * itself, and this only stops the page offering an act it already knows the answer to.
+ */
+export function spielplanUndrawBlockedReason(input: UndrawControlInput): string | null {
+  const { saisonStatus, erfassteSpieleCount } = input;
+
+  // This panel's own condition rather than the endpoint's: an undraw of an undrawn season is answered
+  // 200 with zeroes, so pressing would ask an admin to confirm the destruction of nothing.
+  if (!holdsADraw(input)) return "Diese Saison hat keinen Spielplan. Es gibt nichts zurückzunehmen.";
+
+  // Both halves under one condition, as `REQ-SPIELPLAN-006` is one code: neither names work an admin
+  // can go and do, so each sentence only says which half closed the window.
+  if (saisonStatus !== "future") return "Zurücknehmen lässt sich der Spielplan nur, solange die Saison geplant ist.";
+
+  if (erfassteSpieleCount > 0)
+    return "In dieser Saison ist schon etwas eingetragen: ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter oder eine Notiz. Der Spielplan lässt sich dann nicht mehr zurücknehmen.";
+
+  return null;
 }
 
 /**

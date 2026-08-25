@@ -31,4 +31,12 @@ export const NUMMER_MAX_LENGTH = 4;
  * sentence that control already showed.
  */
 export const ERASURE_NEEDS_RETIREMENT =
-  "Lege den Spieler zuerst still — in der Spielerliste, über „Stilllegen“ in seiner Zeile. " + "Danach lässt er sich endgültig löschen.";
+  "Lege den Spieler zuerst still — in der Spielerliste, über „Stilllegen“ in seiner Zeile. Danach lässt er sich endgültig löschen.";
+
+/**
+ * `REQ-SQUAD-001` in German for a reader standing where it is repaired — the REPAIR rather than the
+ * state, which the banner beside the control carries. `actions.ts` words it for a reader elsewhere,
+ * and one sentence cannot point both ways.
+ */
+export const REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
+  "Reaktivieren lässt sich der Eintrag erst, wenn Du ihn oben im Bereich „Kader“ einem Team dieser Saison zuweist und speicherst.";

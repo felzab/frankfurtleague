@@ -230,6 +230,15 @@ export function describeSpielplanUmfang(spieltage: number, spiele: number): stri
 }
 
 /**
+ * How many of a season's fixtures already carry a date or a kickoff time, as a readout row states it.
+ * **One phrase for both destructive confirmations**: the replace and the undraw throw away the same
+ * scheduling, and two copies of the sentence could grade the same season differently.
+ */
+export function describeAngesetzteSpiele(angesetzt: number): string {
+  return angesetzt === 0 ? "Keine" : angesetzt === 1 ? "ein Spiel" : `${String(angesetzt)} Spiele`;
+}
+
+/**
  * **The nulls come out before the sort.** `Array.prototype.sort` with no comparator orders by the
  * STRINGIFIED value, where `null` becomes `"null"` and sorts after every ISO date, so one undated
  * matchday would take the last position and drop `endMin`.

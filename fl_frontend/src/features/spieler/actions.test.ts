@@ -15,6 +15,16 @@ const PANEL = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminSpielerEditForm", "FormLoeschenSection.tsx"),
   "utf8",
 ).replace(/\s+/g, " ");
+/** The squad row's own panel, collapsed for the reason `PANEL` is. */
+const AUSTRAGEN_PANEL = readFileSync(
+  path.resolve(import.meta.dirname, "components", "forms", "AdminSpielerEditForm", "FormAustragenSection.tsx"),
+  "utf8",
+).replace(/\s+/g, " ");
+/** The editor that derives what both panels are gated on, collapsed for the same reason. */
+const EDIT_FORM = readFileSync(
+  path.resolve(import.meta.dirname, "components", "forms", "AdminSpielerEditForm", "AdminSpielerEditForm.tsx"),
+  "utf8",
+).replace(/\s+/g, " ");
 /** The page that hands the panel its figures, collapsed for the same reason. */
 const PAGE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "spieler", "[spieler_id]", "page.tsx"), "utf8").replace(
   /\s+/g,
@@ -213,5 +223,36 @@ describe("REQ-SQUAD-001 where no form is on screen", () => {
       /Object\.values\(refusal\.fieldErrors \?\? \{\}\)\[0\] \?\? refusal\.error/,
       "the create prefers the standalone sentence over the message its own picker carries",
     );
+  });
+});
+
+describe("the reactivate's gate on the editor", () => {
+  /* The refusal is deterministic and the page already holds what decides it — the season's junction
+     rows against the row's stored club — so the press is offered only where the endpoint takes it. */
+  it("offers the press only while the row's club stands in the season", () => {
+    assert.match(
+      AUSTRAGEN_PANEL,
+      /const blockedReason = isRowTeamInSaison \? null : REACTIVATION_NEEDS_A_TEAM_IN_SAISON;/,
+      "the gate reads the wrong way round",
+    );
+    assert.match(AUSTRAGEN_PANEL, /isDisabled=\{isPending \|\| blockedReason !== null\}/, "the button no longer reads its own gate");
+    assert.ok(AUSTRAGEN_PANEL.includes("<DisabledHint reason={isPending ? null : blockedReason}"), "the reason is no longer on the control");
+  });
+
+  /* The reactivate is judged against the season's own team list, which is the one collection
+     `REQ-SQUAD-001` counts; a list of every club would say yes to a club that was replaced. */
+  it("derives the gate from the season's teams and the row's stored club", () => {
+    assert.match(
+      EDIT_FORM,
+      /const isRowTeamInSaison = storedMembership === null \|\| teams\.some\(\(team\) => team\.teamId === storedMembership\.team_id\);/,
+      "the gate is derived from something other than this season's team list",
+    );
+  });
+
+  /* „jederzeit“ is what walked the admin onto the failing button: it promises across time, and a
+     replacement removes the condition the promise rested on. */
+  it("names the condition the pre-austragen copy rests on", () => {
+    assert.ok(!AUSTRAGEN_PANEL.includes("jederzeit"), "the unconditional promise is back above the austragen control");
+    assert.match(AUSTRAGEN_PANEL, /solange sein Team in der Saison dabei ist/, "the copy states no condition at all");
   });
 });

@@ -191,20 +191,22 @@ export function FormTeamErsatzSection({
                 dabei.
               </li>
               <li>
-                Die <strong>Spieler</strong> des ausscheidenden Teams werden für diese Saison stillgelegt. Sie wechseln nicht mit, und ihre
-                Anmeldung bleibt bestehen; das nachrückende Team meldet seinen Kader selbst.
+                Die <strong>Kadereinträge</strong> des ausscheidenden Teams werden ausgetragen: Seine Spieler stehen danach in keinem Kader
+                dieser Saison mehr. Sie wechseln nicht mit, ihre Anmeldung in der Liga bleibt bestehen, und das nachrückende Team meldet seinen
+                Kader selbst.
               </li>
               <li>
                 Sobald das ausscheidende Team in dieser Saison <strong>gespielt</strong> hat, geht es nicht mehr: Ein Ergebnis, Tore, ein
-                Abbruch oder ein Nichtantreten würde dem nachrückenden Team zugeschrieben. Trage dann stattdessen einen Austritt ein.
+                Abbruch oder ein Nichtantreten würde dem nachrückenden Team zugeschrieben. Trage dann stattdessen unten auf der eigenen
+                Team-Seite des ausscheidenden Teams einen Austritt ein.
               </li>
               <li>
                 Steht in der Saison ein Platz, zu dem es <strong>keine Teamdaten</strong> mehr gibt, lässt er sich nur hier vergeben: Ein
                 solches Team hat keine eigene Seite.
               </li>
               <li>
-                Zurücknehmen lässt sich der Wechsel in der Verwaltung nicht. Der aufgehobene Austritt und die stillgelegten Spieler kommen auch
-                dann nicht zurück, wenn Du die beiden Teams anschließend erneut wechselst.
+                Zurücknehmen lässt sich der Wechsel in der Verwaltung nicht. Der aufgehobene Austritt und die ausgetragenen Kadereinträge kommen
+                auch dann nicht zurück, wenn Du die beiden Teams anschließend erneut wechselst.
               </li>
             </ul>
           </InfoHint>
@@ -230,7 +232,8 @@ export function FormTeamErsatzSection({
             severity="info"
             title="Die Saison ist zu weit">
             Ersetzen lässt sich nur ein Team, das in dieser Saison noch nicht gespielt hat, und das trifft auf keines mehr zu. Jedes Ergebnis
-            gehört dem Team, das es geholt hat. Trage für ein ausscheidendes Team stattdessen einen Austritt ein.
+            gehört dem Team, das es geholt hat. Trage für ein ausscheidendes Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt
+            ein.
           </Callout>
         ) : !hasPickableCandidate ? (
           <Callout
@@ -307,7 +310,7 @@ export function FormTeamErsatzSection({
                 severity="warning"
                 title="Das passiert beim Wechsel">
                 <strong>{incoming.name}</strong> übernimmt den Platz von <strong>{outgoing.name}</strong> {describePlatz(outgoing.gruppe)}.{" "}
-                {describeUebernommeneSpiele(outgoing.spiele)} Die Spieler von {outgoing.name} werden für diese Saison stillgelegt.
+                {describeUebernommeneSpiele(outgoing.spiele)} Die Kadereinträge von {outgoing.name} werden ausgetragen.
               </Callout>
             )}
 
@@ -347,8 +350,8 @@ export function FormTeamErsatzSection({
 
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
                   Der Wechsel gilt sofort und ist auf jeder Tabelle und jedem Spielplan dieser Saison zu sehen. Zurücknehmen lässt er sich in
-                  der Verwaltung nicht: Die Spieler von {outgoing.name} bleiben für diese Saison stillgelegt, auch wenn Du die beiden Teams
-                  anschließend erneut wechselst.
+                  der Verwaltung nicht: Die Kadereinträge von {outgoing.name} bleiben ausgetragen, auch wenn Du die beiden Teams anschließend
+                  erneut wechselst.
                 </p>
               </div>
             )}

@@ -201,12 +201,17 @@ export function AdminSpielerEditForm({
   const personDirty = status.changed.some((field) => field.group === "Person");
   const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Kader");
 
+  // The predicate `REQ-SQUAD-001` counts, asked of the same fact: `teams` is exactly this season's
+  // junction rows, and a club replacement repoints one away from the squad rows still naming it.
+  const isRowTeamInSaison = storedMembership === null || teams.some((team) => team.teamId === storedMembership.team_id);
+
   const banners = buildSpielerBanners({
     isRetired: spieler.inactive_since !== null,
     saisonId: saison.saisonId,
     saisonStatus: saison.saisonStatus,
     isMember: storedMembership !== null,
     rowInactiveSince: storedMembership?.inactive_since ?? null,
+    isRowTeamInSaison,
     isNachgetragen,
     isTeamChanged: isChanged("team_id"),
     newlySharedNummer,
@@ -432,6 +437,7 @@ export function AdminSpielerEditForm({
               spielerId={spieler.id}
               saisonId={saison.saisonId}
               rowInactiveSince={storedMembership.inactive_since}
+              isRowTeamInSaison={isRowTeamInSaison}
               banners={banners}
             />
           )}

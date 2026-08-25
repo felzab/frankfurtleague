@@ -180,6 +180,10 @@ const ANONYMISATION_HAS_NO_FIELDS =
 const ERASURE_HAS_NO_FIELDS =
   "the erasure's panel: the id is in the path and the confirmation is a two-press escalation, neither being an input";
 
+/** The draw's own sibling, and a panel rather than a row button for the same reason. */
+const UNDRAW_HAS_NO_FIELDS =
+  "the undraw's panel: the season is in the path and the confirmation is a two-press escalation, neither being an input";
+
 /**
  * A nullable object is refused on its own path only for a value that is neither the object nor
  * `null` — a shape the typed payload builders cannot produce. Its fields are swept individually.
@@ -194,6 +198,7 @@ const RECORD_ITSELF = "the record's own path: refusable only on a shape the type
 const EXEMPT: Record<string, Record<string, string>> = {
   FLActivateSaisonPayloadSchema: { id: NO_FORM_AT_ALL },
   FLGenerateSpielplanPayloadSchema: { id: DRAW_HAS_NO_FIELDS, replace: DRAW_HAS_NO_FIELDS, shape: RECORD_ITSELF },
+  FLUndrawSpielplanPayloadSchema: { id: UNDRAW_HAS_NO_FIELDS },
   FLDeleteSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
   FLEraseSpielerPayloadSchema: { id: ERASURE_HAS_NO_FIELDS },
   FLAnonymiseSchiedsrichterPayloadSchema: { id: ANONYMISATION_HAS_NO_FIELDS },

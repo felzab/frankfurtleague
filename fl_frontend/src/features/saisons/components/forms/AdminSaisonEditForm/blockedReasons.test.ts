@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { rolloverBlockedReason, spielplanBlockedReason, spielplanReplacesDraw } from "./blockedReasons.ts";
+import { rolloverBlockedReason, spielplanBlockedReason, spielplanReplacesDraw, spielplanUndrawBlockedReason } from "./blockedReasons.ts";
 
 import type { SpielplanControlInput } from "./blockedReasons.ts";
 
@@ -18,6 +18,8 @@ const spielplanInput = (overrides: Partial<SpielplanControlInput> = {}): Spielpl
 const spielplanBlock = (overrides: Partial<SpielplanControlInput> = {}): string | null => spielplanBlockedReason(spielplanInput(overrides));
 
 const replacesDraw = (overrides: Partial<SpielplanControlInput> = {}): boolean => spielplanReplacesDraw(spielplanInput(overrides));
+
+const undrawBlock = (overrides: Partial<SpielplanControlInput> = {}): string | null => spielplanUndrawBlockedReason(spielplanInput(overrides));
 
 /** A season holding a whole draw and nothing played — the state the replace window is open on. */
 const DRAWN: Partial<SpielplanControlInput> = { hasSpielplan: true, hasDrawnSpiele: true, spieltageCount: 8 };
@@ -122,6 +124,51 @@ describe("spielplanBlockedReason", () => {
     assert.notEqual(spielplanBlock({ ...DRAWN, erfassteSpieleCount: 1 }), null);
     assert.notEqual(spielplanBlock({ ...DRAWN, saisonStatus: "active" }), null);
     assert.notEqual(spielplanBlock({ ...DRAWN, saisonStatus: "past" }), null);
+  });
+});
+
+describe("spielplanUndrawBlockedReason", () => {
+  /* Not a refusal the endpoint has: `find_undraw_refusal` answers an already-undrawn season 200 with
+     zeroes, because that is the state asked for. Offering the press would ask an admin to confirm the
+     destruction of nothing, so the panel closes it here and says which state it is in. */
+  it("closes the control on a season with nothing drawn to take back", () => {
+    const empty = undrawBlock() ?? "";
+
+    assert.match(empty, /keinen Spielplan/);
+    // Never the window's wording: nothing is wrong with the season, there is simply nothing to remove.
+    assert.doesNotMatch(empty, /geplant ist|eingetragen/);
+  });
+
+  /* Each of the three states a draw leaves behind offers the undraw on a planned season with nothing
+     entered, exactly as the replace is offered on them. */
+  it("offers the undraw on each state that holds something to remove", () => {
+    for (const held of [{ hasSpielplan: true }, { hasDrawnSpiele: true }, { spieltageCount: 1 }]) {
+      assert.equal(undrawBlock(held), null, `${JSON.stringify(held)} still closes the control`);
+    }
+  });
+
+  /* Both halves of `REQ-SPIELPLAN-006` under one condition, as the endpoint has one code for them.
+     Each sentence names only the half that closed the window, neither promising a repair. */
+  it("closes the undraw outside its window, and says which half closed it", () => {
+    for (const status of ["active", "past"] as const) {
+      assert.match(undrawBlock({ ...DRAWN, saisonStatus: status }) ?? "", /solange die Saison geplant ist/);
+    }
+
+    const erfasst = undrawBlock({ ...DRAWN, erfassteSpieleCount: 1 }) ?? "";
+    assert.match(erfasst, /schon etwas eingetragen/);
+    assert.match(erfasst, /nicht mehr zurücknehmen/);
+  });
+
+  /* A date alone is not a recorded fact, and `buildSpielplanBestand` counts it under `angesetzt`
+     instead. Close on it here and a fully dated but unplayed season could never be redrawn. */
+  it("leaves the undraw open on a season whose fixtures only carry dates", () => {
+    assert.equal(undrawBlock({ ...DRAWN, erfassteSpieleCount: 0 }), null);
+  });
+
+  /* The knockout list decides what a DRAW would write and nothing about a removal. Read it here and
+     a season whose rules stopped reaching a bracket could never be taken back and repaired. */
+  it("ignores the schedule the draw is judged on", () => {
+    assert.equal(undrawBlock({ ...DRAWN, hasKoRunden: false }), null);
   });
 });
 

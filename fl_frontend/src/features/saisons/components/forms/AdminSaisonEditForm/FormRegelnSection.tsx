@@ -227,13 +227,13 @@ export function FormRegelnSection({
                 Die Saison ist abgeschlossen, deshalb sind Punkte, die Reihenfolge bei Punktgleichheit und die Qualifikanten festgeschrieben.
               </p>
             )}
-            {/* The repair is named, not withheld: these three move only as part of a draw, so the
-                sentence sends the admin to the panel that holds both halves of that one operation. */}
+            {/* Two repairs and not one, as `find_rules_refusal` composes them per moved field: only
+                the qualifiers move on a redraw, the other two standing on which clubs are entered. */}
             {isDrawnSaison && (
               <p>
-                Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Gruppen, Teams pro Gruppe und
-                Qualifikanten ändern sich deshalb nur zusammen mit dem Spielplan: Lege den Spielplan mit den neuen Zahlen neu an — beides
-                entsteht in einem Schritt.
+                Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Die Qualifikanten änderst Du, indem Du
+                den Spielplan mit der neuen Zahl neu anlegst: Beides entsteht in einem Schritt. Gruppen und Teams pro Gruppe hängen dagegen an
+                den Teams, die in dieser Saison stehen. Nimm dafür zuerst den Spielplan zurück, passe die Teams an und lege ihn danach neu an.
               </p>
             )}
             {/* Spelled out per case rather than listing the always-open fields: under one freeze the

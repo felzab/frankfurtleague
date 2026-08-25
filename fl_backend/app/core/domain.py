@@ -274,9 +274,10 @@ REFERENCES: tuple[Reference, ...] = (
             "No request creates this reference at all: the field is on no payload and `/spiele` has no POST, "
             "so whatever writes a fixture carries the check itself. "
             "Nothing is embedded, so a re-dated matchday is picked up on the next read. "
-            "A matchday is removed only by a confirmed replace (`REQ-SPIELPLAN-005`), which removes the season's fixtures in the "
-            "same transaction and draws both afresh, so the reference cannot dangle -- not because nothing is ever removed, but "
-            "because neither collection is removed without the other (`docs/backend/spec.md :: I46`)."
+            "A matchday is removed by a confirmed replace (`REQ-SPIELPLAN-005`), which draws both afresh, or by an undraw "
+            "(`REQ-SPIELPLAN-006`), which draws neither. Each removes the season's fixtures in the same transaction, so the "
+            "reference cannot dangle -- not because nothing is ever removed, but because neither collection is removed "
+            "without the other (`docs/backend/spec.md :: I46`)."
         ),
     ),
     Reference(

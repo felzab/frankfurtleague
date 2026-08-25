@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+// Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "../../../constants.ts";
 import { buildSpielerBanners } from "./banners.ts";
 
 import type { SpielerBanner } from "./banners.ts";
@@ -12,6 +14,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielerBanners>[0]> = {
     saisonStatus: "future",
     isMember: true,
     rowInactiveSince: null,
+    isRowTeamInSaison: true,
     isNachgetragen: false,
     isTeamChanged: false,
     newlySharedNummer: null,
@@ -37,6 +40,26 @@ describe("buildSpielerBanners", () => {
 
     assert.equal(banner?.id, "spieler.row-retired-since");
     assert.match(banner?.title ?? "", /12\.03\.2026/);
+  });
+
+  /* The banner sits directly above the reactivate button, which reads the row's STORED club — so a
+     replacement having taken that club out of the season is what turns the promise into a refusal. */
+  it("promises the values back only while the row's club still stands in the season", () => {
+    const [kept] = build({ rowInactiveSince: "2026-03-12" });
+    const [gone] = build({ rowInactiveSince: "2026-03-12", isRowTeamInSaison: false });
+
+    assert.match(kept?.body ?? "", /kehren beim Reaktivieren zurück/, "the settled arm stopped saying the values come back");
+    assert.doesNotMatch(gone?.body ?? "", /kehren beim Reaktivieren zurück/, "the blocked arm promises a return the endpoint refuses");
+    assert.ok(gone?.body.includes(REACTIVATION_NEEDS_A_TEAM_IN_SAISON), "the blocked arm names no repair");
+  });
+
+  /* `info` and not `warning`: nothing this save destroys, and a `warning` would route every save of
+     the player through `ConfirmSaveModal` for a state the form did not cause. */
+  it("leaves the blocked arm an info", () => {
+    const [banner] = build({ rowInactiveSince: "2026-03-12", isRowTeamInSaison: false });
+
+    assert.equal(banner?.id, "spieler.row-retired-since");
+    assert.equal(banner?.severity, "info");
   });
 
   it("announces the derived nachgetragen flag only where there is no row to enter into yet", () => {

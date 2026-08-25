@@ -26,6 +26,7 @@ import { buildSaisonBanners } from "./banners";
 import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
 import { FormRolloverSection } from "./FormRolloverSection";
+import { FormSpielplanRuecknahmeSection } from "./FormSpielplanRuecknahmeSection";
 import { FormSpielplanSection } from "./FormSpielplanSection";
 import { FormTeamErsatzSection } from "./FormTeamErsatzSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
@@ -399,6 +400,22 @@ export function AdminSaisonEditForm({
               guardAgainstDraft(
                 "Der Spielplan entsteht aus den gespeicherten Regeln, und das Anlegen lädt die Seite neu. Speichere die Änderungen zuerst.",
               )
+            }
+          />
+
+          {/* Directly under the draw it reverses, so the repair `REQ-RULES-011` names reads in the
+              order it is walked: take the Spielplan back here, adjust the rules and the teams, then
+              draw again one panel up. Its own panel, never a second control inside that one: both
+              are open at once on a drawn planned season, and one armed state cannot serve two. */}
+          <FormSpielplanRuecknahmeSection
+            saisonId={saison.id}
+            saisonStatus={saison.status}
+            hasSpielplan={spielplan.spielplan !== null}
+            spieltageCount={spielplan.spieltageCount}
+            bestand={spielplan.bestand}
+            hasDrawnSpiele={hasDrawnSpiele}
+            onBeforeUndraw={() =>
+              guardAgainstDraft("Das Zurücknehmen lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
             }
           />
 

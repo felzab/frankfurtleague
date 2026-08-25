@@ -207,6 +207,12 @@ export const FLGenerateSpielplanPayloadSchema = z.object({
 });
 export type FLGenerateSpielplanPayload = z.infer<typeof FLGenerateSpielplanPayloadSchema>;
 
+/** An id in the path and no request body. */
+export const FLUndrawSpielplanPayloadSchema = z.object({
+  id: z.string().length(4),
+});
+export type FLUndrawSpielplanPayload = z.infer<typeof FLUndrawSpielplanPayloadSchema>;
+
 /**
  * **Neither side carries a group**: the backend reads the two junction rows inside the transaction, so
  * a form built against a season that has since moved cannot write a group nobody stands in.

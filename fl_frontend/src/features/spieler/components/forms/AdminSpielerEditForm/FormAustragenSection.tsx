@@ -5,6 +5,8 @@ import { useTransition } from "react";
 import { Button } from "@heroui/react";
 
 import { deleteSaisonSpielerAction, reactivateSaisonSpielerAction } from "@/features/spieler/actions";
+import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "@/features/spieler/constants";
+import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
@@ -15,24 +17,29 @@ import type { SpielerBanner } from "./banners";
 
 /**
  * Takes a player out of ONE season's squad, writing to `saison_spieler` and nothing else. Retiring
- * the PERSON is a different control with a different endpoint, in the page header.
+ * the PERSON is a different control with a different endpoint, offered on the player list.
  */
 export function FormAustragenSection({
   spielerId,
   saisonId,
   rowInactiveSince,
+  isRowTeamInSaison,
   banners,
 }: {
   spielerId: string;
   saisonId: string;
   /** The day the ROW was retired, or null — which of the two controls this panel offers. */
   rowInactiveSince: string | null;
+  /** `REQ-SQUAD-001`'s condition, judged on the row's STORED club: whether the reactivate can land. */
+  isRowTeamInSaison: boolean;
   banners: readonly SpielerBanner[];
 }) {
   const styles = formPanel({ tone: "danger" });
   const [isPending, startWriting] = useTransition();
 
   const isAusgetragen = rowInactiveSince !== null;
+  // Inverted like the erasure's gate, so the press is live exactly where the endpoint would take it.
+  const blockedReason = isRowTeamInSaison ? null : REACTIVATION_NEEDS_A_TEAM_IN_SAISON;
 
   const run = (write: () => Promise<{ success: boolean; message?: string; error?: string }>, failureHeading: string) => {
     startWriting(async () => {
@@ -56,7 +63,11 @@ export function FormAustragenSection({
               <li>
                 <strong>Nummer, Position und Stufe bleiben erhalten</strong> und kehren beim Reaktivieren zurück.
               </li>
-              <li>Den Spieler ganz stillzulegen ist etwas anderes und steht oben auf der Seite.</li>
+              <li>
+                Reaktivieren geht, <strong>solange sein Team in der Saison dabei ist</strong>. Nach einem <strong>Team ersetzen</strong> auf der
+                Saisonseite weise den Eintrag oben im Bereich „Kader“ zuerst einem Team dieser Saison zu.
+              </li>
+              <li>Den Spieler ganz stillzulegen ist etwas anderes und steht in der Spielerliste, in seiner Zeile.</li>
             </ul>
           </InfoHint>
         </h2>
@@ -69,22 +80,30 @@ export function FormAustragenSection({
               banners={banners}
               spot="austragen"
             />
-            <Button
-              type="button"
-              variant="primary"
-              isDisabled={isPending}
-              onPress={() =>
-                run(() => reactivateSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }), "Reaktivieren fehlgeschlagen")
-              }
-              className={`${formButton({ intent: "submit" })} w-fit`}>
-              {isPending ? "Speichert..." : "Kadereintrag reaktivieren"}
-            </Button>
+            {/* The reason is said on the control as well as in the banner above it, the erasure's
+                treatment. `isPending` is left out: it ends by itself. */}
+            <DisabledHint
+              reason={isPending ? null : blockedReason}
+              className="w-fit">
+              <Button
+                type="button"
+                variant="primary"
+                isDisabled={isPending || blockedReason !== null}
+                onPress={() =>
+                  run(() => reactivateSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }), "Reaktivieren fehlgeschlagen")
+                }
+                className={formButton({ intent: "submit" })}>
+                {isPending ? "Speichert..." : "Kadereintrag reaktivieren"}
+              </Button>
+            </DisabledHint>
           </>
         ) : (
           <>
+            {/* The condition is named rather than promised away: a club replacement takes the row's
+                team out of the season, and `REQ-SQUAD-001` then refuses the return offered here. */}
             <p className="muted-hint">
-              Der Spieler verschwindet aus dem Kader der Saison {saisonId}. Sein Eintrag bleibt gespeichert und kann jederzeit reaktiviert
-              werden.
+              Der Spieler verschwindet aus dem Kader der Saison {saisonId}. Sein Eintrag bleibt gespeichert und lässt sich reaktivieren, solange
+              sein Team in der Saison dabei ist.
             </p>
             {/* A button, not a draft field: one fact with nothing to fill in, and `reactivate` restores
                 it. Its own shape, so it does not read as the page's primary action. */}

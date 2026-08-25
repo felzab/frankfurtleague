@@ -6,6 +6,7 @@ import {
   buildSpielplanBestand,
   buildSpielplanVorschau,
   buildSpieltagBound,
+  describeAngesetzteSpiele,
   describeSpielplanUmfang,
   holdsDrawnSpiele,
   searchWithoutSaisonId,
@@ -245,6 +246,19 @@ describe("describeSpielplanUmfang", () => {
   it("spells a count of one in the singular, which no season draws but the server could send", () => {
     assert.equal(describeSpielplanUmfang(1, 1), "ein Spieltag und ein Spiel");
     assert.equal(describeSpielplanUmfang(1, 6), "ein Spieltag und 6 Spiele");
+  });
+});
+
+describe("describeAngesetzteSpiele", () => {
+  /* `Keine` and not `0`: this stands in a readout row rather than in a sentence, and German counts
+     nothing with a word. The zero is the common case, a fresh draw dating nothing. */
+  it("names an empty count in words", () => {
+    assert.equal(describeAngesetzteSpiele(0), "Keine");
+  });
+
+  it("spells one in the singular and the rest with the number", () => {
+    assert.equal(describeAngesetzteSpiele(1), "ein Spiel");
+    assert.equal(describeAngesetzteSpiele(28), "28 Spiele");
   });
 });
 

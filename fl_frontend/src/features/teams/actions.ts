@@ -94,12 +94,14 @@ function mapReplacementRefusal(error: unknown): string | null {
   if (error.serverErrorCode === "REQ-REPLACE-002") {
     // The four shapes that leave a record, and only those: an ausgefallenes or annulliertes Spiel
     // leaves none, so naming either would send the admin looking at a fixture that is still free.
-    return "In dieser Saison ist für das ausscheidende Team schon etwas eingetragen: Mindestens ein Spiel trägt ein Ergebnis, Tore, einen Abbruch oder ein Nichtantreten. Beim Wechsel würde das dem nachrückenden Team zugeschrieben. Trage für das ausscheidende Team stattdessen einen Austritt ein.";
+    // The Austritt is on another page; the sentence says which.
+    return "In dieser Saison ist für das ausscheidende Team schon etwas eingetragen: Mindestens ein Spiel trägt ein Ergebnis, Tore, einen Abbruch oder ein Nichtantreten. Beim Wechsel würde das dem nachrückenden Team zugeschrieben. Trage für das ausscheidende Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt ein.";
   }
   if (error.serverErrorCode === "REQ-REPLACE-003") {
-    // One code, two pictures: the backend catches a club named on both ends in this arm, because
-    // the row being replaced is itself a row that club holds.
-    return "Das nachrückende Team spielt in dieser Saison schon — oder Du hast für beide Seiten dasselbe Team gewählt. Nachrücken kann nur ein Team, das in dieser Saison noch nicht dabei ist.";
+    // One code, two pictures: a club named on both ends lands here too, because the row being
+    // replaced is one that club holds. PLATZ and never „spielt“ — the condition is a `saison_teams`
+    // row of ANY kind, and a withdrawn club still holds one.
+    return "Das nachrückende Team hat in dieser Saison schon einen Platz, oder Du hast für beide Seiten dasselbe Team gewählt. Nachrücken kann nur ein Team, das in dieser Saison noch keinen Platz hat — ein ausgeschiedenes Team behält seinen.";
   }
   if (error.serverErrorCode === "REQ-ENTER-005") {
     // The club the admin PICKED, never the one whose page is open, so the reactivation is not the

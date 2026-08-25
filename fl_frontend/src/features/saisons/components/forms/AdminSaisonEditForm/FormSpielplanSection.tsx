@@ -10,7 +10,7 @@ import { Button, Label } from "@heroui/react";
 import { generateSpielplanAction } from "@/features/saisons/actions";
 import { SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { PHASE_LABELS } from "@/features/saisons/constants";
-import { buildSpielplanVorschau, describeSpielplanUmfang } from "@/features/saisons/utils";
+import { buildSpielplanVorschau, describeAngesetzteSpiele, describeSpielplanUmfang } from "@/features/saisons/utils";
 import { Callout } from "@/shared/components/ui/Callout";
 import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -91,8 +91,6 @@ export function FormSpielplanSection({
   // flag the request carries can never describe different operations.
   const replacesDraw = spielplanReplacesDraw(controlInput);
 
-  const angesetzteLabel = bestand.angesetzt === 0 ? "Keine" : bestand.angesetzt === 1 ? "ein Spiel" : `${String(bestand.angesetzt)} Spiele`;
-
   // Against the STORED rules, so the readout states the move an admin would otherwise only discover
   // afterwards. A first draw offers no fields, leaving every row unmoved.
   const shapeRows = describeShapeRows(readShape(rules), shape);
@@ -165,9 +163,9 @@ export function FormSpielplanSection({
                 lässt sich das in der Verwaltung nicht.
               </li>
               <li>
-                <strong>Gruppen</strong>, <strong>Teams pro Gruppe</strong> und <strong>Qualifikanten</strong> gehören zum Spielplan: Sie ändern
-                sich nur, indem er mit anderen Zahlen neu angelegt wird. Beim Neuanlegen gibst Du sie deshalb hier an, und im Abschnitt Regeln
-                stehen sie fest, sobald Spiele angesetzt sind.
+                <strong>Gruppen</strong>, <strong>Teams pro Gruppe</strong> und <strong>Qualifikanten</strong> gehören zum Spielplan: Sobald
+                Spiele angesetzt sind, stehen sie im Abschnitt Regeln fest, und beim Neuanlegen gibst Du sie deshalb hier an. Nimmst Du den
+                Spielplan zurück, lassen sie sich dort wieder einzeln ändern.
               </li>
             </ul>
           </InfoHint>
@@ -257,7 +255,7 @@ export function FormSpielplanSection({
                     {/* No refusal reads this figure, which is why it is stated: a fully dated season is
                         replaced as readily as an undated one. A venue or a referee cannot be standing
                         here at all — either closes the control one panel up. */}
-                    {renderVorschauRow("Mit Termin oder Uhrzeit", angesetzteLabel)}
+                    {renderVorschauRow("Mit Termin oder Uhrzeit", describeAngesetzteSpiele(bestand.angesetzt))}
                   </dl>
                 </div>
               )}

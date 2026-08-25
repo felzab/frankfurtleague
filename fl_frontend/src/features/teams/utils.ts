@@ -53,16 +53,18 @@ export const describeReplacementUmfang = ({
         ? "Ein angesetztes Spiel wurde übernommen."
         : `${String(fannedOutToSpiele)} angesetzte Spiele wurden übernommen.`;
 
+  // The count is of LIVE rows, so zero says the squad stood empty and never that the club had no
+  // players: one whose players were all ausgetragen first — the usual order — reports zero too.
+  if (retiredSquadRows === 0) return `${spiele} Im Kader des ausscheidenden Teams stand kein Spieler.`;
+
+  // Below the zero arm and never beside it: German counts nothing with a word, so „0 Kadereinträge“
+  // must not be composed at all, not even to be discarded.
   const ausgetragen =
     retiredSquadRows === 1
       ? "Ein Kadereintrag des ausscheidenden Teams wurde ausgetragen."
       : `${String(retiredSquadRows)} Kadereinträge des ausscheidenden Teams wurden ausgetragen.`;
 
-  // The count is of LIVE rows, so zero says the squad stood empty and never that the club had no
-  // players: one whose players were all ausgetragen first — the usual order — reports zero too.
-  const kader = retiredSquadRows === 0 ? "Im Kader des ausscheidenden Teams stand kein Spieler." : `${ausgetragen} ${SQUAD_STAYS_OUT}`;
-
-  return `${spiele} ${kader}`;
+  return `${spiele} ${ausgetragen} ${SQUAD_STAYS_OUT}`;
 };
 
 /**

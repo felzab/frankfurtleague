@@ -6,6 +6,7 @@ import {
   FLPatchSaisonResponseSchema,
   FLPostSaisonResponseSchema,
   FLSwapGruppenResponseSchema,
+  FLUndrawSpielplanResponseSchema,
 } from "./schemas";
 
 import type {
@@ -19,6 +20,8 @@ import type {
   FLPostSaisonResponse,
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
+  FLUndrawSpielplanPayload,
+  FLUndrawSpielplanResponse,
 } from "./schemas";
 
 // The one create whose payload carries its own id: `saisons._id` is chosen rather than generated, so
@@ -58,6 +61,18 @@ export async function generateSpielplan({ id, ...confirmation }: FLGenerateSpiel
     authType: "admin",
     // `{}` where the caller named no flag, which the endpoint reads as the first draw.
     body: JSON.stringify(confirmation),
+  });
+}
+
+/**
+ * Removes the season's matchdays, fixtures and watermark in one transaction. **Destructive with no
+ * inverse**: only a fresh draw puts fixtures back, and it draws its own rather than the ones removed.
+ * No body: the id is the whole argument. A season already undrawn answers 200 with zero counts.
+ */
+export async function undrawSpielplan({ id }: FLUndrawSpielplanPayload): Promise<FLUndrawSpielplanResponse> {
+  return apiClient<FLUndrawSpielplanResponse>(`/saisons/${id}/spielplan`, FLUndrawSpielplanResponseSchema, {
+    method: "DELETE",
+    authType: "admin",
   });
 }
 

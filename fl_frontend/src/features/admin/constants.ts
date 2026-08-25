@@ -48,7 +48,14 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           lead: "Alle Saisons, ihre Zeiträume und die Regeln, nach denen sie gespielt werden.",
           points: [
             { term: "Anlegen", detail: "über die Schaltfläche oben rechts. Eine neue Saison ist immer geplant, nie laufend." },
-            { term: "Bearbeiten", detail: "der Stift öffnet die Saisonseite mit Zeitraum, Regeln, Gruppentausch, Spielplan und Umstellung." },
+            {
+              term: "Bearbeiten",
+              // The panels' own headings, in render order: this is a wayfinding list, and an admin
+              // scans the page for the word it names.
+              detail:
+                "der Stift öffnet die Saisonseite mit Zeitraum, Regeln, Gruppentausch, Team ersetzen, Spielplan, " +
+                "Spielplan zurücknehmen und Umstellung.",
+            },
             { term: "Umstellen", detail: "macht eine geplante Saison zur laufenden Saison und schließt die bisherige ab." },
             { term: "Punkte", detail: "gelten rückwirkend, auch für längst gespielte Spiele." },
           ],
@@ -82,7 +89,9 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         hint: {
           lead: "Durchsucht alle Spiele der Saison, um eines gezielt zu öffnen.",
           points: [
-            { term: "Gesucht wird in", detail: "Team, Ort, Datum, Spielnummer und Schiedsrichter." },
+            // Herkunft is searched as the label a reader sees — „Sieger 25.“ finds the fixture fed
+            // by match 25, which no other term here would.
+            { term: "Gesucht wird in", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." },
             { term: "Bearbeiten", detail: "der Stift auf einer Karte öffnet das Spiel." },
           ],
         },
@@ -152,11 +161,19 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             { term: "Anlegen", detail: "über die Schaltfläche oben rechts. Das Team wird dabei direkt in eine Saison aufgenommen." },
             { term: "Bearbeiten", detail: "der Stift öffnet die Teamseite mit Stammdaten und Saison-Zugehörigkeit." },
             {
+              term: "Ersetzen",
+              detail:
+                "gibt den Platz eines Teams in einer Saison an ein anderes ab, mitsamt seiner angesetzten Spiele. " +
+                "Auf der Saisonseite unter „Team ersetzen“, nicht hier.",
+            },
+            {
               term: "Stilllegen",
               detail: "nur möglich, solange das Team in keiner laufenden oder geplanten Saison spielt. Sein Kürzel bleibt reserviert.",
             },
           ],
-          note: "Ein Austritt gilt für eine Saison und wird auf der Teamseite eingetragen, als Disqualifikation oder als Rückzug. Aus einer Saison entfernt wird nie.",
+          // The two routes out of a season, told apart by what happens to the fixtures — an admin
+          // who reads them as interchangeable picks the one that leaves them on the departed team.
+          note: "Ein Austritt gilt für eine Saison und wird auf der Teamseite eingetragen, als Disqualifikation oder als Rückzug. Seine Spiele bleiben dabei bei ihm stehen; beim Ersetzen wechseln sie mit.",
         },
       },
       {
