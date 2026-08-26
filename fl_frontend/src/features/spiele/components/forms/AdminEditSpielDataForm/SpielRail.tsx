@@ -5,7 +5,7 @@ import { ArrowRight } from "@gravity-ui/icons";
 import { COUNT_BADGE, LABEL_BADGE } from "@/shared/components/ui/badges";
 import { RailChangesSection, RailHinweiseSection } from "@/shared/components/ui/DraftRail";
 import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { RailSection } from "@/shared/components/ui/RailSection";
 
 import { SpielDraftPreview } from "./SpielDraftPreview";
@@ -38,9 +38,7 @@ export function SpielRail({
   // **This set is this line's alone**, and matches the triage list the line describes: `abgebrochen`
   // is absent from it, because an abandoned fixture is still chased for what it is missing.
   const nothingExpectedText =
-    previewSpiel.sonderereignis !== null && previewSpiel.sonderereignis !== "abgebrochen"
-      ? "Abgesagt. Es wird nichts angemahnt."
-      : "Alles ausgefüllt.";
+    previewSpiel.sonderereignis !== null && previewSpiel.sonderereignis !== "abgebrochen" ? "Abgesagt." : "Alles ausgefüllt.";
 
   return (
     <div className="flex w-full flex-col gap-y-4">
@@ -53,7 +51,13 @@ export function SpielRail({
       <RailSection
         title="Vorschau"
         defaultOpenOnMobile={false}
-        info={<InfoHint label="Was die Vorschau zeigt">So erscheint das Spiel nach dem Speichern, mit allen aktuellen Änderungen.</InfoHint>}
+        info={
+          <Hint
+            mode="reveal"
+            label="Was die Vorschau zeigt"
+            body={{ lead: "Das Spiel, wie es nach dem Speichern erscheint." }}
+          />
+        }
         badge={status.isDirty ? <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>Nicht gespeichert</span> : undefined}>
         <SpielDraftPreview
           previewSpiel={previewSpiel}
@@ -67,17 +71,17 @@ export function SpielRail({
       <RailSection
         title="Offene Angaben"
         info={
-          <InfoHint label="Was offene Angaben sind">
-            <p>Was für dieses Spiel noch fehlt. Ein Klick springt zum passenden Feld.</p>
-            <ul>
-              <li>
-                <strong>Rot:</strong> nötig, damit das Spiel stattfinden kann.
-              </li>
-              <li>
-                <strong>Gelb:</strong> empfohlen, aber nicht zwingend.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Was offene Angaben sind"
+            body={{
+              lead: "Was für dieses Spiel noch fehlt.",
+              points: [
+                { term: "Rot:", text: "nötig, damit das Spiel stattfinden kann." },
+                { term: "Gelb:", text: "empfohlen, nicht nötig." },
+              ],
+            }}
+          />
         }
         badge={
           <span className="rail-marker">

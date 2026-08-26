@@ -433,7 +433,7 @@ export function AdminEditSpielDataForm({
         // Only for failures no single field owns.
         if (!hasFieldErrors(fieldErrorsFromServer)) {
           appToast.danger("Speichern fehlgeschlagen", {
-            description: res.error || res.message || "Die Spieldaten konnten nicht aktualisiert werden.",
+            description: res.error || res.message || "Versuche es erneut.",
           });
         }
         return;

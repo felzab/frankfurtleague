@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { Separator } from "@heroui/react";
 
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 
 import { collectUsedQuelleKeys } from "../../../utils";
 import { FormTeamPicker } from "./FormTeamPicker";
@@ -72,37 +72,36 @@ export function FormMatchupSection({
       <div className={styles.header()}>
         <h2 className={styles.heading()}>
           Begegnung
-          <InfoHint label="Hinweis zur Begegnung">
-            {isKnockout ? (
-              <>
-                <p>Jede Seite hat eine Herkunft:</p>
-                <ul>
-                  <li>
-                    <strong>Sieger / Verlierer eines Spiels:</strong> folgt automatisch dem Ausgang der früheren Runde.
-                  </li>
-                  <li>
-                    <strong>Platz in einer Gruppe:</strong> folgt automatisch der Abschlusstabelle.
-                  </li>
-                  <li>
-                    <strong>Manuell gesetzt:</strong> bleibt stehen, wie Du es einträgst.
-                  </li>
-                </ul>
-                <p>Wählbar sind nur frühere Runden, deren Ausgang noch kein anderes Spiel belegt.</p>
-              </>
-            ) : (
-              <>
-                <p>Welche beiden Teams aufeinandertreffen.</p>
-                <ul>
-                  <li>
-                    <strong>Ausgeschiedene</strong> Teams bleiben sichtbar, sind aber gesperrt.
-                  </li>
-                  <li>
-                    Ein Team spielt <strong>einmal pro Spieltag</strong>. Steht es schon in einem anderen Spiel, ist es hier gesperrt.
-                  </li>
-                </ul>
-              </>
-            )}
-          </InfoHint>
+          {/* Two elements rather than one with a conditional body: `hintCap.test.ts` counts a
+              literal, and a ternary is a body it cannot measure. What a manual side COSTS is the
+              takeover banner's, so this row says only what the choice does. */}
+          {isKnockout ? (
+            <Hint
+              mode="reveal"
+              label="Hinweis zur Begegnung"
+              body={{
+                lead: "Jede Seite hat eine Herkunft:",
+                points: [
+                  { term: "Sieger / Verlierer eines Spiels:", text: "folgt automatisch dem Ausgang der früheren Runde." },
+                  { term: "Platz in einer Gruppe:", text: "folgt automatisch der Abschlusstabelle." },
+                  { term: "Manuell gesetzt:", text: "Du wählst das Team selbst." },
+                  { text: "Wählbar sind nur frühere Runden, deren Ausgang noch kein anderes Spiel belegt." },
+                ],
+              }}
+            />
+          ) : (
+            <Hint
+              mode="reveal"
+              label="Hinweis zur Begegnung"
+              body={{
+                lead: "Welche beiden Teams aufeinandertreffen.",
+                points: [
+                  { term: "Ausgeschiedene Teams", text: "sind gesperrt." },
+                  { term: "Ein Team", text: "spielt höchstens einmal pro Spieltag." },
+                ],
+              }}
+            />
+          )}
         </h2>
       </div>
 

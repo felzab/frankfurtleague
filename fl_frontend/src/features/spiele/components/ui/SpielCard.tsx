@@ -69,7 +69,7 @@ export function SpielCard({
             <IconTooltip label="Spiel bearbeiten">
               <Link
                 href={adminEditHref}
-                aria-label={`Spiel Nr.${spielData.spiel_nr} bearbeiten`}
+                aria-label={`Spiel Nr. ${spielData.spiel_nr} bearbeiten`}
                 /* The brand fill rather than `bg-muted`, and the only difference from the info button
                    beside it: same box, same radius, same position, so no layout moves. The pairing is
                    `-solid` plus its own foreground, like every other opaque fill. */
@@ -81,7 +81,7 @@ export function SpielCard({
           <IconTooltip label="Spielinfo">
             <Button
               isIconOnly
-              aria-label={`Spielinfo Spiel Nr.${spielData.spiel_nr}`}
+              aria-label={`Spielinfo Spiel Nr. ${spielData.spiel_nr}`}
               onPress={onOpenInfoModal}
               size="md"
               variant="tertiary"

@@ -26,7 +26,7 @@ const SONDEREREIGNIS_EFFECT: Record<FLSonderereignis, string> = {
   nichtantreten_team1: "Team 1 ist nicht erschienen; gewertet wird für Team 2, nach den Regeln der Saison.",
   nichtantreten_team2: "Team 2 ist nicht erschienen; gewertet wird für Team 1, nach den Regeln der Saison.",
   abgebrochen: "hat stattgefunden und wird weiter wie ein gespieltes Spiel behandelt.",
-  annulliert: "zählt nicht mehr, wird nicht gewertet und trägt kein Ergebnis.",
+  annulliert: "zählt nicht mehr und trägt kein Ergebnis.",
 };
 
 /**
@@ -51,7 +51,7 @@ export function FormSonderereignisSection({
   // An unresolved slot has nobody who could have failed to appear, and the award would have no side
   // to land on — so the write path answers `REQ-STATE-003` and this must not offer it.
   const unpickableReason = (event: FLSonderereignis): string | undefined =>
-    !hasBothSides && (event === "nichtantreten_team1" || event === "nichtantreten_team2") ? "beide Teams nötig" : undefined;
+    !hasBothSides && (event === "nichtantreten_team1" || event === "nichtantreten_team2") ? "beide Seiten nötig" : undefined;
 
   // An unrecognised key cannot arrive from a closed collection, so it reads as the ordinary fixture
   // rather than throwing on a page holding unsaved work.
@@ -66,7 +66,7 @@ export function FormSonderereignisSection({
         <h2 className={styles.heading()}>
           Sonderereignis
           <InfoHint label="Hinweis zum Sonderereignis">
-            <p>Was mit dem Spiel geschehen ist, über das Spielen hinaus. Ein Spiel trägt höchstens eines.</p>
+            <p>Was mit dem Spiel geschehen ist, über das Spielen hinaus.</p>
             <ul>
               {SONDEREREIGNIS_OPTIONS.map((event) => (
                 <li key={event}>

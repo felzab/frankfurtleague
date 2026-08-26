@@ -24,12 +24,14 @@ const STATUS_ICONS: Record<FLSpielStatus, React.ReactElement> = {
   abgesagt: <XmarkShapeFill className="size-3.5" />,
 };
 
-// Deliberately not the schema value, which would couple the visible German to the API contract.
+// One word per status, shared with `fl_frontend/src/features/spiele/facets.ts :: buildSpielFacets`:
+// two spellings of one state read as two. Not the schema value either, which would couple the
+// visible German to the API contract.
 const STATUS_LABELS: Record<FLSpielStatus, string> = {
-  vergangen: "Beendet",
+  vergangen: "Vergangen",
   heute: "Heute",
   ausstehend: "Ausstehend",
-  unbekannt: "Datum offen",
+  unbekannt: "Ohne Datum",
   abgesagt: "Abgesagt",
 };
 

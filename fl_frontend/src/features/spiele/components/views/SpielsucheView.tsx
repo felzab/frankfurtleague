@@ -85,11 +85,11 @@ export function SpielsucheView({
   const shown = hasAsked ? filteredResults : [];
 
   const message = !hasAsked
-    ? "Noch keine Eingabe..."
+    ? "Suche nach einem Spiel oder setze einen Filter."
     : shown.length === 0
       ? spielQuery === ""
-        ? "Keine Ergebnisse für diese Filter"
-        : `Keine Ergebnisse für "${spielQuery}"`
+        ? "Keine Spiele für diese Filter"
+        : `Keine Spiele für „${spielQuery}“`
       : null;
 
   return (
@@ -99,7 +99,7 @@ export function SpielsucheView({
       <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center gap-3 px-4 py-4 sm:px-8 lg:py-8">
         <SearchBar
           label="Spiele suchen"
-          placeholder="Suche nach Team, Ort, Datum..."
+          placeholder="z.B. Sportpark Nord oder 14.03."
           value={inputValue}
           onChange={setInputValue}
           className="max-w-toolbar w-full"

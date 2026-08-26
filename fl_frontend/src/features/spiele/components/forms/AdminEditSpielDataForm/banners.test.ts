@@ -195,7 +195,7 @@ describe("buildSpielBanners", () => {
     assert.deepEqual(ids(eligibility), ["spiel.eligibility-refused"]);
     assert.match(body, /Hebe den Austritt auf/);
     // The two clauses that carry the risk: each states a precondition, and each was wrong once.
-    assert.match(body, /Bei besetzten Plätzen/);
+    assert.match(body, /Stehen beide Seiten fest/);
     assert.match(body, /in der Gruppenphase/);
 
     const spieltag = build({ refusalCode: "REQ-SPIELTAG-001" });

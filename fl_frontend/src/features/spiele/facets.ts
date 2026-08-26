@@ -114,7 +114,7 @@ export function buildSpielFacets({
     label: "Ergebnis",
     options: [
       { value: "gewertet", label: "Gewertet" },
-      { value: "offen", label: "Noch offen" },
+      { value: "offen", label: "Offen" },
     ],
     // The rule `ergebnis_pending` and the rollover panel both use: a cancelled fixture WITH a
     // result is a forfeit and counts as played.

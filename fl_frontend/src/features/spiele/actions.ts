@@ -27,7 +27,7 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   if (error.serverErrorCode === "REQ-DATE-001") {
-    return { fieldErrors: { datum: "Dieses Datum liegt außerhalb des Zeitraums seines Spieltags." } };
+    return { fieldErrors: { datum: "Dieses Datum liegt außerhalb des Spieltags." } };
   }
   if (error.serverErrorCode === "REQ-RESULT-001") {
     return {
@@ -39,14 +39,13 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   // and pick another.
   if (error.serverErrorCode === "REQ-BOOKING-001") {
     return {
-      error:
-        "Spielort oder Schiedsrichter ist nicht mehr verfügbar, weil der Eintrag stillgelegt wurde oder nicht mehr existiert. Reaktiviere ihn, oder lade die Seite neu und wähle einen anderen aus der aktualisierten Liste.",
+      error: "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht. Reaktiviere ihn, oder lade die Seite neu und wähle einen anderen.",
     };
   }
   if (error.serverErrorCode === "REQ-CLASH-001") {
     return {
       error:
-        "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand oder eine andere Zuordnung.",
+        "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand, oder teile das Spiel anders ein.",
     };
   }
   return null;
@@ -80,7 +79,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
     }
 
     if (!patch_operation.acknowledged) {
-      return { success: false, error: "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: "Die Spieldaten wurden nicht gespeichert. Versuche es erneut." };
     }
 
     // Not redundant with the granular tags below: the default read path sends no `saison_id`, so

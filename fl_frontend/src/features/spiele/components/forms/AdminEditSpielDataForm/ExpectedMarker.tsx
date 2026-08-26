@@ -3,7 +3,7 @@
 import { CircleDashed } from "@gravity-ui/icons";
 
 import { FIELD_MARKER } from "@/shared/components/ui/formFieldStyles";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 
 import { useSpielExpectedField } from "./SpielExpectedContext";
 
@@ -18,17 +18,28 @@ export function ExpectedMarker({ path }: { path: string }) {
 
   const isRequired = field.expectedSeverity === "required";
 
-  return (
-    <InfoHint
-      label={isRequired ? "Fehlt" : "Empfohlen"}
-      trigger={
-        <span className={`${FIELD_MARKER} cursor-help ${isRequired ? "bg-danger/15 text-danger-strong" : "bg-warning/15 text-warning-strong"}`}>
-          <CircleDashed className="size-3" />
-        </span>
-      }>
-      {/* No bolded `Fehlt.` in front: the trigger's own `aria-label` is that word, so a screen
-          reader announced it twice, and under `Empfohlen` the second read as a contradiction. */}
-      <p>{isRequired ? "Trage es ein, damit das Spiel stattfinden kann." : "Empfohlen, aber nicht zwingend."}</p>
-    </InfoHint>
+  const trigger = (
+    <span className={`${FIELD_MARKER} cursor-help ${isRequired ? "bg-danger/15 text-danger-strong" : "bg-warning/15 text-warning-strong"}`}>
+      <CircleDashed className="size-3" />
+    </span>
+  );
+
+  /* Two elements over one with a conditional lead: `hintCap.test.ts` counts a literal, and a
+     ternary is a body it cannot measure. Neither line repeats the trigger's own `aria-label`,
+     which a screen reader announces immediately before it. */
+  return isRequired ? (
+    <Hint
+      mode="reveal"
+      label="Fehlt"
+      body={{ lead: "Nötig, damit das Spiel stattfinden kann." }}
+      trigger={trigger}
+    />
+  ) : (
+    <Hint
+      mode="reveal"
+      label="Empfohlen"
+      body={{ lead: "Für das Spiel nicht nötig." }}
+      trigger={trigger}
+    />
   );
 }

@@ -76,12 +76,12 @@ const REFUSAL_REMEDIES: Record<SpielRefusalCode, { id: SpielBannerId; title: str
   "REQ-ELIGIBILITY-001": {
     id: "spiel.eligibility-refused",
     title: "Ein ausgeschiedenes Team blockiert das Speichern",
-    body: "Der Austritt zählt auch, wenn nur Datum oder Sonderereignis geändert wurde. Hebe den Austritt auf, oder wähle ein anderes Team. Bei besetzten Plätzen kannst Du stattdessen das Nichtantreten des ausgeschiedenen Teams eintragen, nur in der Gruppenphase auch das Spiel absagen.",
+    body: "Der Austritt zählt auch, wenn nur Datum oder Sonderereignis geändert wurde. Hebe den Austritt auf, oder wähle ein anderes Team. Stehen beide Seiten fest, kannst Du stattdessen das Nichtantreten des ausgeschiedenen Teams eintragen, nur in der Gruppenphase auch das Spiel absagen.",
   },
   "REQ-SPIELTAG-001": {
     id: "spiel.spieltag-refused",
-    title: "Im anderen Spiel setzt das System die Aufstellung",
-    body: "Deshalb lässt sich das Team hier nicht zusätzlich einsetzen. Ändere dort die Herkunft, um das Team freizugeben, oder wähle hier ein anderes Team.",
+    title: "Im anderen Spiel wird diese Seite automatisch besetzt",
+    body: "Ein Team spielt höchstens einmal pro Spieltag. Ändere dort die Herkunft, um das Team freizugeben, oder wähle hier ein anderes Team.",
   },
 };
 
@@ -155,7 +155,7 @@ export function buildSpielBanners({
       id: side.fieldName === "team1" ? "spiel.team1-manual" : "spiel.team2-manual",
       severity: "danger",
       title: `${side.label} wird nicht mehr automatisch gefüllt`,
-      body: "Die Seite bleibt so stehen, wie Du sie einträgst; kein späteres Ergebnis ändert sie.",
+      body: "Kein späteres Ergebnis ändert diese Seite.",
       inline: side.fieldName === "team1" ? "team1-manuell" : "team2-manuell",
     });
 
@@ -164,7 +164,7 @@ export function buildSpielBanners({
         id: side.fieldName === "team1" ? "spiel.team1-unqualified" : "spiel.team2-unqualified",
         severity: "warning",
         title: `${side.team.name} ist nicht für diese Runde qualifiziert`,
-        body: "Prüfe vor dem Speichern, ob die Auswahl beabsichtigt ist.",
+        body: "Prüfe, ob die Auswahl beabsichtigt ist.",
         inline: side.fieldName === "team1" ? "team1-qualifikation" : "team2-qualifikation",
       });
     }
@@ -198,7 +198,7 @@ export function buildSpielBanners({
         dependentSpielNummern.length === 1
           ? `Ohne Wertung bleibt Spiel ${nummern} unbesetzt`
           : `Ohne Wertung bleiben die Spiele ${nummern} unbesetzt`,
-      body: "Ohne Ergebnis hier bleibt dort offen, wer antritt. Die Runden darunter ebenso.",
+      body: "Die Runden danach bleiben ebenfalls offen.",
       inline: "sonderereignis-turnierbaum",
     });
   }
@@ -210,7 +210,7 @@ export function buildSpielBanners({
       id: "spiel.result-refused",
       severity: "danger",
       title: "Ein nicht gewertetes Spiel kann kein Ergebnis tragen",
-      body: "Der Server lehnt das Speichern ab. Entferne zuerst die Tore, oder wähle ein anderes Sonderereignis.",
+      body: "Entferne zuerst die Tore, oder wähle ein anderes Sonderereignis.",
       inline: "sonderereignis-wertung",
       supersedes: ["spiel.sonderereignis-standing"],
     });
@@ -230,7 +230,7 @@ export function buildSpielBanners({
           : "Das Ergebnis wird beim Speichern gewertet",
       // Appended rather than a second whole sentence-pair, so the award's own wording has one home.
       // What it adds is the record the save discards without replacing anything.
-      body: `Ein Nichtantreten wird nach den Regeln der Saison für das angetretene Team gewertet; die Tore trägt der Server ein.${
+      body: `Ein Nichtantreten wird nach den Regeln der Saison für das angetretene Team gewertet; die Tore musst Du nicht eintragen.${
         dropsShootOut ? " Das eingetragene Elfmeterschießen wird nicht gespeichert." : ""
       }`,
       inline: "sonderereignis-wertung",
@@ -245,7 +245,7 @@ export function buildSpielBanners({
       id: "spiel.abandoned-decided",
       severity: "warning",
       title: "Das Ergebnis zählt trotz Abbruch für die Tabelle",
-      body: "Bei einer Wertung ist das beabsichtigt. Prüfe sonst, ob das Ergebnis hier stehen bleiben soll.",
+      body: "Prüfe, ob das Ergebnis hier stehen bleiben soll.",
       inline: "sonderereignis-wertung",
     });
   }
@@ -258,7 +258,7 @@ export function buildSpielBanners({
       id: "spiel.sonderereignis-standing",
       severity: "info",
       title: "Dieses Spiel wird nicht mehr angemahnt",
-      body: "Es erscheint überall als abgesagt und steht nur noch zum Nachschlagen.",
+      body: "Es erscheint überall als abgesagt.",
       inline: null,
     });
   }
@@ -272,7 +272,7 @@ export function buildSpielBanners({
         voidedSpielNummern.length === 1
           ? `Speichern löscht das Ergebnis in Spiel ${nummern}`
           : `Speichern löscht die Ergebnisse in den Spielen ${nummern}`,
-      body: "Die Tore wurden von einem Team erzielt, das danach nicht mehr in diesem Spiel steht.",
+      body: "Die Tore wurden von einem Team erzielt, das dort danach nicht mehr steht.",
       inline: null,
     });
   }
@@ -284,7 +284,7 @@ export function buildSpielBanners({
       severity: "warning",
       title:
         releasedSpielNummern.length === 1 ? `Ein Team wird aus Spiel ${nummern} entfernt` : `Teams werden aus den Spielen ${nummern} entfernt`,
-      body: "Die Seite wird dort frei, denn ein Team spielt höchstens einmal pro Spieltag.",
+      body: "Ein Team spielt höchstens einmal pro Spieltag.",
       inline: null,
     });
   }
