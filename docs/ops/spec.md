@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `07a36b6b`, 2026-08-26\
+**Verified against:** `d828ee1c`, 2026-08-26\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 | Section                                                | Answers                                                              |
@@ -163,10 +163,15 @@ for a reason: `scripts/ts_normalize.mjs` decides whether two versions of a TypeS
 anything but comments, and only TypeScript's own parser knows that a `//` inside a string is not a
 comment.
 
-**A documentation check that stopped reporting would still pass.** `scripts/tests/` plants one
-violation per check `scripts/check_docs.py` registers and asserts the check finds it, so the
-documentation gate's own coverage is proved rather than assumed (CUR-5). It is a pytest suite, and the
-scripts scope runs it.
+**A documentation check that stopped reporting would still pass, and a floor a shell spells for itself
+would drift in silence.** `scripts/tests/` is the pytest suite the scripts scope runs against both. It plants
+one violation per check `scripts/check_docs.py` registers and asserts the check finds it, so the
+documentation gate's own coverage is proved rather than assumed (CUR-5). Beside that it holds the
+kernel's floors to what depends on them: that the python in `scripts/` parses at
+`scripts/checker_kernel.py :: PARSE_FLOOR`, without which the refusal an old interpreter is owed
+cannot itself be parsed, and that every shell arm degrading on a crash spells
+`scripts/checker_kernel.py :: EXIT_CRASH` as its own literal, a copy left behind being invisible to
+the run it silently reprieves.
 
 **`scripts/selfcheck.sh` tests the scripts themselves**, and it is the scripts scope's first step.
 Reach for it directly after editing anything in `scripts/`, `.claude/hooks/` or `.githooks/` — its
@@ -271,6 +276,17 @@ step joined after its work ran beside its neighbours is re-dated to that work's 
 (`scripts/_lib.sh :: step_took_ms`), without which the first step joined absorbs the whole stretch and
 every step after it reads as free.
 
+**One tool a scope runs makes concurrency of its own, and the value it is given answers a diagnostic
+rather than the clock.** `fl_frontend/package.json`'s `lint` — the eslint step of `--frontend` — passes
+`--concurrency=2`. eslint measures how much of a worker's life went on linting rather than on starting
+up and reading files, and warns through `ESLintPoorConcurrencyWarning` below the floor the installed
+package sets; on this tree `auto` misses that floor by a margin no rounding covers, while the shipped
+value clears it, and `auto` is markedly slower than a serial run against a cold V8 compile cache. Every
+larger setting measured warns too, so raising the number buys its time by suppressing a correct
+diagnostic — which is why node's `--disable-warning`, used elsewhere in that same file, is deliberately
+absent here. The measurements behind the value, and the CI-runner condition still open against it, are
+`docs/_roadmap/tooling-items.md :: OPS-19`.
+
 **No formatter the gate runs writes a tracked file.** prettier runs in check mode
 everywhere — locally, in CI and on `main` — so a run cannot hand back a tree different from the one
 its later steps measured, and nothing a run did has to be read back and committed. Formatting happens
@@ -291,16 +307,16 @@ them. Which paths select `format` is decided by extension, because prettier's re
 python-only or hook-only branch asks for no formatter job — and CI's `format` job stands down where
 the frontend job runs, which already covers it.
 
-| Scope        | Runs                                                                                                          | Needs                                                                                    |
-| ------------ | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `--scripts`  | `selfcheck.sh`, `ruff` and `pyright` over the python in `scripts/`, then the documentation gate's fixture net | the backend venv, `pytest` included; shellcheck and actionlint from PATH, else Docker    |
-| `--docs`     | `check_docs.py`, whose checks are CUR-5's table; then `check_commits.py`                                      | the backend venv, plus node and an `fl_frontend` install for full-fidelity branch impact |
-| `--backend`  | `uv lock --check`, then `ruff` + `pyright` + `pytest`, default tier                                           | the backend venv, and `uv` for the lockfile check                                        |
-| `--format`   | prettier in check mode over the whole repository                                                              | pnpm install                                                                             |
-| `--frontend` | the frozen lockfile check, then tsc, eslint, `next build`, unit tests, audit                                  | pnpm install                                                                             |
-| `--ops`      | both compose files parse; the local stack mirrors production; nginx accepts `prod.conf`                       | Docker, and an interpreter at the checkers' floor for the mirror                         |
-| `--db`       | `pytest -m db` against a real `mongod`                                                                        | venv + Docker                                                                            |
-| `--images`   | both `docker build`s + the `instrumentation.js` presence check                                                | Docker                                                                                   |
+| Scope        | Runs                                                                                                                 | Needs                                                                                    |
+| ------------ | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `--scripts`  | `selfcheck.sh`, `ruff` and `pyright` over the python in `scripts/`, then the pytest suite in `scripts/tests/` (§1.5) | the backend venv, `pytest` included; shellcheck and actionlint from PATH, else Docker    |
+| `--docs`     | `check_docs.py`, whose checks are CUR-5's table; then `check_commits.py`                                             | the backend venv, plus node and an `fl_frontend` install for full-fidelity branch impact |
+| `--backend`  | `uv lock --check`, then `ruff` + `pyright` + `pytest`, default tier                                                  | the backend venv, and `uv` for the lockfile check                                        |
+| `--format`   | prettier in check mode over the whole repository                                                                     | pnpm install                                                                             |
+| `--frontend` | the frozen lockfile check, then tsc, eslint, `next build`, unit tests, audit                                         | pnpm install                                                                             |
+| `--ops`      | both compose files parse; the local stack mirrors production; nginx accepts `prod.conf`                              | Docker, and an interpreter at the checkers' floor for the mirror                         |
+| `--db`       | `pytest -m db` against a real `mongod`                                                                               | venv + Docker                                                                            |
+| `--images`   | both `docker build`s + the `instrumentation.js` presence check                                                       | Docker                                                                                   |
 
 Docker is checked before any check runs on a run covering the ops, database or image scopes, and the
 backend virtualenv on one covering the scripts, documentation, backend or database scopes; the
@@ -530,5 +546,5 @@ its human-readable line on stderr, where it cannot reach the outputs.
 | OPS-78 | `nginx/local.conf` is neither parsed nor compared                 | Open — its header claims production's routing, rate limits and security headers, and nothing reads the claim: `nginx -t` runs against `prod.conf` alone and `scripts/check_compose_mirror.py` compares the compose pair (§1.6). Tracked in [`docs/_roadmap/tooling-items.md`](../_roadmap/tooling-items.md)                                                                                                                                 |
 | OPS-80 | A stamp moved once clears its page for the rest of the branch     | Open — `scripts/docs_gate/branch.py :: check_stamp_freshness` compares the stamp line at the fork against the working tree, so every edit after the first passes with the stamp naming a commit that predates them; `:: check_branch_impact` decides the citation arm the same way. Tracked in [`docs/_roadmap/tooling-items.md`](../_roadmap/tooling-items.md)                                                                             |
 | OPS-82 | A citation written as a link arms no re-verification              | Open — `scripts/docs_gate/branch.py :: check_branch_impact` builds a stamped page's watch list from `scripts/docs_gate/references.py :: cited_paths`, which reads citations and backticked tokens and no markdown link, so a link to another file arms nothing and a page is armed only where a backticked repository path on it happens to name the same file. Tracked in [`docs/_roadmap/tooling-items.md`](../_roadmap/tooling-items.md) |
-| OPS-83 | An in-transaction read's session argument is asserted by nothing  | Open — each transactional callback in `fl_backend/app/api/saisons/admin_router.py` opens on a season read whose `session=` is stated by a comment beside it and by no test; a case that would fail without the argument has to move the season document between that read and the in-session ones, a plant point the isolation suite's hook does not reach. Tracked in [`docs/_roadmap/tooling-items.md`](../_roadmap/tooling-items.md)     |
+| OPS-83 | A guard the database tier stays green without                     | Open — the `session=` argument that keeps a transactional read in `fl_backend/app/api/saisons/admin_router.py` inside its own snapshot is stated by a comment beside it, and dropping it reportedly leaves `--db` (§1.6) green, so the scope this page runs as the backend's regression net is not what holds it. Tracked in [`docs/_roadmap/tooling-items.md`](../_roadmap/tooling-items.md)                                               |
 | OPS-84 | The linter behind §1.4's compensating control is past end of life | Open — `fl_frontend/package.json` holds eslint at a 9.x line that will take no further fix of any kind, and both the `react/no-danger` rule §1.4 names as the CSP's compensating control and the lint step of `--frontend` (§1.6) run on it. Tracked in [`docs/_roadmap/tooling-items.md`](../_roadmap/tooling-items.md)                                                                                                                    |

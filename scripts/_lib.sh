@@ -220,8 +220,8 @@ step() {
 }
 
 # Re-dates the open step to the work's own length, for a step whose work ran beside its neighbours
-# rather than between them: collected in order, the first one joined would otherwise absorb the
-# whole stretch and every step after it would read as free.
+# rather than between them, where the order they are collected in is not the order they ran in.
+# `docs/ops/spec.md` §1.6.
 step_took_ms() { # $1 how long this step's work actually took, in milliseconds
   _STEP_MS0=$(( $(_now_ms) - $1 ))
   _STEP_T0=$(( SECONDS - $1 / 1000 ))

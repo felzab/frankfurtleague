@@ -21,6 +21,15 @@ _DRIFT = (
     " an index, must say so where it seeds -- pass `mutates_schema=True` -- or what it changed poisons every test after it."
 )
 
+# The pymongo path's own refusal: it checks where it seeds, so the body that moved the schema has
+# already run and the test it names only inherited it. `mutates_schema` cannot reach back to that
+# body; a database of its own can.
+_DRIFT_SYNC = (
+    "'{database}' carries enforcement this session did not build ({moved}). This fixture reads the schema where it seeds, so what"
+    " left it ran EARLIER in this database and the test named here only inherited it. A body that narrows a validator, or adds or"
+    " drops an index, takes a database no other test shares -- this one is `build_test_config`'s, which every app under test reads."
+)
+
 
 def _data(infos: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
     """Views and `system.*` are listed beside real collections and answer neither a validator nor `delete_many`."""
@@ -81,9 +90,9 @@ def _moved(baseline: Schema, present: Schema) -> list[str]:
     return sorted(gone | changed | added)
 
 
-def _guard(name: str, baseline: Schema, present: Schema) -> None:
+def _guard(message: str, name: str, baseline: Schema, present: Schema) -> None:
     if moved := _moved(baseline, present):
-        raise AssertionError(_DRIFT.format(database=name, moved=", ".join(moved)))
+        raise AssertionError(message.format(database=name, moved=", ".join(moved)))
 
 
 def _reusable(key: tuple[str, str], constraints: bool, collections: Iterable[str]) -> Schema | None:
@@ -157,7 +166,7 @@ async def a_clean_database(
         # moved the schema -- and so being last, or alone under `-k`, cannot exempt a body from this.
         if not mutates_schema:
             present = await _schema(database)
-            _guard(name, baseline, present)
+            _guard(_DRIFT, name, baseline, present)
             _BUILT[key] = (constraints, present)
     finally:
         client.close()
@@ -166,8 +175,7 @@ async def a_clean_database(
 def a_clean_database_sync(client: MongoClient, url: str, name: str) -> Database:
     """`a_clean_database` for a fixture holding a pymongo client, which returns before its test body runs.
 
-    It therefore names the FOLLOWING caller rather than the culprit, and offers no opt-out:
-    nothing seeded here installs a validator.
+    Its check therefore runs at the next seed and refuses with `_DRIFT_SYNC` rather than `_DRIFT`.
     """
 
     key = (str(url), name)
@@ -182,7 +190,7 @@ def a_clean_database_sync(client: MongoClient, url: str, name: str) -> Database:
         return database
 
     present = _schema_sync(database)
-    _guard(name, built[1], present)
+    _guard(_DRIFT_SYNC, name, built[1], present)
     for collection in present:
         database[collection].delete_many({})
     _BUILT[key] = (False, present)

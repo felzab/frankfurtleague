@@ -390,7 +390,7 @@ and cannot suffer same-basename collisions.
   whatever went wrong, so a test meant to prove one constraint stays green while an unrelated typo in
   the payload satisfies it and the constraint it names goes unenforced. Use it wherever the payload is
   hand-built rather than produced by a factory.
-- **A `db` test that opens a database of its own has it built once and emptied per test.**
+- **A `db` test that takes a clean database from a helper has it built once and emptied per test.**
   `fl_backend/tests/database.py :: a_clean_database` drops and builds the first time a session asks
   for a given database, and afterwards only deletes its documents — building again where a caller
   asks for a `constraints` setting or a `collections` name the built one does not hold. A body that
@@ -399,8 +399,15 @@ and cannot suffer same-basename collisions.
   what it left. Forgetting is caught on the test that did it rather than remembered: what every
   collection enforces is re-read once the body returns and compared against what that same call
   started from, so being last in its file, or the only body selected, exempts nothing.
-  `:: a_clean_database_sync` holds the build-once contract for a fixture driving pymongo and offers
-  no opt-out — nothing seeded there installs a validator.
+  `:: a_clean_database_sync` holds the same contract for a fixture driving pymongo, which returns
+  before its body runs — so its re-read is at the next seed rather than after the body, and its
+  refusal names the caller that inherited the drift rather than the body that left it. It offers no
+  opt-out for that reason, and sends a body that moves a schema to a database of its own instead.
+- **The suite that manipulates a schema takes a database no other test shares**, and holds no
+  build-once contract at all: `fl_backend/tests/core/test_constraints_execution.py :: on_a_database`
+  drops its throwaway on the way in, on every call, because a validator, an index or a user it
+  changes is the point of the test rather than drift. Its sibling `:: on_the_shipped_schema` is the
+  helper's build-once database, for a body that only inserts and reads.
 - **A `db` test reading a seeded corpus is served by a fixture that seeds once instead.**
   `fl_backend/tests/api/conftest.py :: league` and
   `fl_backend/tests/api/test_spieler_memberships_read.py :: squads` each drop the collections they own

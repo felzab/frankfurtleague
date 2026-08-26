@@ -413,18 +413,19 @@ These are the same errors Pylance shows in the editor."
   # Every check `scripts/check_docs.py :: CHECKS` registers runs against a fixture repo (CUR-5).
   # pytest answers its own codes, not the kernel's: 2 is a collection error, which `run_checker`
   # would announce as a considered refusal.
-  step "scripts · pytest  (the documentation gate's fixture net)"
+  step "scripts · pytest  (the documentation gate's fixture net, and the kernel's floors)"
   bg_join pytest
   PYTEST_RC=0
   quietly bg_replay pytest || PYTEST_RC=$?
   case "$PYTEST_RC" in
     0) ;;
-    1) die "The documentation gate's fixture net failed: a check stopped
-reporting its planted violation. scripts/tests/test_check_docs.py names which one." ;;
+    1) die "pytest over scripts/tests failed: a documentation check stopped reporting
+its planted violation, or a floor the kernel declares does not match what reads it.
+The failing test names which." ;;
     130) on_interrupt ;;
     *) on_error "$PYTEST_RC" "${LINENO}" "pytest scripts/tests" ;;
   esac
-  ok "every documentation check fires on a planted violation"
+  ok "every documentation check fires on a planted violation, and the kernel's floors hold"
 fi
 
 # --- docs ------------------------------------------------------------------------------------------
