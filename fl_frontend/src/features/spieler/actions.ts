@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { ERASURE_NEEDS_RETIREMENT } from "./constants";
@@ -45,9 +46,10 @@ import type {
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
 
 // The index spans retired rows and creating never revives, so the message names the one path that does.
-const ALREADY_IN_SAISON =
-  "Dieser Spieler hat in dieser Saison bereits einen Kadereintrag, möglicherweise einen ausgetragenen. " +
-  "Reaktiviere den Eintrag, statt einen neuen anzulegen.";
+const ALREADY_IN_SAISON = buildRefusal({
+  reason: "Dieser Spieler hat in dieser Saison bereits einen Kadereintrag, möglicherweise einen ausgetragenen",
+  repair: "Reaktiviere den Eintrag, statt einen neuen anzulegen",
+});
 
 // Reachable with no picker on screen: a reactivate names the row's STORED club, which a replacement
 // can have taken out of the season.
@@ -57,8 +59,10 @@ const SQUAD_TEAM_NOT_IN_SAISON =
 
 // Neither role is named: the reactivate offers no role on screen, and one sentence has to serve it
 // as well as the two the editor picks between.
-const SQUAD_ROLLE_TAKEN =
-  "In diesem Team ist diese Rolle bereits vergeben. Nimm sie dem anderen Spieler zuerst ab, dann kannst Du sie hier vergeben.";
+const SQUAD_ROLLE_TAKEN = buildRefusal({
+  reason: "In diesem Team ist diese Rolle bereits vergeben",
+  repair: "Nimm sie dem anderen Spieler zuerst ab, dann kannst Du sie hier vergeben",
+});
 
 /** Base tag only: the cached spieler read spans every season. */
 function invalidateSpieler(): void {
@@ -81,9 +85,10 @@ function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   }
   if (error.serverErrorCode === "REQ-SQUAD-003") {
     return {
-      error:
-        "Der Kader dieses Teams ist für diese Saison voll. Erhöhe die maximale Kadergröße in den Saisonregeln " +
-        "oder trage zuerst einen anderen Spieler aus.",
+      error: buildRefusal({
+        reason: "Der Kader dieses Teams ist für diese Saison voll",
+        repair: "Erhöhe die maximale Kadergröße in den Saisonregeln oder trage zuerst einen anderen Spieler aus",
+      }),
     };
   }
   return null;
@@ -149,8 +154,8 @@ export async function postSpielerAction(
       return {
         success: false,
         error:
-          `Der Spieler wurde angelegt, konnte aber nicht in den Kader aufgenommen werden.${because} ` +
-          "Er ist dadurch auf keiner Seite sichtbar. Nimm ihn über die Spielerseite in eine Saison auf.",
+          `Der Spieler wurde angelegt, steht aber in keinem Kader und ist dadurch auf keiner Seite sichtbar.${because} ` +
+          "Nimm ihn über die Spielerseite in eine Saison auf.",
       };
     }
 

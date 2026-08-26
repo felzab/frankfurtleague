@@ -52,8 +52,8 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.retired",
       severity: "info",
-      title: "Dieser Spieler erscheint in keiner Auswahlliste",
-      body: "Seine Kadereinträge bleiben bestehen; reaktivieren kannst Du ihn über den Kopf der Seite.",
+      title: "Dieser Spieler steht nicht mehr zur Auswahl",
+      body: "Seine Kadereinträge bleiben bestehen. Reaktivieren kannst Du ihn oben auf dieser Seite.",
       inline: null,
     });
   }
@@ -63,7 +63,7 @@ export function buildSpielerBanners({
       id: "spieler.not-in-kader-entry",
       severity: "info",
       title: `In Saison ${saisonId} erscheint dieser Spieler auf keiner Seite`,
-      body: "Wähle unten ein Team und nimm ihn auf; Nummer, Position und Stufe kannst Du danach jederzeit ergänzen.",
+      body: "Wähle unten ein Team und nimm ihn auf.",
       inline: "kader-eintritt",
     });
 
@@ -73,7 +73,7 @@ export function buildSpielerBanners({
         id: "spieler.entry-nachgetragen",
         severity: "info",
         title: "Wird als nachgetragen markiert",
-        body: `Die Saison ${saisonId} läuft bereits, der Eintrag wird deshalb als nachgetragen gekennzeichnet.`,
+        body: `Die Saison ${saisonId} läuft bereits.`,
         inline: "kader-nachgetragen",
       });
     }
@@ -87,7 +87,7 @@ export function buildSpielerBanners({
       // The promise splits where the reactivate does: it names the row's STORED club, and a
       // replacement can have taken that club out of the season since the row was written.
       body: isRowTeamInSaison
-        ? `Der Spieler zählt in der Saison ${saisonId} zu keinem Kader. Nummer, Position und Stufe sind gespeichert und kehren beim Reaktivieren zurück.`
+        ? "Nummer, Position und Stufe sind gespeichert und kehren beim Reaktivieren zurück."
         : `Das Team dieses Kadereintrags ist in der Saison ${saisonId} nicht mehr dabei. Nummer, Position und Stufe bleiben gespeichert. ${REACTIVATION_NEEDS_A_TEAM_IN_SAISON}`,
       inline: "austragen",
     });
@@ -97,7 +97,7 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.nachgetragen",
       severity: "info",
-      title: "Dieser Eintrag ist als nachgetragen gekennzeichnet",
+      title: "Dieser Eintrag ist nachgetragen",
       body: `Der Spieler kam erst nach dem Start der Saison ${saisonId} dazu.`,
       inline: null,
     });
@@ -132,7 +132,7 @@ export function buildSpielerBanners({
       id: "spieler.rolle-vergeben",
       severity: "info",
       title: `${blockedRolle.label} ist im gewählten Team schon vergeben`,
-      body: `In der Saison ${saisonId} führt ${blockedRolle.heldBy} das Team an. Entferne die Rolle dort zuerst, wenn Du sie hier vergeben willst.`,
+      body: `In der Saison ${saisonId} hat ${blockedRolle.heldBy} diese Rolle. Nimm sie dort zuerst ab, wenn Du sie hier vergeben willst.`,
       inline: "kader-rolle",
     });
   }

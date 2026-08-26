@@ -12,6 +12,7 @@ import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, rolleKuerzel, rolleLabel } fr
 import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
@@ -84,12 +85,13 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         </span>
       )}
       {spieler.selected?.is_nachgetragen === true && spieler.selected.inactive_since === null && (
-        /* `InfoHint`, not `IconTooltip` — `InfoHint.tsx` carries why. The badge acts on nothing, so the press is free. */
-        <InfoHint
+        /* A hint, not `IconTooltip` — `Hint.tsx` carries why. The badge acts on nothing, so the press is free. */
+        <Hint
+          mode="reveal"
           label="Nachgetragen"
-          trigger={<span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Nachgetragen</span>}>
-          <p>Der Spieler kam erst nach dem Start der Saison dazu.</p>
-        </InfoHint>
+          body={{ lead: "Der Spieler kam erst nach dem Start der Saison dazu." }}
+          trigger={<span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Nachgetragen</span>}
+        />
       )}
       {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
         /* The ROW's standing, never the season's status: it holds only while the person, the squad

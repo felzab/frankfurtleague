@@ -12,11 +12,10 @@ import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -67,26 +66,14 @@ export function FormLoeschenSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Löschen
-          <InfoHint label="Hinweis zum Löschen">
-            <p>Der Weg, eine Person ganz aus der Verwaltung zu entfernen.</p>
-            <ul>
-              <li>
-                Gelöscht werden <strong>die Person</strong>, <strong>alle ihre Kadereinträge</strong> aus jeder Saison und{" "}
-                <strong>ihre Angaben im Änderungsprotokoll</strong>.
-              </li>
-              <li>
-                Die Zeilen des Protokolls bleiben stehen und werden <strong>geleert</strong>: Dass etwas geschehen ist, bleibt lesbar; wen es
-                betraf, nicht mehr.
-              </li>
-              <li>
-                Möglich nur, solange der Spieler <strong>stillgelegt</strong> ist. Das Stilllegen ist der Schritt davor und lässt sich
-                zurücknehmen.
-              </li>
-              <li>
-                <strong>Zurückholen lässt sich das nicht.</strong> Auch über das Protokoll führt kein Weg zurück.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Löschen"
+            body={{
+              lead: "Der Weg, eine Person ganz aus der Verwaltung zu entfernen.",
+              points: [{ term: "Das Änderungsprotokoll", text: "behält seine Zeilen und verliert nur die Angaben zur Person." }],
+            }}
+          />
         </h2>
       </div>
 
@@ -94,7 +81,7 @@ export function FormLoeschenSection({
         {blockedReason === null ? (
           <p className="fluid-sm text-foreground font-medium">
             Das Löschen entfernt <strong>{fullName}</strong> endgültig aus der Verwaltung: die Person selbst, alle ihre Kadereinträge und ihre
-            Angaben im Änderungsprotokoll. Die Spiele bleiben unverändert, weil ein Spiel keinen Spieler nennt.
+            Angaben im Änderungsprotokoll. Die Spiele bleiben unverändert.
           </p>
         ) : (
           /* In the body as well as on the control: the hover hint is the only other place this is
@@ -141,7 +128,9 @@ export function FormLoeschenSection({
           onCancel={cancel}>
           {/* The reason is said on the control as well as in the body above it, the treatment the
               rollover established. `isErasing` is left out: it ends by itself. */}
-          <DisabledHint reason={isErasing ? null : blockedReason}>
+          <Hint
+            mode="refusal"
+            reason={isErasing ? null : blockedReason}>
             <Button
               type="button"
               variant="primary"
@@ -159,7 +148,7 @@ export function FormLoeschenSection({
                   löschen“ is agreed to without the reader having to hold what it refers to. */}
               {isErasing ? "Löscht..." : isConfirming ? "Ja, Spieler endgültig löschen" : "Spieler endgültig löschen"}
             </Button>
-          </DisabledHint>
+          </Hint>
         </ConfirmActionRow>
       </div>
     </section>

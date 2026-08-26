@@ -9,8 +9,8 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
     param: "kader",
     label: "Kader",
     options: [
-      { value: "im_kader", label: "In einem Kader" },
-      { value: "ohne_kader", label: "Ohne Kadereintrag" },
+      { value: "im_kader", label: "Im Kader" },
+      { value: "ohne_kader", label: "Nicht im Kader" },
       { value: "ausgetragen", label: "Ausgetragen" },
     ],
     // Three states, not two: no row at all is a different fact from a retired row, which keeps its

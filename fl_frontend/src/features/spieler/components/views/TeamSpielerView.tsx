@@ -94,17 +94,25 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
                     </div>
                   </Table.Cell>
 
-                  <Table.Cell className="muted-meta w-1 px-1 py-4 text-center font-mono lg:px-4">{spielerData.nummer || "-"}</Table.Cell>
+                  {/* §1.12 names an absent value in words, so this cell says which value the player has none of. */}
+                  <Table.Cell className="muted-meta w-1 px-1 py-4 text-center lg:px-4">
+                    {spielerData.nummer ? <span className="font-mono">{spielerData.nummer}</span> : "Ohne Nummer"}
+                  </Table.Cell>
 
                   <Table.Cell className="w-1 px-1 py-4 whitespace-nowrap lg:px-4">
                     <div className="flex justify-end">
                       {/* This app's `info` pair, not a HeroUI colour prop. A position is a label,
                           not a state, so it stays clear of the brand colour. */}
-                      <Chip
-                        size="sm"
-                        className={`${PILL_RADIUS} bg-info/15 text-info-strong fluid-xxs font-semibold capitalize`}>
-                        {spielerData.position || "-"}
-                      </Chip>
+                      {spielerData.position ? (
+                        <Chip
+                          size="sm"
+                          className={`${PILL_RADIUS} bg-info/15 text-info-strong fluid-xxs font-semibold capitalize`}>
+                          {spielerData.position}
+                        </Chip>
+                      ) : (
+                        /* The tint reads as a stated position, so an unset one is words rather than a chip. */
+                        <span className="muted-meta">Ohne Position</span>
+                      )}
                     </div>
                   </Table.Cell>
                 </Table.Row>

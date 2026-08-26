@@ -13,7 +13,7 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -126,18 +126,17 @@ export function FormKaderSection({
         </span>
         <h2 className={panel.heading()}>
           Kader {saison.saisonId}
-          <InfoHint label="Hinweis zum Kadereintrag">
-            <p>Dieser Bereich gilt für die Saison, die im Seitenmenü ausgewählt ist.</p>
-            <ul>
-              <li>Um eine andere Saison zu bearbeiten, wähle sie im Seitenmenü aus.</li>
-              <li>
-                Ein <strong>Teamwechsel</strong> wird hier eingetragen. Der Spieler bleibt dieselbe Person.
-              </li>
-              <li>
-                <strong>Nummer, Position und Stufe</strong> gelten nur für diese Saison und dürfen leer bleiben.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Kadereintrag"
+            body={{
+              lead: "Diese Angaben gelten nur für die im Seitenmenü gewählte Saison.",
+              points: [
+                { term: "Ein Teamwechsel", text: "wird hier eingetragen." },
+                { term: "Nummer, Position und Stufe", text: "dürfen leer bleiben." },
+              ],
+            }}
+          />
         </h2>
       </div>
 
@@ -167,7 +166,10 @@ export function FormKaderSection({
                 inputMode="numeric"
                 pattern="[0-9]*">
                 <FieldLabel path="nummer">Nummer</FieldLabel>
-                <Input className={`${FIELD_INPUT} font-extrabold tracking-wider`} />
+                <Input
+                  placeholder="z.B. 7"
+                  className={`${FIELD_INPUT} font-extrabold tracking-wider`}
+                />
                 <FieldError className={FIELD_ERROR} />
               </TextField>
             </div>

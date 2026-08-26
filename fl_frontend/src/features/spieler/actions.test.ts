@@ -269,7 +269,10 @@ describe("the reactivate's gate on the editor", () => {
       "the gate reads the wrong way round",
     );
     assert.match(AUSTRAGEN_PANEL, /isDisabled=\{isPending \|\| blockedReason !== null\}/, "the button no longer reads its own gate");
-    assert.ok(AUSTRAGEN_PANEL.includes("<DisabledHint reason={isPending ? null : blockedReason}"), "the reason is no longer on the control");
+    assert.ok(
+      AUSTRAGEN_PANEL.includes('<Hint mode="refusal" reason={isPending ? null : blockedReason}'),
+      "the reason is no longer on the control",
+    );
   });
 
   /* The reactivate is judged against the season's own team list, which is the one collection

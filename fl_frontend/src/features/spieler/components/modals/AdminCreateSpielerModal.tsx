@@ -53,8 +53,7 @@ export function AdminCreateSpielerModal({
           <Callout
             severity="info"
             title="Keine laufende oder geplante Saison">
-            Ein Spieler wird beim Anlegen direkt in einen Kader aufgenommen, und dafür braucht es eine laufende oder geplante Saison. Derzeit
-            ist keine angelegt.
+            Ein Spieler wird beim Anlegen direkt in einen Kader aufgenommen. Lege zuerst unter „Saisons“ eine Saison an.
           </Callout>
         )}
       </FormModal>
