@@ -51,7 +51,6 @@ const READOUT_ROW = read("ConfirmReadoutRow.tsx");
 /** Every panel that escalates a press in place. Each renders the shell rather than spelling one. */
 const PANELS = [
   "../../../features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx",
-  "../../../features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanRuecknahmeSection.tsx",
   "../../../features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx",
   "../../../features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx",
   "../../../features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx",
@@ -145,11 +144,11 @@ describe("the readout row", () => {
   });
 });
 
-describe("the eight panels", () => {
+describe("the seven panels", () => {
   /* The whole point of the extraction. A panel spelling the shell again is one that drifts from the
      other seven the next time any of the three moves. */
   it("render the shared mechanism rather than spelling their own", () => {
-    assert.ok(PANELS.length === 8, "the roster no longer names all eight panels");
+    assert.ok(PANELS.length === 7, "the roster no longer names all seven panels");
 
     for (const file of PANELS) {
       const source = read(file);
@@ -162,6 +161,18 @@ describe("the eight panels", () => {
       // The armed state alone. A panel may still hold its own `useTransition` for a one-press write
       // beside the two-press control — `FormSaisonSection`'s season entry is exactly that.
       assert.doesNotMatch(source, /setIsConfirming/, `${file}: keeps its own armed state`);
+    }
+  });
+
+  /* ONE armed state per panel, which is all `useTwoPressConfirm` holds: a panel offering two writes
+     branches the copy inside one reveal. A second beside it would arm one operation while the row
+     below confirmed the other. */
+  it("hold exactly one reveal and one action row each, however many writes they offer", () => {
+    for (const file of PANELS) {
+      const source = read(file);
+
+      assert.equal(source.match(/<ConfirmReveal>/g)?.length, 1, `${file}: does not hold exactly one armed reveal`);
+      assert.equal(source.match(/<ConfirmActionRow/g)?.length, 1, `${file}: does not hold exactly one action row`);
     }
   });
 

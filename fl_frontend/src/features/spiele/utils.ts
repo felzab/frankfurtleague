@@ -366,7 +366,7 @@ export const formatSpielUpdateMessage = (
   bracketFaults: readonly FLBracketFault[] = [],
   releasedSides: readonly FLSpielReleasedSide[] = [],
 ): string => {
-  const sentences = ["Die Spieldaten wurden erfolgreich aktualisiert"];
+  const sentences = ["Die Spieldaten wurden aktualisiert"];
 
   if (advancedTo.length > 0) {
     sentences.push(
@@ -427,8 +427,8 @@ const joinSpiele = (advancements: readonly { spiel_nr: number }[]): string =>
  */
 const zustandMidSentence = (austrittType: FLAustrittType): string => austrittZustand(austrittType).toLocaleLowerCase("de-DE");
 
-/** The editor's own spelling of a seat, so a fault names the side the form labels the same way. */
-const sideLabel = (side: "team1" | "team2"): string => (side === "team1" ? "Team 1" : "Team 2");
+/** The editor's own spelling of a seat, so a fault and the wiring review both name the side the form labels the same way. */
+export const sideLabel = (side: "team1" | "team2"): string => (side === "team1" ? "Team 1" : "Team 2");
 
 /**
  * For the save's toast, which arrives with no fixture in sight — so every sentence names its match

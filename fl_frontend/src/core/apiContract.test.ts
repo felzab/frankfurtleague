@@ -62,6 +62,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSaisonStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielerPosition: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielerStufe: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLSpielerRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
   // The only alias here whose sole use site is a QUERY PARAMETER: no stored field carries the
   // status, so the use-site test below and `apiRequests.test.ts` are together what pin its members.
   FLSpielStatus: "a Pydantic Literal alias, published inline on the spiel_status query parameter and on no component field",

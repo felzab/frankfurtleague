@@ -240,7 +240,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   },
   FLCreateSpielerFormPayloadSchema: {
     is_nachgetragen: "derived from the chosen season's status, never asked (decided 2026-08-07)",
-    is_captain: "hardcoded false: captaincy is decided on the player's own page, on an existing squad",
+    rolle: "hardcoded null: a squad role is decided on the player's own page, on an existing squad",
   },
 
   FLSwapGruppenPayloadSchema: {

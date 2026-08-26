@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `d668d82e`, 2026-08-25\
+**Verified against:** `f6073b6f`, 2026-08-26\
 **Purpose:** the German domain vocabulary — what each term is, where it lives, and what catches people.
 
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs. Translating
@@ -52,7 +52,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 **Is:** a person, whose season-specific facts — squad membership, captaincy, retirement — live on a `saison_spieler` junction rather than on the person.\
 **In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpieler` is the stored person flattened against one season and reaches no endpoint; `:: FLSpielerPublic` is what `fl_backend/app/api/spieler/services.py :: build_spieler_pipeline` projects for the base tier.\
-**Trap:** only `vorname` is required and `nummer` is free text; the base tier reads a surname as an initial (`READ-PUPIL-001`) and is served no `stufe` (`READ-PUPIL-002`), no consent record and neither squad flag, so no public squad list marks a captain; and `FLSpieler` is one player against one season and carries no `saison_id`, so the admin list reads `GET /spieler/memberships` instead.\
+**Trap:** only `vorname` is required and `nummer` is free text; the base tier reads a surname as an initial (`READ-PUPIL-001`) and is served no `stufe` (`READ-PUPIL-002`), no consent record and neither `is_nachgetragen` nor `rolle`, so no public squad list names a captain; and `FLSpieler` is one player against one season and carries no `saison_id`, so the admin list reads `GET /spieler/memberships` instead.\
 **See:** backend spec I33 for that read, I35 for the closed sets.
 
 ### `Schiedsrichter` — referee
@@ -178,12 +178,12 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 **Trap:** every junction payload requires it with no default, and the admin create form derives it from the chosen season's status rather than asking, so it is always an answer rather than a value nobody chose.\
 **See:** backend spec I34.
 
-### `is_captain` — the squad's captain for one season
+### `rolle` — which of a squad's leading roles a player holds
 
-**Is:** captaincy within one team for one season, held on the `saison_spieler` junction rather than on the person.\
-**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSaisonSpielerRow`, beside `is_nachgetragen`.\
-**Trap:** no rule the database enforces makes it unique — a co-captaincy is a real arrangement — and `fl_backend/app/shared/schemas/custom.py :: PERSON_NAME_PATTERN` on the write payloads is what stops a captaincy marker being typed inside a name instead.\
-**See:** backend spec I36 for the write-payload name pattern.
+**Is:** the Kapitän or the Co-Kapitän of one team for one season, held on the `saison_spieler` junction rather than on the person. ONE nullable closed set rather than a flag per role, so holding both at once is unrepresentable rather than refused, and null — holding neither — is the ordinary state.\
+**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpielerRolle`, on `:: FLSaisonSpielerRow` beside `is_nachgetragen`; the German for each value and the Kürzel the phone layout shows in its place are `fl_frontend/src/features/spieler/constants.ts :: ROLLE_OPTIONS`, which every surface reads rather than spelling its own.\
+**Trap:** a squad holds each role at most once among its LIVE rows and every squad write path refuses one already held (`REQ-SQUAD-004`), so a role is handed on by taking it off its current holder or retiring them; it is the one `saison_spieler` key the validator leaves out of `required`, a missing key and a stored null both reading as no role; and `fl_backend/app/shared/schemas/custom.py :: PERSON_NAME_PATTERN` on the write payloads is what stops the marker being typed inside a name instead.\
+**See:** backend spec I35 for the closed sets, I36 for the write-payload name pattern.
 
 ### `inactive_since` — the day something left
 

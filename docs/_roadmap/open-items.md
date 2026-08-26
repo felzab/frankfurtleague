@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `3dc107a5`, 2026-08-26\
+**Verified against:** `d603a134`, 2026-08-26\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -57,7 +57,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 2   | BE-23 | Consent's writer is deferred to an expert who has not answered       | BE, DB, Docs    | M      | Standing | —          |
 | 3   | FE-25 | A double-click satisfies the two-press confirmation                  | FE              | S      | Open     | —          |
 | 4   | BE-27 | A removal's log row can never be redacted                            | BE, DB, Docs    | S      | Open     | —          |
-| 5   | FB-20 | A name typed into a fixture note is beyond the erasure               | FE, BE, Docs    | S      | Open     | —          |
+| 5   | FB-20 | A name typed into a fixture note is beyond the erasure               | Docs            | S      | Open     | —          |
 | 6   | BE-18 | Gaps the domain declaration does not reach                           | BE              | M      | Open     | —          |
 | 7   | BE-36 | A season's judgement covers five collections and its transaction one | BE, Docs        | M      | Open     | —          |
 | 8   | FB-19 | An undo restores a whole fixture from a list read before it          | FE, BE          | L      | Open     | —          |
@@ -78,22 +78,26 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 23  | FE-26 | The draw offers a press a too-short season refuses                   | FE              | S      | Open     | —          |
 | 24  | BE-21 | The seeding table is keyed on a list nothing joins it                | BE              | S      | Open     | —          |
 | 25  | BE-33 | The log read carries every pre-image the page discards               | BE              | S      | Open     | —          |
-| 26  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
-| 27  | BE-34 | An index's first stated purpose has no caller                        | BE              | S      | Open     | —          |
-| 28  | FE-21 | The editor shell's widest layout step is unrendered                  | FE              | S      | Open     | —          |
-| 29  | FE-18 | A vendored stylesheet may reach nothing it declares                  | FE              | S      | Open     | —          |
-| 30  | FE-19 | One failure sentence, written out at every call site                 | FE              | M      | Open     | —          |
-| 31  | FE-23 | One adverb is written two ways across the product                    | FE              | S      | Open     | —          |
-| 32  | FE-1  | A fixture carries one date, not a play window                        | FE, BE          | XL     | Open     | —          |
-| 33  | LOG-2 | A cached read's call joins to no render                              | FE, BE, Ops     | L      | Open     | —          |
-| 34  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
-| 35  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
-| 36  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
-| 37  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
-| 38  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
-| 39  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
-| 40  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 41  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 26  | FE-29 | A date search matches the stored spelling, not the shown one         | FE              | S      | Open     | —          |
+| 27  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
+| 28  | BE-34 | An index's first stated purpose has no caller                        | BE              | S      | Open     | —          |
+| 29  | FE-21 | The editor shell's widest layout step is unrendered                  | FE              | S      | Open     | —          |
+| 30  | FE-30 | `Team` names a club and the league's own people                      | FE, Docs        | S      | Open     | —          |
+| 31  | FE-18 | A vendored stylesheet may reach nothing it declares                  | FE              | S      | Open     | —          |
+| 32  | FE-31 | Every admin success is stated twice, and once invisibly              | FE              | M      | Open     | —          |
+| 33  | FE-19 | Every call site writes a fallback the runtime cannot take            | FE              | M      | Open     | —          |
+| 34  | FE-23 | One adverb is written two ways across the product                    | FE              | S      | Open     | —          |
+| 35  | FE-1  | A fixture carries one date, not a play window                        | FE, BE          | XL     | Open     | —          |
+| 36  | LOG-2 | A cached read's call joins to no render                              | FE, BE, Ops     | L      | Open     | —          |
+| 37  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
+| 38  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
+| 39  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
+| 40  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
+| 41  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
+| 42  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
+| 43  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
+| 44  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 45  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -208,9 +212,10 @@ reconstruct at all.
 is not on this page, and it has the longest lead time of anything remaining in the programme — asking
 early costs nothing, because the schema does not move whichever way it is answered.
 
-**It reopens when the Datenschutzexperte answers.** Nothing here is scheduled until then, and nothing
-here is a legal conclusion — `domain-assessment.md` §4.0's caveat stands and must not be relied on as
-one.
+**It reopens when the Datenschutzexperte answers.** Nothing here is scheduled until then, and
+**nothing on this page is a legal conclusion or may be relied on as one.** What is established here is
+an engineering fact — no schema records a consent, its scope or who gave it — and every sentence below
+touching a lawful basis is a question for somebody qualified rather than an answer from one.
 
 **`einwilligung.bestaetigt_am` has a schema and no writer.** D64 defers who sets it, and records that
 **the schema is identical under every answer they can give** — `umfang`, `erteilt_von`, `datum` and
@@ -359,31 +364,35 @@ second makes the leak unrepresentable. **The state is latent and the gate stays 
 which is what puts it here rather than in a ledger: nothing today is leaking, and nothing today would
 notice the day it starts.
 
-### 5 · FB-20 — The erasure's panel promises fixtures are untouched, and a fixture holds free text
+### 5 · FB-20 — A name typed into a fixture note is beyond the erasure, and no document records the limit
 
 **Status:** Open\
-**Surfaces:** FE, BE, Docs\
+**Surfaces:** Docs\
 **Effort:** S\
-**Path:** Independent. It is the same family as BE-27 and BE-23 and waits on neither; the corpus half
-lands wherever `docs/backend/spec.md :: I42` is read from.
+**Path:** Independent. It is the same family as BE-27 and BE-23 and waits on neither; it lands
+wherever `docs/backend/spec.md :: I42` is read from.
 
-**`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx`
-tells an administrator _"Die Spiele bleiben unverändert, weil ein Spiel keinen Spieler nennt."_** That
-is true of the schema: `fl_backend/app/core/constraints.py`'s `spiele` validator declares no player
-reference of any kind, which is also what forces `docs/backend/spec.md :: I42`'s asymmetry between a
-pupil's erasure and a referee's anonymisation. **`spiele.notiz` is administrator free text and is
-published on the fixture's details** — the hint in
-`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormNotizSection.tsx` says
-so in terms. A pupil's name typed into a note is a trace `DELETE /spieler/{spieler_id}/erasure` does
-not reach, and the log rows recording that note are outside the erasure's redaction targets, which
+**`DELETE /spieler/{spieler_id}/erasure` reaches structured fields alone, and `spiele.notiz` is
+administrator free text published on the fixture's details.** The schema is what the erasure rests on:
+`fl_backend/app/core/constraints.py`'s `spiele` validator declares no player reference of any kind,
+which is also what forces `docs/backend/spec.md :: I42`'s asymmetry between a pupil's erasure and a
+referee's anonymisation. The note sits outside that — the hint in
+`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormNotizSection.tsx` says in
+terms that a note appears in the fixture's details — so a pupil's name typed into one is a trace the
+erasure does not reach, and the log rows recording that note are outside its redaction targets, which
 name `spieler` and `saison_spieler` ids alone.
 
-**The sentence is the part that is wrong, rather than the design.** No automated means can find a name
-inside free text, and building one would be a worse answer than the hole. What the sentence does is
-turn a structural fact into a completeness claim, and a completeness claim is what somebody will later
-rely on. **Two changes, both small**: word the panel so it states what it can — no fixture names a
-player, so nothing is rewritten — without promising that nothing of the person is left; and record the
-hole where the erasure's reach is documented, so the next reader finds it rather than rediscovering it.
+**The panel claims nothing beyond what it rewrites, which is what leaves this entry one half.**
+`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx` names
+the person, every squad row and their values in the action log, and says of the fixtures only that they
+stay unchanged — a true statement about what the erasure rewrites, carrying no claim about what is
+left. **What a reader can still take from it is a completeness that nothing states**, which is the
+argument for recording the limit rather than for rewording the panel again.
+
+**The record is the work.** No automated means can find a name inside free text, and building one
+would be a worse answer than the hole; what an unrecorded limit costs is that somebody later reads the
+erasure's guarantee as complete. So the hole belongs beside `docs/backend/spec.md :: I42`, which states
+that guarantee over the log's pre-images and names no free-text field at all.
 
 **Reasoned rather than executed, and that is the honest status** (COR-9). Whether any stored note
 actually holds a pupil's name is not knowable by search and no search of live data was made; nothing
@@ -615,10 +624,11 @@ it.
 
 **The pair is already on screen, carrying a distinction nothing declares.** A person's league-wide
 retirement renders as "Stillgelegt seit …" in the muted pair, and a squad row's season-scoped removal
-as "Ausgetragen seit …" in the warning pair — the same two badges in
-`fl_frontend/src/features/spieler/components/collections/AdminSpielerTable.tsx` and
-`fl_frontend/src/features/spieler/components/views/AdminSpielerEditView.tsx`, whose comment records
-the choice. **This is not an accessibility question**: the badges carry different words and the tint
+as "Ausgetragen seit …" in the warning pair — both badges in
+`fl_frontend/src/features/spieler/components/collections/AdminSpielerTable.tsx`, and the second verb
+again as a rail banner's heading in
+`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts :: spieler.row-retired-since`.
+**This is not an accessibility question**: the badges carry different words and the tint
 reinforces a distinction the text already makes, which is what WCAG 1.4.1 asks. What carries the
 meaning is the verb, and the verb is the thing the corpus never declares.
 
@@ -1287,8 +1297,18 @@ meanwhile.
 `:: _refuse_a_full_squad`, whose docstring states the reason plainly — the cap is a property of the
 destination squad, not of the verb — so create, transfer and reactivate are judged the same way. The
 two front-end paths to that endpoint are the player editor's Kader section and the squad row's restore
-control on the list, and **neither holds the two facts the refusal is computed from**: the season's
-`max_kadergroesse`, and the live row count for that club in that season, excluding the writing player.
+control on the list, and **neither states the refusal before the press** — but what a gate would cost
+the two of them is not the same.
+
+**The editor already holds both facts the refusal is computed from**, and that is the half of this
+entry the squad-role work answered.
+`fl_frontend/src/app/admin/spieler/[spieler_id]/page.tsx` reads every player's memberships for the
+season and folds them per club through
+`fl_frontend/src/features/spieler/utils.ts :: collectTakenSquadNummern` and `:: collectHeldRollen`, so
+the live row count is a fold away; the season it reads beside them carries `rules.max_kadergroesse`.
+`REQ-SQUAD-004` is the worked precedent — a per-club, per-season fact computed on that page and raised
+in the rail as `spieler.rolle-vergeben` before any press. **What the editor's half needs is that fold
+and a banner**, not new page data.
 
 **What an administrator gets is correct and late.**
 `fl_frontend/src/features/spieler/actions.ts :: mapSquadRefusal` maps the code to a German sentence
@@ -1298,14 +1318,14 @@ the generic conflict message, which is the treatment the editor already gives ev
 refusal. **Matching that treatment was the right call**: a second mechanism for one refusal would be
 the split this product keeps avoiding.
 
-**What a pre-press gate would actually cost, which is the part worth writing down.** The list page
+**What the list page's half would cost, which is the part worth writing down.** That page
 needs neither the cap nor per-club counts for anything else it renders —
 `fl_frontend/src/shared/components/ui/RowActions.tsx :: RowActionRestore` takes a `disabledReason` and
 would use one, and its own comment states the principle, but nothing on that page computes it today.
 Threading it means the season's rules and a live count per club reaching a list that is otherwise a
 flat read, and keeping that count fresh across the writes the same page performs. **That is a real
-page-data change for a refusal an administrator meets rarely**, which is why it is a ranked entry
-rather than a fix.
+page-data change for a refusal an administrator meets rarely**, which is why the remaining half is a
+ranked entry rather than a fix.
 
 **Low severity, and the entry should not inflate it.** The endpoint refuses correctly, the message is
 actionable, and no data is at risk. What it costs is one press and one toast, on a squad that is
@@ -1423,7 +1443,47 @@ than remove the field: a computed flag, or the field replaced by its own presenc
 the other constraint** — it reads an image for one row, so whatever shape this takes must leave a way
 to ask for one.
 
-### 26 · FE-24 — A pupil's consent is stored and served, and shown by nothing
+### 26 · FE-29 — Two admin lists search a stored date while their rows show a German one
+
+**Status:** Open\
+**Surfaces:** FE\
+**Effort:** S\
+**Path:** Independent — the derivation the fix needs already exists one slice over, in
+`fl_frontend/src/features/spiele/components/views/SpielsucheView.tsx`.
+
+**`fl_frontend/src/features/saisons/components/views/AdminSaisonsView.tsx :: SEARCH_KEYS` searches
+`start_date` and `end_date`, and
+`fl_frontend/src/features/spieltage/components/views/AdminSpieltageView.tsx :: SEARCH_KEYS` searches
+`beginn` and `ende`** — four fields stored as `YYYY-MM-DD`. Both lists render those same four fields
+through `fl_frontend/src/shared/utils/format.ts :: formatSpielDatum`, which composes a German
+calendar date in `Europe/Berlin`: `01.09.2025` for a value the search holds as `2025-09-01`. So the
+one spelling of a date an admin can read off the page is the one the search box will not match.
+
+**The comment above each key list states the intent the list defeats.** The season view's says the
+dates are searchable because an admin looks for a season by when it ran. The matchday view's says
+`label` is a field of the row rather than of the document _because a search matches what is read_ —
+the rule, written out, one line above three keys of which two break it.
+
+**The fix has a shape already in the product.** `SpielsucheView` carries a `searchable_datum` beside
+each fixture, the stored date rewritten into the spelling the card shows, and searches the derived
+field and the stored one both, so a date typed either way finds the match. The same derivation
+belongs on each row here, the stored keys staying where they are.
+`fl_frontend/src/features/spieltage/types.ts :: AdminSpieltagRow` already carries `label` on exactly
+that argument, so the matchday slice holds its own precedent.
+
+**Two details the work has to get right.** A matchday's `beginn` and `ende` are null until somebody
+dates it and the list renders an undated one as a placeholder, so the derived field is null there and
+matches nothing — never the placeholder. And the rendered spelling comes from `Intl.DateTimeFormat`
+while `SpielsucheView`'s derivation is a string reversal; the two agree at `dd.mm.yyyy` today, and
+deriving from the formatter rather than from the separator is what keeps them agreeing.
+
+**Not measured (COR-9):** whether Fuse's 0.3 threshold in
+`fl_frontend/src/shared/hooks/useFuzzySearch.ts` rejects every date typed the rendered way or only
+most of them. What is established is that the two spellings share no run longer than the year, and
+the fix does not rest on the answer — it makes the rendered spelling an exact match rather than a
+near one.
+
+### 27 · FE-24 — A pupil's consent is stored and served, and shown by nothing
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1456,7 +1516,7 @@ writable, and not marking a backfilled consent as distinguishable from a collect
 round 3's, and BE-23 carries the reservation the backfill was taken with. An admin page that shows the
 record and changes nothing else is the whole of this entry.
 
-### 27 · BE-34 — An index's first stated purpose has no caller
+### 28 · BE-34 — An index's first stated purpose has no caller
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -1488,7 +1548,7 @@ serves `document_id` as text, so the filter has a value to match on. `FLAktionen
 query-parameter model, which `docs/backend/spec.md :: I49` excludes and not by omission, so widening it
 is untouched by that rule.
 
-### 28 · FE-21 — The shared editor shell's widest layout step has never been rendered
+### 29 · FE-21 — The shared editor shell's widest layout step has never been rendered
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1518,7 +1578,46 @@ breakpoint and the space the shell actually gets are different numbers.
 [`docs/_auditing/lessons.md`](../_auditing/lessons.md) §6 records that a session cannot sign in, so
 the honest scope is a look at one editor past 96rem, in a real browser, by somebody who can.
 
-### 29 · FE-18 — A vendored stylesheet ships on every route, and nothing may render what it declares
+### 30 · FE-30 — `Team` names a club and the people who run the league, and the public site renders both
+
+**Status:** Open\
+**Surfaces:** FE, Docs\
+**Effort:** S — the sweep is small; what it waits on is the naming decision, not the work.\
+**Path:** Independent. §1.12 of [`docs/frontend/spec.md`](../frontend/spec.md) is the rule the answer
+is written against, and [`docs/glossary.md`](../glossary.md) is where it is recorded.
+
+**[`docs/glossary.md`](../glossary.md) defines `Team` as a club, and `/team` is a page about the
+people who run the league.** Its heading is `Frankfurt-League Team`
+(`fl_frontend/src/features/meta/components/views/MetaTeamView.tsx :: MetaTeamView`), its metadata
+title is the bare word, and the navigation renders it twice more — in
+`fl_frontend/src/shared/components/layout/topnav/TopNav.tsx :: TopNav` and in
+`fl_frontend/src/shared/components/layout/footer/Footer.tsx :: Footer`. The same navigation offers
+`Saisonübersicht` beside it, and everything under that — the league table's column, the popover and
+every fixture card — calls a club a `Team`.
+
+**§1.12 of [`docs/frontend/spec.md`](../frontend/spec.md) states the rule from the other side** — one
+German word per concept, and a club is a `Team`, never `Mannschaft`. That polices two words for one
+concept. This is one word for two, which nothing can check: both senses are ordinary German, and
+neither is a misspelling of the other.
+
+**A season's squad is not a third sense**, which is what keeps this decidable. The squad is `Kader`
+everywhere it is rendered — the public squad page's heading and metadata, and the entry beside
+`Team-Details` in
+`fl_frontend/src/features/teams/components/ui/TeamPopoverMenu.tsx :: TeamPopoverMenu`. So the
+collision is exactly two senses, and only one of them is the domain entity.
+
+**What the decision costs, either way it goes.** Relabelling the page touches four strings —
+its heading, its metadata title and the two navigation links — and nothing else. Renaming the _route_
+as well changes a published address, so it also touches `fl_frontend/src/app/sitemap.ts` and the
+page's own canonical, and that half is a redirect and an indexed URL rather than a copy edit. Nothing
+under `/docs` cites the route, so the corpus cost is the glossary line alone.
+
+**Where the answer goes.** The glossary's `Team` entry is the club's, so the second sense belongs
+either as a trap on that entry or as a row in the same page's `Terms that are not domain vocabulary`
+table, which already holds the words that only look like domain vocabulary. Leaving it undecided is
+what makes the next public string naming either sense a coin toss.
+
+### 31 · FE-18 — A vendored stylesheet ships on every route, and nothing may render what it declares
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1553,49 +1652,108 @@ value is that the import list and the comment above it stop asserting something 
 §1.11 of [`docs/frontend/spec.md`](../frontend/spec.md) is the procedure both imports were added
 under, and its own instruction is to establish membership from the import graph.
 
-### 30 · FE-19 — One failure sentence is written out at every call site, behind a fallback nothing reaches
+### 32 · FE-31 — Every admin write states its success twice, and the second sentence cannot render
 
 **Status:** Open\
 **Surfaces:** FE\
 **Effort:** M\
-**Path:** Independent — both halves land in one change, because deleting the fallbacks removes most
-of the literal and a constant covers what is left.
+**Path:** Independent, and worth executing with **FE-19** — one narrowing of
+`fl_frontend/src/shared/types/types.ts :: FormState` settles both entries, a member each.
 
-**The literal `"Ein unerwarteter Fehler ist aufgetreten."` occurs 20 times across 18 files under
-`fl_frontend/src` (measured 2026-08-25), and
-`fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult` already owns that
-vocabulary** — it is the module whose whole job is turning a thrown API error into the sentence a
-form renders, and the same literal is its own last branch.
+**Twenty distinct German sentences stand ready for a success that will never render one of them — 24
+occurrences across 23 files under `fl_frontend/src`, measured 2026-08-26.** Behind each of them is an
+action whose terminal return sets `message`, and each of them writes a fallback beside the value that
+always arrives.
 
-**Almost every copy sits behind a fallback the runtime cannot take.** Each call site spells
-`res.error ?? …` or `res.error || …`. `fl_frontend/src/shared/types/types.ts :: FormState` types
-`error` as optional, so the checker requires the fallback; whether it can ever run is a runtime
-contract rather than a type claim, and the contract holds.
+Three shapes:
+
+- **A fallback under a `success` guard**, twelve of them: `res.message ?? "Spielort reaktiviert"` and
+  its like, in the tables and views that reactivate a row and in the two panels that add one to a
+  season — for instance
+  `fl_frontend/src/features/spielorte/components/collections/AdminSpielorteTable.tsx :: handleReactivate`
+  and
+  `fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx :: handleEnterSaison`.
+- **A `successMessage` prop**, nine of them.
+  `fl_frontend/src/shared/components/ui/EntityForm.tsx :: EntityForm` and
+  `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx :: ConfirmDeleteModal` each raise
+  `res.message || successMessage`, and the prop is required — so every create form and every
+  retirement dialog supplies a sentence it cannot show.
+- **Three one-offs**: the match editor's undo toast, the sign-in panel's confirmation, and
+  `fl_frontend/src/shared/hooks/useSignOut.ts :: useSignOut`, whose one supplier is `signOutAction`.
+  The sign-in one is the sharpest — `fl_frontend/src/features/auth/actions.ts :: neutralResult`
+  composes the neutral sentence deliberately, and
+  `fl_frontend/src/features/auth/components/forms/SignInForm.tsx :: SignInForm` writes the same
+  sentence out again as the fallback beneath it.
+
+**Why the runtime always wins.** `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`
+answers a thrown error through `toActionErrorResult`, which sets `success: false`; a `success` of true
+is therefore always the action's own terminal return, and at every site above, that return sets its
+`message`. The match editor is the case that looks like an exception and is not:
+`fl_frontend/src/features/spiele/actions.ts :: patchAdminSpielDataAction` composes its message through
+`fl_frontend/src/features/spiele/utils.ts :: formatSpielUpdateMessage`, whose first sentence is
+unconditional, so the empty string that would let its `||` through cannot be produced.
+
+**Nine of the twenty say something different from what renders**, which is what makes this more than
+dead weight. `successMessage="Spielort stillgelegt"` stands where the action sends `"Spielort
+stillgelegt. Seine Spiele bleiben erhalten."`; `"Team aufgenommen"` where the season is named;
+`"Gespeichert"` where the row's own verb is; and the match editor's `"Die Spieldaten wurden
+aktualisiert."` where the same sentence arrives without the full stop and with the fan-out behind it.
+So a copy pass can correct the wrong string, watch nothing change, and leave the rendered sentence
+standing.
+
+**What the fix is, and why the type moves first.** `FormState` types `message` as optional, so the
+checker requires each fallback and cannot be shown that none is reachable — the same wall **FE-19**
+meets on `error`. Narrowing `FormState` into a union whose succeeding member requires its `message`
+turns every fallback into a compile error rather than a judgement per site, and the two shared
+components go with it: `successMessage` stops being required, or stops existing.
+
+**What must survive the sweep.** The four entity editors' undo toasts read the same way and are live:
+`fl_frontend/src/features/spielorte/components/forms/AdminSpielortEditForm/AdminSpielortEditForm.tsx :: offerUndo`
+and its three siblings take a locally computed argument that is `undefined` on an ordinary save, so
+there the fallback is the ordinary case. Reading the `??` alone does not separate the two.
+
+### 33 · FE-19 — Every call site writes a fallback for a failure message that always arrives
+
+**Status:** Open\
+**Surfaces:** FE\
+**Effort:** M\
+**Path:** Independent, and worth executing with **FE-31** — one narrowing of
+`fl_frontend/src/shared/types/types.ts :: FormState` settles both entries, a member each.
+
+**Forty consumer sites under `fl_frontend/src`, across 28 files, spell `res.error ?? …` or
+`res.error || …` for a value that always arrives** (measured 2026-08-26). `FormState` types `error`
+as optional, so the checker requires each one; whether any can run is a runtime contract rather than a
+type claim, and the contract holds.
 `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation` answers a thrown error with
-`toActionErrorResult`, whose every branch sets `error`; and every failing return under
-`fl_frontend/src` carries an `error` beside it, measured 2026-08-20 by scanning each such return with
-the lines around it.
+`fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`, whose every branch sets `error`,
+and every failing return under `fl_frontend/src` carries an `error` beside it.
 
-**Both halves are one change, and neither is worth making alone.** A constant on its own leaves a
-sentence imported everywhere and visible nowhere. Deleting the fallbacks on its own needs the type
-narrowed — `FormState` becoming a union whose failing member requires its `error` — and that
-narrowing is what turns each remaining fallback into a compile error rather than a judgement call per
-site. The constant is then what a genuinely new failure message is written from.
+**Seventeen of those sites fall back to a sentence of their own rather than to the shared one**, in
+eight files, and one family inside them is a second sentence with no home: the undo's refusal
+`"Die Änderung steht weiterhin."` is spelled out 17 times across 9 files — seven page-owned editors,
+a route handler and a test — and no module owns it. §1.12 of
+[`docs/frontend/spec.md`](../frontend/spec.md) is where a refusal's vocabulary is fixed and it names
+the two homes a new failure message is written from —
+`fl_frontend/src/shared/utils/refusal.ts :: buildRefusal` for a refusal that can name a cause, and
+`:: UNKNOWN_REFUSAL` for one that cannot.
 
-**What makes it more than a rename.** `fl_frontend/src/shared/components/ui/EntityForm.tsx` and
-`fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` reach the sentence through
+**The type is what has to move first.** `FormState` becoming a union whose failing member requires
+its `error` turns each remaining fallback into a compile error rather than a judgement call per site;
+short of that, deleting one is an argument to be had 40 times.
+
+**What makes it more than deleting a token.** `fl_frontend/src/shared/components/ui/EntityForm.tsx`
+and `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` reach the sentence through
 `res.error || res.message || …`, and their `res` comes from a caller-supplied function rather than
 from an action — so the narrowing has to reach the props those shared components declare, not the
-actions alone. The nearby sentences that read almost the same, which each action returns when an
-operation comes back unacknowledged, are a different string with a different subject; folding them in
-is a copy decision rather than a refactor.
+actions alone. And the seventeen own sentences are a copy decision each: a fallback that is dead
+weight and a fallback that is the only sentence naming what did not happen read identically at the
+`??`.
 
-**Not decided:** whether the sentence should stay generic at all. §1.12 of
-[`docs/frontend/spec.md`](../frontend/spec.md) fixes the copy rules these messages are written to, and
-`toActionErrorResult` states its own reason for a generic message — the diagnosis is already in the
-server log, and what an admin needs is whether retrying can help.
+**Not decided:** whether the shared sentence should stay generic at all. `toActionErrorResult` states
+its own reason for one — the diagnosis is already in the server log, and what an admin needs is
+whether retrying can help.
 
-### 31 · FE-23 — One adverb is written two ways, and the split runs through the whole product
+### 34 · FE-23 — One adverb is written two ways, and the split runs through the whole product
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1604,15 +1762,27 @@ server log, and what an admin needs is whether retrying can help.
 way the `Mannschaft` sweep was run — a find-and-replace is what breaks it, because the two words are
 not interchangeable in every sentence position.
 
-**`bereits` and `schon` both mean _already_, and the product uses each about half the time.**
-`docs/frontend/spec.md` §1.12 asks for one German
-word per concept, and this is the same defect the `Mannschaft` sweep closed for _Team_, one
-register lower.
+**`bereits` and `schon` both mean _already_, and the product spells both.** `schon` carries the
+larger share — 46 occurrences against 16, measured 2026-08-26 — so what is left is a minority
+spelling rather than an even split. `docs/frontend/spec.md` §1.12 asks for one German word per
+concept, and this is the same defect the `Mannschaft` sweep closed for _Team_, one register lower.
 
-**Why it is filed rather than fixed.** The season slice was settled on `schon` while its refusals
-were being rewritten, because two surfaces there stated the identical rule in different words. The
-rest was left alone deliberately: a sweep across slices nobody was otherwise editing would have put
-unreviewed copy changes into a branch about the fixture draw.
+**Where the loser survives**, which is what makes the remaining sweep small enough to read: the
+player slice's two squad refusals in `fl_frontend/src/features/spieler/actions.ts`, its create form
+and its rail banners; the club slice's two refusals in
+`fl_frontend/src/features/teams/actions.ts` and two banners beside them; the mapped
+`REQ-SPIELTAG-001` sentence in `fl_frontend/src/shared/utils/actionError.ts`; and the error page's
+own copy in `fl_frontend/src/shared/components/ui/Error.tsx`. **The season slice is the near-miss
+worth naming** — it is otherwise uniform on `schon`, and one string in
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx`
+spells `bereits` beside it.
+
+**Nothing checks it, and a mechanism to check it exists.**
+`scripts/docs_gate/copy_rules.py :: BANNED_TERMS` is what the `Mannschaft` ban runs on, and it holds
+that one pair. So a ruling here has a second half that stops the next string rather than catching it
+later — a row in that map. That half is the gate's and belongs on [`tooling-items.md`](tooling-items.md)
+rather than here ([`protocol.md`](protocol.md)); what this entry owns is which word wins and the sweep
+that follows.
 
 **A clock, mild but real.** Every string a later phase adds in the losing word is another to catch,
 which is the argument that moved the `Mannschaft` sweep early rather than late.
@@ -1620,7 +1790,7 @@ which is the argument that moved the `Mannschaft` sweep early rather than late.
 **`docs/audit/` is out of scope and stays that way.** Those pages quote the strings that stood when
 they were written, so a sweep through them would falsify a record rather than correct a claim.
 
-### 32 · FE-1 — A fixture carries one date, and a play window cannot be expressed
+### 35 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -1629,8 +1799,9 @@ they were written, so a sweep through them would falsify a record rather than co
 
 **A fixture's `datum` is a single day, so a match scheduled across a window cannot be recorded as one**
 (my item, 2026-08-02). Implementing ranges is heavy in my scoping: it would change the match editor's
-form (`AdminEditSpielDataForm.tsx :: AdminEditSpielDataForm`), the schemas, and possibly logic and UI
-elements **across the board**.
+form
+(`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx :: AdminEditSpielDataForm`),
+the schemas, and possibly logic and UI elements **across the board**.
 
 The Zod mirror is not a fourth place to keep in step by hand: it is checked against the published
 document, so one that falls behind `datum`'s new shape is a gate failure naming the field.
@@ -1644,7 +1815,7 @@ harder, and the intent (a fixture whose play window includes today is found by t
 and labelled `heute`) is what the range arithmetic has to preserve. Working it re-derives both
 definitions under ranges.
 
-### 33 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
+### 36 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -1712,7 +1883,7 @@ log-injection risk and must be validated or replaced the same way.
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
 
-### 34 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
+### 37 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -1750,7 +1921,7 @@ markers are absent rather than misleading, and every other editor already says w
 its required fields and the rail's Hinweise. Its cost is the per-entity ruling, and that cost does
 not grow while it waits.
 
-### 35 · BE-12 — No retention sweep selects a retired row on its age
+### 38 · BE-12 — No retention sweep selects a retired row on its age
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -1800,7 +1971,7 @@ draw — by a confirmed replace that writes fresh ones in the same transaction (
 an undraw that writes none back (`REQ-SPIELPLAN-006`) — so none of them can accumulate a row a purge
 would have to find.
 
-### 36 · BE-25 — A club's street address is served to an anonymous caller
+### 39 · BE-25 — A club's street address is served to an anonymous caller
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -1825,7 +1996,7 @@ caller rendering none of them. Either the list shape is narrowed the way the sta
 the reasoning is written down as not applying here. **Leaving it unstated is the thing to avoid**,
 because the next reader re-derives it from scratch.
 
-### 37 · BE-26 — Two rule summaries name a fixture state the code excludes
+### 40 · BE-26 — Two rule summaries name a fixture state the code excludes
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -1860,7 +2031,7 @@ words the same membership, so the register states both readings and matches the 
 them. The constant's own comment argues that a called-off fixture is one that never took place,
 which points at the summaries; that remains a domain call rather than a recorded decision.
 
-### 38 · BE-24 — An unnarrowed squad read scans an unindexed collection to learn what it may not serve
+### 41 · BE-24 — An unnarrowed squad read scans an unindexed collection to learn what it may not serve
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -1900,7 +2071,7 @@ What pays is a caller reaching the API directly.
 `LIST_LIMIT_DEFAULT` and raises where it gets it, because a truncated set narrows on fewer seasons than
 exist ([`docs/backend/spec.md`](../backend/spec.md) I45).
 
-### 39 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
+### 42 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1930,7 +2101,41 @@ I rejected is that the framework may omit the value on some render path, which n
 is what a reader has to decide about every time this function is edited, and this function is what
 every season-scoped page opens with.
 
-### 40 · BE-7 — `typing` imports instead of `collections.abc`
+### 43 · FE-32 — A banner's id names a derivation its own sentence does not state
+
+**Status:** Open\
+**Surfaces:** FE\
+**Effort:** S\
+**Path:** Independent — the rename is three sites inside the venue slice.
+
+**`spielort.maps-link-derived` is raised whenever a venue's name or its address differs from what is
+stored, and what it tells the reader is that every match at that venue changes with it**
+(`fl_frontend/src/features/spielorte/components/forms/AdminSpielortEditForm/banners.ts :: buildSpielortBanners`).
+The sentence names the consequence — fixtures long since played will show the new name and lead to
+the new address — and states no derivation at all. Nothing a reader sees mentions a map link, and the
+banner also fires on a plain rename, which the words `maps-link` do not cover either.
+
+**The derivation the id names is real and lives elsewhere.** `maps_link` is composed server-side from
+the venue's name and its address, as [`docs/glossary.md`](../glossary.md)'s `Spielort` entry records.
+So the id is a true statement about the backend and a false description of the banner — the
+failure a stable id exists to prevent, since the id is the handle a maintainer greps for and it now
+leads to a rule about a different field.
+
+**What a rename costs, measured 2026-08-26.** Three sites, all inside the slice: the
+`SpielortBannerId` union, the object literal, and one assertion in the module's own tests. Nothing
+else keys on it — a banner id is a React key and a `supersedes` target
+(`fl_frontend/src/shared/components/ui/railBanner.ts :: RailBanner`), never persisted, never in a URL,
+never sent to the API, and no page under `/docs` outside `docs/audit/` names this one. The six sibling
+banner modules share the type's shape and none of its values, so none of them moves.
+
+**`docs/audit/` stays out of scope**, for the reason **FE-23** gives: those pages quote what stood
+when they were written, so rewriting an id there falsifies a record instead of correcting a claim.
+
+**What ranks it last among the open items.** No reader is misled and no behaviour is wrong. The cost
+of leaving it is one maintainer's minute in a module that is read whenever a venue's banners change,
+and that is less than every entry above it.
+
+### 44 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -1943,7 +2148,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 41 · BE-14 — The certainty walk gives up in a group of six or more
+### 45 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\

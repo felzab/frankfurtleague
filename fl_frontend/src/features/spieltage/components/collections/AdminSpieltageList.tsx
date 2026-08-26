@@ -3,7 +3,7 @@
 import { memo } from "react";
 import Link from "next/link";
 
-import { Globe, Pencil } from "@gravity-ui/icons";
+import { Calendar, Globe, Pencil } from "@gravity-ui/icons";
 
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
@@ -14,8 +14,16 @@ import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSpieltagRow } from "../../types";
 import type { SpieltagPhaseProgress } from "../../utils";
+
+// An empty season names where its matchdays come from, because no control on this page makes one.
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: "Keine Spieltage für diese Suche.",
+  filtered: "Keine Spieltage für diese Filter.",
+  none: "Für diese Saison gibt es noch keine Spieltage. Sie entstehen zusammen mit dem Spielplan.",
+};
 
 /**
  * The season's matchdays, sectioned by phase in the order they are played — **which arrives correct
@@ -23,13 +31,14 @@ import type { SpieltagPhaseProgress } from "../../utils";
  * plain list has no react-aria collection to keep alive.
  */
 export const AdminSpieltageList = memo(function AdminSpieltageList({
-  spieltageQuery,
   filteredSpieltage,
+  emptiness,
   saisonId,
   phaseProgress,
 }: {
-  spieltageQuery: string;
   filteredSpieltage: AdminSpieltagRow[];
+  /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
   /** The season the list is showing, for the outbound Spielplan link. Null where no season exists. */
   saisonId: string | null;
   /** Each phase's matchday count against what the season's rules imply. Absent where no season is. */
@@ -73,11 +82,22 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       return <span className="muted-meta">{shownCount === 1 ? "1 Spieltag" : `${String(shownCount)} Spieltage`}</span>;
     }
 
-    // The noun agrees with the EXPECTED count, the number it belongs to: „1 von 1 Spieltag“.
+    // The second number earns attention only where it disagrees: `erwartet` is derived per read from
+    // the season's rules, so agreement is the ordinary season, and repeating the count on every
+    // healthy heading spends what the divergence needs.
+    if (progress.angelegt === progress.erwartet) {
+      return (
+        <span className="fluid-xs text-foreground-muted font-medium">
+          {progress.angelegt === 1 ? "1 Spieltag" : `${String(progress.angelegt)} Spieltage`}
+        </span>
+      );
+    }
+
+    // The noun agrees with the EXPECTED count, the number it belongs to: „2 von 1 Spieltag“.
     const noun = progress.erwartet === 1 ? "Spieltag" : "Spieltagen";
 
     return (
-      <span className={`fluid-xs font-medium ${progress.angelegt === progress.erwartet ? "text-foreground-muted" : "text-warning-strong"}`}>
+      <span className="fluid-xs text-warning-strong font-medium">
         {progress.angelegt} von {progress.erwartet} {noun}
       </span>
     );
@@ -106,6 +126,19 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
 
   const renderActions = (spieltag: AdminSpieltagRow) => (
     <RowActions>
+      {/* `spieltag` as `buildSpielFacets` declares it: `phase` would answer with the whole group stage
+          for a Gruppenphase row. The season rides along because the search is scoped to one, and the
+          row's own is the season its fixtures are in. */}
+      <RowActionLink
+        href={`/admin/spielsuche?spieltag=${spieltag.id}&saison_id=${encodeURIComponent(spieltag.saison_id)}`}
+        label="Spiele anzeigen"
+        ariaLabel={`${spieltag.label}: Spiele anzeigen`}>
+        <Calendar
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
       {/* A link rather than a press: the matchday form edits on a page, so the pencil is
           a navigation and the shared view renders no edit overlay. */}
       <RowActionLink
@@ -124,13 +157,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   if (filteredSpieltage.length === 0) {
     return (
       <div className={`${card()} flex w-full flex-col items-center justify-center gap-3 py-16 text-center`}>
-        {/* Two different facts: a search that matched nothing, and a season whose rounds do not exist
-            yet. The second names where they come from, because no control on this page makes one. */}
-        <p className="muted-hint">
-          {spieltageQuery
-            ? "Keine Spieltage für diese Suche gefunden."
-            : "Für diese Saison gibt es noch keine Spieltage. Sie entstehen zusammen mit dem Spielplan."}
-        </p>
+        <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
       </div>
     );
   }

@@ -2,7 +2,7 @@
 
 import { Calendar, DateField, DatePicker, FieldError, ListBox, NumberField, Select } from "@heroui/react";
 
-import { TIEBREAK_ORDER_OPTIONS, tiebreakHint, tiebreakLabel } from "@/features/saisons/constants";
+import { TIEBREAK_LADDER_TAIL, TIEBREAK_ORDER_OPTIONS, tiebreakLabel, tiebreakLadder } from "@/features/saisons/constants";
 import {
   DATE_PICKER_CALENDAR,
   DATE_PICKER_PLACEMENT,
@@ -10,9 +10,10 @@ import {
   FIELD_COUNT_INPUT,
   FIELD_ERROR,
   FIELD_GROUP,
+  FIELD_MARKER,
   FIELD_TRIGGER,
 } from "@/shared/components/ui/formFieldStyles";
-import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { overlayPanel, SELECT_POPOVER } from "@/shared/components/ui/overlayPanel";
 
 import type { FLSaisonTiebreakOrder } from "@/features/saisons/schemas";
 import type { Key } from "@heroui/react";
@@ -182,7 +183,7 @@ export function SaisonTiebreakSelect({
       isRequired
       name={name}
       isDisabled={isDisabled}
-      aria-label="Bei Punktgleichheit entscheidet"
+      aria-label="Tiebreak"
       value={value}
       onChange={(key: Key | null) => {
         if (!key) return;
@@ -198,18 +199,36 @@ export function SaisonTiebreakSelect({
       </Select.Trigger>
       <FieldError className={FIELD_ERROR} />
       {/* Standing under the closed picker rather than in a hint: which figure leads is the whole of
-          what this field decides, and the trigger shows only the criterion's name. */}
-      <p className="fluid-xxs text-foreground-muted mt-1 font-medium">{tiebreakHint(value)}</p>
-      <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
-        <ListBox aria-label="Reihenfolge bei Punktgleichheit">
+          what this field decides, and the trigger shows only the criterion's name. The WHOLE chain,
+          because the two options are the same three rungs in a different order, so a sentence naming
+          only the leader leaves a reader comparing one word against one word. */}
+      <ol className="mt-2 flex w-full flex-col gap-y-1.5">
+        {tiebreakLadder(value).map((rung, index) => (
+          // Keyed on the criterion, which appears once per chain.
+          <li
+            key={rung.label}
+            className="flex w-full flex-row items-start gap-x-2">
+            <span className={`${FIELD_MARKER} bg-muted text-foreground-muted fluid-xxs font-extrabold`}>{index + 1}</span>
+            <span className="flex flex-col gap-y-0.5 pt-0.5">
+              <span className="fluid-xxs text-foreground font-bold">{rung.label}</span>
+              {rung.caveat !== null && <span className="fluid-xxs text-foreground-muted font-medium">{rung.caveat}</span>}
+            </span>
+          </li>
+        ))}
+      </ol>
+      {/* Outside the list: the chain ENDS, and a fourth numbered rung would read as a fourth criterion. */}
+      <p className="fluid-xxs text-foreground-muted mt-1.5 font-medium">{TIEBREAK_LADDER_TAIL}</p>
+      <Select.Popover className={SELECT_POPOVER}>
+        <ListBox aria-label="Tiebreak auswählen">
           {TIEBREAK_ORDER_OPTIONS.map((option) => (
+            // No description beside the label: the two names say exactly what differs between them,
+            // and the chain each one produces stands under the trigger.
             <ListBox.Item
               key={option.value}
               id={option.value}
               textValue={option.label}
-              className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-col items-start gap-y-0.5 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+              className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
               {option.label}
-              <span className="fluid-xs text-foreground-muted font-semibold">{option.hint}</span>
             </ListBox.Item>
           ))}
         </ListBox>

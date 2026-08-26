@@ -8,7 +8,7 @@ import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminS
 import { orderStufen } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
 import { resolveSpielerId } from "@/features/spieler/resolvers";
-import { collectTakenSquadNummern } from "@/features/spieler/utils";
+import { collectHeldRollen, collectTakenSquadNummern } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
@@ -73,7 +73,7 @@ async function AdminSpielerEditContent({
             position: membership.position,
             stufe: membership.stufe,
             is_nachgetragen: membership.is_nachgetragen,
-            is_captain: membership.is_captain,
+            rolle: membership.rolle,
             inactive_since: membership.inactive_since,
           },
   };
@@ -82,10 +82,20 @@ async function AdminSpielerEditContent({
   // The edited player's own rows are excluded — their own shirt is not held against them.
   const takenNummern = collectTakenSquadNummern({ spieler: membershipsRes.spieler, saisonId: selectedSaison.id, exceptSpielerId: spielerId });
 
+  // Who leads each team this season, so the editor offers no role the write path would refuse
+  // (`REQ-SQUAD-004`). The edited player's own row is excluded: their role is not held against them.
+  const heldRollen = collectHeldRollen({ spieler: membershipsRes.spieler, saisonId: selectedSaison.id, exceptSpielerId: spielerId });
+
   // The picker offers the selected season's teams only: a transfer is meaningful within it alone.
   const teams: SpielerTeamOption[] = teamsRes.teams
     .filter((team) => team.memberships.some((candidate) => candidate.saison_id === selectedSaison.id))
-    .map((team) => ({ teamId: team.id, name: team.name, shorthand: team.shorthand, takenNummern: takenNummern[team.id] ?? [] }));
+    .map((team) => ({
+      teamId: team.id,
+      name: team.name,
+      shorthand: team.shorthand,
+      takenNummern: takenNummern[team.id] ?? [],
+      heldRollen: heldRollen[team.id] ?? {},
+    }));
 
   return (
     // Keyed by the state the drafts mirror, for the match editor's reason.

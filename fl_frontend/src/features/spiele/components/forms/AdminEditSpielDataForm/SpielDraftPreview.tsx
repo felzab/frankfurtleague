@@ -56,7 +56,7 @@ export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpi
         <span className="fluid-xs text-foreground min-w-0 truncate text-left font-bold">{team2Name}</span>
       </div>
 
-      {isAwaitingForfeit && <p className="muted-meta text-center">Wird beim Speichern nach den Regeln der Saison gewertet.</p>}
+      {isAwaitingForfeit && <p className="muted-meta text-center">Das Ergebnis steht erst nach dem Speichern fest.</p>}
 
       <dl className="flex w-full flex-col gap-y-1">
         <div className="flex flex-row items-baseline justify-between gap-x-3">

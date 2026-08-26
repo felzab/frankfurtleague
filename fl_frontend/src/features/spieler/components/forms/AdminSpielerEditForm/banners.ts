@@ -11,9 +11,10 @@ export type SpielerBannerId =
   | "spieler.nachgetragen"
   | "spieler.entry-nachgetragen"
   | "spieler.team-changed"
-  | "spieler.nummer-geteilt";
+  | "spieler.nummer-geteilt"
+  | "spieler.rolle-vergeben";
 
-export type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "austragen";
+export type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "kader-rolle" | "austragen";
 
 export type SpielerBanner = RailBanner<SpielerBannerId> & { inline: SpielerBannerSpot | null };
 
@@ -28,6 +29,7 @@ export function buildSpielerBanners({
   isNachgetragen,
   isTeamChanged,
   newlySharedNummer,
+  blockedRolle,
 }: {
   isRetired: boolean;
   saisonId: string;
@@ -41,6 +43,8 @@ export function buildSpielerBanners({
   isTeamChanged: boolean;
   /** The shirt this draft would put a SECOND wearer on, or `null` — never a number already shared. */
   newlySharedNummer: string | null;
+  /** A role the DRAFT's team has already given away, with the label and the holder, or `null`. */
+  blockedRolle: { label: string; heldBy: string } | null;
 }): readonly SpielerBanner[] {
   const banners: SpielerBanner[] = [];
 
@@ -48,8 +52,8 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.retired",
       severity: "info",
-      title: "Dieser Spieler erscheint in keiner Auswahlliste",
-      body: "Seine Kadereinträge bleiben bestehen; reaktivieren kannst Du ihn über den Kopf der Seite.",
+      title: "Dieser Spieler steht nicht mehr zur Auswahl",
+      body: "Seine Kadereinträge bleiben bestehen. Reaktivieren kannst Du ihn oben auf dieser Seite.",
       inline: null,
     });
   }
@@ -59,7 +63,7 @@ export function buildSpielerBanners({
       id: "spieler.not-in-kader-entry",
       severity: "info",
       title: `In Saison ${saisonId} erscheint dieser Spieler auf keiner Seite`,
-      body: "Wähle unten ein Team und nimm ihn auf; Nummer, Position und Stufe kannst Du danach jederzeit ergänzen.",
+      body: "Wähle unten ein Team und nimm ihn auf.",
       inline: "kader-eintritt",
     });
 
@@ -69,7 +73,7 @@ export function buildSpielerBanners({
         id: "spieler.entry-nachgetragen",
         severity: "info",
         title: "Wird als nachgetragen markiert",
-        body: `Die Saison ${saisonId} läuft bereits, der Eintrag wird deshalb als nachgetragen gekennzeichnet.`,
+        body: `Die Saison ${saisonId} läuft bereits.`,
         inline: "kader-nachgetragen",
       });
     }
@@ -83,7 +87,7 @@ export function buildSpielerBanners({
       // The promise splits where the reactivate does: it names the row's STORED club, and a
       // replacement can have taken that club out of the season since the row was written.
       body: isRowTeamInSaison
-        ? `Der Spieler zählt in der Saison ${saisonId} zu keinem Kader. Nummer, Position und Stufe sind gespeichert und kehren beim Reaktivieren zurück.`
+        ? "Nummer, Position und Stufe sind gespeichert und kehren beim Reaktivieren zurück."
         : `Das Team dieses Kadereintrags ist in der Saison ${saisonId} nicht mehr dabei. Nummer, Position und Stufe bleiben gespeichert. ${REACTIVATION_NEEDS_A_TEAM_IN_SAISON}`,
       inline: "austragen",
     });
@@ -93,7 +97,7 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.nachgetragen",
       severity: "info",
-      title: "Dieser Eintrag ist als nachgetragen gekennzeichnet",
+      title: "Dieser Eintrag ist nachgetragen",
       body: `Der Spieler kam erst nach dem Start der Saison ${saisonId} dazu.`,
       inline: null,
     });
@@ -120,6 +124,16 @@ export function buildSpielerBanners({
         `Im gewählten Kader trägt bereits jemand die Nummer ${newlySharedNummer}. Das ist erlaubt. ` +
         `Beide erscheinen in der Saison ${saisonId} mit ihr auf den öffentlichen Seiten.`,
       inline: null,
+    });
+  }
+
+  if (blockedRolle !== null) {
+    banners.push({
+      id: "spieler.rolle-vergeben",
+      severity: "info",
+      title: `${blockedRolle.label} ist im gewählten Team schon vergeben`,
+      body: `In der Saison ${saisonId} hat ${blockedRolle.heldBy} diese Rolle. Nimm sie dort zuerst ab, wenn Du sie hier vergeben willst.`,
+      inline: "kader-rolle",
     });
   }
 

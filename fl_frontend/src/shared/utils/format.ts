@@ -8,8 +8,11 @@ export const PLACEHOLDER = {
   datum: "TBD",
   uhrzeit: "--:--",
   ergebnis: "-:-",
-  /** Names of absent related entities — a venue or referee that was never assigned. */
-  entity: "/",
+  /**
+   * A related entity nobody assigned, a venue or a referee. Named in words, `docs/frontend/spec.md` §1.12 ruling out a
+   * lone glyph, and generic rather than `Ohne Ort`: both call sites stand under a heading already naming the entity.
+   */
+  entity: "Keine Angabe",
   /** A fixture side with no occupant and no provenance label. A bracket slot that knows where its team comes from shows that. */
   slot: "Noch offen",
 } as const;

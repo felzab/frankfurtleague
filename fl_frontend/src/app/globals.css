@@ -517,6 +517,13 @@ input[placeholder]::placeholder {
   text-overflow: ellipsis;
 }
 
+/* A UA may treat `text-overflow: ellipsis` as `clip` while a field is focused (CSS
+   Overflow 3 §5.1), hard-cutting an over-long placeholder. `:placeholder-shown` is
+   what keeps the fade off a value somebody typed. */
+input:focus:placeholder-shown {
+  mask-image: linear-gradient(to right, #000 85%, transparent);
+}
+
 /* AN EMPTY SEARCH FIELD GIVES ITS WHOLE WIDTH TO THE PLACEHOLDER. HeroUI only
    fades its clear control out, leaving 48px of a 122px chrome budget in flow.
    `display` is what reclaims it; `visibility` would leave the gap standing. */

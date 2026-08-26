@@ -34,7 +34,9 @@ describe("buildSaisonBanners", () => {
   it("carries both live-season consequences in one entry, since neither follows from the other", () => {
     const [banner] = build({ saisonStatus: "active" });
 
-    assert.match(banner?.body ?? "", /keine Saison auswählt/);
+    // The site-wide reach rides in the title and the retroactive one in the body, so the pair is
+    // what proves the entry was not split; neither regex pins a wording beyond its own fact.
+    assert.match(banner?.title ?? "", /ganzen Seite/);
     assert.match(banner?.body ?? "", /längst gespielte Spiele/);
   });
 

@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Description, ListBox, Select } from "@heroui/react";
 
-import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { SELECT_POPOVER } from "@/shared/components/ui/overlayPanel";
 import { SaisonSlotSkeleton } from "@/shared/components/ui/SaisonSlotSkeleton";
 import { useMounted } from "@/shared/hooks/useMounted";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
@@ -95,7 +95,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
           <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
         </Select.Trigger>
 
-        <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
+        <Select.Popover className={SELECT_POPOVER}>
           <ListBox aria-label="Verfügbare Saisons">
             {saisons.map((saison) => (
               <ListBox.Item

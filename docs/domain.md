@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `d1fc5f37`, 2026-08-26
+**Verified against:** `f6073b6f`, 2026-08-26
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
@@ -206,8 +206,9 @@ against the `$jsonSchema` validators.
 There are three answers here, and a field can be under more than one of them.
 
 - **Frozen once the season is `past`** (`fl_backend/app/api/saisons/services.py :: FROZEN_RULES_FIELDS`,
-  `REQ-RULES-005`) — the league table is scored from these on every read and nothing records what they said
-  before.
+  `REQ-RULES-005`) — a finished season's table is derived from these on every read, the order
+  clubs level on points come out in and the qualifying cut marked across it included, and nothing
+  records what they said before.
 - **Frozen once the season's fixtures are drawn** (`:: SHAPE_RULES_FIELDS`, `REQ-RULES-011`) — the numbers
   the fixture list was generated from, fixed in either direction from the moment the season holds a fixture
   at all. Raising one of them is what nothing else refuses, and it would leave every matchday expecting

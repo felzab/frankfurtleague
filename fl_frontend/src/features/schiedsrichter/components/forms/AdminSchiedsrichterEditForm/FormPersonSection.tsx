@@ -5,7 +5,7 @@ import { FieldError, Input, TextField } from "@heroui/react";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 
 /**
  * The name fans out and the school does not: the patch rewrites the embedded `schiedsrichter.name`
@@ -32,15 +32,15 @@ export function FormPersonSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Person
-          <InfoHint label="Hinweis zu den Personendaten">
-            <p>Wer der Schiedsrichter ist.</p>
-            <ul>
-              <li>
-                Eine Korrektur gilt <strong>für jedes Spiel</strong>, das ihn nennt, auch für längst gespielte.
-              </li>
-              <li>Schule oder Verein ist freiwillig und steht auf keiner öffentlichen Seite.</li>
-            </ul>
-          </InfoHint>
+          {/* The rename's consequence is the rail banner's, which fires the moment the name is edited. */}
+          <Hint
+            mode="reveal"
+            label="Hinweis zu den Personendaten"
+            body={{
+              lead: "Wer der Schiedsrichter ist.",
+              points: [{ term: "Der Name", text: "steht in jedem Spiel, für das er eingeteilt ist." }],
+            }}
+          />
         </h2>
       </div>
 

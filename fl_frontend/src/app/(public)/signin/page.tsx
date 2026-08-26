@@ -9,7 +9,7 @@ import type { Metadata } from "next";
  */
 export const metadata: Metadata = {
   title: "Anmelden",
-  description: "Anmeldung zum Administrationsbereich der Frankfurt-League.",
+  description: "Anmeldung zur Verwaltung der Frankfurt-League.",
   robots: { index: false, follow: false },
   openGraph: openGraphFor("/signin"),
   alternates: { canonical: "/signin" },

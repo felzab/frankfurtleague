@@ -3,7 +3,7 @@
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
 import type { FLAddress } from "@/shared/schemas";
@@ -32,15 +32,14 @@ export function FormAdresseSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Adresse
-          <InfoHint label="Hinweis zur Adresse">
-            <p>Wohin die Karte an jedem Spiel hier führt.</p>
-            <ul>
-              <li>
-                Eine Korrektur gilt <strong>für jedes Spiel hier</strong>, auch für längst gespielte.
-              </li>
-              <li>Der Stadtteil ist freiwillig und hilft nur beim Suchen in der Spielort-Liste.</li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zur Adresse"
+            body={{
+              lead: "Wohin die Karte bei jedem Spiel führt.",
+              points: [{ term: "Nach dem Stadtteil", text: "kannst Du in der Spielort-Liste suchen." }],
+            }}
+          />
         </h2>
       </div>
 

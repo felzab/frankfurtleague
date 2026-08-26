@@ -14,7 +14,7 @@ export function MetaTeamView() {
     <div className={`${PAGE_RISE} max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8`}>
       <div className="flex flex-col items-center px-2 text-center">
         <h1 className="fluid-2xl lg:fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">Frankfurt-League Team</h1>
-        <p className="fluid-sm sm:fluid-sm text-field-fg/80 mt-2 font-medium">Wer das Event möglich macht.</p>
+        <p className="fluid-sm sm:fluid-sm text-field-fg/80 mt-2 font-medium">Wer die Liga möglich macht.</p>
       </div>
 
       <div className="soccer-field-separator w-full" />
@@ -27,8 +27,7 @@ export function MetaTeamView() {
 
         <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-4 shadow-xl sm:p-6 lg:p-8">
           <p className="fluid-xs sm:fluid-sm text-field-fg/95 leading-relaxed font-medium text-pretty">
-            Das Team hinter der Frankfurt-League. Hier lernst Du die Personen kennen, die die Frankfurt-League am Laufen halten und erfährst,
-            wer für was zuständig ist.
+            Alle hier sind Schülerinnen, Schüler und Helfer, die die Liga ehrenamtlich am Laufen halten.
           </p>
         </div>
       </section>

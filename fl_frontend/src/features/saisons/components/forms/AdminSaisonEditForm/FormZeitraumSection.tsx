@@ -6,7 +6,7 @@ import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormC
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
 import type { SaisonSpieltagBound } from "@/features/saisons/types";
@@ -52,21 +52,17 @@ export function FormZeitraumSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Zeitraum
-          <InfoHint label="Hinweis zum Zeitraum">
-            <p>Der Zeitraum umschließt die Spieltage der Saison.</p>
-            <ul>
-              <li>
-                Alle <strong>Spieltage mit Zeitraum</strong> müssen in der Saison liegen. Tage, die einen solchen Spieltag ausschließen würden,
-                sind im Kalender gesperrt.
-              </li>
-              <li>
-                Ein <strong>Spiel</strong> richtet sich nach seinem Spieltag, nicht direkt nach der Saison.
-              </li>
-              <li>
-                Die Umstellung auf eine neue Saison passiert <strong>von Hand</strong>, nicht am Enddatum.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Zeitraum"
+            body={{
+              lead: "Der Zeitraum umschließt die Spieltage der Saison.",
+              points: [
+                { term: "Ein Spiel", text: "richtet sich nach seinem Spieltag, nicht nach der Saison." },
+                { term: "Auf eine neue Saison", text: "stellst Du von Hand um." },
+              ],
+            }}
+          />
         </h2>
       </div>
 

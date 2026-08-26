@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { RECORDED_FACTS_NONE } from "./constants";
@@ -54,9 +55,8 @@ const FORFEIT_CANNOT_DECIDE =
  * down to the odd one and a smaller number does not always buy a day back.
  */
 const SPAN_BELOW_SCHEDULE =
-  "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben: je ein Spieltag für jede Runde " +
-  "der Gruppenphase und für jede KO-Runde. Zwei Spieltage dürfen nicht auf denselben Tag fallen. Verlege das Enddatum nach " +
-  "hinten oder das Startdatum nach vorne. Das hilft in jedem Fall.";
+  "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben. Verlege das Enddatum nach " +
+  "hinten oder das Startdatum nach vorne; das hilft in jedem Fall.";
 
 /** A stored-rules fault as the generator must report it: the rule, then where it is repaired. */
 const rulesFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Regeln und speichere sie.`;
@@ -103,7 +103,7 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     case "REQ-RULES-005":
       return {
         error:
-          "Diese Saison ist abgeschlossen, deshalb sind Punkte, die Reihenfolge bei Punktgleichheit und die Qualifikanten festgeschrieben. " +
+          "Diese Saison ist abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten festgeschrieben. " +
           "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar.",
       };
     // A bare message, the shape `REQ-RULES-005` uses: the two freezes refuse the same class of edit
@@ -261,7 +261,7 @@ export async function postSaisonAction(
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: "Beim Anlegen der neuen Saison ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
     // A create lands `future`, so nothing resolving the current season moves. Only the list does.
@@ -270,7 +270,7 @@ export async function postSaisonAction(
     return {
       success: true,
       created_id: postOperation.created_id,
-      message: `Saison ${postOperation.created_id} angelegt. Sie ist geplant, noch nicht aktiv.`,
+      message: `Saison ${postOperation.created_id} angelegt. Zur laufenden Saison wird sie erst mit der Umstellung.`,
     };
   });
 }
@@ -305,7 +305,7 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
     }
 
     if (!patchOperation.acknowledged) {
-      return { success: false, error: "Bei der Bearbeitung der Saison ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht gespeichert", repair: "Versuche es erneut" }) };
     }
 
     invalidateSaisonAndTable();
@@ -313,7 +313,7 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
     return {
       success: true,
       saison: patchOperation,
-      message: "Saison gespeichert!",
+      message: "Saison gespeichert",
     };
   });
 }
@@ -357,9 +357,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
         if (error.serverErrorCode === "REQ-ACTIVATE-002") {
           return {
             success: false,
-            error:
-              "Diese Saison ist inzwischen abgeschlossen und wird nicht wieder zur laufenden Saison: Die Punkte, die Gruppen und die Tabelle " +
-              "daraus halten fest, was gespielt wurde. Der Abschluss lässt sich in der Verwaltung nicht zurücknehmen. Lade die Seite neu.",
+            error: "Diese Saison ist inzwischen abgeschlossen und wird nicht wieder zur laufenden Saison. Lade die Seite neu.",
           };
         }
         if (error.serverErrorCode === "REQ-ACTIVATE-003") {
@@ -374,7 +372,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
     }
 
     if (!activateOperation.acknowledged) {
-      return { success: false, error: "Bei der Umstellung der Saison ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht umgestellt", repair: "Versuche es erneut" }) };
     }
 
     invalidateRollover();
@@ -466,7 +464,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
     }
 
     if (!swapOperation.acknowledged) {
-      return { success: false, error: "Beim Tausch der Gruppen ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Gruppen wurden nicht getauscht", repair: "Versuche es erneut" }) };
     }
 
     // Both layers: the base tag serves reads that named no season, the granular one those that named
@@ -527,7 +525,7 @@ export async function generateSpielplanAction(rawPayload: FLGenerateSpielplanPay
     }
 
     if (!generateOperation.acknowledged) {
-      return { success: false, error: "Beim Anlegen des Spielplans ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
     invalidateSpielplan(validated.data.id);
@@ -589,7 +587,7 @@ export async function undrawSpielplanAction(rawPayload: FLUndrawSpielplanPayload
     }
 
     if (!undrawOperation.acknowledged) {
-      return { success: false, error: "Beim Zurücknehmen des Spielplans ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht zurückgenommen", repair: "Versuche es erneut" }) };
     }
 
     // The draw's tag set, this removing exactly what that write created.

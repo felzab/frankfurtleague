@@ -19,10 +19,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
   if (!spielplanData.spieltage.length) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
-        <EmptyState
-          title="Für diese Saison steht noch kein Spielplan fest."
-          hint="Sobald die Spieltage angelegt sind, erscheinen sie hier."
-        />
+        <EmptyState title="Noch kein Spielplan" />
       </div>
     );
   }

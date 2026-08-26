@@ -6,6 +6,7 @@ import { Button, Form } from "@heroui/react";
 
 import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { formButton, MODAL_FOOTER_ROW } from "./formButtons";
 import { runOnSubmit } from "./formSubmit";
@@ -41,13 +42,9 @@ export function EntityForm<TDraft>({
 }) {
   const [isPending, startTransition] = useTransition();
   const [draft, setDraft] = useState<TDraft>(initialDraft);
-  // Without this the submit fails in silence, because the toast below is suppressed whenever `fieldErrors`
-  // is non-empty and no field renders the rejected path.
-  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() =>
-    appToast.danger("Speichern fehlgeschlagen", {
-      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-    }),
-  );
+  // The hook's own toast is what keeps the submit from failing in silence: the one below is suppressed
+  // whenever `fieldErrors` is non-empty and no field renders the rejected path.
+  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors();
 
   const handleSubmit = () => {
     startTransition(async () => {
@@ -59,7 +56,7 @@ export function EntityForm<TDraft>({
         // A field-level rejection already speaks at the field; the toast is for a failure belonging to none.
         if (!hasFieldErrors(res.fieldErrors)) {
           appToast.danger("Speichern fehlgeschlagen", {
-            description: res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.",
+            description: res.error || res.message || UNKNOWN_REFUSAL,
           });
         }
         return;

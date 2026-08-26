@@ -4,12 +4,13 @@ import { getAdminSession } from "@/core/auth";
 import { logger } from "@/core/logging";
 
 import { ADMIN_FORBIDDEN, runAdminMutation } from "./adminMutation";
+import { buildRefusal } from "./refusal";
 
 import type { NextRequest } from "next/server";
 import type { ZodType } from "zod";
 
 const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
-const UNDO_UNREADABLE = "Die Rücknahme konnte nicht ausgeführt werden.";
+const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });
 
 type UndoRoute<TPayload> = {
   mutationName: string;

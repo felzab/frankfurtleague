@@ -128,7 +128,9 @@ describe("the anonymisation's copy", () => {
     const warning = /guardAgainstDraft\(\s*isDirty,\s*"([^"]*)"/.exec(EDIT_FORM)?.[1] ?? "";
 
     assert.notEqual(warning, "", "the guard no longer warns at all");
-    assert.match(warning, /verwerfen|verworfen/, "the guard does not say the unsaved changes are lost");
+    // Three inflections of one verb: which one a sentence takes is its grammar rather than its meaning, and the
+    // season editor's guard reaches for a different one than this editor does.
+    assert.match(warning, /verwirft|verwerfen|verworfen/, "the guard does not say the unsaved changes are lost");
     assert.doesNotMatch(warning, /zurück|wieder ein/, "the guard describes a write-back the page's key rules out");
   });
 

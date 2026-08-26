@@ -37,7 +37,7 @@ export function RecentAndUpcomingSpieleGridSkeleton() {
     <section className="flex w-full flex-col gap-14 pb-10">
       <div className="flex w-full flex-col">
         <SectionHeader
-          eyebrow="Matchdays"
+          eyebrow="Demnächst"
           title="Nächste Begegnungen"
         />
         <SpielCardSkeletonGrid />
@@ -63,7 +63,7 @@ function SectionBody({ res, today, emptyTitle }: { res: FLSpieleListResponse | n
     return (
       <EmptyState
         title="Spieldaten konnten nicht geladen werden."
-        hint="Der Server hat nicht geantwortet. Lade die Seite neu, um es erneut zu versuchen."
+        hint="Lade die Seite neu."
         className={SECTION_MIN_HEIGHT}
       />
     );
@@ -104,7 +104,7 @@ export async function RecentAndUpcomingSpieleGrid() {
     <section className="flex w-full flex-col gap-14 pb-10">
       <div className="flex w-full flex-col">
         <SectionHeader
-          eyebrow="Matchdays"
+          eyebrow="Demnächst"
           title="Nächste Begegnungen"
         />
         <SectionBody

@@ -1,6 +1,6 @@
 from typing import Any, Mapping, Sequence
 
-from app.api.spieler.schemas import FLEinwilligung, FLSpielerFilterParams
+from app.api.spieler.schemas import FLEinwilligung, FLSpielerFilterParams, FLSpielerRolle
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
@@ -142,7 +142,7 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
                             "position": 1,
                             "stufe": 1,
                             "is_nachgetragen": 1,
-                            "is_captain": 1,
+                            "rolle": 1,
                             "inactive_since": 1,
                         }
                     }
@@ -159,6 +159,10 @@ SQUAD_TEAM_NOT_IN_SAISON = "REQ-SQUAD-001"
 
 # What every code here refuses is `docs/logging/error-codes.md`.
 SQUAD_FULL = "REQ-SQUAD-003"
+
+# One code for both roles, as `REQ-BOOKING-001` covers a venue and a referee: this is one rule read
+# against two values rather than two failure modes.
+SQUAD_ROLLE_TAKEN = "REQ-SQUAD-004"
 
 # D60's precondition on the erasure: retirement is the reversible half of the same intent, and a
 # person still in the league is one somebody would notice missing.
@@ -243,6 +247,42 @@ def find_squad_capacity_refusal(*, squad_size: int, max_kadergroesse: int) -> Wr
         )
 
     return None
+
+
+def build_live_rolle_filter(
+    *, saison_id: str, team_id: CustomObjectId, rolle: FLSpielerRolle, excluding_spieler_id: CustomObjectId
+) -> Mapping[str, Any]:
+    """Which rows already hold `rolle` in this squad.
+
+    Retired rows are out, as they are for the cap: a player who left the squad is not leading it. The
+    writing player is out so a save that changes something else is not refused by their own armband.
+    """
+
+    return {
+        "saison_id": saison_id,
+        "team_id": team_id,
+        "rolle": rolle,
+        "inactive_since": None,
+        "spieler_id": {"$ne": excluding_spieler_id},
+    }
+
+
+def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> WriteRefusal | None:
+    """Why this squad role may not be given away, or `None`.
+
+    Its own function rather than a clause in `find_squad_refusal`, whose parameters are pinned to the
+    club question alone by `tests/core/test_unenforced.py :: TestASharedSquadNumber`.
+    """
+
+    # A row holding no role competes with nobody, which is what makes the rule at-most-one rather
+    # than exactly-one: a squad still being set up has neither.
+    if rolle is None or not taken:
+        return None
+
+    return WriteRefusal(
+        error_code=SQUAD_ROLLE_TAKEN,
+        message=f"another live squad row in this team already holds '{rolle}' for this season; a squad holds each role once",
+    )
 
 
 def find_erasure_refusal(*, inactive_since: str | None) -> WriteRefusal | None:

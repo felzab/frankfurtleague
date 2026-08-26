@@ -26,7 +26,7 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
       <div className="flex w-full flex-1 items-start justify-center p-6">
         <EmptyState
           title="Noch keine Finalrunden"
-          hint="Die Playoff-Paarungen werden festgelegt, sobald die Gruppenphase abgeschlossen ist."
+          hint="Die Paarungen stehen fest, sobald die Gruppenphase abgeschlossen ist."
         />
       </div>
     );

@@ -7,6 +7,7 @@ import { TrashBin, TriangleExclamation } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { formButton, MODAL_FOOTER_ROW } from "./formButtons";
 import { ModalShell } from "./ModalShell";
@@ -17,8 +18,10 @@ import type { ReactNode } from "react";
 type DeleteResult = { success: boolean; message?: string; error?: string };
 
 /**
- * **Every admin delete here retires a row rather than removing one**, so the verb and the escalation are the caller's.
- * Claiming a write is permanent when one press reverses it is the one thing a confirmation must not get wrong.
+ * **Every admin delete here retires a row rather than removing one**, so the verb and the consequence are the caller's while the
+ * reactivation promise is fixed. Claiming a write is permanent when one press reverses it is the one thing a confirmation must not get wrong,
+ * which is why there is no mode that says so. A write nothing reverses confirms in place through `ConfirmReveal` instead
+ * (`docs/frontend/spec.md :: I37`).
  */
 export function ConfirmDeleteModal({
   isOpen,
@@ -30,7 +33,6 @@ export function ConfirmDeleteModal({
   onConfirm,
   successMessage,
   verb = "stilllegen",
-  isPermanent = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -39,14 +41,12 @@ export function ConfirmDeleteModal({
   /** "den Spielort" — reads as "Möchtest Du {entityLabel} <name> wirklich {verb}?" */
   entityLabel: string;
   entityName: string;
-  /** The step-2 sentence after what `isPermanent` decides. */
+  /** The step-2 sentence after the reactivation promise. */
   consequence: ReactNode;
   onConfirm: () => Promise<DeleteResult>;
   successMessage: string;
-  /** The infinitive the question and the confirm button use. A caller that truly removes something passes `isPermanent` too. */
+  /** The infinitive the question and the confirm button use. */
   verb?: string;
-  /** Whether the write is irreversible. `false` makes the escalation say the row can be brought back. */
-  isPermanent?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
@@ -74,7 +74,7 @@ export function ConfirmDeleteModal({
       if (!res.success) {
         // The caller's own verb: a failure naming "Löschen" about a retirement names an action nobody asked for.
         appToast.danger(`${capitalized} fehlgeschlagen`, {
-          description: res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.",
+          description: res.error || res.message || UNKNOWN_REFUSAL,
         });
         return;
       }
@@ -122,19 +122,10 @@ export function ConfirmDeleteModal({
                 width={18}
                 height={18}
               />
-              Bist Du Dir wirklich sicher?
+              Bist Du Dir sicher?
             </div>
             <p className="fluid-sm text-foreground-muted leading-relaxed">
-              {isPermanent ? (
-                <>
-                  Diese Aktion kann <strong className="text-foreground">nicht</strong> rückgängig gemacht werden.{" "}
-                </>
-              ) : (
-                <>
-                  Der Eintrag lässt sich <strong className="text-foreground">jederzeit reaktivieren</strong>.{" "}
-                </>
-              )}
-              {consequence}
+              Der Eintrag lässt sich <strong className="text-foreground">jederzeit reaktivieren</strong>. {consequence}
             </p>
           </div>
         )}
@@ -156,8 +147,8 @@ export function ConfirmDeleteModal({
           isDisabled={isPending}
           className={formButton({ intent: "destructive" })}
           onPress={handleDelete}>
-          {/* Step 2's label escalates, so it says more than step 1's. "endgültig" belongs only to a final write. */}
-          {isPending ? "Speichert..." : confirmStep === 1 ? capitalized : isPermanent ? `Ja, endgültig ${verb}` : `Ja, ${verb}`}
+          {/* Step 2's label escalates, so it says more than step 1's. No "endgültig": every caller retires a row a reactivation brings back. */}
+          {isPending ? "Speichert..." : confirmStep === 1 ? capitalized : `Ja, ${verb}`}
         </Button>
       </div>
     </ModalShell>

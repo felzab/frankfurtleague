@@ -17,10 +17,13 @@ from app.api.spiele.services import (
 )
 from app.api.spieler.services import (
     SQUAD_FULL,
+    SQUAD_ROLLE_TAKEN,
     SQUAD_TEAM_NOT_IN_SAISON,
+    build_live_rolle_filter,
     build_live_squad_filter,
     find_squad_capacity_refusal,
     find_squad_refusal,
+    find_squad_rolle_refusal,
     normalised_nummer,
 )
 from app.api.spielorte.services import VENUE_STILL_BOOKED, find_venue_retire_refusal
@@ -430,3 +433,61 @@ class TestASquadCap:
         """
 
         assert set(inspect.signature(find_squad_capacity_refusal).parameters) == {"squad_size", "max_kadergroesse"}
+
+
+class TestASquadRolle:
+    """`REQ-SQUAD-004`: one Kapitaen and one Co-Kapitaen per squad, and no row can hold both at once."""
+
+    def test_a_row_holding_no_role_is_never_refused(self):
+        """What makes the rule at-most-one rather than exactly-one: a squad still being filled has neither role."""
+
+        assert find_squad_rolle_refusal(rolle=None, taken=False) is None
+        assert find_squad_rolle_refusal(rolle=None, taken=True) is None
+
+    @pytest.mark.parametrize("rolle", ["kapitaen", "co_kapitaen"])
+    def test_a_free_role_passes(self, rolle):
+        assert find_squad_rolle_refusal(rolle=rolle, taken=False) is None
+
+    @pytest.mark.parametrize("rolle", ["kapitaen", "co_kapitaen"])
+    def test_a_role_another_row_holds_is_refused(self, rolle):
+        """One code for both, as `REQ-BOOKING-001` covers a venue and a referee: one rule read against two values."""
+
+        refusal = find_squad_rolle_refusal(rolle=rolle, taken=True)
+
+        assert refusal is not None
+        assert refusal.error_code == SQUAD_ROLLE_TAKEN
+
+    def test_the_message_names_the_role_that_was_refused(self):
+        """The two roles are refused by one code, so the log line is the only place saying which was asked for."""
+
+        refusal = find_squad_rolle_refusal(rolle="co_kapitaen", taken=True)
+
+        assert refusal is not None
+        assert "co_kapitaen" in refusal.message
+
+    def test_the_two_roles_never_answer_for_each_other(self):
+        """The rule is per role: a squad with a Kapitaen still has its Co-Kapitaen to give."""
+
+        held = build_live_rolle_filter(saison_id="2026", team_id=TEAM_OID, rolle="kapitaen", excluding_spieler_id=SPIELER_OID)
+
+        assert held["rolle"] == "kapitaen"
+
+    def test_the_count_is_of_live_rows_only(self):
+        """A player who left the squad is not leading it, which is what makes the reactivate ask again."""
+
+        assert (
+            build_live_rolle_filter(saison_id="2026", team_id=TEAM_OID, rolle="kapitaen", excluding_spieler_id=SPIELER_OID)["inactive_since"]
+            is None
+        )
+
+    def test_the_count_excludes_the_player_being_written(self):
+        """The over-breadth trap the cap has too: a captain editing their shirt would otherwise be refused by their own armband."""
+
+        held = build_live_rolle_filter(saison_id="2026", team_id=TEAM_OID, rolle="kapitaen", excluding_spieler_id=SPIELER_OID)
+
+        assert held["spieler_id"] == {"$ne": SPIELER_OID}
+
+    def test_the_refusal_is_its_own_function(self):
+        """`find_squad_refusal`'s signature is pinned exactly by `tests/core/test_unenforced.py :: TestASharedSquadNumber`."""
+
+        assert set(inspect.signature(find_squad_rolle_refusal).parameters) == {"rolle", "taken"}

@@ -7,6 +7,7 @@ import z from "zod";
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
@@ -27,11 +28,14 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   if (error.serverErrorCode === "REQ-DATE-001") {
-    return { fieldErrors: { datum: "Dieses Datum liegt außerhalb des Zeitraums seines Spieltags." } };
+    return { fieldErrors: { datum: "Dieses Datum liegt außerhalb des Spieltags." } };
   }
   if (error.serverErrorCode === "REQ-RESULT-001") {
     return {
-      error: "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen. Wähle ein anderes Team, oder lösche zuerst die Tore.",
+      error: buildRefusal({
+        reason: "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen",
+        repair: "Wähle ein anderes Team, oder lösche zuerst die Tore",
+      }),
     };
   }
   // One code covers both references and the failure body names neither, so the message names both.
@@ -39,14 +43,18 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   // and pick another.
   if (error.serverErrorCode === "REQ-BOOKING-001") {
     return {
-      error:
-        "Spielort oder Schiedsrichter ist nicht mehr verfügbar, weil der Eintrag stillgelegt wurde oder nicht mehr existiert. Reaktiviere ihn, oder lade die Seite neu und wähle einen anderen aus der aktualisierten Liste.",
+      error: buildRefusal({
+        reason: "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht",
+        repair: "Reaktiviere ihn, oder lade die Seite neu und wähle einen anderen",
+      }),
     };
   }
   if (error.serverErrorCode === "REQ-CLASH-001") {
     return {
-      error:
-        "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand oder eine andere Zuordnung.",
+      error: buildRefusal({
+        reason: "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt",
+        repair: "Wähle eine Uhrzeit mit mindestens vier Stunden Abstand, oder teile das Spiel anders ein",
+      }),
     };
   }
   return null;
@@ -80,7 +88,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
     }
 
     if (!patch_operation.acknowledged) {
-      return { success: false, error: "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Spieldaten wurden nicht gespeichert", repair: "Versuche es erneut" }) };
     }
 
     // Not redundant with the granular tags below: the default read path sends no `saison_id`, so

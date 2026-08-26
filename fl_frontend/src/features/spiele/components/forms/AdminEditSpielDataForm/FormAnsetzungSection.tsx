@@ -2,7 +2,7 @@ import { Separator } from "@heroui/react";
 
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 
 import { FormDateTimeSection } from "./FormDateTimeSection";
 import { FormSchiedsrichterSection } from "./FormSchiedsrichterSection";
@@ -49,17 +49,17 @@ export function FormAnsetzungSection({
       <div className={styles.header()}>
         <h2 className={styles.heading()}>
           Ansetzung
-          <InfoHint label="Hinweis zur Ansetzung">
-            <p>Wann, wo und mit wem das Spiel stattfindet.</p>
-            <ul>
-              <li>
-                <strong>Datum</strong> und <strong>Anpfiff</strong> lassen sich über das ×-Symbol wieder auf „offen“ setzen.
-              </li>
-              <li>
-                <strong>Mietpreis</strong> und <strong>Entschädigung</strong> sind vorbelegt und gelten nur für dieses Spiel.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zur Ansetzung"
+            body={{
+              lead: "Wann, wo und mit wem das Spiel stattfindet.",
+              points: [
+                { term: "Datum und Anpfiff", text: "lassen sich über das ×-Symbol wieder leeren." },
+                { term: "Mietpreis und Honorar", text: "gelten nur für dieses Spiel." },
+              ],
+            }}
+          />
         </h2>
       </div>
 

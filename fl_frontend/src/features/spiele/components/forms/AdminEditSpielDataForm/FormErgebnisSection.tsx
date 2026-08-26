@@ -3,7 +3,7 @@ import { FieldError, NumberField, Separator, Switch } from "@heroui/react";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { admitsShootOut } from "../../../draftStatus";
@@ -119,21 +119,22 @@ export function FormErgebnisSection({
       <div className={styles.header()}>
         <h2 className={styles.heading()}>
           Ergebnis
-          <InfoHint label="Hinweis zum Ergebnis">
-            <p>Die Tore beider Seiten.</p>
-            <ul>
-              <li>
-                <strong>Ausschalten</strong> setzt das Ergebnis auf den gespeicherten Stand zurück.
-              </li>
-              <li>
-                Endet ein KO-Spiel <strong>unentschieden</strong>, entscheidet ein Elfmeterschießen: der Sieger rückt im Turnierbaum weiter, für
-                die Tabelle bleibt es ein Unentschieden.
-              </li>
-              <li>
-                Bei einem <strong>Nichtantreten</strong> gibt es kein Elfmeterschießen: gewertet wird nach den Regeln der Saison.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Ergebnis"
+            body={{
+              lead: "Die Tore beider Seiten.",
+              points: [
+                { term: "Ausschalten", text: "setzt das Ergebnis auf den gespeicherten Stand zurück." },
+                {
+                  term: "Unentschieden im KO-Spiel:",
+                  text: "das Elfmeterschießen bringt eine Seite weiter, für die Tabelle bleibt es ein Unentschieden.",
+                },
+                // What the forfeit is worth belongs to the Sonderereignis panel, which states it there.
+                { term: "Nichtantreten", text: "schließt ein Elfmeterschießen aus." },
+              ],
+            }}
+          />
         </h2>
       </div>
 
@@ -156,11 +157,11 @@ export function FormErgebnisSection({
               any click. Only the disabled state keeps a sentence, a refusal needing an answer in
               place. */}
           {!bothSidesResolved && (
-            <p
-              id="ergebnis-eintragen-hint"
-              className="fluid-xxs text-foreground-muted leading-normal font-medium">
-              Erst wenn beide Seiten feststehen.
-            </p>
+            <Hint
+              mode="inline"
+              describes="ergebnis-eintragen-hint"
+              text="Erst wenn beide Seiten feststehen."
+            />
           )}
         </div>
 

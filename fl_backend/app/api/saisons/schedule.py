@@ -89,19 +89,6 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
     return tuple(schedule)
 
 
-def implied_matchdays(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
-    """How many matchdays of this phase the rules imply -- THE COUNT, exactly.
-
-    One row per round, so a phase spread over two dates is still one matchday. Zero for a phase the
-    bracket never reaches.
-    """
-
-    for entry in schedule_for(rules):
-        if entry.phase == phase:
-            return entry.matchdays
-    return 0
-
-
 def expected_matches(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
     """How many matches one matchday of this phase should hold -- `spieltage.anzahl_spiele`.
 

@@ -66,8 +66,7 @@ export function KontaktView() {
 
         <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-5 shadow-xl sm:p-6 lg:p-8">
           <p className="fluid-xs sm:fluid-sm text-field-fg/95 leading-relaxed font-medium text-pretty">
-            Fragen, Verbesserungsvorschläge oder Anregungen zur Liga? Kontaktiere uns gern über einen der folgenden Wege. Wir melden uns
-            schnellstmöglich bei Dir!
+            Fragen oder Anregungen zur Liga? Schreib uns. Wir melden uns schnellstmöglich bei Dir.
           </p>
         </div>
       </section>

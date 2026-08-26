@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteSpielort, patchSpielort, postSpielort, reactivateSpielort } from "./mutations";
@@ -49,10 +50,10 @@ export async function postSpielortAction(
 
     const postOperation = await postSpielort(validated.data);
     if (!postOperation.acknowledged) {
-      return { success: false, error: "Beim Anlegen des neuen Spielortes ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
-    return { success: Boolean(postOperation.acknowledged), created_id: postOperation.created_id, message: "Spielort erfolgreich angelegt!" };
+    return { success: Boolean(postOperation.acknowledged), created_id: postOperation.created_id, message: "Spielort angelegt" };
   });
 }
 
@@ -76,7 +77,7 @@ export async function patchSpielortAction(
 
     const patchOperation = await patchSpielort(validated.data);
     if (!patchOperation.acknowledged) {
-      return { success: false, error: "Beim Bearbeiten der Spielort-Daten ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Spielortdaten wurden nicht gespeichert", repair: "Versuche es erneut" }) };
     }
 
     // A rename fans into every match embedding this venue, which is the one cached read it reaches.
@@ -85,7 +86,7 @@ export async function patchSpielortAction(
     return {
       success: Boolean(patchOperation.acknowledged),
       updated_document: patchOperation.updated_document,
-      message: "Spielort erfolgreich bearbeitet!",
+      message: "Spielort bearbeitet",
     };
   });
 }
@@ -119,7 +120,7 @@ export async function deleteSpielortAction(
     }
 
     if (!patchOperation.acknowledged) {
-      return { success: false, error: "Beim Stilllegen des Spielorts ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
     }
 
     return {
@@ -154,13 +155,13 @@ export async function reactivateSpielortAction(
 
     const reactivateOperation = await reactivateSpielort(validated.data);
     if (!reactivateOperation.acknowledged) {
-      return { success: false, error: "Beim Reaktivieren des Spielorts ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
     }
 
     return {
       success: Boolean(reactivateOperation.acknowledged),
       updated_document: reactivateOperation.updated_document,
-      message: "Spielort reaktiviert.",
+      message: "Spielort reaktiviert",
     };
   });
 }

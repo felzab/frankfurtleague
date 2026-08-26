@@ -5,9 +5,9 @@ import { PencilToSquare } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { PHASE_TINTS } from "@/features/saisons/constants";
-import { adminSpielEditHref, deriveSlotHerkunft, formatQuelle } from "@/features/spiele/utils";
+import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
+import { adminSpielEditHref, deriveSlotHerkunft, formatQuelle, sideLabel } from "@/features/spiele/utils";
 import { spieltagLabels } from "@/features/spieltage/utils";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
@@ -19,52 +19,71 @@ import type { FLSlotHerkunft } from "@/features/spiele/utils";
 import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
 
 /** The wiring review colours a group-fed slot apart from a match-fed one, so `quelle` splits here and stays whole in `FLSlotHerkunft`. */
-type FLSlotChipKey = Exclude<FLSlotHerkunft, "quelle"> | FLSpielQuelle["type"];
+type FLSlotInkKey = Exclude<FLSlotHerkunft, "quelle"> | FLSpielQuelle["type"];
+
+/** Reads the tint's ink off it rather than a fixed position, so a token added ahead of the foreground still resolves. */
+const inkOf = (tint: string): string =>
+  tint
+    .split(" ")
+    .filter((token) => token.startsWith("text-"))
+    .join(" ");
 
 /**
- * `gruppe` reads `PHASE_TINTS` rather than spelling the token, so the chip tracks the phase it names
- * everywhere else. Warm means the slot needs an admin; `brand` is excluded as a second deep red
+ * `gruppe` reads `PHASE_TINTS` rather than spelling the token, so the caption tracks the phase it
+ * names everywhere else. Warm means the slot needs an admin; `brand` is excluded as a second deep red
  * beside `danger`.
  */
-const HERKUNFT_CHIPS: Record<FLSlotChipKey, string> = {
-  gruppe: PHASE_TINTS.gruppenphase,
-  spiel: "bg-info/15 text-info-strong",
-  manuell: "bg-warning/15 text-warning-strong",
-  offen: "bg-danger/15 text-danger-strong",
+const HERKUNFT_INK: Record<FLSlotInkKey, string> = {
+  gruppe: inkOf(PHASE_TINTS.gruppenphase),
+  spiel: "text-info-strong",
+  manuell: "text-warning-strong",
+  offen: "text-danger-strong",
 };
 
 /** Source and occupant both, always — unlike a card, which drops the provenance once a winner arrives. */
-function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: FLSpielQuelle | null }) {
+function SlotWiring({ side, team, quelle }: { side: "team1" | "team2"; team: FLSpielTeamField | null; quelle: FLSpielQuelle | null }) {
   const herkunft = deriveSlotHerkunft({ team, quelle });
 
   let label: string;
-  let chip: string;
+  let ink: string;
 
   // Branching on `quelle` rather than on `herkunft`, which TypeScript cannot narrow to read `.type`.
   if (quelle !== null) {
     // Unreachable for a stored fixture: `formatQuelle` answers `null` only for the `NaN` a form holds
-    // mid-edit. The fallback keeps the chip total if one ever arrived.
+    // mid-edit. The fallback keeps the caption total if one ever arrived.
     label = formatQuelle(quelle) ?? "Herkunft unlesbar";
-    chip = HERKUNFT_CHIPS[quelle.type];
+    ink = HERKUNFT_INK[quelle.type];
   } else if (herkunft === "offen") {
     label = "Ohne Herkunft";
-    chip = HERKUNFT_CHIPS.offen;
+    ink = HERKUNFT_INK.offen;
   } else {
     label = "Manuell gesetzt";
-    chip = HERKUNFT_CHIPS.manuell;
+    ink = HERKUNFT_INK.manuell;
   }
+
+  // Colour at caption size is a thin alarm on its own, so the one state waiting on somebody carries
+  // weight as well.
+  const weight = herkunft === "offen" ? "font-bold" : "font-semibold";
 
   return (
     <div className="flex min-w-0 flex-col items-start gap-1.5">
-      <span className={`${LABEL_BADGE} ${chip} max-w-full whitespace-normal`}>{label}</span>
+      {/* The pair's two column titles are behind `sm:`, so below it nothing names the stacked seats,
+          and a row with both sides unresolved has nothing else to tell them apart. */}
+      <span className="fluid-xxs text-foreground-muted font-semibold uppercase sm:hidden">{sideLabel(side)}</span>
 
-      {/* `break-words` and not `truncate`: a review surface that hides half a club's name cannot be
-          finished, and the row is free to grow. */}
-      {team === null ? (
-        <span className="muted-meta italic">{PLACEHOLDER.slot}</span>
-      ) : (
-        <strong className="fluid-sm text-foreground max-w-full font-bold break-words">{team.name}</strong>
-      )}
+      {/* One tight gap, because the origin qualifies the name beneath it rather than standing as a
+          second fact of its own. */}
+      <div className="flex min-w-0 flex-col items-start gap-0.5">
+        <span className={`fluid-xxs ${weight} ${ink}`}>{label}</span>
+
+        {/* `break-words` and not `truncate`: a review surface that hides half a club's name cannot be
+            finished, and the row is free to grow. */}
+        {team === null ? (
+          <span className="muted-meta italic">{PLACEHOLDER.slot}</span>
+        ) : (
+          <strong className="fluid-sm text-foreground max-w-full font-bold break-words">{team.name}</strong>
+        )}
+      </div>
     </div>
   );
 }
@@ -84,7 +103,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
       <div className="max-w-page mx-auto flex w-full flex-col gap-6 px-3 py-4 sm:p-8">
         <EmptyState
           title="Noch keine Finalrunden"
-          hint="Sobald die Spieltage der KO-Runde angelegt sind, steht hier ihre Verweisstruktur."
+          hint="Sobald die Spieltage der KO-Runde angelegt sind, steht hier, woher jede Seite kommt."
         />
       </div>
     );
@@ -102,13 +121,16 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
           role="listitem"
           key={round.id}
           className={`${card()} flex w-full flex-col items-start gap-4 p-3 sm:p-6`}>
-          <h2 className="fluid-lg text-foreground font-black tracking-tight">{labels.get(round.id)?.label}</h2>
+          {/* The chip sits BESIDE the heading rather than standing as it, the shape `/admin/spieltage`
+              can take because it sections by phase. A card here is one matchday, and the chip renders
+              the phase alone, so two matchdays in a phase would wear the same one. */}
+          <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
+            <h2 className="fluid-lg text-foreground font-black tracking-tight">{labels.get(round.id)?.label}</h2>
+            <SaisonPhaseChip saisonPhase={round.saison_phase} />
+          </div>
 
           {round.spiele.length === 0 ? (
-            <EmptyState
-              title="Für diese Runde sind noch keine Spiele angelegt."
-              hint="Ohne Spiele gibt es auch keine Verweise zu prüfen."
-            />
+            <EmptyState title="Noch keine Spiele in dieser Runde" />
           ) : (
             <Table
               variant="secondary"
@@ -133,8 +155,8 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                   <Table.Column className="px-2 lg:px-4">
                     <span className="sm:hidden">Paarung</span>
                     <div className="hidden gap-x-6 sm:grid sm:grid-cols-2">
-                      <span>Team 1</span>
-                      <span>Team 2</span>
+                      <span>{sideLabel("team1")}</span>
+                      <span>{sideLabel("team2")}</span>
                     </div>
                   </Table.Column>
                   {/* The width has to clear the button at its `md` size, not the size it starts at:
@@ -159,10 +181,12 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                         <Table.Cell className="px-2 py-4 align-top lg:px-4">
                           <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
                             <SlotWiring
+                              side="team1"
                               team={spiel.team1}
                               quelle={spiel.team1_quelle}
                             />
                             <SlotWiring
+                              side="team2"
                               team={spiel.team2}
                               quelle={spiel.team2_quelle}
                             />
@@ -178,7 +202,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                             <IconTooltip label="Spiel bearbeiten">
                               <Link
                                 href={adminSpielEditHref(spiel.id)}
-                                aria-label={`Spiel Nr.${spiel.spiel_nr} bearbeiten`}
+                                aria-label={`Spiel Nr. ${spiel.spiel_nr} bearbeiten`}
                                 className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid-hover flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-xl shadow-sm transition-colors duration-200 md:h-[38px] md:w-[38px]">
                                 <PencilToSquare className="m-0 size-5" />
                               </Link>

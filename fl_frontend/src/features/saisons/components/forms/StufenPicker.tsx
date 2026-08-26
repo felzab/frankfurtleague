@@ -11,11 +11,13 @@ import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { Key } from "@heroui/react";
 
 /**
+ * The one toggle-chip appearance in this feature, shared with the Spielplan panel's operation picker.
+ *
  * **No hover or press variant here**: HeroUI's own fills are `@layer components` and these
  * are utilities declared last, so each state's resting background is what suppresses them.
  * `globals.css` records the focus ring's departure from `--focus`.
  */
-const STUFE_CHIP =
+export const STUFE_CHIP =
   "border-border bg-transparent text-foreground-muted " +
   "data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground " +
   "data-[selected=true]:ring-brand-solid-foreground " +

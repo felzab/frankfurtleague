@@ -32,6 +32,7 @@ export function buildTeamBanners({
   isMember,
   storedAustritt,
   hasAustritt,
+  draftGrund,
   isGruppeLocked,
   isGruppeChanged,
 }: {
@@ -42,6 +43,8 @@ export function buildTeamBanners({
   /** The junction row's stored record — `null` both without a record and without a membership. */
   storedAustritt: FLAustritt | null;
   hasAustritt: boolean;
+  /** The reason as this draft would publish it, whether the record is new or already stands. */
+  draftGrund: string;
   isGruppeLocked: boolean;
   isGruppeChanged: boolean;
 }): readonly TeamBanner[] {
@@ -84,7 +87,7 @@ export function buildTeamBanners({
         id: "team.not-in-saison-future",
         severity: "info",
         title: `In Saison ${saisonId} erscheint dieses Team auf keiner Seite`,
-        body: "Nimm es unten mit einer Gruppe auf; sonst führt es weder eine Tabelle noch eine Auswahlliste.",
+        body: "Nimm es unten mit einer Gruppe auf.",
         inline: "saison-eintritt",
       });
     } else {
@@ -101,12 +104,15 @@ export function buildTeamBanners({
     }
   }
 
-  if (hasAustritt && storedAustritt === null) {
+  // Graded on the text that would be published, never on the record being new: rewriting a standing
+  // reason puts new words on the public page exactly as entering one does, and the standing banner
+  // below is `info`, so it can raise no warning of its own.
+  if (hasAustritt && (storedAustritt === null || draftGrund !== storedAustritt.grund)) {
     banners.push({
       id: "team.austritt-entering",
       severity: "danger",
       title: "Der Grund wird veröffentlicht",
-      body: "Sobald Du speicherst, erscheint er als eingegebener Text auf der Teamseite und als Hinweis an jedem Spiel des Teams.",
+      body: "Sobald Du speicherst, steht er Wort für Wort auf der Teamseite und an jedem Spiel des Teams.",
       inline: "austritt-eintrag",
     });
   }
@@ -115,8 +121,12 @@ export function buildTeamBanners({
     banners.push({
       id: "team.austritt-lifting",
       severity: "warning",
-      title: "Aufheben entfernt den Eintrag ersatzlos",
-      body: "Der gespeicherte Grund und das Datum sind danach nicht wiederherstellbar. Es gibt keinen Verlauf, der sie aufbewahrt.",
+      title: "Aufheben entfernt Art, Grund und Datum",
+      // The window is named because the save IS reversible: the editor builds the stored record into
+      // its undo payload, and `POST /api/admin/teams/undo` patches it back verbatim.
+      body:
+        "Der Grund verschwindet damit von der Teamseite und von jedem Spiel des Teams. Direkt nach dem Speichern kannst Du alle drei " +
+        "fünfzehn Sekunden lang mit „Rückgängig“ unverändert zurückholen.",
       inline: "austritt-aufhebung",
     });
   }

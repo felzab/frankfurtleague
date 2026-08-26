@@ -8,16 +8,25 @@ import { Pencil, Person } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
-import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "@/features/spieler/constants";
+import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, rolleKuerzel, rolleLabel } from "@/features/spieler/constants";
 import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { IconTooltip } from "@/shared/components/ui/IconTooltip";
+import { Hint } from "@/shared/components/ui/Hint";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSpielerRow, SpielerTeamOption } from "../../types";
+
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: "Keine Spieler für diese Suche.",
+  filtered: "Keine Spieler für diese Filter.",
+  none: "Es wurden noch keine Spieler angelegt.",
+};
 
 /**
  * Memoised, and load-bearing — `AdminCrudView`'s collection-identity note carries why.
@@ -25,21 +34,19 @@ import type { AdminSpielerRow, SpielerTeamOption } from "../../types";
  * The rows are every player; Team, Nummer and Status are the SELECTED SEASON's.
  */
 export const AdminSpielerTable = memo(function AdminSpielerTable({
-  spielerQuery,
   filteredSpieler,
+  emptiness,
   saisonTeams,
   selectedSaisonId,
-  selectedSaisonStatus,
   setDeletingSpieler,
 }: {
-  spielerQuery: string;
   filteredSpieler: AdminSpielerRow[];
+  /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
   /** The clubs holding a junction row in the selected season — the one collection `REQ-SQUAD-001` counts. */
   saisonTeams: readonly SpielerTeamOption[];
   /** Which season the squad columns describe — the sidemenu selector's, resolved by the page. */
   selectedSaisonId: string;
-  /** Decides the status column's wording — the season's own three words. */
-  selectedSaisonStatus: "past" | "active" | "future";
   setDeletingSpieler: (spieler: AdminSpielerRow) => void;
 }) {
   const [, startReactivating] = useTransition();
@@ -53,16 +60,16 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   const handleReactivatePerson = (spieler: AdminSpielerRow) => {
     startReactivating(async () => {
       const res = await reactivateSpielerAction({ id: spieler.id });
-      if (res.success) appToast.success(res.message ?? "Spieler reaktiviert!");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      if (res.success) appToast.success(res.message ?? "Spieler reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 
   const handleReactivateRow = (spieler: AdminSpielerRow) => {
     startReactivating(async () => {
       const res = await reactivateSaisonSpielerAction({ spieler_id: spieler.id, saison_id: selectedSaisonId });
-      if (res.success) appToast.success(res.message ?? "Kadereintrag reaktiviert!");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      if (res.success) appToast.success(res.message ?? "Kadereintrag reaktiviert. Nummer, Position und Stufe sind wiederhergestellt.");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 
@@ -79,18 +86,19 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         </span>
       )}
       {spieler.selected?.is_nachgetragen === true && spieler.selected.inactive_since === null && (
-        <IconTooltip label="Der Spieler kam erst nach dem Start der Saison dazu.">
-          <span className={`${LABEL_BADGE} bg-info/15 text-info-strong cursor-help`}>Nachgetragen</span>
-        </IconTooltip>
+        /* A hint, not `IconTooltip` — `Hint.tsx` carries why. The badge acts on nothing, so the press is free. */
+        <Hint
+          mode="reveal"
+          label="Nachgetragen"
+          body={{ lead: "Der Spieler kam erst nach dem Start der Saison dazu." }}
+          trigger={<span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Nachgetragen</span>}
+        />
       )}
       {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
-        <>
-          {/* The season's own vocabulary. „Aktiv“ is `fl_frontend/src/features/spieler/facets.ts`'s
-              word for „nicht stillgelegt“, a different fact about a different subject. */}
-          {selectedSaisonStatus === "active" && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>}
-          {selectedSaisonStatus === "past" && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>}
-          {selectedSaisonStatus === "future" && <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>}
-        </>
+        /* The ROW's standing, never the season's status: it holds only while the person, the squad
+           row and the season entry are all live, so it is narrower than
+           `fl_frontend/src/features/spieler/facets.ts`'s „Person“ bucket. */
+        <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>
       )}
     </div>
   );
@@ -146,25 +154,36 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     );
   };
 
-  const renderCaptain = (spieler: AdminSpielerRow) =>
-    spieler.selected?.is_captain === true ? (
-      <span className={`${LABEL_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>Kapitän</span>
-    ) : null;
+  const renderRolle = (spieler: AdminSpielerRow) => {
+    const rolle = spieler.selected?.rolle;
+
+    return rolle == null ? null : (
+      <span className={`${LABEL_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>{rolleLabel(rolle)}</span>
+    );
+  };
 
   /**
-   * The phone layout's marker, in the Kürzel chip's exact box. `C` rather than the word — the marker
-   * the squad sheets already used — with the tooltip carrying it for anyone who does not know it.
+   * The phone layout's marker, in the Kürzel chip's exact box. The letters rather than the word — the
+   * markers the squad sheets already used — with the hint carrying it for anyone who does not know them.
    */
-  const renderCaptainCompact = (spieler: AdminSpielerRow) =>
-    spieler.selected?.is_captain === true ? (
-      <IconTooltip label="Kapitän dieses Teams">
-        <span className={`${SHORTHAND_CHIP} cursor-help`}>C</span>
-      </IconTooltip>
-    ) : null;
+  const renderRolleCompact = (spieler: AdminSpielerRow) => {
+    const rolle = spieler.selected?.rolle;
+    if (rolle == null) return null;
+
+    const label = `${rolleLabel(rolle)} dieses Teams`;
+
+    return (
+      <InfoHint
+        label={label}
+        trigger={<span className={SHORTHAND_CHIP}>{rolleKuerzel(rolle)}</span>}>
+        <p>{label}</p>
+      </InfoHint>
+    );
+  };
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{spielerQuery ? "Keine Spieler für diese Suche gefunden." : "Es wurden noch keine Spieler angelegt."}</p>
+      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
     </div>
   );
 
@@ -204,7 +223,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                   {spieler.selected?.stufe ? ` · ${spieler.selected.stufe}` : ""}
                 </span>
               </div>
-              {renderCaptainCompact(spieler)}
+              {renderRolleCompact(spieler)}
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">{renderStatusBadges(spieler)}</div>
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(spieler)}</div>
@@ -262,7 +281,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                             height={18}
                           />
                           <span className="fluid-sm text-foreground truncate font-semibold">{spieler.fullName}</span>
-                          {renderCaptain(spieler)}
+                          {renderRolle(spieler)}
                         </div>
                       </Table.Cell>
 

@@ -19,7 +19,7 @@ const stored: FLSpielerDraftFields = {
     position: "Mittelfeld",
     stufe: "Q1",
     is_nachgetragen: false,
-    is_captain: false,
+    rolle: null,
   },
 };
 
@@ -122,18 +122,24 @@ describe("deriveSpielerDraftStatus", () => {
     assert.equal(status.isDirty, false);
   });
 
-  it("reads a captaincy as a value gained and losing it as a removal", () => {
-    const gained = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ is_captain: true })), fieldErrors: {}, teams: TEAMS });
-    assert.equal(gained.byPath.get("is_captain")?.storedText, null);
-    assert.equal(gained.byPath.get("is_captain")?.draftText, "Ja");
+  it("reads a role as a value gained and giving it up as a removal", () => {
+    const gained = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ rolle: "kapitaen" })), fieldErrors: {}, teams: TEAMS });
+    assert.equal(gained.byPath.get("rolle")?.storedText, null);
+    assert.equal(gained.byPath.get("rolle")?.draftText, "Kapitän");
 
     const lost = deriveSpielerDraftStatus({
-      stored: draftFrom(squad({ is_captain: true })),
-      draft: draftFrom(squad({ is_captain: false })),
+      stored: draftFrom(squad({ rolle: "kapitaen" })),
+      draft: draftFrom(squad({ rolle: null })),
       fieldErrors: {},
       teams: TEAMS,
     });
-    assert.equal(lost.byPath.get("is_captain")?.draftText, null);
+    assert.equal(lost.byPath.get("rolle")?.draftText, null);
+  });
+
+  it("reads the German for each role rather than its stored slug", () => {
+    const co = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ rolle: "co_kapitaen" })), fieldErrors: {}, teams: TEAMS });
+
+    assert.equal(co.byPath.get("rolle")?.draftText, "Co-Kapitän");
   });
 
   it("carries a field error onto its own row and into invalid", () => {

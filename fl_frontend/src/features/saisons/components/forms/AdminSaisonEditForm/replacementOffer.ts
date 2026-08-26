@@ -102,9 +102,9 @@ export function buildReplacementContext({
  */
 export function describeUebernommeneSpiele(spiele: number): string {
   if (spiele === 0) return "Angesetzte Spiele gibt es für diesen Platz noch keine.";
-  if (spiele === 1) return "Das eine angesetzte Spiel wechselt mit, mit Gegner, Termin und Ort.";
+  if (spiele === 1) return "Das eine angesetzte Spiel wechselt mit, samt Gegner, Termin und Ort.";
 
-  return `Alle ${String(spiele)} angesetzten Spiele wechseln mit, mit Gegner, Termin und Ort.`;
+  return `Alle ${String(spiele)} angesetzten Spiele wechseln mit, samt Gegner, Termin und Ort.`;
 }
 
 /** Where the row stands, for a sentence naming it. A row with no club document shows no group. */

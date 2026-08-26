@@ -17,10 +17,10 @@ export function AdminSchiedsrichterView({ schiedsrichter }: { schiedsrichter: FL
       items={schiedsrichter}
       searchKeys={SEARCH_KEYS}
       facets={SCHIEDSRICHTER_FACETS}
-      renderTable={({ query, filteredItems, onDelete }) => (
+      renderTable={({ filteredItems, emptiness, onDelete }) => (
         <AdminSchiedsrichterTable
-          schiedsrichterQuery={query}
           filteredSchiedsrichter={filteredItems}
+          emptiness={emptiness}
           setDeletingSchiedsrichter={onDelete}
         />
       )}

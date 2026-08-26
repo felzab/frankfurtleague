@@ -1,5 +1,6 @@
 import pytest
 
+from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.teams.services import (
     SWAP_FIELDS_DISQUALIFIED,
     SWAP_GRUPPENPHASE_PLAYED,
@@ -214,8 +215,8 @@ class TestASpieltagNeverHoldsAClubTwice:
 HOME, AWAY, OTHER = "home", "away", "other"
 
 
-def fixture(team1, team2, datum: str | None = "2026-05-01"):
-    return {"datum": datum, "team1": {"team_id": team1}, "team2": {"team_id": team2}}
+def fixture(team1, team2, datum: str | None = "2026-05-01", sonderereignis: str | None = None):
+    return {"datum": datum, "team1": {"team_id": team1}, "team2": {"team_id": team2}, "sonderereignis": sonderereignis}
 
 
 class TestASwapNeverFieldsADisqualifiedClub:
@@ -295,6 +296,47 @@ class TestASwapNeverFieldsADisqualifiedClub:
                 gruppenphase_spiele=[fixture(HOME, OTHER, datum="2026-05-01")],
             )
             == 0
+        )
+
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
+    def test_a_fixture_awarding_nothing_does_not_count(self, sonderereignis):
+        """`REQ-SWAP-004` leaves the window open on exactly these two, so counting them here would make one page refuse both ways."""
+
+        assert (
+            fixtures_newly_fielding_a_departed_club(
+                team1_id=HOME,
+                team2_id=AWAY,
+                departed_since={HOME: "2026-04-01"},
+                gruppenphase_spiele=[fixture(AWAY, OTHER, datum="2026-05-01", sonderereignis=sonderereignis)],
+            )
+            == 0
+        )
+
+    def test_an_abandoned_fixture_still_counts(self):
+        """An abandonment is a fixture that HAPPENED, so the carve-out must not swallow it; `REQ-SWAP-004` refuses it first in the handler."""
+
+        assert (
+            fixtures_newly_fielding_a_departed_club(
+                team1_id=HOME,
+                team2_id=AWAY,
+                departed_since={HOME: "2026-04-01"},
+                gruppenphase_spiele=[fixture(AWAY, OTHER, datum="2026-05-01", sonderereignis="abgebrochen")],
+            )
+            == 1
+        )
+
+    @pytest.mark.parametrize(("sonderereignis", "expected"), [("nichtantreten_team1", 0), ("nichtantreten_team2", 1)])
+    def test_a_no_show_exempts_only_the_slot_it_names(self, sonderereignis, expected):
+        """HOME arrives in `team1` here, so the pair pins that the ARRIVING slot is what the predicate is asked about."""
+
+        assert (
+            fixtures_newly_fielding_a_departed_club(
+                team1_id=HOME,
+                team2_id=AWAY,
+                departed_since={HOME: "2026-04-01"},
+                gruppenphase_spiele=[fixture(AWAY, OTHER, datum="2026-05-01", sonderereignis=sonderereignis)],
+            )
+            == expected
         )
 
     def test_a_fixture_holding_neither_club_is_ignored(self):

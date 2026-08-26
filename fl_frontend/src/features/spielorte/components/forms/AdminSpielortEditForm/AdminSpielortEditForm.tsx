@@ -27,9 +27,9 @@ import { FormSpielortSection } from "./FormSpielortSection";
 
 import type { FLPatchSpielortPayload } from "@/features/spielorte/schemas";
 import type { FLSpielortDraftFields } from "@/features/spielorte/spielortDraftStatus";
+import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FLAddress } from "@/shared/schemas";
-import type { ReactNode } from "react";
 
 /**
  * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted,
@@ -60,17 +60,16 @@ async function postSpielortUndo(payload: FLPatchSpielortPayload): Promise<{ succ
 export function AdminSpielortEditForm({
   spielort,
   isRetired,
-  registerRequestLeave,
   pageHeader,
 }: {
   spielort: { id: string; name: string; address: FLAddress; default_mietpreis: number };
   /** A fact about the row rather than a field this form commits, so it arrives beside the values. */
   isRetired: boolean;
-  registerRequestLeave?: (requestLeave: () => void) => void;
-  pageHeader?: ReactNode;
+  pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isLeaving, startLeaving] = useTransition();
 
   const [name, setName] = useState(spielort.name);
   const [address, setAddress] = useState<FLAddress>(spielort.address);
@@ -83,10 +82,6 @@ export function AdminSpielortEditForm({
 
   const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
     schemas: { spielort: FLPatchSpielortPayloadSchema },
-    onUnhandledErrors: () =>
-      appToast.danger("Speichern fehlgeschlagen", {
-        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-      }),
   });
 
   // The wire carries `id` in the path, so no refusal can name it and no input renders it.
@@ -150,8 +145,12 @@ export function AdminSpielortEditForm({
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    if (window.history.length > 1) router.back();
-    else router.push("/admin/spielorte");
+    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
+    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    startLeaving(() => {
+      if (window.history.length > 1) router.back();
+      else router.push("/admin/spielorte");
+    });
   };
 
   const requestLeave = () => {
@@ -162,10 +161,6 @@ export function AdminSpielortEditForm({
     }
     leavePage();
   };
-
-  useEffect(() => {
-    registerRequestLeave?.(requestLeave);
-  });
 
   const resetDraftToStored = () => {
     setName(spielort.name);
@@ -286,6 +281,8 @@ export function AdminSpielortEditForm({
         onSubmit={runOnSubmit(requestSave)}>
         <EditFormLayout
           header={pageHeader}
+          onLeave={requestLeave}
+          isLeaving={isLeaving}
           rail={
             <DraftRail
               banners={banners}
@@ -315,6 +312,7 @@ export function AdminSpielortEditForm({
 
         <FormActionBar
           isPending={isPending}
+          isLeaving={isLeaving}
           onCancel={requestLeave}
         />
       </Form>

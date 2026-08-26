@@ -8,7 +8,7 @@ import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
@@ -40,15 +40,14 @@ export function FormNotizSection({
       <div className={styles.header()}>
         <h2 className={styles.heading()}>
           Notiz
-          <InfoHint label="Hinweis zur Notiz">
-            <p>Eine optionale Anmerkung zum Spiel, etwa besondere Momente oder Besonderheiten der Partie.</p>
-            <ul>
-              <li>
-                Sie ist <strong>öffentlich</strong> und erscheint in den Spieldetails.
-              </li>
-              <li>Ein geleertes Feld entfernt die Notiz beim Speichern.</li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zur Notiz"
+            body={{
+              lead: "Eine Anmerkung zu diesem Spiel.",
+              points: [{ term: "Öffentlich:", text: "die Notiz erscheint in den Spieldetails." }],
+            }}
+          />
         </h2>
       </div>
 
@@ -68,7 +67,7 @@ export function FormNotizSection({
           <TextArea
             ref={notizRef}
             fullWidth
-            placeholder="Öffentlich sichtbare Anmerkung zum Spiel"
+            placeholder="z.B. Nachholspiel wegen Regen"
             className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
           />
           <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>

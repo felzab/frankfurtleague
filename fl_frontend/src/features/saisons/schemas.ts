@@ -53,13 +53,13 @@ export const FLSaisonRulesSchema = z.object({
     .max(16, { error: "Eine Gruppe fasst höchstens 16 Teams." }),
   // German because the season editor binds this schema to its picker. Frozen once the season is
   // `past`: the table is ordered from the rules on every read, so a later change rewrites a record.
-  tiebreak_order: z.enum(["tordifferenz", "direkter_vergleich"], { error: "Bitte wähle, was bei Punktgleichheit zuerst entscheidet." }),
+  tiebreak_order: z.enum(["tordifferenz", "direkter_vergleich"], { error: "Bitte wähle einen Tiebreak aus." }),
   // Enforced at the squad write rather than here: this bounds a season, not this payload.
   max_kadergroesse: z.int().positive({ error: "Ein Kader fasst mindestens 1 Spieler." }),
   forfeit_ergebnis: FLSaisonForfeitErgebnisSchema,
   // A subset of the league's closed level set, never empty: no level makes every squad entry
   // unfillable.
-  erlaubte_stufen: z.array(FLSpielerStufeSchema).min(1, { error: "Wähle mindestens eine Stufe aus." }),
+  erlaubte_stufen: z.array(FLSpielerStufeSchema).min(1, { error: "Bitte wähle mindestens eine Stufe aus." }),
 });
 export type FLSaisonRules = z.infer<typeof FLSaisonRulesSchema>;
 export type FLSaisonTiebreakOrder = FLSaisonRules["tiebreak_order"];
@@ -151,7 +151,7 @@ const endsAfterItStarts = {
 export const FLPostSaisonPayloadSchema = z
   .object({
     // Chosen rather than generated, unlike every other create: `saisons._id` IS the referenced string.
-    id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z. B. 2526." }),
+    id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z.B. 2526." }),
 
     start_date: CustomDateStringSchema,
     end_date: CustomDateStringSchema,

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Form } from "@heroui/react";
 
 import { patchSaisonSpielerAction, patchSpielerAction } from "@/features/spieler/actions";
+import { rolleLabel } from "@/features/spieler/constants";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
 import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus";
 import { isSquadNummerNewlyShared } from "@/features/spieler/utils";
@@ -27,12 +28,18 @@ import { FormKaderSection } from "./FormKaderSection";
 import { FormLoeschenSection } from "./FormLoeschenSection";
 import { FormPersonSection } from "./FormPersonSection";
 
-import type { FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
+import type {
+  FLPatchSaisonSpielerPayload,
+  FLPatchSpielerPayload,
+  FLSpielerPosition,
+  FLSpielerRolle,
+  FLSpielerStufe,
+} from "@/features/spieler/schemas";
 import type { FLSpielerDraftFields } from "@/features/spieler/spielerDraftStatus";
 import type { SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
+import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { ReactNode } from "react";
 
 /** What the undo replays: the halves the save wrote, holding their PRE-SAVE values. */
 type SpielerUndoPayloads = {
@@ -71,7 +78,6 @@ export function AdminSpielerEditForm({
   saison,
   teams,
   membershipCount,
-  registerRequestLeave,
   pageHeader,
 }: {
   spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null };
@@ -81,11 +87,11 @@ export function AdminSpielerEditForm({
   teams: readonly SpielerTeamOption[];
   /** Squad rows across EVERY season, retired ones included: what the erasure would take with it. */
   membershipCount: number;
-  registerRequestLeave?: (requestLeave: () => void) => void;
-  pageHeader?: ReactNode;
+  pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isLeaving, startLeaving] = useTransition();
 
   const storedMembership = saison.membership;
 
@@ -101,7 +107,7 @@ export function AdminSpielerEditForm({
   // Read-only on this page, but held in state anyway: the patch replaces the row wholesale, so
   // dropping it from the payload would clear it.
   const [isNachgetragen, setIsNachgetragen] = useState(storedMembership?.is_nachgetragen ?? false);
-  const [isCaptain, setIsCaptain] = useState(storedMembership?.is_captain ?? false);
+  const [rolle, setRolle] = useState<FLSpielerRolle | null>(storedMembership?.rolle ?? null);
 
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
@@ -110,10 +116,6 @@ export function AdminSpielerEditForm({
 
   const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
     schemas: { spieler: FLPatchSpielerPayloadSchema, saisonSpieler: FLPatchSaisonSpielerPayloadSchema },
-    onUnhandledErrors: () =>
-      appToast.danger("Speichern fehlgeschlagen", {
-        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-      }),
   });
 
   // The ids ride in the request URI and `is_nachgetragen` is round-tripped read-only, so none of
@@ -128,14 +130,13 @@ export function AdminSpielerEditForm({
     position,
     stufe,
     is_nachgetragen: isNachgetragen,
-    is_captain: isCaptain,
+    rolle,
   });
 
   const draftFields: FLSpielerDraftFields = {
     vorname: personDraft.vorname,
     nachname: personDraft.nachname ?? "",
-    membership:
-      storedMembership === null ? null : { team_id: teamId, nummer, position, stufe, is_nachgetragen: isNachgetragen, is_captain: isCaptain },
+    membership: storedMembership === null ? null : { team_id: teamId, nummer, position, stufe, is_nachgetragen: isNachgetragen, rolle },
   };
   const storedFields: FLSpielerDraftFields = {
     vorname: spieler.vorname,
@@ -150,7 +151,7 @@ export function AdminSpielerEditForm({
             position: storedMembership.position,
             stufe: storedMembership.stufe,
             is_nachgetragen: storedMembership.is_nachgetragen,
-            is_captain: storedMembership.is_captain,
+            rolle: storedMembership.rolle,
           },
   };
 
@@ -198,6 +199,12 @@ export function AdminSpielerEditForm({
     ? nummer.trim()
     : null;
 
+  // Read off the DRAFT's team, as the shirt warning is: moving the picker moves who already leads.
+  const heldRollen = teams.find((team) => team.teamId === teamId)?.heldRollen ?? {};
+  const heldBy = rolle === null ? undefined : heldRollen[rolle];
+  // Only where SOMEBODY ELSE holds it. The current holder keeps the control so they can give it up.
+  const blockedRolle = rolle !== null && heldBy !== undefined ? { label: rolleLabel(rolle), heldBy } : null;
+
   const personDirty = status.changed.some((field) => field.group === "Person");
   const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Kader");
 
@@ -215,14 +222,19 @@ export function AdminSpielerEditForm({
     isNachgetragen,
     isTeamChanged: isChanged("team_id"),
     newlySharedNummer,
+    blockedRolle,
   });
 
   const leavePage = () => {
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    if (window.history.length > 1) router.back();
-    else router.push("/admin/spieler");
+    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
+    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    startLeaving(() => {
+      if (window.history.length > 1) router.back();
+      else router.push("/admin/spieler");
+    });
   };
 
   const requestLeave = () => {
@@ -234,10 +246,6 @@ export function AdminSpielerEditForm({
     leavePage();
   };
 
-  useEffect(() => {
-    registerRequestLeave?.(requestLeave);
-  });
-
   const resetDraftToStored = () => {
     setPersonDraft({ vorname: spieler.vorname, nachname: spieler.nachname });
     setTeamId(storedMembership?.team_id ?? null);
@@ -245,7 +253,7 @@ export function AdminSpielerEditForm({
     setPosition(storedMembership?.position ?? null);
     setStufe(storedMembership?.stufe ?? null);
     setIsNachgetragen(storedMembership?.is_nachgetragen ?? false);
-    setIsCaptain(storedMembership?.is_captain ?? false);
+    setRolle(storedMembership?.rolle ?? null);
 
     setSubmitFieldErrors({}, {});
   };
@@ -329,7 +337,7 @@ export function AdminSpielerEditForm({
                 position: storedMembership.position,
                 stufe: storedMembership.stufe,
                 is_nachgetragen: storedMembership.is_nachgetragen,
-                is_captain: storedMembership.is_captain,
+                rolle: storedMembership.rolle,
               },
             }
           : {}),
@@ -398,6 +406,8 @@ export function AdminSpielerEditForm({
         onSubmit={runOnSubmit(requestSave)}>
         <EditFormLayout
           header={pageHeader}
+          onLeave={requestLeave}
+          isLeaving={isLeaving}
           rail={
             <DraftRail
               banners={banners}
@@ -415,15 +425,20 @@ export function AdminSpielerEditForm({
             teams={teams}
             isMember={storedMembership !== null}
             teamId={teamId}
-            onTeamIdChange={setTeamId}
+            onTeamIdChange={(next) => {
+              setTeamId(next);
+              const takenInNext = teams.find((team) => team.teamId === next)?.heldRollen ?? {};
+              if (rolle !== null && takenInNext[rolle] !== undefined) setRolle(null);
+            }}
             nummer={nummer}
             onNummerChange={setNummer}
             position={position}
             onPositionChange={setPosition}
             stufe={stufe}
             onStufeChange={setStufe}
-            isCaptain={isCaptain}
-            onIsCaptainChange={setIsCaptain}
+            rolle={rolle}
+            onRolleChange={setRolle}
+            heldRollen={heldRollen}
             onValidateFields={validateSaisonFields}
             onValidateSelection={validateTeamSelection}
             spielerId={spieler.id}
@@ -455,6 +470,7 @@ export function AdminSpielerEditForm({
 
         <FormActionBar
           isPending={isPending}
+          isLeaving={isLeaving}
           onCancel={requestLeave}
         />
       </Form>

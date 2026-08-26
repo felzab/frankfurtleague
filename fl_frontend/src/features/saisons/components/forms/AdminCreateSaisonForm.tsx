@@ -11,7 +11,7 @@ import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLPostSaisonPayload } from "@/features/saisons/schemas";
 
@@ -68,12 +68,11 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
             <FieldError className={FIELD_ERROR} />
           </TextField>
 
-          {/* The one thing about the id a reader cannot work out from the field itself: every match and
-              matchday of the season points at it, and there is no rename. */}
+          {/* The one thing about the id a reader cannot work out from the field itself: there is no rename. */}
           <Callout
             severity="info"
             title="Die Saison-ID lässt sich später nicht ändern">
-            Jedes Spiel und jeder Spieltag der Saison verweist auf sie. Vier Zeichen, üblich sind die beiden Jahreszahlen.
+            Üblich sind die beiden Jahreszahlen: 2526 steht für die Saison 2025/26.
           </Callout>
 
           <div className={FIELD_PAIR}>
@@ -95,34 +94,27 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
             />
           </div>
 
+          {/* Grouped as the season editor groups them, so the two forms describe one set of rules:
+              all four say what a single fixture is worth. */}
           <div className="flex w-full flex-col gap-y-3">
-            <h3 className={FORM_SECTION_HEADING}>Punkte</h3>
+            <h3 className={FORM_SECTION_HEADING}>Wertung eines Spiels</h3>
             <div className={FIELD_PAIR}>
               <SaisonRuleNumberField
                 name="rules.win_points"
-                label={<Label className={FIELD_LABEL}>Sieg</Label>}
+                label={<Label className={FIELD_LABEL}>Punkte für einen Sieg</Label>}
                 minValue={1}
                 value={draft.rules.win_points}
                 onChange={(win_points) => setDraft((current) => ({ ...current, rules: { ...current.rules, win_points } }))}
               />
               <SaisonRuleNumberField
                 name="rules.draw_points"
-                label={<Label className={FIELD_LABEL}>Unentschieden</Label>}
+                label={<Label className={FIELD_LABEL}>Punkte für ein Unentschieden</Label>}
                 minValue={0}
                 value={draft.rules.draw_points}
                 onChange={(draw_points) => setDraft((current) => ({ ...current, rules: { ...current.rules, draw_points } }))}
               />
             </div>
-            <SaisonTiebreakSelect
-              name="rules.tiebreak_order"
-              label={<Label className={FIELD_LABEL}>Bei Punktgleichheit entscheidet</Label>}
-              value={draft.rules.tiebreak_order}
-              onChange={(tiebreak_order) => setDraft((current) => ({ ...current, rules: { ...current.rules, tiebreak_order } }))}
-            />
-          </div>
-
-          <div className="flex w-full flex-col gap-y-3">
-            <h3 className={FORM_SECTION_HEADING}>Wertung bei Nichtantreten</h3>
+            <Label className={FIELD_LABEL}>Ergebnis eines Spiels, zu dem ein Team nicht antritt</Label>
             <div className={FIELD_PAIR}>
               <SaisonRuleNumberField
                 name="rules.forfeit_ergebnis.sieger_tore"
@@ -151,9 +143,21 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
+          {/* Its own group and never under the points above: this re-sorts a table the points
+              scored, which is a different promise from the four numbers over it. */}
           <div className="flex w-full flex-col gap-y-3">
-            <h3 className={FORM_SECTION_HEADING}>Aufbau</h3>
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
+            <h3 className={FORM_SECTION_HEADING}>Tiebreak</h3>
+            <SaisonTiebreakSelect
+              name="rules.tiebreak_order"
+              label={<Label className={FIELD_LABEL}>Was zuerst entscheidet</Label>}
+              value={draft.rules.tiebreak_order}
+              onChange={(tiebreak_order) => setDraft((current) => ({ ...current, rules: { ...current.rules, tiebreak_order } }))}
+            />
+          </div>
+
+          <div className="flex w-full flex-col gap-y-3">
+            <h3 className={FORM_SECTION_HEADING}>Aufbau der Saison</h3>
+            <div className={FIELD_TRIO}>
               <SaisonRuleNumberField
                 name="rules.number_of_groups"
                 label={<Label className={FIELD_LABEL}>Gruppen</Label>}
@@ -192,10 +196,7 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
               value={draft.rules.max_kadergroesse}
               onChange={(max_kadergroesse) => setDraft((current) => ({ ...current, rules: { ...current.rules, max_kadergroesse } }))}
             />
-          </div>
-
-          <div className="flex w-full flex-col gap-y-3">
-            <h3 className={FORM_SECTION_HEADING}>Erlaubte Stufen</h3>
+            <Label className={FIELD_LABEL}>Welche Stufen diese Saison spielen</Label>
             <StufenPicker
               name="rules.erlaubte_stufen"
               value={draft.rules.erlaubte_stufen}

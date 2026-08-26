@@ -18,6 +18,7 @@ from .branch import (
     check_stamp_freshness,
     check_stamps,
 )
+from .copy_rules import check_copy_rules
 from .kernel import (
     Finding,
     tolerate_console_encoding,
@@ -91,6 +92,7 @@ def main() -> int:
     findings.extend(check_counts(additions))
     findings.extend(check_added_citations(additions))
     findings.extend(check_comment_bounds(branch))
+    findings.extend(check_copy_rules())
 
     failures = [f for f in findings if f.severity == "fail"]
     reports = [f for f in findings if f.severity == "report"]

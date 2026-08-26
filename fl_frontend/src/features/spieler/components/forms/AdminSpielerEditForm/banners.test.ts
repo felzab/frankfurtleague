@@ -18,6 +18,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielerBanners>[0]> = {
     isNachgetragen: false,
     isTeamChanged: false,
     newlySharedNummer: null,
+    blockedRolle: null,
     ...overrides,
   });
 
@@ -86,5 +87,19 @@ describe("buildSpielerBanners", () => {
 
   it("raises nothing for a duplicate the row already stands in", () => {
     assert.deepEqual(ids(build({ newlySharedNummer: null })), []);
+  });
+
+  it("names the role and its holder where the draft team has already given it away", () => {
+    const banners = build({ blockedRolle: { label: "Kapitän", heldBy: "Jonas Weber" } });
+
+    assert.deepEqual(ids(banners), ["spieler.rolle-vergeben"]);
+    assert.match(banners[0]?.title ?? "", /Kapitän/);
+    assert.match(banners[0]?.body ?? "", /Jonas Weber/);
+  });
+
+  // `info`, so it never raises the save dialog: the control is unavailable, which leaves the reader
+  // nothing to confirm.
+  it("raises no save confirmation for a blocked role", () => {
+    assert.equal(build({ blockedRolle: { label: "Co-Kapitän", heldBy: "Nils Kraus" } })[0]?.severity, "info");
   });
 });

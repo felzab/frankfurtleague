@@ -29,9 +29,9 @@ import { FormPersonSection } from "./FormPersonSection";
 
 import type { FLPatchSchiedsrichterPayload } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterDraftFields } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
+import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FLKontakt } from "@/shared/schemas";
-import type { ReactNode } from "react";
 
 /**
  * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted,
@@ -62,17 +62,16 @@ async function postSchiedsrichterUndo(payload: FLPatchSchiedsrichterPayload): Pr
 export function AdminSchiedsrichterEditForm({
   schiedsrichter,
   isRetired,
-  registerRequestLeave,
   pageHeader,
 }: {
   schiedsrichter: { id: string; name: string; schule: string | null; kontakt: FLKontakt; default_payment: number };
   /** A fact about the row rather than a field this form commits, so it arrives beside the values. */
   isRetired: boolean;
-  registerRequestLeave?: (requestLeave: () => void) => void;
-  pageHeader?: ReactNode;
+  pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isLeaving, startLeaving] = useTransition();
 
   const [name, setName] = useState(schiedsrichter.name);
   const [schule, setSchule] = useState(schiedsrichter.schule);
@@ -86,10 +85,6 @@ export function AdminSchiedsrichterEditForm({
 
   const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
     schemas: { schiedsrichter: FLPatchSchiedsrichterPayloadSchema },
-    onUnhandledErrors: () =>
-      appToast.danger("Speichern fehlgeschlagen", {
-        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-      }),
   });
 
   // The wire carries `id` in the path, so no refusal can name it and no input renders it.
@@ -153,8 +148,12 @@ export function AdminSchiedsrichterEditForm({
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    if (window.history.length > 1) router.back();
-    else router.push("/admin/schiedsrichter");
+    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
+    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    startLeaving(() => {
+      if (window.history.length > 1) router.back();
+      else router.push("/admin/schiedsrichter");
+    });
   };
 
   const requestLeave = () => {
@@ -165,10 +164,6 @@ export function AdminSchiedsrichterEditForm({
     }
     leavePage();
   };
-
-  useEffect(() => {
-    registerRequestLeave?.(requestLeave);
-  });
 
   const resetDraftToStored = () => {
     setName(schiedsrichter.name);
@@ -291,6 +286,8 @@ export function AdminSchiedsrichterEditForm({
         onSubmit={runOnSubmit(requestSave)}>
         <EditFormLayout
           header={pageHeader}
+          onLeave={requestLeave}
+          isLeaving={isLeaving}
           rail={
             <DraftRail
               banners={banners}
@@ -328,17 +325,13 @@ export function AdminSchiedsrichterEditForm({
             kontakt={schiedsrichter.kontakt}
             // The page keys this view on the STORED record, so the write's refresh remounts the form
             // onto the cleared one — an unsaved draft would go with it.
-            onBeforeAnonymise={() =>
-              guardAgainstDraft(
-                isDirty,
-                "Das Löschen lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen. Speichere oder verwirf sie zuerst.",
-              )
-            }
+            onBeforeAnonymise={() => guardAgainstDraft(isDirty, "Das Löschen verwirft die nicht gespeicherten Änderungen.")}
           />
         </EditFormLayout>
 
         <FormActionBar
           isPending={isPending}
+          isLeaving={isLeaving}
           onCancel={requestLeave}
         />
       </Form>

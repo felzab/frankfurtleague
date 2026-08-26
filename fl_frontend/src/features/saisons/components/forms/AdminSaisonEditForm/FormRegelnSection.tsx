@@ -1,13 +1,13 @@
 "use client";
 
-import { Label } from "@heroui/react";
+import { Label, Separator } from "@heroui/react";
 
 import { SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
 import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
 import type { FLSaisonRules } from "@/features/saisons/schemas";
@@ -18,6 +18,10 @@ import type { SaisonBanner } from "./banners";
  * **`erlaubte_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No
  * validator holds `saison_spieler.stufe` against a season's list, deliberately: narrowing a season
  * must not retroactively invalidate a season already played.
+ *
+ * **Grouped by what a field decides, never by which freeze reaches it.** The two freezes arrive on
+ * different events and each cuts across the groups below, so a layout following them would move a
+ * field the moment fixtures exist.
  */
 export function FormRegelnSection({
   rules,
@@ -53,44 +57,30 @@ export function FormRegelnSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Regeln
-          <InfoHint label="Hinweis zu den Regeln">
-            <p>Diese Werte legen fest, wie die Saison gespielt wird.</p>
-            <ul>
-              <li>
-                <strong>Punkte</strong> gelten rückwirkend, auch für längst gespielte Spiele. In einer abgeschlossenen Saison sind sie deshalb
-                festgeschrieben.
-              </li>
-              <li>
-                <strong>Bei Punktgleichheit</strong> legst Du fest, welche Zahl zwei gleichauf liegende Teams zuerst trennt.
-              </li>
-              <li>
-                <strong>Nichtantreten</strong> ist das Ergebnis, mit dem ein Spiel gewertet wird, zu dem ein Team nicht erscheint.
-              </li>
-              <li>
-                <strong>Gruppen und Teams pro Gruppe</strong> begrenzen, wohin ein Team aufgenommen werden kann.
-              </li>
-              <li>
-                <strong>Qualifikanten</strong> ist die Zahl pro Gruppe, die die KO-Runde erreicht.
-              </li>
-              <li>
-                <strong>Maximale Kadergröße</strong> begrenzt, wie viele Spieler ein Team in dieser Saison aufbieten darf.
-              </li>
-              <li>
-                <strong>Stufen</strong> begrenzen nur, was Du künftig auswählen kannst. Bestehende Kadereinträge bleiben, wie sie sind.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zu den Regeln"
+            body={{
+              lead: "Diese Werte legen fest, wie die Saison gespielt wird.",
+              points: [
+                { term: "Gruppen", text: "und Teams pro Gruppe begrenzen, wohin ein Team aufgenommen werden kann." },
+                { term: "Qualifikanten", text: "sind die Teams jeder Gruppe, die die KO-Runde erreichen." },
+              ],
+            }}
+          />
         </h2>
       </div>
 
       <div className={panel.body()}>
+        {/* One group and not two: all four answer what a single fixture is worth, and the forfeit
+            result is that same question asked of a fixture nobody played. */}
         <div className="flex w-full flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Punkte</h3>
+          <h3 className={FORM_SECTION_HEADING}>Wertung eines Spiels</h3>
           <div className={FIELD_PAIR}>
             <SaisonRuleNumberField
               name="rules.win_points"
               isReadOnly={isFinishedSaison}
-              label={<FieldLabel path="rules.win_points">Sieg</FieldLabel>}
+              label={<FieldLabel path="rules.win_points">Punkte für einen Sieg</FieldLabel>}
               minValue={1}
               value={rules.win_points}
               onChange={(win_points) => onRulesChange({ ...rules, win_points })}
@@ -99,24 +89,13 @@ export function FormRegelnSection({
             <SaisonRuleNumberField
               name="rules.draw_points"
               isReadOnly={isFinishedSaison}
-              label={<FieldLabel path="rules.draw_points">Unentschieden</FieldLabel>}
+              label={<FieldLabel path="rules.draw_points">Punkte für ein Unentschieden</FieldLabel>}
               minValue={0}
               value={rules.draw_points}
               onChange={(draw_points) => onRulesChange({ ...rules, draw_points })}
               onBlur={() => onFieldLeft(["rules.draw_points"])}
             />
           </div>
-          <SaisonTiebreakSelect
-            name="rules.tiebreak_order"
-            isDisabled={isFinishedSaison}
-            label={<FieldLabel path="rules.tiebreak_order">Bei Punktgleichheit entscheidet</FieldLabel>}
-            value={rules.tiebreak_order}
-            onChange={(tiebreak_order) => onRulesChange({ ...rules, tiebreak_order })}
-          />
-        </div>
-
-        <div className="flex w-full flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Wertung bei Nichtantreten</h3>
           {/* One label over the pair, mirroring its one row in the change list: the season regulates
               both sides' goals together, so neither number is a decision on its own. */}
           <FieldLabel path="rules.forfeit_ergebnis">Ergebnis eines Spiels, zu dem ein Team nicht antritt</FieldLabel>
@@ -140,9 +119,26 @@ export function FormRegelnSection({
           </div>
         </div>
 
+        <Separator className="bg-border" />
+
+        {/* Its own group and never under the points above: this RE-SORTS a table the points scored,
+            so a reader taking it for a scoring rule waits for totals to move and they never do. */}
         <div className="flex w-full flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Aufbau</h3>
-          <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
+          <h3 className={FORM_SECTION_HEADING}>Tiebreak</h3>
+          <SaisonTiebreakSelect
+            name="rules.tiebreak_order"
+            isDisabled={isFinishedSaison}
+            label={<FieldLabel path="rules.tiebreak_order">Was zuerst entscheidet</FieldLabel>}
+            value={rules.tiebreak_order}
+            onChange={(tiebreak_order) => onRulesChange({ ...rules, tiebreak_order })}
+          />
+        </div>
+
+        <Separator className="bg-border" />
+
+        <div className="flex w-full flex-col gap-y-3">
+          <h3 className={FORM_SECTION_HEADING}>Aufbau der Saison</h3>
+          <div className={FIELD_TRIO}>
             <SaisonRuleNumberField
               name="rules.number_of_groups"
               isReadOnly={isDrawnSaison}
@@ -188,6 +184,10 @@ export function FormRegelnSection({
           />
         </div>
 
+        <Separator className="bg-border" />
+
+        {/* One group: how many players a squad may hold and which levels it may hold are one decision
+            about a squad, put to the admin as a number and as a set. */}
         <div className="flex w-full flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING}>Kader</h3>
           <SaisonRuleNumberField
@@ -198,10 +198,6 @@ export function FormRegelnSection({
             onChange={(max_kadergroesse) => onRulesChange({ ...rules, max_kadergroesse })}
             onBlur={() => onFieldLeft(["rules.max_kadergroesse"])}
           />
-        </div>
-
-        <div className="flex w-full flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Erlaubte Stufen</h3>
           <FieldLabel path="rules.erlaubte_stufen">Welche Stufen diese Saison spielen</FieldLabel>
           <StufenPicker
             name="rules.erlaubte_stufen"
@@ -218,15 +214,10 @@ export function FormRegelnSection({
         />
 
         {/* Panel-local, not a banner: which of THESE fields are frozen is a fact about the inputs
-            directly above, and on the rail it would describe controls the reader cannot see. One
-            sentence per freeze, the two arriving on different events. */}
+            directly above, and on the rail it would describe controls the reader cannot see. The
+            `past` freeze is the banner's above, which names the same three fields. */}
         {(isFinishedSaison || isDrawnSaison) && (
           <div className="fluid-xxs text-foreground-muted flex w-full flex-col gap-y-1 font-medium">
-            {isFinishedSaison && (
-              <p>
-                Die Saison ist abgeschlossen, deshalb sind Punkte, die Reihenfolge bei Punktgleichheit und die Qualifikanten festgeschrieben.
-              </p>
-            )}
             {/* Two repairs and not one, as `find_rules_refusal` composes them per moved field: only
                 the qualifiers move on a redraw, the other two standing on which clubs are entered. */}
             {isDrawnSaison && (
@@ -238,15 +229,13 @@ export function FormRegelnSection({
             )}
             {/* Spelled out per case rather than listing the always-open fields: under one freeze the
                 other's fields are still editable, and leaving them out would read as closing them. */}
-            {(isFinishedSaison || isDrawnSaison) && (
-              <p>
-                {isFinishedSaison && isDrawnSaison
-                  ? "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
-                  : isFinishedSaison
-                    ? "Gruppen, Teams pro Gruppe, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
-                    : "Punkte, die Reihenfolge bei Punktgleichheit, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."}
-              </p>
-            )}
+            <p>
+              {isFinishedSaison && isDrawnSaison
+                ? "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
+                : isFinishedSaison
+                  ? "Gruppen, Teams pro Gruppe, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
+                  : "Punkte, Tiebreak, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."}
+            </p>
           </div>
         )}
       </div>

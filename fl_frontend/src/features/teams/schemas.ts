@@ -29,7 +29,7 @@ export const FLAustrittSchema = z.object({
   type: z.enum(["disqualifikation", "rueckzug"], { error: "Bitte wähle, wie das Team ausgeschieden ist." }),
   // Free text written for publication: rendered as authored, never truncated to a label. German
   // because the junction editor binds this schema to its inputs.
-  grund: z.string().nonempty({ error: "Bitte gib einen Grund an. Er wird öffentlich angezeigt." }),
+  grund: z.string().nonempty({ error: "Bitte gib einen Grund an." }),
   datum: CustomDateStringSchema,
 });
 export type FLAustritt = z.infer<typeof FLAustrittSchema>;

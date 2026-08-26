@@ -27,7 +27,6 @@ import { buildSaisonBanners } from "./banners";
 import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
 import { FormRolloverSection } from "./FormRolloverSection";
-import { FormSpielplanRuecknahmeSection } from "./FormSpielplanRuecknahmeSection";
 import { FormSpielplanSection } from "./FormSpielplanSection";
 import { FormTeamErsatzSection } from "./FormTeamErsatzSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
@@ -42,9 +41,9 @@ import type {
   SaisonSpieltagBound,
 } from "@/features/saisons/types";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
+import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { CalendarDate } from "@internationalized/date";
-import type { ReactNode } from "react";
 
 /**
  * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted, and
@@ -79,7 +78,6 @@ export function AdminSaisonEditForm({
   spielplan,
   hasDrawnSpiele,
   spieltagBound,
-  registerRequestLeave,
   pageHeader,
 }: {
   saison: { id: string; status: FLSaisonStatus } & SaisonDraftFields;
@@ -94,11 +92,11 @@ export function AdminSaisonEditForm({
   hasDrawnSpiele: boolean;
   /** The span the dated matchdays already occupy, which the date pickers may not shrink past. */
   spieltagBound: SaisonSpieltagBound;
-  registerRequestLeave?: (requestLeave: () => void) => void;
-  pageHeader?: ReactNode;
+  pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isLeaving, startLeaving] = useTransition();
 
   // `CalendarDate` in state, strings on the wire — `parseDate` takes exactly the `YYYY-MM-DD` the API
   // sends. A picker cleared to null is held as null, and the schema is what reports it.
@@ -113,10 +111,6 @@ export function AdminSaisonEditForm({
 
   const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
     schemas: { saison: FLPatchSaisonPayloadSchema },
-    onUnhandledErrors: () =>
-      appToast.danger("Speichern fehlgeschlagen", {
-        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-      }),
   });
 
   // `""` for a cleared picker rather than a cast: the schema refuses an empty string with the date
@@ -185,8 +179,12 @@ export function AdminSaisonEditForm({
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    if (window.history.length > 1) router.back();
-    else router.push("/admin/saisons");
+    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
+    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    startLeaving(() => {
+      if (window.history.length > 1) router.back();
+      else router.push("/admin/saisons");
+    });
   };
 
   const requestLeave = () => {
@@ -197,10 +195,6 @@ export function AdminSaisonEditForm({
     }
     leavePage();
   };
-
-  useEffect(() => {
-    registerRequestLeave?.(requestLeave);
-  });
 
   const resetDraftToStored = () => {
     setStartDate(parseDate(saison.start_date));
@@ -273,11 +267,13 @@ export function AdminSaisonEditForm({
     const tiebreakMoved = payload.rules.tiebreak_order !== rules.tiebreak_order;
 
     // The points first where both moved: a rescore subsumes a re-sort, and one toast holds one sentence.
+    // `undefined` on the quiet branch: the title already says the change is saved, and a sentence
+    // repeating it would push the Rückgängig control down for nothing.
     const description = pointsMoved
       ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
       : tiebreakMoved
         ? "Punktgleiche Teams stehen ab sofort in einer anderen Reihenfolge, auch in längst gespielten Gruppen."
-        : "Die Saisondaten wurden aktualisiert.";
+        : undefined;
 
     const report = pointsMoved || tiebreakMoved ? appToast.warning : appToast.success;
     report("Änderung gespeichert", {
@@ -329,6 +325,8 @@ export function AdminSaisonEditForm({
         onSubmit={runOnSubmit(requestSave)}>
         <EditFormLayout
           header={pageHeader}
+          onLeave={requestLeave}
+          isLeaving={isLeaving}
           rail={
             <DraftRail
               banners={banners}
@@ -377,7 +375,9 @@ export function AdminSaisonEditForm({
 
           {/* Between the swap and the rollover: the rollover's class of control rather than the
               swap's, in that it writes on press, never joins the save bar, and no later edit
-              reverses it. */}
+              reverses it. One panel over the draw and the rücknahme that reverses it: both are open
+              at once on a drawn planned season and both destroy the same rows, so the operation is
+              picked before arming rather than raced between two armed states. */}
           <FormSpielplanSection
             saisonId={saison.id}
             saisonStatus={saison.status}
@@ -386,27 +386,9 @@ export function AdminSaisonEditForm({
             rules={saison.rules}
             {...spielplan}
             hasDrawnSpiele={hasDrawnSpiele}
-            onBeforeGenerate={() =>
-              guardAgainstDraft(
-                isDirty,
-                "Der Spielplan entsteht aus den gespeicherten Regeln, und das Anlegen lädt die Seite neu. Speichere die Änderungen zuerst.",
-              )
-            }
-          />
-
-          {/* Directly under the draw it reverses, so the repair `REQ-RULES-011` names reads in the
-              order it is walked. Its own panel and not a control inside that one: both are open at
-              once on a drawn planned season, and one armed state cannot serve two. */}
-          <FormSpielplanRuecknahmeSection
-            saisonId={saison.id}
-            saisonStatus={saison.status}
-            hasSpielplan={spielplan.spielplan !== null}
-            spieltageCount={spielplan.spieltageCount}
-            bestand={spielplan.bestand}
-            hasDrawnSpiele={hasDrawnSpiele}
-            onBeforeUndraw={() =>
-              guardAgainstDraft(isDirty, "Das Zurücknehmen lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
-            }
+            // One sentence for both writes: the draw runs on the saved rules and the rücknahme reopens
+            // them, so neither may run over a draft, and both end on the refresh that would drop it.
+            onBeforeWrite={() => guardAgainstDraft(isDirty, "Der Spielplan entsteht aus den gespeicherten Regeln, nicht aus den getippten.")}
           />
 
           {/* Last on the page, the position the club editor's Austritt panel holds: the one
@@ -417,15 +399,14 @@ export function AdminSaisonEditForm({
             saisonStatus={saison.status}
             rollover={rollover}
             hasDrawnSpiele={hasDrawnSpiele}
-            onBeforeActivate={() =>
-              guardAgainstDraft(isDirty, "Die Umstellung lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
-            }
+            onBeforeActivate={() => guardAgainstDraft(isDirty, "Die Umstellung verwirft die nicht gespeicherten Änderungen.")}
             banners={banners}
           />
         </EditFormLayout>
 
         <FormActionBar
           isPending={isPending}
+          isLeaving={isLeaving}
           onCancel={requestLeave}
         />
       </Form>

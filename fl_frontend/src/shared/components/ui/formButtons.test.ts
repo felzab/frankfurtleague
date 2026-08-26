@@ -24,10 +24,13 @@ const classesOf = (emitted: string): ReadonlySet<string> => new Set(emitted.spli
  * satisfied by whichever variant still carries the property and says nothing about the one that dropped it.
  */
 const VARIANTS: { name: string; classes: ReadonlySet<string> }[] = [
-  ...(["submit", "cancel", "destructive", "trigger"] as const).flatMap((intent) => [
+  ...(["submit", "cancel", "destructive", "trigger", "nav"] as const).flatMap((intent) => [
     { name: `formButton ${intent}`, classes: classesOf(formButton({ intent })) },
     { name: `formButton ${intent} fullWidth`, classes: classesOf(formButton({ intent, fullWidth: true })) },
   ]),
+  // The list above pairs every intent with `fullWidth`; the shorter height is a second axis and only
+  // the page chrome takes it, so the one combination that reaches an element is spelled here.
+  { name: "formButton nav sm", classes: classesOf(formButton({ intent: "nav", size: "sm" })) },
   ...(["primary", "outline"] as const).flatMap((intent) => [
     { name: `ctaButton ${intent}`, classes: classesOf(ctaButton({ intent, hover: "aria" })) },
     { name: `ctaButton ${intent} sm`, classes: classesOf(ctaButton({ intent, hover: "css", size: "sm" })) },
@@ -242,8 +245,11 @@ describe("the fill that grades a two-press confirm's next press", () => {
   });
 });
 
-/** Every component that raises something over a page: the modal folders, plus the shared dialog bodies. */
-async function modalSources(): Promise<string[]> {
+/**
+ * Every component holding chrome around a page's content: the modal folders and the shared dialog bodies,
+ * plus the entity editors' views and the header they share, where a hand-spelled pill diverges unseen.
+ */
+async function chromeSources(): Promise<string[]> {
   const found: string[] = [];
 
   const walk = async (dir: string): Promise<void> => {
@@ -257,7 +263,7 @@ async function modalSources(): Promise<string[]> {
       // Matched below `src`, never against the absolute path: a checkout can sit in a directory called
       // anything, `modals` included.
       const within = path.relative(SRC, full);
-      if (within.split(path.sep).includes("modals") || /(Modal|EntityForm)\.tsx$/.test(entry.name)) found.push(full);
+      if (within.split(path.sep).includes("modals") || /(Modal|EntityForm|EditView|EditPageHeader)\.tsx$/.test(entry.name)) found.push(full);
     }
   };
 
@@ -265,11 +271,11 @@ async function modalSources(): Promise<string[]> {
   return found;
 }
 
-describe("where a dialog's buttons get their appearance", () => {
+describe("where a page's chrome buttons get their appearance", () => {
   it("finds every one of them going through the recipe", async () => {
-    const files = await modalSources();
+    const files = await chromeSources();
     // Below this the walk has stopped finding the population rather than the population having shrunk.
-    assert.ok(files.length >= 15, `expected the modal population; found ${String(files.length)}`);
+    assert.ok(files.length >= 23, `expected the chrome population; found ${String(files.length)}`);
 
     const spelledLocally: string[] = [];
 

@@ -129,7 +129,7 @@ def squad_row(
         "saison_id": saison_id,
         "team_id": team_id,
         "is_nachgetragen": False,
-        "is_captain": False,
+        "rolle": None,
         "stufe": "Q2",
         "position": "Angriff",
         "nummer": str(index),

@@ -2,5 +2,5 @@
 // becomes a client reference on the server side.
 export const SPIELORTE_CRUD_COPY = {
   searchLabel: "Spielorte suchen",
-  searchPlaceholder: "Suchen nach Name, Straße, PLZ, Stadtteil...",
+  searchPlaceholder: "z.B. Sportpark Nord oder Nordend",
 } as const;

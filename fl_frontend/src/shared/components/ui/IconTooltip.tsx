@@ -6,7 +6,11 @@ import { HINT_SURFACE } from "./hintSurface";
 
 import type { ReactNode } from "react";
 
-/** The one tooltip appearance. `isEnabled` takes the condition, so a caller does not branch around the wrapper itself. */
+/**
+ * The one tooltip appearance, for a control that already carries this label and owns its own press. Where the hint
+ * owns it, `Hint`'s `reveal` mode carries why (COR-2). `isEnabled` takes the condition, so a caller does not branch
+ * around the wrapper.
+ */
 export function IconTooltip({
   label,
   placement = "top",

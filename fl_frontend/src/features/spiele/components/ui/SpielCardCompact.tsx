@@ -32,8 +32,8 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
           <div className="flex min-w-0 flex-row flex-wrap items-center gap-x-4 gap-y-2">
             {/* One non-breaking unit: a date split across lines reads as two dates. */}
             <div className="fluid-sm text-foreground-muted flex shrink-0 flex-row items-center gap-x-2 font-bold whitespace-nowrap">
-              <span>{spielDatum}</span>
-              <span>-</span>
+              {/* A comma joins the pair, never a dash: no dash is punctuation (`docs/frontend/spec.md` §1.12). */}
+              <span>{spielDatum},</span>
               <span>{spielUhrzeit}</span>
             </div>
 
@@ -47,7 +47,7 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
               <IconTooltip label="Spielinfo">
                 <Button
                   isIconOnly
-                  aria-label={`Spielinfo Spiel Nr.${spielData.spiel_nr}`}
+                  aria-label={`Spielinfo Spiel Nr. ${spielData.spiel_nr}`}
                   onPress={onOpenInfoModal}
                   size="sm"
                   variant="tertiary"

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { resolveBlockingBanners } from "@/shared/components/ui/railBanner.ts";
+
 import { buildTeamBanners } from "./banners.ts";
 
 import type { TeamBanner } from "./banners.ts";
@@ -13,6 +15,7 @@ const build = (overrides: Partial<Parameters<typeof buildTeamBanners>[0]> = {}):
     isMember: true,
     storedAustritt: null,
     hasAustritt: false,
+    draftGrund: "",
     isGruppeLocked: false,
     isGruppeChanged: false,
     ...overrides,
@@ -90,7 +93,9 @@ describe("buildTeamBanners", () => {
 
   it("renders the stored reason verbatim, with its date in the title", () => {
     const record = { type: "disqualifikation", grund: "Wiederholt nicht angetreten", datum: "2026-03-12" } as const;
-    const [banner] = build({ hasAustritt: true, storedAustritt: record });
+    // `draftGrund` matching the record is the untouched reason: an edited one raises the publication
+    // warning ahead of this, which is the case below.
+    const [banner] = build({ hasAustritt: true, storedAustritt: record, draftGrund: record.grund });
 
     assert.equal(banner?.body, record.grund);
     assert.match(banner?.title ?? "", /12\.03\.2026/);
@@ -98,10 +103,26 @@ describe("buildTeamBanners", () => {
 
   it("titles the standing banner from the route, so a withdrawal is not called a disqualification", () => {
     const standing = (type: "disqualifikation" | "rueckzug") =>
-      build({ hasAustritt: true, storedAustritt: { type, grund: "Schule aufgelöst", datum: "2026-03-12" } })[0]?.title ?? "";
+      build({ hasAustritt: true, storedAustritt: { type, grund: "Schule aufgelöst", datum: "2026-03-12" }, draftGrund: "Schule aufgelöst" })[0]
+        ?.title ?? "";
 
     assert.match(standing("disqualifikation"), /^Disqualifiziert seit/);
     assert.match(standing("rueckzug"), /^Zurückgezogen seit/);
+  });
+
+  it("warns again when a standing reason is rewritten, because that publishes new words", () => {
+    const record = { type: "disqualifikation", grund: "Nicht angetreten", datum: "2026-03-12" } as const;
+    const raised = build({ hasAustritt: true, storedAustritt: record, draftGrund: "Wiederholt nicht angetreten" });
+
+    assert.deepEqual(ids(raised), ["team.austritt-entering", "team.austritt-standing"]);
+    // The standing banner is `info` and cannot confirm anything, so the rewrite has to carry its own.
+    assert.equal(resolveBlockingBanners(raised)?.[0]?.id, "team.austritt-entering");
+  });
+
+  it("leaves an untouched reason out of the save confirmation, so an unrelated edit saves straight through", () => {
+    const record = { type: "disqualifikation", grund: "Nicht angetreten", datum: "2026-03-12" } as const;
+
+    assert.equal(resolveBlockingBanners(build({ hasAustritt: true, storedAustritt: record, draftGrund: record.grund })), null);
   });
 
   it("keeps the group warning off a locked group, whatever the draft says", () => {

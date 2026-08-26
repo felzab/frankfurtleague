@@ -5,7 +5,7 @@ import { FieldError, Input, TextField } from "@heroui/react";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 
 import type { SpielerPersonFields } from "@/features/spieler/types";
 
@@ -30,17 +30,14 @@ export function FormPersonSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Person
-          <InfoHint label="Hinweis zu den Personendaten">
-            <p>Der Name gilt über alle Saisons hinweg.</p>
-            <ul>
-              <li>
-                Eine Korrektur ist <strong>sofort überall sichtbar</strong>.
-              </li>
-              <li>
-                Team, Nummer, Position und Stufe gehören zur Saison und stehen im Abschnitt <strong>Kader</strong>.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zur Person"
+            body={{
+              lead: "Der Name gilt über alle Saisons hinweg.",
+              points: [{ term: "Eine Korrektur", text: "ist sofort überall zu sehen." }],
+            }}
+          />
         </h2>
       </div>
 
@@ -53,7 +50,10 @@ export function FormPersonSection({
             onChange={(next) => onChange({ ...draft, vorname: next })}
             onBlur={() => onFieldLeft(["vorname"])}>
             <FieldLabel path="vorname">Vorname</FieldLabel>
-            <Input className={FIELD_INPUT} />
+            <Input
+              placeholder="z.B. Lena"
+              className={FIELD_INPUT}
+            />
             <FieldError className={FIELD_ERROR} />
           </TextField>
 
@@ -64,7 +64,10 @@ export function FormPersonSection({
             onChange={(next) => onChange({ ...draft, nachname: next.trim() === "" ? null : next })}
             onBlur={() => onFieldLeft(["nachname"])}>
             <FieldLabel path="nachname">Nachname</FieldLabel>
-            <Input className={FIELD_INPUT} />
+            <Input
+              placeholder="z.B. Meier"
+              className={FIELD_INPUT}
+            />
             <FieldError className={FIELD_ERROR} />
           </TextField>
         </div>

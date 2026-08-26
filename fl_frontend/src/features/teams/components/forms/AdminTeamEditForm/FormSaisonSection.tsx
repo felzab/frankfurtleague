@@ -19,11 +19,12 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { confirmButton, formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
@@ -103,7 +104,7 @@ function GruppenTauschControl({
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id });
 
       if (!res.success) {
-        appToast.danger("Tausch fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+        appToast.danger("Tausch fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
         return;
       }
 
@@ -151,14 +152,13 @@ function GruppenTauschControl({
         <Callout
           severity="info"
           title="Zurzeit ist kein Team wählbar">
-          Tauschen kann nur, wer in einer anderen Gruppe dieser Saison steht und dort noch kein Spiel gespielt oder abgesagt bekommen hat. Auf
-          kein Team dieser Saison trifft das gerade zu.
+          Tauschen kann nur ein Team, das in einer anderen Gruppe dieser Saison steht und dort noch kein Spiel gespielt oder abgesagt bekommen
+          hat.
         </Callout>
       ) : (
         <>
           <p className="fluid-sm text-foreground font-medium">
-            <strong>{self.name}</strong> steht in Gruppe {self.gruppe}. Wähle das Team, mit dem die Gruppe getauscht wird. Beide wechseln in
-            einem Schritt.
+            Wähle das Team, mit dem <strong>{self.name}</strong> die Gruppe tauscht.
           </p>
 
           <div className="flex w-full flex-col gap-y-1.5">
@@ -172,11 +172,10 @@ function GruppenTauschControl({
               className="sm:max-w-96"
             />
 
-            {/* The two questions this picker raises — why a row is grey, and why an expected club is
-            missing — answered where it raises them. */}
+            {/* Why an expected club is missing, answered where the picker raises it. A greyed row
+            carries its own reason, so nothing here restates the refusal labels. */}
             <p className="fluid-xxs text-foreground-muted leading-normal font-medium">
-              Ausgegraut heißt: gleiche Gruppe, in seiner Gruppe schon gespielt, oder eines der beiden stünde nach dem Tausch zweimal an einem
-              Spieltag. Teams, die nicht in dieser Saison stehen, haben hier keine Gruppe und erscheinen deshalb nicht.
+              Teams, die nicht in dieser Saison stehen, erscheinen hier nicht.
             </p>
           </div>
 
@@ -224,11 +223,11 @@ function GruppenTauschControl({
             {/* Adjacent to the control it describes and pointed at by `aria-describedby`, the app's
             treatment for a control disabled for a reason already on screen. */}
             {!isSwapping && partner === null && (
-              <p
-                id={SWAP_BUTTON_HINT_ID}
-                className="fluid-xxs text-foreground-muted leading-normal font-medium">
-                Wähle zuerst ein Team zum Tauschen.
-              </p>
+              <Hint
+                mode="inline"
+                describes={SWAP_BUTTON_HINT_ID}
+                text="Wähle zuerst ein Team."
+              />
             )}
           </div>
         </>
@@ -296,13 +295,13 @@ export function FormSaisonSection({
       setEntryGruppeError(gruppeError);
 
       if (res.success) {
-        appToast.success(res.message ?? "Team aufgenommen!");
+        appToast.success(res.message ?? "Team aufgenommen");
         return;
       }
       // Suppressed where the picker carries the message, so a refusal about the chosen group is not
       // also said in a toast that names no field.
       if (gruppeError === null) {
-        appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || "Ein unerwarteter Fehler ist aufgetreten." });
+        appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || UNKNOWN_REFUSAL });
       }
     });
   };
@@ -317,25 +316,14 @@ export function FormSaisonSection({
         </span>
         <h2 className={panel.heading()}>
           Saison {saison.saisonId}
-          <InfoHint label="Hinweis zur Saison-Zugehörigkeit">
-            <p>Dieser Bereich gilt für die Saison, die im Seitenmenü ausgewählt ist.</p>
-            <ul>
-              <li>
-                Eine <strong>andere Saison</strong> wählst Du im Seitenmenü aus.
-              </li>
-              <li>
-                Der <strong>Austritt</strong> unten nimmt dieses Team aus der Saison, als Disqualifikation oder als Rückzug. Seine Spiele
-                bleiben dabei bei ihm; <strong>Team ersetzen</strong> auf der Saisonseite gibt sie an ein anderes Team weiter.
-              </li>
-              <li>
-                Die <strong>Gruppe</strong> ist nur änderbar, solange für dieses Team noch keine Spiele angelegt sind.
-              </li>
-              <li>
-                Danach bleibt genau ein Weg: der <strong>Tausch</strong> mit einem zweiten Team, hier oder auf der Saisonseite. Beide wechseln
-                in einem Schritt, damit jede Gruppe ihre Größe behält.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zur Saison-Zugehörigkeit"
+            body={{
+              lead: "Dieser Bereich gilt für die Saison aus dem Seitenmenü.",
+              points: [{ term: "Denselben Gruppentausch", text: "startest Du auf der Saisonseite mit zwei frei gewählten Teams." }],
+            }}
+          />
         </h2>
       </div>
 

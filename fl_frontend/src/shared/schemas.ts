@@ -29,7 +29,7 @@ export const CustomTimeStringSchema = z
 
 export const CustomObjectIdStringSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, {
   // German, like every message here, because a failure reaches a `<FieldError>` under a picker rather than a console.
-  error: "Ungültige Auswahl. Bitte wähle den Eintrag erneut aus.",
+  error: "Bitte wähle den Eintrag erneut aus.",
 });
 
 /**

@@ -53,7 +53,7 @@ export const KONTAKT_CHANNELS: KontaktChannel[] = [
   {
     id: "whatsapp",
     name: "WhatsApp",
-    value: "N/A",
+    value: "Noch nicht verfügbar",
     action: "https://wa.me",
   },
 ];
@@ -61,77 +61,77 @@ export const KONTAKT_CHANNELS: KontaktChannel[] = [
 export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "finanzierung",
-    q: "Wie genau funktioniert die Finanzierung der Abibälle?",
-    a: "Die Teams, die bei einem bestimmten Spiel gegeneinander spielen verdienen durch Tickets und Verkäufe vor Ort (Kuchen, Getränke etc) Geld, welches dann nach dem Spiel zwischen den Teams verteilt wird. Dies ist normalerweise eine 50%/50% Verteilung. Je weiter ein Team in der Frankfurt-League kommt, desto mehr Möglichkeiten gibt es, Geld für den Abiball zu verdienen.",
+    q: "Wie funktioniert die Finanzierung der Abibälle?",
+    a: "Die beiden Teams eines Spiels verdienen an Tickets und an ihren Verkäufen vor Ort. Der Erlös wird nach dem Spiel geteilt, in der Regel je zur Hälfte.",
   },
   {
     id: "organisation",
-    q: "Wer organisiert den Ligabetrieb?",
-    a: "Die Frankfurt-League wird von einem Team ehrenamtlicher Schüler und Helfer bei den jeweiligen Spielen betrieben. Erfahre mehr hierüber auf unserer Team-Seite!",
+    q: "Wer organisiert die Liga?",
+    a: "Ehrenamtliche Schülerinnen, Schüler und Helfer. Wer dazugehört, steht auf der Team-Seite.",
   },
   {
     id: "regeln",
     q: "Nach welchen Regeln wird gespielt?",
-    a: "Es wird reguläres 11-gegen-11 Fußball gespielt und jedes Spiel besteht aus zwei Hälften à 45min. Es werden, soweit möglich, neutrale und externe Schiedsrichter eingesetzt. Wichtig ist, dass der Kader jedes Teams nur aus Spielern ihres eigenen Abijahrgangs bestehen muss.",
+    a: "11 gegen 11, zwei Hälften à 45 Minuten. Die Schiedsrichter kommen, soweit möglich, von außerhalb.",
   },
   {
     id: "teilnahme",
     q: "Wer darf in den Teams mitspielen?",
-    a: "Spielberechtigt sind ausschließlich aktive Schülerinnen und Schüler der jeweiligen Schule, welche den jewiligen Abijahrgang besuchen.",
+    a: "Nur Schülerinnen und Schüler des Abijahrgangs, für den das Team antritt.",
   },
   {
     id: "bewerbung",
     q: "Wie kann unsere Schule der Liga beitreten?",
-    a: "Neue Schulen bewerben sich in der Saisonpause. Dafür braucht ihr einen vollständigen Kader und einen oder mehrere Vertreter der Schule. Kontaktiert uns einfach über einen der auf unserer Kontakt-Seite stehenden Wege.",
+    a: "Neue Schulen bewerben sich in der Saisonpause, mit einem vollständigen Kader und mindestens einer Vertretung der Schule. Schreib uns über die Kontakt-Seite.",
   },
   {
     id: "wetter",
     q: "Was passiert bei schlechtem Wetter?",
-    a: "Wir spielen bei jedem Wetter. Bei offizieller Unwetterwarnung oder Platzsperre wird das Spiel durch das Orga-Team abgesagt und neu angesetzt.",
+    a: "Wir spielen bei jedem Wetter. Bei offizieller Unwetterwarnung oder Platzsperre wird das Spiel abgesagt und neu angesetzt.",
   },
   {
     id: "preise",
     q: "Was bekommt der Gewinner?",
-    a: "Vor allem natürlich das meiste Geld, aber auch Ruhm und Ehre als bester Abijahrgang des jewiligen Jahres.",
+    a: "Das meiste Geld, dazu Ruhm und Ehre als bester Abijahrgang des Jahres.",
   },
   {
     id: "lehrer",
     q: "Dürfen auch Lehrer mitspielen?",
-    a: "Nein. Die Frankfurt-League ist ein reines Schüler-Turnier. Lehrer sind als treue Fans an der Seitenlinie willkommen.",
+    a: "Nein, die Frankfurt-League ist eine reine Schülerliga. Als Fans an der Seitenlinie sind Lehrer willkommen.",
   },
   {
     id: "schiedsrichter-platzgebühr",
     q: "Wie werden die Schiedsrichter und die Platzgebühr bezahlt?",
-    a: "Alle Kosten müssen im Voraus von den spielenden Teams bezahlt werden und können im Nachhinein aus den Einnahmen des jewiligen Spiels finanziert werden.",
+    a: "Die beiden Teams legen die Kosten vor und holen sie sich aus den Einnahmen des Spiels zurück.",
   },
   {
     id: "flinta",
     q: "Können auch Mädchen- oder gemischte Teams antreten?",
-    a: "Absolut! Die Liga ist offen für alle. Wir freuen uns über jeden Spieler und jede Spielerin auf dem Platz.",
+    a: "Absolut, die Liga ist offen für alle.",
   },
   {
     id: "orte",
     q: "Wo finden die Spiele statt?",
-    a: "Wir haben keinen Zentralen Spielort. Der Ort und die Uhrzeit, an dem ein bestimmtes Spiel stattdfindet wird immer auf unserer Website bekannt gegeben und kann in der Saisonübersicht eingesehen werden.",
+    a: "Wir haben keinen zentralen Spielort. Wo und wann ein Spiel stattfindet, steht im Spielplan.",
   },
   {
     id: "eintritt",
     q: "Kostet der Eintritt etwas?",
-    a: "Ja, da Geld für die Abikassen gesammelt wird, kostet der Eintritt je nach Spiel und Kaufzeitpunkt 2-5€. In den meisten Fällen lohnt es sich, Tickets im Voraus zu kaufen!",
+    a: "Ja, je nach Spiel und Kaufzeitpunkt 2 bis 5 €. Im Vorverkauf sind Tickets meist günstiger.",
   },
   {
     id: "verletzungen",
     q: "Wie seid ihr bei Verletzungen abgesichert?",
-    a: "Bei den meisten Spielen sind Sanitäter (Schüler) anwesend und im Notfall wird natürlich sofort der Krankenwagen gerufen.",
+    a: "Bei den meisten Spielen sind Sanitäter vor Ort, ebenfalls Schüler. Im Notfall rufen wir sofort den Krankenwagen.",
   },
   {
     id: "tabelle",
     q: "Wie setzt sich die Tabelle zusammen?",
-    a: "Es gibt regulär 3 Punkte für einen Sieg, 1 Punkt für ein Unentschieden und 0 Punkte für eine Niederlage. Bei gleichem Punktestand wird die Tordifferenz berücksichtigt. ",
+    a: "Nach Punkten aus den Spielen der Gruppenphase.",
   },
   {
     id: "finale",
     q: "Gibt es ein großes Finale?",
-    a: "Nach der Gruppenphase folgt die KO-Runde, welche vom Viertelfinale bis zum Finale geht. Diese Spiele sind oft etwas breiter organisiert, als Gruppenspiele.",
+    a: "Nach der Gruppenphase folgt die KO-Runde bis zum Finale. Diese Spiele sind größer aufgezogen als die Gruppenspiele.",
   },
 ];

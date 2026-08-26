@@ -8,7 +8,7 @@ import { buildSpieltagBanners } from "./components/forms/AdminSpieltagEditForm/b
 
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "spieltage", "undo", "route.ts"), "utf8");
-/** Whitespace-collapsed: the hint is JSX text, so the formatter picks its line breaks, not the author. */
+/** Whitespace-collapsed: the formatter picks the hint body's line breaks, not the author. */
 const HINT_SECTION = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminSpieltagEditForm", "FormZeitraumSection.tsx"),
   "utf8",
@@ -97,7 +97,7 @@ describe("the German the ordering refusal renders", () => {
   it("keeps the admin off the undated matchdays the endpoint steps over", () => {
     assert.match(refusalMessage(orderingCode()), /schon einen Zeitraum haben/);
     assert.match(replayRow(orderingCode()), /schon einen Zeitraum haben/);
-    assert.match(HINT_SECTION, /schon einen Zeitraum haben/);
+    assert.match(spanWarningBody(), /schon einen Zeitraum haben/);
   });
 
   /* `ende` is the one field the rule leaves free, and WHOSE flips with the arm: the predecessor's
@@ -116,17 +116,6 @@ describe("the German the ordering refusal renders", () => {
   it("asks for no wider Ende, which the refused payload already carries", () => {
     assert.doesNotMatch(refusalMessage(orderingCode()), /Erweitere/);
   });
-
-  /* The hint states the same rule beside the pickers, and drift is invisible: each reads correctly
-     alone, and only the pair says whether both send the admin at the same rows. The hint can name
-     both directions; the refusal, read after one, cannot. */
-  it("states the same restriction in the hint the pickers carry", () => {
-    assert.match(HINT_SECTION, /davor steht/);
-    assert.match(HINT_SECTION, /danach steht/);
-    // Around the `<strong>` the hint wraps `Ende` in, which the collapse leaves in place.
-    assert.match(HINT_SECTION, /ist daran nicht gebunden und darf weiter reichen/);
-    assert.match(HINT_SECTION, /später gespielt werden, verlege seine Spiele in die späteren Tage seines Zeitraums/);
-  });
 });
 
 describe("the greying the Zeitraum hint promises", () => {
@@ -135,7 +124,7 @@ describe("the greying the Zeitraum hint promises", () => {
      bounds offers days the save then refuses. */
   it("promises greying no wider than the bounds the pickers carry", () => {
     const bounds = [...HINT_SECTION.matchAll(/(?:minValue|maxValue)=\{\w+\}/g)].map((match) => match[0]);
-    const greying = HINT_SECTION.split("<li>").find((item) => item.includes("ausgegraut")) ?? "";
+    const greying = HINT_SECTION.split("{ term:").find((item) => item.includes("ausgegraut")) ?? "";
 
     assert.deepEqual([...new Set(bounds)].sort(), ["maxValue={spanEnd}", "minValue={spanStart}"]);
     assert.match(greying, /außerhalb der Saison/);

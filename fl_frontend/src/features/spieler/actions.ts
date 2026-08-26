@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { ERASURE_NEEDS_RETIREMENT } from "./constants";
@@ -45,15 +46,23 @@ import type {
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
 
 // The index spans retired rows and creating never revives, so the message names the one path that does.
-const ALREADY_IN_SAISON =
-  "Dieser Spieler hat in dieser Saison bereits einen Kadereintrag, möglicherweise einen ausgetragenen. " +
-  "Reaktiviere den Eintrag, statt einen neuen anzulegen.";
+const ALREADY_IN_SAISON = buildRefusal({
+  reason: "Dieser Spieler hat in dieser Saison bereits einen Kadereintrag, möglicherweise einen ausgetragenen",
+  repair: "Reaktiviere den Eintrag, statt einen neuen anzulegen",
+});
 
 // Reachable with no picker on screen: a reactivate names the row's STORED club, which a replacement
 // can have taken out of the season.
 const SQUAD_TEAM_NOT_IN_SAISON =
   "Das Team dieses Kadereintrags ist in dieser Saison nicht dabei. Weise den Eintrag im Bereich „Kader“ auf der Seite " +
   "des Spielers zuerst einem Team dieser Saison zu.";
+
+// Neither role is named: the reactivate offers no role on screen, and one sentence has to serve it
+// as well as the two the editor picks between.
+const SQUAD_ROLLE_TAKEN = buildRefusal({
+  reason: "In diesem Team ist diese Rolle bereits vergeben",
+  repair: "Nimm sie dem anderen Spieler zuerst ab, dann kannst Du sie hier vergeben",
+});
 
 /** Base tag only: the cached spieler read spans every season. */
 function invalidateSpieler(): void {
@@ -62,8 +71,8 @@ function invalidateSpieler(): void {
 
 /**
  * Two shapes for one refusal: the field message marks the team picker, and the sentence beside it is
- * what a reactivate toasts, that path rendering no field at all. The cap belongs to no field
- * either — it is a fact about the season's rules.
+ * what a reactivate toasts, that path rendering no field at all. Neither the cap nor a taken role
+ * belongs to a field — one is a fact about the season's rules, the other about the squad.
  */
 function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -71,11 +80,15 @@ function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   if (error.serverErrorCode === "REQ-SQUAD-001") {
     return { error: SQUAD_TEAM_NOT_IN_SAISON, fieldErrors: { team_id: "Dieses Team ist in der gewählten Saison nicht dabei." } };
   }
+  if (error.serverErrorCode === "REQ-SQUAD-004") {
+    return { error: SQUAD_ROLLE_TAKEN };
+  }
   if (error.serverErrorCode === "REQ-SQUAD-003") {
     return {
-      error:
-        "Der Kader dieses Teams ist für diese Saison voll. Erhöhe die maximale Kadergröße in den Saisonregeln " +
-        "oder trage zuerst einen anderen Spieler aus.",
+      error: buildRefusal({
+        reason: "Der Kader dieses Teams ist für diese Saison voll",
+        repair: "Erhöhe die maximale Kadergröße in den Saisonregeln oder trage zuerst einen anderen Spieler aus",
+      }),
     };
   }
   return null;
@@ -108,12 +121,12 @@ export async function postSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const { saison_id, team_id, nummer, position, stufe, is_nachgetragen, is_captain, ...personFields } = validated.data;
+    const { saison_id, team_id, nummer, position, stufe, is_nachgetragen, rolle, ...personFields } = validated.data;
 
     // No 409 branch on the person: no uniqueness rule on a name, because two people can share one.
     const postOperation = await postSpieler(personFields);
     if (!postOperation.acknowledged) {
-      return { success: false, error: "Beim Anlegen des neuen Spielers ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
     // The junction row, in the same action: without one the player is invisible to every
@@ -127,7 +140,7 @@ export async function postSpielerAction(
         position,
         stufe,
         is_nachgetragen,
-        is_captain,
+        rolle,
       });
     } catch (error) {
       invalidateSpieler();
@@ -141,8 +154,8 @@ export async function postSpielerAction(
       return {
         success: false,
         error:
-          `Der Spieler wurde angelegt, konnte aber nicht in den Kader aufgenommen werden.${because} ` +
-          "Er ist dadurch auf keiner Seite sichtbar. Nimm ihn über die Spielerseite in eine Saison auf.",
+          `Der Spieler wurde angelegt, steht aber in keinem Kader und ist dadurch auf keiner Seite sichtbar.${because} ` +
+          "Nimm ihn über die Spielerseite in eine Saison auf.",
       };
     }
 
@@ -151,7 +164,7 @@ export async function postSpielerAction(
     return {
       success: Boolean(postOperation.acknowledged),
       spieler_id: postOperation.spieler_id,
-      message: "Spieler erfolgreich angelegt!",
+      message: "Spieler angelegt",
     };
   });
 }
@@ -176,7 +189,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
 
     const patchOperation = await patchSpieler(validated.data);
     if (!patchOperation.acknowledged) {
-      return { success: false, error: "Beim Bearbeiten der Spielerdaten ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Spielerdaten wurden nicht gespeichert", repair: "Versuche es erneut" }) };
     }
 
     invalidateSpieler();
@@ -184,7 +197,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
     return {
       success: Boolean(patchOperation.acknowledged),
       spieler: patchOperation,
-      message: "Spieler erfolgreich bearbeitet!",
+      message: "Spieler bearbeitet",
     };
   });
 }
@@ -205,7 +218,7 @@ export async function deleteSpielerAction(
 
     const deleteOperation = await deleteSpieler(validated.data);
     if (!deleteOperation.acknowledged) {
-      return { success: false, error: "Beim Stilllegen des Spielers ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
     }
 
     invalidateSpieler();
@@ -234,7 +247,7 @@ export async function reactivateSpielerAction(
 
     const reactivateOperation = await reactivateSpieler(validated.data);
     if (!reactivateOperation.acknowledged) {
-      return { success: false, error: "Beim Reaktivieren des Spielers ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
     }
 
     invalidateSpieler();
@@ -242,7 +255,7 @@ export async function reactivateSpielerAction(
     return {
       success: Boolean(reactivateOperation.acknowledged),
       spieler: reactivateOperation,
-      message: "Spieler reaktiviert!",
+      message: "Spieler reaktiviert",
     };
   });
 }
@@ -322,7 +335,7 @@ export async function postSaisonSpielerAction(
     return {
       success: true,
       saison_spieler: saisonSpieler,
-      message: `Spieler in die Saison ${validated.data.saison_id} aufgenommen!`,
+      message: `Spieler in die Saison ${validated.data.saison_id} aufgenommen`,
     };
   });
 }
@@ -355,7 +368,7 @@ export async function patchSaisonSpielerAction(
     return {
       success: true,
       saison_spieler: saisonSpieler,
-      message: "Kadereintrag gespeichert!",
+      message: "Kadereintrag gespeichert",
     };
   });
 }

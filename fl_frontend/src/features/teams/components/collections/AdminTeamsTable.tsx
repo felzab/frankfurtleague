@@ -14,8 +14,16 @@ import { card } from "@/shared/components/ui/card";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminTeamRow } from "../../types";
+
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: "Keine Teams für diese Suche.",
+  filtered: "Keine Teams für diese Filter.",
+  none: "Es wurden noch keine Teams angelegt.",
+};
 
 /**
  * Memoised, and load-bearing — `AdminCrudView`'s collection-identity note carries why.
@@ -23,15 +31,13 @@ import type { AdminTeamRow } from "../../types";
  * The rows are every club; Gruppe and Status are the SELECTED SEASON's.
  */
 export const AdminTeamsTable = memo(function AdminTeamsTable({
-  teamsQuery,
   filteredTeams,
-  selectedSaisonStatus,
+  emptiness,
   setDeletingTeam,
 }: {
-  teamsQuery: string;
   filteredTeams: AdminTeamRow[];
-  /** Decides the status column's wording — the season's own three words. */
-  selectedSaisonStatus: "past" | "active" | "future";
+  /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
   setDeletingTeam: (team: AdminTeamRow) => void;
 }) {
   const [, startReactivating] = useTransition();
@@ -48,8 +54,8 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   const handleReactivate = (team: AdminTeamRow) => {
     startReactivating(async () => {
       const res = await reactivateTeamAction({ id: team.id });
-      if (res.success) appToast.success(res.message ?? "Team reaktiviert!");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      if (res.success) appToast.success(res.message ?? "Team reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 
@@ -64,13 +70,10 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>{austrittZustand(team.selected.austritt.type)}</span>
       )}
       {team.inactive_since === null && team.selected !== null && team.selected.austritt === null && (
-        <>
-          {/* The season's own vocabulary: „Aktiv“ is the filter's word for „nicht stillgelegt“, a
-              different fact about a different subject. */}
-          {selectedSaisonStatus === "active" && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>}
-          {selectedSaisonStatus === "past" && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>}
-          {selectedSaisonStatus === "future" && <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>}
-        </>
+        /* The CLUB's standing, never the season's status: `fl_frontend/src/features/teams/facets.ts`'s
+           `aktiv` bucket is this same state and ignores the season's tense, so the filter and the
+           row cannot disagree. */
+        <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>
       )}
     </div>
   );
@@ -132,7 +135,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{teamsQuery ? "Keine Teams für diese Suche gefunden." : "Es wurden noch keine Teams angelegt."}</p>
+      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
     </div>
   );
 

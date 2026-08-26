@@ -1,5 +1,7 @@
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
 
+import { UNKNOWN_REFUSAL } from "./refusal";
+
 import type { FormState } from "@/shared/types/types";
 
 /**
@@ -15,23 +17,20 @@ const OCCUPANT_REFUSALS: Record<string, string> = {
 
   "REQ-ELIGIBILITY-002": "Dieses Team nimmt nicht an dieser Saison teil.",
   "REQ-STATE-002": "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
-  "REQ-STATE-003": "Ein Nichtantreten braucht beide Teams. Dieses Spiel hat noch einen offenen Platz.",
+  "REQ-STATE-003": "Ein Nichtantreten braucht beide Teams. Besetze zuerst den offenen Platz.",
   // The repair is on the OTHER fixture, so it rides the same rail rather than this field.
   "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag bereits in einem anderen Spiel.",
 };
 
 /**
- * Maps whatever a mutation threw onto the `FormState` the admin forms render. The messages are deliberately generic:
- * the diagnosis is already in the server log, and what the admin needs is whether retrying can help.
+ * Maps whatever a mutation threw onto the `FormState` the admin forms render. Each message names the way out rather
+ * than the failure: the diagnosis is already in the server log, and the toast's title carries that the save is off.
  */
 export function toActionErrorResult(error: unknown): NonNullable<FormState> {
   if (error instanceof APIBadStatusError) {
     if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-001") {
       // The form does not offer these shapes, so the request was built against a season that has since moved.
-      return {
-        success: false,
-        error: "Die Änderung passt nicht mehr zum aktuellen Turnierbaum, denn die Saison wurde inzwischen geändert. Lade die Seite neu.",
-      };
+      return { success: false, error: "Die Saison wurde inzwischen geändert. Lade die Seite neu." };
     }
     if (error.statusCode === 409 && error.serverErrorCode !== undefined && error.serverErrorCode in OCCUPANT_REFUSALS) {
       // Unlike the wiring refusal above, reloading fixes none of these. The code rides back out so the
@@ -43,7 +42,7 @@ export function toActionErrorResult(error: unknown): NonNullable<FormState> {
       return { success: false, error: "Der Eintrag steht im Konflikt mit einem, den es schon gibt." };
     }
     if (error.statusCode === 404) {
-      return { success: false, error: "Der Eintrag wurde nicht gefunden. Vielleicht hat ihn jemand inzwischen gelöscht." };
+      return { success: false, error: "Der Eintrag wurde nicht gefunden. Lade die Seite neu." };
     }
     return { success: false, error: "Der Server hat mit einem Fehler geantwortet. Versuche es erneut." };
   }
@@ -52,7 +51,7 @@ export function toActionErrorResult(error: unknown): NonNullable<FormState> {
     return {
       success: false,
       error: error.isTimeout
-        ? "Zeitüberschreitung bei der Verbindung zum Server. Versuche es erneut."
+        ? "Der Server hat zu lange nicht geantwortet. Versuche es erneut."
         : "Der Server ist gerade nicht erreichbar. Versuche es später erneut.",
     };
   }
@@ -61,5 +60,5 @@ export function toActionErrorResult(error: unknown): NonNullable<FormState> {
     return { success: false, error: "Die Daten kamen fehlerhaft an. Versuche es erneut." };
   }
 
-  return { success: false, error: "Ein unerwarteter Fehler ist aufgetreten." };
+  return { success: false, error: UNKNOWN_REFUSAL };
 }

@@ -70,7 +70,7 @@ const isComplete = (quelle: FLSpielQuelle | null): quelle is FLSpielQuelle =>
 const describeFeeder = (spiel: FLSpiel): string => {
   const side1 = spiel.team1?.name ?? formatQuelle(spiel.team1_quelle) ?? PLACEHOLDER.slot;
   const side2 = spiel.team2?.name ?? formatQuelle(spiel.team2_quelle) ?? PLACEHOLDER.slot;
-  return `Spiel ${spiel.spiel_nr}, ${PHASE_LABELS[spiel.saison_phase]}: ${side1} vs. ${side2}`;
+  return `Spiel ${spiel.spiel_nr}, ${PHASE_LABELS[spiel.saison_phase]}: ${side1} gegen ${side2}`;
 };
 
 /**
@@ -384,7 +384,7 @@ export function FormTeamPicker({
             ))}
           </ListBox>
         </Autocomplete.Popover>
-        {/* No `Description`: the Begegnung panel's InfoHint explains all four answers once. */}
+        {/* No `Description`: the Begegnung panel's `Hint` explains all four answers once. */}
         <FieldError className={FIELD_ERROR} />
       </Autocomplete>
 
@@ -520,7 +520,7 @@ export function FormTeamPicker({
                 ))}
             </ListBox>
           </Autocomplete.Popover>
-          {/* Why a match is missing lives in the panel InfoHint, not under every control. */}
+          {/* Why a match is missing lives in the panel's `Hint`, not under every control. */}
           <FieldError className={FIELD_ERROR} />
         </Autocomplete>
       )}
@@ -549,7 +549,8 @@ export function FormTeamPicker({
           <div className={`${FIELD_INPUT} text-foreground-muted cursor-default`}>
             <span className="fluid-sm">{occupantLabel}</span>
           </div>
-          <p className="fluid-xxs text-foreground-muted leading-normal font-medium">Vom System besetzt.</p>
+          {/* The control above is labelled Herkunft, so the note names it rather than the machinery behind it. */}
+          <p className="fluid-xxs text-foreground-muted leading-normal font-medium">Folgt der Herkunft.</p>
         </div>
       )}
 

@@ -6,12 +6,12 @@ import { Button } from "@heroui/react";
 
 import { deleteSaisonSpielerAction, reactivateSaisonSpielerAction } from "@/features/spieler/actions";
 import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "@/features/spieler/constants";
-import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SpielerBanner } from "./banners";
 
@@ -44,8 +44,8 @@ export function FormAustragenSection({
   const run = (write: () => Promise<{ success: boolean; message?: string; error?: string }>, failureHeading: string) => {
     startWriting(async () => {
       const res = await write();
-      if (res.success) appToast.success(res.message ?? "Gespeichert!");
-      else appToast.danger(failureHeading, { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      if (res.success) appToast.success(res.message ?? "Gespeichert");
+      else appToast.danger(failureHeading, { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 
@@ -54,22 +54,17 @@ export function FormAustragenSection({
       <div className={styles.header()}>
         <h2 className={styles.heading()}>
           Kadereintrag
-          <InfoHint label="Hinweis zum Austragen">
-            <p>Der Weg aus dem Kader einer Saison.</p>
-            <ul>
-              <li>
-                Es betrifft <strong>nur diese Saison</strong>. Der Spieler bleibt in der Liga und in jeder anderen Saison, in der er steht.
-              </li>
-              <li>
-                <strong>Nummer, Position und Stufe bleiben erhalten</strong> und kehren beim Reaktivieren zurück.
-              </li>
-              <li>
-                Reaktivieren geht, <strong>solange sein Team in der Saison dabei ist</strong>. Nach einem <strong>Team ersetzen</strong> auf der
-                Saisonseite weise den Eintrag oben im Bereich „Kader“ zuerst einem Team dieser Saison zu.
-              </li>
-              <li>Den Spieler ganz stillzulegen ist etwas anderes und steht in der Spielerliste, in seiner Zeile.</li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Austragen"
+            body={{
+              lead: "Der Weg aus dem Kader einer Saison.",
+              points: [
+                { term: "Jede andere Saison", text: "behält den Spieler." },
+                { term: "Stilllegen", text: "ist etwas anderes und steht in der Spielerliste." },
+              ],
+            }}
+          />
         </h2>
       </div>
 
@@ -82,7 +77,8 @@ export function FormAustragenSection({
             />
             {/* The reason is said on the control as well as in the banner above it, the erasure's
                 treatment. `isPending` is left out: it ends by itself. */}
-            <DisabledHint
+            <Hint
+              mode="refusal"
               reason={isPending ? null : blockedReason}
               className="w-fit">
               <Button
@@ -95,7 +91,7 @@ export function FormAustragenSection({
                 className={formButton({ intent: "submit" })}>
                 {isPending ? "Speichert..." : "Kadereintrag reaktivieren"}
               </Button>
-            </DisabledHint>
+            </Hint>
           </>
         ) : (
           <>

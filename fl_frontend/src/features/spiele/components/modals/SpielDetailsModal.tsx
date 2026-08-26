@@ -120,7 +120,7 @@ export function SpielDetailsModal({
                     onNavigate={onClose}
                   />
 
-                  <span className="fluid-sm text-foreground-muted my-1 font-bold tracking-widest uppercase">vs</span>
+                  <span className="fluid-sm text-foreground-muted my-1 font-bold tracking-widest uppercase">gegen</span>
 
                   <TeamNameLine
                     team={spielData.team2}

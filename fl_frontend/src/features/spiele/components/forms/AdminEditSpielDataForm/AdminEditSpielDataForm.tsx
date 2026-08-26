@@ -60,10 +60,10 @@ import type {
 import type { ActionRequiredCategory } from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
+import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
-import type { ReactNode } from "react";
 import type { SpielRefusalCode } from "./banners";
 
 /**
@@ -110,7 +110,6 @@ export function AdminEditSpielDataForm({
   saisonSpiele,
   today,
   categorize,
-  registerRequestLeave,
   pageHeader,
 }: {
   spielData: FLSpielAdmin;
@@ -119,17 +118,8 @@ export function AdminEditSpielDataForm({
   schiedsrichter: FLSchiedsrichter[];
   saisonSpiele: FLSpiel[];
   today: string;
-  /**
-   * Lends the caller this form's discard guard, so the view's Zurück pill exits exactly as
-   * Abbrechen does instead of calling `router.back()` past it. Re-registered every render, so the
-   * closure invoked is never a stale one.
-   */
-  registerRequestLeave?: (requestLeave: () => void) => void;
-  /**
-   * Rendered inside the form's scroll container, so it scrolls while the action bar stays put —
-   * the shell needs the whole scrollable page under one roof.
-   */
-  pageHeader?: ReactNode;
+  /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
+  pageHeader: EditPageHeaderContent;
   /**
    * **A function, not a computed set, because the answer has to be live**: choosing a Sonderereignis
    * stops the "fehlt" categories applying at once. The rule stays in `admin`, keeping `spiele` from
@@ -139,6 +129,7 @@ export function AdminEditSpielDataForm({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isLeaving, startLeaving] = useTransition();
 
   const [sonderereignis, setSonderereignis] = useState<FLSonderereignis | null>(spielData.sonderereignis);
   const [ortPayload, setOrtPayload] = useState<FLSpielOrtFieldDraft | null>(spielData.ort);
@@ -180,13 +171,9 @@ export function AdminEditSpielDataForm({
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the one the
-  // server would have produced. `onUnhandledErrors` catches a refusal on a path with no input.
+  // server would have produced.
   const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
     schemas: { spiel: FLPatchSpielDataPayloadSchema },
-    onUnhandledErrors: () =>
-      appToast.danger("Speichern fehlgeschlagen", {
-        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-      }),
   });
 
   // Derived rather than handled: `admitsShootOut` names every fixture a record belongs to, so every
@@ -352,8 +339,12 @@ export function AdminEditSpielDataForm({
     // focused strands it set on a tree the router keeps.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    if (window.history.length > 1) router.back();
-    else router.push("/admin");
+    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
+    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    startLeaving(() => {
+      if (window.history.length > 1) router.back();
+      else router.push("/admin");
+    });
   };
 
   /** Both routes out of this page — Abbrechen and the view's Zurück pill — come through here. */
@@ -365,11 +356,6 @@ export function AdminEditSpielDataForm({
     }
     leavePage();
   };
-
-  // Unconditional, so the registered closure never goes stale.
-  useEffect(() => {
-    registerRequestLeave?.(requestLeave);
-  });
 
   /**
    * **Leaving the page is not enough**: the App Router keeps the tree alive, so a discard that only
@@ -443,7 +429,7 @@ export function AdminEditSpielDataForm({
         // Only for failures no single field owns.
         if (!hasFieldErrors(fieldErrorsFromServer)) {
           appToast.danger("Speichern fehlgeschlagen", {
-            description: res.error || res.message || "Die Spieldaten konnten nicht aktualisiert werden.",
+            description: res.error || res.message || "Versuche es erneut.",
           });
         }
         return;
@@ -483,7 +469,7 @@ export function AdminEditSpielDataForm({
     const raise = destroyedSomething ? appToast.warning : appToast.success;
 
     raise("Änderung gespeichert", {
-      description: message || "Die Spieldaten wurden erfolgreich aktualisiert.",
+      description: message || "Die Spieldaten wurden aktualisiert.",
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",
@@ -592,6 +578,8 @@ export function AdminEditSpielDataForm({
           onSubmit={runOnSubmit(requestSave)}>
           <EditFormLayout
             header={pageHeader}
+            onLeave={requestLeave}
+            isLeaving={isLeaving}
             rail={
               <SpielRail
                 previewSpiel={previewSpiel}
@@ -665,6 +653,7 @@ export function AdminEditSpielDataForm({
 
           <FormActionBar
             isPending={isPending}
+            isLeaving={isLeaving}
             onCancel={requestLeave}
           />
         </Form>

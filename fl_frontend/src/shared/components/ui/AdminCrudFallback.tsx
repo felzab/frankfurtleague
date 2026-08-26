@@ -26,17 +26,28 @@ function RowActionCluster({ slots, className }: { slots: readonly number[]; clas
  * The only placeholder an admin CRUD page draws, rendered by the route, the page's fallback and the view's overlay alike.
  * **It must not call a request-dynamic hook**: a fallback that suspends pushes the bailout up and undoes the split.
  */
-export function AdminCrudFallback({ shape = "table" }: { shape?: "table" | "sections" }) {
+export function AdminCrudFallback({
+  shape = "table",
+  hasFacets = true,
+}: {
+  shape?: "table" | "sections";
+  /**
+   * Defaulted, so only a slice declaring no facets has to say so: `FilterLeiste` draws nothing for one, and a row
+   * reserved for a bar that never arrives shrinks the page when the rows land — the direction the eye catches.
+   */
+  hasFacets?: boolean;
+}) {
   return (
     <div
       role="status"
       aria-label="Daten werden geladen"
       /* `gap-4` is `AdminCrudView`'s own column gap, so both blocks sit where they will sit once the rows land. */
       className="flex flex-col gap-4">
-      {/* Every admin slice declares facets, so a fallback without this row puts the list a row above the data. */}
-      <div className="flex w-full flex-row items-center gap-2">
-        <div className={`${skeletonBlock()} h-10 w-28 rounded-xl`} />
-      </div>
+      {hasFacets && (
+        <div className="flex w-full flex-row items-center gap-2">
+          <div className={`${skeletonBlock()} h-10 w-28 rounded-xl`} />
+        </div>
+      )}
 
       {shape === "sections" ? <SectionedFallback /> : <TableFallback />}
     </div>

@@ -17,9 +17,9 @@ export const SCHIEDSRICHTER_FACETS: readonly Facet<FLSchiedsrichter>[] = [
     param: "angaben",
     label: "Angaben",
     options: [
-      { value: "kontakt", label: "Kontakt hinterlegt" },
+      { value: "kontakt", label: "Mit Kontakt" },
       { value: "ohne_kontakt", label: "Ohne Kontakt" },
-      { value: "schule", label: "Schule hinterlegt" },
+      { value: "schule", label: "Mit Schule" },
     ],
     // `kontakt` is required to be present and never to be filled in, so a referee with neither a phone
     // number nor an email address is a normal document and a real gap.

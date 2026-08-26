@@ -99,7 +99,6 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
   const saisons = saisonsRes.saisons;
   const activeSaisonId = saisons.find((saison) => saison.status === "active")?.id;
   const selectedSaisonId = requestedSaisonId ?? activeSaisonId ?? saisons[0]?.id ?? "";
-  const selectedSaisonStatus = saisons.find((saison) => saison.id === selectedSaisonId)?.status ?? "active";
 
   const teamById = new Map(teamsRes.teams.map((team) => [team.id, team]));
 
@@ -123,7 +122,7 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
               position: selected.position,
               stufe: selected.stufe,
               is_nachgetragen: selected.is_nachgetragen,
-              is_captain: selected.is_captain,
+              rolle: selected.rolle,
               inactive_since: selected.inactive_since,
               // An unresolvable team is a squad row pointing at a deleted club: null, not a crash, so the row
               // still lists and the state is visible.
@@ -141,7 +140,6 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
       // reactivate `REQ-SQUAD-001` refuses.
       teams={teamsInSaison(teamsRes.teams, selectedSaisonId, {})}
       selectedSaisonId={selectedSaisonId}
-      selectedSaisonStatus={selectedSaisonStatus}
     />
   );
 }

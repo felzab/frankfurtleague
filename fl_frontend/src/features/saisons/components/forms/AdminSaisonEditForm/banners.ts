@@ -40,13 +40,13 @@ export function buildSaisonBanners({
   const banners: SaisonBanner[] = [];
 
   if (saisonStatus === "active") {
-    // Two facts that do not follow from each other, hence one entry rather than two: this season is
-    // what every page without a selector shows, and its table is scored on read rather than stored.
+    // The retroactive reach is what the form cannot show: the rules fields look like any other
+    // edit, and a change to them re-scores Spiele that were already played under the old ones.
     banners.push({
       id: "saison.active",
       severity: "info",
       title: "Änderungen wirken sofort auf der ganzen Seite",
-      body: "Wer keine Saison auswählt, sieht diese. Eine Regeländerung wirkt sofort, auch auf längst gespielte Spiele.",
+      body: "Eine Regeländerung zählt auch für längst gespielte Spiele.",
       inline: "regeln-status",
     });
   }
@@ -56,7 +56,7 @@ export function buildSaisonBanners({
       id: "saison.past",
       severity: "info",
       title: "Die Wertung bleibt, wie sie gespielt wurde",
-      body: "Punkte, Reihenfolge bei Punktgleichheit und Qualifikanten wirken rückwirkend und sind deshalb gesperrt.",
+      body: "Punkte, Tiebreak und Qualifikanten wirken rückwirkend und sind deshalb gesperrt.",
       inline: "regeln-status",
     });
   }
@@ -66,7 +66,7 @@ export function buildSaisonBanners({
       id: "saison.end-before-start",
       severity: "danger",
       title: "Das Ende liegt vor dem Beginn",
-      body: "So lässt sich die Saison nicht speichern. Meistens ist es ein Zahlendreher im Jahr.",
+      body: "So lässt sich die Saison nicht speichern. Verlege das Ende hinter den Beginn.",
       inline: "zeitraum",
     });
   }
@@ -78,7 +78,7 @@ export function buildSaisonBanners({
       id: "saison.qualifiers-overflow",
       severity: "danger",
       title: "Mehr Qualifikanten als Teams pro Gruppe",
-      body: "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst. Speichern lässt sich die Saison nur, solange sich dieses Verhältnis nicht weiter verschlechtert.",
+      body: "Speichern lässt sich die Saison nur, solange sich das nicht weiter verschlechtert. Senke die Qualifikanten oder erhöhe die Teams pro Gruppe.",
       inline: "regeln-qualifikanten",
     });
   }
@@ -128,7 +128,7 @@ export function buildSaisonBanners({
         offeneSpieleCount === 1
           ? `1 Spiel der Saison ${outgoingSaisonId} hat noch kein Ergebnis`
           : `${String(offeneSpieleCount)} Spiele der Saison ${outgoingSaisonId} haben noch kein Ergebnis`,
-      body: `Solange das so ist, lässt sich Saison ${outgoingSaisonId} nicht abschließen. Trage die fehlenden Ergebnisse ein oder sage die Spiele ab. Ein abgesagtes Spiel gilt als erledigt.`,
+      body: `Solange das so ist, lässt sich Saison ${outgoingSaisonId} nicht abschließen. Trage die fehlenden Ergebnisse ein oder sage die Spiele ab; ein abgesagtes Spiel gilt als erledigt.`,
       inline: "umstellung",
     });
   }

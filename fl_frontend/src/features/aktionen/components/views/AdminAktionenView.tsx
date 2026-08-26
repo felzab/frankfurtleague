@@ -21,10 +21,10 @@ export function AdminAktionenView({ aktionen }: { aktionen: AdminAktionRow[] }) 
       items={aktionen}
       searchKeys={SEARCH_KEYS}
       facets={AKTIONEN_FACETS}
-      renderTable={({ query, filteredItems }) => (
+      renderTable={({ filteredItems, emptiness }) => (
         <AdminAktionenTable
-          aktionenQuery={query}
           filteredAktionen={filteredItems}
+          emptiness={emptiness}
         />
       )}
     />

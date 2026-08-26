@@ -12,9 +12,10 @@ export const SPIELTAG_FACETS: readonly Facet<AdminSpieltagRow>[] = [
   },
   {
     param: "besetzung",
-    label: "Spiele",
+    // `Spiele` is the row badge's own word for the count; this facet asks how many, not which.
+    label: "Spielanzahl",
     options: [
-      { value: "vollstaendig", label: "Vollständig angelegt" },
+      { value: "vollstaendig", label: "Vollständig" },
       { value: "unvollstaendig", label: "Weicht ab" },
     ],
     // The expected count is derived from the season's rules and nothing holds the two equal, so

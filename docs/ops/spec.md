@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `d828ee1c`, 2026-08-26\
+**Verified against:** `f6073b6f`, 2026-08-26\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 | Section                                                | Answers                                                              |

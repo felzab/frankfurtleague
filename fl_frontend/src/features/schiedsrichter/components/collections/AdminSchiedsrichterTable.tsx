@@ -14,8 +14,16 @@ import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowAct
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { FLSchiedsrichter } from "../../schemas";
+
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: "Keine Schiedsrichter für diese Suche.",
+  filtered: "Keine Schiedsrichter für diese Filter.",
+  none: "Es wurden noch keine Schiedsrichter angelegt.",
+};
 
 /**
  * A react-aria collection re-rendered while hidden in an Activity tree loses its rows, and the
@@ -23,12 +31,13 @@ import type { FLSchiedsrichter } from "../../schemas";
  * carries the fix; `memo` is the second layer.
  */
 export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
-  schiedsrichterQuery,
   filteredSchiedsrichter,
+  emptiness,
   setDeletingSchiedsrichter,
 }: {
-  schiedsrichterQuery: string;
   filteredSchiedsrichter: FLSchiedsrichter[];
+  /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
   setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
 }) {
   const [, startReactivating] = useTransition();
@@ -52,8 +61,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   const handleReactivate = (schiedsrichter: FLSchiedsrichter) => {
     startReactivating(async () => {
       const res = await reactivateSchiedsrichterAction({ id: schiedsrichter.id });
-      if (res.success) appToast.success(res.message ?? "Schiedsrichter reaktiviert.");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      if (res.success) appToast.success(res.message ?? "Schiedsrichter reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 
@@ -133,9 +142,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">
-        {schiedsrichterQuery ? "Keine Schiedsrichter für diese Suche gefunden." : "Es wurden noch keine Schiedsrichter angelegt."}
-      </p>
+      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
     </div>
   );
 
@@ -182,7 +189,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                   Schule / Verein
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Std. Honorar
+                  Standard-Honorar
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen

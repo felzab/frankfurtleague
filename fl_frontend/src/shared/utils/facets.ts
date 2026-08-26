@@ -14,6 +14,11 @@ export type Facet<TItem> = {
   /** The group heading in the popover, and the prefix on an active chip. */
   label: string;
   options: readonly FacetOption[];
+  /**
+   * What the facet selects while its parameter is ABSENT — for a surface whose useful opening state is already
+   * narrowed. An empty parameter is what turns it off, so the unnarrowed list stays reachable. Offered values only.
+   */
+  defaultValues?: readonly string[];
   /** Every option value this item matches. Empty means the item matches none of them. */
   read: (item: TItem) => readonly string[];
 };
@@ -72,6 +77,7 @@ const lastReadSelection = new WeakMap<object, { search: string; selection: Facet
 
 /**
  * Comma-joined, one parameter per facet; a value the facet does not offer is dropped, the query string being editable.
+ * A facet carrying `defaultValues` answers with them while its parameter is absent.
  * **The returned object is referentially stable while the query string is** — the half `applyFacets` cannot cover.
  */
 export function readFacetSelection<TItem>(facets: readonly Facet<TItem>[], params: URLSearchParams): FacetSelection {
@@ -83,7 +89,14 @@ export function readFacetSelection<TItem>(facets: readonly Facet<TItem>[], param
 
   for (const facet of facets) {
     const raw = params.get(facet.param);
-    if (raw === null || raw === "") continue;
+
+    // Absent and empty part company here: absent is nobody having answered, which a default may answer for, while
+    // an empty parameter is the reader having turned the facet off and is the one state that outranks a default.
+    if (raw === null) {
+      if (facet.defaultValues !== undefined && facet.defaultValues.length > 0) selection[facet.param] = facet.defaultValues;
+      continue;
+    }
+    if (raw === "") continue;
 
     const offered = new Set(facet.options.map((option) => option.value));
     const picked = raw.split(",").filter((value) => offered.has(value));

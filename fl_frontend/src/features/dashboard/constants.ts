@@ -33,12 +33,9 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         iconName: "Magnifier",
         hint: {
           lead: "Durchsucht alle Spiele der ausgewählten Saison.",
-          points: [
-            { term: "Gesucht wird in", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." },
-            { term: "Sofort", detail: "die Liste filtert beim Tippen, es gibt nichts abzuschicken." },
-            { term: "Filter", detail: "Status, Phase, Team und Ort. Sie wirken auch ganz ohne Suchbegriff, etwa für alle vergangenen Spiele." },
-          ],
-          note: "Gesucht wird nur innerhalb der gewählten Saison.",
+          // The list is counted against what a visitor can reach (`docs/frontend/spec.md` §1.12): both
+          // `ort.*` keys are the venue, so `Ort` names them once.
+          points: [{ term: "Gesucht wird in", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." }],
         },
       },
       {
@@ -47,10 +44,6 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         iconName: "Calendar",
         hint: {
           lead: "Der komplette Spielplan der Saison.",
-          points: [
-            { term: "Spieltage", detail: "jeder Reiter oben ist ein Spieltag." },
-            { term: "Je Begegnung", detail: "Datum, Uhrzeit, Ort und, sobald gewertet, das Ergebnis." },
-          ],
         },
       },
       {
@@ -58,12 +51,7 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         label: "Finalrunden",
         iconName: "Medal",
         hint: {
-          lead: "Der Turnierbaum der Finalrunden, von der ersten KO-Runde bis zum Finale.",
-          points: [
-            { term: "Linien", detail: "verbinden ein Spiel mit dem, aus dem sein Sieger kommt." },
-            { term: "Offene Seiten", detail: "zeigen ihre Herkunft statt eines Teams, etwa „Sieger 25.“." },
-          ],
-          note: "Die Runden entstehen erst, wenn die Gruppenphase abgeschlossen ist.",
+          lead: "Der Turnierbaum der Finalrunden.",
         },
       },
     ],
@@ -77,10 +65,6 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         iconName: "LayoutHeaderCells",
         hint: {
           lead: "Der Tabellenstand jeder Gruppe der Saison.",
-          points: [
-            { term: "Gewertet", detail: "werden ausschließlich Spiele der Gruppenphase." },
-            { term: "Hervorgehoben", detail: "sind die Teams, die aktuell auf einem KO-Runden-Platz stehen." },
-          ],
           note: "Die Gesamtbilanz eines Teams steht auf seiner eigenen Seite.",
         },
       },
@@ -94,8 +78,7 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         label: "Teams",
         iconName: "Persons",
         hint: {
-          lead: "Alle Teams der laufenden Saison.",
-          points: [{ term: "Ein Team öffnen", detail: "zeigt seine Bilanz, seinen Kader und seinen Saisonverlauf." }],
+          lead: "Alle Teams der Saison.",
         },
       },
       {
@@ -104,7 +87,6 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         iconName: "Person",
         hint: {
           lead: "Die Kader aller Teams der Saison.",
-          points: [{ term: "Ein Team öffnen", detail: "zeigt die Spielerinnen und Spieler mit Position und Stufe." }],
         },
       },
     ],

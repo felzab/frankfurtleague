@@ -14,15 +14,18 @@ from app.api.spieler.schemas import (
     FLSpielerAdminSingleResponse,
     FLSpielerErasureResponse,
     FLSpielerMembershipsResponse,
+    FLSpielerRolle,
     FLSpielerWithMemberships,
     FLSpielerWriteResponse,
 )
 from app.api.spieler.services import (
+    build_live_rolle_filter,
     build_live_squad_filter,
     build_spieler_memberships_pipeline,
     find_erasure_refusal,
     find_squad_capacity_refusal,
     find_squad_refusal,
+    find_squad_rolle_refusal,
     registration_einwilligung,
 )
 from app.core.collections import Collection
@@ -79,10 +82,10 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
         position=document.get("position"),
         stufe=document.get("stufe"),
         # `.get` with a default on BOTH, not a subscript: a row missing either key would KeyError on
-        # a request that changed nothing, and the two arrived together.
+        # a request that changed nothing, and `rolle` is on no stored row that predates it.
         # `python -m app.core.constraints --check` finds one.
         is_nachgetragen=document.get("is_nachgetragen", False),
-        is_captain=document.get("is_captain", False),
+        rolle=document.get("rolle"),
         inactive_since=document.get("inactive_since"),
     )
 
@@ -114,6 +117,33 @@ async def _refuse_a_full_squad(
             max_kadergroesse=FLSaisonRules.model_validate(saison_raw["rules"]).max_kadergroesse,
         )
     )
+
+
+async def _refuse_a_taken_rolle(
+    *,
+    saison_spieler_collection: AsyncIOMotorCollection,
+    saison_id: str,
+    team_id: CustomObjectId,
+    spieler_id: CustomObjectId,
+    rolle: FLSpielerRolle | None,
+) -> None:
+    """Refuse `REQ-SQUAD-004` when another live row in this squad already holds `rolle`.
+
+    Shared by all three writes for the reason the cap is: the role belongs to the DESTINATION squad,
+    never to the verb.
+    """
+
+    if rolle is None:
+        return
+
+    taken = (
+        await saison_spieler_collection.count_documents(
+            build_live_rolle_filter(saison_id=saison_id, team_id=team_id, rolle=rolle, excluding_spieler_id=spieler_id),
+            limit=1,
+        )
+    ) > 0
+
+    refuse(find_squad_rolle_refusal(rolle=rolle, taken=taken))
 
 
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
@@ -279,7 +309,8 @@ async def post_saison_spieler(
     Put a player in a team's squad for a season.
 
     One row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409
-    even where the row is retired (`docs/backend/spec.md :: I20`).
+    even where the row is retired (`docs/backend/spec.md :: I20`). A squad holds each `rolle` once
+    (`REQ-SQUAD-004`).
     """
 
     # The club has to be in the season, and that fact lives in another collection.
@@ -299,6 +330,16 @@ async def post_saison_spieler(
         saison_id=saison_spieler_data.saison_id,
         team_id=saison_spieler_data.team_id,
         spieler_id=spieler_id,
+    )
+
+    # Last of the three: a role is the least of a caller's problems where the club is not in the
+    # season or the squad has no room.
+    await _refuse_a_taken_rolle(
+        saison_spieler_collection=saison_spieler_collection,
+        saison_id=saison_spieler_data.saison_id,
+        team_id=saison_spieler_data.team_id,
+        spieler_id=spieler_id,
+        rolle=saison_spieler_data.rolle,
     )
 
     # Stated here rather than through `insert_live`: the echo below reads THIS dict and not the
@@ -327,7 +368,8 @@ async def patch_saison_spieler(
     Update a player's squad entry for that season.
 
     Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
-    (`fl_backend/app/core/domain.py :: UNENFORCED`).
+    (`fl_backend/app/core/domain.py :: UNENFORCED`); a `rolle` another live row holds is not
+    (`REQ-SQUAD-004`).
     """
 
     # The one fact `find_squad_refusal` decides on, and it lives in another collection.
@@ -344,6 +386,16 @@ async def patch_saison_spieler(
         saison_id=saison_id,
         team_id=saison_spieler_data.team_id,
         spieler_id=spieler_id,
+    )
+
+    # Judged against the team the PAYLOAD names, as the cap is: a transfer takes the armband to the
+    # squad it is joining.
+    await _refuse_a_taken_rolle(
+        saison_spieler_collection=saison_spieler_collection,
+        saison_id=saison_id,
+        team_id=saison_spieler_data.team_id,
+        spieler_id=spieler_id,
+        rolle=saison_spieler_data.rolle,
     )
 
     updated_raw = await patch_one_in_db(
@@ -399,15 +451,17 @@ async def reactivate_saison_spieler(
     Clear a squad row's `inactive_since`, with the number and position it had.
 
     Where a repeat create is redirected (`docs/backend/spec.md :: I20`): a create reviving the row
-    would overwrite both. Refused where the squad has filled up, or its club left.
+    would overwrite both. Refused where the squad has filled up, where its club left, or where the
+    `rolle` the row carries has been given to somebody else since (`REQ-SQUAD-004`).
     """
 
-    # Read for its `team_id`: the row names the squad it is returning to, and the payload cannot.
+    # Read for its `team_id` and its `rolle`: the row names the squad it is returning to and the
+    # role it comes back holding, and the payload carries neither.
     # A missing row 404s here rather than inside `set_inactive_since`, which would answer the same.
     stored_raw = await pull_one_from_db(
         collection=saison_spieler_collection,
         db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
-        projection=["team_id"],
+        projection=["team_id", "rolle"],
     )
 
     # The STORED club, no payload naming one: `POST /teams/{team_id}/saisons/{saison_id}/replace`
@@ -424,6 +478,15 @@ async def reactivate_saison_spieler(
         saison_id=saison_id,
         team_id=stored_raw["team_id"],
         spieler_id=spieler_id,
+    )
+
+    # `.get`, not a subscript: a row stored before the field existed carries no key at all.
+    await _refuse_a_taken_rolle(
+        saison_spieler_collection=saison_spieler_collection,
+        saison_id=saison_id,
+        team_id=stored_raw["team_id"],
+        spieler_id=spieler_id,
+        rolle=stored_raw.get("rolle"),
     )
 
     updated_raw = await set_inactive_since(

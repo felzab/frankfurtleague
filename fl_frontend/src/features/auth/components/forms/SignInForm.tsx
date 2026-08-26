@@ -8,6 +8,7 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { handleSignIn } from "../../actions";
 
@@ -30,7 +31,7 @@ export function SignInForm() {
     // No dismiss action and no hand-set timeout: the frontmost toast carries a close control, and
     // the duration follows the message length.
     appToast.danger("Anmeldung fehlgeschlagen", {
-      description: state.error ?? "Ein unerwarteter Fehler ist aufgetreten.",
+      description: state.error ?? UNKNOWN_REFUSAL,
     });
   }, [state]);
 
@@ -39,8 +40,7 @@ export function SignInForm() {
       <div className="border-border bg-surface/95 w-full max-w-[460px] rounded-3xl border p-8 shadow-2xl backdrop-blur-xl sm:p-10">
         <div className="flex flex-col items-center pb-6 text-center">
           <span className="mb-3 text-4xl sm:text-5xl">⚽</span>
-          <h1 className="fluid-2xl text-foreground font-black tracking-tight uppercase">Einloggen</h1>
-          <p className="muted-hint mt-1">Verwalte oder sehe Daten ein</p>
+          <h1 className="fluid-2xl text-foreground font-black tracking-tight uppercase">Anmelden</h1>
         </div>
 
         <div className="border-border mb-8 h-[1px] w-full" />
@@ -57,8 +57,6 @@ export function SignInForm() {
             {state?.submittedEmail && <p className="fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
 
             <p className="muted-hint text-pretty">{state?.message ?? "Falls diese Adresse freigegeben ist, ist ein Anmeldelink unterwegs."}</p>
-            <p className="fluid-xs text-foreground-muted">Der Link gilt 15 Minuten und lässt sich nur einmal verwenden.</p>
-
             {/* The action does not navigate, so without this the only way back is a page reload. */}
             <Button
               type="button"
@@ -134,7 +132,7 @@ export function SignInForm() {
                   <Label className="fluid-xs text-foreground-muted font-bold tracking-wider uppercase">E-Mail-Adresse</Label>
                   <Input
                     className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted/50 fluid-xs sm:fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
-                    placeholder="coming soon..."
+                    placeholder="Noch nicht verfügbar"
                     disabled
                   />
                   <FieldError className={FIELD_ERROR} />

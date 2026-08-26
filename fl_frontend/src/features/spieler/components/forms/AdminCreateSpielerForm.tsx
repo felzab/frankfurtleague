@@ -22,9 +22,9 @@ const EMPTY_DRAFT_BASE = {
   nummer: null,
   position: null,
   stufe: null,
-  // A new entry is never the captain — that is a decision about an existing squad, made on the
+  // A new entry never carries a role — that is a decision about an existing squad, made on the
   // player's own page.
-  is_captain: false,
+  rolle: null,
 } as const;
 
 /**
@@ -69,7 +69,10 @@ export function AdminCreateSpielerForm({
                 value={draft.vorname}
                 onChange={(next) => setDraft((current) => ({ ...current, vorname: next }))}>
                 <Label className={FIELD_LABEL}>Vorname</Label>
-                <Input className={FIELD_INPUT} />
+                <Input
+                  placeholder="z.B. Lena"
+                  className={FIELD_INPUT}
+                />
                 <FieldError className={FIELD_ERROR} />
               </TextField>
 
@@ -81,7 +84,10 @@ export function AdminCreateSpielerForm({
                 // Emptied means absent, not an empty surname — the boundary where `""` becomes null.
                 onChange={(next) => setDraft((current) => ({ ...current, nachname: next.trim() === "" ? null : next }))}>
                 <Label className={FIELD_LABEL}>Nachname</Label>
-                <Input className={FIELD_INPUT} />
+                <Input
+                  placeholder="z.B. Meier"
+                  className={FIELD_INPUT}
+                />
                 <FieldError className={FIELD_ERROR} />
               </TextField>
             </div>
@@ -152,7 +158,10 @@ export function AdminCreateSpielerForm({
                 inputMode="numeric"
                 pattern="[0-9]*">
                 <Label className={FIELD_LABEL}>Nummer</Label>
-                <Input className={`${FIELD_INPUT} font-extrabold tracking-wider`} />
+                <Input
+                  placeholder="z.B. 7"
+                  className={`${FIELD_INPUT} font-extrabold tracking-wider`}
+                />
                 <FieldError className={FIELD_ERROR} />
               </TextField>
 
@@ -199,7 +208,7 @@ export function AdminCreateSpielerForm({
         return { ...res, success: res.success && !!res.spieler_id };
       }}
       marksRequired
-      successMessage="Spieler erfolgreich angelegt"
+      successMessage="Spieler angelegt"
       onClose={onClose}
     />
   );

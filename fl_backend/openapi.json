@@ -3035,7 +3035,7 @@
     "/api/v0/spieler/{spieler_id}/saisons": {
       "post": {
         "summary": "Add a Spieler to a squad",
-        "description": "Put a player in a team's squad for a season.\n\nOne row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409\neven where the row is retired (`docs/backend/spec.md :: I20`).",
+        "description": "Put a player in a team's squad for a season.\n\nOne row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409\neven where the row is retired (`docs/backend/spec.md :: I20`). A squad holds each `rolle` once\n(`REQ-SQUAD-004`).",
         "operationId": "post_saison_spieler_api_v0_spieler__spieler_id__saisons_post",
         "security": [
           {
@@ -3090,7 +3090,7 @@
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
       "patch": {
         "summary": "Update a squad entry",
-        "description": "Update a player's squad entry for that season.\n\nChanging `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted\n(`fl_backend/app/core/domain.py :: UNENFORCED`).",
+        "description": "Update a player's squad entry for that season.\n\nChanging `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted\n(`fl_backend/app/core/domain.py :: UNENFORCED`); a `rolle` another live row holds is not\n(`REQ-SQUAD-004`).",
         "operationId": "patch_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__patch",
         "security": [
           {
@@ -3206,7 +3206,7 @@
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
       "post": {
         "summary": "Put a Spieler back in a squad they left",
-        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected (`docs/backend/spec.md :: I20`): a create reviving the row\nwould overwrite both. Refused where the squad has filled up, or its club left.",
+        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected (`docs/backend/spec.md :: I20`): a create reviving the row\nwould overwrite both. Refused where the squad has filled up, where its club left, or where the\n`rolle` the row carries has been given to somebody else since (`REQ-SQUAD-004`).",
         "operationId": "reactivate_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__reactivate_post",
         "security": [
           {
@@ -4315,7 +4315,7 @@
           "spiel_datum"
         ],
         "title": "FLBracketFaultOccupant",
-        "description": "One fixture fielding a team that left the season before the day it is played.\n\nDerived beside the bracket walk rather than inside it, so no phase is out of its reach; nothing\nis emptied (`fl_backend/app/core/domain.py :: UNENFORCED`)."
+        "description": "One fixture fielding a team that left the season, dated on or after the day of its exit or undated, and recording no absence for it.\n\nThe date and the carve-out are `REQ-ELIGIBILITY-001`'s. Derived beside the bracket walk rather\nthan inside it, so no phase is out of its reach; nothing is emptied\n(`fl_backend/app/core/domain.py :: UNENFORCED`)."
       },
       "FLBracketFaultQuelle": {
         "properties": {
@@ -4760,9 +4760,20 @@
             "type": "boolean",
             "title": "Is Nachgetragen"
           },
-          "is_captain": {
-            "type": "boolean",
-            "title": "Is Captain"
+          "rolle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kapitaen",
+                  "co_kapitaen"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolle"
           }
         },
         "additionalProperties": false,
@@ -4773,7 +4784,7 @@
           "position",
           "stufe",
           "is_nachgetragen",
-          "is_captain"
+          "rolle"
         ],
         "title": "FLPatchSaisonSpielerPayload",
         "description": "Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default.\n\n`team_id` is editable here: a mid-season transfer is a change to the junction row."
@@ -5399,9 +5410,20 @@
             "type": "boolean",
             "title": "Is Nachgetragen"
           },
-          "is_captain": {
-            "type": "boolean",
-            "title": "Is Captain"
+          "rolle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kapitaen",
+                  "co_kapitaen"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolle"
           },
           "saison_id": {
             "type": "string",
@@ -5418,7 +5440,7 @@
           "position",
           "stufe",
           "is_nachgetragen",
-          "is_captain",
+          "rolle",
           "saison_id"
         ],
         "title": "FLPostSaisonSpielerPayload",
@@ -5990,9 +6012,20 @@
             "type": "boolean",
             "title": "Is Nachgetragen"
           },
-          "is_captain": {
-            "type": "boolean",
-            "title": "Is Captain"
+          "rolle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kapitaen",
+                  "co_kapitaen"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolle"
           },
           "spieler_id": {
             "type": "string",
@@ -6021,7 +6054,7 @@
           "position",
           "stufe",
           "is_nachgetragen",
-          "is_captain",
+          "rolle",
           "spieler_id",
           "saison_id",
           "inactive_since"
@@ -7479,10 +7512,20 @@
             "title": "Is Nachgetragen",
             "default": false
           },
-          "is_captain": {
-            "type": "boolean",
-            "title": "Is Captain",
-            "default": false
+          "rolle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kapitaen",
+                  "co_kapitaen"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolle"
           },
           "saison_id": {
             "type": "string",

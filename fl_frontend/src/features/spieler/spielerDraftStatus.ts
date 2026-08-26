@@ -1,8 +1,10 @@
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 
+import { rolleLabel } from "./constants";
+
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSpielerPosition, FLSpielerStufe } from "./schemas";
+import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
 import type { SpielerTeamOption } from "./types";
 
 /**
@@ -18,7 +20,7 @@ export type FLSpielerDraftFields = {
     position: FLSpielerPosition | null;
     stufe: FLSpielerStufe | null;
     is_nachgetragen: boolean;
-    is_captain: boolean;
+    rolle: FLSpielerRolle | null;
   } | null;
 };
 
@@ -70,13 +72,13 @@ function squadDescriptors(teams: readonly SpielerTeamOption[]): readonly FLField
       read: (source) => source.membership?.stufe ?? null,
     },
     {
-      path: "is_captain",
-      label: "Kapitän",
+      path: "rolle",
+      label: "Rolle",
       group: "Kader",
       appliesTo: (source) => source.membership !== null,
-      // `null` when the flag is off, so losing the captaincy renders as a REMOVAL in the change list
-      // rather than as "true → false".
-      read: (source) => (source.membership?.is_captain ? "Ja" : null),
+      // `null` where no role is held, so giving one up renders as a REMOVAL in the change list. The
+      // German comes from `ROLLE_OPTIONS`, which is what the control beside it reads.
+      read: (source) => (source.membership?.rolle == null ? null : rolleLabel(source.membership.rolle)),
     },
   ];
 }

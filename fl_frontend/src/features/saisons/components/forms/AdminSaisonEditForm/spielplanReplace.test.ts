@@ -15,16 +15,16 @@ const ARMED = (SOURCE.split("<ConfirmReveal>")[1] ?? "").split("</ConfirmReveal>
 /** The armed alert's scope section alone, which is the half the new numbers invalidate. */
 const ENTSTEHT = ARMED.split("Daraus entsteht")[1] ?? "";
 
-/** The panel's own hint, where the conditions on a replace are spelled out for a reader. */
-const HINWEIS = (SOURCE.split("Hinweis zum Spielplan")[1] ?? "").split("</InfoHint>")[0] ?? "";
+/** The panel's own hint, which stands in the heading and ends with it. */
+const HINWEIS = (SOURCE.split("Hinweis zum Spielplan")[1] ?? "").split("</h2>")[0] ?? "";
 
-describe("the draw panel's destructive confirmation", () => {
+describe("the draw half of the Spielplan panel", () => {
   /* First, because a boundary string that stopped matching leaves the slices empty — and half the
      assertions below are `doesNotMatch`, which an empty string passes without reading the panel. */
   it("cuts the armed alert, its scope section and the hint out of the file before reading them", () => {
     assert.ok(ARMED.includes("Daraus entsteht"), "the armed alert's readout is outside its slice");
     assert.ok(ENTSTEHT.includes("<dl"), "the scope section is outside its slice");
-    assert.ok(HINWEIS.includes("<li>"), "the hint's list is outside its slice");
+    assert.ok(HINWEIS.includes("points: ["), "the hint's bullets are outside its slice");
   });
 
   /* Hardcode the flag and this fails: `false` asks for a draw the endpoint refuses, `true` confirms
@@ -37,7 +37,7 @@ describe("the draw panel's destructive confirmation", () => {
   /* Offer the three on a first draw and this fails: an undrawn season has no fixtures to move them
      with, so its numbers stay the rules panel's, where the save bar can still reach them. */
   it("offers the three numbers only where the press replaces a standing draw", () => {
-    const offer = SOURCE.indexOf("{replacesDraw && (");
+    const offer = SOURCE.indexOf("{isDrawing && replacesDraw && (");
     const fields = SOURCE.indexOf("SHAPE_FIELDS.map");
 
     assert.ok(offer !== -1, "the panel gates nothing on replacesDraw");
@@ -48,7 +48,7 @@ describe("the draw panel's destructive confirmation", () => {
   /* Leave them live under the confirmation and this fails: the readout the admin agreed to would
      move between the two presses, and the second press sends whatever the fields hold then. */
   it("freezes the three numbers once the control is armed", () => {
-    assert.match(SOURCE, /isReadOnly=\{isConfirming \|\| isGenerating\}/);
+    assert.match(SOURCE, /isReadOnly=\{isConfirming \|\| isWriting\}/);
   });
 
   /* Call the action outside `press` and one press is the whole confirmation, on a write that redraws
@@ -57,7 +57,7 @@ describe("the draw panel's destructive confirmation", () => {
     const arming = SOURCE.indexOf("press(async () => {");
     const writing = SOURCE.indexOf("generateSpielplanAction(");
 
-    assert.ok(arming !== -1, "handleGenerate no longer presses through useTwoPressConfirm");
+    assert.ok(arming !== -1, "handlePress no longer presses through useTwoPressConfirm");
     assert.ok(arming < writing, "the write stands outside the armed branch");
     assert.match(SOURCE, /<ConfirmReveal>/);
   });
@@ -86,22 +86,24 @@ describe("the draw panel's destructive confirmation", () => {
     assert.match(ARMED, /zusammen mit dem Spielplan gespeichert/);
   });
 
-  /* The shared sentence and never a copy of it: six call sites spell this list, and the categories
-     themselves are pinned by `fl_frontend/src/features/saisons/utils.test.ts`. */
-  it("renders the shared list rather than spelling its own", () => {
-    assert.match(HINWEIS, /\{RECORDED_FACTS_NONE\}/);
-    assert.doesNotMatch(HINWEIS, /kein Ergebnis/, "the panel spells the list a second time");
+  /* The window is named where it bites, through `blockedReasons.ts`'s shared sentence, and never
+     spelled a second time here. The categories themselves are pinned by
+     `fl_frontend/src/features/saisons/utils.test.ts`. */
+  it("names the window through the shared reason rather than spelling its own list", () => {
+    assert.match(SOURCE, /\{closedReason\}/);
+    assert.doesNotMatch(SOURCE, /kein Ergebnis/, "the panel spells the recorded-fact list a second time");
   });
 
-  /* Lift the deletion copy out of its branch and this fails: a first draw would then claim to remove
-     matchdays and fixtures that do not exist, which is the inverse of the mistake worth avoiding. */
-  it("keeps the deletion sentence behind the replace branch", () => {
-    const branch = ARMED.indexOf("replacesDraw");
+  /* Lift the deletion readout out of its branch and a first draw claims to remove matchdays and
+     fixtures that do not exist. `holdsADraw` and not `replacesDraw`: the undraw destroys the same
+     rows. */
+  it("keeps the deletion readout behind the predicate for a season that holds one", () => {
+    const branch = ARMED.indexOf("holdsADraw");
     const deletion = ARMED.indexOf("gelöscht");
 
-    assert.ok(branch !== -1, "the armed alert does not read replacesDraw at all");
+    assert.ok(branch !== -1, "the armed alert does not read holdsADraw at all");
     assert.ok(deletion !== -1, "the armed alert names no deletion");
-    assert.ok(branch < deletion, "the armed alert claims a deletion before it knows the press replaces");
+    assert.ok(branch < deletion, "the armed alert claims a deletion before it knows the season holds one");
   });
 
   /* Soften the copy to "der Spielplan wird ersetzt" and this fails. The scheduling is the part an
@@ -112,10 +114,13 @@ describe("the draw panel's destructive confirmation", () => {
     }
   });
 
-  /* Drop the claim from either branch and this fails. Both presses are permanent — a replace redraws
-     rather than restoring — so neither may be armed without saying so. */
-  it("states on both branches that the admin cannot take the write back", () => {
-    assert.equal(ARMED.match(/Verwaltung nicht/g)?.length, 2);
+  /* A first draw on a PLANNED season has a repair, the undraw beside it (`REQ-SPIELPLAN-006`), so a
+     permanence claim there sends an admin away from a control this panel offers. The other two
+     destroy rows nothing replays. */
+  it("points a first draw on a planned season at the undraw, and claims no way back on the other two", () => {
+    assert.match(ARMED, /Zurücknehmen lässt sich der Spielplan danach wieder hier/);
+    assert.equal(ARMED.match(/Es gibt in der Verwaltung keinen Weg zurück\./g)?.length, 2);
+    assert.doesNotMatch(ARMED, /Verwaltung nicht/);
   });
 
   /* Wire an undo here and this fails. `/spiele` has neither a create nor a delete, so nothing can
@@ -136,7 +141,7 @@ describe("the draw panel's destructive confirmation", () => {
      entered, cancellations and bookings included, which that sentence understates. */
   it("states the window as nothing entered rather than nothing scored", () => {
     assert.doesNotMatch(SOURCE, /noch kein Spiel gewertet/);
-    assert.match(SOURCE, /zu keinem ihrer Spiele etwas\s+eingetragen wurde/);
+    assert.match(SOURCE, /zu keinem ihrer\s+Spiele\s+etwas\s+eingetragen wurde/);
   });
 
   /* Reinstate the old sentence anywhere in the panel and this fails: inside `REQ-SPIELPLAN-005`'s

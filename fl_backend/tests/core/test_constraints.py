@@ -19,7 +19,14 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterField,
     FLSpielTeamField,
 )
-from app.api.spieler.schemas import FLEinwilligung, FLSaisonSpielerRow, FLSpieler, FLSpielerPosition, FLSpielerStufe
+from app.api.spieler.schemas import (
+    FLEinwilligung,
+    FLSaisonSpielerRow,
+    FLSpieler,
+    FLSpielerPosition,
+    FLSpielerRolle,
+    FLSpielerStufe,
+)
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLAustritt, FLGruppenNames, FLTeam, FLTeamRecord
@@ -86,7 +93,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.TEAMS, ("address",), FLAddress, frozenset()),
     # Everything but the two names comes from the saison_spieler junction.
     (Collection.SPIELER, ("einwilligung",), FLEinwilligung, frozenset()),
-    (Collection.SPIELER, (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen", "is_captain"})),
+    (Collection.SPIELER, (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen", "rolle"})),
     # The one sub-document of a modelless row with a model, so the drift check reaches it.
     (Collection.SAISON_TEAMS, ("austritt",), FLAustritt, frozenset()),
     # The junction's declared shape; nothing validates a stored row through it.
@@ -134,6 +141,9 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # nullable `bsonType`.
     (Collection.SAISON_SPIELER, (), "position", get_args(FLSpielerPosition), True),
     (Collection.SAISON_SPIELER, (), "stufe", get_args(FLSpielerStufe), True),
+    # Nullable for a reason the two above do not share: holding no role is the ordinary state, and
+    # a row predating the field carries no key at all.
+    (Collection.SAISON_SPIELER, (), "rolle", get_args(FLSpielerRolle), True),
 ]
 
 

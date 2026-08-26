@@ -5,8 +5,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "About",
-  description:
-    "Erfahre mehr darüber, was die Frankfurt-League ist, warum sie ins Leben gerufen wurde und wie sie das Fußballumfeld in Frankfurt weiterbringt.",
+  description: "Was die Frankfurt-League ist, warum es sie gibt und nach welchen Regeln gespielt wird.",
   openGraph: openGraphFor("/about"),
   alternates: {
     canonical: "/about",

@@ -80,6 +80,9 @@ function FacetCell<TItem>({
   const [query, setQuery] = useState("");
 
   const isWide = facet.options.length > VISIBLE_OPTIONS;
+  // The field below quotes a row rather than repeating the act: its icon and its accessible name
+  // already carry that. `isWide` is what guarantees there is a row to quote.
+  const [firstOption] = facet.options;
   // Counts stay over the whole option list, so a hidden option's number is already right when the query clears.
   const shown: readonly FacetOption[] =
     isWide && query !== "" ? facet.options.filter((option) => fold(option.label).includes(fold(query))) : facet.options;
@@ -112,7 +115,7 @@ function FacetCell<TItem>({
           <SearchField.Group className="bg-surface border-border flex h-8 w-full items-center gap-2 rounded-lg border px-2 transition-colors duration-(--motion-fast)">
             <SearchField.SearchIcon className="text-foreground-muted size-3.5 shrink-0" />
             <SearchField.Input
-              placeholder="Suchen..."
+              placeholder={firstOption === undefined ? "" : `z.B. ${firstOption.label}`}
               className="fluid-xs w-full min-w-0 bg-transparent outline-none"
             />
             {/* Named for the facet: every cell is open at once, so a bare label would repeat across each wide one. */}
@@ -128,7 +131,7 @@ function FacetCell<TItem>({
         // without it the list refuses to shrink and the cell overflows.
         className="scrollbar-line min-h-0 overflow-x-hidden overflow-y-auto"
         selectedKeys={picked}
-        renderEmptyState={() => <p className="fluid-xs text-foreground-muted px-3 py-2 font-bold italic">Keine Option gefunden</p>}
+        renderEmptyState={() => <p className="fluid-xs text-foreground-muted px-3 py-2 font-bold italic">Keine Optionen</p>}
         // `"all"` is only reachable by passing `selectedKeys="all"`, which this never does — hence a map, not a cast.
         onSelectionChange={(keys: Selection) => {
           onSelect(keys === "all" ? [] : [...keys].map(String));

@@ -1,4 +1,4 @@
-import { POSITION_OPTIONS, STUFE_OPTIONS } from "./constants";
+import { POSITION_OPTIONS, ROLLE_OPTIONS, STUFE_OPTIONS } from "./constants";
 
 import type { Facet } from "@/shared/utils/facets";
 import type { AdminSpielerRow, SpielerTeamOption } from "./types";
@@ -9,8 +9,8 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
     param: "kader",
     label: "Kader",
     options: [
-      { value: "im_kader", label: "In einem Kader" },
-      { value: "ohne_kader", label: "Ohne Kadereintrag" },
+      { value: "im_kader", label: "Im Kader" },
+      { value: "ohne_kader", label: "Nicht im Kader" },
       { value: "ausgetragen", label: "Ausgetragen" },
     ],
     // Three states, not two: no row at all is a different fact from a retired row, which keeps its
@@ -38,12 +38,12 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
     param: "rolle",
     label: "Rolle",
     options: [
-      { value: "kapitaen", label: "Kapitän" },
+      ...ROLLE_OPTIONS.map((option) => ({ value: option.value, label: option.label })),
       { value: "nachgetragen", label: "Nachgetragen" },
     ],
     read: (spieler) => {
       const held: string[] = [];
-      if (spieler.selected?.is_captain) held.push("kapitaen");
+      if (spieler.selected?.rolle != null) held.push(spieler.selected.rolle);
       if (spieler.selected?.is_nachgetragen) held.push("nachgetragen");
       return held;
     },

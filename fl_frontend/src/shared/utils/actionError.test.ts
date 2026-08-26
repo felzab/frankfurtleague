@@ -50,7 +50,7 @@ describe("toActionErrorResult", () => {
     // stopped riding out, would still pass a check for "not the generic one".
     const own: readonly (readonly [string, RegExp])[] = [
       ["REQ-STATE-002", /Entferne zuerst die Tore/],
-      ["REQ-STATE-003", /noch einen offenen Platz/],
+      ["REQ-STATE-003", /Besetze zuerst den offenen Platz/],
     ];
 
     for (const [serverErrorCode, sentence] of own) {
@@ -70,8 +70,8 @@ describe("toActionErrorResult", () => {
       new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode: "REQ-ELIGIBILITY-001" }),
     );
 
-    assert.match(wiring.error ?? "", /neu/);
-    assert.doesNotMatch(occupant.error ?? "", /lade die Seite neu/);
+    assert.match(wiring.error ?? "", /Lade die Seite neu/);
+    assert.doesNotMatch(occupant.error ?? "", /Lade die Seite neu/);
   });
 
   it("maps a 404 onto the vanished-record message", () => {
@@ -84,7 +84,7 @@ describe("toActionErrorResult", () => {
     const timeout = toActionErrorResult(new APINetworkError({ ...base, message: "t", isTimeout: true }));
     const down = toActionErrorResult(new APINetworkError({ ...base, message: "d", isTimeout: false }));
 
-    assert.match(timeout.error ?? "", /Zeitüberschreitung/);
+    assert.match(timeout.error ?? "", /zu lange nicht geantwortet/);
     assert.match(down.error ?? "", /nicht erreichbar/);
     assert.notEqual(timeout.error, down.error);
   });

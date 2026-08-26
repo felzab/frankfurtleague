@@ -5,8 +5,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Team",
-  description:
-    "Auf der Team-Seite erfährst Du mehr über das Team hinter der Frankfurt-League, wer für was Verantwortlich ist und wie die Organisation abläuft.",
+  description: "Die Menschen hinter der Frankfurt-League und wer bei uns was macht.",
   openGraph: openGraphFor("/team"),
   alternates: {
     canonical: "/team",

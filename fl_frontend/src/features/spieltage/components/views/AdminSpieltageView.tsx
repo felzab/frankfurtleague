@@ -35,10 +35,10 @@ export function AdminSpieltageView({
       items={spieltage}
       searchKeys={SEARCH_KEYS}
       facets={SPIELTAG_FACETS}
-      renderTable={({ query, filteredItems }) => (
+      renderTable={({ filteredItems, emptiness }) => (
         <AdminSpieltageList
-          spieltageQuery={query}
           filteredSpieltage={filteredItems}
+          emptiness={emptiness}
           saisonId={saisonId}
           phaseProgress={phaseProgress}
         />

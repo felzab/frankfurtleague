@@ -35,7 +35,10 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
           // See `SchiedsrichterFormFields` for why the value lives on the field, not the input.
           isInvalid={errors?.["name"] ? true : undefined}>
           <Label className={FIELD_LABEL}>Name</Label>
-          <Input className={FIELD_INPUT} />
+          <Input
+            placeholder="z.B. Goethe-Gymnasium"
+            className={FIELD_INPUT}
+          />
           <FieldError className={FIELD_ERROR}>{errors?.["name"]}</FieldError>
         </TextField>
 
@@ -61,7 +64,10 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         onChange={(next) => onChange({ ...draft, full_name: next })}
         isInvalid={errors?.["full_name"] ? true : undefined}>
         <Label className={FIELD_LABEL}>Vollständiger Name</Label>
-        <Input className={FIELD_INPUT} />
+        <Input
+          placeholder="z.B. Johann-Wolfgang-von-Goethe-Gymnasium"
+          className={FIELD_INPUT}
+        />
         <FieldError className={FIELD_ERROR}>{errors?.["full_name"]}</FieldError>
       </TextField>
 
@@ -80,7 +86,7 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         <Label className={FIELD_LABEL}>Beschreibung</Label>
         <TextArea
           fullWidth
-          placeholder="Öffentlich sichtbarer Text über das Team"
+          placeholder="z.B. Schulteam aus dem Nordend, seit 2019 in der Liga"
           className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
         />
         <FieldError className={FIELD_ERROR}>{errors?.["description"]}</FieldError>

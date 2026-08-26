@@ -30,7 +30,7 @@ export function buildSpieltagBanners({
     id: "spieltag.name-abgeleitet",
     severity: "info",
     title: `Der Name „${label}“ steht fest`,
-    body: "Er folgt aus der Runde, zu der dieser Spieltag gehört. Auf dieser Seite legst Du seinen Zeitraum fest.",
+    body: "Er folgt aus der Runde, zu der dieser Spieltag gehört.",
     inline: null,
   });
 
@@ -38,11 +38,11 @@ export function buildSpieltagBanners({
     banners.push({
       id: "spieltag.zeitraum-changed",
       severity: "warning",
-      title: "Der Zeitraum ändert die Reihenfolge nicht",
+      title: "Der neue Zeitraum muss zu den Spielen passen",
       // Both save refusals a moved span can draw: one naming only the fixtures reads as a promise
       // about the rest. The second is measured against the DATED matchdays alone, so naming the
       // neighbours would point past the rows the endpoint reads.
-      body: "Die Reihenfolge steht mit dem Spielplan fest. Speichern geht nur, wenn alle Spiele des Spieltags im neuen Zeitraum liegen. Der Beginn muss außerdem in die Reihenfolge der Spieltage seiner Phase passen, die schon einen Zeitraum haben.",
+      body: "Speichern geht nur, wenn alle Spiele des Spieltags im neuen Zeitraum liegen. Der Beginn muss außerdem in die Reihenfolge der Spieltage seiner Phase passen, die schon einen Zeitraum haben.",
       inline: "zeitraum",
     });
   }
@@ -52,7 +52,7 @@ export function buildSpieltagBanners({
       id: "spieltag.ende-vor-beginn",
       severity: "danger",
       title: "Das Ende liegt vor dem Beginn",
-      body: "So lässt sich der Spieltag nicht speichern. Korrigiere eines der beiden Daten.",
+      body: "Korrigiere eines der beiden Daten.",
       inline: "zeitraum",
     });
   }
@@ -65,7 +65,7 @@ export function buildSpieltagBanners({
       // The counts sit in the body as a readout: a sentence carrying them has to agree with both at
       // once, and one of the two is 1 often enough.
       title: spieleAngelegt < anzahlSpiele ? "Es fehlen noch Spiele" : "Es sind mehr Spiele angelegt als erwartet",
-      body: `Angelegt: ${String(spieleAngelegt)}. Erwartet: ${String(anzahlSpiele)}. Das ist kein Fehler, sondern der Stand des Spielplans. Die erwartete Zahl kommt aus den Regeln der Saison.`,
+      body: `Angelegt: ${String(spieleAngelegt)}. Erwartet: ${String(anzahlSpiele)}.`,
       inline: null,
     });
   }

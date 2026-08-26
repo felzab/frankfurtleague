@@ -29,7 +29,7 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonF
   },
   {
     path: "rules.tiebreak_order",
-    label: "Bei Punktgleichheit",
+    label: "Tiebreak",
     group: "Regeln",
     read: (source) => tiebreakLabel(source.rules.tiebreak_order),
   },

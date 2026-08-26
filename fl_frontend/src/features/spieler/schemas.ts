@@ -15,6 +15,13 @@ export const FLSpielerStufeSchema = z.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"],
 export type FLSpielerStufe = z.infer<typeof FLSpielerStufeSchema>;
 
 /**
+ * Mirrors `FLSpielerRolle`. Slugs, so `ROLLE_OPTIONS` owns the German the reader sees; a squad holds
+ * each of these once, which the write path refuses on (`REQ-SQUAD-004`).
+ */
+export const FLSpielerRolleSchema = z.enum(["kapitaen", "co_kapitaen"], { error: "Bitte wähle eine Rolle." });
+export type FLSpielerRolle = z.infer<typeof FLSpielerRolleSchema>;
+
+/**
  * Mirrors `FLEinwilligung` — what may be published about this person.
  *
  * `bestandsuebernahme` marks a backfilled record, which must stay distinguishable from consent
@@ -58,7 +65,7 @@ export const FLSpielerMembershipSchema = z.object({
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
   is_nachgetragen: z.boolean(),
-  is_captain: z.boolean(),
+  rolle: FLSpielerRolleSchema.nullable(),
   inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLSpielerMembership = z.infer<typeof FLSpielerMembershipSchema>;
@@ -147,8 +154,9 @@ const saisonSpielerPayloadFields = {
   // The create form derives this from the season's status rather than asking it, so it cannot be
   // forgotten.
   is_nachgetragen: z.boolean(),
-  // On the junction: captaincy is a role within one team for one season, not a property of the person.
-  is_captain: z.boolean(),
+  // On the junction: a role is held within one team for one season, not by the person. One field and
+  // not a flag per role, so holding both at once cannot be expressed.
+  rolle: FLSpielerRolleSchema.nullable(),
 };
 
 export const FLPostSaisonSpielerPayloadSchema = z.object({
@@ -228,7 +236,7 @@ export const FLSaisonSpielerResponseSchema = BaseAPIResponseSchema.extend({
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
   is_nachgetragen: z.boolean(),
-  is_captain: z.boolean(),
+  rolle: FLSpielerRolleSchema.nullable(),
   inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLSaisonSpielerResponse = z.infer<typeof FLSaisonSpielerResponseSchema>;

@@ -16,7 +16,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Finalrunden",
-  description: "Die Finalrunden-Übersicht gibt Auskunft über die KO-Runde der Frankfurt-League. Finde heraus, wer um die Meisterschaft spielt.",
+  description: "Die KO-Runde der Frankfurt-League. Finde heraus, wer um die Meisterschaft spielt.",
   openGraph: openGraphFor("/dashboard/playoffs"),
   alternates: {
     canonical: "/dashboard/playoffs",

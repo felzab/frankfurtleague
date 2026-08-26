@@ -11,17 +11,16 @@ import type { AdminTeamRow } from "@/features/teams/types";
 const SEARCH_KEYS = ["name", "full_name", "shorthand"] as const;
 
 /** Club-centric rows spanning every season, with the selected season's junction data beside them. */
-export function AdminTeamsView({ teams, selectedSaisonStatus }: { teams: AdminTeamRow[]; selectedSaisonStatus: "past" | "active" | "future" }) {
+export function AdminTeamsView({ teams }: { teams: AdminTeamRow[] }) {
   return (
     <AdminCrudView<AdminTeamRow>
       items={teams}
       searchKeys={SEARCH_KEYS}
       facets={TEAM_FACETS}
-      renderTable={({ query, filteredItems, onDelete }) => (
+      renderTable={({ filteredItems, emptiness, onDelete }) => (
         <AdminTeamsTable
-          teamsQuery={query}
           filteredTeams={filteredItems}
-          selectedSaisonStatus={selectedSaisonStatus}
+          emptiness={emptiness}
           setDeletingTeam={onDelete}
         />
       )}

@@ -38,7 +38,7 @@ PUBLIC_FIELDS = {"id", "vorname", "nachname", "nummer", "position"}
 
 # `stufe` and `einwilligung` are the two confidentiality rules; the rest fails the allow-list, which
 # asks what the surface renders rather than what looks sensitive. An unrendered field still ships.
-WITHHELD_FIELDS = ["stufe", "einwilligung", "team_id", "is_nachgetragen", "is_captain", "inactive_since"]
+WITHHELD_FIELDS = ["stufe", "einwilligung", "team_id", "is_nachgetragen", "rolle", "inactive_since"]
 
 # What a caller may actually SEND: the filter model's fields plus anything declared beside them.
 # Constructing a filter object asks for nothing -- `extra="ignore"` drops an undeclared key first.
@@ -87,7 +87,7 @@ def _squad_row(
     nummer: str | None,
     position: str | None,
     stufe: str | None,
-    is_captain: bool = False,
+    rolle: str | None = None,
     inactive_since: str | None = None,
 ) -> dict[str, Any]:
     return {
@@ -98,17 +98,17 @@ def _squad_row(
         "position": position,
         "stufe": stufe,
         "is_nachgetragen": False,
-        "is_captain": is_captain,
+        "rolle": rolle,
         "inactive_since": inactive_since,
     }
 
 
 def _legacy_squad_row(key: str, **fields: Any) -> dict[str, Any]:
-    """A row written before either flag existed: the keys are ABSENT, and `$project` omits an absent key rather than nulling it."""
+    """A row written before either field existed: the keys are ABSENT, and `$project` omits an absent key rather than nulling it."""
 
     row = _squad_row(key, **fields)
     del row["is_nachgetragen"]
-    del row["is_captain"]
+    del row["rolle"]
 
     return row
 
@@ -154,7 +154,7 @@ class TestTheBaseTierShape:
         """Each rule is about one READ: the field stays stored, admin-visible and validator-enforced, and `FLSpieler` still declares it."""
         assert field in FLSpieler.model_fields
 
-    @pytest.mark.parametrize("field", ["stufe", "team_id", "is_nachgetragen", "is_captain", "inactive_since"])
+    @pytest.mark.parametrize("field", ["stufe", "team_id", "is_nachgetragen", "rolle", "inactive_since"])
     def test_the_admin_membership_read_keeps_every_field(self, field: str):
         """`GET /spieler/memberships` is admin-tier: narrowing it would leave the squad editor unable to read back what it writes."""
         assert field in FLSpielerMembership.model_fields
@@ -322,7 +322,7 @@ class TestTheBaseTierReadExecuted:
 
         assert person["nachname"] == "Müller"
         assert person["einwilligung"]["umfang"] == "kader_oeffentlich"
-        assert (row["stufe"], row["is_captain"]) == ("Q3", True)
+        assert (row["stufe"], row["rolle"]) == ("Q3", "kapitaen")
 
     def test_the_corpus_really_holds_a_retired_person_beside_a_retired_row(self, mongo_container: Any):
         """The same guard for `READ-SQUAD-001`: both cases below pass against a corpus where nobody retired at all."""
@@ -446,7 +446,7 @@ def on_a_database(container: Any, body: Body) -> Any:
             )
             await database.saison_spieler.insert_many(
                 [
-                    _squad_row("Mueller", nummer="7", position="Angriff", stufe="Q3", is_captain=True),
+                    _squad_row("Mueller", nummer="7", position="Angriff", stufe="Q3", rolle="kapitaen"),
                     _squad_row("Adler", nummer="3", position="Abwehr", stufe="E1"),
                     _squad_row("Ohne", nummer=None, position=None, stufe=None),
                     _legacy_squad_row("Oeztuerk", nummer="5", position="Mittelfeld", stufe="Q1"),

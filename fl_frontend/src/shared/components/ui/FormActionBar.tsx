@@ -12,7 +12,16 @@ import { formButton } from "@/shared/components/ui/formButtons";
  * **Never disabled on a client verdict** (it can be stale), but disabled while nothing has changed:
  * an empty save rewrites the record and re-runs everything the write triggers.
  */
-export function FormActionBar({ isPending, onCancel }: { isPending: boolean; onCancel: () => void }) {
+export function FormActionBar({
+  isPending,
+  isLeaving,
+  onCancel,
+}: {
+  isPending: boolean;
+  /** True while `leavePage` runs — see `EditFormLayout` for the hover it clears. */
+  isLeaving: boolean;
+  onCancel: () => void;
+}) {
   const status = useDraftStatus();
   // Generated rather than a constant: "one editor per page" held per editor and is not something a
   // bar shared by seven of them can promise.
@@ -50,7 +59,7 @@ export function FormActionBar({ isPending, onCancel }: { isPending: boolean; onC
             type="button"
             variant="secondary"
             onPress={onCancel}
-            isDisabled={isPending}
+            isDisabled={isPending || isLeaving}
             className={`${formButton({ intent: "cancel" })} flex-1 sm:flex-initial`}>
             Abbrechen
           </Button>
@@ -60,7 +69,7 @@ export function FormActionBar({ isPending, onCancel }: { isPending: boolean; onC
           {/* The hint answers the standing block only. `isPending` ends by itself and the label
               already says "Speichert...", so explaining it would describe a state nobody waits on. */}
           <DisabledHint
-            reason={isPending || status.isDirty ? null : "Es gibt noch keine Änderung zu speichern. Ändere zuerst etwas im Formular."}
+            reason={isPending || status.isDirty ? null : "Es gibt noch keine Änderung zu speichern."}
             className="flex-1 sm:flex-initial">
             <Button
               type="submit"

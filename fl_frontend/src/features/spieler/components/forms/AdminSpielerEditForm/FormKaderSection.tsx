@@ -2,23 +2,25 @@
 
 import { useState, useTransition } from "react";
 
-import { Button, FieldError, Input, Switch, TextField } from "@heroui/react";
+import { Button, FieldError, Input, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
 import { postSaisonSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
-import { NUMMER_MAX_LENGTH, POSITION_OPTIONS } from "@/features/spieler/constants";
+import { NUMMER_MAX_LENGTH, POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
-import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
+import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
+import type { Key } from "@heroui/react";
 import type { SpielerBanner } from "./banners";
 
 /** The app's one wording and one palette for a season's state. */
@@ -44,8 +46,9 @@ export function FormKaderSection({
   onPositionChange,
   stufe,
   onStufeChange,
-  isCaptain,
-  onIsCaptainChange,
+  rolle,
+  onRolleChange,
+  heldRollen,
   onValidateFields,
   onValidateSelection,
   spielerId,
@@ -63,8 +66,10 @@ export function FormKaderSection({
   onPositionChange: (next: FLSpielerPosition | null) => void;
   stufe: FLSpielerStufe | null;
   onStufeChange: (next: FLSpielerStufe | null) => void;
-  isCaptain: boolean;
-  onIsCaptainChange: (next: boolean) => void;
+  rolle: FLSpielerRolle | null;
+  onRolleChange: (next: FLSpielerRolle | null) => void;
+  /** Who holds each role in the DRAFT's team, so a role the write path would refuse is not offered. */
+  heldRollen: Partial<Record<FLSpielerRolle, string>>;
   onValidateFields: (paths: readonly string[]) => void;
   onValidateSelection: (paths: readonly string[], selected: { team_id: string }) => void;
   spielerId: string;
@@ -95,20 +100,20 @@ export function FormKaderSection({
         position,
         stufe,
         is_nachgetragen: entryIsNachgetragen,
-        is_captain: false,
+        rolle: null,
       });
 
       const teamError = res.fieldErrors?.team_id ?? null;
       setEntryTeamError(teamError);
 
       if (res.success) {
-        appToast.success(res.message ?? "Spieler aufgenommen!");
+        appToast.success(res.message ?? "Spieler aufgenommen");
         return;
       }
       // Suppressed where the picker carries the message, so a refusal about the chosen team is not
       // also said in a toast that names no field.
       if (teamError === null) {
-        appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || "Ein unerwarteter Fehler ist aufgetreten." });
+        appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || UNKNOWN_REFUSAL });
       }
     });
   };
@@ -122,18 +127,17 @@ export function FormKaderSection({
         </span>
         <h2 className={panel.heading()}>
           Kader {saison.saisonId}
-          <InfoHint label="Hinweis zum Kadereintrag">
-            <p>Dieser Bereich gilt für die Saison, die im Seitenmenü ausgewählt ist.</p>
-            <ul>
-              <li>Um eine andere Saison zu bearbeiten, wähle sie im Seitenmenü aus.</li>
-              <li>
-                Ein <strong>Teamwechsel</strong> wird hier eingetragen. Der Spieler bleibt dieselbe Person.
-              </li>
-              <li>
-                <strong>Nummer, Position und Stufe</strong> gelten nur für diese Saison und dürfen leer bleiben.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Kadereintrag"
+            body={{
+              lead: "Diese Angaben gelten nur für die im Seitenmenü gewählte Saison.",
+              points: [
+                { term: "Ein Teamwechsel", text: "wird hier eingetragen." },
+                { term: "Nummer, Position und Stufe", text: "dürfen leer bleiben." },
+              ],
+            }}
+          />
         </h2>
       </div>
 
@@ -163,28 +167,56 @@ export function FormKaderSection({
                 inputMode="numeric"
                 pattern="[0-9]*">
                 <FieldLabel path="nummer">Nummer</FieldLabel>
-                <Input className={`${FIELD_INPUT} font-extrabold tracking-wider`} />
+                <Input
+                  placeholder="z.B. 7"
+                  className={`${FIELD_INPUT} font-extrabold tracking-wider`}
+                />
                 <FieldError className={FIELD_ERROR} />
               </TextField>
             </div>
 
-            {/* A switch rather than a note, unlike `is_nachgetragen`: a decision somebody makes and
-                changes, and a role within THIS season's squad. */}
-            <div className="flex w-full flex-col gap-y-1">
-              <FieldLabel path="is_captain">Kapitän</FieldLabel>
-              <Switch
-                name="is_captain"
-                isSelected={isCaptain}
-                onChange={onIsCaptainChange}
-                className="border-border bg-surface hover:bg-hover w-full rounded-lg border px-3 py-2.5 transition-colors">
-                <Switch.Content className="fluid-sm text-foreground flex w-full flex-row items-center justify-between gap-x-3 font-medium">
-                  <span>Führt das Team in der Saison {saison.saisonId} als Kapitän an.</span>
-                  <Switch.Control className={isCaptain ? "bg-brand-solid" : ""}>
-                    <Switch.Thumb />
-                  </Switch.Control>
-                </Switch.Content>
-              </Switch>
-            </div>
+            {/* A group rather than a switch, unlike `is_nachgetragen`: three states, and pressing the
+                held one again is how a role is given up. Empty selection is the ordinary state. */}
+            <TextField
+              name="rolle"
+              // The proxy is what makes a refusal land: `ToggleButtonGroup` takes no `name`, so it
+              // joins no field context and `form.reportValidity()` cannot see the group.
+              value={rolle ?? ""}
+              onChange={() => undefined}
+              className="flex w-full flex-col gap-y-1">
+              <FieldLabel path="rolle">Rolle</FieldLabel>
+              <ToggleButtonGroup
+                aria-label="Rolle im Kader"
+                size="sm"
+                isDetached
+                selectionMode="single"
+                selectedKeys={rolle === null ? [] : [rolle]}
+                onSelectionChange={(keys: Set<Key>) => {
+                  const [picked] = [...keys].map(String);
+                  onRolleChange(picked === undefined ? null : (picked as FLSpielerRolle));
+                }}
+                className="flex w-full flex-row flex-wrap gap-2">
+                {ROLLE_OPTIONS.map((option) => (
+                  <ToggleButton
+                    key={option.value}
+                    id={option.value}
+                    // Disabled only where SOMEBODY ELSE holds it: the current holder has to be able to
+                    // press it again to give it up.
+                    isDisabled={heldRollen[option.value] !== undefined && rolle !== option.value}
+                    className="border-border bg-surface hover:bg-hover fluid-sm data-selected:bg-brand-solid data-selected:text-brand-solid-foreground rounded-lg border px-3 py-2 font-medium transition-colors data-disabled:opacity-50">
+                    {option.label}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+
+              <Input className="hidden" />
+              <FieldError className={FIELD_ERROR} />
+
+              <InlineBanners
+                banners={banners}
+                spot="kader-rolle"
+              />
+            </TextField>
 
             <div className={FIELD_PAIR}>
               <div className="flex w-full flex-col gap-y-1">

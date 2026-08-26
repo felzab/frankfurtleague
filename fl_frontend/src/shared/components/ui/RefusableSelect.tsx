@@ -27,6 +27,10 @@ export function RefusableSelect({
   className,
 }: {
   label: string;
+  /**
+   * The empty trigger's own label, and never a field's ghost text: this control accepts no typing, so it reads
+   * `Team wählen` as the app's other closed pickers do. A `z.B. …` example offers a name there is nothing to type into.
+   */
   placeholder: string;
   value: RefusableOption | null;
   options: readonly RefusableOption[];
