@@ -121,8 +121,8 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         id: "finalrunden",
         label: "Finalrunden",
         iconName: "Medal",
-        // The chip legend lives in the shell's hint and not on the page, so the surface has one info
-        // glyph rather than two answers to one question.
+        // The caption legend lives in the shell's hint and not on the page, so the surface has one
+        // info glyph rather than two answers to one question.
         hint: {
           lead: "Woher jede Seite jedes KO-Spiels kommt.",
           // Every caption `fl_frontend/src/features/admin/components/views/AdminBracketWiringView.tsx :: SlotWiring`

@@ -5,7 +5,6 @@ import { PencilToSquare } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { PHASE_TINTS } from "@/features/saisons/constants";
-import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
 import { adminSpielEditHref, deriveSlotHerkunft, formatQuelle, sideLabel } from "@/features/spiele/utils";
 import { spieltagLabels } from "@/features/spieltage/utils";
 import { card } from "@/shared/components/ui/card";
@@ -66,22 +65,29 @@ function SlotWiring({ side, team, quelle }: { side: "team1" | "team2"; team: FLS
   const weight = herkunft === "offen" ? "font-bold" : "font-semibold";
 
   return (
-    <div className="flex min-w-0 flex-col items-start gap-1.5">
-      {/* The pair's two column titles are behind `sm:`, so below it nothing names the stacked seats,
-          and a row with both sides unresolved has nothing else to tell them apart. */}
-      <span className="fluid-xxs text-foreground-muted font-semibold uppercase sm:hidden">{sideLabel(side)}</span>
+    // The seat marker sits in a side track rather than on a line of its own: it spends 13 px of measure
+    // once instead of a text line per seat, and only a seat's first line has a digit beside it.
+    <div className="grid grid-cols-[13px_minmax(0,1fr)] items-baseline gap-x-[9px]">
+      <span className="fluid-xxs text-foreground-muted text-right font-semibold">
+        <span aria-hidden="true">{side === "team1" ? "1" : "2"}</span>
+        {/* Nothing else names the seats now that the pair is one column, and the digit on its own
+            would be announced as a bare number. */}
+        <span className="sr-only">{sideLabel(side)}</span>
+      </span>
 
-      {/* One tight gap, because the origin qualifies the name beneath it rather than standing as a
-          second fact of its own. */}
-      <div className="flex min-w-0 flex-col items-start gap-0.5">
-        <span className={`fluid-xxs ${weight} ${ink}`}>{label}</span>
-
+      {/* One inline flow and not two flex items: flex moves a whole club name down the moment it will
+          not fit beside the origin and abandons the rest of that line, where a flow breaks between
+          words and fills it. */}
+      <div className="fluid-sm text-pretty">
+        {/* `fluid-sm` sits on the flow and not on the name because the space between the two is the
+            block's, so its size is what decides where the line breaks. */}
+        <span className={`fluid-xxs whitespace-nowrap ${weight} ${ink}`}>{label}</span>{" "}
         {/* `break-words` and not `truncate`: a review surface that hides half a club's name cannot be
             finished, and the row is free to grow. */}
         {team === null ? (
           <span className="muted-meta italic">{PLACEHOLDER.slot}</span>
         ) : (
-          <strong className="fluid-sm text-foreground max-w-full font-bold break-words">{team.name}</strong>
+          <strong className="text-foreground font-bold break-words">{team.name}</strong>
         )}
       </div>
     </div>
@@ -124,13 +130,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
             role="listitem"
             key={round.id}
             className={`${card()} flex w-full flex-col items-start gap-4 p-3 sm:p-6`}>
-            {/* The chip sits BESIDE the heading rather than standing as it, the shape `/admin/spieltage`
-                can take because it sections by phase. A card here is one matchday, and the chip renders
-                the phase alone, so two matchdays in a phase would wear the same one. */}
-            <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
-              <h2 className="fluid-lg text-foreground font-black tracking-tight">{labels.get(round.id)?.label}</h2>
-              <SaisonPhaseChip saisonPhase={round.saison_phase} />
-            </div>
+            <h2 className="fluid-lg text-foreground w-full font-black tracking-tight">{labels.get(round.id)?.label}</h2>
 
             {round.spiele.length === 0 ? (
               <EmptyState title="Noch keine Spiele in dieser Runde" />
@@ -138,9 +138,9 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
               <Table
                 variant="secondary"
                 className="h-fit w-full text-left">
-                {/* `table-fixed` is what makes the two sides provably equal. A declared `w-1/2` does not:
-                    auto layout reads a percentage as a preference and content minima override it just
-                    where the room is tightest. */}
+                {/* `table-fixed` is what holds the two narrow columns at the widths they declare. Auto
+                    layout reads a declared width as a preference and lets the longest club name in the
+                    pair column push them around. */}
                 <Table.Content
                   aria-label={`Herkunft der Paarungen: ${labels.get(round.id)?.label ?? ""}`}
                   className="table-fixed">
@@ -148,20 +148,13 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                     <Table.Column
                       isRowHeader
                       className="w-11 pt-1.5 pb-2 pl-3 whitespace-nowrap lg:w-16 lg:pl-4">
-                      {/* The full word costs column width the two chips below need on a phone. */}
+                      {/* The full word costs column width the two captions below need on a phone. */}
                       <span className="hidden sm:inline">Spiel</span>
                       <span className="sm:hidden">#</span>
                     </Table.Column>
-                    {/* No width: this is the column fixed layout gives the remainder to. The pair is one
-                        cell and not two columns, which halved at phone width and wrapped every chip.
-                        `gap-x-6` must stay equal to the body grid's or the headings stop lining up. */}
-                    <Table.Column className="px-2 lg:px-4">
-                      <span className="sm:hidden">Paarung</span>
-                      <div className="hidden gap-x-6 sm:grid sm:grid-cols-2">
-                        <span>{sideLabel("team1")}</span>
-                        <span>{sideLabel("team2")}</span>
-                      </div>
-                    </Table.Column>
+                    {/* No width: this is the column fixed layout gives the remainder to. Both seats sit
+                        in it, one under the other at every width, so it carries a single heading. */}
+                    <Table.Column className="px-2 lg:px-4">Paarung</Table.Column>
                     {/* The width has to clear the button at its `md` size, not the size it starts at:
                         sized to the smaller one, the control was pressed against both cell edges. */}
                     <Table.Column className="w-14 pr-3 lg:w-16 lg:pr-4">
@@ -175,14 +168,15 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                     {[...round.spiele]
                       .sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)
                       .map((spiel) => (
-                        <Table.Row
-                          key={spiel.id}
-                          className="border-border border-b last:border-0">
+                        <Table.Row key={spiel.id}>
                           {/* `spiel_nr`, because that is the number a `spiel` source cites. */}
                           <Table.Cell className="fluid-sm py-4 pl-3 font-bold whitespace-nowrap lg:pl-4">{spiel.spiel_nr}</Table.Cell>
 
                           <Table.Cell className="px-2 py-4 align-top lg:px-4">
-                            <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+                            {/* No rule between the seats: the gap here is more than twice the space
+                                between two lines inside one seat, which is what tells them apart where
+                                both run long. */}
+                            <div className="flex flex-col gap-4">
                               <SlotWiring
                                 side="team1"
                                 team={spiel.team1}
@@ -196,7 +190,10 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                             </div>
                           </Table.Cell>
 
-                          <Table.Cell className="py-4 pr-3 align-top lg:pr-4">
+                          {/* No `align-*` here or on the number cell, so both take HeroUI's vendored
+                              `align-middle` and the control stays level with the number a reader is
+                              checking it against. */}
+                          <Table.Cell className="py-4 pr-3 lg:pr-4">
                             {/* Ended right so the column's surplus falls inside the row: left-aligned it
                                 sat outside the control and the right gutter read as the bigger one. */}
                             <div className="flex justify-end">
