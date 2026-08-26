@@ -7,6 +7,7 @@ import { Popover } from "@heroui/react";
 import { useHoverOpenOverlay } from "@/shared/hooks/useHoverOpenOverlay";
 
 import { HINT_SURFACE } from "./hintSurface";
+import { hintTrigger } from "./hintTrigger";
 import { overlayPanel } from "./overlayPanel";
 
 import type { ReactNode } from "react";
@@ -104,17 +105,11 @@ function RevealHint({ label, body, trigger }: { label: string; body: HintBody; t
     <Popover
       isOpen={isOpen}
       onOpenChange={onOpenChange}>
-      {/* An inline glyph rather than a flex sibling: a text run's visual mass sits above its line box's centre, so
-          centring in a row cannot look right. `align-middle` aligns any icon size with no tuned constant. */}
       <Popover.Trigger
         aria-label={label}
-        className={
-          trigger
-            ? "hover:bg-hover -m-0.5 inline-flex shrink-0 cursor-help items-center justify-center rounded-md p-0.5 align-middle transition-colors"
-            : "text-foreground-muted hover:text-brand ms-1.5 inline-flex shrink-0 cursor-help align-middle transition-colors [--hint-icon-size:1em]"
-        }
+        className={hintTrigger({ kind: trigger ? "custom" : "glyph", isOpen })}
         onMouseEnter={openFromHover}>
-        {trigger ?? <CircleInfo className="h-(--hint-icon-size) w-(--hint-icon-size) cursor-help" />}
+        {trigger ?? <CircleInfo className="h-(--hint-icon-size) w-(--hint-icon-size)" />}
       </Popover.Trigger>
 
       <Popover.Content
@@ -169,10 +164,11 @@ function RefusalHint({
     <Popover
       isOpen={isOpen}
       onOpenChange={onOpenChange}>
-      {/* `cursor-help`, as the reveal trigger uses for the same promise. It reaches the pointer because the control does not. */}
+      {/* `cursor-auto` for `hintTrigger.ts`'s reason, which this wrapper shares: it is the value `<body>` shows once the
+          open panel makes the page `inert`, and the one HeroUI's `pointer` on `.popover__trigger` would change under. */}
       <Popover.Trigger
         aria-label={reason}
-        className={`cursor-help ${className ?? ""}`}
+        className={`cursor-auto ${className ?? ""}`}
         onMouseEnter={openFromHover}>
         {children}
       </Popover.Trigger>

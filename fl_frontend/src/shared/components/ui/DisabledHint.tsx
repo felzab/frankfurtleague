@@ -34,10 +34,11 @@ export function DisabledHint({
     <Popover
       isOpen={isOpen}
       onOpenChange={onOpenChange}>
-      {/* `cursor-help`, as `InfoHint` uses for the same promise. It reaches the pointer because the control does not. */}
+      {/* `cursor-auto` for `hintTrigger.ts`'s reason, which this wrapper shares. The disabled control inside declares
+          `not-allowed`, but `status-disabled` also makes it `pointer-events: none`, so that value never reaches the pointer. */}
       <Popover.Trigger
         aria-label={reason}
-        className={`cursor-help ${className ?? ""}`}
+        className={`cursor-auto ${className ?? ""}`}
         onMouseEnter={openFromHover}>
         {children}
       </Popover.Trigger>

@@ -44,7 +44,7 @@ export function FieldLabel({
           <InfoHint
             label="Geändert"
             trigger={
-              <span className={`${FIELD_MARKER} bg-brand/15 text-brand-solid cursor-help`}>
+              <span className={`${FIELD_MARKER} bg-brand/15 text-brand-solid`}>
                 <PencilToLine className="size-3" />
               </span>
             }>
