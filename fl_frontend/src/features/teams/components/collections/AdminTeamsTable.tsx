@@ -32,14 +32,11 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
 export const AdminTeamsTable = memo(function AdminTeamsTable({
   filteredTeams,
   emptiness,
-  selectedSaisonStatus,
   setDeletingTeam,
 }: {
   filteredTeams: AdminTeamRow[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
-  /** Decides the status column's wording — the season's own three words. */
-  selectedSaisonStatus: "past" | "active" | "future";
   setDeletingTeam: (team: AdminTeamRow) => void;
 }) {
   const [, startReactivating] = useTransition();
@@ -72,13 +69,10 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>{austrittZustand(team.selected.austritt.type)}</span>
       )}
       {team.inactive_since === null && team.selected !== null && team.selected.austritt === null && (
-        <>
-          {/* The season's own vocabulary: „Aktiv“ is the filter's word for „nicht stillgelegt“, a
-              different fact about a different subject. */}
-          {selectedSaisonStatus === "active" && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>}
-          {selectedSaisonStatus === "past" && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>}
-          {selectedSaisonStatus === "future" && <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>}
-        </>
+        /* The CLUB's standing, never the season's status: `fl_frontend/src/features/teams/facets.ts`'s
+           `aktiv` bucket is this same state and ignores the season's tense, so the filter and the
+           row cannot disagree. */
+        <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>
       )}
     </div>
   );

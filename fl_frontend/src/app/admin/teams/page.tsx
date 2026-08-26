@@ -73,7 +73,6 @@ async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searc
   const [membershipsRes, saisonsRes] = await Promise.all([getTeamMemberships(), getAdminSaisons()]);
   const saisons = saisonsRes.saisons;
   const selectedSaisonId = requestedSaisonId ?? saisons.find((saison) => saison.status === "active")?.id;
-  const selectedSaisonStatus = saisons.find((saison) => saison.id === selectedSaisonId)?.status ?? "active";
   const statusBySaisonId = new Map(saisons.map((saison) => [saison.id, saison.status]));
 
   const rows: AdminTeamRow[] = membershipsRes.teams.map((team) => {
@@ -94,10 +93,5 @@ async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searc
     };
   });
 
-  return (
-    <AdminTeamsView
-      teams={rows}
-      selectedSaisonStatus={selectedSaisonStatus}
-    />
-  );
+  return <AdminTeamsView teams={rows} />;
 }

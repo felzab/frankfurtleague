@@ -17,13 +17,11 @@ export function AdminSpielerView({
   spieler,
   teams,
   selectedSaisonId,
-  selectedSaisonStatus,
 }: {
   spieler: AdminSpielerRow[];
   /** The selected season's clubs: the team facet's options, and what the row's reactivate is gated on. */
   teams: SpielerTeamOption[];
   selectedSaisonId: string;
-  selectedSaisonStatus: "past" | "active" | "future";
 }) {
   // Memoised for identity: `AdminCrudView` requires a stable collection.
   const facets = useMemo(() => buildSpielerFacets(teams), [teams]);
@@ -39,7 +37,6 @@ export function AdminSpielerView({
           emptiness={emptiness}
           saisonTeams={teams}
           selectedSaisonId={selectedSaisonId}
-          selectedSaisonStatus={selectedSaisonStatus}
           setDeletingSpieler={onDelete}
         />
       )}

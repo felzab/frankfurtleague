@@ -36,7 +36,6 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   emptiness,
   saisonTeams,
   selectedSaisonId,
-  selectedSaisonStatus,
   setDeletingSpieler,
 }: {
   filteredSpieler: AdminSpielerRow[];
@@ -46,8 +45,6 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   saisonTeams: readonly SpielerTeamOption[];
   /** Which season the squad columns describe — the sidemenu selector's, resolved by the page. */
   selectedSaisonId: string;
-  /** Decides the status column's wording — the season's own three words. */
-  selectedSaisonStatus: "past" | "active" | "future";
   setDeletingSpieler: (spieler: AdminSpielerRow) => void;
 }) {
   const [, startReactivating] = useTransition();
@@ -95,13 +92,10 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         </InfoHint>
       )}
       {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
-        <>
-          {/* The season's own vocabulary. „Aktiv“ is `fl_frontend/src/features/spieler/facets.ts`'s
-              word for „nicht stillgelegt“, a different fact about a different subject. */}
-          {selectedSaisonStatus === "active" && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>}
-          {selectedSaisonStatus === "past" && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>}
-          {selectedSaisonStatus === "future" && <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>}
-        </>
+        /* The ROW's standing, never the season's status: it holds only while the person, the squad
+           row and the season entry are all live, so it is narrower than
+           `fl_frontend/src/features/spieler/facets.ts`'s „Person“ bucket. */
+        <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>
       )}
     </div>
   );
