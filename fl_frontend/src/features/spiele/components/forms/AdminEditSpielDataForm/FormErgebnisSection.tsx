@@ -146,9 +146,9 @@ export function FormErgebnisSection({
             isDisabled={!bothSidesResolved}
             isSelected={ergebnisCanBeEdited}
             onChange={handleErgebnisCanBeEditedToggle}>
-            <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+            <Switch.Content className={styles.switchContent()}>
               Spielergebnis eintragen
-              <Switch.Control>
+              <Switch.Control className={styles.switchControl()}>
                 <Switch.Thumb />
               </Switch.Control>
             </Switch.Content>
@@ -206,9 +206,9 @@ export function FormErgebnisSection({
             <Switch
               isSelected={elfmeterschiessen !== null}
               onChange={handleElfmeterschiessenToggle}>
-              <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+              <Switch.Content className={styles.switchContent()}>
                 Im Elfmeterschießen entschieden
-                <Switch.Control>
+                <Switch.Control className={styles.switchControl()}>
                   <Switch.Thumb />
                 </Switch.Control>
               </Switch.Content>

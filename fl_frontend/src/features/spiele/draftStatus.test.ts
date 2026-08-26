@@ -231,9 +231,9 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
     assert.deepEqual(derive(manual, draftOf(manual), ["besetzung_missing"]).expected, []);
   });
 
-  /* The grade decides a marker's colour and its one sentence, and the four scheduling fields are one
-     grade by the owner's ruling of 2026-08-26. Nothing else pins which side a category falls on, so a
-     silent move would recolour the editor and leave the sentence beside it false. */
+  /* The four scheduling fields are one grade, decided 2026-08-26. Nothing else pins which side a
+     category falls on, so a silent move would recolour the editor's markers and leave the sentence
+     beside them false. */
   it("grades the four scheduling fields alike, and apart from what leaves a fixture unscoreable", () => {
     const bare = makeStored({ datum: null, uhrzeit: null, ort: null, schiedsrichter: null });
     const scheduling = derive(bare, draftOf(bare), ["datum_missing", "uhrzeit_missing", "ort_missing", "schiedsrichter_missing"]);

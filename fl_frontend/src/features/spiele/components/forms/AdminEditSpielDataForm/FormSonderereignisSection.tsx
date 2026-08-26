@@ -82,9 +82,9 @@ export function FormSonderereignisSection({
           isSelected={hasSonderereignis}
           onChange={onHasSonderereignisChange}>
           {/* Named by its visible content: an `aria-label` would override it with a copy. */}
-          <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+          <Switch.Content className={styles.switchContent()}>
             Sonderereignis eintragen
-            <Switch.Control>
+            <Switch.Control className={styles.switchControl()}>
               <Switch.Thumb />
             </Switch.Control>
           </Switch.Content>
@@ -94,6 +94,10 @@ export function FormSonderereignisSection({
             nobody chose, and `ausgefallen` would refuse goals that are already typed. */}
         {hasSonderereignis && (
           <Select
+            // The switch asserts an event, so an empty pick is refused here, by the browser on submit:
+            // the write path accepts `null` and has no rule to lend. Switching off is the way back to
+            // no event.
+            isRequired
             name="sonderereignis"
             value={sonderereignis ?? undefined}
             onChange={handleChange}

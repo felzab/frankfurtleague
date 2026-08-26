@@ -19,7 +19,7 @@ export function ExpectedMarker({ path }: { path: string }) {
   const blocksScoring = field.expectedSeverity === "scoring";
 
   const trigger = (
-    <span className={`${FIELD_MARKER} cursor-help ${blocksScoring ? "bg-danger/15 text-danger-strong" : "bg-warning/15 text-warning-strong"}`}>
+    <span className={`${FIELD_MARKER} ${blocksScoring ? "bg-danger/15 text-danger-strong" : "bg-warning/15 text-warning-strong"}`}>
       <CircleDashed className="size-3" />
     </span>
   );

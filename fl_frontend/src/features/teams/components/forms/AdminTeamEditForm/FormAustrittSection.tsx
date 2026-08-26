@@ -86,12 +86,11 @@ export function FormAustrittSection({
 
       <div className={styles.body()}>
         <Switch
-          size="md"
           isSelected={hasAustritt}
           onChange={onHasAustrittChange}>
-          <Switch.Content className="fluid-sm text-danger flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+          <Switch.Content className={styles.switchContent()}>
             Team ist ausgeschieden
-            <Switch.Control className={hasAustritt ? "bg-danger" : ""}>
+            <Switch.Control className={styles.switchControl()}>
               <Switch.Thumb />
             </Switch.Control>
           </Switch.Content>
