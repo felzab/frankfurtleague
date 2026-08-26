@@ -131,10 +131,6 @@ export function AdminTeamEditForm({
 
   const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
     schemas: { team: FLPatchTeamPayloadSchema, saisonTeam: FLPatchSaisonTeamPayloadSchema },
-    onUnhandledErrors: () =>
-      appToast.danger("Speichern fehlgeschlagen", {
-        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-      }),
   });
 
   // The record as the draft would save it. `""` for a cleared date is what the schema rejects with

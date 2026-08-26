@@ -222,11 +222,11 @@ function GruppenTauschControl({
             {/* Adjacent to the control it describes and pointed at by `aria-describedby`, the app's
             treatment for a control disabled for a reason already on screen. */}
             {!isSwapping && partner === null && (
-              <p
-                id={SWAP_BUTTON_HINT_ID}
-                className="fluid-xxs text-foreground-muted leading-normal font-medium">
-                Wähle zuerst ein Team.
-              </p>
+              <Hint
+                mode="inline"
+                describes={SWAP_BUTTON_HINT_ID}
+                text="Wähle zuerst ein Team."
+              />
             )}
           </div>
         </>

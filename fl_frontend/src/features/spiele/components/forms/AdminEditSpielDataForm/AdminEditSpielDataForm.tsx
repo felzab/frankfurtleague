@@ -171,13 +171,9 @@ export function AdminEditSpielDataForm({
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the one the
-  // server would have produced. `onUnhandledErrors` catches a refusal on a path with no input.
+  // server would have produced.
   const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
     schemas: { spiel: FLPatchSpielDataPayloadSchema },
-    onUnhandledErrors: () =>
-      appToast.danger("Speichern fehlgeschlagen", {
-        description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
-      }),
   });
 
   // Derived rather than handled: `admitsShootOut` names every fixture a record belongs to, so every

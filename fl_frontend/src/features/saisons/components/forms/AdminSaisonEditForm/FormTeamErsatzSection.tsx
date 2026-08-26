@@ -170,7 +170,7 @@ export function FormTeamErsatzSection({
               className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
               <RefusableSelect
                 label="Ausscheidendes Team"
-                placeholder="z.B. FC Beispiel"
+                placeholder="Team wählen"
                 value={outgoingOptions.find((option) => option.id === outgoingId) ?? null}
                 options={outgoingOptions}
                 onChange={(id) => {
@@ -192,7 +192,7 @@ export function FormTeamErsatzSection({
               </div>
               <RefusableSelect
                 label="Nachrückendes Team"
-                placeholder="z.B. FC Beispiel"
+                placeholder="Team wählen"
                 value={incomingOptions.find((option) => option.id === incomingId) ?? null}
                 options={incomingOptions}
                 onChange={(id) => {

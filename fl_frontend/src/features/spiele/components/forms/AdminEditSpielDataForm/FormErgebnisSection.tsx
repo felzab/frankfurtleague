@@ -157,11 +157,11 @@ export function FormErgebnisSection({
               any click. Only the disabled state keeps a sentence, a refusal needing an answer in
               place. */}
           {!bothSidesResolved && (
-            <p
-              id="ergebnis-eintragen-hint"
-              className="fluid-xxs text-foreground-muted leading-normal font-medium">
-              Erst wenn beide Seiten feststehen.
-            </p>
+            <Hint
+              mode="inline"
+              describes="ergebnis-eintragen-hint"
+              text="Erst wenn beide Seiten feststehen."
+            />
           )}
         </div>
 

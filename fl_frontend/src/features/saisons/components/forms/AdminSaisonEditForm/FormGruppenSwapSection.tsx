@@ -233,7 +233,7 @@ export function FormGruppenSwapSection({
               className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
               <RefusableSelect
                 label="Team"
-                placeholder="z.B. FC Beispiel"
+                placeholder="Team wählen"
                 value={firstOptions.find((option) => option.id === first?.id) ?? null}
                 options={firstOptions}
                 onChange={handleFirstChange}
@@ -245,7 +245,7 @@ export function FormGruppenSwapSection({
               />
               <RefusableSelect
                 label="Tauscht Gruppen mit"
-                placeholder="z.B. FC Beispiel"
+                placeholder="Team wählen"
                 value={secondOptions.find((option) => option.id === second?.id) ?? null}
                 options={secondOptions}
                 onChange={handleSecondChange}
