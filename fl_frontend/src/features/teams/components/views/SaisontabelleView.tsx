@@ -6,7 +6,7 @@ import { Badge, Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
@@ -17,28 +17,22 @@ import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 import type { FLGruppen } from "../../schemas";
 
 /**
- * Annotative and never additive: a forfeit is in both figures, so a `+1` would invite a reader to
- * add it to the tally and reach a total the season never held.
+ * Annotative and never additive: a forfeit is in both figures (`docs/backend/spec.md :: I1d`), so a
+ * `+1` would invite a reader to add it to the tally and reach a total the season never held.
  *
- * `InfoHint`, not `IconTooltip` — `InfoHint.tsx` carries why.
+ * A hint, not `IconTooltip` — `Hint.tsx` carries why.
  */
 function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
   return (
-    <InfoHint
+    <Hint
+      mode="reveal"
       label={anzahl === 1 ? "1 abgesagtes Spiel" : `${anzahl} abgesagte Spiele`}
-      trigger={<span className="fluid-xxs bg-danger/10 text-danger-strong rounded-md px-1 py-0.5 font-extrabold">{anzahl}</span>}>
-      <p>
-        <strong>Abgesagte Spiele</strong>
-      </p>
-      <p>{anzahl === 1 ? "Ein Spiel dieses Teams wurde abgesagt." : `${anzahl} Spiele dieses Teams wurden abgesagt.`}</p>
-      {/* Every member the count covers is named, and the abandonment named as excluded: the badge sits
-          beside the match tally, so a reader who cannot tell which figure holds a fixture will add
-          it to one or subtract it from the other. */}
-      <p>
-        Ein ausgefallenes oder annulliertes Spiel zählt nirgends mit, auch nicht als Niederlage. Ist ein Team dagegen nicht angetreten, wird das
-        Spiel gewertet und zählt in dieser Tabelle ganz normal mit. Ein abgebrochenes Spiel hat stattgefunden und steht nicht in dieser Zahl.
-      </p>
-    </InfoHint>
+      body={{
+        lead: "Diese Zahl zählt die abgesagten Spiele dieses Teams.",
+        points: [{ text: "Rechne sie nicht zur Zahl daneben dazu." }],
+      }}
+      trigger={<span className="fluid-xxs bg-danger/10 text-danger-strong rounded-md px-1 py-0.5 font-extrabold">{anzahl}</span>}
+    />
   );
 }
 
