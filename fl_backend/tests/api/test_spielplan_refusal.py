@@ -1,9 +1,12 @@
-from typing import Any, Mapping
+from dataclasses import dataclass
+from typing import Any, Mapping, get_args
 
 import pytest
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules, FLSpielplanShape
 from app.api.saisons.services import (
+    DRAWN_HOLDING_ITS_SIDES,
+    RECORDED_FACT_FIELDS,
     SAISON_SPAN_BELOW_SCHEDULE,
     SPIELPLAN_ALREADY_DRAWN,
     SPIELPLAN_GRUPPEN_OFF_RULES,
@@ -14,6 +17,7 @@ from app.api.saisons.services import (
     find_spielplan_refusal,
     holds_a_recorded_fact,
 )
+from app.api.spiele.schemas import PHASE_ORDER, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSaisonPhase, FLSonderereignis
 from app.api.teams.schemas import FLGruppenNames
 from app.core.exceptions import WriteRefusal
 
@@ -385,12 +389,18 @@ class TestAReplaceRunsOnlyInsideItsWindow:
 
 ADLER = "68f0a1b2c3d4e5f607600011"
 BIEBER = "68f0a1b2c3d4e5f607600012"
+SPIELORT = "68f0a1b2c3d4e5f607600001"
+SCHIEDSRICHTER = "68f0a1b2c3d4e5f607600002"
+
+# Off the enum rather than spelled: every phase but the one the draw seats its sides on is judged
+# the same way, so whichever comes first stands for all of them.
+BRACKET_PHASE: FLSaisonPhase = next(phase for phase in PHASE_ORDER if phase != DRAWN_HOLDING_ITS_SIDES)
 
 # A GROUP fixture exactly as the draw wrote it: both sides seated, no wiring, every field a record
 # could land in empty. No `notiz` key at all, which is the shape `app/api/saisons/spielplan.py ::
 # _spiel` leaves.
 UNTOUCHED_FIXTURE: Mapping[str, Any] = {
-    "saison_phase": "gruppenphase",
+    "saison_phase": DRAWN_HOLDING_ITS_SIDES,
     "ergebnis": None,
     "elfmeterschiessen": None,
     "sonderereignis": None,
@@ -406,12 +416,91 @@ UNTOUCHED_FIXTURE: Mapping[str, Any] = {
 # a placing and holding nobody.
 UNTOUCHED_BRACKET: Mapping[str, Any] = {
     **UNTOUCHED_FIXTURE,
-    "saison_phase": "viertelfinale",
+    "saison_phase": BRACKET_PHASE,
     "team1": None,
     "team2": None,
     "team1_quelle": {"type": "gruppe", "gruppe": "A", "platz": 1},
     "team2_quelle": {"type": "gruppe", "gruppe": "B", "platz": 2},
 }
+
+
+def value_at(spiel: Mapping[str, Any], projected: str) -> Any:
+    """What one projected path resolves to, read the way the predicate itself reads it.
+
+    `or {}` rather than a `None` test: the projection delivers a null head where the stored field is
+    null, and a leaf under one is then absent rather than false.
+    """
+
+    head, _, leaf = projected.partition(".")
+    value = spiel.get(head)
+
+    return (value or {}).get(leaf) if leaf else value
+
+
+@dataclass(frozen=True)
+class RecordedEdit:
+    """One projected field, and what somebody entering something in THAT field looks like."""
+
+    # Carried into the assertion, so a narrowed predicate names the fact it stopped seeing.
+    why: str
+    gruppe: Mapping[str, Any]
+    # Declared for the fields the draw leaves inverted between the two shapes, and only those;
+    # `INVERTED_BY_THE_DRAW` below holds the two sets to each other.
+    ko: Mapping[str, Any] | None = None
+
+
+# One entry per `app/api/saisons/services.py :: RECORDED_FACT_FIELDS` path. Keyed by the whole path
+# and never its head: a leaf added under `team1` then owes an entry of its own rather than folding
+# into one already here and passing unweighed.
+RECORDED_EDITS: Mapping[str, RecordedEdit] = {
+    # NO record of its own -- it is the DISCRIMINATOR, so its edit is the flip under a pair of sides
+    # nobody touched. Read the wrong one and every drawn season is misjudged in one direction.
+    "saison_phase": RecordedEdit(
+        why="the phase, which records nothing itself and decides which shape the sides are read against",
+        gruppe={"saison_phase": BRACKET_PHASE},
+        ko={"saison_phase": DRAWN_HOLDING_ITS_SIDES},
+    ),
+    "team1.team_id": RecordedEdit(
+        why="the side a Spieltag release empties, and the bracket slot a resolution seeded",
+        gruppe={"team1": None},
+        ko={"team1": {"team_id": ADLER, "tore": None}},
+    ),
+    "team2.team_id": RecordedEdit(
+        why="the same on the other side, which a loop over one slot would miss",
+        gruppe={"team2": None},
+        ko={"team2": {"team_id": BIEBER, "tore": None}},
+    ),
+    # Its side left SEATED and unwired, so nothing but the goal count can be what answers.
+    "team1.tore": RecordedEdit(why="a goal count standing without a result", gruppe={"team1": {"team_id": ADLER, "tore": 0}}),
+    "team2.tore": RecordedEdit(why="the same count on the other side", gruppe={"team2": {"team_id": BIEBER, "tore": 0}}),
+    "team1_quelle": RecordedEdit(
+        why="wiring `REQ-WIRING-001` refuses on a group fixture, and a bracket slot whose wiring an admin cleared",
+        gruppe={"team1_quelle": {"type": "gruppe", "gruppe": "A", "platz": 1}},
+        ko={"team1_quelle": None},
+    ),
+    "team2_quelle": RecordedEdit(
+        why="the same on the other side",
+        gruppe={"team2_quelle": {"type": "gruppe", "gruppe": "B", "platz": 2}},
+        ko={"team2_quelle": None},
+    ),
+    "ergebnis": RecordedEdit(why="a result", gruppe={"ergebnis": "2:1"}),
+    # Beside a result rather than behind it: `apply_payload_to_spiel` keeps a shoot-out only where it
+    # stores a result too, so one standing alone came by the hand edit route the goals above did.
+    "elfmeterschiessen": RecordedEdit(why="a shoot-out standing without a result", gruppe={"elfmeterschiessen": {"team1": 4, "team2": 3}}),
+    # The value awarding NOTHING on purpose: `has_taken_place` reads it as untouched, so reaching for
+    # that narrower question instead of this window is the mistake this entry is here to fail.
+    "sonderereignis": RecordedEdit(why="a cancellation, which awards nothing and is still a record", gruppe={"sonderereignis": "ausgefallen"}),
+    "ort.spielort_id": RecordedEdit(why="a booked venue", gruppe={"ort": {"spielort_id": SPIELORT}}),
+    "schiedsrichter.schiedsrichter_id": RecordedEdit(why="a booked referee", gruppe={"schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER}}),
+    "notiz": RecordedEdit(why="an admin's note, which only `PATCH /spiele/{spiel_id}` writes", gruppe={"notiz": "Platz gesperrt"}),
+}
+
+# The projected paths the two drawn shapes disagree about -- the sides half, which
+# `app/api/saisons/services.py :: _a_side_is_off_the_draw` reads. Derived, so a field that becomes
+# inverted is asked for both directions with nobody listing it.
+INVERTED_BY_THE_DRAW: frozenset[str] = frozenset(
+    path for path in RECORDED_FACT_FIELDS if value_at(UNTOUCHED_FIXTURE, path) != value_at(UNTOUCHED_BRACKET, path)
+)
 
 
 class TestWhatCountsAsRecordedAgainstAFixture:
@@ -421,27 +510,28 @@ class TestWhatCountsAsRecordedAgainstAFixture:
     and on a booking as well as on a result.
     """
 
-    @pytest.mark.parametrize(
-        ("recorded", "why"),
-        [
-            ({"ergebnis": "2:1"}, "a result"),
-            ({"sonderereignis": "abgebrochen"}, "an abandonment"),
-            ({"sonderereignis": "nichtantreten_team1"}, "a no-show"),
-            ({"sonderereignis": "ausgefallen"}, "a cancellation, which `has_taken_place` reads as untouched"),
-            ({"sonderereignis": "annulliert"}, "an annulment, for the same reason"),
-            ({"team1": {"team_id": ADLER, "tore": 0}}, "a goal count standing without a result"),
-            ({"team2": {"team_id": BIEBER, "tore": 0}}, "the same count on the other side, which a loop over one slot would miss"),
-            ({"elfmeterschiessen": {"team1": 4, "team2": 3}}, "a shoot-out, which reaches the document beside a result and only there"),
-            ({"ort": {"spielort_id": "68f0a1b2c3d4e5f607600001"}}, "a booked venue"),
-            ({"schiedsrichter": {"schiedsrichter_id": "68f0a1b2c3d4e5f607600002"}}, "a booked referee"),
-            ({"notiz": "Platz gesperrt"}, "an admin's note, which only `PATCH /spiele/{spiel_id}` writes"),
-        ],
-    )
-    def test_a_fixture_carrying_one_of_these_closes_the_window(self, recorded: Mapping[str, Any], why: str):
-        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, **recorded}) is True, why
+    def test_the_projection_the_map_and_the_two_drawn_shapes_are_read_before_anything_below(self):
+        """The floor: a derivation that quietly finds nothing makes every case under it vacuous.
+
+        The tuple is IMPORTED rather than parsed, so what stands in for "did the parse work" is
+        every derivation here being non-empty and the two fixtures genuine inverses.
+        """
+
+        assert RECORDED_FACT_FIELDS
+        assert RECORDED_EDITS
+        assert INVERTED_BY_THE_DRAW
+        assert BRACKET_PHASE != DRAWN_HOLDING_ITS_SIDES
+
+        # A PROPER subset, so the breadth below is asked of values `has_taken_place` answers for
+        # and of the ones it does not; equality would make the two questions one.
+        assert set(SONDEREREIGNIS_WITHOUT_A_RESULT) < set(get_args(FLSonderereignis))
+
+        for slot in ("team1", "team2"):
+            assert UNTOUCHED_FIXTURE[slot] is not None and UNTOUCHED_FIXTURE[f"{slot}_quelle"] is None, "the group fixture is not as drawn"
+            assert UNTOUCHED_BRACKET[slot] is None and UNTOUCHED_BRACKET[f"{slot}_quelle"] is not None, "the bracket fixture is not as drawn"
 
     def test_a_fixture_the_draw_left_alone_does_not(self):
-        """The floor: a predicate answering True for everything would pass every case above."""
+        """The floor: a predicate answering True for everything would pass every case below."""
 
         assert holds_a_recorded_fact(UNTOUCHED_FIXTURE) is False
 
@@ -449,6 +539,65 @@ class TestWhatCountsAsRecordedAgainstAFixture:
         """The second floor, and the one that matters: read a WIRED empty slot as touched and no drawn season is ever replaceable."""
 
         assert holds_a_recorded_fact(UNTOUCHED_BRACKET) is False
+
+    def test_every_projected_field_is_answered_by_an_edit_and_nothing_else_is(self):
+        """THE COUPLING: add a field to `RECORDED_FACT_FIELDS` and this fails naming it.
+
+        Projected and never read is the defect it is against -- the field reaches the predicate,
+        changes no answer, and every other test stays green.
+        """
+
+        unanswered = sorted(set(RECORDED_FACT_FIELDS) - set(RECORDED_EDITS))
+        stale = sorted(set(RECORDED_EDITS) - set(RECORDED_FACT_FIELDS))
+
+        assert (unanswered, stale) == ([], [])
+
+    def test_the_bracket_direction_is_declared_for_every_field_the_draw_inverts(self):
+        """Declare a group edit alone for one of these and the rule is pinned in one direction only.
+
+        A group fixture is drawn occupied and unwired and a bracket fixture wired and empty, so each
+        of these records by moving the OPPOSITE way on the two shapes.
+        """
+
+        assert {path for path, edit in RECORDED_EDITS.items() if edit.ko is not None} == INVERTED_BY_THE_DRAW
+
+    @pytest.mark.parametrize(("projected", "edit"), RECORDED_EDITS.items(), ids=list(RECORDED_EDITS))
+    def test_an_edit_departs_from_the_draw_in_its_own_field_and_no_other(self, projected: str, edit: RecordedEdit):
+        """An entry closing the window through a NEIGHBOUR proves nothing about the field it is filed under.
+
+        `team1.tore` without its side's id is the case: the fixture then reads as recorded for an
+        emptied side, so dropping the goal counts leaves it green.
+        """
+
+        for drawn, change in ((UNTOUCHED_FIXTURE, edit.gruppe), (UNTOUCHED_BRACKET, edit.ko)):
+            if change is None:
+                continue
+
+            edited = {**drawn, **change}
+            assert set(change) == {projected.partition(".")[0]}, f"{projected}'s edit does not write its own field"
+            assert value_at(edited, projected) != value_at(drawn, projected), f"{projected}'s edit leaves what the draw wrote there"
+
+            moved = [other for other in RECORDED_FACT_FIELDS if other != projected and value_at(edited, other) != value_at(drawn, other)]
+            assert moved == [], f"{projected}'s edit also moves {moved}"
+
+    @pytest.mark.parametrize(("projected", "edit"), RECORDED_EDITS.items(), ids=list(RECORDED_EDITS))
+    def test_a_fixture_carrying_that_edit_closes_the_window(self, projected: str, edit: RecordedEdit):
+        """Stop reading any one of these and a replace deletes the work it records, the endpoint answering 200."""
+
+        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, **edit.gruppe}) is True, f"{projected} left the group window open: {edit.why}"
+
+        if edit.ko is not None:
+            assert holds_a_recorded_fact({**UNTOUCHED_BRACKET, **edit.ko}) is True, f"{projected} left the bracket window open: {edit.why}"
+
+    @pytest.mark.parametrize("sonderereignis", get_args(FLSonderereignis))
+    def test_every_sonderereignis_closes_the_window_whatever_it_awards(self, sonderereignis: str):
+        """Reach for `has_taken_place`'s narrower set and the two awarding nothing stop closing it.
+
+        The map above weighs the field once; this asks it of every value the enum offers, so one
+        added later is judged rather than assumed.
+        """
+
+        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, "sonderereignis": sonderereignis}) is True
 
     @pytest.mark.parametrize(
         ("empty", "why"),
@@ -470,41 +619,22 @@ class TestWhatCountsAsRecordedAgainstAFixture:
 
 
 class TestASideMovedOffTheDrawClosesTheWindow:
-    """Bracket seeding is what a `future` season accumulates, and `future` is the only status either window opens on.
+    """What the map above cannot state: a pair moved together, and a move no stored field records.
 
-    The fixture patch writes both sides and both `quelle`s wholesale, so every shape below is one an
-    admin reaches through the ordinary editor.
+    Bracket seeding is what a `future` season accumulates, and `future` is the only status either
+    window opens on.
     """
 
-    @pytest.mark.parametrize(
-        ("edited", "why"),
-        [
-            (
-                {"team1_quelle": None, "team1": {"team_id": ADLER, "tore": None}},
-                "the manual pick `find_wiring_refusal` invites -- clear the quelle, then name the team",
-            ),
-            ({"team1_quelle": None}, "the same clearance with nobody named yet, which the draw never leaves either"),
-            (
-                {"team1": {"team_id": ADLER, "tore": None}},
-                "a slot the bracket resolution seeded from a decided group, its wiring still standing",
-            ),
-        ],
-    )
-    def test_a_bracket_slot_that_is_no_longer_wired_and_empty_is_recorded(self, edited: Mapping[str, Any], why: str):
-        assert holds_a_recorded_fact({**UNTOUCHED_BRACKET, **edited}) is True, why
+    def test_a_slot_whose_wiring_was_cleared_and_then_filled_is_recorded(self):
+        """The manual pick `find_wiring_refusal` invites -- clear the quelle, then name the team.
 
-    @pytest.mark.parametrize(
-        ("edited", "why"),
-        [
-            ({"team1": None}, "the side a Spieltag release empties, which the draw writes on no group fixture"),
-            (
-                {"team1_quelle": {"type": "gruppe", "gruppe": "A", "platz": 1}},
-                "wiring on a group fixture, which `REQ-WIRING-001` refuses and a hand edit can still store",
-            ),
-        ],
-    )
-    def test_a_group_fixture_that_is_no_longer_occupied_and_unwired_is_recorded(self, edited: Mapping[str, Any], why: str):
-        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, **edited}) is True, why
+        Each half has an entry of its own above; neither of those is this shape, which is the one an
+        admin actually reaches through the editor.
+        """
+
+        picked = {**UNTOUCHED_BRACKET, "team1_quelle": None, "team1": {"team_id": ADLER, "tore": None}}
+
+        assert holds_a_recorded_fact(picked) is True
 
     def test_swapping_one_group_occupant_for_another_is_NOT_seen(self):
         """The rule's limit, stated so it is not mistaken for a gap nobody noticed.
@@ -516,12 +646,6 @@ class TestASideMovedOffTheDrawClosesTheWindow:
         swapped = {**UNTOUCHED_FIXTURE, "team1": {"team_id": "68f0a1b2c3d4e5f607600013", "tore": None}}
 
         assert holds_a_recorded_fact(swapped) is False
-
-    def test_the_phase_is_what_decides_which_shape_is_expected(self):
-        """Read the pair without the phase and this fails: each fixture is judged against the OTHER phase's drawn shape."""
-
-        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, "saison_phase": "viertelfinale"}) is True
-        assert holds_a_recorded_fact({**UNTOUCHED_BRACKET, "saison_phase": "gruppenphase"}) is True
 
     def test_a_fixture_reaching_the_predicate_without_a_phase_is_recorded(self):
         """Drop `saison_phase` from the projection and every window shuts rather than opening on a season somebody drew by hand."""
