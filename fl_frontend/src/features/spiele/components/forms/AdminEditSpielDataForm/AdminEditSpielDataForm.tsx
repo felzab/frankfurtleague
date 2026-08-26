@@ -469,7 +469,7 @@ export function AdminEditSpielDataForm({
     const raise = destroyedSomething ? appToast.warning : appToast.success;
 
     raise("Änderung gespeichert", {
-      description: message || "Die Spieldaten wurden erfolgreich aktualisiert.",
+      description: message || "Die Spieldaten wurden aktualisiert.",
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",

@@ -207,6 +207,7 @@ export function AdminTeamEditForm({
     isMember: storedMembership !== null,
     storedAustritt: storedMembership?.austritt ?? null,
     hasAustritt,
+    draftGrund: grund,
     isGruppeLocked: gruppeLocked,
     isGruppeChanged: isChanged("gruppe"),
   });
