@@ -13,7 +13,7 @@ import {
   FIELD_INPUT,
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
@@ -68,27 +68,18 @@ export function FormAustrittSection({
       <div className={styles.header()}>
         <h2 className={styles.heading()}>
           Austritt
-          <InfoHint label="Hinweis zum Austritt">
-            <p>Das Team scheidet aus dieser Saison aus, seine Spiele bleiben dabei bei ihm stehen.</p>
-            <ul>
-              <li>
-                Eine <strong>Disqualifikation</strong> spricht die Liga aus; einen <strong>Rückzug</strong> erklärt das Team selbst.
-              </li>
-              <li>
-                Sollen die Spiele an ein anderes Team gehen, ist <strong>Team ersetzen</strong> auf der Saisonseite der Weg, nicht der Austritt.
-              </li>
-              <li>
-                Der <strong>Grund ist öffentlich</strong> und erscheint wie eingegeben.
-              </li>
-              <li>
-                Die Tabelle <strong>überspringt</strong> das Team bei der Platzvergabe. Seine Ergebnisse bleiben gewertet.
-              </li>
-              <li>
-                Aufheben entfernt Art, Grund und Datum. Direkt nach dem Speichern holt „Rückgängig“ sie fünfzehn Sekunden lang unverändert
-                zurück.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Austritt"
+            body={{
+              lead: "Das Team scheidet aus dieser Saison aus; seine Spiele bleiben bei ihm.",
+              points: [
+                { term: "Eine Disqualifikation", text: "spricht die Liga aus, einen Rückzug erklärt das Team selbst." },
+                { term: "Die Tabelle", text: "überspringt das Team bei der Platzvergabe, seine Ergebnisse bleiben gewertet." },
+                { term: "Team ersetzen", text: "auf der Saisonseite gibt die Spiele an ein anderes Team weiter." },
+              ],
+            }}
+          />
         </h2>
       </div>
 

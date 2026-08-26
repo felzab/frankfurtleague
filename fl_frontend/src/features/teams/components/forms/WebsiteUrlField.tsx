@@ -4,8 +4,8 @@ import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
 
 import { FieldError, InputGroup, Label, TextField } from "@heroui/react";
 
-import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { FIELD_ERROR, FIELD_HEIGHT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { ExternalUrlSchema } from "@/shared/schemas";
 
@@ -83,7 +83,11 @@ export function WebsiteUrlField({
         {isFollowable ? (
           <IconTooltip label="Link in neuem Tab öffnen">{openLink}</IconTooltip>
         ) : (
-          <DisabledHint reason="Erst eine gültige Adresse eingeben">{openLink}</DisabledHint>
+          <Hint
+            mode="refusal"
+            reason="Erst eine gültige Adresse eingeben">
+            {openLink}
+          </Hint>
         )}
       </div>
       <FieldError className={FIELD_ERROR}>{error}</FieldError>

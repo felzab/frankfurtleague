@@ -84,7 +84,7 @@ export function buildTeamBanners({
         id: "team.not-in-saison-future",
         severity: "info",
         title: `In Saison ${saisonId} erscheint dieses Team auf keiner Seite`,
-        body: "Nimm es unten mit einer Gruppe auf; sonst führt es weder eine Tabelle noch eine Auswahlliste.",
+        body: "Nimm es unten mit einer Gruppe auf.",
         inline: "saison-eintritt",
       });
     } else {
@@ -106,7 +106,7 @@ export function buildTeamBanners({
       id: "team.austritt-entering",
       severity: "danger",
       title: "Der Grund wird veröffentlicht",
-      body: "Sobald Du speicherst, erscheint er als eingegebener Text auf der Teamseite und als Hinweis an jedem Spiel des Teams.",
+      body: "Sobald Du speicherst, steht er Wort für Wort auf der Teamseite und an jedem Spiel des Teams.",
       inline: "austritt-eintrag",
     });
   }

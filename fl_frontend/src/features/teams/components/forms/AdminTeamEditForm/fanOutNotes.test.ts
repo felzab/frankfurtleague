@@ -4,10 +4,10 @@ import { describe, it } from "node:test";
 import { describeSaisonTeamsFanOut, describeSpieleFanOut } from "./fanOutNotes.ts";
 
 describe("describeSpieleFanOut", () => {
-  it("names the scope on a zero rather than claiming no copy exists", () => {
-    assert.equal(describeSpieleFanOut(0), "In den laufenden und geplanten Saisons wurde keine Kopie von Name und Kürzel geändert.");
+  it("names the scope on a zero rather than claiming the club has no fixture", () => {
+    assert.equal(describeSpieleFanOut(0), "In den laufenden und geplanten Saisons wurden Name und Kürzel an keinem Spiel geändert.");
     // The count is `modified_count`, so a row already holding the submitted values reaches this
-    // zero too. Claiming no copy exists would be false in exactly that case.
+    // zero too. Claiming the club has no fixture would be false in exactly that case.
     assert.doesNotMatch(describeSpieleFanOut(0), /kein Spiel/);
   });
 

@@ -11,7 +11,7 @@ import { DescriptionEditModal } from "@/features/teams/components/modals/Descrip
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 
 import type { FLPostTeamPayload } from "@/features/teams/schemas";
 
@@ -37,17 +37,17 @@ export function FormVereinSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Team
-          <InfoHint label="Hinweis zu den Teamdaten">
-            <p>Name, Kürzel und Beschreibung erscheinen öffentlich.</p>
-            <ul>
-              <li>
-                Eine Umbenennung wird in <strong>alle Spiele</strong> des Teams übernommen.
-              </li>
-              <li>
-                Das <strong>Kürzel</strong> ist ligaweit eindeutig. Auch stillgelegte Teams behalten ihres.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zu den Teamdaten"
+            body={{
+              lead: "Name, Kürzel und Beschreibung erscheinen öffentlich.",
+              points: [
+                { term: "Eine Umbenennung", text: "wird in alle Spiele des Teams übernommen." },
+                { term: "Das Kürzel", text: "ist ligaweit eindeutig, auch bei stillgelegten Teams." },
+              ],
+            }}
+          />
         </h2>
       </div>
 
@@ -60,7 +60,10 @@ export function FormVereinSection({
             onChange={(next) => onChange({ ...draft, name: next })}
             onBlur={() => onFieldLeft(["name"])}>
             <FieldLabel path="name">Name</FieldLabel>
-            <Input className={FIELD_INPUT} />
+            <Input
+              placeholder="z.B. Goethe-Gymnasium"
+              className={FIELD_INPUT}
+            />
             <FieldError className={FIELD_ERROR} />
           </TextField>
 
@@ -84,7 +87,10 @@ export function FormVereinSection({
           onChange={(next) => onChange({ ...draft, full_name: next })}
           onBlur={() => onFieldLeft(["full_name"])}>
           <FieldLabel path="full_name">Vollständiger Name</FieldLabel>
-          <Input className={FIELD_INPUT} />
+          <Input
+            placeholder="z.B. Johann-Wolfgang-von-Goethe-Gymnasium"
+            className={FIELD_INPUT}
+          />
           <FieldError className={FIELD_ERROR} />
         </TextField>
 
@@ -105,7 +111,7 @@ export function FormVereinSection({
             aria-label="Beschreibung bearbeiten"
             className="border-border bg-surface hover:border-brand/40 hover:bg-hover group flex w-full cursor-pointer flex-row items-start justify-between gap-x-3 rounded-lg border px-3 py-2.5 text-left transition-colors">
             {draft.description.trim() === "" ? (
-              <span className="muted-hint">Keine Beschreibung. Hier klicken zum Verfassen.</span>
+              <span className="muted-hint">Noch keine Beschreibung.</span>
             ) : (
               <span className="fluid-sm text-foreground line-clamp-3 min-w-0 leading-relaxed font-medium">{draft.description}</span>
             )}

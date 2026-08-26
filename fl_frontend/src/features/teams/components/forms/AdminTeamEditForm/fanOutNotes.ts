@@ -3,7 +3,7 @@
  * names the scope, because the matches of a closed season keep the copy they were played under.
  */
 export function describeSpieleFanOut(count: number): string {
-  if (count === 0) return "In den laufenden und geplanten Saisons wurde keine Kopie von Name und Kürzel geändert.";
+  if (count === 0) return "In den laufenden und geplanten Saisons wurden Name und Kürzel an keinem Spiel geändert.";
   if (count === 1) return "Name und Kürzel wurden in 1 Spiel nachgezogen.";
   return `Name und Kürzel wurden in ${count} Spielen nachgezogen.`;
 }

@@ -31,10 +31,10 @@ import type {
 } from "./schemas";
 import type { SaisonTeamEnterDraft, SaisonTeamMembershipDraft, TeamCreateDraft } from "./types";
 
-// The shorthand's unique index spans retired clubs and creating never revives, so the message names
-// the one path that does.
-const SHORTHAND_TAKEN =
-  "Dieses Kürzel ist bereits vergeben, möglicherweise von einem stillgelegten Team. Reaktiviere dieses Team, statt es neu anzulegen.";
+// Two messages for one unique index, which spans retired clubs. Only the create can be answered by
+// reaching for the club already holding the letters; an edit has this club open and needs the field.
+const SHORTHAND_TAKEN_ON_CREATE = "Dieses Kürzel hat schon ein anderes Team, vielleicht ein stillgelegtes, das Du reaktivieren kannst.";
+const SHORTHAND_TAKEN_ON_EDIT = "Bitte wähle ein anderes Kürzel: dieses hat schon ein anderes Team, vielleicht ein stillgelegtes.";
 
 /** Both cache layers for one resource and one season: the base tag serves the default reads. */
 function invalidateSeasonScoped(resource: "teams" | "spiele", saisonId: string): void {
@@ -89,19 +89,19 @@ function mapReplacementRefusal(error: unknown): string | null {
 
   if (error.serverErrorCode === "REQ-REPLACE-001") {
     // No reload repairs a finished season, so the sentence names the seasons still open instead.
-    return "Diese Saison ist abgeschlossen. Ihre Spiele sind der Nachweis darüber, wer gespielt hat, und ein Wechsel würde ihn umschreiben. Ersetzen lässt sich ein Team nur in einer laufenden oder geplanten Saison.";
+    return "Diese Saison ist abgeschlossen. Ersetzen lässt sich ein Team nur in einer laufenden oder geplanten Saison.";
   }
   if (error.serverErrorCode === "REQ-REPLACE-002") {
     // The four shapes that leave a record, and only those: an ausgefallenes or annulliertes Spiel
     // leaves none, so naming either would send the admin looking at a fixture that is still free.
     // The Austritt is on another page; the sentence says which.
-    return "In dieser Saison ist für das ausscheidende Team schon etwas eingetragen: Mindestens ein Spiel trägt ein Ergebnis, Tore, einen Abbruch oder ein Nichtantreten. Beim Wechsel würde das dem nachrückenden Team zugeschrieben. Trage für das ausscheidende Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt ein.";
+    return "Mindestens ein Spiel des ausscheidenden Teams trägt ein Ergebnis, Tore, einen Abbruch oder ein Nichtantreten. Trage für dieses Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt ein.";
   }
   if (error.serverErrorCode === "REQ-REPLACE-003") {
     // One code, two pictures: a club named on both ends lands here too, because the row being
     // replaced is one that club holds. PLATZ and never „spielt“ — the condition is a `saison_teams`
     // row of ANY kind, and a withdrawn club still holds one.
-    return "Das nachrückende Team hat in dieser Saison schon einen Platz, oder Du hast für beide Seiten dasselbe Team gewählt. Nachrücken kann nur ein Team, das in dieser Saison noch keinen Platz hat. Ein ausgeschiedenes Team behält seinen.";
+    return "Das nachrückende Team hat in dieser Saison schon einen Platz, oder Du hast für beide Seiten dasselbe Team gewählt. Wähle ein Team ohne Platz in dieser Saison; ein ausgeschiedenes behält seinen.";
   }
   if (error.serverErrorCode === "REQ-ENTER-005") {
     // The club the admin PICKED, never the one whose page is open, so the reactivation is not the
@@ -136,7 +136,7 @@ export async function postTeamAction(
       postOperation = await postTeam(clubFields);
     } catch (error) {
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
-        return { success: false, error: VALIDATION_FAILED, fieldErrors: { shorthand: SHORTHAND_TAKEN } };
+        return { success: false, error: VALIDATION_FAILED, fieldErrors: { shorthand: SHORTHAND_TAKEN_ON_CREATE } };
       }
       throw error;
     }
@@ -200,7 +200,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
       patchOperation = await patchTeam(validated.data);
     } catch (error) {
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
-        return { success: false, error: VALIDATION_FAILED, fieldErrors: { shorthand: SHORTHAND_TAKEN } };
+        return { success: false, error: VALIDATION_FAILED, fieldErrors: { shorthand: SHORTHAND_TAKEN_ON_EDIT } };
       }
       throw error;
     }

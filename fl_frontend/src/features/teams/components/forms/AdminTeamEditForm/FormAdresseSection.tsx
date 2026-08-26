@@ -3,11 +3,10 @@
 import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
 
 import { AddressFields } from "@/shared/components/ui/AddressFields";
-import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formPanel } from "@/shared/components/ui/formPanel";
+import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { buildMapsSearchUrl, formatAddressFull } from "@/shared/utils/format";
 
 import type { FLAddress } from "@/shared/schemas";
@@ -56,20 +55,23 @@ export function FormAdresseSection({
           {isSearchable ? (
             <IconTooltip label="Adresse auf Google Maps öffnen">{mapsLink}</IconTooltip>
           ) : (
-            <DisabledHint reason="Erst Straße und Stadt eingeben">{mapsLink}</DisabledHint>
+            <Hint
+              mode="refusal"
+              reason="Erst Straße und Stadt eingeben">
+              {mapsLink}
+            </Hint>
           )}
         </span>
         <h2 className={panel.heading()}>
           Adresse
-          <InfoHint label="Hinweis zur Adresse">
-            <p>Der Heimstandort des Teams, öffentlich auf der Teamseite.</p>
-            <ul>
-              <li>
-                Der <strong>Stadtteil</strong> ist optional.
-              </li>
-              <li>Der Globus rechts öffnet die eingegebene Adresse auf Google Maps.</li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zur Adresse"
+            body={{
+              lead: "Der Heimstandort des Teams, öffentlich auf der Teamseite.",
+              points: [{ term: "Der Stadtteil", text: "ist optional." }],
+            }}
+          />
         </h2>
       </div>
 
