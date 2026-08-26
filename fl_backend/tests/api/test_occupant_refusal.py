@@ -893,8 +893,19 @@ class TestApplyingARelease:
         assert released.ergebnis is None and released.elfmeterschiessen is None
 
 
-def joined(*, nr: int, datum: str | None, side_disqualified_from: str | None, side: str = "team1") -> dict[str, Any]:
-    """Carries the whole `austritt` record, so a fault can name its effective day: the internal side."""
+def joined(
+    *,
+    nr: int,
+    datum: str | None,
+    side_disqualified_from: str | None,
+    side: str = "team1",
+    sonderereignis: str | None = None,
+    saison_phase: str = "gruppenphase",
+) -> dict[str, Any]:
+    """Carries the whole `austritt` record, so a fault can name its effective day: the internal side.
+
+    The event and the phase are parameters because the report reads both, exactly as the refusal does.
+    """
 
     def occupant(team_id: str, name: str, disqualified_from: str | None) -> dict[str, Any]:
         # `type` is set and never varied: the rule reads the DATE, so a `rueckzug` would exercise
@@ -917,8 +928,8 @@ def joined(*, nr: int, datum: str | None, side_disqualified_from: str | None, si
         "elfmeterschiessen": None,
         "spieltag_id": SPIELTAG_ONE,
         "spiel_nr": nr,
-        "sonderereignis": None,
-        "saison_phase": "gruppenphase",
+        "sonderereignis": sonderereignis,
+        "saison_phase": saison_phase,
         "saison_id": "2026",
     }
 
@@ -993,6 +1004,67 @@ class TestTheDisqualifiedOccupantFault:
         )
 
         assert [fault.spiel_nr for fault in faults] == [2, 7]
+
+    @pytest.mark.parametrize("sonderereignis", [*SONDEREREIGNIS_WITHOUT_A_RESULT, "nichtantreten_team1"])
+    def test_a_group_fixture_recording_the_absence_is_clean(self, sonderereignis):
+        """The state `REQ-ELIGIBILITY-001`'s message tells the admin to record, which is why it clears the fault too."""
+
+        assert occupant_faults(joined(nr=1, datum="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis=sonderereignis)) == []
+
+    def test_the_no_show_carve_out_reaches_team2_as_well(self):
+        assert (
+            occupant_faults(
+                joined(nr=1, datum="2026-04-01", side_disqualified_from="2026-03-15", side="team2", sonderereignis="nichtantreten_team2")
+            )
+            == []
+        )
+
+    def test_a_no_show_naming_the_other_side_is_still_reported(self):
+        """Directional: the departed club turned up and took the forfeit, so the table still scores it."""
+
+        faults = occupant_faults(joined(nr=1, datum="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis="nichtantreten_team2"))
+
+        assert [fault.side for fault in faults] == ["team1"]
+
+    def test_a_knockout_walkover_clears_the_fault(self):
+        """A no-show exempts the side it names in every phase: it composes the result that advances the other."""
+
+        assert (
+            occupant_faults(
+                joined(
+                    nr=1,
+                    datum="2026-04-01",
+                    side_disqualified_from="2026-03-15",
+                    sonderereignis="nichtantreten_team1",
+                    saison_phase="halbfinale",
+                )
+            )
+            == []
+        )
+
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
+    def test_a_knockout_fixture_awarding_nothing_is_still_reported(self, sonderereignis):
+        """A cancelled knockout advances nobody, so the slot still has to say who plays it."""
+
+        faults = occupant_faults(
+            joined(nr=1, datum="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis=sonderereignis, saison_phase="viertelfinale")
+        )
+
+        assert [fault.reason for fault in faults] == ["departed_occupant"]
+
+    def test_an_abandoned_fixture_is_still_reported(self):
+        """An abandonment is a fixture that took place, so it records no absence and exempts neither side."""
+
+        faults = occupant_faults(joined(nr=1, datum="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis="abgebrochen"))
+
+        assert [fault.reason for fault in faults] == ["departed_occupant"]
+
+    def test_an_undated_fixture_recording_no_absence_is_still_reported(self):
+        """The carve-out is judged on the event alone, so clearing the date past it changes nothing."""
+
+        faults = occupant_faults(joined(nr=9, datum=None, side_disqualified_from="2026-03-15", sonderereignis="abgebrochen"))
+
+        assert [fault.spiel_datum for fault in faults] == [None]
 
 
 def double_entries(*fixtures: dict[str, Any]) -> list:

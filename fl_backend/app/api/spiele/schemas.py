@@ -278,10 +278,11 @@ class FLBracketFaultSpiel(_BracketFault):
 
 
 class FLBracketFaultOccupant(_BracketFault):
-    """One fixture fielding a team that left the season before the day it is played.
+    """One fixture fielding a team that left the season, dated on or after the day of its exit or undated, and recording no absence for it.
 
-    Derived beside the bracket walk rather than inside it, so no phase is out of its reach; nothing
-    is emptied (`fl_backend/app/core/domain.py :: UNENFORCED`).
+    The date and the carve-out are `REQ-ELIGIBILITY-001`'s. Derived beside the bracket walk rather
+    than inside it, so no phase is out of its reach; nothing is emptied
+    (`fl_backend/app/core/domain.py :: UNENFORCED`).
     """
 
     reason: Literal["departed_occupant"]

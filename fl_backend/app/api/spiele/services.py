@@ -15,6 +15,7 @@ from app.api.spiele.schemas import (
     FLBracketFaultSpiel,
     FLBracketFaultSpieltag,
     FLPatchSpielDataPayload,
+    FLSaisonPhase,
     FLSonderereignis,
     FLSpiel,
     FLSpielCommon,
@@ -673,6 +674,28 @@ SPIELTAG_OCCUPIED = "REQ-SPIELTAG-001"
 RESULT_SIDE_EMPTIED = "REQ-RESULT-001"
 
 
+def _records_an_absence(*, side: str, sonderereignis: FLSonderereignis | None, saison_phase: FLSaisonPhase) -> bool:
+    """Whether this state accounts for the named side's absence -- `REQ-ELIGIBILITY-001`'s carve-out.
+
+    ONE predicate for the refusal and the derived report, so the state an admin records to clear the
+    409 clears the fault with it.
+    """
+
+    # Directional, because a no-show COMPOSES a result the table scores: exempting the side that
+    # turned up would credit a departed club the forfeit and put it back in the standings.
+    stayed_away = SONDEREREIGNIS_NO_SHOW.get(sonderereignis or "") == side
+
+    # A GROUP fixture that awards nothing carries a departed club on either side legitimately. A
+    # knockout slot still has to say who advances, and an ABANDONED fixture is one that happened
+    # -- a departed club standing on it is the fault this rule catches.
+    awards_nothing = sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT
+
+    # Only `awards_nothing` takes the phase gate: a cancelled knockout advances nobody, where a
+    # no-show names the absent side and composes a result advancing the other -- which rests on
+    # `REQ-RULES-010` barring a level forfeit here.
+    return stayed_away or (awards_nothing and saison_phase == "gruppenphase")
+
+
 def find_eligibility_refusal(
     spiel_id: CustomObjectId,
     payload: FLPatchSpielDataPayload,
@@ -709,21 +732,9 @@ def find_eligibility_refusal(
         if member is None or member.departed_from is None:
             continue
 
-        # A GROUP fixture that awards nothing carries a departed club on either side legitimately. A
-        # knockout slot still has to say who advances, and an ABANDONED fixture is one that happened
-        # -- a departed club standing on it is the fault this rule catches.
-        awards_nothing = payload.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT
-
-        # Directional, because a no-show COMPOSES a result the table scores: exempting the side that
-        # turned up would credit a departed club the forfeit and put it back in the standings.
-        stayed_away = SONDEREREIGNIS_NO_SHOW.get(payload.sonderereignis or "") == label
-
         in_the_gruppenphase = stored.saison_phase == "gruppenphase"
 
-        # Only `awards_nothing` takes the phase gate: a cancelled knockout advances nobody, where a
-        # no-show names the absent side and composes a result advancing the other -- which rests on
-        # `REQ-RULES-010` barring a level forfeit here.
-        records_an_absence = stayed_away or (awards_nothing and in_the_gruppenphase)
+        records_an_absence = _records_an_absence(side=label, sonderereignis=payload.sonderereignis, saison_phase=stored.saison_phase)
 
         if records_an_absence or (payload.datum is not None and payload.datum < member.departed_from):
             continue
@@ -889,10 +900,11 @@ def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielD
 
 
 def find_departed_occupants(spiele: Sequence[FLSpielJoinedInternal]) -> list[FLBracketFaultOccupant]:
-    """Every fixture fielding a team that left the season before its date; an UNDATED fixture is reported, and every phase counts.
+    """Every fixture fielding a team that left the season, dated on or after its exit or undated, that records no absence for it.
 
     The internal fixture: the ordering is against the DAY a club left, which no served side
-    carries.
+    carries. Both halves are `REQ-ELIGIBILITY-001`'s, so the state the 409 sends an admin to record
+    is the state that clears the fault -- and every phase counts, the walk reaching none of them.
     """
 
     faults: list[FLBracketFaultOccupant] = []
@@ -904,6 +916,9 @@ def find_departed_occupants(spiele: Sequence[FLSpielJoinedInternal]) -> list[FLB
 
             effective = occupant.austritt.datum
             if spiel.datum is not None and spiel.datum < effective:
+                continue
+
+            if _records_an_absence(side=side, sonderereignis=spiel.sonderereignis, saison_phase=spiel.saison_phase):
                 continue
 
             faults.append(

@@ -4315,7 +4315,7 @@
           "spiel_datum"
         ],
         "title": "FLBracketFaultOccupant",
-        "description": "One fixture fielding a team that left the season before the day it is played.\n\nDerived beside the bracket walk rather than inside it, so no phase is out of its reach; nothing\nis emptied (`fl_backend/app/core/domain.py :: UNENFORCED`)."
+        "description": "One fixture fielding a team that left the season, dated on or after the day of its exit or undated, and recording no absence for it.\n\nThe date and the carve-out are `REQ-ELIGIBILITY-001`'s. Derived beside the bracket walk rather\nthan inside it, so no phase is out of its reach; nothing is emptied\n(`fl_backend/app/core/domain.py :: UNENFORCED`)."
       },
       "FLBracketFaultQuelle": {
         "properties": {
