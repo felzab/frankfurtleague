@@ -13,6 +13,7 @@ from app.api.saisons.cache import (
     SAISON_CACHE_TTL_SECONDS,
     invalidate_saison_cache,
     read_cached_saison,
+    saison_cache_generation,
     store_cached_saison,
 )
 from app.api.saisons.crud import pull_current_saison, pull_saison_id_and_rules
@@ -34,6 +35,11 @@ RULES = {
 
 SAISON_DOC: dict[str, Any] = {"_id": "2026", "status": "active", "rules": dict(RULES)}
 
+# The bracket a write reshapes, which is what `anzahl_spiele` counts from: a reader serving the pair
+# above after this one landed reports the wrong number of matches per matchday.
+REDRAWN_RULES: dict[str, Any] = {**RULES, "number_of_groups": 2, "teams_per_group": 8}
+REDRAWN_SAISON_DOC: dict[str, Any] = {"_id": "2026", "status": "active", "rules": dict(REDRAWN_RULES)}
+
 
 class CountingCollection:
     def __init__(self, document: dict[str, Any] | None) -> None:
@@ -45,6 +51,28 @@ class CountingCollection:
     async def find_one(self, filter: dict[str, Any], projection: dict[str, Any], session: Any = None) -> dict[str, Any] | None:
         self.find_one_calls += 1
         return None if self.document is None else dict(self.document)
+
+
+class SuspendingCollection(CountingCollection):
+    """A `find_one` that fixes its answer, announces it, then parks until released.
+
+    The driver's window made deterministic: a query's answer is settled well before the awaiting
+    caller is scheduled again.
+    """
+
+    def __init__(self, document: dict[str, Any]) -> None:
+        super().__init__(document)
+        self.answered = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def find_one(self, filter: dict[str, Any], projection: dict[str, Any], session: Any = None) -> dict[str, Any] | None:
+        self.find_one_calls += 1
+        answer = None if self.document is None else dict(self.document)
+
+        self.answered.set()
+        await self.release.wait()
+
+        return answer
 
 
 def as_collection(stub: CountingCollection) -> AsyncIOMotorCollection:
@@ -61,12 +89,12 @@ def empty_cache():
 
 class TestTheCacheContract:
     def test_a_stored_document_reads_back_equal(self):
-        store_cached_saison("2026", dict(SAISON_DOC))
+        store_cached_saison("2026", dict(SAISON_DOC), generation=saison_cache_generation())
 
         assert read_cached_saison("2026") == SAISON_DOC
 
     def test_a_read_is_a_copy_not_the_stored_document(self):
-        store_cached_saison("2026", dict(SAISON_DOC))
+        store_cached_saison("2026", dict(SAISON_DOC), generation=saison_cache_generation())
 
         first = read_cached_saison("2026")
         assert first is not None
@@ -78,7 +106,7 @@ class TestTheCacheContract:
 
     def test_the_store_copies_too(self):
         mine = dict(SAISON_DOC)
-        store_cached_saison("2026", mine)
+        store_cached_saison("2026", mine, generation=saison_cache_generation())
         mine["status"] = "past"
 
         cached = read_cached_saison("2026")
@@ -87,20 +115,36 @@ class TestTheCacheContract:
 
     def test_an_expired_entry_is_a_miss(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(cache.time, "monotonic", lambda: 1000.0)
-        store_cached_saison("2026", dict(SAISON_DOC))
+        store_cached_saison("2026", dict(SAISON_DOC), generation=saison_cache_generation())
 
         monkeypatch.setattr(cache.time, "monotonic", lambda: 1000.0 + SAISON_CACHE_TTL_SECONDS + 1)
 
         assert read_cached_saison("2026") is None
 
     def test_invalidate_clears_every_key(self):
-        store_cached_saison("2026", dict(SAISON_DOC))
-        store_cached_saison(CURRENT_SAISON_CACHE_KEY, dict(SAISON_DOC))
+        store_cached_saison("2026", dict(SAISON_DOC), generation=saison_cache_generation())
+        store_cached_saison(CURRENT_SAISON_CACHE_KEY, dict(SAISON_DOC), generation=saison_cache_generation())
 
         invalidate_saison_cache()
 
         assert read_cached_saison("2026") is None
         assert read_cached_saison(CURRENT_SAISON_CACHE_KEY) is None
+
+    def test_a_store_carrying_a_generation_the_drop_has_passed_is_refused(self):
+        generation = saison_cache_generation()
+        invalidate_saison_cache()
+
+        store_cached_saison("2026", dict(SAISON_DOC), generation=generation)
+
+        assert read_cached_saison("2026") is None
+
+    def test_a_store_carrying_the_current_generation_lands(self):
+        """The control: a guard that refused everything would pass the case above and cost every reader its round trip."""
+        invalidate_saison_cache()
+
+        store_cached_saison("2026", dict(SAISON_DOC), generation=saison_cache_generation())
+
+        assert read_cached_saison("2026") == SAISON_DOC
 
 
 class TestTheResolversUseIt:
@@ -164,6 +208,29 @@ class TestTheResolversUseIt:
         asyncio.run(_run())
 
         assert stub.find_one_calls == 2
+
+    def test_a_write_landing_mid_read_is_not_undone_by_the_readers_store(self):
+        """The drop is worth nothing if a reader suspended across it can put its pre-write document back for a whole TTL."""
+        stub = SuspendingCollection(dict(SAISON_DOC))
+
+        async def _run() -> Any:
+            reader = asyncio.create_task(pull_saison_id_and_rules(saisons_collection=as_collection(stub), saison_id="2026"))
+            await stub.answered.wait()
+
+            # The write path, running in the window the reader is parked in.
+            stub.document = dict(REDRAWN_SAISON_DOC)
+            invalidate_saison_cache()
+
+            stub.release.set()
+            await reader
+
+            _, rules = await pull_saison_id_and_rules(saisons_collection=as_collection(stub), saison_id="2026")
+
+            return rules
+
+        rules = asyncio.run(_run())
+
+        assert (rules.number_of_groups, rules.teams_per_group) == (REDRAWN_RULES["number_of_groups"], REDRAWN_RULES["teams_per_group"])
 
 
 WRITE_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})

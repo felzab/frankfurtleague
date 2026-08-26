@@ -9,7 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import generate_spielplan, patch_saison, undraw_spielplan
-from app.api.saisons.cache import invalidate_saison_cache, read_cached_saison, store_cached_saison
+from app.api.saisons.cache import invalidate_saison_cache, read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
@@ -423,7 +423,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> AbortedUndraw:
             drawn = await call_draw(database, client)
             # Stored AFTER the draw, which drops the cache on its own commit.
-            store_cached_saison(SAISON_ID, saison_document())
+            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
 
             # Narrowed after the draw, so what falls is the `$unset` itself -- by which point both
             # removals have run.
@@ -821,7 +821,7 @@ class TestTheSeasonCacheIsDroppedOnlyByAnUndrawThatCommitted:
     def test_a_committed_undraw_drops_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
             await call_draw(database, client)
-            store_cached_saison(SAISON_ID, saison_document())
+            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
             await call_undraw(database, client)
 
             return read_cached_saison(SAISON_ID)
@@ -833,7 +833,7 @@ class TestTheSeasonCacheIsDroppedOnlyByAnUndrawThatCommitted:
 
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
             await call_draw(database, client)
-            store_cached_saison(SAISON_ID, saison_document())
+            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "active"}})
 
             with pytest.raises(DocumentConflictException):

@@ -1,6 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorCollection
 
-from app.api.saisons.cache import read_cached_saison, store_cached_saison
+from app.api.saisons.cache import read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.services import WITHHELD_FROM_BASE_TIER
 from app.core.crud import pull_many_from_db
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
@@ -17,6 +17,7 @@ async def saison_is_withheld(*, saisons_collection: AsyncIOMotorCollection, sais
     saison_raw = read_cached_saison(saison_id)
 
     if saison_raw is None:
+        generation = saison_cache_generation()
         found = await saisons_collection.find_one(filter={"_id": saison_id})
         # A STORED status is the only thing that withholds, so an id naming no season is not
         # withheld -- and every caller already answers a season it cannot resolve.
@@ -26,7 +27,7 @@ async def saison_is_withheld(*, saisons_collection: AsyncIOMotorCollection, sais
         # The whole document into the cache `pull_saison_id_and_rules` shares, never a projection:
         # a season resolved here is one the next read of it would have fetched anyway.
         saison_raw = dict(found)
-        store_cached_saison(saison_id, saison_raw)
+        store_cached_saison(saison_id, saison_raw, generation=generation)
 
     return saison_raw["status"] == WITHHELD_FROM_BASE_TIER
 

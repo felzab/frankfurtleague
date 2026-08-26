@@ -2,7 +2,7 @@ from typing import Any, Mapping
 
 from motor.motor_asyncio import AsyncIOMotorCollection
 
-from app.api.saisons.cache import CURRENT_SAISON_CACHE_KEY, read_cached_saison, store_cached_saison
+from app.api.saisons.cache import CURRENT_SAISON_CACHE_KEY, read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.schemas import FLSaisonRules
 from app.core.crud import pull_one_from_db
 
@@ -20,11 +20,14 @@ async def pull_current_saison(saisons_collection: AsyncIOMotorCollection) -> Map
     if cached is not None:
         return cached
 
+    # Read before the fetch is dispatched: a write dropping the cache while it is in flight must
+    # beat the store below, not be undone by it.
+    generation = saison_cache_generation()
     saison_raw = dict(await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER))
 
     # Under its own id too: `/teams` naming the running season explicitly is a common read.
-    store_cached_saison(CURRENT_SAISON_CACHE_KEY, saison_raw)
-    store_cached_saison(str(saison_raw["_id"]), saison_raw)
+    store_cached_saison(CURRENT_SAISON_CACHE_KEY, saison_raw, generation=generation)
+    store_cached_saison(str(saison_raw["_id"]), saison_raw, generation=generation)
 
     return saison_raw
 
@@ -53,7 +56,8 @@ async def pull_saison_id_and_rules(
         if cached is not None:
             saison_raw = cached
         else:
+            generation = saison_cache_generation()
             saison_raw = dict(await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}))
-            store_cached_saison(saison_id, saison_raw)
+            store_cached_saison(saison_id, saison_raw, generation=generation)
 
     return str(saison_raw["_id"]), FLSaisonRules.model_validate(saison_raw["rules"])
