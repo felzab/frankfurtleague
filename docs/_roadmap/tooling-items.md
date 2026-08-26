@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `80d95c1f`, 2026-08-26\
+**Verified against:** `d6be7a6f`, 2026-08-26\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -378,8 +378,9 @@ the live pointer to the ranked page it indexes that asks for nothing.
 
 **Measured over the tracked markdown corpus on 2026-08-26** — every link target resolved from its own
 page's directory, kept where it lands on a tracked file, with `scripts/docs_gate/kernel.py :: SKIP_DIRS`
-applied: 28 pages carry a stamp, and those hold 113 distinct page-and-target pairs. **75 of the 113,
-across 23 of the 28 pages, name a file that page's own `cited_paths` set does not hold**, so a branch
+applied and the template pages left out, `link` being one of the checks
+`scripts/docs_gate/kernel.py :: TEMPLATE_EXEMPT_CHECKS` already holds them out of: 28 pages carry a
+stamp, and those hold 113 distinct page-and-target pairs. **75 of the 113, across 23 of the 28 pages, name a file that page's own `cited_paths` set does not hold**, so a branch
 changing that file leaves that page unarmed. Under `docs/_standard/` every such pair is one of them;
 under `docs/_roadmap/`, twelve of twenty-six. The 38 that do arm are armed by a backticked repository
 path elsewhere on the page happening to name the same file, which is incidental rather than the link
@@ -865,9 +866,9 @@ and 95 are not** — 33 absent from `docs/backend/spec.md`, 32 from `docs/ops/sp
 literally it is unmet almost everywhere at once, and discharging it would take each of those three
 tables to several times its size and make it a second copy of the ranked page.
 
-**Five entries have no target for the requirement at all.** `DOC-2`, `DOC-3`, `DOC-4`, `DOC-9` and
-`DOC-11` name only `Docs`, which owns no spec sheet — and so does this entry, which is the same gap
-showing through the thing that records it.
+**Six entries have no target for the requirement at all.** `DOC-2`, `DOC-3`, `DOC-4`, `DOC-9`,
+`DOC-11` and `FB-20` name only `Docs`, which owns no spec sheet — and so does this entry, which is
+the same gap showing through the thing that records it.
 
 **One written source does speak, and it asks something narrower than the requirement does.**
 [`docs/_standard/templates/spec-sheet.md`](../_standard/templates/spec-sheet.md) describes the section

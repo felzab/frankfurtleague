@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `f6073b6f`, 2026-08-26\
+**Verified against:** `d6be7a6f`, 2026-08-26\
 **Purpose:** the German domain vocabulary — what each term is, where it lives, and what catches people.
 
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs. Translating
@@ -22,7 +22,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 ### `Saison` — the competition year
 
-**Is:** the year everything else hangs off, carrying the `rules` that configure the scoring, the groups, the qualifiers, the squad cap, the award a no-show hands over and the eligible school levels.\
+**Is:** the year everything else hangs off, carrying the `rules` that configure the scoring, the tiebreak, the groups, the qualifiers, the squad cap, the award a no-show hands over and the eligible school levels.\
 **In code:** `fl_backend/app/api/saisons/schemas.py :: FLSaison`; the schedule its rules imply is `fl_backend/app/api/saisons/schedule.py :: knockout_phases_for`.\
 **Trap:** the id is a short fixed-length string rather than an ObjectId (`fl_backend/app/shared/schemas/bounds.py :: SAISON_ID_LENGTH`), and every model that ACCEPTS one holds it to that length — but a junction row echoing a stored id does not, deliberately, because a read model refusing one stored row would answer 500 for the whole list it appears in. So an id of the wrong length that reaches the database by a route holding it to nothing is echoed back without complaint, while every match and matchday carrying it fails to read.\
 **See:** backend spec I5 for the length, I18 for the single path to `status`.
@@ -206,10 +206,10 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 **Trap:** `mietpreis` is **submitted** where the `name` and `maps_link` beside it on the same embedded venue are composed by the server (I3) — it is what _that_ fixture agreed to pay rather than a copy of anything, which is also why a venue's price change never fans out although its name and `maps_link` do. Neither field carries a Pydantic default, because both patches write their payload back wholesale and a default would overwrite a real rent with `0`.\
 **See:** backend spec I6 and I3, [backend spec §1.1](backend/spec.md#11-endpoint-inventory) for which fixture read serves it, and [`domain.md`](domain.md) for the fan-out this is deliberately left out of.
 
-### `payment` · `default_payment` — referee fee
+### `payment` · `default_payment` — referee fee, `Honorar` on screen
 
 **Is:** the same split as `mietpreis` — `payment` is what one fixture paid its referee, `default_payment` the referee's own current fee. Both are an `int` with `ge=0`.\
-**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPayload` carries `payment`, and the stored `:: FLSpielSchiedsrichterField` declares it again over `:: FLSpielSchiedsrichterFieldPublic`, the base-tier read shape without it; `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter` carries `default_payment`.\
+**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPayload` carries `payment`, and the stored `:: FLSpielSchiedsrichterField` declares it again over `:: FLSpielSchiedsrichterFieldPublic`, the base-tier read shape without it; `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter` carries `default_payment`; that German is spelt at each field rather than read from a table, there being one label and not a closed set of them (`fl_frontend/src/features/schiedsrichter/schiedsrichterDraftStatus.ts :: FLSchiedsrichterFieldGroup`).\
 **Trap:** no default on either, no fan-out, `payment` stays on the match payload while the `name` beside it is composed, and the base tier is served without it — every one of them for `mietpreis`'s reasons.\
 **See:** backend spec I6.
 

@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `f6073b6f`, 2026-08-26\
+**Verified against:** `d6be7a6f`, 2026-08-26\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
@@ -25,7 +25,8 @@ response body, no log line and no row on this page, and the `RULES` corresponden
 
 ## 1. Backend codes
 
-Declared in `fl_backend/app/core/exceptions.py`, handled in `fl_backend/app/core/exception_handlers.py`.
+The exception types carrying them are declared in `fl_backend/app/core/exceptions.py` and handled in
+`fl_backend/app/core/exception_handlers.py`.
 
 **A code raised under `app/api/` is a domain rule and has a row in
 `fl_backend/app/core/domain.py :: RULES`; the protocol codes in `app/core/` describe who you are, whether
@@ -85,7 +86,7 @@ until the season turns `past`, where `REQ-RULES-005` freezes it.
 | `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                                                                  |
 | `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                                                                           |
 | `REQ-DATE-003`        | 409    | A matchday's span would shrink below a date one of its own fixtures holds                                                                              |
-| `REQ-DATE-004`        | 409    | A season's span would shrink below a live matchday's own                                                                                               |
+| `REQ-DATE-004`        | 409    | A season's span would shrink below a dated matchday's own                                                                                              |
 | `REQ-DATE-005`        | 409    | The season is shorter than the matchdays its own rules imply                                                                                           |
 | `REQ-DATE-008`        | 409    | Within one phase, a matchday would begin before the nearest dated matchday below its position, or after the nearest one above                          |
 | `REQ-ENTER-001`       | 409    | A team was entered into a season that is not `future`                                                                                                  |
@@ -136,17 +137,17 @@ until the season turns `past`, where `REQ-RULES-005` freezes it.
 
 Declared in `fl_frontend/src/core/errors.ts`, plus the call sites named.
 
-| Code            | Meaning                                                                                                |
-| --------------- | ------------------------------------------------------------------------------------------------------ |
-| `FE-API-001`    | The API answered with a bad status (`APIBadStatusError`; `serverErrorCode` carries the backend's code) |
-| `FE-API-002`    | The API answered with an unparseable or schema-violating body (`APIMalformedDataError`)                |
-| `FE-NET-001`    | The network did not answer, timeout included (`APINetworkError`, `isTimeout` distinguishes)            |
-| `FE-RSC-001`    | Unhandled server-side error, logged by `fl_frontend/src/core/instrumentation.ts :: onRequestError`     |
-| `FE-ACT-001`    | An admin mutation threw something that is not a typed API error (`shared/utils/adminMutation.ts`)      |
-| `FE-ACT-002`    | A write committed and its cache invalidation did not — a stale read, never a failed write              |
-| `FE-AUTH-001`   | Auth.js reported an access denial (`fl_frontend/src/core/auth.ts`)                                     |
-| `FE-AUTH-002`   | Auth.js reported any other error (`fl_frontend/src/core/auth.ts`)                                      |
-| `FE-CLIENT-001` | A browser-side crash reported through the ingest route (`src/app/api/client-error/route.ts`)           |
+| Code            | Meaning                                                                                                                                 |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `FE-API-001`    | The API answered with a bad status (`APIBadStatusError`; `serverErrorCode` carries the backend's code)                                  |
+| `FE-API-002`    | The API answered with an unparseable or schema-violating body (`APIMalformedDataError`)                                                 |
+| `FE-NET-001`    | The network did not answer, timeout included (`APINetworkError`, `isTimeout` distinguishes)                                             |
+| `FE-RSC-001`    | Unhandled server-side error, logged by `fl_frontend/src/core/instrumentation.ts :: onRequestError`                                      |
+| `FE-ACT-001`    | An admin mutation threw something that is not a typed API error (`fl_frontend/src/shared/utils/adminMutation.ts`)                       |
+| `FE-ACT-002`    | A write committed and its cache invalidation did not — a stale read, never a failed write (`fl_frontend/src/shared/utils/undoRoute.ts`) |
+| `FE-AUTH-001`   | Auth.js reported an access denial (`fl_frontend/src/core/auth.ts`)                                                                      |
+| `FE-AUTH-002`   | Auth.js reported any other error (`fl_frontend/src/core/auth.ts`)                                                                       |
+| `FE-CLIENT-001` | A browser-side crash reported through the ingest route (`fl_frontend/src/app/api/client-error/route.ts`)                                |
 
 ## 3. The mutation boundary
 
