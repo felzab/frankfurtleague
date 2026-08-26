@@ -1030,7 +1030,10 @@ RULES: tuple[Rule, ...] = (
         code="REQ-SWAP-006",
         operation="POST /saisons/{saison_id}/gruppen/swap",
         aggregate="Saison",
-        summary="no group swap moving a departed club onto a fixture dated on or after its exit, an UNDATED one included",
+        summary=(
+            "no group swap moving a departed club onto a fixture dated on or after its exit, an UNDATED one included, "
+            "unless that fixture awards nothing"
+        ),
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
         tested_by="tests/api/test_gruppe_swap_refusal.py::TestASwapNeverFieldsADisqualifiedClub",
         multi_document=True,

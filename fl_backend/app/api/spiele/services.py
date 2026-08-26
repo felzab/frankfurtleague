@@ -15,7 +15,6 @@ from app.api.spiele.schemas import (
     FLBracketFaultSpiel,
     FLBracketFaultSpieltag,
     FLPatchSpielDataPayload,
-    FLSaisonPhase,
     FLSonderereignis,
     FLSpiel,
     FLSpielCommon,
@@ -32,6 +31,7 @@ from app.api.spiele.schemas import (
     FLSpielTeamField,
     FLSpielTeamFieldJoinedInternal,
     FLSpielTeamFieldPayload,
+    records_an_absence,
 )
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
@@ -674,28 +674,6 @@ SPIELTAG_OCCUPIED = "REQ-SPIELTAG-001"
 RESULT_SIDE_EMPTIED = "REQ-RESULT-001"
 
 
-def _records_an_absence(*, side: str, sonderereignis: FLSonderereignis | None, saison_phase: FLSaisonPhase) -> bool:
-    """Whether this state accounts for the named side's absence -- `REQ-ELIGIBILITY-001`'s carve-out.
-
-    ONE predicate for the refusal and the derived report, so the state an admin records to clear the
-    409 clears the fault with it.
-    """
-
-    # Directional, because a no-show COMPOSES a result the table scores: exempting the side that
-    # turned up would credit a departed club the forfeit and put it back in the standings.
-    stayed_away = SONDEREREIGNIS_NO_SHOW.get(sonderereignis or "") == side
-
-    # A GROUP fixture that awards nothing carries a departed club on either side legitimately. A
-    # knockout slot still has to say who advances, and an ABANDONED fixture is one that happened
-    # -- a departed club standing on it is the fault this rule catches.
-    awards_nothing = sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT
-
-    # Only `awards_nothing` takes the phase gate: a cancelled knockout advances nobody, where a
-    # no-show names the absent side and composes a result advancing the other -- which rests on
-    # `REQ-RULES-010` barring a level forfeit here.
-    return stayed_away or (awards_nothing and saison_phase == "gruppenphase")
-
-
 def find_eligibility_refusal(
     spiel_id: CustomObjectId,
     payload: FLPatchSpielDataPayload,
@@ -734,9 +712,9 @@ def find_eligibility_refusal(
 
         in_the_gruppenphase = stored.saison_phase == "gruppenphase"
 
-        records_an_absence = _records_an_absence(side=label, sonderereignis=payload.sonderereignis, saison_phase=stored.saison_phase)
+        absence_recorded = records_an_absence(side=label, sonderereignis=payload.sonderereignis, saison_phase=stored.saison_phase)
 
-        if records_an_absence or (payload.datum is not None and payload.datum < member.departed_from):
+        if absence_recorded or (payload.datum is not None and payload.datum < member.departed_from):
             continue
 
         played_on = payload.datum or "no date"
@@ -918,7 +896,7 @@ def find_departed_occupants(spiele: Sequence[FLSpielJoinedInternal]) -> list[FLB
             if spiel.datum is not None and spiel.datum < effective:
                 continue
 
-            if _records_an_absence(side=side, sonderereignis=spiel.sonderereignis, saison_phase=spiel.saison_phase):
+            if records_an_absence(side=side, sonderereignis=spiel.sonderereignis, saison_phase=spiel.saison_phase):
                 continue
 
             faults.append(

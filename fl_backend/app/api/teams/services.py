@@ -8,6 +8,7 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_PRODUCING_A_RECORD,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLSpielCommon,
+    records_an_absence,
 )
 from app.api.teams.schemas import (
     FLGruppen,
@@ -840,10 +841,10 @@ def fixtures_newly_fielding_a_departed_club(
     departed_since: Mapping[Any, str | None],
     gruppenphase_spiele: Sequence[Mapping[str, Any]],
 ) -> int:
-    """How many group fixtures the exchange would move a club that has left the season onto.
+    """How many group fixtures the exchange would newly field a departed club on.
 
-    Counted on `find_eligibility_refusal`'s boundary, an UNDATED fixture included: one can still be
-    dated after the exit.
+    The date and the carve-outs are `find_eligibility_refusal`'s, read through the predicate it
+    reads; an UNDATED one counts, since it can still be dated after the exit.
     """
 
     arriving = {team1_id: team2_id, team2_id: team1_id}
@@ -859,6 +860,12 @@ def fixtures_newly_fielding_a_departed_club(
 
             effective_from = departed_since.get(incoming)
             if effective_from is None:
+                continue
+
+            # `REQ-SWAP-004` answers an abandonment and a no-show terminally before this count is
+            # read, so what reaches the carve-out here is the state it deliberately leaves open: a
+            # fixture called off or annulled, which awards nothing.
+            if records_an_absence(side=slot, sonderereignis=spiel.get("sonderereignis"), saison_phase="gruppenphase"):
                 continue
 
             datum = spiel.get("datum")

@@ -8,8 +8,9 @@ from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import swap_gruppen
 from app.api.saisons.schemas import FLSwapGruppenPayload
-from app.api.spiele.schemas import SONDEREREIGNIS_PRODUCING_A_RECORD
+from app.api.spiele.schemas import SONDEREREIGNIS_PRODUCING_A_RECORD, SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.teams.services import (
+    SWAP_FIELDS_DISQUALIFIED,
     SWAP_GRUPPENPHASE_PLAYED,
     SWAP_KNOCKOUT_STARTED,
     SWAP_NOT_A_SWAP,
@@ -51,6 +52,16 @@ def junction(team_id: ObjectId, gruppe: str) -> dict[str, Any]:
     return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": gruppe, "austritt": None}
 
 
+# Only `datum` decides `REQ-SWAP-006`; the type and the reason are what a surface reports.
+AUSTRITT = {"type": "disqualifikation", "grund": "Regelverstoss", "datum": "2026-04-01"}
+# A day after `AUSTRITT`, so the date half is satisfied and the EVENT is what each case turns on.
+AFTER_THE_EXIT = "2026-05-01"
+
+
+async def record_an_austritt(database: AsyncIOMotorDatabase, team_id: ObjectId) -> None:
+    await database[Collection.SAISON_TEAMS].update_one({"saison_id": SAISON_ID, "team_id": team_id}, {"$set": {"austritt": AUSTRITT}})
+
+
 def club(team_id: ObjectId) -> dict[str, Any]:
     """Only what the rewrite projects: it composes a side's `name` and `shorthand` from `teams`, not from the season's junction row."""
 
@@ -79,12 +90,15 @@ def gruppen_fixture(
     sonderereignis: str | None = None,
     tore: tuple[int | None, int | None] = (None, None),
     spieltag_id: ObjectId = SPIELTAG,
+    datum: str | None = None,
 ) -> dict[str, Any]:
     return {
         "saison_id": SAISON_ID,
         "saison_phase": "gruppenphase",
         "spiel_nr": spiel_nr,
         "spieltag_id": spieltag_id,
+        # Null rather than absent, which is what a drawn fixture stores until somebody schedules it.
+        "datum": datum,
         "team1": side(home, tore[0]),
         "team2": side(away, tore[1]),
         "ergebnis": ergebnis,
@@ -605,3 +619,46 @@ class TestTheRefusalsReadTheRealDocuments:
         )
 
         assert stored[ALPHA] == "B" and stored[BETA] == "A"
+
+    def test_a_swap_landing_a_departed_club_on_a_later_fixture_is_refused(self, mongo_replica_set_url: str):
+        """`REQ-SWAP-006` against real documents: the junction read supplies the exit day and the projection the fixture's date."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await record_an_austritt(database, ALPHA)
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_swap(database, client, ALPHA, BETA)
+            return refusal.value.error_code, await gruppen_now(database), await sides_now(database)
+
+        code, stored, sides = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=[
+                gruppen_fixture(1, ALPHA, ALPHA_RIVAL, datum=AFTER_THE_EXIT),
+                gruppen_fixture(2, BETA_RIVAL, BETA, datum=AFTER_THE_EXIT),
+            ],
+        )
+
+        assert code == SWAP_FIELDS_DISQUALIFIED
+        assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap moved a junction row"
+        assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
+
+    @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
+    def test_a_fixture_awarding_nothing_takes_a_departed_club_anyway(self, mongo_replica_set_url: str, sonderereignis: str):
+        """The case above but for the event: `REQ-SWAP-004` leaves these two open, so refusing here would make one page disagree with itself."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await record_an_austritt(database, ALPHA)
+            await call_swap(database, client, ALPHA, BETA)
+            return await gruppen_now(database), await sides_now(database)
+
+        stored, sides = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=[
+                gruppen_fixture(1, ALPHA, ALPHA_RIVAL, datum=AFTER_THE_EXIT),
+                gruppen_fixture(2, BETA_RIVAL, BETA, datum=AFTER_THE_EXIT, sonderereignis=sonderereignis),
+            ],
+        )
+
+        assert stored[ALPHA] == "B" and stored[BETA] == "A"
+        assert sides == {1: (BETA, ALPHA_RIVAL), 2: (BETA_RIVAL, ALPHA)}

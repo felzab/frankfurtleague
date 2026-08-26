@@ -66,6 +66,28 @@ SONDEREREIGNIS_NO_SHOW: Mapping[str, Literal["team1", "team2"]] = {
     "nichtantreten_team2": "team2",
 }
 
+
+def records_an_absence(*, side: str, sonderereignis: FLSonderereignis | None, saison_phase: FLSaisonPhase) -> bool:
+    """Whether this state accounts for the named side's absence -- `REQ-ELIGIBILITY-001`'s carve-out.
+
+    ONE question with three askers -- the refusal, its report and `REQ-SWAP-006` -- so the state clearing the 409 clears the other two.
+    """
+
+    # Directional, because a no-show COMPOSES a result the table scores: exempting the side that
+    # turned up would credit a departed club the forfeit and put it back in the standings.
+    stayed_away = SONDEREREIGNIS_NO_SHOW.get(sonderereignis or "") == side
+
+    # A GROUP fixture that awards nothing carries a departed club on either side legitimately. A
+    # knockout slot still has to say who advances, and an ABANDONED fixture is one that happened
+    # -- a departed club standing on it is the fault this rule catches.
+    awards_nothing = sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT
+
+    # Only `awards_nothing` takes the phase gate: a cancelled knockout advances nobody, where a
+    # no-show names the absent side and composes a result advancing the other -- which rests on
+    # `REQ-RULES-010` barring a level forfeit here.
+    return stayed_away or (awards_nothing and saison_phase == "gruppenphase")
+
+
 # The one declaration of this competition's rounds; the order is the order they are PLAYED.
 PHASE_ORDER: tuple[FLSaisonPhase, ...] = ("gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale")
 
