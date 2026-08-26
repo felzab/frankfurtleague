@@ -28,6 +28,7 @@ from app.api.spiele.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
+from tests.database import a_clean_database
 from tests.payloads import spiel_patch_body
 
 pytestmark = pytest.mark.db
@@ -391,15 +392,15 @@ def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
 Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
 
 
-def on_a_seeded_season(url: str, body: Body, *, spiele: list[dict[str, Any]]) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on. A transaction cannot create a collection."""
+def on_a_seeded_season(url: str, body: Body, *, spiele: list[dict[str, Any]], mutates_schema: bool = False) -> Any:
+    """`spiele` by hand, a transaction being unable to create a collection.
+
+    `mutates_schema=True` where the body attaches a validator: `tests/database.py` then keeps the
+    change off every later test.
+    """
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
+        async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SPIELE,), mutates_schema=mutates_schema) as (client, database):
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
             invalidate_saison_cache()
 
@@ -411,13 +412,9 @@ def on_a_seeded_season(url: str, body: Body, *, spiele: list[dict[str, Any]]) ->
             # Always, not per scenario: every save composes its stored names from these rows.
             await database[Collection.SPIELORTE].insert_many(venue_documents())
             await database[Collection.SCHIEDSRICHTER].insert_many(referee_documents())
-            await database.create_collection(Collection.SPIELE)
             await database[Collection.SPIELE].insert_many(spiele)
 
             return await body(database, client)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 
@@ -772,7 +769,7 @@ class TestAMidFlightFailureTakesTheWholeSaveBack:
 
             return failure.value.code, await spiele_now(database)
 
-        code, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season())
+        code, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season(), mutates_schema=True)
 
         # Asserted on the code, so this cannot pass because something failed before the first write.
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the advancement, got code {code}"

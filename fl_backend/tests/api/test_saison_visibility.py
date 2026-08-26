@@ -2,7 +2,7 @@ import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.saisons.admin_router import get_saisons_for_admin
 from app.api.saisons.cache import invalidate_saison_cache
@@ -11,6 +11,7 @@ from app.api.saisons.schemas import FLSaisonsFilterParams
 from app.api.saisons.services import base_tier_status_term
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
+from tests.database import a_clean_database
 
 DATABASE_NAME = "fl_saison_visibility_test"
 
@@ -67,20 +68,13 @@ def on_a_league(url: str, body: Body) -> Any:
     """One client and event loop per call: Motor binds to the loop it first ran on."""
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
+        async with a_clean_database(url, DATABASE_NAME) as (_, database):
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
             invalidate_saison_cache()
 
             await database[Collection.SAISONS].insert_many([dict(document) for document in SEEDED])
 
             return await body(database)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 

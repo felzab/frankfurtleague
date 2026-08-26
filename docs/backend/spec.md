@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `7ddb9819`, 2026-08-26\
+**Verified against:** `2b285402`, 2026-08-26\
 **Scope:** `fl_backend/`
 
 | Section                                                                        | Answers                                                           |
@@ -317,14 +317,15 @@ it rewrites and which it must leave alone. What is reached only indirectly is §
 
 #### The two tiers, and the marker that separates them
 
-| Tier        | Selected by         | Needs Docker | Cost                                                |
-| ----------- | ------------------- | ------------ | --------------------------------------------------- |
-| **Default** | everything unmarked | no           | 8.4s warm (2026-08-20)                              |
-| **`db`**    | `@pytest.mark.db`   | yes          | 60s warm (2026-08-20); cold adds the `mongo:8` pull |
+| Tier        | Selected by         | Needs Docker | Cost                                                   |
+| ----------- | ------------------- | ------------ | ------------------------------------------------------ |
+| **Default** | everything unmarked | no           | 8.4s warm (2026-08-20)                                 |
+| **`db`**    | `@pytest.mark.db`   | yes          | 55–61s warm (2026-08-26); cold adds the `mongo:8` pull |
 
-**Both figures are warm developer-machine runs of the tier on its own**, each measured twice with the
-`mongo:8` image already pulled. They say what a run costs here rather than what it costs in CI, and a
-figure moves with the machine as much as with the suite.
+**Both figures are warm developer-machine runs of the tier on its own**, with the `mongo:8` image
+already pulled. They say what a run costs here rather than what it costs in CI, and a figure moves
+with the machine as much as with the suite. The `db` range is the spread of three runs taken while a
+second gate was running on the same machine, so read it as a ceiling rather than a middle.
 
 `fl_backend/pyproject.toml :: addopts` deselects the marker, so a bare `pytest` runs the fast tier only.
 A command-line `-m` overrides it — addopts are prepended rather than merged — so `pytest -m db` runs
@@ -355,10 +356,12 @@ failure means the code rather than the machine. **A field that is not passed sti
 `.env`**, which the settings model declares (`fl_backend/app/core/config.py :: model_config`), which is
 why a test about a default asserts on the model's field rather than on a constructed instance.
 
-**The container fixture lives in the root `conftest.py`**, not in `api/`, because two suites want a
-database. It is session-scoped, so one `mongod` serves both, and it yields the _container_ rather than
-a client: the pipeline suite reads with pymongo and the constraint suite drives Motor, which needs the
-connection URL.
+**The container fixtures live in the root `conftest.py`**, not in `api/`, because suites under both
+`api/` and `core/` want a database. Each is session-scoped, so one `mongod` serves every suite that
+asks for it, and `fl_backend/tests/conftest.py :: mongo_container` yields the _container_ rather than a
+client: some suites read with pymongo and others drive Motor, which needs the connection URL.
+`:: mongo_replica_set_url` is a second container rather than a flag on the first, because a standalone
+`mongod` answers any transaction with `IllegalOperation`.
 
 **One test guards a rule nothing else can.**
 `fl_backend/tests/core/test_constraints.py :: test_every_mirrored_model_matches_its_validator` compares
@@ -384,6 +387,12 @@ and cannot suffer same-basename collisions.
   whatever went wrong, so a test meant to prove one constraint stays green while an unrelated typo in
   the payload satisfies it and the constraint it names goes unenforced. Use it wherever the payload is
   hand-built rather than produced by a factory.
+- **A `db` test's database is built once and emptied per test.**
+  `fl_backend/tests/database.py :: a_clean_database` applies the schema the first time a session asks
+  for a given database and clears its documents on every call after, so a body that narrows a validator
+  has to say so where it seeds — `mutates_schema=True` — or what it changed reaches every test behind
+  it. Forgetting is caught rather than silent: the next call compares the validators it finds against
+  the ones it built and fails naming the collection.
 - **The `db` corpus is documented once**, in `fl_backend/tests/api/conftest.py`: its header derives
   every expected figure by hand, the tests assert against them, and each seeded team exists to make
   exactly one invariant observable.

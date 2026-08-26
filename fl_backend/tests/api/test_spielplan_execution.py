@@ -35,9 +35,9 @@ from app.api.spieltage.schemas import FLSpieltag
 from app.api.spieltage.services import with_expected_matches
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
-from app.core.constraints import apply_constraints
 from app.core.exceptions import DocumentConflictException
 from app.core.logging import correlation_id_var
+from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
 
@@ -206,25 +206,21 @@ class Seed:
 Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
 
 
-def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on. A transaction cannot create a collection."""
+def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False) -> Any:
+    """The SHIPPED validators and unique indexes, so a document MongoDB would refuse in production fails here.
+
+    `mutates_schema=True` where the body narrows one of those validators: `tests/database.py` then
+    keeps the change off every later test.
+    """
 
     seeded = seed or Seed()
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
+        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
             invalidate_saison_cache()
             # `asyncio.run` copies the context, so nothing set here reaches another test.
             correlation_id_var.set(CORRELATION_ID)
-
-            # The SHIPPED validators and unique indexes, which is what makes a document MongoDB would
-            # refuse in production fail here. It creates every collection too.
-            await apply_constraints(database)
 
             await database[Collection.SAISONS].insert_one(seeded.saison)
             await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
@@ -238,9 +234,6 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None) -> Any
                 await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
 
             return await body(database, client)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 
@@ -758,7 +751,7 @@ class TestAFailedDrawLeavesNothingBehind:
                 cached=read_cached_saison(SAISON_ID),
             )
 
-        aborted = on_a_seeded_saison(mongo_replica_set_url, body)
+        aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
 
         # Asserted on the code, so this cannot pass because something failed before the first write.
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got code {aborted.write_error}"
@@ -1101,7 +1094,7 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
                 cached=read_cached_saison(SAISON_ID),
             )
 
-        aborted = on_a_seeded_saison(mongo_replica_set_url, body)
+        aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
 
         # On the code, so this cannot pass because the replace fell before it deleted anything.
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {aborted.write_error}"
@@ -1504,7 +1497,7 @@ class TestAnAbortedRedrawLeavesTheOldRulesWithTheOldDraw:
 
             return drawn, code, await stored_rules(database), await document_ids(database) == standing, await watermark_now(database)
 
-        drawn, code, rules, kept_its_draw, watermark = on_a_seeded_saison(mongo_replica_set_url, body)
+        drawn, code, rules, kept_its_draw, watermark = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
 
         # On the code, so this cannot pass because the redraw fell before it had decided anything.
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {code}"

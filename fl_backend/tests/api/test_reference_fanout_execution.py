@@ -13,6 +13,7 @@ from app.api.spielorte.schemas import FLPatchSpielortPayload, FLPatchSpielortRes
 from app.api.teams.admin_router import patch_team
 from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse
 from app.core.collections import Collection
+from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
 
@@ -224,18 +225,15 @@ def fixture_document(spiel_nr: int) -> dict[str, Any]:
 Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
 
 
-def on_a_database(url: str, body: Body) -> Any:
-    """A replica set, not the standalone: every endpoint here writes in a transaction.
+def on_a_database(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
+    """A replica set, not the standalone: every endpoint here writes in a transaction, and seeding runs outside it.
 
-    One client and event loop per call: Motor binds to the loop it first runs on. Seeding runs outside
-    it, because a transaction cannot create a collection.
+    `mutates_schema=True` where the body attaches a validator: `tests/database.py` then keeps the
+    change off every later test.
     """
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
+        async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.SPIELORTE].insert_many([venue_document(oid) for oid in VENUE_NAMES])
             await database[Collection.SCHIEDSRICHTER].insert_many([referee_document(oid) for oid in REFEREE_NAMES])
             await database[Collection.TEAMS].insert_many([club_document(oid) for oid in CLUB_NAMES])
@@ -250,9 +248,6 @@ def on_a_database(url: str, body: Body) -> Any:
             )
             await database[Collection.SPIELE].insert_many([fixture_document(spiel_nr) for spiel_nr in FIXTURES])
             return await body(database, client)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 
@@ -637,7 +632,7 @@ class TestAMidFlightFailureTakesTheWholeRenameBack:
 
             return failure.value.code, await stored_entities(database, Collection.SPIELORTE), await stored_fixtures(database)
 
-        code, venues, fixtures = on_a_database(mongo_replica_set_url, body)
+        code, venues, fixtures = on_a_database(mongo_replica_set_url, body, mutates_schema=True)
         venue = venues[SPIELORT_OID]
 
         # Asserted on the code, so this cannot pass because something failed before the first write.
@@ -659,7 +654,7 @@ class TestAMidFlightFailureTakesTheWholeRenameBack:
 
             return failure.value.code, await stored_entities(database, Collection.SCHIEDSRICHTER), await stored_fixtures(database)
 
-        code, referees, fixtures = on_a_database(mongo_replica_set_url, body)
+        code, referees, fixtures = on_a_database(mongo_replica_set_url, body, mutates_schema=True)
         referee = referees[SCHIEDSRICHTER_OID]
 
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the fan-out, got code {code}"
@@ -685,7 +680,7 @@ class TestAMidFlightFailureTakesTheWholeRenameBack:
                 await stored_junctions(database),
             )
 
-        code, clubs, fixtures, junctions = on_a_database(mongo_replica_set_url, body)
+        code, clubs, fixtures, junctions = on_a_database(mongo_replica_set_url, body, mutates_schema=True)
         club = clubs[TEAM_OID]
         seeded_name, seeded_shorthand = CLUB_NAMES[TEAM_OID]
 

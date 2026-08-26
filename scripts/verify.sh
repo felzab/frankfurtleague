@@ -51,6 +51,11 @@ if (( RUN_OPS || RUN_DB || RUN_IMAGES )); then
   require_docker
 fi
 
+# The scripts scope's checks run beside each other and are collected one step at a time. Declared
+# up here because the EXIT trap below reaps them, and `set -u` refuses an array that does not exist.
+BG_DIR=""
+declare -A BG_PID=()
+
 # One EXIT trap for every scope's cleanup: `die` exits directly, so an inline cleanup line after a
 # failed check never runs. Never add INT or TERM — `_lib.sh` owns them, and re-trapping either
 # loses the interrupted closing statement.
@@ -61,6 +66,12 @@ gate_exit() {
   if worker; then end_section; emit_section_ledger > "${FL_GATE_LEDGER:?}"; fi
   cleanup
   if [[ -n "${POOL_DIR:-}" ]]; then rm -rf "$POOL_DIR"; fi
+  # A run leaving before its steps collected them. Only the job shells are signalled: a tool
+  # already started tears its own fixtures down, and bash offers no portable way to reach a
+  # grandchild. The removal is best-effort for the same reason — Windows refuses to unlink a file
+  # a surviving tool still holds open.
+  if (( ${#BG_PID[@]} )); then kill "${BG_PID[@]}" 2>/dev/null || true; fi
+  if [[ -n "$BG_DIR" ]]; then rm -rf "$BG_DIR" 2>/dev/null || true; fi
   if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then rm -f "$FL_SELFCHECK_LEDGER"; fi
 }
 trap gate_exit EXIT
@@ -299,9 +310,72 @@ if (( RUN_SCRIPTS )); then
       || on_error 3 "${LINENO}" "scripts/selfcheck.sh left ${records} ledger record(s) under a closing count of '${declared:-none}'"
   }
 
+  # The four checks below read this tree and write only their own caches and throwaway trees, so
+  # they start together and each is collected at its own step: the scope then costs its slowest
+  # check rather than the sum of all four. Nothing about the output moves. A job records an exit
+  # status and never speaks, so every verdict is still reached here, in written order, and the run
+  # still ends at the first check that fails.
+  do_selfcheck() { bash scripts/selfcheck.sh; }
+  do_ruff()      { "$PY" -m ruff check scripts && "$PY" -m ruff format --check scripts; }
+  # Run from inside scripts/, where pyright finds its config. `$PY` is absolute, so the `cd` does
+  # not disturb it.
+  do_pyright()   { ( cd "${REPO_ROOT}/scripts" && "$PY" -m pyright ); }
+  do_pytest()    { "$PY" -m pytest scripts/tests; }
+
+  # Never while a run is being watched: `--verbose` exists to stream each tool's own output, and a
+  # stream held in a file until its step arrives is no longer one. `--serial` is the oracle the
+  # concurrent form has to match, so it takes the same path.
+  STEP_JOBS=1
+  if (( SERIAL || VERBOSE )); then STEP_JOBS=0; fi
+  if (( STEP_JOBS )); then BG_DIR="$(mktemp -d)"; fi
+
+  bg_start() { # $1 the check, whose command is the function `do_<check>`
+    if (( ! STEP_JOBS )); then return 0; fi
+    # `set +e` inside, so a check's own non-zero status is recorded rather than ending the job
+    # before it can be written. The duration lands first: with the status present, it is there too.
+    (
+      set +e
+      _t0="$(_now_ms)"
+      "do_$1" > "${BG_DIR}/${1}.out" 2>&1
+      _rc=$?
+      printf '%s' "$(( $(_now_ms) - _t0 ))" > "${BG_DIR}/${1}.ms"
+      printf '%s' "$_rc" > "${BG_DIR}/${1}.rc"
+    ) &
+    BG_PID["$1"]=$!
+  }
+
+  bg_join() { # $1 the check — wait for it, and re-date the step to the work's own length
+    if (( ! STEP_JOBS )); then return 0; fi
+    local ms
+    spinner_start "scripts · $1"
+    wait "${BG_PID[$1]}" 2>/dev/null || true
+    spinner_stop
+    ms="$(cat "${BG_DIR}/${1}.ms" 2>/dev/null || true)"
+    if [[ "$ms" =~ ^[0-9]+$ ]]; then step_took_ms "$ms"; fi
+  }
+
+  bg_replay() { # $1 the check — its own output and exit status, wherever it ran
+    # With no job started this IS the check: one call site for both forms, so `--verbose` and
+    # `--serial` take the path the gate has always taken rather than a second one nobody reads.
+    if (( ! STEP_JOBS )); then "do_$1"; return; fi
+    local rc
+    if [[ -s "${BG_DIR}/${1}.out" ]]; then cat "${BG_DIR}/${1}.out"; fi
+    rc="$(cat "${BG_DIR}/${1}.rc" 2>/dev/null || true)"
+    # Never 1, 2 or 130: each of those is a verdict a check earns by finishing, and a job that left
+    # no status earned none. 3 is what every caller below already reads as a crash.
+    if [[ ! "$rc" =~ ^[0-9]+$ ]]; then
+      printf '%s\n' "the ${1} check left no exit status behind, so it did not run to completion"
+      return 3
+    fi
+    return "$rc"
+  }
+
+  bg_start selfcheck; bg_start ruff; bg_start pyright; bg_start pytest
+
   step "scripts · selfcheck"
+  bg_join selfcheck
   run_checker stop "scripts/selfcheck.sh" "scripts/selfcheck.sh failed — its findings are above." \
-    bash scripts/selfcheck.sh
+    bg_replay selfcheck
   replay_selfcheck
   # A scope proved in part may not close on the sentence that describes proving all of it.
   if (( SELFCHECK_SKIPS )); then
@@ -311,14 +385,14 @@ if (( RUN_SCRIPTS )); then
   fi
 
   step "scripts · ruff  (lint, and format in check mode)"
-  ( quietly "$PY" -m ruff check scripts && quietly "$PY" -m ruff format --check scripts ) \
+  bg_join ruff
+  quietly bg_replay ruff \
     || die "ruff failed in scripts/. Fix with:  fl_backend/.venv/Scripts/python -m ruff format scripts"
   ok "the gate's own python is clean"
 
-  # Run from inside scripts/, where pyright finds its config. `$PY` is absolute, so the `cd` does
-  # not disturb it.
   step "scripts · pyright"
-  ( cd "${REPO_ROOT}/scripts" && quietly "$PY" -m pyright ) || die "pyright found type errors in scripts/.
+  bg_join pyright
+  quietly bg_replay pyright || die "pyright found type errors in scripts/.
 These are the same errors Pylance shows in the editor."
   ok "the gate's own types are clean"
 
@@ -326,8 +400,9 @@ These are the same errors Pylance shows in the editor."
   # pytest answers its own codes, not the kernel's: 2 is a collection error, which `run_checker`
   # would announce as a considered refusal.
   step "scripts · pytest  (the documentation gate's fixture net)"
+  bg_join pytest
   PYTEST_RC=0
-  quietly "$PY" -m pytest scripts/tests || PYTEST_RC=$?
+  quietly bg_replay pytest || PYTEST_RC=$?
   case "$PYTEST_RC" in
     0) ;;
     1) die "The documentation gate's fixture net failed: a check stopped

@@ -19,6 +19,7 @@ from app.core.constraints import (
     report_relations,
     report_violations,
 )
+from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
 
@@ -26,6 +27,8 @@ pytestmark = pytest.mark.db
 DOCUMENT_VALIDATION_FAILED = 121
 
 DATABASE_NAME = "fl_constraints_test"
+# A second database, so the throwaway above stays the one this suite is free to manipulate.
+SHIPPED_DATABASE_NAME = "fl_constraints_shipped_test"
 
 SAISON_ID = "2026"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607200001")
@@ -179,14 +182,29 @@ def on_a_database(container: Any, body: Body, *, constrained: bool = True) -> An
     async def _run() -> Any:
         client = AsyncIOMotorClient(container.get_connection_url())
         try:
+            # Dropped on the way IN, never out: this suite alone changes the schema it runs on, so
+            # what isolates it is the drop the next call makes, and a second one buys nothing.
             await client.drop_database(DATABASE_NAME)
             database = client[DATABASE_NAME]
             if constrained:
                 await apply_constraints(database)
             return await body(database)
         finally:
-            await client.drop_database(DATABASE_NAME)
             client.close()
+
+    return asyncio.run(_run())
+
+
+def on_the_shipped_schema(container: Any, body: Body) -> Any:
+    """A database the shipped constraints were built on ONCE, emptied for this test.
+
+    For a body that only inserts and reads. A validator, an index or a user changed takes
+    `on_a_database`'s throwaway, this suite being the one that manipulates all three.
+    """
+
+    async def _run() -> Any:
+        async with a_clean_database(container.get_connection_url(), SHIPPED_DATABASE_NAME, constraints=True) as (_, database):
+            return await body(database)
 
     return asyncio.run(_run())
 
@@ -200,7 +218,7 @@ def insert_outcome(container: Any, collection: str, document: dict[str, Any]) ->
             return "rejected"
         return "accepted"
 
-    return on_a_database(container, body)
+    return on_the_shipped_schema(container, body)
 
 
 @pytest.mark.parametrize("collection", sorted(COLLECTION_VALIDATORS))
@@ -322,7 +340,7 @@ def test_each_unique_index_refuses_the_second_document(mongo_container: Any, col
         return "accepted"
 
     # 11000 is DuplicateKey, not 121 — an index refuses the write before any validator sees it.
-    assert on_a_database(mongo_container, body) == "rejected:11000"
+    assert on_the_shipped_schema(mongo_container, body) == "rejected:11000"
 
 
 def test_the_same_spiel_nr_in_another_season_is_fine(mongo_container: Any):
@@ -333,7 +351,7 @@ def test_the_same_spiel_nr_in_another_season_is_fine(mongo_container: Any):
         await database.spiele.insert_one(valid_document("spiele", saison_id="2025"))
         return await database.spiele.count_documents({})
 
-    assert on_a_database(mongo_container, body) == 2
+    assert on_the_shipped_schema(mongo_container, body) == 2
 
 
 def test_the_same_position_in_another_phase_is_fine(mongo_container: Any):
@@ -344,7 +362,7 @@ def test_the_same_position_in_another_phase_is_fine(mongo_container: Any):
         await database.spieltage.insert_one(valid_document("spieltage", _id=SPIELORT_OID, saison_phase="finale"))
         return await database.spieltage.count_documents({})
 
-    assert on_a_database(mongo_container, body) == 2
+    assert on_the_shipped_schema(mongo_container, body) == 2
 
 
 def test_every_validator_is_attached_strictly(mongo_container: Any):
@@ -361,7 +379,7 @@ def test_every_validator_is_attached_strictly(mongo_container: Any):
             )
         return found
 
-    attached = on_a_database(mongo_container, body)
+    attached = on_the_shipped_schema(mongo_container, body)
     assert set(attached) == set(COLLECTION_VALIDATORS)
     assert all(value == (True, "strict", "error") for value in attached.values()), attached
 

@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `5e4fafcb`, 2026-08-26\
+**Verified against:** `2b285402`, 2026-08-26\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -71,7 +71,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 22  | OPS-69 | A declared-permitted state's reason is checked by nothing | BE, Ops       | S      | Open     | —          |
 | 23  | OPS-65 | An unused parameter is reported by no checker here        | FE, Ops       | S      | Open     | —          |
 | 24  | OPS-66 | The CSP's style directive is wider than it needs to be    | Ops, Docs     | S      | Open     | —          |
-| 25  | OPS-60 | The gate's floor is one scope, and that scope is serial   | Ops           | M      | Open     | —          |
+| 25  | OPS-60 | The gate's floor is one scope, on a profile now stale     | Ops           | M      | Open     | —          |
 | 26  | OPS-12 | Nothing checks a generated file against its generator     | FE, Ops       | S      | Open     | —          |
 | 27  | DOC-9  | Pairs of audit checks hunt the same ground                | Docs          | S      | Open     | —          |
 | 28  | DOC-2  | An enforcement claim is resolved in one direction only    | Docs          | M      | Open     | —          |
@@ -419,11 +419,12 @@ measurement: no comment in either file states it.
 OPS-72 touches and the two are cheaper executed together, which is an ordering note and not a
 dependency: the suite holding OPS-72's case is one of the few that already installs the constraints.
 
-**The shared database fixture yields a bare database, so unconstrained is the default rather than a
-decision.** `fl_backend/tests/conftest.py :: mongo_database` hands out a database with nothing applied
-to it, and installing the shipped constraints is opt-in per suite. **Counted on 2026-08-26: thirty test
-files carry `pytest.mark.db`, and nine of them call
-`fl_backend/app/core/constraints.py :: apply_constraints`.** The rest insert into collections that in production carry a `$jsonSchema`
+**Every shared database fixture yields a bare database, so unconstrained is the default rather than a
+decision.** `fl_backend/tests/database.py :: a_clean_database` defaults `constraints` to `False` and
+`fl_backend/tests/conftest.py :: mongo_database` applies nothing at all, so
+`fl_backend/app/core/constraints.py :: apply_constraints` is opt-in per suite — and **most of the db
+tier declines it.** Which suites take it is answered by grepping `fl_backend/tests/` for
+`constraints=True`; the rest insert into collections that in production carry a `$jsonSchema`
 validator and, for some, a unique index — so a document MongoDB would refuse on the server passes in
 the tier meant to prove the server's behaviour.
 
@@ -440,7 +441,9 @@ insert, and most suites seed through factory helpers it cannot follow.
 `fl_backend/tests/core/test_constraints_execution.py :: on_a_database` already models the shape the
 answer wants: constrained by default, with an explicit argument at each call that wants the
 unconstrained database and a stated reason for it. So the answer is to make constrained the default the
-shared fixture gives, and the exception an argument somebody has to write down.
+shared fixture gives, and the exception an argument somebody has to write down. **The flip itself is
+one line** — `a_clean_database`'s `constraints` default — which is why the work below is the seeds it
+exposes rather than the plumbing.
 
 **The cost is the reason this is ranked rather than fixed in passing.** Turning one suite constrained
 costs more lines than it removes, because a seed written against no validator omits fields the shipped
@@ -681,10 +684,13 @@ on, and a db-tier result anything running beside it can corrupt is a result nobo
 including a green one, which is the half that does not announce itself. A loud but misleading failure
 is the expensive direction, the same asymmetry OPS-11 argues from.
 
-**What is established about the harness, and what is not.** Every db-marked suite names its own
+**What is established about the harness, and what is not.** Almost every db-marked suite names its own
 database — `fl_backend/tests/core/test_constraints_execution.py :: DATABASE_NAME` is
-`fl_constraints_test`, and each sibling suite carries a distinct one — so the suites do not collide
-with one another. `fl_backend/tests/conftest.py :: mongo_container` and `:: mongo_replica_set_url` are
+`fl_constraints_test`, and nearly every sibling suite carries a distinct one — so the suites do not
+collide with one another. **The exception is worth eliminating first**: the suites seeding through
+pymongo rather than Motor take their name from `fl_backend/tests/config.py :: build_test_config`'s
+`db_base_name`, so they share one database within a run and would share it across two.
+`fl_backend/tests/conftest.py :: mongo_container` and `:: mongo_replica_set_url` are
 session-scoped and each starts its own `mongo:8` through testcontainers, with no reuse flag set
 anywhere in the tree, so two runs are not obviously sharing a database either. **The mechanism is
 therefore unestablished, and finding it is the first half of this entry**, ahead of choosing a repair.
@@ -1324,7 +1330,7 @@ attribute half is the whole of the value. That the prerendered HTML carries no i
 is the spec sheet's claim rather than this entry's measurement, and it is worth re-checking beside
 the one above it.
 
-### 25 · OPS-60 — The gate's wall clock is one scope, and that scope runs serially
+### 25 · OPS-60 — The gate's wall clock is one scope, and the profile ranking its levers is stale
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -1338,27 +1344,31 @@ scope 4.0s, **scripts 86s**, docs 12s, backend 17s, format 45s, frontend 57s, op
 images 9.1s — 257s of scope-time in **91s** of wall clock, a 2.8x speedup, and only five seconds
 more than `scripts` alone. **Parallelism is done; the remaining lever is inside one scope.**
 
-**Where the 86s sits**, same run: `selfcheck` **52s**, `pytest` **30s**, pyright 2.4s, ruff 0.4s.
-Both large halves are serial by construction — `selfcheck` drives 218 guard probes one at a time,
-each spawning a shell, and the fixture net builds a throwaway git repository per case.
+**Inside that 86s**, same run: `selfcheck` **52s**, `pytest` **30s**, pyright 2.4s, ruff 0.4s. The
+scope now starts its checks together and collects them one step at a time
+([`docs/ops/spec.md`](../ops/spec.md) §1.6), so it costs its slowest — `selfcheck` — rather than the
+sum of them. Each large half stays serial inside itself, and that is where the levers below
+reach: `selfcheck` drives 218 guard probes one at a time, each spawning a shell, and the fixture net
+builds a throwaway git repository per case.
 
-**Three levers, in descending measured value:**
+**Two levers, in descending measured value:**
 
 - **Batch or parallelise the probe table.** The largest single cost, and the probes are independent
   by design.
 - **Run the fixture net across cores.** `pytest-xdist` is the standard answer; the risk is that two
   workers write the same scratch repository, so isolation has to be proved rather than assumed.
-- **Split `scripts` into two pool members**, so its halves run concurrently instead of in sequence.
 
 **The estimate is half a day, and most of it is not the code.** Any change to how the probes execute
 must prove no verdict moved: 218 probes, a before-baseline, a verdict-set diff, and a required zero.
-`scripts/selfcheck.sh` also owns the four-code exit contract's classifier, so splitting the scope
+`scripts/selfcheck.sh` also owns the four-code exit contract's classifier, so a change reaching it
 re-opens that contract's eleven measured rank/finding/exit combinations.
 
-**What it buys, and what it does not.** Taking `scripts` to roughly 55s takes the whole gate to
-about 60s, at which point `frontend` at 57s becomes the new floor and the next lever is `next
-build`. **OPS-19's linter cache buys nothing on wall clock** — it targets `format` at 45s, which is
-already hidden inside `scripts`.
+**What either lever buys is unmeasured, and measuring it is this entry's first task.** Every figure
+above was taken against a scripts scope running its checks in sequence, so the 86s and each wall-clock
+consequence drawn from it describe a gate other than the one these levers would be aimed at — the
+reading that `format` at 45s is hidden inside `scripts` included, which is what settled whether
+**OPS-19's linter cache buys anything on wall clock**. Re-take the full-form profile before choosing
+between the two, because whichever scope is binding under it is what any further lever has to target.
 
 ### 26 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
@@ -1481,8 +1491,8 @@ added for OUT-7 lands with the field that claims it.
 (`docs/ops/spec.md` §1.6's scope table), so what either buys on wall clock is decided by which pool
 member is binding at the scope being run.
 
-**`fl_frontend/package.json` runs `eslint .` and `prettier --check ..` across the whole repository,
-and neither is given a cache.** `fl_frontend/tsconfig.json` sets `incremental: true`; nothing else in
+**`fl_frontend/package.json`'s `lint` and `format:check` scripts point eslint and prettier at the whole
+repository, and neither is given a cache.** `fl_frontend/tsconfig.json` sets `incremental: true`; nothing else in
 either tree keeps state between runs, so both tools re-read every file they are pointed at whether or
 not anything about it has changed since the last run said the same thing.
 
@@ -1520,24 +1530,41 @@ machine — sixteen cores, repository clean — against the invocations the gate
    A cached clean verdict is exactly as good as its key, and `scripts/verify.sh` passes
    `--no-optimistic-repeat-install` to pnpm precisely because that tool's fast path keys on
    timestamps, where a stale one lets a real mismatch answer that everything is already up to date.
-   `--cache-strategy content` hashes file contents instead, so that shape cannot arise here — and on
-   2026-08-12 it measured no slower than the metadata key, 20.5 s cold and 4.5 s warm against 21.5 s
-   and 4.8 s. **Use `content`**: the suspicion this entry was filed with is discharged by choosing
-   the key, not by an argument about it.
+   `--cache-strategy content` hashes the linted file's contents instead — **and that is not
+   sufficient here, measured 2026-08-26.** `fl_frontend/eslint.config.mjs` points
+   `better-tailwindcss` at `entryPoint: "src/app/globals.css"`, so `no-unknown-classes` decides every
+   file's verdict by reading a file it never lints, and eslint's key covers the config and the linted
+   file alone. Renaming a class in `globals.css` leaves a warm `--cache --cache-strategy content` at
+   exit 0 while the uncached run exits 1 naming four uses of it. **The suspicion this entry was filed
+   with is therefore NOT discharged by choosing the key.** It is closable by hashing that stylesheet
+   into the resolved config, which changes eslint's own config hash and invalidates the cache — tried,
+   and the same experiment then reports all four. That carries a standing obligation to grow the
+   hashed set whenever the plugin gains another cross-file input or a second entry point is added,
+   and getting it wrong fails silently, which is the trade to weigh rather than assume.
+
+   **`eslint . --concurrency=auto` is the win that needs none of this**, taking the step from 20.9 s
+   to 12.8 s with no cache and no persisted state, so it holds on a cold checkout and in CI. Verified
+   against violations planted across seven rule families: the normalised output is byte-identical to a
+   serial run and both exit 1.
+
 3. **Can CI persist one?** **Out of scope, decided 2026-08-12: the local win only.** It needs no CI
    change to collect, so `.github/workflows/verify.yml` is left alone and the image build cache —
    buildx's `type=gha`, with no `actions/cache` step — needs no
    revisiting, nor does `.claude/CLAUDE.md` §7's line for it. This is a boundary on the work rather
    than a question still open inside it, and reopening it is its own decision.
 
-**Done when:** `fl_frontend/package.json`'s two scripts pass `--cache`, eslint's passes
-`--cache-strategy content` with it, and `fl_frontend/.gitignore` carries the line for eslint's cache
-file that it has none for today (2026-08-12). **One consequence lands with it and belongs beside the
+**Done when:** `fl_frontend/package.json`'s `format:check` passes `--cache`, and its `lint` either
+passes one over a key that also covers `fl_frontend/eslint.config.mjs`'s `better-tailwindcss` entry
+point — `--cache-strategy content` alone is refused above — or is settled against, the concurrency
+lever it was weighed against having already shipped there. Whichever caches land,
+`fl_frontend/.gitignore` carries the line for each cache file, which it has for none of them today.
+**One consequence lands with it and belongs beside the
 change**: a cache means the gate writes an untracked file into the working tree on every run.
 `.claude/CLAUDE.md`'s rule that no formatter the gate runs writes a _tracked_ file still holds, and
 `docs/ops/spec.md` §1.6 is where the note goes.
 
-**A second lever sits on the same eslint step and is worth taking in the same sitting**: eslint
+**A second lever on the same eslint step is already taken**, which is what leaves the cache question
+standing on its own: eslint
 9.39.5 takes `--concurrency` as a first-class flag under flat configuration,
 `fl_frontend/eslint.config.mjs` declares no `project` or `projectService` so the configuration is not
 type-aware and a worker parses independently, and `auto` measured 13.8 s against 23.4 s uncached on

@@ -11,6 +11,7 @@ from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_TARGET_PAST
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
 
@@ -86,27 +87,25 @@ def spiel_document(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
 Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, saisons: list[dict[str, Any]], spiele: list[dict[str, Any]] | None = None) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on. A transaction cannot create a collection."""
+def on_a_league(
+    url: str, body: Body, *, saisons: list[dict[str, Any]], spiele: list[dict[str, Any]] | None = None, mutates_schema: bool = False
+) -> Any:
+    """`saisons` by hand, a transaction being unable to create a collection.
+
+    `mutates_schema=True` where the body attaches a validator: `tests/database.py` then keeps the
+    change off every later test.
+    """
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
+        async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SAISONS,), mutates_schema=mutates_schema) as (client, database):
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
             invalidate_saison_cache()
 
-            await database.create_collection(Collection.SAISONS)
             await database[Collection.SAISONS].insert_many(saisons)
             if spiele:
                 await database[Collection.SPIELE].insert_many(spiele)
 
             return await body(database, client)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 
@@ -236,6 +235,7 @@ class TestAMidFlightFailureTakesTheDemotionBack:
             body,
             saisons=[saison_document(FIRST_INCUMBENT, "active"), saison_document(TARGET, "future")],
             spiele=[spiel_document(TARGET, ergebnis=None)],
+            mutates_schema=True,
         )
 
         # Asserted on the code, so this cannot pass because something failed before the demotion.

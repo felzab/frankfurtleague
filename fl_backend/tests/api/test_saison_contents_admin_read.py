@@ -4,7 +4,7 @@ from typing import Any, Awaitable, Callable, Iterator
 import pytest
 from bson import ObjectId
 from fastapi.routing import APIRoute
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.admin_router import get_spiel_for_admin, get_spiele_for_admin
@@ -21,6 +21,7 @@ from app.core.exceptions import DocumentNotFoundException
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
 from app.main import create_app
 from tests.config import build_test_config
+from tests.database import a_clean_database
 
 DATABASE_NAME = "fl_saison_contents_admin_read_test"
 
@@ -145,11 +146,7 @@ def on_a_league(url: str, body: Body) -> Any:
     """One client and event loop per call: Motor binds to the loop it first ran on."""
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
+        async with a_clean_database(url, DATABASE_NAME) as (_, database):
             # Process-global and keyed by season id, so an entry another module left would answer here.
             invalidate_saison_cache()
 
@@ -160,9 +157,6 @@ def on_a_league(url: str, body: Body) -> Any:
             await database[Collection.SPIELTAGE].insert_many([spieltag_document(saison_id) for saison_id in STATUS_OF])
 
             return await body(database)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 

@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.cache import invalidate_saison_cache
@@ -11,6 +11,7 @@ from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
+from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
 
@@ -140,11 +141,7 @@ def on_a_database(url: str, body: Body, *, spiele: list[dict[str, Any]] | None =
     """One client and event loop per call: Motor binds to the loop it first runs on."""
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
+        async with a_clean_database(url, DATABASE_NAME) as (_, database):
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
             invalidate_saison_cache()
 
@@ -155,9 +152,6 @@ def on_a_database(url: str, body: Body, *, spiele: list[dict[str, Any]] | None =
                 await database[Collection.SPIELE].insert_many(spiele)
 
             return await body(database)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 

@@ -15,8 +15,8 @@ from app.api.teams.services import (
     REPLACE_SAISON_FINISHED,
 )
 from app.core.collections import Collection
-from app.core.constraints import apply_constraints
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
 
@@ -245,17 +245,11 @@ def on_a_seeded_season(
     validators too, `constrained=False` being the case whose subject is a row they forbid.
     """
 
+    # `spiele` by hand where no validator is installed: a transaction cannot create a collection.
+    collections = () if constrained else (Collection.SPIELE,)
+
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
-            if constrained:
-                await apply_constraints(database)
-            else:
-                await database.create_collection(Collection.SPIELE)
-
+        async with a_clean_database(url, DATABASE_NAME, constraints=constrained, collections=collections) as (client, database):
             # Each season spans its own calendar year, so the two seeded spans do not overlap.
             await database[Collection.SAISONS].insert_many(
                 [
@@ -272,9 +266,6 @@ def on_a_seeded_season(
             await database[Collection.SPIELE].insert_many(list(SEASON_FIXTURES if spiele is None else spiele))
 
             return await body(database, client)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 

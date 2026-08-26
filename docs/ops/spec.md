@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `7ddb9819`, 2026-08-26\
+**Verified against:** `2b285402`, 2026-08-26\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 | Section                                                | Answers                                                              |
@@ -257,6 +257,17 @@ python. Only two scopes are constrained: `db` follows `backend`, which shares it
 files appear in. **The `--frontend` implication above is the parent's, never a worker's** — a worker
 runs the one scope it is given. `scripts/gate_pool.py` owns the spawning and nothing else; the
 sections, the closing table and the closing statements stay in `scripts/_lib.sh`.
+
+**The scripts scope carries that shape one level down.** Its checks read this tree and write only
+their own caches and throwaway trees, so they start together and each is collected at its own step,
+and the scope costs its slowest check rather than the sum of them. Every verdict is still reached in
+written order and the run still ends at the first check that fails, because a job records an exit
+status and never speaks — and a job that left no status is read as a crash rather than as a pass.
+`--serial` and `--verbose` take the serial path here too, for the reasons they take it above; a run
+covering only this scope does not, that exception belonging to the pool alone. A step joined after its
+work ran beside its neighbours is re-dated to that work's own length
+(`scripts/_lib.sh :: step_took_ms`), without which the first step joined absorbs the whole stretch and
+every step after it reads as free.
 
 **No formatter the gate runs writes a tracked file.** prettier runs in check mode
 everywhere — locally, in CI and on `main` — so a run cannot hand back a tree different from the one

@@ -3,13 +3,14 @@ from typing import Any, Awaitable, Callable, Sequence
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.teams.admin_router import patch_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamPayload
 from app.api.teams.services import ENTRY_GRUPPE_FULL, ENTRY_GRUPPE_LOCKED, ENTRY_GRUPPE_NOT_OFFERED
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
 
@@ -98,22 +99,15 @@ def on_a_season(
     """
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(container.get_connection_url())
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
+        # `spiele` by hand: the group move reads it, and nothing here seeds it in every case.
+        async with a_clean_database(container.get_connection_url(), DATABASE_NAME, collections=(Collection.SPIELE,)) as (_, database):
             await database[Collection.SAISONS].insert_one({"_id": SAISON_ID, "status": saison_status, "rules": dict(RULES)})
             await database[Collection.TEAMS].insert_many([club_document(team_id) for team_id in CLUB_NAMES])
             await database[Collection.SAISON_TEAMS].insert_many([junction_document(ADLER, "A"), junction_document(BIEBER, "B"), *junctions])
-            await database.create_collection(Collection.SPIELE)
             if spiele:
                 await database[Collection.SPIELE].insert_many(list(spiele))
 
             return await body(database)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 

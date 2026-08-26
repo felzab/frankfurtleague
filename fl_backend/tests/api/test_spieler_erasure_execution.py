@@ -25,8 +25,8 @@ from app.api.spieler.schemas import (
 )
 from app.api.spieler.services import ERASURE_NOT_RETIRED
 from app.core.collections import Collection
-from app.core.constraints import apply_constraints
 from app.core.exceptions import DocumentConflictException
+from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
 
@@ -75,21 +75,15 @@ RULES = {
 Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on.
+def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
+    """The SHIPPED validators, so a document production would refuse fails here too, and every collection created.
 
-    The SHIPPED validators, so a document production would refuse fails here too, and every
-    collection created -- a transaction cannot, and `collMod` needs `aktionen` first.
+    `mutates_schema=True` where the body narrows one of those validators: `tests/database.py` then
+    keeps the change off every later test.
     """
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
-            await apply_constraints(database)
-
+        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             # Each season spans its own calendar year, so the two seeded spans do not overlap.
             await database[Collection.SAISONS].insert_many(
                 [
@@ -108,9 +102,6 @@ def on_a_league(url: str, body: Body) -> Any:
             )
 
             return await body(database, client)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 
@@ -521,7 +512,7 @@ class TestAHalfDoneErasureCommitsNothing:
                 await log_rows_naming(database, spieler_id),
             )
 
-        code, people, squad_rows, rows = on_a_league(mongo_replica_set_url, body)
+        code, people, squad_rows, rows = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         # Asserted on the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the redaction, got code {code}"

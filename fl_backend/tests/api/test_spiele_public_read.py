@@ -28,6 +28,7 @@ from app.core.config import API_VERSION
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.main import create_app
 from tests.config import build_test_config
+from tests.database import a_clean_database_sync
 
 ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
 BASE_AUTH = {"Authorization": "Bearer test-key-base"}
@@ -195,15 +196,13 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
 
     client = MongoClient(url)
     try:
-        client.drop_database(database_name)
-        database = client[database_name]
+        database = a_clean_database_sync(client, url, database_name)
         invalidate_saison_cache()
         database[Collection.SPIELE].insert_one(stored_document())
         database[Collection.SAISON_TEAMS].insert_one(junction_row())
 
         yield url
     finally:
-        client.drop_database(database_name)
         client.close()
 
 

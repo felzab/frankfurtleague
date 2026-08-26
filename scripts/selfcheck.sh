@@ -262,7 +262,7 @@ while IFS= read -r fn; do DEFINED["$fn"]=1; done \
 for f in "${RUNNABLE[@]}"; do
   [[ -f "scripts/$f" ]] || continue
   # Anything that looks like one of our helpers: our naming is consistent enough to enumerate.
-  called="$(grep -oE '\b(require_[a-z_]+|wait_healthy|image_[a-z_]+|git_[a-z_]+|any_python|venv_python|end_section|section|finish|refuse|add_findings|spinner_start|spinner_stop|fmt_duration|fmt_ms|excerpt|verbose|step|ok|info|skip|warn|fail|die|detail|quietly|usage|on_error|on_interrupt|emit_section_ledger|adopt_section|adopt_ending|end_worker|worker)\b' "scripts/$f" | sort -u || true)"
+  called="$(grep -oE '\b(require_[a-z_]+|wait_healthy|image_[a-z_]+|git_[a-z_]+|any_python|venv_python|end_section|section|finish|refuse|add_findings|spinner_start|spinner_stop|fmt_duration|fmt_ms|excerpt|verbose|step_took_ms|step|ok|info|skip|warn|fail|die|detail|quietly|usage|on_error|on_interrupt|emit_section_ledger|adopt_section|adopt_ending|end_worker|worker)\b' "scripts/$f" | sort -u || true)"
   missing=""
   while IFS= read -r fn; do
     [[ -z "$fn" ]] && continue

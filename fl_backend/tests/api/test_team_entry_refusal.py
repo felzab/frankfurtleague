@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spieler.schemas import FLSpielerStufe
@@ -20,6 +20,7 @@ from app.api.teams.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from tests.database import a_clean_database
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
@@ -131,22 +132,14 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
     """One client and event loop per call: Motor binds to the loop it first ran on."""
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
+        async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SAISON_TEAMS,)) as (_, database):
             await database[Collection.SAISONS].insert_one(
                 # Only what the endpoint reads: this database installs no validator, and the rest would be decoration.
                 {"_id": SAISON_ID, "status": saison_status, "rules": RULES.model_dump(mode="json")}
             )
             await database[Collection.TEAMS].insert_many([club_document(LIVE_OID, None), club_document(RETIRED_OID, "2026-03-01")])
-            await database.create_collection(Collection.SAISON_TEAMS)
 
             return await body(database)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 

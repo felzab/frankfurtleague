@@ -7,9 +7,9 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorClientSession, A
 from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
-from app.core.constraints import apply_constraints
 from app.core.crud import delete_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.recording import Operation
+from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
 
@@ -77,15 +77,8 @@ def on_a_database(container: Any, body: Body) -> Any:
     """One client and event loop per call: Motor binds to the loop it first runs on."""
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(container.get_connection_url())
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-            await apply_constraints(database)
+        async with a_clean_database(container.get_connection_url(), DATABASE_NAME, constraints=True) as (_, database):
             return await body(database)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 
@@ -100,15 +93,8 @@ def on_a_replica_set(url: str, body: ClientBody) -> Any:
     """
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-            await apply_constraints(database)
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             return await body(database, client)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 
