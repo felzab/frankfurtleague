@@ -7,6 +7,7 @@ import z from "zod";
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
@@ -79,7 +80,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
     }
 
     if (!patch_operation.acknowledged) {
-      return { success: false, error: "Die Spieldaten wurden nicht gespeichert. Versuche es erneut." };
+      return { success: false, error: buildRefusal({ reason: "Die Spieldaten wurden nicht gespeichert", repair: "Versuche es erneut" }) };
     }
 
     // Not redundant with the granular tags below: the default read path sends no `saison_id`, so

@@ -408,7 +408,7 @@ class TestComposingTheDisplayCopies:
         assert (patched.schiedsrichter.name, patched.schiedsrichter.payment) == (LIVE_REFEREE.name, 35)
 
     def test_an_unchanged_referee_keeps_the_fee_the_payload_states(self, season):
-        """The venue case's twin, and it is money: without the carry-through an edited Entschädigung dies in a save reporting success."""
+        """The venue case's twin, and it is money: without the carry-through an edited Honorar dies in a save reporting success."""
 
         booked = {"schiedsrichter_id": stored_spiel(season, 1)["schiedsrichter"]["schiedsrichter_id"], "payment": 45}
         patched = patched_spiel(season, 1, schiedsrichter=booked)

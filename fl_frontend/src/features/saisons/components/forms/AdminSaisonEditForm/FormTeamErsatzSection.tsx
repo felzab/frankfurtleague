@@ -20,6 +20,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { describePlatz, describeUebernommeneSpiele } from "./replacementOffer";
 
@@ -87,7 +88,7 @@ export function FormTeamErsatzSection({
       const res = await replaceSaisonTeamAction({ team_id: outgoing.teamId, saison_id: saisonId, incoming_team_id: incoming.id });
 
       if (!res.success) {
-        appToast.danger("Wechsel fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+        appToast.danger("Wechsel fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
         return;
       }
 

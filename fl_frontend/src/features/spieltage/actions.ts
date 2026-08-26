@@ -77,7 +77,7 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
     }
 
     if (!patchOperation.acknowledged) {
-      return { success: false, error: "Der Spieltag wurde nicht gespeichert. Versuche es erneut." };
+      return { success: false, error: buildRefusal({ reason: "Der Spieltag wurde nicht gespeichert", repair: "Versuche es erneut" }) };
     }
 
     invalidateSpieltage();

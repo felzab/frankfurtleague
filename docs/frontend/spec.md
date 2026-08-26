@@ -98,7 +98,7 @@ each hold one — because React's `cache` compares an argument by identity, so a
 at a call site would miss every time and memoize nothing.
 
 **`getAdminSpiel` is `GET /spiele/{spiel_id}/admin`, and it is one of the uncached reads above.** It
-serves the rent and the referee's Entschädigung, and it is the only fixture read that carries either —
+serves the rent and the referee's Honorar, and it is the only fixture read that carries either —
 the base-tier reads answer a fixture shape without them
 ([`docs/backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). It is admin-tier, so it is
 uncached for the reason the class above gives. Nothing is given up by that: the match editor is
@@ -658,8 +658,8 @@ sweeps the tree and separates the two cases by whether the file holds either fie
 
 #### The draft may hold what the wire refuses
 
-`fl_frontend/src/features/spiele/draftStatus.ts :: FLSpielDraftFields` lets a Mietpreis, an
-Entschädigung and a shoot-out count stand empty while the admin is typing, because `0` is a real value
+`fl_frontend/src/features/spiele/draftStatus.ts :: FLSpielDraftFields` lets a Mietpreis, a
+Honorar and a shoot-out count stand empty while the admin is typing, because `0` is a real value
 for each of them: an empty box reading as `0` is a 0 € venue and a side that took its kicks and missed
 every one. `FLPatchSpielDataPayload` allows none of them. **Two rules keep that gap off the wire, and
 they answer different questions.**

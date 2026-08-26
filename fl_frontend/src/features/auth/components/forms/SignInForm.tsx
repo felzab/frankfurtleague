@@ -8,6 +8,7 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { handleSignIn } from "../../actions";
 
@@ -30,7 +31,7 @@ export function SignInForm() {
     // No dismiss action and no hand-set timeout: the frontmost toast carries a close control, and
     // the duration follows the message length.
     appToast.danger("Anmeldung fehlgeschlagen", {
-      description: state.error ?? "Ein unerwarteter Fehler ist aufgetreten.",
+      description: state.error ?? UNKNOWN_REFUSAL,
     });
   }, [state]);
 

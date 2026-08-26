@@ -131,7 +131,7 @@ GUARD_CASES = [
 
 @pytest.mark.parametrize(("path", "headers", "error_code"), GUARD_CASES)
 def test_the_wrong_key_is_refused_by_the_guard_of_the_route_that_matched(path: str, headers: Mapping[str, str], error_code: str):
-    """A base credential reaching the admin read is the failure that matters: it carries the rent and the referee's Entschädigung."""
+    """A base credential reaching the admin read is the failure that matters: it carries the rent and the referee's Honorar."""
 
     response = answered(UNANSWERED_URI, path, headers, selection_timeout_ms=UNANSWERED_SELECTION_MS)
 

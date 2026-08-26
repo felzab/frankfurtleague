@@ -131,7 +131,7 @@ function FacetCell<TItem>({
         // without it the list refuses to shrink and the cell overflows.
         className="scrollbar-line min-h-0 overflow-x-hidden overflow-y-auto"
         selectedKeys={picked}
-        renderEmptyState={() => <p className="fluid-xs text-foreground-muted px-3 py-2 font-bold italic">Keine Option gefunden</p>}
+        renderEmptyState={() => <p className="fluid-xs text-foreground-muted px-3 py-2 font-bold italic">Keine Optionen</p>}
         // `"all"` is only reachable by passing `selectedKeys="all"`, which this never does — hence a map, not a cast.
         onSelectionChange={(keys: Selection) => {
           onSelect(keys === "all" ? [] : [...keys].map(String));
