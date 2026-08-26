@@ -60,6 +60,11 @@ LABEL_SAMPLE: Final = "fl_backend/app/label.py"
 # The one C-style module in the corpus. A JSX comment opens with a brace, so no other fixture puts
 # that shape in front of the reader, and it is bounded as an inline comment rather than a symbol doc.
 TSX_SAMPLE: Final = "fl_frontend/src/sample.tsx"
+# The one file carrying German a reader would see. It holds the date range as well, that being the
+# only dash §1.12 permits and the only thing keeping the formatter exemption from reading as stale.
+COPY_SAMPLE: Final = "fl_frontend/src/copy.tsx"
+# What a copy-rules finding names when the corpus rather than one file is the subject.
+COPY_ROOT: Final = "fl_frontend/src"
 # A tracked path no ASCII listing can spell: without `git ls-files -z` it comes back quoted, resolves
 # to nothing, and drops out of the scan with whatever it carried.
 UMLAUT_MODULE: Final = "fl_backend/app/übersicht.py"
@@ -439,6 +444,12 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
         TSX_SAMPLE: _page(
             "export function Sample() {",
             "  return <output>a component the corpus scans</output>;",
+            "}",
+        ),
+        COPY_SAMPLE: _page(
+            "export function Copy() {",
+            "  const zeitraum = `${formatSpielDatum(start)} – ${formatSpielDatum(ende)}`;",
+            '  return <p title="Der Zeitraum dieser Saison, und nichts weiter.">{zeitraum}</p>;',
             "}",
         ),
         TOML_CONFIG: _page(
@@ -1114,6 +1125,31 @@ def _plant_stamp_formats() -> None:
     _replace(FRONTEND_OVERVIEW, _stamp_line(FRONTEND_OVERVIEW), "\n" + _stamp_line(FRONTEND_OVERVIEW), restamp=True)
 
 
+def _plant_copy_dash() -> None:
+    """A spaced em dash in rendered German, the shape that shipped three times."""
+    _append(COPY_SAMPLE, 'export const WEG = "Der Eintrag ist weg — das lässt sich nicht mehr holen.";')
+
+
+def _plant_copy_formal() -> None:
+    """`Sie` where no sentence opens, which no third person accounts for."""
+    _append(COPY_SAMPLE, 'export const BITTE = "Bitte prüfen Sie die Angaben und speichere erneut.";')
+
+
+def _plant_copy_term() -> None:
+    """The retired word for a club, in both the forms the sweep reads."""
+    _append(COPY_SAMPLE, 'export const WER = "Die Mannschaft steht in dieser Gruppe.";')
+    _append(COPY_SAMPLE, 'export const ALLE = "Alle Mannschaften stehen in der Tabelle.";')
+
+
+def _plant_copy_corpus() -> None:
+    """A corpus with no German left in it, and so no date range to exempt either.
+
+    Both producers at once: the scan going quiet and an exemption outliving what it exempted are
+    the same failure seen from two ends.
+    """
+    _write(_gate().root, COPY_SAMPLE, _page('export const SAMPLE = "a rendered string, and no reader in sight";'))
+
+
 def _plant_comment_bounds() -> None:
     """Each of INC-9's bounds against each of its shapes, one file apiece.
 
@@ -1195,6 +1231,10 @@ CASES: Final[tuple[Case, ...]] = (
         _plant_comment_citations,
     ),
     Case("comment-length", _fails("comment-length", SAMPLE, SECOND_SAMPLE, THIRD_SAMPLE, LABEL_SAMPLE, TSX_SAMPLE), _plant_comment_bounds),
+    Case("copy-corpus", _fails("copy-corpus", COPY_ROOT, COPY_ROOT), _plant_copy_corpus),
+    Case("copy-dash", _fails("copy-dash", COPY_SAMPLE), _plant_copy_dash),
+    Case("copy-formal", _fails("copy-formal", COPY_SAMPLE), _plant_copy_formal),
+    Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
     Case("counts", _reports("counts", NOTES, SAMPLE), _plant_counts),
     Case("enforced-by", _fails("enforced-by", CORE, RULES_INDEX), _plant_enforced_by),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),

@@ -812,21 +812,21 @@ splits the draw's one window for exactly that reason: the recorded half a fixtur
 ([`docs/backend/spec.md`](../backend/spec.md) I46) is worded as a state, and the half `status` closes as a
 boundary.
 
-**Only the dash rule can be checked mechanically, and the date-range exception is checkable with it.**
-The characters the rule forbids stand between spaces or alone in a JSX text node, and the hyphen it
-permits has a word character on both sides, so a check separates those two without knowing whether the
-string reaches a reader. The exception is visible on the same terms: a permitted en dash has a date on
-each side, which in this codebase means a `formatSpielDatum` call or a literal `dd.mm.yyyy`, so a check
-would allow a dash flanked by those and flag every other one. **Two things such a check has to get
-right**: the flanking dates are siblings rather than neighbours in one string wherever a span is built
-from separate elements, as `renderZeitraum` in the seasons table builds it; and recognising a date by
-the name of the function that formats it couples the check to that name, so a second date formatter
-would need adding to it rather than being caught by it.
+**Three of these rules are held mechanically, by the documentation gate's `copy-dash`, `copy-term` and
+`copy-formal` checks** — the dash rule with its date-range exception, the `Mannschaft` ban, and
+`Sie`/`Ihr` wherever no sentence opens, German capitalising a sentence's first word whatever it is.
+`scripts/docs_gate/copy_rules.py` holds what each admits and what it deliberately lets past; its corpus
+is every string literal and JSX element of `fl_frontend/src`, comments and tests excluded. **Two things
+it has to get right, and does**: the flanking dates of a permitted en dash are siblings rather than
+neighbours in one string wherever a span is built from separate elements, as `renderZeitraum` in the
+seasons table builds it; and recognising a date by the name of the function that formats it couples the
+check to that name, so `copy-corpus` fails when `formatSpielDatum` stops matching rather than letting
+the exception widen unseen.
 
-**Every other rule here holds by review.** A lint over the pronouns, over grammatical agreement or over
-register would first have to know which string literals are user-facing, and nothing in the tree marks
-that; one over a list's completeness would additionally have to know what the surface it describes offers,
-which sits in a different file from the sentence describing it every time.
+**Every other rule here holds by review.** A lint over grammatical agreement or over register would
+first have to know which string reaches a reader and in what company; one over a list's completeness
+would additionally have to know what the surface it describes offers, which sits in a different file
+from the sentence describing it every time.
 
 ### 1.13 Metadata and indexing
 
