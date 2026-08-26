@@ -17,7 +17,7 @@ export function AdminCrudEmptyCard({ message }: { message: string }) {
 /**
  * The same message inside the table above `md`. **One row tall, and it has to build that height
  * itself**: react-aria writes the empty `<td>` with no class at all, so neither the cell's inset nor
- * `ROW_ACTION_SIZE` — what makes a real row 72px — reaches it.
+ * `ROW_ACTION_SIZE` reaches it.
  */
 export function AdminCrudEmptyRow({ message }: { message: string }) {
   return (
