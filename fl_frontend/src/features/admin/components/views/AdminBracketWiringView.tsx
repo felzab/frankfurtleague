@@ -103,7 +103,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
       <div className="max-w-page mx-auto flex w-full flex-col gap-6 px-3 py-4 sm:p-8">
         <EmptyState
           title="Noch keine Finalrunden"
-          hint="Sobald die Spieltage der KO-Runde angelegt sind, steht hier ihre Verweisstruktur."
+          hint="Sobald die Spieltage der KO-Runde angelegt sind, steht hier, woher jede Seite kommt."
         />
       </div>
     );
@@ -130,10 +130,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
           </div>
 
           {round.spiele.length === 0 ? (
-            <EmptyState
-              title="Für diese Runde sind noch keine Spiele angelegt."
-              hint="Ohne Spiele gibt es auch keine Verweise zu prüfen."
-            />
+            <EmptyState title="Noch keine Spiele in dieser Runde" />
           ) : (
             <Table
               variant="secondary"
@@ -205,7 +202,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                             <IconTooltip label="Spiel bearbeiten">
                               <Link
                                 href={adminSpielEditHref(spiel.id)}
-                                aria-label={`Spiel Nr.${spiel.spiel_nr} bearbeiten`}
+                                aria-label={`Spiel Nr. ${spiel.spiel_nr} bearbeiten`}
                                 className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid-hover flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-xl shadow-sm transition-colors duration-200 md:h-[38px] md:w-[38px]">
                                 <PencilToSquare className="m-0 size-5" />
                               </Link>

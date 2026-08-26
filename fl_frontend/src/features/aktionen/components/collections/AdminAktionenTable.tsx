@@ -195,7 +195,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
           <Table.ScrollContainer className="scrollbar-hide">
-            <Table.Content aria-label="Tabelle aller aufgezeichneten Änderungen">
+            <Table.Content aria-label="Alle aufgezeichneten Änderungen">
               <Table.Header>
                 <Table.Column
                   isRowHeader

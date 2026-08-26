@@ -145,7 +145,7 @@ export function AdminSpieleActionRequiredView({
           {/* `InfoHint` and not `IconTooltip`: react-aria's tooltip opens on hover and focus and never
               on tap, so on the phone this page is worked from it would be unreachable. It reads the
               active section, so one glyph serves every category. */}
-          <InfoHint label={`Was "${ACTION_REQUIRED_LABELS[activeSection.category].name}" umfasst`}>
+          <InfoHint label={`Was „${ACTION_REQUIRED_LABELS[activeSection.category].name}“ umfasst`}>
             <p>
               <strong>{ACTION_REQUIRED_LABELS[activeSection.category].name}</strong>
             </p>
