@@ -4,6 +4,7 @@ import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
 
 import { FieldError, InputGroup, Label, TextField } from "@heroui/react";
 
+import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { FIELD_ERROR, FIELD_HEIGHT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { ExternalUrlSchema } from "@/shared/schemas";
@@ -42,6 +43,17 @@ export function WebsiteUrlField({
     onChange(rest === "" ? "" : `https://${rest}`);
   };
 
+  const openLink = (
+    <a
+      {...(isFollowable ? { href: value, target: "_blank", rel: "noopener noreferrer" } : { "aria-disabled": true })}
+      aria-label="Website in neuem Tab öffnen"
+      className={`flex size-7 shrink-0 items-center justify-center rounded-md transition-colors ${
+        isFollowable ? "text-foreground-muted hover:text-brand cursor-pointer" : "text-foreground-muted/40 cursor-not-allowed"
+      }`}>
+      <ArrowUpRightFromSquare className="size-4" />
+    </a>
+  );
+
   return (
     <TextField
       name="website_url"
@@ -50,30 +62,30 @@ export function WebsiteUrlField({
       onBlur={() => onFieldLeft?.()}
       isInvalid={error ? true : undefined}>
       {labelSlot ?? <Label className={FIELD_LABEL}>Website</Label>}
-      <InputGroup
-        fullWidth
-        className={`border-border bg-surface text-foreground ${FIELD_HEIGHT} rounded-lg border transition-colors`}>
-        {/* Muted, because it is furniture: always there, never editable. */}
-        <InputGroup.Prefix className="text-foreground-muted fluid-sm border-border self-stretch border-r pr-2 select-none">
-          https://
-        </InputGroup.Prefix>
-        <InputGroup.Input
-          placeholder="www.beispielverein.de"
-          className="fluid-sm ps-2"
-        />
-        <InputGroup.Suffix>
-          <IconTooltip label={isFollowable ? "Link in neuem Tab öffnen" : "Erst eine gültige Adresse eingeben"}>
-            <a
-              {...(isFollowable ? { href: value, target: "_blank", rel: "noopener noreferrer" } : { "aria-disabled": true })}
-              aria-label="Website in neuem Tab öffnen"
-              className={`flex size-7 shrink-0 items-center justify-center rounded-md transition-colors ${
-                isFollowable ? "text-foreground-muted hover:text-brand cursor-pointer" : "text-foreground-muted/40 cursor-not-allowed"
-              }`}>
-              <ArrowUpRightFromSquare className="size-4" />
-            </a>
-          </IconTooltip>
-        </InputGroup.Suffix>
-      </InputGroup>
+      {/* Beside the group, never in its suffix: HeroUI's vendored `input-group.js` focuses the input on every click
+          inside the group's box, so a press in the suffix leaves the field typable behind the tab it opened. */}
+      <div className="flex w-full flex-row items-center gap-x-2">
+        {/* `flex-1` over `fullWidth`'s `w-full`, so the shrinking lands here and the link keeps its own 28px. */}
+        <InputGroup
+          fullWidth
+          className={`border-border bg-surface text-foreground ${FIELD_HEIGHT} min-w-0 flex-1 rounded-lg border transition-colors`}>
+          {/* Muted, because it is furniture: always there, never editable. */}
+          <InputGroup.Prefix className="text-foreground-muted fluid-sm border-border self-stretch border-r pr-2 select-none">
+            https://
+          </InputGroup.Prefix>
+          <InputGroup.Input
+            placeholder="www.beispielverein.de"
+            className="fluid-sm ps-2"
+          />
+        </InputGroup>
+        {/* The pair `RowActionDelete` splits, for its reason: the live link's label names what its own press does,
+            while a refusal has no press of its own to arrive on, so the hint has to take the press instead. */}
+        {isFollowable ? (
+          <IconTooltip label="Link in neuem Tab öffnen">{openLink}</IconTooltip>
+        ) : (
+          <DisabledHint reason="Erst eine gültige Adresse eingeben">{openLink}</DisabledHint>
+        )}
+      </div>
       <FieldError className={FIELD_ERROR}>{error}</FieldError>
     </TextField>
   );

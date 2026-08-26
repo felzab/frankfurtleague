@@ -3,6 +3,7 @@
 import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
 
 import { AddressFields } from "@/shared/components/ui/AddressFields";
+import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
@@ -27,30 +28,36 @@ export function FormAdresseSection({
   const panel = formPanel();
   const isSearchable = address.strasse.trim() !== "" && address.stadt.trim() !== "";
 
+  const mapsLink = (
+    <a
+      {...(isSearchable
+        ? { href: buildMapsSearchUrl(formatAddressFull(address)), target: "_blank", rel: "noopener noreferrer" }
+        : { "aria-disabled": true })}
+      aria-label="Eingegebene Adresse auf Google Maps öffnen"
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
+        isSearchable ? "text-foreground-muted hover:bg-hover hover:text-brand cursor-pointer" : "text-foreground-muted/40 cursor-not-allowed"
+      }`}>
+      {/* The website field's glyph, so "opens elsewhere" has one icon on this page. */}
+      <ArrowUpRightFromSquare
+        aria-hidden="true"
+        width={18}
+        height={18}
+      />
+    </a>
+  );
+
   return (
     <section className={panel.root()}>
       {/* `relative` + an absolutely placed control, so the h2 keeps every other panel heading's flow. */}
       <div className={`${panel.header()} relative`}>
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
-          <IconTooltip label={isSearchable ? "Adresse auf Google Maps öffnen" : "Erst Straße und Stadt eingeben"}>
-            <a
-              {...(isSearchable
-                ? { href: buildMapsSearchUrl(formatAddressFull(address)), target: "_blank", rel: "noopener noreferrer" }
-                : { "aria-disabled": true })}
-              aria-label="Eingegebene Adresse auf Google Maps öffnen"
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
-                isSearchable
-                  ? "text-foreground-muted hover:bg-hover hover:text-brand cursor-pointer"
-                  : "text-foreground-muted/40 cursor-not-allowed"
-              }`}>
-              {/* The website field's glyph, so "opens elsewhere" has one icon on this page. */}
-              <ArrowUpRightFromSquare
-                aria-hidden="true"
-                width={18}
-                height={18}
-              />
-            </a>
-          </IconTooltip>
+          {/* The pair `RowActionDelete` splits, for its reason: the live link's label names what its own press does,
+              while a refusal has no press of its own to arrive on, so the hint has to take the press instead. */}
+          {isSearchable ? (
+            <IconTooltip label="Adresse auf Google Maps öffnen">{mapsLink}</IconTooltip>
+          ) : (
+            <DisabledHint reason="Erst Straße und Stadt eingeben">{mapsLink}</DisabledHint>
+          )}
         </span>
         <h2 className={panel.heading()}>
           Adresse
