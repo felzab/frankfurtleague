@@ -99,10 +99,7 @@ export function FormRolloverSection({
             label="Hinweis zur Umstellung"
             body={{
               lead: "Die Umstellung macht diese Saison zur laufenden Saison.",
-              points: [
-                { text: "Wer keine Saison auswählt, sieht danach diese." },
-                { term: "Die Spiele der alten Saison", text: "bleiben danach bearbeitbar." },
-              ],
+              points: [{ term: "Die Spiele der alten Saison", text: "bleiben danach bearbeitbar." }],
             }}
           />
         </h2>

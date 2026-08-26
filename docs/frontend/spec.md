@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `f6073b6f`, 2026-08-26\
+**Verified against:** `11107ca7`, 2026-08-26\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -449,7 +449,7 @@ values.
 
 | Variable                                       | Constraint                                           |
 | ---------------------------------------------- | ---------------------------------------------------- |
-| `API_URL`                                      | URL                                                  |
+| `API_URL`                                      | URL; must not share `AUTH_URL`'s origin              |
 | `API_VERSION`                                  | integer                                              |
 | `MONGODB_URI`                                  | must start `mongodb://` or `mongodb+srv://`          |
 | `AUTH_URL`                                     | URL; **must be https** unless it points at localhost |
@@ -465,6 +465,11 @@ The `AUTH_URL` https rule exists because `@auth/core` derives the session cookie
 that URL's protocol, so a stray `http://` value would ship an admin session cookie in plaintext. It is
 gated on hostname rather than `NODE_ENV`, because the local stack runs the production image against
 `http://localhost:3000`.
+
+The `API_URL` origin rule exists because nginx blanks `X-FL-Actor` on everything it proxies, so an
+`API_URL` standing on the public origin `AUTH_URL` names would reach the backend stripped of the actor
+header, and every admin write would be refused before its handler runs
+([`docs/backend/spec.md`](../backend/spec.md) I41). Caught at boot rather than at the first write.
 
 `AUTH_TRUST_HOST` is deliberately **not** declared: `@auth/core` reads `AUTH_URL` first in the same
 chain, and `AUTH_URL` is mandatory, so the variable can never be reached.
@@ -758,6 +763,15 @@ about the value, and a FORM message is two with the action second. Field message
 "Bitte" stays ("Bitte gib einen Namen ein."): a field nudges toward input, a banner refuses it, and
 softening a refusal blurs which of the two the reader is looking at.
 
+**That FORM shape is built rather than written**:
+`fl_frontend/src/shared/utils/refusal.ts :: buildRefusal` composes the two sentences from a reason and a
+repair, and every `actions.ts` with a write path reaches it. **The panel a repair names is framed inside
+the helper**, never at the call site, so no caller pairs an article with a heading — `DraftRail`'s
+`nomen` prop settles the same problem the same way (§1.14). Where a separable verb has to close the
+clause the caller hands over a `{ before, after }` pair instead, its own clause shape being the one
+thing the helper cannot know. `:: UNKNOWN_REFUSAL` is what stands under a failure nothing can name a
+cause for, and `fl_frontend/src/shared/utils/refusal.test.ts` pins what each composes to.
+
 **No dash is punctuation** (my rule, 2026-08-13): not the em dash `—`, not the en dash `–`, and not a
 hyphen standing between spaces. A dash that carried a real break is **rewritten**, most often into two
 sentences and sometimes into a comma or a colon. Deleting one is not rewriting it, because a sentence
@@ -841,8 +855,7 @@ it. The question is never "how do I say this in fewer words" but "which of these
 Where a sentence cannot be shortened without becoming untrue, that is the sentence to delete, not the one
 to squeeze: saying less is always available, saying something false is not.
 
-Six
-diagnostics decide _whether_ a sentence belongs:
+Six diagnostics decide _whether_ a sentence belongs:
 
 1. **No justification.** A sentence opening `Damit`, `So`, `Dadurch` or `weil`, or an `aber` walking back
    the sentence before it, explains the design rather than the thing.
@@ -878,7 +891,7 @@ to read two files and recognise a paraphrase, so it is stated here rather than m
 whatever it is, and the `Du` family lower-cased anywhere, which needs no opener carve-out at all
 because a lowercase word never opens a German sentence.
 `scripts/docs_gate/copy_rules.py` holds what each admits and what it deliberately lets past; its corpus
-is every string literal and JSX element of `fl_frontend/src`, comments and tests excluded. **Two things
+is every string literal and JSX element of `fl_frontend/src`, comments and tests excluded. **Three things
 it has to get right, and does**: the flanking dates of a permitted en dash are siblings rather than
 neighbours in one string wherever a span is built from separate elements, as `renderZeitraum` in the
 seasons table builds it; recognising a date by the name of the function that formats it couples the
@@ -894,8 +907,9 @@ from the sentence describing it every time.
 
 ### 1.13 Metadata and indexing
 
-Every public route sets its own `title`, `description` and canonical; `metadataBase` in the root layout is
-what lets the canonicals be paths. **No route under `/admin` sets any**, so the whole admin tree inherits.
+Every public route sets its own `title`, `description` and canonical, the homepage excepted: the root
+layout's own three ARE the homepage's, its canonical being `/`. `metadataBase` there is what lets the
+canonicals be paths. **No route under `/admin` sets any**, so the whole admin tree inherits.
 The consequences worth knowing before editing metadata:
 
 - **A route that sets no metadata inherits the root layout's, canonical included**, so an unset canonical

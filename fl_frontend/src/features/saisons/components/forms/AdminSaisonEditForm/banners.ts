@@ -40,13 +40,13 @@ export function buildSaisonBanners({
   const banners: SaisonBanner[] = [];
 
   if (saisonStatus === "active") {
-    // Two facts that do not follow from each other, hence one entry rather than two: this season is
-    // what every page without a selector shows, and its table is scored on read rather than stored.
+    // The retroactive reach is what the form cannot show: the rules fields look like any other
+    // edit, and a change to them re-scores Spiele that were already played under the old ones.
     banners.push({
       id: "saison.active",
       severity: "info",
       title: "Änderungen wirken sofort auf der ganzen Seite",
-      body: "Wer keine Saison auswählt, sieht diese. Eine Regeländerung zählt auch für längst gespielte Spiele.",
+      body: "Eine Regeländerung zählt auch für längst gespielte Spiele.",
       inline: "regeln-status",
     });
   }
