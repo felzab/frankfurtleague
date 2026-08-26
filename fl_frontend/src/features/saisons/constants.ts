@@ -78,7 +78,7 @@ export const TIEBREAK_ORDER_OPTIONS: readonly TiebreakOption[] = [
         label: "Die Spiele der punktgleichen Teams untereinander",
         // `_break_tie` recomputes the mini-table over the teams still level and drops it whole where
         // they have not all met, so what is left below this rung is a genuine tie.
-        caveat: "Nur wenn alle schon gegeneinander gespielt haben. Sonst bleibt es ein Gleichstand.",
+        caveat: "Nur wenn alle schon gegeneinander gespielt haben.",
       },
     ],
   },

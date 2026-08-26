@@ -15,8 +15,8 @@ const ARMED = (SOURCE.split("<ConfirmReveal>")[1] ?? "").split("</ConfirmReveal>
 /** The armed alert's scope section alone, which is the half the new numbers invalidate. */
 const ENTSTEHT = ARMED.split("Daraus entsteht")[1] ?? "";
 
-/** The panel's own hint, where the conditions on a replace are spelled out for a reader. */
-const HINWEIS = (SOURCE.split("Hinweis zum Spielplan")[1] ?? "").split("</InfoHint>")[0] ?? "";
+/** The panel's own hint, which stands in the heading and ends with it. */
+const HINWEIS = (SOURCE.split("Hinweis zum Spielplan")[1] ?? "").split("</h2>")[0] ?? "";
 
 describe("the draw half of the Spielplan panel", () => {
   /* First, because a boundary string that stopped matching leaves the slices empty — and half the
@@ -24,7 +24,7 @@ describe("the draw half of the Spielplan panel", () => {
   it("cuts the armed alert, its scope section and the hint out of the file before reading them", () => {
     assert.ok(ARMED.includes("Daraus entsteht"), "the armed alert's readout is outside its slice");
     assert.ok(ENTSTEHT.includes("<dl"), "the scope section is outside its slice");
-    assert.ok(HINWEIS.includes("<li>"), "the hint's list is outside its slice");
+    assert.ok(HINWEIS.includes("points: ["), "the hint's bullets are outside its slice");
   });
 
   /* Hardcode the flag and this fails: `false` asks for a draw the endpoint refuses, `true` confirms
@@ -86,11 +86,12 @@ describe("the draw half of the Spielplan panel", () => {
     assert.match(ARMED, /zusammen mit dem Spielplan gespeichert/);
   });
 
-  /* The shared sentence and never a copy of it: six call sites spell this list, and the categories
-     themselves are pinned by `fl_frontend/src/features/saisons/utils.test.ts`. */
-  it("renders the shared list rather than spelling its own", () => {
-    assert.match(HINWEIS, /\{RECORDED_FACTS_NONE\}/);
-    assert.doesNotMatch(HINWEIS, /kein Ergebnis/, "the panel spells the list a second time");
+  /* The window is named where it bites, through `blockedReasons.ts`'s shared sentence, and never
+     spelled a second time here. The categories themselves are pinned by
+     `fl_frontend/src/features/saisons/utils.test.ts`. */
+  it("names the window through the shared reason rather than spelling its own list", () => {
+    assert.match(SOURCE, /\{closedReason\}/);
+    assert.doesNotMatch(SOURCE, /kein Ergebnis/, "the panel spells the recorded-fact list a second time");
   });
 
   /* Lift the deletion readout out of its branch and a first draw claims to remove matchdays and

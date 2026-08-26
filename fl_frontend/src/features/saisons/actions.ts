@@ -54,9 +54,8 @@ const FORFEIT_CANNOT_DECIDE =
  * down to the odd one and a smaller number does not always buy a day back.
  */
 const SPAN_BELOW_SCHEDULE =
-  "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben: je ein Spieltag für jede Runde " +
-  "der Gruppenphase und für jede KO-Runde. Zwei Spieltage dürfen nicht auf denselben Tag fallen. Verlege das Enddatum nach " +
-  "hinten oder das Startdatum nach vorne. Das hilft in jedem Fall.";
+  "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben. Verlege das Enddatum nach " +
+  "hinten oder das Startdatum nach vorne; das hilft in jedem Fall.";
 
 /** A stored-rules fault as the generator must report it: the rule, then where it is repaired. */
 const rulesFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Regeln und speichere sie.`;
@@ -270,7 +269,7 @@ export async function postSaisonAction(
     return {
       success: true,
       created_id: postOperation.created_id,
-      message: `Saison ${postOperation.created_id} angelegt. Sie ist geplant, noch nicht aktiv.`,
+      message: `Saison ${postOperation.created_id} angelegt. Zur laufenden Saison wird sie erst mit der Umstellung.`,
     };
   });
 }

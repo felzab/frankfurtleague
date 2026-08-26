@@ -16,7 +16,7 @@ import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -110,37 +110,19 @@ export function FormTeamErsatzSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Team ersetzen
-          <InfoHint label="Hinweis zum Ersetzen">
-            <p>Ein Team gibt seinen Platz in dieser Saison an ein anderes ab. Der Spielplan bleibt dabei stehen.</p>
-            <ul>
-              <li>
-                Das nachrückende Team übernimmt <strong>Gruppe</strong>, Gegner, Termine und Orte des ausscheidenden Teams. Kein Spiel wird
-                gelöscht, keines verschoben.
-              </li>
-              <li>
-                Ein eingetragener <strong>Austritt</strong> wird dabei aufgehoben: Der Platz gehört danach dem nachrückenden Team, und das ist
-                dabei.
-              </li>
-              <li>
-                Die <strong>Kadereinträge</strong> des ausscheidenden Teams werden ausgetragen: Seine Spieler stehen danach in keinem Kader
-                dieser Saison mehr. Sie wechseln nicht mit, ihre Anmeldung in der Liga bleibt bestehen, und das nachrückende Team meldet seinen
-                Kader selbst.
-              </li>
-              <li>
-                Sobald das ausscheidende Team in dieser Saison <strong>gespielt</strong> hat, geht es nicht mehr: Ein Ergebnis, Tore, ein
-                Abbruch oder ein Nichtantreten würde dem nachrückenden Team zugeschrieben. Trage dann stattdessen unten auf der eigenen
-                Team-Seite des ausscheidenden Teams einen Austritt ein.
-              </li>
-              <li>
-                Steht in der Saison ein Platz, zu dem es <strong>keine Teamdaten</strong> mehr gibt, lässt er sich nur hier vergeben: Ein
-                solches Team hat keine eigene Seite.
-              </li>
-              <li>
-                Es gibt in der Verwaltung keinen Weg zurück. Der aufgehobene Austritt und die ausgetragenen Kadereinträge kommen auch dann nicht
-                zurück, wenn Du die beiden Teams anschließend erneut wechselst.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Ersetzen"
+            body={{
+              lead: "Ein Team gibt seinen Platz in dieser Saison an ein anderes ab.",
+              points: [
+                { term: "Das nachrückende Team", text: "übernimmt Gruppe, Gegner, Termine und Orte." },
+                { term: "Kein Spiel", text: "wird dabei gelöscht oder verschoben." },
+                { term: "Ein eingetragener Austritt", text: "wird aufgehoben." },
+                { term: "Die Kadereinträge des ausscheidenden Teams", text: "werden ausgetragen." },
+              ],
+            }}
+          />
         </h2>
       </div>
 
@@ -162,24 +144,22 @@ export function FormTeamErsatzSection({
           <Callout
             severity="info"
             title="Die Saison ist zu weit">
-            Ersetzen lässt sich nur ein Team, das in dieser Saison noch nicht gespielt hat, und das trifft auf keines mehr zu. Jedes Ergebnis
-            gehört dem Team, das es geholt hat. Trage für ein ausscheidendes Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt
-            ein.
+            Ersetzen lässt sich nur ein Team, das in dieser Saison noch nicht gespielt hat, und das trifft auf keines mehr zu. Trage für ein
+            ausscheidendes Team stattdessen unten auf seiner Teamseite einen Austritt ein.
           </Callout>
         ) : !hasPickableCandidate ? (
           <Callout
             severity="info"
             title="Kein Team zum Nachrücken">
-            Nachrücken kann nur ein Team, das in dieser Saison noch nicht dabei und nicht stillgelegt ist. Zurzeit gibt es keines. Lege über die
-            Teamseite ein neues an oder reaktiviere ein stillgelegtes.
+            Nachrücken kann nur ein Team, das in dieser Saison noch nicht dabei und nicht stillgelegt ist. Lege über die Teamseite ein neues an
+            oder reaktiviere ein stillgelegtes.
           </Callout>
         ) : (
           <>
             <p
               id={PAIR_LABEL_ID}
               className="fluid-sm text-foreground font-medium">
-              Wähle das Team, das ausscheidet, und das Team, das seinen Platz übernimmt. Der Spielplan dieser Saison bleibt dabei stehen: Das
-              nachrückende Team spielt die Spiele, die schon angesetzt sind.
+              Wähle das Team, das ausscheidet, und das Team, das seinen Platz übernimmt.
             </p>
 
             {/* One group rather than two fields, the swap's reason: the handover is one decision over
@@ -190,7 +170,7 @@ export function FormTeamErsatzSection({
               className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
               <RefusableSelect
                 label="Ausscheidendes Team"
-                placeholder="Team wählen"
+                placeholder="z.B. FC Beispiel"
                 value={outgoingOptions.find((option) => option.id === outgoingId) ?? null}
                 options={outgoingOptions}
                 onChange={(id) => {
@@ -212,7 +192,7 @@ export function FormTeamErsatzSection({
               </div>
               <RefusableSelect
                 label="Nachrückendes Team"
-                placeholder="Team wählen"
+                placeholder="z.B. FC Beispiel"
                 value={incomingOptions.find((option) => option.id === incomingId) ?? null}
                 options={incomingOptions}
                 onChange={(id) => {
@@ -227,9 +207,8 @@ export function FormTeamErsatzSection({
               <Callout
                 severity="info"
                 title="Zu diesem Team gibt es keine Daten mehr">
-                Der Platz steht in der Saison, das Team dahinter ist aber nicht mehr angelegt: Es hat keine eigene Seite, und seine Gruppe lässt
-                sich hier nicht anzeigen. Der Wechsel gibt den Platz trotzdem weiter. Das nachrückende Team steht danach in der Gruppe, die auf
-                dem Platz eingetragen ist.
+                Der Platz steht in der Saison, das Team dahinter ist aber nicht mehr angelegt. Der Wechsel gibt den Platz trotzdem weiter: Das
+                nachrückende Team steht danach in der Gruppe, die auf dem Platz eingetragen ist.
               </Callout>
             )}
 
@@ -298,11 +277,11 @@ export function FormTeamErsatzSection({
               {/* Adjacent to the control it describes, and pointed at by `aria-describedby` — the swap's
                   treatment for a control disabled for a reason the page already shows. */}
               {!isReplacing && isMissingAPick && (
-                <p
-                  id={BUTTON_HINT_ID}
-                  className="fluid-xxs text-foreground-muted leading-normal font-medium">
-                  {missingPickHint}
-                </p>
+                <Hint
+                  mode="inline"
+                  describes={BUTTON_HINT_ID}
+                  text={missingPickHint}
+                />
               )}
             </div>
           </>

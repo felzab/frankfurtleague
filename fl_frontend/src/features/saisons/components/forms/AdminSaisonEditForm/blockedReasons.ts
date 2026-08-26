@@ -130,7 +130,8 @@ export function rolloverBlockedReason({
 
   // Nothing holds `active` on a fresh database, so there is no outgoing season to be unfinished and
   // that first rollover stays live.
-  if (outgoingSaisonId !== null && offeneSpieleCount > 0) return "Umstellen geht erst, wenn die laufende Saison keine offenen Spiele mehr hat.";
+  if (outgoingSaisonId !== null && offeneSpieleCount > 0)
+    return "Umstellen geht erst, wenn die laufende Saison keine offenen Spiele mehr hat. Trage die fehlenden Ergebnisse ein oder sage die Spiele ab.";
 
   return null;
 }

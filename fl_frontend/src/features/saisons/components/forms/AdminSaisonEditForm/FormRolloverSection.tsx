@@ -12,10 +12,9 @@ import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { confirmButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -94,18 +93,17 @@ export function FormRolloverSection({
         </span>
         <h2 className={panel.heading()}>
           Umstellung
-          <InfoHint label="Hinweis zur Umstellung">
-            <p>Die Umstellung macht diese Saison zur laufenden Saison.</p>
-            <ul>
-              <li>
-                Die bisher laufende Saison wird im <strong>gleichen Schritt</strong> abgeschlossen.
-              </li>
-              <li>
-                Wer keine Saison auswählt, sieht danach <strong>diese</strong>.
-              </li>
-              <li>Offene Spiele der alten Saison bleiben offen und bleiben bearbeitbar.</li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zur Umstellung"
+            body={{
+              lead: "Die Umstellung macht diese Saison zur laufenden Saison.",
+              points: [
+                { text: "Wer keine Saison auswählt, sieht danach diese." },
+                { term: "Die Spiele der alten Saison", text: "bleiben danach bearbeitbar." },
+              ],
+            }}
+          />
         </h2>
       </div>
 
@@ -116,8 +114,8 @@ export function FormRolloverSection({
           <Callout
             severity="info"
             title="Diese Saison ist abgeschlossen">
-            Eine abgeschlossene Saison wird nicht wieder zur laufenden Saison. Ihre Punkte, ihre Gruppen und die Tabelle daraus halten fest, was
-            gespielt wurde, und eine Umstellung würde alle drei wieder öffnen. Es gibt in der Verwaltung keinen Weg zurück.
+            Eine abgeschlossene Saison wird nicht wieder zur laufenden. Ihre Punkte, ihre Gruppen und ihre Tabelle halten fest, was gespielt
+            wurde.
           </Callout>
         ) : isAlreadyActive ? (
           // Panel-local and deliberately not a banner: it answers "why can I not act HERE", which is a
@@ -125,7 +123,7 @@ export function FormRolloverSection({
           <Callout
             severity="info"
             title="Hier ist nichts umzustellen">
-            Diese Saison läuft schon; umgestellt wird auf der Seite der Saison, die als nächste laufen soll.
+            Diese Saison läuft schon. Umstellen kannst Du auf der Seite der Saison, die als nächste laufen soll.
           </Callout>
         ) : (
           <>
@@ -156,8 +154,8 @@ export function FormRolloverSection({
               <Callout
                 severity="warning"
                 title="Diese Saison hat noch keinen Spielplan">
-                Eine Saison ohne Spiele wird nicht zur laufenden Saison: Sie stünde öffentlich als laufende Saison da, und zu spielen gäbe es
-                nichts. Lege den Spielplan im Abschnitt <strong>Spielplan</strong> an, dann lässt sich umstellen.
+                Eine Saison ohne Spiele wird nicht zur laufenden Saison. Lege den Spielplan im Abschnitt <strong>Spielplan</strong> an, dann
+                lässt sich umstellen.
               </Callout>
             )}
 
@@ -217,7 +215,9 @@ export function FormRolloverSection({
               onCancel={cancel}>
               {/* The body sits a screen away from the button, so the refusal is said again on the
                   control itself. `isActivating` is left out: it ends by itself. */}
-              <DisabledHint reason={isActivating ? null : blockedReason}>
+              <Hint
+                mode="refusal"
+                reason={isActivating ? null : blockedReason}>
                 <Button
                   type="button"
                   variant="primary"
@@ -231,9 +231,9 @@ export function FormRolloverSection({
                       height={18}
                     />
                   )}
-                  {isActivating ? "Stellt um..." : isConfirming ? `Ja, auf ${saisonId} umstellen` : `Saison ${saisonId} aktivieren`}
+                  {isActivating ? "Stellt um..." : isConfirming ? `Ja, auf ${saisonId} umstellen` : `Auf Saison ${saisonId} umstellen`}
                 </Button>
-              </DisabledHint>
+              </Hint>
             </ConfirmActionRow>
           </>
         )}

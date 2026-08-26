@@ -10,18 +10,17 @@ import { Button, Label, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 import { generateSpielplanAction, undrawSpielplanAction } from "@/features/saisons/actions";
 import { SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { STUFE_CHIP } from "@/features/saisons/components/forms/StufenPicker";
-import { PHASE_LABELS, RECORDED_FACTS_NONE } from "@/features/saisons/constants";
+import { PHASE_LABELS } from "@/features/saisons/constants";
 import { buildSpielplanVorschau, describeAngesetzteSpiele, describeSpielplanUmfang } from "@/features/saisons/utils";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FIELD_LABEL, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -183,28 +182,21 @@ export function FormSpielplanSection({
         </span>
         <h2 className={panel.heading()}>
           Spielplan
-          <InfoHint label="Hinweis zum Spielplan">
-            <p>
-              Der Spielplan umfasst die Spieltage und alle Spiele dieser Saison. Er entsteht in einem Schritt und wird in einem Schritt
-              zurückgenommen.
-            </p>
-            <ul>
-              <li>
-                Er entsteht aus den <strong>Gruppen</strong> und den <strong>Regeln</strong> dieser Saison, so wie beide gespeichert sind. Jede
-                Gruppe braucht dafür genau so viele Teams, wie die Zahlen vorsehen. Verteile sie über die <strong>Teamseite</strong>.
-              </li>
-              <li>
-                <strong>Neu anlegen</strong> und <strong>Zurücknehmen</strong> gehen nur, solange die Saison geplant ist und zu keinem ihrer
-                Spiele etwas eingetragen wurde: {RECORDED_FACTS_NONE}. Beide löschen die vorhandenen Spieltage und Spiele mit jedem Termin und
-                jeder Uhrzeit. Es gibt in der Verwaltung keinen Weg zurück.
-              </li>
-              <li>
-                <strong>Gruppen</strong>, <strong>Teams pro Gruppe</strong> und <strong>Qualifikanten</strong> gehören zum Spielplan: Sobald
-                Spiele angesetzt sind, stehen sie im Abschnitt Regeln fest. Beim Neuanlegen gibst Du sie deshalb hier an, nach einer Rücknahme
-                lassen sie sich im Abschnitt <strong>Regeln</strong> wieder einzeln ändern.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Spielplan"
+            body={{
+              lead: "Der Spielplan umfasst die Spieltage und Spiele dieser Saison.",
+              points: [
+                { term: "Er entsteht", text: "aus den Gruppen dieser Saison, und jede braucht genau so viele Teams, wie die Regeln vorsehen." },
+                { term: "Die Teams", text: "verteilst Du über die Teamseite." },
+                {
+                  term: "Gruppen, Teams pro Gruppe und Qualifikanten",
+                  text: "änderst Du im Abschnitt Regeln, sobald der Spielplan zurückgenommen ist.",
+                },
+              ],
+            }}
+          />
         </h2>
       </div>
 
@@ -257,7 +249,7 @@ export function FormSpielplanSection({
             {isDrawing ? (
               replacesDraw ? (
                 <>
-                  Neu anlegen zieht den Spielplan von Saison <strong>{saisonId}</strong> frisch. Der bisherige wird dabei gelöscht.
+                  Neu anlegen löscht den bisherigen Spielplan von Saison <strong>{saisonId}</strong> und legt ihn neu an.
                 </>
               ) : (
                 <>
@@ -271,7 +263,7 @@ export function FormSpielplanSection({
             )}
           </p>
         ) : (
-          /* In the body as well as on the control: `DisabledHint` opens on hover and on focus alone,
+          /* In the body as well as on the control: a refusal hint opens on hover and on focus alone,
              so a reader who never points at a closed button would otherwise never learn why. */
           <p className="fluid-sm text-foreground-muted font-medium">{closedReason}</p>
         )}
@@ -361,8 +353,7 @@ export function FormSpielplanSection({
                         `buildSpielplanVorschau` exists to avoid — so the panel says what it does not know. */}
                     {isShapeMoved ? (
                       <p className="fluid-xs text-foreground font-medium">
-                        Wie viele Spieltage und Spiele aus den neuen Zahlen entstehen, steht erst nach dem Ziehen fest. Die Verwaltung meldet
-                        beides, sobald der Spielplan steht.
+                        Wie viele Spieltage und Spiele aus den neuen Zahlen entstehen, steht erst nach dem Anlegen fest.
                       </p>
                     ) : (
                       <dl className="flex w-full flex-col gap-y-1">
@@ -403,7 +394,9 @@ export function FormSpielplanSection({
           onCancel={cancel}>
           {/* The reason is said on the control itself rather than only in the panel above it, the
               treatment the rollover established. `isWriting` is left out: it ends by itself. */}
-          <DisabledHint reason={isWriting ? null : closedReason}>
+          <Hint
+            mode="refusal"
+            reason={isWriting ? null : closedReason}>
             <Button
               type="button"
               variant="primary"
@@ -444,7 +437,7 @@ export function FormSpielplanSection({
                     ? "Ja, Spielplan zurücknehmen"
                     : "Spielplan zurücknehmen"}
             </Button>
-          </DisabledHint>
+          </Hint>
         </ConfirmActionRow>
       </div>
     </section>

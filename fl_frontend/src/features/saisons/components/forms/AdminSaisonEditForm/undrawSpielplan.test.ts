@@ -22,8 +22,8 @@ const flatten = (jsx: string): string => jsx.replaceAll('{" "}', " ").replace(/\
  */
 const ARMED = flatten((SOURCE.split("<ConfirmReveal>")[1] ?? "").split("</ConfirmReveal>")[0] ?? "");
 
-/** The panel's own hint, where the conditions on both writes are spelled out for a reader. */
-const HINWEIS = flatten((SOURCE.split("Hinweis zum Spielplan")[1] ?? "").split("</InfoHint>")[0] ?? "");
+/** The panel's own hint, which stands in the heading and ends with it. */
+const HINWEIS = flatten((SOURCE.split("Hinweis zum Spielplan")[1] ?? "").split("</h2>")[0] ?? "");
 
 /** The press handler alone, up to the markup that follows it. Both writes live inside it. */
 const HANDLER = (SOURCE.split("const handlePress = () => {")[1] ?? "").split("return (")[0] ?? "";
@@ -36,7 +36,7 @@ describe("the undraw half of the Spielplan panel", () => {
      assertion over them would then fail for something that is not the defect. */
   it("cuts the armed alert, the hint and the handler out of the file before reading them", () => {
     assert.ok(ARMED.includes("Was dabei gelöscht wird"), "the armed alert's readout is outside its slice");
-    assert.ok(HINWEIS.includes("<li>"), "the hint's list is outside its slice");
+    assert.ok(HINWEIS.includes("points: ["), "the hint's bullets are outside its slice");
     assert.ok(HANDLER.includes("undrawSpielplanAction("), "the write is outside the handler's slice");
     assert.ok(!HANDLER.includes("<section"), "the handler's slice runs on into the markup");
     assert.ok(UNDRAW_BRANCH.includes("undrawSpielplanAction("), "the undraw's branch is outside its slice");
@@ -98,8 +98,8 @@ describe("the undraw half of the Spielplan panel", () => {
   /* This press is the first half of the repair `REQ-RULES-011` sends an admin on, so the panel names
      the two places the second half happens. Drop either and the loop stops at the removal. */
   it("names both places the reopened shape is changed before the redraw", () => {
-    assert.match(HINWEIS, /im Abschnitt <strong>Regeln<\/strong> wieder einzeln ändern/);
-    assert.match(HINWEIS, /über die <strong>Teamseite<\/strong>/);
+    assert.match(HINWEIS, /im Abschnitt Regeln/);
+    assert.match(HINWEIS, /über die Teamseite/);
   });
 
   /* Two sites, one verb: `REQ-RULES-011`'s message tells an admin to take the Spielplan back, and
@@ -117,11 +117,11 @@ describe("the undraw half of the Spielplan panel", () => {
     assert.equal(labels.length, 2, "the two presses no longer name the Spielplan");
   });
 
-  /* `DisabledHint` opens on hover and on focus alone, so a reader who never points at a closed button
-     would otherwise never learn why. Both readers get the same sentence, from one source. */
+  /* A refusal hint opens on hover and on focus alone, so a reader who never points at a closed
+     button would otherwise never learn why. Both readers get the same sentence, from one source. */
   it("puts the reason in the body as well as on the control", () => {
     assert.match(SOURCE, /<p className="fluid-sm text-foreground-muted font-medium">\{closedReason\}<\/p>/);
-    assert.match(SOURCE, /<DisabledHint reason=\{isWriting \? null : closedReason\}>/);
+    assert.match(SOURCE, /mode="refusal"\s+reason=\{isWriting \? null : closedReason\}/);
   });
 });
 

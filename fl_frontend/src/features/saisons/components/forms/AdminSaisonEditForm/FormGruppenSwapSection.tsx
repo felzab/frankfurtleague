@@ -14,7 +14,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { confirmButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -171,28 +171,19 @@ export function FormGruppenSwapSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Gruppentausch
-          <InfoHint label="Hinweis zum Gruppentausch">
-            <p>Zwei Teams tauschen ihre Gruppen. Das geschieht in einem Schritt, nicht in zwei.</p>
-            <ul>
-              <li>
-                Jede Gruppe behält ihre <strong>Größe</strong>. Die angesetzten Spiele tauschen mit: Jedes Team übernimmt Gegner, Termine und
-                Orte des anderen.
-              </li>
-              <li>Die Tabellen beider Gruppen sehen ab sofort anders aus.</li>
-              <li>
-                Sobald eines der beiden in seiner Gruppe <strong>gespielt</strong> hat, geht es nicht mehr: Eine Gruppe ist ein Rundenturnier,
-                in dem jedes Team gegen jedes andere seiner Gruppe spielt.
-              </li>
-              <li>
-                Spiele der KO-Runde tauschen <strong>nicht</strong> mit. Stünde ein Team dadurch zweimal an einem Spieltag, ist das Paar nicht
-                wählbar. Verschiebe dann eines der beiden Spiele.
-              </li>
-              <li>
-                Ein <strong>einzelner</strong> Wechsel bleibt gesperrt, hier wie auf der Teamseite. Dort lässt sich derselbe Tausch mit dem
-                geöffneten Team als einer Seite starten; hier wählst Du beide Seiten selbst.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Gruppentausch"
+            body={{
+              lead: "Zwei Teams tauschen ihre Gruppen.",
+              points: [
+                { term: "Jede Gruppe", text: "behält ihre Größe." },
+                { term: "Die angesetzten Spiele", text: "tauschen mit, samt Gegner, Termin und Ort." },
+                { term: "Spiele der KO-Runde", text: "bleiben, wo sie sind." },
+                { text: "Verschiebe eines der Spiele, wenn ein Team sonst zweimal an einem Spieltag stünde." },
+              ],
+            }}
+          />
         </h2>
       </div>
 
@@ -230,8 +221,7 @@ export function FormGruppenSwapSection({
             <p
               id={PAIR_LABEL_ID}
               className="fluid-sm text-foreground font-medium">
-              Wähle die beiden Teams, die ihre Gruppen tauschen sollen. Beide müssen in dieser Saison stehen, in zwei verschiedenen Gruppen, und
-              dürfen in ihrer Gruppe noch nicht gespielt haben.
+              Wähle die beiden Teams, die ihre Gruppen tauschen sollen.
             </p>
 
             {/* One group rather than two fields: the exchange is one decision over two operands.
@@ -243,7 +233,7 @@ export function FormGruppenSwapSection({
               className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
               <RefusableSelect
                 label="Team"
-                placeholder="Team wählen"
+                placeholder="z.B. FC Beispiel"
                 value={firstOptions.find((option) => option.id === first?.id) ?? null}
                 options={firstOptions}
                 onChange={handleFirstChange}
@@ -255,7 +245,7 @@ export function FormGruppenSwapSection({
               />
               <RefusableSelect
                 label="Tauscht Gruppen mit"
-                placeholder="Team wählen"
+                placeholder="z.B. FC Beispiel"
                 value={secondOptions.find((option) => option.id === second?.id) ?? null}
                 options={secondOptions}
                 onChange={handleSecondChange}
@@ -311,11 +301,11 @@ export function FormGruppenSwapSection({
                   treatment `FormErgebnisSection` established for a control disabled for a reason the
                   page already shows. */}
               {!isSwapping && isMissingAPick && (
-                <p
-                  id={BUTTON_HINT_ID}
-                  className="fluid-xxs text-foreground-muted leading-normal font-medium">
-                  {missingPickHint}
-                </p>
+                <Hint
+                  mode="inline"
+                  describes={BUTTON_HINT_ID}
+                  text={missingPickHint}
+                />
               )}
             </div>
           </>

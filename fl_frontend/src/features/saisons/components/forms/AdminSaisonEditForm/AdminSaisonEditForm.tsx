@@ -271,11 +271,13 @@ export function AdminSaisonEditForm({
     const tiebreakMoved = payload.rules.tiebreak_order !== rules.tiebreak_order;
 
     // The points first where both moved: a rescore subsumes a re-sort, and one toast holds one sentence.
+    // `undefined` on the quiet branch: the title already says the change is saved, and a sentence
+    // repeating it would push the Rückgängig control down for nothing.
     const description = pointsMoved
       ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
       : tiebreakMoved
         ? "Punktgleiche Teams stehen ab sofort in einer anderen Reihenfolge, auch in längst gespielten Gruppen."
-        : "Die Saisondaten wurden aktualisiert.";
+        : undefined;
 
     const report = pointsMoved || tiebreakMoved ? appToast.warning : appToast.success;
     report("Änderung gespeichert", {
@@ -390,12 +392,7 @@ export function AdminSaisonEditForm({
             hasDrawnSpiele={hasDrawnSpiele}
             // One sentence for both writes: the draw runs on the saved rules and the rücknahme reopens
             // them, so neither may run over a draft, and both end on the refresh that would drop it.
-            onBeforeWrite={() =>
-              guardAgainstDraft(
-                isDirty,
-                "Der Spielplan hängt an den gespeicherten Regeln, und dieser Schritt lädt die Seite neu. Speichere die Änderungen zuerst.",
-              )
-            }
+            onBeforeWrite={() => guardAgainstDraft(isDirty, "Der Spielplan entsteht aus den gespeicherten Regeln, nicht aus den getippten.")}
           />
 
           {/* Last on the page, the position the club editor's Austritt panel holds: the one
@@ -406,9 +403,7 @@ export function AdminSaisonEditForm({
             saisonStatus={saison.status}
             rollover={rollover}
             hasDrawnSpiele={hasDrawnSpiele}
-            onBeforeActivate={() =>
-              guardAgainstDraft(isDirty, "Die Umstellung lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
-            }
+            onBeforeActivate={() => guardAgainstDraft(isDirty, "Die Umstellung verwirft die nicht gespeicherten Änderungen.")}
             banners={banners}
           />
         </EditFormLayout>

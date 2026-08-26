@@ -20,6 +20,12 @@ const HANDLER = sliceBetween("const handleReplace = () => {", "const missingPick
 /** What this panel puts INSIDE the shared shell; the announcement itself is `ConfirmReveal`'s. */
 const ARMED = sliceBetween("<ConfirmReveal>", "</ConfirmReveal>");
 
+/**
+ * The panel with JSX's line breaks collapsed, `undrawSpielplan.test.ts`'s idiom: Prettier rewraps a
+ * text node at will, so a sentence asserted as written would fail on a reformat a reader never sees.
+ */
+const FLAT = PANEL.replace(/\s+/g, " ");
+
 describe("the replacement panel", () => {
   /* First, because a boundary string that stopped matching leaves a slice empty and every assertion
      over it would then pass or fail for something that is not the defect. */
@@ -32,7 +38,7 @@ describe("the replacement panel", () => {
   /* The draw deletes what it replaces and says so; this endpoint deletes nothing. Borrow that
      register here and the panel asks an admin to agree to a loss that will not happen. */
   it("promises the schedule survives, and never borrows the draw's deletion register", () => {
-    assert.match(PANEL, /Kein Spiel wird\s+gelöscht, keines verschoben/);
+    assert.match(PANEL, /gelöscht oder verschoben/);
     assert.doesNotMatch(PANEL, /gehen dabei verloren|Zurückholen lässt sich/);
   });
 
@@ -59,7 +65,7 @@ describe("the replacement panel", () => {
   it("offers no undo and reaches no route handler", () => {
     assert.doesNotMatch(PANEL, /actionProps|UNDO_TIMEOUT_MS|Rückgängig/);
     assert.doesNotMatch(PANEL, /\/api\/admin\//);
-    assert.match(PANEL, /Es gibt in der Verwaltung keinen Weg zurück\./);
+    assert.match(FLAT, /Es gibt in der Verwaltung keinen Weg zurück\./);
   });
 
   /* The swap's and the draw's shape: two presses, and the second one writes. Call the action outside

@@ -59,7 +59,7 @@ export const FLSaisonRulesSchema = z.object({
   forfeit_ergebnis: FLSaisonForfeitErgebnisSchema,
   // A subset of the league's closed level set, never empty: no level makes every squad entry
   // unfillable.
-  erlaubte_stufen: z.array(FLSpielerStufeSchema).min(1, { error: "Wähle mindestens eine Stufe aus." }),
+  erlaubte_stufen: z.array(FLSpielerStufeSchema).min(1, { error: "Bitte wähle mindestens eine Stufe aus." }),
 });
 export type FLSaisonRules = z.infer<typeof FLSaisonRulesSchema>;
 export type FLSaisonTiebreakOrder = FLSaisonRules["tiebreak_order"];
@@ -151,7 +151,7 @@ const endsAfterItStarts = {
 export const FLPostSaisonPayloadSchema = z
   .object({
     // Chosen rather than generated, unlike every other create: `saisons._id` IS the referenced string.
-    id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z. B. 2526." }),
+    id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z.B. 2526." }),
 
     start_date: CustomDateStringSchema,
     end_date: CustomDateStringSchema,

@@ -68,12 +68,11 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
             <FieldError className={FIELD_ERROR} />
           </TextField>
 
-          {/* The one thing about the id a reader cannot work out from the field itself: every match and
-              matchday of the season points at it, and there is no rename. */}
+          {/* The one thing about the id a reader cannot work out from the field itself: there is no rename. */}
           <Callout
             severity="info"
             title="Die Saison-ID lässt sich später nicht ändern">
-            Jedes Spiel und jeder Spieltag der Saison verweist auf sie. Vier Zeichen, üblich sind die beiden Jahreszahlen.
+            Üblich sind die beiden Jahreszahlen: 2526 steht für die Saison 2025/26.
           </Callout>
 
           <div className={FIELD_PAIR}>
