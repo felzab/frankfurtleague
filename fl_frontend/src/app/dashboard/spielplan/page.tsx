@@ -14,8 +14,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Spielplan",
-  description:
-    "Im Spielplan können alle Spiele aller Spieltage der Frankfurt-League inklusive wichtiger Infos, wie z. B. Datum, Uhrzeit, und Ort gefunden werden.",
+  description: "Alle Spiele der Frankfurt-League, Spieltag für Spieltag, mit Datum, Uhrzeit und Ort.",
   openGraph: openGraphFor("/dashboard/spielplan"),
   alternates: {
     canonical: "/dashboard/spielplan",

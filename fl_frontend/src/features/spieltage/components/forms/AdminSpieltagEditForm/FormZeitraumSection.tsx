@@ -6,7 +6,7 @@ import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormC
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
 import type { SpieltagBanner } from "./banners";
@@ -50,24 +50,17 @@ export function FormZeitraumSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Zeitraum
-          <InfoHint label="Hinweis zum Zeitraum">
-            <p>Wann der Spieltag gespielt wird.</p>
-            <ul>
-              <li>
-                Der Zeitraum <strong>ändert die Reihenfolge nicht</strong>. Sie steht mit dem Spielplan fest.
-              </li>
-              <li>
-                Der <strong>Beginn</strong> folgt dieser Reihenfolge. Er darf nicht vor dem Beginn eines Spieltags liegen, der in seiner Phase
-                davor steht. Er darf auch nicht nach dem Beginn eines Spieltags liegen, der danach steht. Es zählen nur Spieltage, die schon
-                einen Zeitraum haben.
-              </li>
-              <li>
-                Das <strong>Ende</strong> ist daran nicht gebunden und darf weiter reichen. Soll ein Spieltag später gespielt werden, verlege
-                seine Spiele in die späteren Tage seines Zeitraums.
-              </li>
-              <li>Der Zeitraum muss innerhalb der Saison liegen. Tage außerhalb der Saison sind im Kalender ausgegraut.</li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Zeitraum"
+            body={{
+              lead: "Wann der Spieltag gespielt wird.",
+              points: [
+                { term: "Die Reihenfolge", text: "steht mit dem Spielplan fest." },
+                { term: "Tage außerhalb der Saison", text: "sind im Kalender ausgegraut." },
+              ],
+            }}
+          />
         </h2>
       </div>
 

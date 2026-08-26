@@ -34,9 +34,8 @@ export function AboutView() {
 
         <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-6 shadow-xl lg:p-8">
           <p className="fluid-sm text-field-fg/95 leading-relaxed font-medium text-pretty">
-            Unser Ziel ist simpel: Die Finanzierung unserer Abschlussfeiern und Abibälle. Anstatt Geld über herkömmliche, wenig lukrative Wege
-            zu sammeln, organisieren wir einen stadtweiten Ligabetrieb im Großfeldfußball. Jedes Spiel bringt durch Ticket- und Cateringverkäufe
-            direkte Einnahmen für den ausrichtenden Jahrgang. Alles wird auf dem Platz geklärt. Von Schülern, für Schüler.
+            Die Finanzierung unserer Abschlussfeiern und Abibälle. Wir organisieren dafür einen stadtweiten Ligabetrieb im Großfeldfußball.
+            Jedes Spiel bringt durch Ticket- und Cateringverkäufe direkte Einnahmen für den ausrichtenden Jahrgang.
           </p>
         </div>
       </section>

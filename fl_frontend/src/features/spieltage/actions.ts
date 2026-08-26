@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchSpieltag } from "./mutations";
@@ -22,8 +23,10 @@ function mapSpieltagRefusal(error: unknown): { error?: string; fieldErrors?: Fie
   }
   if (error.serverErrorCode === "REQ-DATE-003") {
     return {
-      error:
-        "Mindestens ein Spiel dieses Spieltags liegt außerhalb des neuen Zeitraums. Erweitere den Zeitraum wieder oder verlege diese Spiele.",
+      error: buildRefusal({
+        reason: "Mindestens ein Spiel dieses Spieltags liegt außerhalb des neuen Zeitraums",
+        repair: "Erweitere den Zeitraum wieder oder verlege diese Spiele",
+      }),
     };
   }
   // One code carries both arms and the wire names neither, so the remedy is pinned to the matchday
@@ -74,7 +77,7 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
     }
 
     if (!patchOperation.acknowledged) {
-      return { success: false, error: "Bei der Bearbeitung des Spieltags ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: "Der Spieltag wurde nicht gespeichert. Versuche es erneut." };
     }
 
     invalidateSpieltage();

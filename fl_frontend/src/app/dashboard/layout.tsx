@@ -6,8 +6,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: { default: "Saisonübersicht", template: "%s | Frankfurt-League" },
-  description:
-    "Bei der Frankfurt-League Saisonübersicht können alle wichtigen Informationen zu der laufenden Saison, wie z. B. der Spielplan etc. eingesehen werden.",
+  description: "Der Spielplan, die Tabellen und die Teams der laufenden Saison der Frankfurt-League.",
   openGraph: openGraphFor("/dashboard"),
   alternates: {
     canonical: "/dashboard",
