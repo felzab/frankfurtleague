@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `d668d82e`, 2026-08-25\
+**Verified against:** `5e4fafcb`, 2026-08-26\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -790,6 +790,28 @@ field that is not on screen, a sentence explaining how a value is stored or rege
 about when something is recalculated.** Cut the mechanism and keep the consequence sharp, because
 several of these strings exist precisely because something is irreversible.
 
+**A hint that enumerates what a page offers is complete, or it does not enumerate.** A list short by one
+reads as the whole offer rather than as a sample, so the reader concludes the item it misses is not there
+and never tries it. `fl_frontend/src/features/admin/constants.ts :: ADMIN_SIDEMENU_STRUCTURE` carries such
+lists: the season editor's panels, named by their own headings in the order the page renders them, and the
+fixture search's keys, which
+`fl_frontend/src/features/spiele/components/views/SpielsucheView.tsx :: SEARCH_KEYS` decides and
+`fl_frontend/src/features/dashboard/constants.ts :: DASHBOARD_SIDEMENU_STRUCTURE` names again for the
+public route — so the second goes stale in two places from one change. **The list is counted against what
+the reader can reach, never against the array**: both `ort.*` keys are the venue, and `Ort` names them
+once. Where a list would have to track a surface that keeps growing, name the class and enumerate nothing.
+
+**And no copy line calls an operation impossible that the product performs.** The write path decides that,
+not the panel the sentence sits in, and a door shut in prose that the code leaves open turns a reader away
+from a repair they could have made. The tell is a scope word — `nie`, `kein`, `nicht mehr` — reached for
+about the whole product from inside one surface: `ADMIN_SIDEMENU_STRUCTURE`'s Teams note is about the
+season exit entered on the team page, while the replacement that also takes a club out of a season is a
+control on the season page. **Where a state can be left, the sentence says so.**
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.ts :: spielplanBlockedReason`
+splits the draw's one window for exactly that reason: the recorded half a fixture edit reopens
+([`docs/backend/spec.md`](../backend/spec.md) I46) is worded as a state, and the half `status` closes as a
+boundary.
+
 **Only the dash rule can be checked mechanically, and the date-range exception is checkable with it.**
 The characters the rule forbids stand between spaces or alone in a JSX text node, and the hyphen it
 permits has a word character on both sides, so a check separates those two without knowing whether the
@@ -801,9 +823,10 @@ from separate elements, as `renderZeitraum` in the seasons table builds it; and 
 the name of the function that formats it couples the check to that name, so a second date formatter
 would need adding to it rather than being caught by it.
 
-The other three rules cannot be checked: a lint over the pronouns, over grammatical agreement, or over
+**Every other rule here holds by review.** A lint over the pronouns, over grammatical agreement or over
 register would first have to know which string literals are user-facing, and nothing in the tree marks
-that. They hold by review.
+that; one over a list's completeness would additionally have to know what the surface it describes offers,
+which sits in a different file from the sentence describing it every time.
 
 ### 1.13 Metadata and indexing
 

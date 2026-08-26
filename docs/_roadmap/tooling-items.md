@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `7ddb9819`, 2026-08-26\
+**Verified against:** `5e4fafcb`, 2026-08-26\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -82,6 +82,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 33  | DOC-3  | A rule pattern reaches less than the rule it enforces     | Docs          | —      | Standing | —          |
 | 34  | DOC-4  | A stamp is required by a path and owed by a claim         | Docs          | —      | Standing | —          |
 | 35  | DOC-10 | One unchanged line exempts a rewritten comment block      | Ops, Docs     | S      | Standing | —          |
+| 36  | OPS-81 | One commit imports a module the commit after it adds      | FE, Ops       | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1769,3 +1770,63 @@ are found the same way, by running the checker by hand over the files rather tha
 **Trigger to revisit:** a partly-rewritten block shipping over a cap where its length is what costs
 something, or any change to what `check_comment_length` reads, at which point the subset test is
 already being touched.
+
+### 36 · OPS-81 — One commit imports a frontend module the commit after it adds
+
+**Status:** Standing\
+**Surfaces:** FE, Ops\
+**Effort:** —\
+**Path:** Independent — it blocks nothing and nothing blocks it, and no gate scope reaches it:
+`./scripts/verify.sh` proves the working tree it is run over, and CI proves a tip.
+
+**`fl_frontend/src/features/saisons/actions.test.ts` imports
+`fl_frontend/src/core/refusalRegister.ts`, and the tree at
+[`f53ce721`](https://github.com/felzab/frankfurtleague/commit/f53ce721) holds the test file without
+the module.** The module is in the tree at
+[`63a9f68d`](https://github.com/felzab/frankfurtleague/commit/63a9f68d), the commit directly after
+it. TypeScript answers that specifier with `TS2307: Cannot find module
+'../../core/refusalRegister.ts'`, reproduced 2026-08-26 under the resolution options
+`fl_frontend/tsconfig.json` sets and the compiler `fl_frontend/package.json` declares. Both frontend
+commands reach it: `typecheck` is `tsc --noEmit`, and `test` runs `node --test`, which discovers
+`*.test.ts`. **Not verified by checkout** — the tree at that commit was read rather than built, so
+that both commands fail there is taken from the absent module and the diagnostic, neither having
+been run at it.
+
+**One commit and one specifier, measured rather than assumed (2026-08-26).** Every relative and
+`@/`-aliased specifier in each `.ts` and `.tsx` file under `fl_frontend/src` was resolved against its
+own commit's tree, for each commit from
+[`d668d82e`](https://github.com/felzab/frankfurtleague/commit/d668d82e) to
+[`5e4fafcb`](https://github.com/felzab/frankfurtleague/commit/5e4fafcb) — 1850 specifiers at the last
+of them. `f53ce721` is the only commit carrying an unresolved specifier, and that import is the only
+one it carries.
+
+**Nothing is red, and a red build is not the symptom to look for.**
+`.github/workflows/verify.yml` triggers on `pull_request` and on a push to `main`. Both judge a tip —
+the pull request's merge result, and `main` after the merge commit — and neither checks out a commit
+in between, so no CI run visits `f53ce721`.
+
+**What it costs is a `git bisect` over the frontend**, which lands there and answers with a failure
+unrelated to whatever is being hunted. [`docs/_git/spec.md`](../_git/spec.md) §1.4 permits merge
+commits alone, so the commit reaches `main` verbatim and this does not age out.
+
+**Recognise it and skip it, which is the whole of the action.** git's documented shape for a revision
+that cannot be built is exit code 125 from a `git bisect run` script, marking it untestable —
+`make || exit 125` is the manual's own example. The residual is the one the manual names: skipping a
+commit adjacent to the culprit leaves git unable to say which of them was first bad, and this
+commit's entire frontend delta being one test file is what settles that by reading the diff.
+
+**Rewriting the history is the repair, and I have declined it.** Carrying
+`fl_frontend/src/core/refusalRegister.ts` one commit earlier means rewriting a pushed branch with a
+pull request open against it, which moves every line a review comment is anchored to
+(`docs/_git/spec.md` §1.4). Weighed against a bisect that skips one commit, I took the gap — so **this entry
+records a decision rather than an outstanding repair**, and the window in which the fix was cheap
+closed at the push.
+
+**`.git-blame-ignore-revs` does not reach it.** That file feeds `blame.ignoreRevsFile` and moves line
+attribution in `git blame`, where the attribution here is right and is nobody's complaint. git offers
+no in-repository list a bisect consults, so this entry is the whole of the durable warning — and a
+bisect stands at a detached `HEAD`, so `git grep f53ce721 main` is what reads this page from wherever
+it has stopped.
+
+**Trigger to revisit:** a second commit reaching `main` in this shape. One is a skip; a pattern is
+the argument for a per-commit resolution check, and the sweep above is what it would be built from.

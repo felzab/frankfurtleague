@@ -199,12 +199,12 @@ function mapSpielplanRefusal(error: unknown, carriedShape: boolean): string | nu
         "Für einen Spielplan muss jede Gruppe dieser Saison genau so viele Teams halten, wie die Regeln vorsehen, und kein Team darf in " +
         "einer Gruppe stehen, die diese Saison nicht anbietet. Passe die Gruppen über die Teamseite an."
       );
-    // The replace was confirmed and the window has closed under it, so the panel is showing a control
-    // it would no longer offer. A reload, like `-001`: there is no repair an admin can go and make.
+    // The window closed under a confirmed replace, so the page is stale. A reload, like `-001`: the
+    // panel it returns to names the half that closed and, for the record half, the way out of it.
     case "REQ-SPIELPLAN-005":
       return (
         `Ein Spielplan lässt sich nur für eine geplante Saison neu anlegen, zu deren Spielen noch nichts eingetragen ist: ${RECORDED_FACTS_NONE}. ` +
-        "Diese Saison erfüllt das nicht mehr. Lade die Seite neu."
+        "Diese Saison erfüllt das inzwischen nicht mehr. Lade die Seite neu."
       );
     // The draw judges its own three numbers and the season's stored rest, so the first two are
     // repaired wherever this request took them from and the last two only in the rules panel.
@@ -495,7 +495,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
 /**
  * The one path to a season's fixtures, on `POST /saisons/{saison_id}/spielplan`. **`replace` deletes
  * the season's matchdays and fixtures and draws fresh ones** (`REQ-SPIELPLAN-005`), and nothing
- * writes the removed ones back (`docs/backend/spec.md :: I26`).
+ * writes them back (`docs/backend/spec.md :: I26`).
  */
 export async function generateSpielplanAction(rawPayload: FLGenerateSpielplanPayload): Promise<{
   success: boolean;
@@ -575,14 +575,14 @@ export async function undrawSpielplanAction(rawPayload: FLUndrawSpielplanPayload
     try {
       undrawOperation = await undrawSpielplan(validated.data);
     } catch (error) {
-      // The panel closes the control for both halves of the window, so this arriving means the season
-      // moved under a page that was still offering the press. A reload, there being no repair to name.
+      // The panel closes the control for both halves, so this arriving means the season moved under
+      // a page still offering the press. A reload returns to that panel, which names any way out.
       if (error instanceof APIBadStatusError && error.statusCode === 409 && error.serverErrorCode === "REQ-SPIELPLAN-006") {
         return {
           success: false,
           error:
             `Ein Spielplan lässt sich nur für eine geplante Saison zurücknehmen, zu deren Spielen noch nichts eingetragen ist: ${RECORDED_FACTS_NONE}. ` +
-            "Diese Saison erfüllt das nicht mehr. Lade die Seite neu.",
+            "Diese Saison erfüllt das inzwischen nicht mehr. Lade die Seite neu.",
         };
       }
       throw error;

@@ -188,7 +188,8 @@ describe("the undraw action", () => {
   });
 
   /* The panel closes the control for both halves of `REQ-SPIELPLAN-006`, so the code can only arrive
-     on a page that went stale. Naming a repair would send the admin after work nobody can do. */
+     on a page that went stale. The reloaded panel names any way out, so a repair spelled here too
+     could describe a state the season has already left. */
   it("tells a stale page to reload rather than naming a repair", () => {
     const branch = UNDRAW_ACTION.split('error.serverErrorCode === "REQ-SPIELPLAN-006"')[1] ?? "";
     const message = branch.split("throw error;")[0] ?? "";

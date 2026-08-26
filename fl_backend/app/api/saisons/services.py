@@ -418,9 +418,8 @@ SPIELPLAN_SAISON_FINISHED = "REQ-SPIELPLAN-003"
 # `teams_per_group`, short or over, and no club standing outside them.
 SPIELPLAN_GRUPPEN_OFF_RULES = "REQ-SPIELPLAN-004"
 
-# ONE code for both halves of the window a confirmed replace runs in -- `future`, and nothing played
-# -- because neither names work an admin can go and do: `status` moves one way, and a played result
-# is the record.
+# ONE code for both halves of the window -- `future`, and nothing recorded. They differ in kind:
+# `status` moves one way, what was entered can be cleared, so the MESSAGE names the repair.
 SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW = "REQ-SPIELPLAN-005"
 
 

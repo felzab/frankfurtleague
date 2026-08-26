@@ -54,11 +54,12 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
   // Ahead of the `past` freeze, exactly as `find_spielplan_refusal` orders the two: an admin whose
   // press would replace reads the whole window rather than the half of it a status names.
   if (replacesDraw && !isReplaceWindowOpen(input)) {
-    // Both halves under one condition, as `REQ-SPIELPLAN-005` is one code: neither names work an
-    // admin can go and do, so each sentence only says which half closed the window.
+    // One code, two sentences: nothing returns `status` to `future` (`docs/backend/spec.md :: I18`),
+    // while `PATCH /spiele/{spiel_id}` rewrites every recorded field. Only the record half has a way
+    // back, so only it is worded as a state.
     return saisonStatus !== "future"
       ? "Der Spielplan dieser Saison steht. Neu anlegen lässt er sich nur, solange die Saison geplant ist."
-      : `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. Der Spielplan lässt sich dann nicht mehr neu anlegen.`;
+      : `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. Neu anlegen lässt sich der Spielplan erst wieder, wenn bei keinem Spiel mehr etwas davon eingetragen ist.`;
   }
 
   // `past` alone, never `future`-only, as
@@ -95,12 +96,12 @@ export function spielplanUndrawBlockedReason(input: UndrawControlInput): string 
   // 200 with zeroes, so pressing would ask an admin to confirm the destruction of nothing.
   if (!holdsADraw(input)) return "Diese Saison hat keinen Spielplan. Es gibt nichts zurückzunehmen.";
 
-  // Both halves under one condition, as `REQ-SPIELPLAN-006` is one code: neither names work an admin
-  // can go and do, so each sentence only says which half closed the window.
+  // The replace's split over the same window: a status sentence names a boundary nothing reopens, a
+  // record sentence names a state an admin can leave (`blockedReasons.ts :: spielplanBlockedReason`).
   if (saisonStatus !== "future") return "Zurücknehmen lässt sich der Spielplan nur, solange die Saison geplant ist.";
 
   if (erfassteSpieleCount > 0)
-    return `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. Der Spielplan lässt sich dann nicht mehr zurücknehmen.`;
+    return `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. Zurücknehmen lässt sich der Spielplan erst wieder, wenn bei keinem Spiel mehr etwas davon eingetragen ist.`;
 
   return null;
 }

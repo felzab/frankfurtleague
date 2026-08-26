@@ -53,12 +53,15 @@ describe("spielplanBlockedReason", () => {
   });
 
   /* Both halves of `REQ-SPIELPLAN-005` under one condition, as the endpoint has one code for them.
-     Each sentence names only the half that closed the window, neither promising a repair. */
+     Each sentence names the half that closed the window, and the record half names its way back. */
   it("closes the replace outside its window, and says which half closed it", () => {
     assert.match(spielplanBlock({ ...DRAWN, saisonStatus: "active" }) ?? "", /solange die Saison geplant ist/);
 
     const erfasst = spielplanBlock({ ...DRAWN, erfassteSpieleCount: 1 }) ?? "";
     assert.match(erfasst, /schon etwas eingetragen/);
+    // The verb tells the two panels' record sentences apart; a copy of the undraw's would confirm
+    // the wrong operation.
+    assert.match(erfasst, /Neu anlegen lässt sich der Spielplan/);
     // Every category `holds_a_recorded_fact` counts. Drop one and an admin whose season is closed by
     // a cancellation, a booking, a note or a hand-seeded slot hunts for a result that is not there.
     for (const kind of [/Ergebnis/, /Ausfall/, /Ort/, /Schiedsrichter/, /Notiz/, /Herkunft/]) assert.match(erfasst, kind);
@@ -145,7 +148,7 @@ describe("spielplanUndrawBlockedReason", () => {
   });
 
   /* Both halves of `REQ-SPIELPLAN-006` under one condition, as the endpoint has one code for them.
-     Each sentence names only the half that closed the window, neither promising a repair. */
+     Each sentence names the half that closed the window, and the record half names its way back. */
   it("closes the undraw outside its window, and says which half closed it", () => {
     for (const status of ["active", "past"] as const) {
       assert.match(undrawBlock({ ...DRAWN, saisonStatus: status }) ?? "", /solange die Saison geplant ist/);
@@ -153,7 +156,9 @@ describe("spielplanUndrawBlockedReason", () => {
 
     const erfasst = undrawBlock({ ...DRAWN, erfassteSpieleCount: 1 }) ?? "";
     assert.match(erfasst, /schon etwas eingetragen/);
-    assert.match(erfasst, /nicht mehr zurücknehmen/);
+    // This panel's verb, as the replace's arm pins its own: one sentence copied across would offer
+    // the operation the admin is not standing in front of.
+    assert.match(erfasst, /Zurücknehmen lässt sich der Spielplan/);
   });
 
   /* A date alone is not a recorded fact, and `buildSpielplanBestand` counts it under `angesetzt`
@@ -167,6 +172,32 @@ describe("spielplanUndrawBlockedReason", () => {
   it("ignores the schedule the draw is judged on", () => {
     assert.equal(undrawBlock({ ...DRAWN, hasKoRunden: false }), null);
   });
+});
+
+/* The two windows are one rule, so their sentences are asked the same question here rather than
+   twice above: what an admin standing in front of each half is told about leaving it. */
+describe("what each half of the window promises", () => {
+  const halves = [
+    { operation: "replace", block: spielplanBlock },
+    { operation: "undraw", block: undrawBlock },
+  ] as const;
+
+  for (const { operation, block } of halves) {
+    it(`gives the record half a way back and the status half none, on the ${operation}`, () => {
+      const record = block({ ...DRAWN, erfassteSpieleCount: 1 }) ?? "";
+
+      // `PATCH /spiele/{spiel_id}` rewrites every field `holds_a_recorded_fact` reads, so clearing
+      // what was entered reopens this half and the sentence may say so.
+      assert.match(record, /erst wieder/);
+      // The defect this is against: worded as a closed door, a season one fixture edit away from a
+      // redraw reads as finished, and the admin stops rather than going to the fixture.
+      assert.doesNotMatch(record, /nicht mehr/);
+
+      // Nothing writes `status` back to `future` (`docs/backend/spec.md :: I18`), so the same phrase
+      // here would send an admin after a route the product does not have.
+      assert.doesNotMatch(block({ ...DRAWN, saisonStatus: "active" }) ?? "", /erst wieder/);
+    });
+  }
 });
 
 describe("rolloverBlockedReason", () => {
