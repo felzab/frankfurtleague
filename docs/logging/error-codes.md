@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `d1fc5f37`, 2026-08-26\
+**Verified against:** `f6073b6f`, 2026-08-26\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
@@ -123,6 +123,7 @@ until the season turns `past`, where `REQ-RULES-005` freezes it.
 | `REQ-STATE-003`       | 409    | A no-show was recorded on a fixture with an unresolved side                                                                                            |
 | `REQ-SQUAD-001`       | 409    | A squad row names a team holding no junction row for that season                                                                                       |
 | `REQ-SQUAD-003`       | 409    | A squad row was added to a team already holding the season's `max_kadergroesse`                                                                        |
+| `REQ-SQUAD-004`       | 409    | A squad row was given a `rolle` another live row of the same team and season already holds                                                             |
 | `DB-CONN-001`         | 503    | Database client unavailable                                                                                                                            |
 | `DB-CONN-002`         | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`)                                                                                        |
 | `DB-COMMON-001`       | 404    | No document matched the filter                                                                                                                         |

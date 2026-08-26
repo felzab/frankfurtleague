@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `3dc107a5`, 2026-08-26\
+**Verified against:** `f6073b6f`, 2026-08-26\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -618,8 +618,8 @@ retirement renders as "Stillgelegt seit …" in the muted pair, and a squad row'
 as "Ausgetragen seit …" in the warning pair — both badges in
 `fl_frontend/src/features/spieler/components/collections/AdminSpielerTable.tsx`, and the second verb
 again as a rail banner's heading in
-`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts ::
-spieler.row-retired-since`. **This is not an accessibility question**: the badges carry different words and the tint
+`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts :: spieler.row-retired-since`.
+**This is not an accessibility question**: the badges carry different words and the tint
 reinforces a distinction the text already makes, which is what WCAG 1.4.1 asks. What carries the
 meaning is the verb, and the verb is the thing the corpus never declares.
 
@@ -1288,8 +1288,18 @@ meanwhile.
 `:: _refuse_a_full_squad`, whose docstring states the reason plainly — the cap is a property of the
 destination squad, not of the verb — so create, transfer and reactivate are judged the same way. The
 two front-end paths to that endpoint are the player editor's Kader section and the squad row's restore
-control on the list, and **neither holds the two facts the refusal is computed from**: the season's
-`max_kadergroesse`, and the live row count for that club in that season, excluding the writing player.
+control on the list, and **neither states the refusal before the press** — but what a gate would cost
+the two of them is not the same.
+
+**The editor already holds both facts the refusal is computed from**, and that is the half of this
+entry the squad-role work answered.
+`fl_frontend/src/app/admin/spieler/[spieler_id]/page.tsx` reads every player's memberships for the
+season and folds them per club through
+`fl_frontend/src/features/spieler/utils.ts :: collectTakenSquadNummern` and `:: collectHeldRollen`, so
+the live row count is a fold away; the season it reads beside them carries `rules.max_kadergroesse`.
+`REQ-SQUAD-004` is the worked precedent — a per-club, per-season fact computed on that page and raised
+in the rail as `spieler.rolle-vergeben` before any press. **What the editor's half needs is that fold
+and a banner**, not new page data.
 
 **What an administrator gets is correct and late.**
 `fl_frontend/src/features/spieler/actions.ts :: mapSquadRefusal` maps the code to a German sentence
@@ -1299,14 +1309,14 @@ the generic conflict message, which is the treatment the editor already gives ev
 refusal. **Matching that treatment was the right call**: a second mechanism for one refusal would be
 the split this product keeps avoiding.
 
-**What a pre-press gate would actually cost, which is the part worth writing down.** The list page
+**What the list page's half would cost, which is the part worth writing down.** That page
 needs neither the cap nor per-club counts for anything else it renders —
 `fl_frontend/src/shared/components/ui/RowActions.tsx :: RowActionRestore` takes a `disabledReason` and
 would use one, and its own comment states the principle, but nothing on that page computes it today.
 Threading it means the season's rules and a live count per club reaching a list that is otherwise a
 flat read, and keeping that count fresh across the writes the same page performs. **That is a real
-page-data change for a refusal an administrator meets rarely**, which is why it is a ranked entry
-rather than a fix.
+page-data change for a refusal an administrator meets rarely**, which is why the remaining half is a
+ranked entry rather than a fix.
 
 **Low severity, and the entry should not inflate it.** The endpoint refuses correctly, the message is
 actionable, and no data is at risk. What it costs is one press and one toast, on a squad that is

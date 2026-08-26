@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `d828ee1c`, 2026-08-26\
+**Verified against:** `f6073b6f`, 2026-08-26\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -814,8 +814,8 @@ symbol name is long and distinctive. **For an invariant it is not**: an invarian
 sheet that mentions it anywhere at all — in another invariant's prose, in a §1.1 table cell, in §3's
 remedy table — whether or not the sheet defines an invariant by that number, and whether or not that
 invariant means what the citing page says it means. **The live demonstration is already in the corpus:**
-`docs/frontend/spec.md`'s own invariant rows stop well short of the forties, and the sheet mentions
-backend invariants from the forties in its prose, so a citation naming that sheet and one of those ids
+`docs/frontend/spec.md` defines no invariant in the forties and mentions backend invariants from that
+range in its prose, so a citation naming that sheet and one of those ids
 resolves cleanly against a definition it does not hold.
 
 **Two failure modes, and the second is the dangerous one.** The first is containment: a shorter id is a
