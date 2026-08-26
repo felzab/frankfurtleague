@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { computePlatzByTeamId, computeQualifyingTeamIds, computeSaisonVerlauf } from "./utils.ts";
+import { computePlatzByTeamId, computeQualifyingTeamIds, computeSaisonVerlauf, describeReplacementUmfang } from "./utils.ts";
 
 import type { FLSaisonPhase } from "../saisons/schemas.ts";
 import type { FLSpiel } from "../spiele/schemas.ts";
@@ -254,5 +254,58 @@ describe("computeSaisonVerlauf", () => {
     ]);
 
     assert.deepEqual(verlauf, [{ phase: "viertelfinale", outcome: "won" }]);
+  });
+});
+
+const umfang = (fannedOutToSpiele: number, retiredSquadRows: number) => describeReplacementUmfang({ fannedOutToSpiele, retiredSquadRows });
+
+describe("describeReplacementUmfang", () => {
+  it("reports the fixtures with their own zero and their own singular", () => {
+    assert.match(umfang(0, 0), /^Für das ausscheidende Team war noch kein Spiel angesetzt\./);
+    assert.match(umfang(1, 0), /^Ein angesetztes Spiel wurde übernommen\./);
+    assert.match(umfang(7, 0), /^7 angesetzte Spiele wurden übernommen\./);
+  });
+
+  it("reports the squad rows with their own singular", () => {
+    assert.match(umfang(0, 1), /Ein Kadereintrag des ausscheidenden Teams wurde ausgetragen\./);
+    assert.match(umfang(0, 4), /4 Kadereinträge des ausscheidenden Teams wurden ausgetragen\./);
+  });
+
+  /* `retired_squad_rows` counts the LIVE rows this write stamped, so zero is a fact about the squad
+     at that moment and never about the club's history: one whose players were all ausgetragen first
+     reports zero too. */
+  it("says the squad stood empty at zero, never that the club had no players", () => {
+    assert.match(umfang(0, 0), /Im Kader des ausscheidenden Teams stand kein Spieler\./);
+    assert.doesNotMatch(umfang(0, 0), /hatte das ausscheidende Team keine/);
+  });
+
+  /* `stillgelegt` would report these pupils out of every pick list there is, the endpoint stamping
+     `saison_spieler` and touching no `spieler` document. */
+  it("never calls a squad row's retirement a Stilllegung", () => {
+    for (const report of [umfang(0, 0), umfang(2, 1), umfang(2, 9)]) {
+      assert.doesNotMatch(report, /stillgelegt|Stilllegen/, "the report retires the people rather than their squad entries");
+      assert.doesNotMatch(report, /Spieler wurde/, "the report writes about people where the write moved entries");
+    }
+  });
+
+  /* The repair is a reassignment, never the outgoing club's return: `REQ-SQUAD-001` judges the row's
+     `team_id` on the PATCH as well, so no season status stands between the row and its squad. */
+  it("names the reassignment as the repair, and names it only where it retired a row", () => {
+    for (const report of [umfang(0, 1), umfang(3, 9)]) {
+      assert.match(report, /Um einen solchen Eintrag zu reaktivieren/);
+      assert.match(report, /Bereich „Kader“ einem Team dieser Saison zu/);
+      assert.doesNotMatch(report, /geplante Saison|wieder in dieser Saison steht/, "the report names a repair the rule does not ask for");
+    }
+
+    assert.doesNotMatch(umfang(3, 0), /[Rr]eaktivieren/, "nothing was retired and the report warns about it anyway");
+  });
+
+  /* It lands in a toast with no figures beside it, so each half has to stand as a sentence. */
+  it("writes whole sentences, with nothing left dangling", () => {
+    for (const report of [umfang(0, 0), umfang(1, 1), umfang(12, 3)]) {
+      assert.match(report, /^[A-ZÄÖÜ0-9]/, "the report opens lower-case");
+      assert.match(report, /\.$/, "the report does not end in a full stop");
+      assert.doesNotMatch(report, /dafür|diesen Platz/, "the report leans on a word with no antecedent");
+    }
   });
 });

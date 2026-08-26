@@ -18,7 +18,7 @@ from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollectio
 from pydantic import BaseModel
 from pymongo import ReturnDocument
 from pymongo.errors import BulkWriteError
-from pymongo.results import InsertManyResult, InsertOneResult, UpdateResult
+from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, UpdateResult
 
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException, WriteRefusal
 from app.core.recording import record_write
@@ -169,6 +169,69 @@ async def post_many_to_db(
     # Neither an id nor a `before`: the call named no single document, and a create replaced nothing.
     # The count goes where a fan-out puts its own, so one field answers "how many did this touch".
     await record_write(collection=collection, operation="insert_many", modified_count=len(result.inserted_ids), session=session)
+
+    return result
+
+
+async def delete_many_from_db(
+    *,
+    collection: AsyncIOMotorCollection,
+    db_filter: Mapping[str, Any],
+    session: AsyncIOMotorClientSession,
+) -> DeleteResult:
+    """Remove a set and keep every image, in one log row (`docs/backend/spec.md :: I48`).
+
+    Read first and unbounded: a cap would log fewer documents than the delete took, and the
+    shortfall would read as a smaller action rather than a lost record.
+    """
+
+    # `session` carries no default, unlike the helpers above: the read and the delete are two
+    # statements, so outside a transaction they see different sets and the images would then name a
+    # document this call never removed.
+    before = await collection.find(filter=db_filter, session=session).to_list(length=None)
+
+    result = await collection.delete_many(filter=db_filter, session=session)
+
+    if result.deleted_count != len(before):
+        # Unreachable under snapshot isolation, which is what makes the pair safe. Kept because the
+        # cost of it being wrong is a log row nobody can trust, and the count is free to compare.
+        raise RuntimeError(f"{collection.name}: removed {result.deleted_count} documents against {len(before)} images")
+
+    await record_write(
+        collection=collection,
+        operation="delete_many",
+        db_filter=db_filter,
+        before=before,
+        modified_count=result.deleted_count,
+        session=session,
+    )
+
+    return result
+
+
+async def erase_many_from_db(
+    *,
+    collection: AsyncIOMotorCollection,
+    db_filter: Mapping[str, Any],
+    session: AsyncIOMotorClientSession,
+) -> DeleteResult:
+    """Remove a set and keep NO image, the values themselves being what an erasure destroys.
+
+    Filter on IDS alone: the log stores a filter's values as text, so one naming a person would
+    preserve what this call destroys (`docs/backend/spec.md :: I48`).
+    """
+
+    # `session` carries no default here for its own reason: an erasure is one transaction over the
+    # person, their squad rows and the log, and any one of the three alone leaves it defeated.
+    result = await collection.delete_many(filter=db_filter, session=session)
+
+    await record_write(
+        collection=collection,
+        operation="erase_many",
+        db_filter=db_filter,
+        modified_count=result.deleted_count,
+        session=session,
+    )
 
     return result
 

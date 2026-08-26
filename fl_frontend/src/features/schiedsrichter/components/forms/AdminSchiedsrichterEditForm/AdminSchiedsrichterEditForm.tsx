@@ -19,8 +19,10 @@ import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
+import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import { buildSchiedsrichterBanners } from "./banners";
+import { FormAnonymisierenSection } from "./FormAnonymisierenSection";
 import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
 import { FormPersonSection } from "./FormPersonSection";
@@ -315,6 +317,23 @@ export function AdminSchiedsrichterEditForm({
             onChange={setDefaultPayment}
             onFieldChanged={validatePicked}
             banners={banners}
+          />
+
+          {/* Last on the page, the position the season editor's rollover holds: the one control here
+              that writes on press and that no later edit reverses. The STORED contact record, never
+              the draft — this clears what is saved. */}
+          <FormAnonymisierenSection
+            schiedsrichterId={schiedsrichter.id}
+            name={schiedsrichter.name}
+            kontakt={schiedsrichter.kontakt}
+            // The page keys this view on the STORED record, so the write's refresh remounts the form
+            // onto the cleared one — an unsaved draft would go with it.
+            onBeforeAnonymise={() =>
+              guardAgainstDraft(
+                isDirty,
+                "Das Löschen lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen. Speichere oder verwirf sie zuerst.",
+              )
+            }
           />
         </EditFormLayout>
 

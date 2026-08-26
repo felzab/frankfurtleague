@@ -20,7 +20,7 @@ export function AdminSpielerView({
   selectedSaisonStatus,
 }: {
   spieler: AdminSpielerRow[];
-  /** The selected season's clubs, for the team facet's options. */
+  /** The selected season's clubs: the team facet's options, and what the row's reactivate is gated on. */
   teams: SpielerTeamOption[];
   selectedSaisonId: string;
   selectedSaisonStatus: "past" | "active" | "future";
@@ -37,6 +37,7 @@ export function AdminSpielerView({
         <AdminSpielerTable
           spielerQuery={query}
           filteredSpieler={filteredItems}
+          saisonTeams={teams}
           selectedSaisonId={selectedSaisonId}
           selectedSaisonStatus={selectedSaisonStatus}
           setDeletingSpieler={onDelete}

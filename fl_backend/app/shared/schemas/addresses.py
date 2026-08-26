@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.shared.schemas.bounds import (
     ADDRESS_HAUSNUMMER_MAX_LENGTH,
@@ -31,6 +31,8 @@ class FLAddress(BaseModel):
 # embeds: refusing a stored value there would answer 500 for a whole list over one row
 # (`docs/backend/spec.md :: I36`).
 class FLAddressPayload(FLAddress):
+    model_config = ConfigDict(extra="forbid")
+
     # Redeclared, so the floor `CustomNonEmptyString` carries is restated beside the new ceiling.
     strasse: str = Field(min_length=1, max_length=ADDRESS_STRASSE_MAX_LENGTH)
     stadt: str = Field(min_length=1, max_length=ADDRESS_STADT_MAX_LENGTH)

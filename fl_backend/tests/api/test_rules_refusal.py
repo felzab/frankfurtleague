@@ -16,6 +16,7 @@ from app.api.saisons.services import (
     RULES_QUALIFIERS_BELOW_WIRING,
     RULES_SAISON_FINISHED,
     RULES_SHAPE_AFTER_DRAW,
+    SHAPE_RULES_FIELDS,
     find_rules_refusal,
 )
 from app.api.spiele.schemas import FLSaisonPhase
@@ -465,6 +466,21 @@ class TestAFinishedSeasonFreezes:
 # The season the class below patches, as its fixtures were drawn: 4 groups of 4 over 3 matchdays.
 DRAWN_FIXTURES = 24
 
+# The two repairs `REQ-RULES-011` composes, anchored on the write each one asks for rather than on
+# the prose around it. Both end in the same draw, so the undraw is what tells them apart.
+UNDRAW_FIRST = "undraw the Spielplan"
+DRAW_AGAIN = "the Spielplan again"
+
+# Each shape field, moved on its own, and whether its repair has to start by undrawing.
+SHAPE_REPAIR_CASES: tuple[tuple[str, dict[str, Any], bool], ...] = (
+    ("number_of_groups", {"groups": 2}, True),
+    ("teams_per_group", {"per_group": 6}, True),
+    ("qualifiers_per_group", {"qualifiers": 4}, False),
+)
+
+# A field added to the shape and not to the cases above would otherwise go untested in silence.
+assert tuple(field for field, _, _ in SHAPE_REPAIR_CASES) == SHAPE_RULES_FIELDS, "the shape fields and the repairs for them have drifted apart"
+
 
 class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
     """The three numbers a season's fixture list is generated from.
@@ -519,6 +535,63 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         """A season being set up: `REQ-RULES-002`, `REQ-RULES-003` and `REQ-RULES-004` are what bound it there."""
 
         assert judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), drawn=0) is None
+
+    @pytest.mark.parametrize("status", ["future", "active", "past"])
+    def test_the_freeze_holds_whatever_the_season_is_doing(self, status: str):
+        """`future` is the one to watch: a season nobody has played is where a carve-out for repairs would sit.
+
+        The repair is the draw, which takes these three on its own payload
+        (`app/api/saisons/schemas.py :: FLSpielplanShape`).
+        """
+
+        refusal = judge(status=status, stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+
+    def test_the_refusal_names_drawing_the_season_again(self):
+        """The message an admin reads: naming the shape as unchangeable would send them looking for an edit that does not exist."""
+
+        refusal = judge(stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert "draw the Spielplan again" in refusal.message
+
+    @pytest.mark.parametrize(("field", "changed", "undraws"), SHAPE_REPAIR_CASES, ids=[field for field, _, _ in SHAPE_REPAIR_CASES])
+    def test_the_refusal_names_the_repair_the_moved_field_has(self, field: str, changed: dict[str, Any], undraws: bool):
+        """One repair for all three passes every other assertion in this class and sends an admin to a write the draw refuses.
+
+        `REQ-SPIELPLAN-004` asks every offered group for exactly `teams_per_group`, so a redraw cannot move the other two.
+        """
+
+        refusal = judge(stored=rules(), proposed=rules(**changed), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert DRAW_AGAIN in refusal.message
+        assert (UNDRAW_FIRST in refusal.message) == undraws, f"{field} was offered the other field's repair"
+
+        # Composed per moved field, so a field standing still must not be named: naming it lends it
+        # whichever repair the clause carries, and the two are not interchangeable.
+        also_named = [other for other in SHAPE_RULES_FIELDS if other != field and other in refusal.message]
+        assert not also_named, f"the refusal for {field} also names {also_named}"
+
+    @pytest.mark.parametrize(
+        ("changed", "named"),
+        [
+            ({"groups": 2, "per_group": 6}, ("number_of_groups", "teams_per_group")),
+            ({"groups": 2, "qualifiers": 4}, ("number_of_groups", "qualifiers_per_group")),
+        ],
+        ids=["both of the pinned ones", "a pinned one and the redrawable one"],
+    )
+    def test_a_step_moving_two_of_them_names_both(self, changed: dict[str, Any], named: tuple[str, ...]):
+        """A dropped clause is a field the admin repairs on the next refusal instead of this one, and an undraw is not a step to repeat."""
+
+        refusal = judge(stored=rules(), proposed=rules(**changed), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert UNDRAW_FIRST in refusal.message
+        unnamed = [field for field in named if field not in refusal.message]
+        assert not unnamed, f"the refusal drops {unnamed}, so the admin reads a repair for half of what they changed"
 
     def test_permits_resubmitting_the_drawn_shape_unchanged(self):
         """`rules` is required on the patch, so a dates-only edit resubmits all three unchanged (`docs/backend/spec.md :: I44`)."""

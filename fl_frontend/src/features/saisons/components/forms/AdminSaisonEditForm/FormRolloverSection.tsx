@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -11,12 +10,14 @@ import { Button } from "@heroui/react";
 import { activateSaisonAction } from "@/features/saisons/actions";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
+import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { DisabledHint } from "@/shared/components/ui/DisabledHint";
-import { formButton } from "@/shared/components/ui/formButtons";
+import { confirmButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-import { PANEL_REVEAL } from "@/shared/components/ui/motion";
+import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -52,11 +53,10 @@ export function FormRolloverSection({
   banners: readonly SaisonBanner[];
 }) {
   const router = useRouter();
-  // The tone grades the act on offer, and only a `future` season has one: the running season has
-  // nothing to switch to, and a `past` one is refused by `REQ-ACTIVATE-002`.
+  // Only a `future` season has an act on offer: the running season has nothing to switch to, and a
+  // `past` one is refused by `REQ-ACTIVATE-002`.
   const panel = formPanel({ tone: saisonStatus === "future" ? "danger" : "neutral" });
-  const [isActivating, startActivating] = useTransition();
-  const [isConfirming, setIsConfirming] = useState(false);
+  const { isConfirming, isPending: isActivating, press, cancel } = useTwoPressConfirm(onBeforeActivate);
 
   const isAlreadyActive = saisonStatus === "active";
   const isFinishedSaison = saisonStatus === "past";
@@ -66,22 +66,8 @@ export function FormRolloverSection({
   const blockedReason = rolloverBlockedReason({ hasDrawnSpiele, outgoingSaisonId: outgoing, offeneSpieleCount: offene.length });
 
   const handleActivate = () => {
-    // Checked on BOTH presses, as the draw's is: the fields stay live between arming and confirming,
-    // and the refresh this ends with remounts the editor on the moved status, so a draft typed in
-    // that window would go without a word.
-    if (!onBeforeActivate()) {
-      setIsConfirming(false);
-      return;
-    }
-
-    if (!isConfirming) {
-      setIsConfirming(true);
-      return;
-    }
-
-    startActivating(async () => {
+    press(async () => {
       const res = await activateSaisonAction({ id: saisonId });
-      setIsConfirming(false);
 
       if (!res.success) {
         appToast.danger("Umstellung fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
@@ -210,26 +196,24 @@ export function FormRolloverSection({
               </ul>
             )}
 
-            {/* Escalated in place, the two-step delete's shape: without `role="alert"` the only signal
-                is the button label quietly changing. */}
             {isConfirming && (
-              <div
-                role="alert"
-                className={`${PANEL_REVEAL} bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm`}>
-                <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
+              <ConfirmReveal>
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
                   {outgoing === null
                     ? `Saison ${saisonId} wird sofort öffentlich als laufende Saison angezeigt.`
                     : `Saison ${outgoing} wird abgeschlossen und ${saisonId} sofort öffentlich als laufende Saison angezeigt.`}{" "}
                   Rückgängig geht das nur, indem Du die andere Saison wieder umstellst.
                 </p>
-              </div>
+              </ConfirmReveal>
             )}
 
             {/* Disabled rather than left live to fail. The endpoint refuses both of these and
                 stays the authority; this only stops the page offering an act it knows the answer
                 to, and the body above says which one in a form the admin can act on. */}
-            <div className="flex w-full flex-row flex-wrap items-center gap-3">
+            <ConfirmActionRow
+              isConfirming={isConfirming}
+              isPending={isActivating}
+              onCancel={cancel}>
               {/* The body sits a screen away from the button, so the refusal is said again on the
                   control itself. `isActivating` is left out: it ends by itself. */}
               <DisabledHint reason={isActivating ? null : blockedReason}>
@@ -238,7 +222,7 @@ export function FormRolloverSection({
                   variant="primary"
                   isDisabled={isActivating || blockedReason !== null}
                   onPress={handleActivate}
-                  className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
+                  className={confirmButton(isConfirming)}>
                   {!isConfirming && (
                     <ArrowRightArrowLeft
                       aria-hidden="true"
@@ -249,17 +233,7 @@ export function FormRolloverSection({
                   {isActivating ? "Stellt um..." : isConfirming ? `Ja, auf ${saisonId} umstellen` : `Saison ${saisonId} aktivieren`}
                 </Button>
               </DisabledHint>
-              {isConfirming && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  isDisabled={isActivating}
-                  onPress={() => setIsConfirming(false)}
-                  className={formButton({ intent: "cancel" })}>
-                  Abbrechen
-                </Button>
-              )}
-            </div>
+            </ConfirmActionRow>
           </>
         )}
       </div>

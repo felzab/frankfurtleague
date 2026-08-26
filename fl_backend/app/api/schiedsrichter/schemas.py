@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomOptionalString
@@ -18,6 +18,8 @@ class _SchiedsrichterWritable(BaseModel):
 
 # No `id` on any payload: the path names the referee, the body describes the change (RFC 5789).
 class _SchiedsrichterPayload(_SchiedsrichterWritable):
+    model_config = ConfigDict(extra="forbid")
+
     # Tightened on the WRITE side alone: a read model refusing a stored name would answer 500 for
     # the whole list over one row (`docs/backend/spec.md :: I36`).
     name: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
@@ -69,7 +71,7 @@ class FLPatchSchiedsrichterResponse(BaseAPIResponse):
 
 
 class FLSchiedsrichterWriteResponse(BaseAPIResponse):
-    """Shared by delete and reactivate — both answer with the referee as they now stand."""
+    """Shared by delete, reactivate and anonymisieren — each answers with the referee as they now stand."""
 
     updated_document: FLSchiedsrichter
 

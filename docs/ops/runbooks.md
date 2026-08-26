@@ -1,6 +1,6 @@
 # Ops — runbooks
 
-**Verified against:** `0f969073`, 2026-08-22\
+**Verified against:** `a42bf5bd`, 2026-08-25\
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
@@ -78,13 +78,23 @@ well-formed and wrong inserted a row with nobody touching the database at all. I
 worth checking first: `GET /teams` starts from `teams` and never joins the orphan, so the club list and every
 league table read normally.
 
-**The repair is a judgement rather than a command**, and the readings are not equally likely. An id mistyped
-at entry names a club that never existed, so there is nothing to restore and deleting the junction row is the
-whole repair. A club document that went missing is the other reading, and restoring it is that repair — but
-no route deletes a club, retirement being soft and leaving the document in place
+**Which reading is right is a judgement, and one of the two has a command behind it.** An id mistyped at entry names
+a club that never existed, so there is nothing to restore and the row's place belongs to whichever club should
+have been entered instead: `POST /teams/{team_id}/saisons/{saison_id}/replace` hands the row over, reseeding
+its `name` and `shorthand` from the incoming club and carrying that club into the season's fixtures. It
+resolves the INCOMING club alone and never the one the path names, which is exactly what lets it act on a row
+whose `team_id` resolves to nothing (`fl_backend/app/core/domain.py :: REFERENCES`). Its own refusals bound how
+far it reaches: not a `past` season (`REQ-REPLACE-001`), and not once one of that club's fixtures has left a
+record (`REQ-REPLACE-002`). An orphan in a season that was played is therefore still a database edit, and so
+is one whose place no club should hold at all: the replacement brings a club in for one going out, and removes
+no row.
+
+A club document that went missing is the other reading, and restoring it is that repair — but no route deletes
+a club, retirement being soft and leaving the document in place
 (`fl_backend/app/api/teams/admin_router.py :: delete_team`), so that history needs a database edit of its own
-before it is worth acting on. Only somebody who knows whether that club played that season can settle it.
-Re-run `--check` afterwards.
+before it is worth acting on. **Settle which reading applies before running anything**: the replacement writes
+a club into the season's record, so run on the second reading it names a club that never played. Only somebody
+who knows whether that club played that season can say. Re-run `--check` afterwards.
 
 **The junction failure that does stop the site is the other report**, the validator one: a `saison_teams`
 row missing `name` takes `PATCH /spiele/{spiel_id}` down for every fixture in that season, the save and

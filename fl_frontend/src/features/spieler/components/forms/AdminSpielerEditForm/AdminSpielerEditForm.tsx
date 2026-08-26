@@ -24,6 +24,7 @@ import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 import { buildSpielerBanners } from "./banners";
 import { FormAustragenSection } from "./FormAustragenSection";
 import { FormKaderSection } from "./FormKaderSection";
+import { FormLoeschenSection } from "./FormLoeschenSection";
 import { FormPersonSection } from "./FormPersonSection";
 
 import type { FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
@@ -69,6 +70,7 @@ export function AdminSpielerEditForm({
   spieler,
   saison,
   teams,
+  membershipCount,
   registerRequestLeave,
   pageHeader,
 }: {
@@ -77,6 +79,8 @@ export function AdminSpielerEditForm({
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
   teams: readonly SpielerTeamOption[];
+  /** Squad rows across EVERY season, retired ones included: what the erasure would take with it. */
+  membershipCount: number;
   registerRequestLeave?: (requestLeave: () => void) => void;
   pageHeader?: ReactNode;
 }) {
@@ -197,12 +201,17 @@ export function AdminSpielerEditForm({
   const personDirty = status.changed.some((field) => field.group === "Person");
   const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Kader");
 
+  // The predicate `REQ-SQUAD-001` counts, asked of the same fact: `teams` is exactly this season's
+  // junction rows, and a club replacement repoints one away from the squad rows still naming it.
+  const isRowTeamInSaison = storedMembership === null || teams.some((team) => team.teamId === storedMembership.team_id);
+
   const banners = buildSpielerBanners({
     isRetired: spieler.inactive_since !== null,
     saisonId: saison.saisonId,
     saisonStatus: saison.saisonStatus,
     isMember: storedMembership !== null,
     rowInactiveSince: storedMembership?.inactive_since ?? null,
+    isRowTeamInSaison,
     isNachgetragen,
     isTeamChanged: isChanged("team_id"),
     newlySharedNummer,
@@ -428,9 +437,20 @@ export function AdminSpielerEditForm({
               spielerId={spieler.id}
               saisonId={saison.saisonId}
               rowInactiveSince={storedMembership.inactive_since}
+              isRowTeamInSaison={isRowTeamInSaison}
               banners={banners}
             />
           )}
+
+          {/* Last on the page, the position the season editor's rollover holds: the one control here
+              that no later edit reverses, and the only one that removes rather than retires. Always
+              rendered — closed, it is where the admin reads that retirement comes first. */}
+          <FormLoeschenSection
+            spielerId={spieler.id}
+            fullName={spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`}
+            isRetired={spieler.inactive_since !== null}
+            membershipCount={membershipCount}
+          />
         </EditFormLayout>
 
         <FormActionBar

@@ -118,6 +118,7 @@ export function SaisonRuleNumberField({
   maxValue,
   isReadOnly,
 }: {
+  /** The field's path in the payload, so `Form`'s `validationErrors` reach it by name. */
   name: string;
   label: ReactNode;
   value: number;

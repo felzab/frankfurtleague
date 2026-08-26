@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { ArrowRightArrowLeft, LockFill } from "@gravity-ui/icons";
 
-import { Button, Label, ListBox, Select } from "@heroui/react";
+import { Button } from "@heroui/react";
 
 import { swapGruppenAction } from "@/features/saisons/actions";
 import { findSwapPartnerRefusal } from "@/features/saisons/utils";
@@ -13,21 +13,23 @@ import { postSaisonTeamAction } from "@/features/teams/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
+import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { confirmButton, formButton } from "@/shared/components/ui/formButtons";
+import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-import { PANEL_REVEAL } from "@/shared/components/ui/motion";
-import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
+import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
 import type { FLGruppenNames } from "@/features/teams/schemas";
 import type { GruppeOffer, TeamGruppeLock, TeamSaisonContext } from "@/features/teams/types";
-import type { Key } from "@heroui/react";
+import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";
 import type { TeamBanner } from "./banners";
 
 /** The sentence the disabled swap button is described by. This control renders at most once per page. */
@@ -69,8 +71,7 @@ function GruppenTauschControl({
   self: SaisonSwapTeam;
 }) {
   const router = useRouter();
-  const [isSwapping, startSwapping] = useTransition();
-  const [isConfirming, setIsConfirming] = useState(false);
+  const { isConfirming, isPending: isSwapping, press, cancel } = useTwoPressConfirm();
   const [partner, setPartner] = useState<SaisonSwapTeam | null>(null);
 
   // Graded by the SHARED `findSwapPartnerRefusal`, so a club this picker accepts is one the endpoint
@@ -78,24 +79,28 @@ function GruppenTauschControl({
   const candidates = swap.teams.filter((team) => team.id !== self.id).map((team) => ({ team, refusal: findSwapPartnerRefusal(self, team) }));
   const hasAPartner = candidates.some(({ refusal }) => refusal === null);
 
-  const handlePick = (key: Key | null) => {
-    const picked = candidates.find(({ team }) => team.id === key?.toString());
-    if (picked === undefined || picked.refusal !== null) return;
+  const options: RefusableOption[] = candidates.map(({ team, refusal }) => ({
+    id: team.id,
+    name: team.name,
+    meta: `Gruppe ${team.gruppe}`,
+    refusal: refusal === null ? null : PARTNER_REFUSAL_LABEL[refusal],
+  }));
+
+  const handlePick = (id: string) => {
+    const picked = candidates.find(({ team }) => team.id === id);
+    if (picked === undefined) return;
+
     setPartner(picked.team);
-    setIsConfirming(false);
+    cancel();
   };
 
   const handleSwap = () => {
+    // Ahead of `press`, so an unchosen partner neither arms nor writes. `partner` is a `const`, which
+    // is what carries the narrowing into the closure below.
     if (partner === null) return;
 
-    if (!isConfirming) {
-      setIsConfirming(true);
-      return;
-    }
-
-    startSwapping(async () => {
+    press(async () => {
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id });
-      setIsConfirming(false);
 
       if (!res.success) {
         appToast.danger("Tausch fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
@@ -157,40 +162,15 @@ function GruppenTauschControl({
           </p>
 
           <div className="flex w-full flex-col gap-y-1.5">
-            <Select
-              aria-label="Tauschen mit"
-              value={partner?.id ?? undefined}
+            <RefusableSelect
+              label="Tauschen mit"
+              placeholder="Team wählen"
+              value={options.find((option) => option.id === partner?.id) ?? null}
+              options={options}
               onChange={handlePick}
               isDisabled={isSwapping}
-              className="w-full sm:max-w-96">
-              {/* HeroUI's own `Label`, so `for`/`id` reach the trigger — see `FormGruppenSwapSection`. */}
-              <Label className={FIELD_LABEL}>Tauschen mit</Label>
-              <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
-                {/* From the prop, not `Select.Value` — the collection can lag a render behind and
-                would then show HeroUI's English placeholder. */}
-                <span className={partner ? "" : "text-foreground-muted"}>
-                  {partner ? `${partner.name} (Gruppe ${partner.gruppe})` : "Team wählen"}
-                </span>
-                <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
-              </Select.Trigger>
-              <Select.Popover className={`${overlayPanel()} mt-2 max-h-72 overflow-y-auto p-1.5`}>
-                <ListBox aria-label="Teams dieser Saison">
-                  {candidates.map(({ team, refusal }) => (
-                    <ListBox.Item
-                      key={team.id}
-                      id={team.id}
-                      textValue={team.name}
-                      isDisabled={refusal !== null}
-                      className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-base) data-disabled:cursor-not-allowed data-disabled:opacity-40">
-                      <span className="min-w-0 truncate">{team.name}</span>
-                      <span className="fluid-xs text-foreground-muted shrink-0 font-semibold">
-                        {refusal === null ? `Gruppe ${team.gruppe}` : PARTNER_REFUSAL_LABEL[refusal]}
-                      </span>
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
+              className="sm:max-w-96"
+            />
 
             {/* The two questions this picker raises — why a row is grey, and why an expected club is
             missing — answered where it raises them. */}
@@ -210,29 +190,27 @@ function GruppenTauschControl({
             </Callout>
           )}
 
-          {/* Escalated in place: without `role="alert"` the only signal is the button label quietly
-          changing. */}
           {isConfirming && partner !== null && (
-            <div
-              role="alert"
-              className={`${PANEL_REVEAL} bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm`}>
-              <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
+            <ConfirmReveal>
               <p className="fluid-xxs text-foreground leading-normal font-medium">
                 Der Tausch gilt sofort, unabhängig vom Speichern-Knopf unten, und ist auf jeder Tabelle dieser Saison sichtbar. Rückgängig
                 machst Du ihn, indem Du dieselben beiden Teams noch einmal tauschst.
               </p>
-            </div>
+            </ConfirmReveal>
           )}
 
           <div className="flex w-full flex-col gap-y-1.5">
-            <div className="flex w-full flex-row flex-wrap items-center gap-3">
+            <ConfirmActionRow
+              isConfirming={isConfirming}
+              isPending={isSwapping}
+              onCancel={cancel}>
               <Button
                 type="button"
                 variant="primary"
                 aria-describedby={!isSwapping && partner === null ? SWAP_BUTTON_HINT_ID : undefined}
                 isDisabled={isSwapping || partner === null}
                 onPress={handleSwap}
-                className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
+                className={confirmButton(isConfirming)}>
                 {!isConfirming && (
                   <ArrowRightArrowLeft
                     aria-hidden="true"
@@ -242,17 +220,7 @@ function GruppenTauschControl({
                 )}
                 {isSwapping ? "Tauscht..." : isConfirming ? "Ja, Gruppen tauschen" : "Gruppen tauschen"}
               </Button>
-              {isConfirming && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  isDisabled={isSwapping}
-                  onPress={() => setIsConfirming(false)}
-                  className={formButton({ intent: "cancel" })}>
-                  Abbrechen
-                </Button>
-              )}
-            </div>
+            </ConfirmActionRow>
             {/* Adjacent to the control it describes and pointed at by `aria-describedby`, the app's
             treatment for a control disabled for a reason already on screen. */}
             {!isSwapping && partner === null && (
@@ -356,8 +324,8 @@ export function FormSaisonSection({
                 Eine <strong>andere Saison</strong> wählst Du im Seitenmenü aus.
               </li>
               <li>
-                Der <strong>Austritt</strong> unten ist der einzige Weg aus einer Saison. Er wird als Disqualifikation oder als Rückzug
-                eingetragen.
+                Der <strong>Austritt</strong> unten nimmt dieses Team aus der Saison, als Disqualifikation oder als Rückzug. Seine Spiele
+                bleiben dabei bei ihm; <strong>Team ersetzen</strong> auf der Saisonseite gibt sie an ein anderes Team weiter.
               </li>
               <li>
                 Die <strong>Gruppe</strong> ist nur änderbar, solange für dieses Team noch keine Spiele angelegt sind.

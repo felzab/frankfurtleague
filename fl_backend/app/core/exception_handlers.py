@@ -1,4 +1,4 @@
-from typing import Mapping
+from typing import Any, Mapping, Sequence
 
 from bson.errors import InvalidId
 from fastapi import FastAPI, Request, status
@@ -35,7 +35,7 @@ async def pydantic_validation_exception_handler(request: Request, exc: Validatio
     # A server-side model failing on server-side data; a request payload raises
     # `RequestValidationError` instead. 500, not 422.
     fl_logger.error(
-        f"Model validation failed outside request parsing: {exc.errors() or NO_DATA_TEXT}",
+        f"Model validation failed outside request parsing: {rejected_fields_of(exc.errors()) or NO_DATA_TEXT}",
         extra={"error_code": "SRV-VAL-001"},
     )
 
@@ -44,11 +44,21 @@ async def pydantic_validation_exception_handler(request: Request, exc: Validatio
 
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
     fl_logger.warning(
-        f"Payload validation failed: {exc.errors() or NO_DATA_TEXT}",
+        f"Payload validation failed: {rejected_fields_of(exc.errors()) or NO_DATA_TEXT}",
         extra={"error_code": "REQ-VAL-001"},
     )
 
     return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, "REQ-VAL-001")
+
+
+def rejected_fields_of(errors: Sequence[Any]) -> list[dict[str, str]]:
+    """Where each error sits, what kind it is and what it says -- never `input`, the value submitted for it.
+
+    `docs/logging/spec.md :: L9`. A person's erasure clears every collection and reaches no log
+    sink, so a value written here outlives them.
+    """
+
+    return [{"loc": ".".join(str(part) for part in error["loc"]), "type": error["type"], "msg": error["msg"]} for error in errors]
 
 
 async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyError):
@@ -70,13 +80,60 @@ def failure_message_of(exc: DuplicateKeyError) -> str:
 
 
 async def motor_db_exception_handler(request: Request, exc: PyMongoError):
+    # `str(exc)` quotes the document the server refused -- `consideredValue` under a validator, the
+    # whole `op` under a bulk write -- and a traceback renders it a second time in its last line.
     fl_logger.error(
-        f"Database crash: {str(exc) or NO_DATA_TEXT}",
-        exc_info=True,
+        f"Database crash ({type(exc).__name__}, code {getattr(exc, 'code', None)}): {refused_properties_of(exc) or NO_DATA_TEXT}",
         extra={"error_code": "DB-FAIL-001"},
     )
 
     return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "DB-FAIL-001")
+
+
+# Walked by NAME and never over every key: a refused value sits under `consideredValue` and can
+# itself be an array of documents, which a walk over every key would descend into. An unlisted key
+# costs a field name in the line, never a value.
+_REFUSAL_BRANCHES = ("schemaRulesNotSatisfied", "propertiesNotSatisfied", "details")
+
+
+def refused_properties_of(exc: PyMongoError) -> list[dict[str, str]]:
+    """Which property a document validator refused, which keyword refused it and why.
+
+    Never `consideredValue`: `rejected_fields_of` withholds one for the same reason, and the
+    validators cover every field of every collection, a person's names included.
+    """
+
+    details: Mapping[str, Any] = getattr(exc, "details", None) or {}
+    # A bulk write reports one entry per refused document; every other write reports at the top.
+    refusals = details.get("writeErrors") or [details]
+
+    return [entry for refusal in refusals for entry in _refused_under((refusal.get("errInfo") or {}).get("details") or {}, path="")]
+
+
+def _refused_under(rule: Any, *, path: str) -> list[dict[str, str]]:
+    """Every property refused under `rule`, keyed by its dotted path.
+
+    Total over whatever the driver hands it: a handler that raises while handling leaves the caller
+    with no answer, and only the server decides a refusal report's shape.
+    """
+
+    if not isinstance(rule, Mapping):
+        return []
+
+    name = rule.get("propertyName")
+    here = _dotted(path, name) if name else path
+    entries = [
+        {"loc": _dotted(here, missing), "type": "required", "msg": "property is missing"} for missing in rule.get("missingProperties", ())
+    ]
+
+    if "reason" in rule:
+        entries.append({"loc": here or NO_DATA_TEXT, "type": str(rule.get("operatorName", "")), "msg": str(rule["reason"])})
+
+    return entries + [entry for branch in _REFUSAL_BRANCHES for child in rule.get(branch, ()) for entry in _refused_under(child, path=here)]
+
+
+def _dotted(path: str, name: Any) -> str:
+    return f"{path}.{name}" if path else str(name)
 
 
 async def invalid_bson_oid_exception_handler(request: Request, exc: InvalidId):

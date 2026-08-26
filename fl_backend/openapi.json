@@ -2689,6 +2689,70 @@
         }
       }
     },
+    "/api/v0/teams/{team_id}/saisons/{saison_id}/replace": {
+      "post": {
+        "summary": "Replace a club in a season, keeping its schedule",
+        "description": "Hand this season's junction row, and every fixture on it, to another club.\n\nIts `team_id`, identity copy, `austritt` and every fixture side move, and the outgoing club's\nlive squad rows are retired, in ONE transaction: the schedule survives.",
+        "operationId": "replace_saison_team_api_v0_teams__team_id__saisons__saison_id__replace_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLReplaceSaisonTeamPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLReplaceSaisonTeamResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v0/spieltage/list/admin": {
       "get": {
         "summary": "Spieltage for the admin surfaces",
@@ -2923,6 +2987,51 @@
         }
       }
     },
+    "/api/v0/spieler/{spieler_id}/erasure": {
+      "delete": {
+        "summary": "Erase a Spieler (hard delete)",
+        "description": "Erase a player: the person, their squad rows, and their values in the log.\n\nHARD and refused until retirement (`REQ-PURGE-001`); the soft `DELETE` stays.\nNo log row is dropped: images are emptied in place and stamped (`docs/backend/spec.md :: I42`).",
+        "operationId": "erase_spieler_api_v0_spieler__spieler_id__erasure_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerErasureResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v0/spieler/{spieler_id}/saisons": {
       "post": {
         "summary": "Add a Spieler to a squad",
@@ -3097,7 +3206,7 @@
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
       "post": {
         "summary": "Put a Spieler back in a squad they left",
-        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected (`docs/backend/spec.md :: I20`): a create reviving the row\nwould overwrite both. Refused where the squad has since filled up.",
+        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected (`docs/backend/spec.md :: I20`): a create reviving the row\nwould overwrite both. Refused where the squad has filled up, or its club left.",
         "operationId": "reactivate_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__reactivate_post",
         "security": [
           {
@@ -3249,7 +3358,7 @@
     "/api/v0/saisons/{saison_id}/activate": {
       "post": {
         "summary": "Make this the active Saison",
-        "description": "Make this the active season, moving whichever holds `active` to `past`.\n\nThe only path to `status: \"active\"`. One transaction, so the league never briefly holds no\nactive season, nor two. The outgoing must be finished, and a `past` target refused.",
+        "description": "Make this the active season, moving whichever holds `active` to `past`.\n\nThe only path to `status: \"active\"`. One transaction judges and writes, so the league never\nbriefly holds no active season, nor two, and neither season can be drawn or undrawn under the\njudgement. The outgoing must be finished, and a `past` target refused.",
         "operationId": "activate_saison_api_v0_saisons__saison_id__activate_post",
         "security": [
           {
@@ -3349,7 +3458,7 @@
     "/api/v0/saisons/{saison_id}/spielplan": {
       "post": {
         "summary": "Draw this Saison's Spielplan",
-        "description": "Draw the whole season at once: every matchday and every fixture, in one transaction.\n\nONE-WAY, like activation, and nothing it writes carries a date. A half-written draw could not be\nrepaired here, `/spiele` having neither a create nor a delete.",
+        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, inside `REQ-SPIELPLAN-005`'s window.",
         "operationId": "generate_spielplan_api_v0_saisons__saison_id__spielplan_post",
         "security": [
           {
@@ -3367,6 +3476,15 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLGenerateSpielplanPayload"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Successful Response",
@@ -3374,6 +3492,49 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLGenerateSpielplanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Undraw this Saison's Spielplan",
+        "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nThe replace's window bounds it (`REQ-SPIELPLAN-006`). Undoing the draw is what reopens the shape\nrules to `PATCH` and the groups to an entry.",
+        "operationId": "undraw_spielplan_api_v0_saisons__saison_id__spielplan_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLUndrawSpielplanResponse"
                 }
               }
             }
@@ -3481,6 +3642,51 @@
         }
       }
     },
+    "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren": {
+      "post": {
+        "summary": "Clear a Schiedsrichter's contact details",
+        "description": "Null the referee's telephone number and email address, in the row and in the log.\n\nThe row and its `name` stay: every Spiel embeds both, so a removal would strand copies.\nNo precondition -- details may go while they still officiate.",
+        "operationId": "anonymise_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__anonymisieren_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schiedsrichter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Schiedsrichter Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v0/aktionen": {
       "get": {
         "summary": "List recorded admin actions",
@@ -3519,7 +3725,9 @@
                     "insert",
                     "insert_many",
                     "patch_one",
-                    "patch_many"
+                    "patch_many",
+                    "delete_many",
+                    "erase_many"
                   ],
                   "type": "string"
                 },
@@ -3754,6 +3962,7 @@
             "title": "Stadt"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "strasse",
@@ -3801,7 +4010,9 @@
               "insert",
               "insert_many",
               "patch_one",
-              "patch_many"
+              "patch_many",
+              "delete_many",
+              "erase_many"
             ],
             "title": "Operation"
           },
@@ -3835,6 +4046,13 @@
               {
                 "additionalProperties": true,
                 "type": "object"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
               },
               {
                 "type": "null"
@@ -4265,6 +4483,29 @@
         "title": "FLEinwilligung",
         "description": "What this person agreed may be published about them.\n\nRequired TOGETHER, as `FLAustritt` is: a scope with no confirmation date is a claim that\nsomebody consented, and the surface reading this may not tell the two apart."
       },
+      "FLGenerateSpielplanPayload": {
+        "properties": {
+          "replace": {
+            "type": "boolean",
+            "title": "Replace",
+            "default": false
+          },
+          "shape": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielplanShape"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FLGenerateSpielplanPayload",
+        "description": "Whether this draw may REPLACE what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission. `REQ-SPIELPLAN-005` bounds a confirmed one."
+      },
       "FLGenerateSpielplanResponse": {
         "properties": {
           "acknowledged": {
@@ -4431,6 +4672,7 @@
             "$ref": "#/components/schemas/FLSaisonRules"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "start_date",
@@ -4523,6 +4765,7 @@
             "title": "Is Captain"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "team_id",
@@ -4558,6 +4801,7 @@
             ]
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "gruppe",
@@ -4593,6 +4837,7 @@
             "title": "Default Payment"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "kontakt",
@@ -4784,6 +5029,7 @@
             "title": "Notiz"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "sonderereignis",
@@ -4886,6 +5132,7 @@
             "title": "Nachname"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "vorname",
@@ -4910,6 +5157,7 @@
             "title": "Default Mietpreis"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "address",
@@ -4957,6 +5205,7 @@
             "title": "Ende"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "beginn",
@@ -4995,6 +5244,7 @@
             "$ref": "#/components/schemas/FLAddressPayload"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name",
@@ -5059,6 +5309,7 @@
             "title": "Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "start_date",
@@ -5159,6 +5410,7 @@
             "title": "Saison Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "team_id",
@@ -5191,6 +5443,7 @@
             "title": "Gruppe"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "saison_id",
@@ -5227,6 +5480,7 @@
             "title": "Default Payment"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "kontakt",
@@ -5279,6 +5533,7 @@
             "title": "Nachname"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "vorname"
@@ -5302,6 +5557,7 @@
             "title": "Default Mietpreis"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "address",
@@ -5363,6 +5619,7 @@
             "$ref": "#/components/schemas/FLAddressPayload"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name",
@@ -5395,6 +5652,88 @@
           "created_id"
         ],
         "title": "FLPostTeamResponse"
+      },
+      "FLReplaceSaisonTeamPayload": {
+        "properties": {
+          "incoming_team_id": {
+            "type": "string",
+            "title": "Incoming Team Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "incoming_team_id"
+        ],
+        "title": "FLReplaceSaisonTeamPayload",
+        "description": "Which club takes this season's row over. The path names the club going OUT."
+      },
+      "FLReplaceSaisonTeamResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "outgoing_team_id": {
+            "type": "string",
+            "title": "Outgoing Team Id"
+          },
+          "incoming_team_id": {
+            "type": "string",
+            "title": "Incoming Team Id"
+          },
+          "gruppe": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Gruppe"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "shorthand": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Shorthand"
+          },
+          "fanned_out_to_spiele": {
+            "type": "integer",
+            "title": "Fanned Out To Spiele"
+          },
+          "retired_squad_rows": {
+            "type": "integer",
+            "title": "Retired Squad Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "outgoing_team_id",
+          "incoming_team_id",
+          "gruppe",
+          "name",
+          "shorthand",
+          "fanned_out_to_spiele",
+          "retired_squad_rows"
+        ],
+        "title": "FLReplaceSaisonTeamResponse",
+        "description": "The junction row as the replacement left it, plus what it reached beyond that row.\n\nNo `austritt`: a replacement clears it, so the field could hold only one value here and would\nstate nothing."
       },
       "FLSaison": {
         "properties": {
@@ -5958,7 +6297,7 @@
           "updated_document"
         ],
         "title": "FLSchiedsrichterWriteResponse",
-        "description": "Shared by delete and reactivate — both answer with the referee as they now stand."
+        "description": "Shared by delete, reactivate and anonymisieren — each answers with the referee as they now stand."
       },
       "FLSpielAdvancement": {
         "properties": {
@@ -6523,6 +6862,7 @@
             "title": "Mietpreis"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "spielort_id",
@@ -6730,6 +7070,7 @@
             "title": "Payment"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "schiedsrichter_id",
@@ -6839,7 +7180,7 @@
           "tore"
         ],
         "title": "FLSpielTeamFieldPayload",
-        "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the season's `saison_teams` row is where a club's name lives, so a copy\na client typed could only disagree with it. The server composes them."
+        "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the season's `saison_teams` row is where a club's name lives, so a copy\na client typed could only disagree with it. The server composes them.\n\nA submitted copy is IGNORED rather than refused, alone among the payload models: the stored and\nthe joined sides below EXTEND this one and `extra` is inherited, so refusing here would answer\n500 for a fixture read over a document carrying a key no model declares."
       },
       "FLSpieleActionRequiredResponse": {
         "properties": {
@@ -7021,6 +7362,39 @@
         ],
         "title": "FLSpielerAdminSingleResponse",
         "description": "The same player echoed back to the admin who just wrote them, with their surname whole.\n\n`inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public\nsurface renders a pupil's leaving date."
+      },
+      "FLSpielerErasureResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "erased_saison_spieler": {
+            "type": "integer",
+            "title": "Erased Saison Spieler"
+          },
+          "redacted_aktionen": {
+            "type": "integer",
+            "title": "Redacted Aktionen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id",
+          "erased_saison_spieler",
+          "redacted_aktionen"
+        ],
+        "title": "FLSpielerErasureResponse",
+        "description": "What the erasure removed, and NOT an echo of the person.\n\nA response repeating their names or their consent record would be a fresh copy of exactly what\nwas erased, handed back over the wire."
       },
       "FLSpielerListResponse": {
         "properties": {
@@ -7466,6 +7840,36 @@
         ],
         "title": "FLSpielorteSingleResponse"
       },
+      "FLSpielplanShape": {
+        "properties": {
+          "number_of_groups": {
+            "type": "integer",
+            "maximum": 4.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Number Of Groups"
+          },
+          "teams_per_group": {
+            "type": "integer",
+            "maximum": 16.0,
+            "minimum": 2.0,
+            "title": "Teams Per Group"
+          },
+          "qualifiers_per_group": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Qualifiers Per Group"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "number_of_groups",
+          "teams_per_group",
+          "qualifiers_per_group"
+        ],
+        "title": "FLSpielplanShape",
+        "description": "The three rules a season's fixture list is a function of, as this draw is to run from.\n\nAll three or none: the draw is one function of the whole shape, and a payload naming half\nof it would take the rest off a season about to stop matching it."
+      },
       "FLSpieltag": {
         "properties": {
           "id": {
@@ -7619,6 +8023,7 @@
             "title": "Team2 Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "team1_id",
@@ -8133,6 +8538,48 @@
         ],
         "title": "FLTeamsSingleResponse",
         "description": "One team, from `GET /teams/{team_id}`.\n\nNot part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can return."
+      },
+      "FLUndrawSpielplanResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id"
+          },
+          "spieltage": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Spieltage"
+          },
+          "spiele": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Spiele"
+          },
+          "watermark_cleared": {
+            "type": "boolean",
+            "title": "Watermark Cleared"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "spieltage",
+          "spiele",
+          "watermark_cleared"
+        ],
+        "title": "FLUndrawSpielplanResponse",
+        "description": "What removing the season's Spielplan took away, on the shape the draw reports.\n\nBoth counts are zero on a season already undrawn, which is why the watermark is reported apart:\nit is the one thing a season can hold with neither collection behind it."
       },
       "HTTPValidationError": {
         "properties": {

@@ -11,6 +11,9 @@ from app.api.teams.admin_router import get_teams_for_admin
 from app.api.teams.router import get_teams
 from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams
 from app.core.collections import Collection
+from app.core.config import API_VERSION
+from app.main import create_app
+from tests.config import build_test_config
 
 DATABASE_NAME = "fl_teams_public_read_test"
 
@@ -29,6 +32,13 @@ RETIRED_ON = "2026-03-01"
 # caller may ask for is settled here rather than by anything a handler body does with the answer.
 BASE_FILTERS: type[BaseModel] = get_type_hints(get_teams)["filters"]
 ADMIN_FILTERS: type[BaseModel] = get_type_hints(get_teams_for_admin)["filters"]
+
+# What a caller may actually SEND, read off the app's own schema: a model's fields plus anything the
+# handler declares beside them. Constructing a filter object asks for nothing -- `extra="ignore"`
+# drops an undeclared key before any read sees it.
+_PUBLISHED_PATHS = create_app(build_test_config()).openapi()["paths"]
+BASE_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams"]["get"]["parameters"]}
+ADMIN_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams/list/admin"]["get"]["parameters"]}
 
 Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
 
@@ -117,7 +127,7 @@ def on_a_league(container: Any, body: Body) -> Any:
 
 
 def base_filters(**overrides: Any) -> BaseModel:
-    """`model_validate`, not the constructor: several cases pass a key the base model does not declare, which is each case's assertion."""
+    """`model_validate`, not the constructor: the model is whatever `get_teams` declares, so its keywords are not known here statically."""
 
     return BASE_FILTERS.model_validate({"saison_id": SAISON, **overrides})
 
@@ -149,7 +159,9 @@ def standing_names(response: Any) -> list[str]:
 class TestTheBaseTierFilterSurface:
     def test_the_retirement_switch_is_not_among_its_query_parameters(self):
         """A standings row names no leaving date, so a read un-hiding retired clubs has no way to say which ones they are (`READ-SQUAD-002`)."""
-        assert "include_inactive" not in BASE_FILTERS.model_fields
+        assert "include_inactive" not in BASE_QUERY_PARAMETERS
+        # The contrast, so the name above is one FastAPI really publishes when a handler offers it.
+        assert "include_inactive" in ADMIN_QUERY_PARAMETERS
 
     def test_the_base_tier_filter_set_is_exactly_this(self):
         """Every term the base tier may narrow on. A filter is part of the shape a read serves.
@@ -203,15 +215,9 @@ class TestARetiredClubStaysOutOfTheBaseTierReads:
 
         assert standing_names(response) == ["Helmholtz"]
 
-    def test_asking_for_it_does_not_put_it_in_the_standings(self, mongo_container: Any):
-        """`include_inactive` is not a parameter of this read, so the key is ignored rather than honoured."""
-        response = on_a_league(mongo_container, lambda database: read_teams(database, base_filters(in_gruppen=True, include_inactive=True)))
-
-        assert standing_names(response) == ["Helmholtz"]
-
-    def test_asking_for_it_does_not_put_it_in_the_flat_list_either(self, mongo_container: Any):
+    def test_the_flat_list_leaves_it_out_as_well(self, mongo_container: Any):
         """The switch left the ENDPOINT rather than one of its two shapes: the flat list is the same base-tier surface."""
-        response = on_a_league(mongo_container, lambda database: read_teams(database, base_filters(include_inactive=True)))
+        response = on_a_league(mongo_container, lambda database: read_teams(database, base_filters()))
 
         assert [team.name for team in response.teams] == ["Helmholtz"]
 

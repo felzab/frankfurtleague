@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { DECLARED_RULES, declaredCodes } from "../../core/refusalRegister.ts";
 import { buildSpieltagBanners } from "./components/forms/AdminSpieltagEditForm/banners.ts";
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "spieltage", "undo", "route.ts"), "utf8");
 /** Whitespace-collapsed: the hint is JSX text, so the formatter picks its line breaks, not the author. */
@@ -13,29 +13,18 @@ const HINT_SECTION = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminSpieltagEditForm", "FormZeitraumSection.tsx"),
   "utf8",
 ).replace(/\s+/g, " ");
-const DOMAIN = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "domain.py"), "utf8");
 
-/**
- * The backend's register, one entry per rule. Source text rather than an import: the register is
- * Python, and a `"use server"` module may export nothing but async actions besides.
- */
-const RULES = DOMAIN.split("Rule(").slice(1);
-
-const codeOf = (rule: string): string => /code="([^"]+)"/.exec(rule)?.[1] ?? "";
+const PATCH_OPERATION = "PATCH /spieltage/{spieltag_id}";
 
 /** Every refusal the matchday PATCH declares, read off the register rather than restated here. */
-function patchCodes(): string[] {
-  const declaring = RULES.filter((rule) => (/operation="([^"]+)"/.exec(rule)?.[1] ?? "").includes("PATCH /spieltage/{spieltag_id}"));
-
-  return [...new Set(declaring.map(codeOf))].sort();
-}
+const PATCH_CODES = declaredCodes(PATCH_OPERATION);
 
 /**
  * The ordering rule, found by the symbol implementing it: its code is renumbered whenever the
  * programme reserves that number, and a restated one would then prove a rule nobody wrote.
  */
 function orderingCode(): string {
-  return codeOf(RULES.find((rule) => rule.includes("find_spieltag_order_refusal")) ?? "");
+  return DECLARED_RULES.find((rule) => rule.source.includes("find_spieltag_order_refusal"))?.code ?? "";
 }
 
 /** The body of one `serverErrorCode === "<code>"` branch, cut at the brace that closes it. */
@@ -76,11 +65,11 @@ describe("the Spieltag refusals against the backend's register", () => {
   it("finds the matchday PATCH's rules at all", () => {
     // A floor rather than the list: a restated list fails on a renumbering, which is the one thing
     // here that changes without a German message going missing.
-    assert.ok(patchCodes().length >= 3, `expected at least 3 declared refusals, found ${String(patchCodes().length)}`);
+    assert.ok(PATCH_CODES.length >= 3, `expected at least 3 declared refusals, found ${String(PATCH_CODES.length)}`);
     assert.match(orderingCode(), /^REQ-DATE-\d{3}$/);
   });
 
-  for (const code of patchCodes()) {
+  for (const code of PATCH_CODES) {
     it(`${code} reaches the admin in German on both write paths`, () => {
       assert.notEqual(refusalArm(code), "", `${code} falls through to the generic conflict message when the edit is saved`);
       assert.notEqual(replayRow(code), "", `${code} falls through to the generic conflict message when the edit is undone`);

@@ -136,11 +136,11 @@ def drawn_spiele() -> list[dict[str, Any]]:
 Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
 
 
-def on_a_database(container: Any, body: Body, *, spiele: list[dict[str, Any]] | None = None) -> Any:
+def on_a_database(url: str, body: Body, *, spiele: list[dict[str, Any]] | None = None) -> Any:
     """One client and event loop per call: Motor binds to the loop it first runs on."""
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(container.get_connection_url())
+        client = AsyncIOMotorClient(url)
         try:
             await client.drop_database(DATABASE_NAME)
             database = client[DATABASE_NAME]
@@ -177,6 +177,7 @@ async def patch_the_rules(database: AsyncIOMotorDatabase, **overrides: Any) -> A
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        db=database.client,
     )
 
 
@@ -187,17 +188,17 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
     season match and the grouping by team reach nothing without a database behind them.
     """
 
-    def test_the_decoy_rows_hold_no_cap_up(self, mongo_container: Any):
+    def test_the_decoy_rows_hold_no_cap_up(self, mongo_replica_set_url: str):
         """One call for the three: each decoy is larger than this cap, so any of them reaching the figure refuses instead."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
             return await patch_the_rules(database, max_kadergroesse=PERMITTED_KADER)
 
-        response = on_a_database(mongo_container, body)
+        response = on_a_database(mongo_replica_set_url, body)
 
         assert response.updated_document.rules.max_kadergroesse == PERMITTED_KADER
 
-    def test_a_cap_below_the_live_squad_is_refused(self, mongo_container: Any):
+    def test_a_cap_below_the_live_squad_is_refused(self, mongo_replica_set_url: str):
         """The control: without it the case above would also pass on an aggregation that answered nothing at all."""
 
         async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
@@ -206,7 +207,7 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
 
             return refusal.value
 
-        refusal = on_a_database(mongo_container, body)
+        refusal = on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == RULES_KADER_BELOW_USE
         # The live squad and nothing larger, so a decoy counted in would show here as well as in the verdict.
@@ -216,7 +217,7 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
 class TestTheDrawItselfIsWhatFreezesTheShape:
     """`REQ-RULES-011` through the endpoint, whose count of the season's fixtures is the whole of what the rule turns on."""
 
-    def test_widening_a_group_after_the_draw_is_refused(self, mongo_container: Any):
+    def test_widening_a_group_after_the_draw_is_refused(self, mongo_replica_set_url: str):
         """A widening crosses no other bound: `REQ-RULES-003` reads the narrowing direction and the matchday stays under the wider count."""
 
         async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
@@ -225,17 +226,17 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
 
             return refusal.value
 
-        refusal = on_a_database(mongo_container, body, spiele=drawn_spiele())
+        refusal = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
         assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
         assert str(DRAWN_FIXTURES) in refusal.error_detail["message"]
 
-    def test_the_same_edit_goes_through_while_nothing_is_drawn(self, mongo_container: Any):
+    def test_the_same_edit_goes_through_while_nothing_is_drawn(self, mongo_replica_set_url: str):
         """The same season and the same matchday, minus its fixtures: a season still being set up widens freely."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
             return await patch_the_rules(database, teams_per_group=WIDER_PER_GROUP)
 
-        response = on_a_database(mongo_container, body)
+        response = on_a_database(mongo_replica_set_url, body)
 
         assert response.updated_document.rules.teams_per_group == WIDER_PER_GROUP

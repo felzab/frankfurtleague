@@ -79,12 +79,14 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   FLDeleteTeamPayload: "a DELETE takes its id from the path and has no request body",
   FLDeleteSpielerPayload: "a DELETE takes its id from the path and has no request body",
+  FLEraseSpielerPayload: "a DELETE takes its id from the path and has no request body",
   FLReactivateTeamPayload: "the reactivate POST takes its id from the path and has no request body",
   FLReactivateSpielerPayload: "the reactivate POST takes its id from the path and has no request body",
   FLSaisonSpielerKeyPayload: "the junction's DELETE and reactivate take both ids from the path, with no request body",
   FLActivateSaisonPayload: "the activate POST takes its id from the path and has no request body",
-  FLGenerateSpielplanPayload: "the Spielplan POST takes its id from the path and has no request body",
+  FLUndrawSpielplanPayload: "the undraw DELETE takes its season id from the path and has no request body",
   FLSchiedsrichterKeyPayload: "the referee's DELETE and reactivate take the id from the path, with no request body",
+  FLAnonymiseSchiedsrichterPayload: "the anonymisation POST takes its id from the path and has no request body",
   FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
   // One form creates the row and its junction: without one it is invisible — backend spec I11 for a
@@ -107,9 +109,12 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSpieltagPayload: ["id"],
   // The season is the resource acted on, so it is the path; the control still has to know which.
   FLSwapGruppenPayload: ["saison_id"],
+  // The draw's own season, for the same reason. Its body carries the replace confirmation and the shape.
+  FLGenerateSpielplanPayload: ["id"],
   // A junction row is addressed by its natural key, so BOTH ids live in the request URI.
   FLPostSaisonTeamPayload: ["team_id"],
   FLPatchSaisonTeamPayload: ["team_id", "saison_id"],
+  FLReplaceSaisonTeamPayload: ["team_id", "saison_id"],
   FLPostSaisonSpielerPayload: ["spieler_id"],
   FLPatchSaisonSpielerPayload: ["spieler_id", "saison_id"],
 };
@@ -310,7 +315,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 102;
+const EXPECTED_PAIRS = 108;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

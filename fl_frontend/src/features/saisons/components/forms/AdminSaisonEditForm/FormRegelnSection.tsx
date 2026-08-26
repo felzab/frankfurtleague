@@ -227,21 +227,26 @@ export function FormRegelnSection({
                 Die Saison ist abgeschlossen, deshalb sind Punkte, die Reihenfolge bei Punktgleichheit und die Qualifikanten festgeschrieben.
               </p>
             )}
+            {/* Two repairs and not one, as `find_rules_refusal` composes them per moved field: only
+                the qualifiers move on a redraw, the other two standing on which clubs are entered. */}
             {isDrawnSaison && (
               <p>
-                Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Gruppen, Teams pro Gruppe und
-                Qualifikanten stehen damit fest. Andere Zahlen würden einen neuen Spielplan verlangen, und Spiele legt die Verwaltung nicht an.
+                Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Die Qualifikanten änderst Du, indem Du
+                den Spielplan mit der neuen Zahl neu anlegst: Beides entsteht in einem Schritt. Gruppen und Teams pro Gruppe hängen dagegen an
+                den Teams, die in dieser Saison stehen. Nimm dafür zuerst den Spielplan zurück, passe die Teams an und lege ihn danach neu an.
               </p>
             )}
             {/* Spelled out per case rather than listing the always-open fields: under one freeze the
                 other's fields are still editable, and leaving them out would read as closing them. */}
-            <p>
-              {isFinishedSaison && isDrawnSaison
-                ? "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
-                : isFinishedSaison
-                  ? "Gruppen, Teams pro Gruppe, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
-                  : "Punkte, die Reihenfolge bei Punktgleichheit, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."}
-            </p>
+            {(isFinishedSaison || isDrawnSaison) && (
+              <p>
+                {isFinishedSaison && isDrawnSaison
+                  ? "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
+                  : isFinishedSaison
+                    ? "Gruppen, Teams pro Gruppe, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
+                    : "Punkte, die Reihenfolge bei Punktgleichheit, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."}
+              </p>
+            )}
           </div>
         )}
       </div>

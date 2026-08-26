@@ -40,9 +40,16 @@ def test_accepts_an_address_at_the_length_ceiling(kontakt):
 
 
 def test_rejects_an_address_one_character_over_the_length_ceiling(kontakt):
-    """The boundary, not a wildly long string: a bound set anywhere passes that, and only this pins the number the zod mirror copies."""
+    """That 255 is refused, not WHICH bound refuses it: email-validator's own ceiling is this number too, so the case below pins ours."""
     with pytest.raises(ValidationError):
         FLKontakt.model_validate(kontakt(email=address_of_length(KONTAKT_EMAIL_MAX_LENGTH + 1)))
+
+
+def test_publishes_the_ceiling_the_zod_mirror_copies():
+    """`EmailStr` alone refuses 255 without stating a bound, and a mirror copies a number only from a PUBLISHED one."""
+    email = FLKontakt.model_json_schema()["properties"]["email"]
+
+    assert [option["maxLength"] for option in email["anyOf"] if "maxLength" in option] == [KONTAKT_EMAIL_MAX_LENGTH]
 
 
 @pytest.mark.parametrize("local_part_length", [64, 65])

@@ -21,18 +21,22 @@ import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
+import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import { buildSaisonBanners } from "./banners";
 import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
 import { FormRolloverSection } from "./FormRolloverSection";
+import { FormSpielplanRuecknahmeSection } from "./FormSpielplanRuecknahmeSection";
 import { FormSpielplanSection } from "./FormSpielplanSection";
+import { FormTeamErsatzSection } from "./FormTeamErsatzSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
 
 import type { FLPatchSaisonPayload, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
   SaisonDraftFields,
   SaisonGruppenSwapContext,
+  SaisonReplacementContext,
   SaisonRolloverContext,
   SaisonSpielplanContext,
   SaisonSpieltagBound,
@@ -71,6 +75,7 @@ export function AdminSaisonEditForm({
   saison,
   rollover,
   swap,
+  ersatz,
   spielplan,
   hasDrawnSpiele,
   spieltagBound,
@@ -81,6 +86,8 @@ export function AdminSaisonEditForm({
   rollover: SaisonRolloverContext;
   /** This season's clubs and their groups, plus the knockout count that closes the swap. */
   swap: SaisonGruppenSwapContext;
+  /** This season's junction rows, and the league's clubs that could take one of them over. */
+  ersatz: SaisonReplacementContext;
   /** The season's draw watermark and its matchday count, which decide whether a draw is still offered. */
   spielplan: SaisonSpielplanContext;
   /** Whether the season holds fixtures, which is what freezes the rules they were drawn from. */
@@ -208,17 +215,6 @@ export function AdminSaisonEditForm({
     setIsConfirmingDiscard(false);
     setHasLeftViaDiscard(true);
     leavePage();
-  };
-
-  /**
-   * Both one-way controls revalidate the route, so an unsaved draft would go with the replaced props.
-   * Each says what is in the way rather than discarding silently or stacking a second dialog.
-   */
-  const guardAgainstDraft = (whatIsInTheWay: string): boolean => {
-    if (!isDirty) return true;
-
-    appToast.warning("Erst speichern", { description: whatIsInTheWay });
-    return false;
   };
 
   const requestSave = () => {
@@ -370,6 +366,15 @@ export function AdminSaisonEditForm({
             isFinishedSaison={saison.status === "past"}
           />
 
+          {/* Beside the swap, which it reads as a sibling of — both hand a junction row on — and
+              ahead of the two panels that move the season itself. Its class is theirs, though: it
+              writes on press and no later edit reverses it. */}
+          <FormTeamErsatzSection
+            saisonId={saison.id}
+            ersatz={ersatz}
+            isFinishedSaison={saison.status === "past"}
+          />
+
           {/* Between the swap and the rollover: the rollover's class of control rather than the
               swap's, in that it writes on press, never joins the save bar, and no later edit
               reverses it. */}
@@ -383,8 +388,24 @@ export function AdminSaisonEditForm({
             hasDrawnSpiele={hasDrawnSpiele}
             onBeforeGenerate={() =>
               guardAgainstDraft(
+                isDirty,
                 "Der Spielplan entsteht aus den gespeicherten Regeln, und das Anlegen lädt die Seite neu. Speichere die Änderungen zuerst.",
               )
+            }
+          />
+
+          {/* Directly under the draw it reverses, so the repair `REQ-RULES-011` names reads in the
+              order it is walked. Its own panel and not a control inside that one: both are open at
+              once on a drawn planned season, and one armed state cannot serve two. */}
+          <FormSpielplanRuecknahmeSection
+            saisonId={saison.id}
+            saisonStatus={saison.status}
+            hasSpielplan={spielplan.spielplan !== null}
+            spieltageCount={spielplan.spieltageCount}
+            bestand={spielplan.bestand}
+            hasDrawnSpiele={hasDrawnSpiele}
+            onBeforeUndraw={() =>
+              guardAgainstDraft(isDirty, "Das Zurücknehmen lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
             }
           />
 
@@ -397,7 +418,7 @@ export function AdminSaisonEditForm({
             rollover={rollover}
             hasDrawnSpiele={hasDrawnSpiele}
             onBeforeActivate={() =>
-              guardAgainstDraft("Die Umstellung lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
+              guardAgainstDraft(isDirty, "Die Umstellung lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
             }
             banners={banners}
           />

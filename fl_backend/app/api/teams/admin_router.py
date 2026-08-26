@@ -1,7 +1,7 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Mapping, Sequence
 
 from fastapi import APIRouter, Body, Depends
-from motor.motor_asyncio import AsyncIOMotorClientSession
+from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
@@ -13,6 +13,8 @@ from app.api.teams.schemas import (
     FLPostSaisonTeamPayload,
     FLPostTeamPayload,
     FLPostTeamResponse,
+    FLReplaceSaisonTeamPayload,
+    FLReplaceSaisonTeamResponse,
     FLSaisonTeamResponse,
     FLTeamListAdapter,
     FLTeamRecord,
@@ -31,7 +33,9 @@ from app.api.teams.services import (
     find_club_entry_refusal,
     find_entry_refusal,
     find_gruppe_move_refusal,
+    find_replacement_refusal,
     find_retire_refusal,
+    has_taken_place,
 )
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -48,6 +52,7 @@ from app.core.crud import (
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
+    SaisonSpielerCollection,
     SaisonTeamsCollection,
     SpieleCollection,
     TeamsCollection,
@@ -61,6 +66,40 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
     dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
 )
+
+
+async def _rewrite_the_outgoing_clubs_sides(
+    *,
+    spiele: Sequence[Mapping[str, Any]],
+    outgoing_team_id: Any,
+    incoming_side: Mapping[str, Any],
+    spiele_collection: AsyncIOMotorCollection,
+    session: AsyncIOMotorClientSession,
+) -> int:
+    """Hand this club's sides to the incoming one; returns how many FIXTURES moved.
+
+    `incoming_side`'s keys ARE the paths written under each slot. Named by `_id` off a snapshot
+    taken BEFORE any write, as `_rewrite_gruppenphase_sides` is.
+    """
+
+    # One `update_many` writes one path with one value, so the passes split by slot.
+    by_slot: dict[str, list[Any]] = {}
+    for spiel in spiele:
+        for slot in ("team1", "team2"):
+            if (spiel.get(slot) or {}).get("team_id") == outgoing_team_id:
+                by_slot.setdefault(slot, []).append(spiel["_id"])
+
+    for slot, spiel_ids in by_slot.items():
+        await patch_many_in_db(
+            collection=spiele_collection,
+            db_filter={"_id": {"$in": spiel_ids}},
+            update={"$set": {f"{slot}.{key}": value for key, value in incoming_side.items()}},
+            session=session,
+        )
+
+    # The fixtures, not the sides: `modified_count` reports 0 where a value already matched, and
+    # double-counts a fixture holding the club on both.
+    return len({spiel_id for spiel_ids in by_slot.values() for spiel_id in spiel_ids})
 
 
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
@@ -389,3 +428,139 @@ async def patch_saison_team(
         name=existing_raw["name"],
         shorthand=existing_raw["shorthand"],
     )
+
+
+@router.post(
+    f"{by_id('team_id')}/saisons/{{saison_id}}/replace",
+    response_model=FLReplaceSaisonTeamResponse,
+    summary="Replace a club in a season, keeping its schedule",
+)
+async def replace_saison_team(
+    team_id: CustomRouteObjectId,
+    saison_id: str,
+    replacement_data: Annotated[FLReplaceSaisonTeamPayload, Body()],
+    teams_collection: TeamsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
+    saison_spieler_collection: SaisonSpielerCollection,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+) -> FLReplaceSaisonTeamResponse:
+    """
+    Hand this season's junction row, and every fixture on it, to another club.
+
+    Its `team_id`, identity copy, `austritt` and every fixture side move, and the outgoing club's
+    live squad rows are retired, in ONE transaction: the schedule survives.
+    """
+
+    # Outside the transaction, as the group swap reads it: an unknown season is a 404 about the
+    # season rather than about a junction row nobody expected to find in it.
+    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
+
+    async def hand_the_row_over(session: AsyncIOMotorClientSession) -> FLReplaceSaisonTeamResponse:
+        """The whole replacement: judge, rewrite the fixtures, then the row. Everything it decides on is read in-session."""
+
+        # For the 404 alone, and deliberately NOT a read of the club it names: D43 repairs a row
+        # whose `team_id` resolves to no `teams` document, so nothing here may require one.
+        await pull_one_from_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id, "team_id": team_id},
+            projection=["_id"],
+            session=session,
+        )
+
+        # In-session, because `activate_saison` moves `status` in a transaction of its own.
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+
+        # The ONE read of the incoming club, and it earns its place three times over: an id naming
+        # nothing 404s here, the row's name is reseeded from it as `post_saison_team` seeds one at
+        # entry, and every rewritten fixture side takes the same two values.
+        incoming_raw = await pull_one_from_db(
+            collection=teams_collection,
+            db_filter={"_id": replacement_data.incoming_team_id},
+            projection=["name", "shorthand", "inactive_since"],
+            session=session,
+        )
+
+        incoming_rows = await pull_many_from_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id, "team_id": replacement_data.incoming_team_id},
+            projection=["_id"],
+            session=session,
+        )
+
+        # LISTED rather than counted: one read judges `REQ-REPLACE-002` and supplies what the
+        # rewrite moves, so the two cannot disagree. Every phase, because the incoming club inherits
+        # the whole schedule, a bracket slot included.
+        spiele = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
+            projection=["team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "sonderereignis"],
+            session=session,
+        )
+
+        refuse(
+            find_replacement_refusal(
+                saison_status=str(saison_raw["status"]),
+                fixtures_with_a_record=sum(1 for spiel in spiele if has_taken_place(spiel)),
+                incoming_inactive_since=incoming_raw.get("inactive_since"),
+                incoming_already_entered=bool(incoming_rows),
+            )
+        )
+
+        # One dict for both layers, so the season's row and its fixtures cannot come to disagree
+        # about what this club is called (`docs/backend/spec.md :: I11`). No `tore`: a fixture
+        # holding one has taken place, which `REQ-REPLACE-002` has already refused.
+        incoming_side = {
+            "team_id": replacement_data.incoming_team_id,
+            "name": incoming_raw["name"],
+            "shorthand": incoming_raw["shorthand"],
+        }
+
+        fanned_out = await _rewrite_the_outgoing_clubs_sides(
+            spiele=spiele,
+            outgoing_team_id=team_id,
+            incoming_side=incoming_side,
+            spiele_collection=spiele_collection,
+            session=session,
+        )
+
+        updated_raw = await patch_one_in_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id, "team_id": team_id},
+            # `austritt` cleared: left standing it would mark the INCOMING club withdrawn, which
+            # `REQ-SWAP-006` and `_may_hold_a_platz` both act on. The outgoing club's exit survives
+            # as the pre-image `patch_one_in_db` logs.
+            update={"$set": {**incoming_side, "austritt": None}},
+            session=session,
+        )
+
+        # Retired, not moved: the players did not transfer, and a row left standing would name a
+        # season its club now holds no junction row in -- what `REQ-SQUAD-001` refuses to create.
+        # LIVE rows alone, so an earlier exit keeps its own date.
+        retired_squad = await patch_many_in_db(
+            collection=saison_spieler_collection,
+            db_filter={"saison_id": saison_id, "team_id": team_id, "inactive_since": None},
+            update={"$set": {"inactive_since": today}},
+            session=session,
+        )
+
+        # Built from the AFTER image, so the echo cannot describe a row this write did not land; a
+        # stored `gruppe` outside A-D raises here and aborts the transaction rather than answering.
+        return FLReplaceSaisonTeamResponse(
+            saison_id=saison_id,
+            outgoing_team_id=team_id,
+            incoming_team_id=replacement_data.incoming_team_id,
+            gruppe=updated_raw["gruppe"],
+            name=updated_raw["name"],
+            shorthand=updated_raw["shorthand"],
+            fanned_out_to_spiele=fanned_out,
+            retired_squad_rows=retired_squad.modified_count,
+        )
+
+    # One transaction over every write: a row handed over while its fixtures are not leaves the
+    # season fielding a club that holds no place in it. `with_transaction` is safe to retry, the
+    # callback re-reading everything it judges on.
+    async with await db.start_session() as session:
+        return await session.with_transaction(hand_the_row_over)

@@ -35,6 +35,7 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
 )
 from app.core.exceptions import WriteRefusal
+from tests.payloads import spiel_patch_body
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 SPIELTAG_ONE = "6890a1b2c3d4e5f607210001"
@@ -150,23 +151,7 @@ def payload_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) ->
 
     stored = stored_spiel(season_docs, nr)
 
-    return FLPatchSpielDataPayload.model_validate(
-        {
-            "spiel_id": stored["_id"],
-            "sonderereignis": stored["sonderereignis"],
-            "team1": stored["team1"],
-            "team2": stored["team2"],
-            "team1_quelle": stored["team1_quelle"],
-            "team2_quelle": stored["team2_quelle"],
-            "elfmeterschiessen": stored["elfmeterschiessen"],
-            "datum": stored["datum"],
-            "uhrzeit": stored["uhrzeit"],
-            "ort": stored["ort"],
-            "schiedsrichter": stored["schiedsrichter"],
-            "notiz": stored.get("notiz"),
-            **overrides,
-        }
-    )
+    return FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides))
 
 
 def eligibility_refusal_for(
@@ -409,7 +394,8 @@ class TestComposingTheDisplayCopies:
     def test_an_unchanged_venue_keeps_what_the_fixture_recorded(self, season):
         """Nothing resolved for it, so the copy `PATCH /spielorte/{spielort_id}` maintains is what stands."""
 
-        patched = patched_spiel(season, 1, ort={**stored_spiel(season, 1)["ort"], "mietpreis": 95})
+        booked = {"spielort_id": stored_spiel(season, 1)["ort"]["spielort_id"], "mietpreis": 95}
+        patched = patched_spiel(season, 1, ort=booked)
 
         assert patched.ort is not None
         assert (patched.ort.name, patched.ort.mietpreis) == ("Sportplatz Ost", 95)
@@ -424,7 +410,8 @@ class TestComposingTheDisplayCopies:
     def test_an_unchanged_referee_keeps_the_fee_the_payload_states(self, season):
         """The venue case's twin, and it is money: without the carry-through an edited Entschädigung dies in a save reporting success."""
 
-        patched = patched_spiel(season, 1, schiedsrichter={**stored_spiel(season, 1)["schiedsrichter"], "payment": 45})
+        booked = {"schiedsrichter_id": stored_spiel(season, 1)["schiedsrichter"]["schiedsrichter_id"], "payment": 45}
+        patched = patched_spiel(season, 1, schiedsrichter=booked)
 
         assert patched.schiedsrichter is not None
         assert (patched.schiedsrichter.name, patched.schiedsrichter.payment) == ("A. Referee", 45)

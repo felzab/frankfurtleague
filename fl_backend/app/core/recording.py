@@ -7,20 +7,23 @@ page nobody trusts. Nothing here reads the log; `app/api/aktionen/` serves it.
 
 This module deliberately stores submitted VALUES, which `docs/logging/spec.md` forbids the log
 stream: a restore replays what a write replaced, so the prior document is the point. That is what
-makes retention and the erasure redaction this module's problem rather than the stream's.
+makes retention and redaction this module's problem rather than the stream's.
 """
 
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Literal, Mapping
+from typing import Any, Literal, Mapping, Sequence
 
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 
 from app.core.collections import Collection
 from app.core.logging import correlation_id_var
 
-Operation = Literal["insert", "insert_many", "patch_one", "patch_many"]
+Operation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
+
+# A redaction's reach: one collection, and the documents in it whose log rows are to be emptied.
+RedactionTarget = tuple[Collection, Sequence[Any]]
 
 # What a write not made through a request is attributed to -- a migration, a script, a fixture. The
 # spelling matches `app/core/logging.py :: NO_REQUEST_SENTINEL`, so one grep finds both.
@@ -54,14 +57,14 @@ actor_var: ContextVar[Actor] = ContextVar("actor", default=SYSTEM_ACTOR)
 request_var: ContextVar[tuple[str, str] | None] = ContextVar("request", default=None)
 
 
-def _now() -> str:
-    """UTC with an offset, not German local time.
+def log_stamp(moment: datetime) -> str:
+    """A log row's instant, spelled the one way both of its time fields are.
 
-    The log is ordered and ranged by this field, and a local-time string carrying no offset sorts
-    its two identical clock hours the wrong way round on the October changeover.
+    UTC with an offset, never German local time: `at` orders and ranges the page, and a local-time
+    string carrying no offset sorts October's two identical clock hours the wrong way.
     """
 
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return moment.astimezone(timezone.utc).isoformat(timespec="seconds")
 
 
 async def record_write(
@@ -70,7 +73,7 @@ async def record_write(
     operation: Operation,
     document_id: Any = None,
     db_filter: Mapping[str, Any] | None = None,
-    before: Mapping[str, Any] | None = None,
+    before: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None = None,
     modified_count: int | None = None,
     session: AsyncIOMotorClientSession | None = None,
 ) -> None:
@@ -89,7 +92,7 @@ async def record_write(
     request = request_var.get()
 
     row: dict[str, Any] = {
-        "at": _now(),
+        "at": log_stamp(datetime.now(timezone.utc)),
         "actor": actor.as_document(),
         # The request's own id, so a fan-out's rows and the write that caused them are one action on
         # the page instead of forty.
@@ -99,16 +102,32 @@ async def record_write(
         "operation": operation,
         "document_id": document_id,
         "db_filter": _stringify_filter(db_filter) if db_filter is not None else None,
-        "before": dict(before) if before is not None else None,
+        "before": _stored_image(before),
         "modified_count": modified_count,
-        # Set when a person is erased and their values are overwritten here. Null means the row still
-        # holds what it recorded (`docs/backend/spec.md :: I42`).
+        # Set when a person's erasure or a referee's anonymisation overwrites the values here. Null
+        # means the row still holds what it recorded (`docs/backend/spec.md :: I42`).
         "redacted_at": None,
     }
 
     # The target's own database handle, not an injected one: that is what keeps this module off
     # `app/core/db.py`'s import path and out of a cycle.
     await collection.database[Collection.AKTIONEN].insert_one(row, session=session)
+
+
+def _stored_image(before: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None) -> dict[str, Any] | list[dict[str, Any]] | None:
+    """One document for a patch, an array for a removal that took a set.
+
+    A removal follows no write a restore could replay, so the images ARE the record, and one array
+    keeps one action in one row as `insert_many` does.
+    """
+
+    if before is None:
+        return None
+
+    if isinstance(before, Mapping):
+        return dict(before)
+
+    return [dict(document) for document in before]
 
 
 def _stringify_filter(db_filter: Mapping[str, Any]) -> dict[str, str]:
@@ -119,3 +138,26 @@ def _stringify_filter(db_filter: Mapping[str, Any]) -> dict[str, str]:
     """
 
     return {key: str(value) for key, value in db_filter.items()}
+
+
+def build_redaction_filter(targets: Sequence[RedactionTarget]) -> Mapping[str, Any]:
+    """Every log row whose `(collection, document_id)` names one of the documents handed in.
+
+    NOT narrowed to rows holding an image: every row naming a redacted document carries a stamp,
+    so "was this reached" is one query rather than a judgement per row.
+    """
+
+    # Equality on `collection` and a match on `document_id` in each branch, the shape
+    # `aktionen_target` serves (`app/core/constraints.py :: SUPPORT_INDEXES`). An `$in` of no ids
+    # matches nothing rather than everything.
+    return {"$or": [{"collection": str(collection), "document_id": {"$in": list(document_ids)}} for collection, document_ids in targets]}
+
+
+def build_redaction_update(*, at: str) -> Mapping[str, Any]:
+    """Overwrite the values a row recorded and stamp it, in one `$set` (`docs/backend/spec.md :: I42`).
+
+    `document_id` stays: it names what the row was about, and dropping it would leave a row
+    nothing can attribute to the write that redacted it.
+    """
+
+    return {"$set": {"before": None, "redacted_at": at}}

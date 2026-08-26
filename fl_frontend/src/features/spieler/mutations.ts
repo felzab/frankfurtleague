@@ -1,9 +1,15 @@
 import { apiClient } from "@/core/api";
 
-import { FLSaisonSpielerResponseSchema, FLSpielerAdminSingleResponseSchema, FLSpielerWriteResponseSchema } from "./schemas";
+import {
+  FLSaisonSpielerResponseSchema,
+  FLSpielerAdminSingleResponseSchema,
+  FLSpielerErasureResponseSchema,
+  FLSpielerWriteResponseSchema,
+} from "./schemas";
 
 import type {
   FLDeleteSpielerPayload,
+  FLEraseSpielerPayload,
   FLPatchSaisonSpielerPayload,
   FLPatchSpielerPayload,
   FLPostSaisonSpielerPayload,
@@ -12,6 +18,7 @@ import type {
   FLSaisonSpielerKeyPayload,
   FLSaisonSpielerResponse,
   FLSpielerAdminSingleResponse,
+  FLSpielerErasureResponse,
   FLSpielerWriteResponse,
 } from "./schemas";
 
@@ -23,8 +30,8 @@ export async function postSpieler(payload: FLPostSpielerPayload): Promise<FLSpie
   });
 }
 
-// The ids go in the PATH, never the body — a backend payload model that saw one would drop it
-// silently (frontend spec 1.3). No fan-out: squad lists read the name through a `$lookup`.
+// The ids go in the PATH, never the body — a backend payload model that saw one refuses the whole
+// body (frontend spec 1.3). No fan-out: squad lists read the name through a `$lookup`.
 export async function patchSpieler({ id, ...fields }: FLPatchSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
   return apiClient<FLSpielerAdminSingleResponse>(`/spieler/${id}`, FLSpielerAdminSingleResponseSchema, {
     method: "PATCH",
@@ -44,6 +51,15 @@ export async function deleteSpieler({ id }: FLDeleteSpielerPayload): Promise<FLS
 export async function reactivateSpieler({ id }: FLReactivateSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
   return apiClient<FLSpielerAdminSingleResponse>(`/spieler/${id}/reactivate`, FLSpielerAdminSingleResponseSchema, {
     method: "POST",
+    authType: "admin",
+  });
+}
+
+// HARD, where `deleteSpieler` above is soft: the person, every squad row they hold and their values
+// in the log all go, in one transaction. Refused until they are retired (`REQ-PURGE-001`).
+export async function eraseSpieler({ id }: FLEraseSpielerPayload): Promise<FLSpielerErasureResponse> {
+  return apiClient<FLSpielerErasureResponse>(`/spieler/${id}/erasure`, FLSpielerErasureResponseSchema, {
+    method: "DELETE",
     authType: "admin",
   });
 }

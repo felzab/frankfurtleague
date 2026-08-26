@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
@@ -152,6 +152,8 @@ class FLSpielerFilterParams(BaseModel):
 class FLPostSpielerPayload(BaseModel):
     """The PERSON. Everything a squad list shows is season-scoped and lives on the junction below."""
 
+    model_config = ConfigDict(extra="forbid")
+
     vorname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
     # Optional here and REQUIRED on the patch below: a create has nothing to overwrite, while a
     # patch that omits it would erase a surname somebody typed.
@@ -165,12 +167,16 @@ class FLPatchSpielerPayload(BaseModel):
     write that default over a stored value.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     vorname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
     nachname: str | None = Field(pattern=PERSON_NAME_PATTERN)
 
 
 # Private, so the create and the edit state the bound once and the layer publishes no OpenAPI component.
 class _SaisonSpielerPayload(_SaisonSpielerWritable):
+    model_config = ConfigDict(extra="forbid")
+
     # Tightened on the WRITE side alone: a read model refusing a stored number would answer 500 for
     # the whole list over one row (`docs/backend/spec.md :: I36`).
     nummer: str | None = Field(pattern=SQUAD_NUMMER_PATTERN)
@@ -221,6 +227,20 @@ class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
 
 class FLSpielerWriteResponse(BaseAPIResponse):
     spieler_id: CustomObjectId
+
+
+class FLSpielerErasureResponse(BaseAPIResponse):
+    """What the erasure removed, and NOT an echo of the person.
+
+    A response repeating their names or their consent record would be a fresh copy of exactly what
+    was erased, handed back over the wire.
+    """
+
+    spieler_id: CustomObjectId
+    erased_saison_spieler: int
+    # Every log row naming the person or one of those squad rows, images emptied and stamped
+    # (`docs/backend/spec.md :: I42`). No row is dropped, so this is never a deletion count.
+    redacted_aktionen: int
 
 
 class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):

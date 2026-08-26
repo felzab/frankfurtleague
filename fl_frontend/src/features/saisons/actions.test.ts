@@ -3,44 +3,30 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const DOMAIN = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "domain.py"), "utf8");
 // A unique index refusing a write is a global handler rather than a `Rule(`, so `domain.py` does not carry its code.
 const HANDLERS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "exception_handlers.py"), "utf8");
 
-/** What separates the operations one rule is declared against, in the backend's own register. */
-const OPERATION_SEPARATOR = " · ";
-
-/**
- * Every refusal one endpoint can answer with, read off the backend's own register. Source text
- * rather than an import: a `"use server"` module may export nothing but async actions, so the
- * mapping functions cannot be reached any other way.
- */
-function declaredCodes(operation: string): string[] {
-  const codes = DOMAIN.split("Rule(")
-    .slice(1)
-    .filter((entry) => (/operation="([^"]+)"/.exec(entry)?.[1] ?? "").split(OPERATION_SEPARATOR).includes(operation))
-    .map((entry) => /code="([^"]+)"/.exec(entry)?.[1] ?? "");
-
-  return [...new Set(codes)].sort();
-}
-
-/** One declaration's source, up to the declaration named after it. */
-function sliceBetween(from: string, to: string): string {
-  const start = ACTIONS.indexOf(from);
-  const end = ACTIONS.indexOf(to, start + from.length);
-
-  return start === -1 || end === -1 ? "" : ACTIONS.slice(start, end);
-}
+const CREATE_OPERATION = "POST /saisons";
+const CREATE_CODES = ["REQ-DATE-005", "REQ-RULES-001", "REQ-RULES-007", "REQ-RULES-008", "REQ-RULES-010"];
 
 /* Several rules codes are answered TWICE in this file, once per mapper, so a search over the whole
    source is satisfied by whichever function happens to carry the arm. Every assertion below reads
    the one slice it is about. */
-const RULES_MAP = sliceBetween("function mapRulesRefusal", "function invalidateSaisonAndTable");
-const SPIELPLAN_MAP = sliceBetween("function mapSpielplanRefusal", "export async function postSaisonAction");
-const CREATE_ACTION = sliceBetween("export async function postSaisonAction", "export async function patchSaisonAction");
-const ACTIVATE_ACTION = sliceBetween("export async function activateSaisonAction", "export async function swapGruppenAction");
+const RULES_MAP = sliceBetween(ACTIONS, "function mapRulesRefusal", "function invalidateSaisonAndTable");
+const SPIELPLAN_MAP = sliceBetween(ACTIONS, "function mapSpielplanRefusal", "export async function postSaisonAction");
+const CREATE_ACTION = sliceBetween(ACTIONS, "export async function postSaisonAction", "export async function patchSaisonAction");
+const ACTIVATE_ACTION = sliceBetween(ACTIONS, "export async function activateSaisonAction", "export async function swapGruppenAction");
+
+/* Hoisted out of both mappers, so neither arm's own source carries the sentence any more and the
+   assertions about it read the one declaration instead. */
+const SPAN_MESSAGE = sliceBetween(ACTIONS, "const SPAN_BELOW_SCHEDULE", "const rulesFaultMessage");
+
+/** The last declaration in the file, so its slice runs to the end and the guard below pins that. */
+const UNDRAW_ACTION = sliceBetween(ACTIONS, "export async function undrawSpielplanAction", null);
 
 /** The body of one `case "<code>":` arm of a switch, up to the arm that follows it. */
 function armOf(slice: string, code: string): string {
@@ -71,16 +57,29 @@ describe("the saison actions against the backend's refusal register", () => {
 
     assert.ok(CREATE_ACTION.includes("SAISON_ID_TAKEN"), "the create's own fallback is outside its slice");
     assert.ok(!CREATE_ACTION.includes("patchSaison("), "the create's slice runs on into the edit");
+
+    assert.ok(SPAN_MESSAGE.includes("Der Zeitraum dieser Saison ist zu kurz"), "the shared span sentence is outside its slice");
+    assert.ok(!SPAN_MESSAGE.includes("case "), "the span sentence's slice runs on into a mapper");
+
+    assert.ok(UNDRAW_ACTION.includes("undrawSpielplan("), "the undraw's slice does not reach its own request");
+    // It runs to the end of the file, so a function appended after it would widen the slice in silence.
+    assert.equal(UNDRAW_ACTION.match(/export async function/g)?.length, 1, "the undraw's slice reaches another action");
   });
 
   /* `POST /saisons` is a prefix of `POST /saisons/{saison_id}/activate` and of the draw's operation,
      so a substring match here would pull in codes the create cannot raise. */
   it("reads the create's operation as a whole token, not as a prefix", () => {
-    assert.deepEqual(declaredCodes("POST /saisons"), ["REQ-DATE-005", "REQ-RULES-001", "REQ-RULES-007", "REQ-RULES-008", "REQ-RULES-010"]);
+    assert.deepEqual(declaredCodes(CREATE_OPERATION), CREATE_CODES);
   });
 
   it("maps every refusal the create endpoint declares", () => {
-    for (const code of declaredCodes("POST /saisons"))
+    const declared = declaredCodes(CREATE_OPERATION);
+
+    // Asserted before the loop rather than left to it: an operation the register stopped naming
+    // declares nothing, the loop then runs zero times, and a green result would claim the mapper
+    // covers an endpoint whose refusals it has in fact stopped reading.
+    assert.deepEqual(declared, CREATE_CODES);
+    for (const code of declared)
       assert.ok(RULES_MAP.includes(`case "${code}":`), `${code} reaches the admin as the message about a taken Saison-ID`);
   });
 
@@ -139,6 +138,9 @@ describe("the saison actions against the backend's refusal register", () => {
     const declared = declaredCodes("POST /saisons/{saison_id}/spielplan");
 
     assert.deepEqual(declared, [
+      // The draw is a second writer of `rules`, so a shape it stores can imply more matchdays than
+      // the season has days. It measures the span for that, exactly as the create and the edit do.
+      "REQ-DATE-005",
       "REQ-RULES-001",
       "REQ-RULES-007",
       "REQ-RULES-008",
@@ -147,8 +149,56 @@ describe("the saison actions against the backend's refusal register", () => {
       "REQ-SPIELPLAN-002",
       "REQ-SPIELPLAN-003",
       "REQ-SPIELPLAN-004",
+      "REQ-SPIELPLAN-005",
     ]);
     for (const code of declared) assert.ok(SPIELPLAN_MAP.includes(`case "${code}":`), `${code} reaches the admin as a generic failure`);
+  });
+
+  /* One code, and none of the draw's: the two share a path and a summary word, so a register read
+     that leaked either way would leave a real refusal answered by the generic failure message. */
+  it("maps every refusal the undraw endpoint declares", () => {
+    const declared = declaredCodes("DELETE /saisons/{saison_id}/spielplan");
+
+    assert.deepEqual(declared, ["REQ-SPIELPLAN-006"]);
+    for (const code of declared)
+      assert.ok(UNDRAW_ACTION.includes(`error.serverErrorCode === "${code}"`), `${code} reaches the admin as a generic failure`);
+  });
+});
+
+describe("the undraw action", () => {
+  /* The removal takes away exactly what the draw wrote, so anything the draw's write invalidated
+     answers differently after this too. A narrower set leaves a cached season holding fixtures. */
+  it("clears the draw's own tag set", () => {
+    assert.match(UNDRAW_ACTION, /invalidateSpielplan\(validated\.data\.id\)/);
+  });
+
+  /* One sentence over the counts would report a watermark-only season as nothing done: it answers
+     with two zeroes and `watermark_cleared`. */
+  it("reports the three outcomes a 200 can carry apart", () => {
+    assert.match(UNDRAW_ACTION, /undrawOperation\.spieltage > 0 \|\| undrawOperation\.spiele > 0/);
+    assert.match(UNDRAW_ACTION, /undrawOperation\.watermark_cleared/);
+    assert.match(UNDRAW_ACTION, /hatte keinen Spielplan mehr/);
+  });
+
+  /* This press is the half of `REQ-RULES-011`'s repair loop that reopens the three shape rules, so
+     the message reporting it says where they and the clubs are changed before the redraw. */
+  it("names where the reopened numbers and the clubs are changed", () => {
+    assert.match(UNDRAW_ACTION, /Abschnitt Regeln/);
+    assert.match(UNDRAW_ACTION, /Teamseite/);
+  });
+
+  /* The panel closes the control for both halves of `REQ-SPIELPLAN-006`, so the code can only arrive
+     on a page that went stale. The reloaded panel names any way out, so a repair spelled here too
+     could describe a state the season has already left. */
+  it("tells a stale page to reload rather than naming a repair", () => {
+    const branch = UNDRAW_ACTION.split('error.serverErrorCode === "REQ-SPIELPLAN-006"')[1] ?? "";
+    const message = branch.split("throw error;")[0] ?? "";
+
+    assert.match(message, /geplante Saison/);
+    assert.match(message, /Lade die Seite neu/);
+    // The shared sentence rather than a copy: `fl_frontend/src/features/saisons/utils.test.ts` pins the
+    // categories against their backend mirror, and a second spelling here could name a different set.
+    assert.match(message, /\$\{RECORDED_FACTS_NONE\}/);
   });
 });
 
@@ -156,12 +206,21 @@ describe("the German each widened refusal renders", () => {
   /* `REQ-DATE-005` refuses the season's SPAN against the matchdays its rules imply. The fallback an
      unmapped code falls through to blames the season id, which is neither the fault nor a repair. */
   it("names the span and its repairs for the schedule refusal, never the season id", () => {
-    const arm = armOf(RULES_MAP, "REQ-DATE-005");
+    assert.match(SPAN_MESSAGE, /Zeitraum/);
+    assert.match(SPAN_MESSAGE, /Enddatum/);
+    assert.match(SPAN_MESSAGE, /Startdatum/);
+    assert.doesNotMatch(SPAN_MESSAGE, /Saison-ID/);
+  });
 
-    assert.match(arm, /Zeitraum/);
-    assert.match(arm, /Enddatum/);
-    assert.match(arm, /Startdatum/);
-    assert.doesNotMatch(arm, /Saison-ID/);
+  /* Three endpoints now refuse on this code, so a sentence written twice could tell two admins two
+     different things about one rule. Each arm adds its own tail and shares the opening. */
+  it("opens the schedule refusal from one declaration on both paths", () => {
+    for (const [name, arm] of [
+      ["the editor", armOf(RULES_MAP, "REQ-DATE-005")],
+      ["the draw", armOf(SPIELPLAN_MAP, "REQ-DATE-005")],
+    ] as const) {
+      assert.match(arm, /SPAN_BELOW_SCHEDULE/, `${name} spells the span sentence itself instead of sharing it`);
+    }
   });
 
   /* A bare `error`, like the two freezes: several fields could repair it and none of them is at
@@ -174,10 +233,21 @@ describe("the German each widened refusal renders", () => {
      on a past season, and `fl_backend/app/api/saisons/schedule.py :: group_matchdays` is flat from an
      even `teams_per_group` down to the odd one. */
   it("offers no rules field as a repair for the schedule refusal", () => {
-    const arm = armOf(RULES_MAP, "REQ-DATE-005");
+    for (const text of [SPAN_MESSAGE, armOf(RULES_MAP, "REQ-DATE-005")]) {
+      assert.doesNotMatch(text, /Qualifikanten/);
+      assert.doesNotMatch(text, /Teams pro Gruppe/);
+    }
+  });
 
-    assert.doesNotMatch(arm, /Qualifikanten/);
-    assert.doesNotMatch(arm, /Teams pro Gruppe/);
+  /* The draw carries its own three numbers on a replace and none on a first draw, so the panel the
+     second repair names moves with the request. Hardcode either and half the admins are misdirected. */
+  it("sends the draw's schedule refusal to the panel that holds the numbers it was judged on", () => {
+    const arm = armOf(SPIELPLAN_MAP, "REQ-DATE-005");
+
+    assert.match(arm, /carriedShape \? "Spielplan" : "Regeln"/);
+    // Not through `shapeFault`: both of its tails say to change a number, and the dates are the
+    // repair that works whatever the numbers are.
+    assert.doesNotMatch(arm, /shapeFault\(/);
   });
 
   /* `REQ-SPIELPLAN-003` refuses `past` alone, so the message may not send the admin looking for a

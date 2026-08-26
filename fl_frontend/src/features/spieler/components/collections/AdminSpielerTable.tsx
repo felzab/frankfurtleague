@@ -8,6 +8,7 @@ import { Pencil, Person } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
+import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "@/features/spieler/constants";
 import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
@@ -16,7 +17,7 @@ import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { AdminSpielerRow } from "../../types";
+import type { AdminSpielerRow, SpielerTeamOption } from "../../types";
 
 /**
  * Memoised, and load-bearing — `AdminCrudView`'s collection-identity note carries why.
@@ -26,12 +27,15 @@ import type { AdminSpielerRow } from "../../types";
 export const AdminSpielerTable = memo(function AdminSpielerTable({
   spielerQuery,
   filteredSpieler,
+  saisonTeams,
   selectedSaisonId,
   selectedSaisonStatus,
   setDeletingSpieler,
 }: {
   spielerQuery: string;
   filteredSpieler: AdminSpielerRow[];
+  /** The clubs holding a junction row in the selected season — the one collection `REQ-SQUAD-001` counts. */
+  saisonTeams: readonly SpielerTeamOption[];
   /** Which season the squad columns describe — the sidemenu selector's, resolved by the page. */
   selectedSaisonId: string;
   /** Decides the status column's wording — the season's own three words. */
@@ -93,43 +97,54 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
   // Two independent retirements meet here: the trash retires the PERSON, the restore above it the
   // SQUAD ROW. A row can be in either state, both, or neither.
-  const renderActions = (spieler: AdminSpielerRow) => (
-    <RowActions>
-      <RowActionLink
-        href={`/admin/spieler/${spieler.id}${saisonQuery}`}
-        label="Bearbeiten"
-        ariaLabel={`Spieler ${spieler.fullName} bearbeiten`}>
-        <Pencil
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </RowActionLink>
+  const renderActions = (spieler: AdminSpielerRow) => {
+    const row = spieler.selected;
+    // `REQ-SQUAD-001` asked of the row's STORED club, the editor's gate from the list: a club
+    // replacement takes a club out of the season and leaves the squad rows still naming it.
+    const isRowTeamInSaison = row === null || saisonTeams.some((team) => team.teamId === row.team_id);
+    const rowBlockedReason = isRowTeamInSaison ? null : LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON;
 
-      {/* The SQUAD ROW's restore — a different endpoint, and it preserves number, position and stufe. */}
-      {spieler.selected?.inactive_since != null && (
-        <RowActionRestore
-          label="Kadereintrag reaktivieren"
-          ariaLabel={`Kadereintrag von ${spieler.fullName} reaktivieren`}
-          onPress={() => handleReactivateRow(spieler)}
-        />
-      )}
+    return (
+      <RowActions>
+        <RowActionLink
+          href={`/admin/spieler/${spieler.id}${saisonQuery}`}
+          label="Bearbeiten"
+          ariaLabel={`Spieler ${spieler.fullName} bearbeiten`}>
+          <Pencil
+            aria-hidden="true"
+            width={18}
+            height={18}
+          />
+        </RowActionLink>
 
-      {spieler.inactive_since !== null ? (
-        <RowActionRestore
-          label="Spieler reaktivieren"
-          ariaLabel={`Spieler ${spieler.fullName} reaktivieren`}
-          onPress={() => handleReactivatePerson(spieler)}
-        />
-      ) : (
-        <RowActionDelete
-          label="Stilllegen"
-          ariaLabel={`Spieler ${spieler.fullName} stilllegen`}
-          onPress={() => setDeletingSpieler(spieler)}
-        />
-      )}
-    </RowActions>
-  );
+        {/* The SQUAD ROW's restore — a different endpoint, and it preserves number, position and stufe. */}
+        {row?.inactive_since != null && (
+          <RowActionRestore
+            label="Kadereintrag reaktivieren"
+            ariaLabel={`Kadereintrag von ${spieler.fullName} reaktivieren`}
+            disabledReason={rowBlockedReason}
+            onPress={() => handleReactivateRow(spieler)}
+          />
+        )}
+
+        {/* The PERSON's own reactivate takes no gate: `POST /spieler/{id}/reactivate` clears the date
+            and refuses nothing. */}
+        {spieler.inactive_since !== null ? (
+          <RowActionRestore
+            label="Spieler reaktivieren"
+            ariaLabel={`Spieler ${spieler.fullName} reaktivieren`}
+            onPress={() => handleReactivatePerson(spieler)}
+          />
+        ) : (
+          <RowActionDelete
+            label="Stilllegen"
+            ariaLabel={`Spieler ${spieler.fullName} stilllegen`}
+            onPress={() => setDeletingSpieler(spieler)}
+          />
+        )}
+      </RowActions>
+    );
+  };
 
   const renderCaptain = (spieler: AdminSpielerRow) =>
     spieler.selected?.is_captain === true ? (

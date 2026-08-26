@@ -69,6 +69,13 @@ export const formButton = tv({
 });
 
 /**
+ * The primary control of a two-press confirm. **The fill grades the press on offer**, so the armed
+ * one wears `destructive` — it is the only thing that looks different once `ConfirmReveal` is open.
+ */
+export const confirmButton = (isConfirming: boolean): string =>
+  `${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`;
+
+/**
  * The numbers cancel `ModalShell`'s body inset exactly, so this is the one place that follows if it moves.
  * **A call site must not add `w-full`**: with no `twMerge` in the path, `.w-full` is emitted last and silently wins.
  */

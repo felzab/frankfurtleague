@@ -165,8 +165,8 @@ def build_spiele_pipeline(
 
     pipeline.append({"$set": {"team1": _joined_side("team1"), "team2": _joined_side("team2")}})
 
-    # Dropped, because Pydantic's `extra="ignore"` would let these scratch rows ride on every
-    # response with nothing reporting them.
+    # Dropped here rather than at validation: `extra="ignore"` discards these scratch rows in
+    # silence, after the driver has carried one array per fixture across every list read.
     pipeline.append({"$unset": SAISON_TEAMS_AS_NAME})
 
     return pipeline

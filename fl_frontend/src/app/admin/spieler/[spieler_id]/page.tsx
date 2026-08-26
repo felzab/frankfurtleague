@@ -99,6 +99,9 @@ async function AdminSpielerEditContent({
       }}
       saison={saison}
       teams={teams}
+      // Every season's rows, not the selected season's: the erasure takes them all, so the figure it
+      // names has to span the lot.
+      membershipCount={spieler.memberships.length}
     />
   );
 }

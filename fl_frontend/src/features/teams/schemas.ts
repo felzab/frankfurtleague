@@ -257,6 +257,20 @@ export const FLPatchSaisonTeamPayloadSchema = z.object({
 });
 export type FLPatchSaisonTeamPayload = z.infer<typeof FLPatchSaisonTeamPayloadSchema>;
 
+/**
+ * Which club takes a season's row over. The path names the club going OUT, so this is the one
+ * junction payload naming a club the path does not.
+ */
+export const FLReplaceSaisonTeamPayloadSchema = z.object({
+  // Both ids are in the PATH on the wire — the row being handed over is addressed by its natural key.
+  team_id: CustomObjectIdStringSchema,
+  saison_id: z.string().length(4),
+  // The only field on the wire: the row keeps its group, and its copy of the identity is reseeded
+  // from the incoming club, so a client-supplied name could only disagree with it.
+  incoming_team_id: CustomObjectIdStringSchema,
+});
+export type FLReplaceSaisonTeamPayload = z.infer<typeof FLReplaceSaisonTeamPayloadSchema>;
+
 /** A junction row, echoed as it was written — it has no read model of its own. */
 export const FLSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
@@ -270,3 +284,26 @@ export const FLSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   shorthand: z.string().length(2),
 });
 export type FLSaisonTeamResponse = z.infer<typeof FLSaisonTeamResponseSchema>;
+
+/**
+ * The junction row as a replacement left it, plus the fan-out it carried into the fixtures. No
+ * `austritt`: a replacement always clears it, so the field could carry only one value here.
+ */
+export const FLReplaceSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
+  saison_id: z.string(),
+  outgoing_team_id: CustomObjectIdStringSchema,
+  incoming_team_id: CustomObjectIdStringSchema,
+  // Untouched by the replacement, and echoed because the arriving club has to be told which group it
+  // now stands in.
+  gruppe: FLGruppenNamesSchema,
+  // Reseeded from the incoming club, exactly as entry seeds them.
+  name: z.string().nonempty(),
+  shorthand: z.string().length(2),
+  // Reported rather than assumed, as the rename's count is: this fan-out is the half of the endpoint
+  // that fails silently.
+  fanned_out_to_spiele: z.int().nonnegative(),
+  // The outgoing club's live squad rows for this season, retired by the same transaction. Its own
+  // figure beside the fixtures': the players did not transfer, and their registration survives.
+  retired_squad_rows: z.int().nonnegative(),
+});
+export type FLReplaceSaisonTeamResponse = z.infer<typeof FLReplaceSaisonTeamResponseSchema>;

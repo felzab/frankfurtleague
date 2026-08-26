@@ -57,7 +57,7 @@ _LOGGED_COLLECTIONS = [str(name) for name in Collection if name is not Collectio
 # Mirrors `app/core/recording.py :: Operation` and `:: Actor.kind`, hand-copied.
 # `tests/core/test_constraints.py` pins each against the recording literal too, so a member added to
 # one alone fails rather than reaching a stored row.
-_AKTION_OPERATIONS = ["insert", "insert_many", "patch_one", "patch_many"]
+_AKTION_OPERATIONS = ["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
 _AKTOR_KINDS = ["admin_session", "system"]
 
 
@@ -257,8 +257,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.SAISON_TEAMS: {
         "$jsonSchema": _object(
-            # Transcribed from the documents: this junction has no Pydantic model of the ROW, and no
-            # `inactive_since` -- a team never leaves a season (`docs/backend/spec.md :: I19`).
+            # Transcribed from the documents: this junction has no Pydantic model of the ROW. A club
+            # leaves by an `austritt` or by a replacement repointing the row, never by retiring it, so
+            # there is no `inactive_since` here (`docs/backend/spec.md :: I19`).
             required=("_id", "saison_id", "team_id", "gruppe", "austritt", "name", "shorthand"),
             properties={
                 "_id": {"bsonType": "objectId"},
@@ -436,7 +437,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "db_filter": {"bsonType": ["object", "null"]},
                 # Deliberately unconstrained: it copies a document from whichever collection was
                 # written, so a schema tight enough to be worth having would refuse the next one.
-                "before": {"bsonType": ["object", "null"]},
+                # An array is `delete_many`'s, whose images are the whole record of what it removed.
+                "before": {"bsonType": ["object", "array", "null"]},
                 "modified_count": {"bsonType": _INT_OR_NULL},
                 "redacted_at": {"bsonType": _STRING_OR_NULL},
             },

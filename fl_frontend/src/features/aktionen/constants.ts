@@ -35,16 +35,22 @@ export const AKTION_OPERATION_LABELS: Record<FLAktion["operation"], string> = {
   insert_many: "Mehrere angelegt",
   patch_one: "Geändert",
   patch_many: "Sammeländerung",
+  // Only the erasure states the log's side, because only it is true of every such row: a removal
+  // that matched nothing keeps no image either, and the `Stand gesichert` badge already answers
+  // that question per row rather than per operation.
+  delete_many: "Gelöscht",
+  erase_many: "Gelöscht, ohne Stand",
 };
 
 /**
- * The pairs `AdminSaisonsTable` already carries, at the same `/15` fill with its `-strong` ink. The fan-out and the
- * bulk create take the warning pair, because they touched records nobody named, so they ask to be read rather than
- * skimmed.
+ * The pairs `AdminSaisonsTable` carries, at the same `/15` fill. The fan-out and the bulk create take warning, having
+ * touched records nobody named. Both removals take danger: they differ in what the log kept, never in severity.
  */
 export const AKTION_OPERATION_TINTS: Record<FLAktion["operation"], string> = {
   insert: "bg-success/15 text-success-strong",
   insert_many: "bg-warning/15 text-warning-strong",
   patch_one: "bg-info/15 text-info-strong",
   patch_many: "bg-warning/15 text-warning-strong",
+  delete_many: "bg-danger/15 text-danger-strong",
+  erase_many: "bg-danger/15 text-danger-strong",
 };

@@ -1,7 +1,7 @@
 import type { NextPageProps } from "@/shared/types/types";
 import type { FLSpiel } from "../spiele/schemas";
 import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "./schemas";
-import type { SaisonGruppenSwapContext, SaisonSpieltagBound, SaisonSwapTeam } from "./types";
+import type { SaisonGruppenSwapContext, SaisonSpieltagBound, SaisonSwapTeam, SpielplanBestand } from "./types";
 
 /**
  * The query string minus `saison_id`, relative on purpose: a Server Component cannot read its own
@@ -23,19 +23,72 @@ export function searchWithoutSaisonId(searchParams: Awaited<NextPageProps["searc
 }
 
 /**
- * **Mirrors `fl_backend/app/api/saisons/admin_router.py :: _has_taken_place` and has to stay one**:
- * the endpoint refuses on its answer and the swap surfaces offer on the same one.
+ * **Mirrors `fl_backend/app/api/teams/services.py :: has_taken_place`**, which answers
+ * `REQ-SWAP-002` and `REQ-SWAP-004`. Wider closes a control the endpoint accepts, narrower offers
+ * one it refuses. The replace's window is `holdsARecordedFact` below.
  */
-function hasTakenPlace(spiel: FLSpiel): boolean {
-  // **This set is the swap's alone.** An abandonment and a no-show each leave a record the exchange
-  // would rewrite; `ausgefallen` and `annulliert` leave none, so neither belongs here however much
-  // they read like the others.
+export function hasTakenPlace(spiel: FLSpiel): boolean {
+  // **The set is this question's alone, never `SONDEREREIGNIS_RECORDING_AN_ABSENCE`.** An
+  // abandonment and a no-show each left a record; `ausgefallen` and `annulliert` leave none, so
+  // neither belongs here however much they read like the others.
   const leftARecord =
     spiel.sonderereignis === "abgebrochen" || spiel.sonderereignis === "nichtantreten_team1" || spiel.sonderereignis === "nichtantreten_team2";
 
   // The goal counts are the clause a reader would not predict: a fixture with two clubs and one count
   // entered is stored holding goals and no `ergebnis`. `?? null` keeps an absent side out of that.
   return spiel.ergebnis !== null || leftARecord || (spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null;
+}
+
+/**
+ * The one phase `fl_backend/app/api/saisons/spielplan.py :: draw_spielplan` fills the sides of.
+ * Every other it wires and leaves empty, and that difference is the whole of what
+ * `aSideIsOffTheDraw` reads.
+ */
+const DRAWN_HOLDING_ITS_SIDES: FLSaisonPhase = "gruppenphase";
+
+/**
+ * **Mirrors `fl_backend/app/api/saisons/services.py :: _a_side_is_off_the_draw`.** A group fixture
+ * is drawn OCCUPIED and unwired and a bracket fixture WIRED and empty, so every other pairing is an
+ * edit somebody made.
+ */
+function aSideIsOffTheDraw(spiel: FLSpiel): boolean {
+  // Both facts read against the PHASE and never alone: "holds a side" is true of every group fixture
+  // the draw wrote, and would shut the window on every drawn season.
+  const drawn = spiel.saison_phase === DRAWN_HOLDING_ITS_SIDES ? { occupied: true, wired: false } : { occupied: false, wired: true };
+
+  const sides = [
+    [spiel.team1, spiel.team1_quelle],
+    [spiel.team2, spiel.team2_quelle],
+  ] as const;
+
+  return sides.some(([seite, quelle]) => (seite !== null) !== drawn.occupied || (quelle !== null) !== drawn.wired);
+}
+
+/**
+ * **Mirrors `fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact`**,
+ * `REQ-SPIELPLAN-005`'s own count. Wider than `hasTakenPlace`: every `sonderereignis` closes the
+ * replace, and so does anything the draw did not write. A date does not.
+ */
+export function holdsARecordedFact(spiel: FLSpiel): boolean {
+  // EVERY `sonderereignis`, the two cancellations included. This asks what has been ENTERED against
+  // the fixture rather than what it awards, which is why `hasTakenPlace`'s narrower set is wrong here.
+  if (spiel.ergebnis !== null || spiel.sonderereignis !== null) return true;
+
+  // Beside `ergebnis` rather than behind it: a save stores a shoot-out only where it stores a result
+  // too, so one standing alone reached the document by the hand edit route the goals below cover.
+  if (spiel.elfmeterschiessen !== null) return true;
+
+  if ((spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null) return true;
+
+  if (aSideIsOffTheDraw(spiel)) return true;
+
+  // TRIMMED, never compared to null: the draw writes no note, and a hand edit at the database can
+  // leave `""` behind, which is not a record anybody entered.
+  if (spiel.notiz !== null && spiel.notiz.trim() !== "") return true;
+
+  // The joined read carries each booking whole or `null`, which is the same fact the endpoint
+  // projects as `ort.spielort_id` and `schiedsrichter.schiedsrichter_id`.
+  return spiel.ort !== null || spiel.schiedsrichter !== null;
 }
 
 /**
@@ -146,6 +199,29 @@ export function holdsDrawnSpiele({
   return gruppenSpiele.length > 0 || playoffSpiele.length > 0;
 }
 
+/**
+ * What a confirmed replace of this season's draw destroys, plus the figure `REQ-SPIELPLAN-005`
+ * weighs against it. Counted off the two fixture reads the season editor already makes,
+ * `gruppenphase` and `playoffs` being that season's exact partition.
+ */
+export function buildSpielplanBestand({
+  gruppenSpiele,
+  playoffSpiele,
+}: {
+  gruppenSpiele: readonly FLSpiel[];
+  playoffSpiele: readonly FLSpiel[];
+}): SpielplanBestand {
+  const alle = [...gruppenSpiele, ...playoffSpiele];
+
+  return {
+    spiele: alle.length,
+    erfasst: alle.filter(holdsARecordedFact).length,
+    // Dates and kickoff times ALONE. A venue or a referee counts as `erfasst` above and closes the
+    // control, so anything reaching this figure carries only scheduling the replace throws away.
+    angesetzt: alle.filter((spiel) => spiel.datum !== null || spiel.uhrzeit !== null).length,
+  };
+}
+
 /** What one press of the generator would write, and the knockout rounds it would write them for. */
 export type SpielplanVorschau = {
   spieltage: number;
@@ -182,6 +258,15 @@ export function describeSpielplanUmfang(spieltage: number, spiele: number): stri
   const spielePhrase = spiele === 1 ? "ein Spiel" : `${String(spiele)} Spiele`;
 
   return `${spieltagePhrase} und ${spielePhrase}`;
+}
+
+/**
+ * **One phrase for every armed confirmation's fixture count**: the replace, the undraw and the club
+ * replacement each state one, and two copies of it could grade the same figure differently. The
+ * label above the row carries whose fixtures they are.
+ */
+export function describeAngesetzteSpiele(angesetzt: number): string {
+  return angesetzt === 0 ? "Keine" : angesetzt === 1 ? "ein Spiel" : `${String(angesetzt)} Spiele`;
 }
 
 /**

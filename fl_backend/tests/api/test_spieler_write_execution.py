@@ -19,7 +19,7 @@ from app.api.spieler.schemas import (
     FLPostSaisonSpielerPayload,
     FLPostSpielerPayload,
 )
-from app.api.spieler.services import SQUAD_FULL
+from app.api.spieler.services import SQUAD_FULL, SQUAD_TEAM_NOT_IN_SAISON
 from app.core.exceptions import DocumentConflictException
 
 pytestmark = pytest.mark.db
@@ -32,6 +32,8 @@ MAX_KADERGROESSE = 2
 
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607400001")
 AWAY_TEAM_OID = ObjectId("6890a1b2c3d4e5f607400002")
+# The club a replacement hands the home club's junction row to.
+INCOMING_TEAM_OID = ObjectId("6890a1b2c3d4e5f607400003")
 
 # Injected rather than read from the clock, which `get_german_date_str` makes substitutable.
 TODAY = "2026-04-01"
@@ -147,8 +149,15 @@ async def revive(database: AsyncIOMotorDatabase, spieler_id: ObjectId) -> Any:
         spieler_id=spieler_id,
         saison_id=SAISON_ID,
         saison_spieler_collection=database.saison_spieler,
+        saison_teams_collection=database.saison_teams,
         saisons_collection=database.saisons,
     )
+
+
+async def hand_the_junction_row_over(database: AsyncIOMotorDatabase, team_id: ObjectId) -> None:
+    """The state `POST /teams/{team_id}/saisons/{saison_id}/replace` leaves: the row is repointed, so this club holds none in the season."""
+
+    await database.saison_teams.update_one({"saison_id": SAISON_ID, "team_id": team_id}, {"$set": {"team_id": INCOMING_TEAM_OID}})
 
 
 class TestTheConsentRecordIsComposedAndNeverAccepted:
@@ -315,6 +324,60 @@ class TestTheSquadCapOnEveryWritePath:
 
         assert response.inactive_since is None
         assert response.nummer == "9"
+
+
+class TestReactivatingIntoASeasonTheClubHasLeft:
+    """`REQ-SQUAD-001` on the third write path, which a replacement reaches: it retires a club's squad and hands that club's row away."""
+
+    def test_reviving_a_row_whose_club_left_the_season_is_refused(self, mongo_container: Any):
+        """Kills the reactivate asking the cap alone: the row goes live naming a club the season holds no junction row for."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            await database.saison_spieler.insert_one(
+                squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
+            )
+            await hand_the_junction_row_over(database, HOME_TEAM_OID)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await revive(database, spieler_id_for(90))
+
+            return excinfo.value, await database.saison_spieler.find_one({"spieler_id": spieler_id_for(90)})
+
+        refusal, stored = on_a_database(mongo_container, body)
+
+        assert refusal.error_code == SQUAD_TEAM_NOT_IN_SAISON
+        # The second half kills a refusal asked after the write, which reports a state it has already created.
+        assert stored["inactive_since"] == "2026-03-01"
+
+    def test_reviving_a_row_whose_club_is_still_entered_goes_through(self, mongo_container: Any):
+        """The floor under the refusal above, or it could be a blanket one: the ordinary revival is what the surface exists for."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            await database.saison_spieler.insert_one(
+                squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
+            )
+            return await revive(database, spieler_id_for(90))
+
+        response = on_a_database(mongo_container, body)
+
+        assert (response.inactive_since, response.team_id) == (None, HOME_TEAM_OID)
+
+    def test_the_club_is_asked_before_the_cap(self, mongo_container: Any):
+        """Both refusals hold, the live rows seeded by hand: kills the two swapped, sending an admin to free a place in a squad with no club."""
+
+        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+            await database.saison_spieler.insert_one(
+                squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
+            )
+            await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE)
+            await hand_the_junction_row_over(database, HOME_TEAM_OID)
+
+            with pytest.raises(DocumentConflictException) as excinfo:
+                await revive(database, spieler_id_for(90))
+
+            return excinfo.value
+
+        assert on_a_database(mongo_container, body).error_code == SQUAD_TEAM_NOT_IN_SAISON
 
 
 class TestASquadRowPredatingTheTwoFlagsStillEchoes:

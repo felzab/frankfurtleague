@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Mapping, Union
 
-from pydantic import BaseModel, Field, RootModel, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, RootModel, TypeAdapter
 
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH, TEAM_DESCRIPTION_MAX_LENGTH, TEAM_SHORTHAND_LENGTH
@@ -145,6 +145,8 @@ class FLTeamsMembershipsResponse(BaseAPIResponse):
 # Private for `_TeamWritable`'s reason. The bounded address sits here rather than on that base, which
 # `FLTeam`, `FLTeamRecord` and `FLTeamWithMemberships` share.
 class _TeamPayload(_TeamWritable):
+    model_config = ConfigDict(extra="forbid")
+
     address: FLAddressPayload
 
 
@@ -161,15 +163,29 @@ class FLPatchTeamPayload(_TeamPayload):
 class FLPostSaisonTeamPayload(BaseModel):
     """One team's membership of one season. `team_id` comes from the path, `saison_id` from here."""
 
+    model_config = ConfigDict(extra="forbid")
+
     saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
     gruppe: FLGruppenNames
 
 
 class FLPatchSaisonTeamPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     gruppe: FLGruppenNames
     # No `default=None`: `PATCH` replaces both writable fields wholesale, so an omitted key would
     # silently reinstate a team.
     austritt: FLAustritt | None
+
+
+class FLReplaceSaisonTeamPayload(BaseModel):
+    """Which club takes this season's row over. The path names the club going OUT."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # The only field: the row keeps the group it stands in, and its copy of the identity is reseeded
+    # from the incoming club, so a client-supplied name could only disagree with it.
+    incoming_team_id: CustomObjectId
 
 
 class FLPublicTeamsFilterParams(BaseModel):
@@ -277,6 +293,30 @@ class FLSaisonTeamResponse(BaseAPIResponse):
     # entry and rewritten by the rename fan-out, so a client supplying it could only be stale.
     name: CustomNonEmptyString
     shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+
+
+class FLReplaceSaisonTeamResponse(BaseAPIResponse):
+    """The junction row as the replacement left it, plus what it reached beyond that row.
+
+    No `austritt`: a replacement clears it, so the field could hold only one value here and would
+    state nothing.
+    """
+
+    saison_id: str
+    outgoing_team_id: CustomObjectId
+    incoming_team_id: CustomObjectId
+    # Untouched by the replacement, and echoed because the arriving club has to be told which group
+    # it now stands in.
+    gruppe: FLGruppenNames
+    # Reseeded from the incoming club, exactly as entry seeds them.
+    name: CustomNonEmptyString
+    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+    # Reported rather than assumed, as `FLPatchTeamResponse` reports its own: this fan-out is the
+    # half of the endpoint that fails silently (`docs/backend/spec.md :: I13`).
+    fanned_out_to_spiele: int
+    # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
+    # it, and zero is a real answer -- a club can hold a junction row and no squad at all.
+    retired_squad_rows: int
 
 
 FLTeamsResponse = Annotated[

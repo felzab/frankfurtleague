@@ -14,6 +14,7 @@ import type { FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
   SaisonDraftFields,
   SaisonGruppenSwapContext,
+  SaisonReplacementContext,
   SaisonRolloverContext,
   SaisonSpielplanContext,
   SaisonSpieltagBound,
@@ -27,6 +28,7 @@ export function AdminSaisonEditView({
   saison,
   rollover,
   swap,
+  ersatz,
   spielplan,
   hasDrawnSpiele,
   spieltagBound,
@@ -35,6 +37,8 @@ export function AdminSaisonEditView({
   rollover: SaisonRolloverContext;
   /** This season's clubs and their groups, plus the knockout count that closes the swap. */
   swap: SaisonGruppenSwapContext;
+  /** This season's junction rows, and the league's clubs that could take one of them over. */
+  ersatz: SaisonReplacementContext;
   /** The season's draw watermark and its matchday count, which decide whether a draw is still offered. */
   spielplan: SaisonSpielplanContext;
   /** Whether the season holds fixtures, which is what freezes the rules they were drawn from. */
@@ -53,6 +57,7 @@ export function AdminSaisonEditView({
         saison={saison}
         rollover={rollover}
         swap={swap}
+        ersatz={ersatz}
         spielplan={spielplan}
         hasDrawnSpiele={hasDrawnSpiele}
         spieltagBound={spieltagBound}

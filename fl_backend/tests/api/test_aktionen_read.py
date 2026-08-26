@@ -62,7 +62,8 @@ class TestARecordedRowSurvivesTheResponseModel:
         """A read model repairs nothing: the row answers with the document as it was, minus the id types."""
         before = FLAktion.model_validate(stored_row()).before
 
-        assert before is not None
+        # One document, never the array a removal stores: this row records a patch.
+        assert isinstance(before, dict)
         assert before["team1"]["name"] == "Lessing"
         assert before["team1"]["tore"] == 2
 

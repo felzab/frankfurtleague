@@ -1,7 +1,7 @@
-from typing import get_args
+from typing import Any, get_args
 
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.api.saisons.schemas import FLSaison
 from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload, FLSchiedsrichter
@@ -260,16 +260,21 @@ class TestASquadNumberOnTheWritePath:
     PAYLOADS = [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload]
     READ_MODELS = [FLSpieler, FLSaisonSpielerResponse, FLSpielerMembership]
 
+    def body(self, stored: dict[str, Any], payload_model: type[BaseModel]) -> dict[str, Any]:
+        """The stored row projected onto the payload, which carries neither `_id` nor the ids the path names."""
+
+        return {field: stored[field] for field in payload_model.model_fields}
+
     @pytest.mark.parametrize("payload_model", PAYLOADS)
     @pytest.mark.parametrize("nummer", ["7", "07", "1234"])
     def test_a_payload_accepts_one_to_four_digits(self, saison_spieler, payload_model, nummer):
-        assert payload_model.model_validate(saison_spieler(nummer=nummer)).nummer == nummer
+        assert payload_model.model_validate(self.body(saison_spieler(nummer=nummer), payload_model)).nummer == nummer
 
     @pytest.mark.parametrize("payload_model", PAYLOADS)
     def test_a_payload_accepts_null(self, saison_spieler, payload_model):
         """A squad often does not know the number yet, and null is how the caller says so."""
 
-        assert payload_model.model_validate(saison_spieler(nummer=None)).nummer is None
+        assert payload_model.model_validate(self.body(saison_spieler(nummer=None), payload_model)).nummer is None
 
     @pytest.mark.parametrize("payload_model", PAYLOADS)
     @pytest.mark.parametrize(
@@ -288,7 +293,7 @@ class TestASquadNumberOnTheWritePath:
         ],
     )
     def test_a_payload_refuses_anything_else(self, saison_spieler, payload_model, nummer, assert_rejects):
-        assert_rejects(payload_model, saison_spieler(nummer=nummer), "nummer")
+        assert_rejects(payload_model, self.body(saison_spieler(nummer=nummer), payload_model), "nummer")
 
     @pytest.mark.parametrize("read_model", READ_MODELS)
     def test_a_read_model_still_returns_a_stored_value_the_payload_would_refuse(self, read_model, spieler, saison_spieler):

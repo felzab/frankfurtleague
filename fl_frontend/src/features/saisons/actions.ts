@@ -7,13 +7,15 @@ import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { activateSaison, generateSpielplan, patchSaison, postSaison, swapGruppen } from "./mutations";
+import { RECORDED_FACTS_NONE } from "./constants";
+import { activateSaison, generateSpielplan, patchSaison, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
 import {
   FLActivateSaisonPayloadSchema,
   FLGenerateSpielplanPayloadSchema,
   FLPatchSaisonPayloadSchema,
   FLPostSaisonPayloadSchema,
   FLSwapGruppenPayloadSchema,
+  FLUndrawSpielplanPayloadSchema,
   MAX_QUALIFIERS,
 } from "./schemas";
 import { describeSpielplanUmfang } from "./utils";
@@ -29,6 +31,8 @@ import type {
   FLPostSaisonPayload,
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
+  FLUndrawSpielplanPayload,
+  FLUndrawSpielplanResponse,
 } from "./schemas";
 
 const SAISON_ID_TAKEN = "Diese Saison-ID ist schon vergeben. Wähle eine andere oder bearbeite die vorhandene Saison.";
@@ -44,8 +48,24 @@ const DRAW_BEATS_WIN = "Ein Unentschieden darf nicht mehr Punkte bringen als ein
 const FORFEIT_CANNOT_DECIDE =
   "Diese Saison spielt eine KO-Runde, in der ein Unentschieden niemanden weiterbringt. Sieger und Verlierer brauchen unterschiedliche Tore.";
 
+/**
+ * `REQ-DATE-005`'s shared half: the dates repair every state, because
+ * `fl_backend/app/api/saisons/schedule.py :: group_matchdays` is flat from an even `teams_per_group`
+ * down to the odd one and a smaller number does not always buy a day back.
+ */
+const SPAN_BELOW_SCHEDULE =
+  "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben: je ein Spieltag für jede Runde " +
+  "der Gruppenphase und für jede KO-Runde. Zwei Spieltage dürfen nicht auf denselben Tag fallen. Verlege das Enddatum nach " +
+  "hinten oder das Startdatum nach vorne. Das hilft in jedem Fall.";
+
 /** A stored-rules fault as the generator must report it: the rule, then where it is repaired. */
 const rulesFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Regeln und speichere sie.`;
+
+/**
+ * The same fault where the DRAW carried the numbers itself. `REQ-RULES-011` freezes them everywhere
+ * else, so sending an admin to the rules panel would name a field they cannot type in.
+ */
+const shapeFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Spielplan und lege ihn noch einmal neu an.`;
 
 /** A rules 409 as the message it should render, or `null` when the code is none of these. */
 function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
@@ -91,9 +111,10 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     case "REQ-RULES-011":
       return {
         error:
-          "Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Gruppen, Teams pro Gruppe und " +
-          "Qualifikanten stehen damit fest; einen neuen Spielplan legt die Verwaltung nicht an. Nichtantreten, Kadergröße, Stufen und der " +
-          "Zeitraum bleiben änderbar.",
+          "Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Die Qualifikanten änderst Du, " +
+          "indem Du den Spielplan mit der neuen Zahl neu anlegst. Beides entsteht in einem Schritt. Gruppen und Teams pro Gruppe " +
+          "hängen dagegen an den Teams, die in dieser Saison stehen: Nimm dafür zuerst den Spielplan zurück, passe die Teams an und " +
+          "lege ihn danach neu an. Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar.",
       };
     case "REQ-RULES-006":
       return {
@@ -103,16 +124,11 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
       return {
         error: "Mindestens ein Spieltag liegt außerhalb des neuen Zeitraums. Erweitere den Zeitraum wieder oder verschiebe diese Spieltage.",
       };
-    // Bare like the two freezes: several fields could repair this and none is at fault. Only the
-    // dates repair it in every state -- `fl_backend/app/api/saisons/schedule.py :: group_matchdays`
-    // is flat from an even count down to the odd one.
+    // Bare like the two freezes: several fields could repair this and none is at fault. The tail is
+    // this path's own: an edit reaches every rule, so the second repair names no single panel.
     case "REQ-DATE-005":
       return {
-        error:
-          "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben: je ein Spieltag für jede Runde " +
-          "der Gruppenphase und für jede KO-Runde. Zwei Spieltage dürfen nicht auf denselben Tag fallen. Verlege das Enddatum nach " +
-          "hinten oder das Startdatum nach vorne — das hilft in jedem Fall. Weniger Spieltage ergeben sich nur aus anderen Regeln, und " +
-          "die lassen sich nicht in jeder Saison noch ändern.",
+        error: `${SPAN_BELOW_SCHEDULE} Weniger Spieltage ergeben sich nur aus anderen Regeln, und die lassen sich nicht in jeder Saison noch ändern.`,
       };
     default:
       return null;
@@ -158,15 +174,19 @@ function invalidateSpielplan(saisonId: string): void {
  * already closes the control for means the page went stale, so it says to reload; every other code
  * names a repair and where it is made.
  */
-function mapSpielplanRefusal(error: unknown): string | null {
+function mapSpielplanRefusal(error: unknown, carriedShape: boolean): string | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
+  // Which panel holds the three numbers this draw was judged on, and therefore where the repair is.
+  const shapeFault = carriedShape ? shapeFaultMessage : rulesFaultMessage;
+
   switch (error.serverErrorCode) {
-    // One-way, exactly as the activation is: nothing in the product draws a season twice.
+    // Both step aside for a confirmed replace, so either arriving means the season gained rows after
+    // this page rendered: the request went out as a first draw because that is what the panel saw.
     case "REQ-SPIELPLAN-001":
-      return "Für diese Saison sind schon Spiele angelegt, und ein Spielplan entsteht genau einmal. Lade die Seite neu.";
+      return "Für diese Saison sind inzwischen Spiele angelegt, und diese Anfrage hat kein Ersetzen bestätigt. Lade die Seite neu.";
     case "REQ-SPIELPLAN-002":
-      return "Für diese Saison gibt es schon Spieltage. Ein Spielplan entsteht nur für eine Saison ganz ohne Spieltage. Lade die Seite neu.";
+      return "Für diese Saison gibt es inzwischen Spieltage, und diese Anfrage hat kein Ersetzen bestätigt. Lade die Seite neu.";
     // A LAUFENDE Saison still draws: activation is one-way, so refusing one would strand a season
     // activated before its draw. `REQ-ACTIVATE-003` is the half that keeps that state rare.
     case "REQ-SPIELPLAN-003":
@@ -179,17 +199,34 @@ function mapSpielplanRefusal(error: unknown): string | null {
         "Für einen Spielplan muss jede Gruppe dieser Saison genau so viele Teams halten, wie die Regeln vorsehen, und kein Team darf in " +
         "einer Gruppe stehen, die diese Saison nicht anbietet. Passe die Gruppen über die Teamseite an."
       );
-    // A draw judges the STORED rules, so every fault below reaches it on the same footing as an edit.
-    // Reachable only by a hand edit, the create refusing each outright
-    // (`fl_backend/app/api/saisons/admin_router.py :: generate_spielplan`).
+    // The window closed under a confirmed replace, so the page is stale. A reload, like `-001`: the
+    // panel it returns to names the half that closed and, for the record half, the way out of it.
+    case "REQ-SPIELPLAN-005":
+      return (
+        `Ein Spielplan lässt sich nur für eine geplante Saison neu anlegen, zu deren Spielen noch nichts eingetragen ist: ${RECORDED_FACTS_NONE}. ` +
+        "Diese Saison erfüllt das inzwischen nicht mehr. Lade die Seite neu."
+      );
+    // The draw judges its own three numbers and the season's stored rest, so the first two are
+    // repaired wherever this request took them from and the last two only in the rules panel.
+    // `stored=None` there, so no narrowing rule answers.
     case "REQ-RULES-001":
-      return rulesFaultMessage(`Aus den Regeln dieser Saison entsteht keine KO-Runde. ${BRACKET_HAS_NO_SHAPE}`);
+      return shapeFault(
+        `${carriedShape ? "Aus diesen Zahlen" : "Aus den Regeln dieser Saison"} entsteht keine KO-Runde. ${BRACKET_HAS_NO_SHAPE}`,
+      );
     case "REQ-RULES-007":
-      return rulesFaultMessage(GROUP_OVER_QUALIFIES);
+      return shapeFault(GROUP_OVER_QUALIFIES);
     case "REQ-RULES-008":
       return rulesFaultMessage(DRAW_BEATS_WIN);
     case "REQ-RULES-010":
       return rulesFaultMessage(FORFEIT_CANNOT_DECIDE);
+    // NOT through `shapeFault`, whose two tails both send the admin to change a number: the repair
+    // that works whatever the numbers are is the season's dates. Only where a smaller one could be
+    // typed differs, which is what the ternary carries.
+    case "REQ-DATE-005":
+      return (
+        `${SPAN_BELOW_SCHEDULE} Weniger Spieltage ergeben sich sonst nur aus kleineren Zahlen im Abschnitt ` +
+        `${carriedShape ? "Spielplan" : "Regeln"}, und nicht jede kleinere Zahl spart einen Spieltag.`
+      );
     default:
       return null;
   }
@@ -456,8 +493,9 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
 }
 
 /**
- * The one path to a season's fixtures, on `POST /saisons/{saison_id}/spielplan`. **One-way like the
- * activation**: `REQ-SPIELPLAN-001` refuses a second draw, so there is no undo to offer beside it.
+ * The one path to a season's fixtures, on `POST /saisons/{saison_id}/spielplan`. **`replace` deletes
+ * the season's matchdays and fixtures and draws fresh ones** (`REQ-SPIELPLAN-005`), and nothing
+ * writes them back (`docs/backend/spec.md :: I26`).
  */
 export async function generateSpielplanAction(rawPayload: FLGenerateSpielplanPayload): Promise<{
   success: boolean;
@@ -481,7 +519,9 @@ export async function generateSpielplanAction(rawPayload: FLGenerateSpielplanPay
     try {
       generateOperation = await generateSpielplan(validated.data);
     } catch (error) {
-      const refusal = mapSpielplanRefusal(error);
+      // Read off the VALIDATED payload rather than the raw one: what the endpoint judged is what
+      // survived the parse, and a fault message naming the wrong panel is worse than a bare one.
+      const refusal = mapSpielplanRefusal(error, (validated.data.shape ?? null) !== null);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
@@ -495,10 +535,76 @@ export async function generateSpielplanAction(rawPayload: FLGenerateSpielplanPay
     // `stehen` and not `hat`, so the shared phrase can stay nominative for the panel's readout too.
     const umfang = describeSpielplanUmfang(generateOperation.spieltage, generateOperation.spiele);
 
+    // Said first where a replace ran: reporting only what was written would leave the admin unsure
+    // that the rows they confirmed the deletion of are actually gone.
+    const geloescht =
+      validated.data.replace === true ? `Die bisherigen Spieltage und Spiele von Saison ${validated.data.id} sind gelöscht. ` : "";
+
     return {
       success: true,
       spielplan: generateOperation,
-      message: `In Saison ${validated.data.id} stehen jetzt ${umfang}, noch ohne Zeitraum und ohne Termin. Seinen Zeitraum bekommt jeder Spieltag auf seiner eigenen Seite, die Termine der Spiele danach.`,
+      message: `${geloescht}In Saison ${validated.data.id} stehen jetzt ${umfang}, noch ohne Zeitraum und ohne Termin. Seinen Zeitraum bekommt jeder Spieltag auf seiner eigenen Seite, die Termine der Spiele danach.`,
     };
+  });
+}
+
+/**
+ * The one path back out of a draw, on `DELETE /saisons/{saison_id}/spielplan`. **Destructive without
+ * an inverse** (`docs/backend/spec.md :: I26`): nothing writes the removed rows back, and a fresh
+ * draw draws its own.
+ */
+export async function undrawSpielplanAction(rawPayload: FLUndrawSpielplanPayload): Promise<{
+  success: boolean;
+  undraw?: FLUndrawSpielplanResponse;
+  message?: string;
+  error?: string;
+  fieldErrors?: FieldErrors;
+}> {
+  return runAdminMutation("undrawSpielplanAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLUndrawSpielplanPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    let undrawOperation;
+    try {
+      undrawOperation = await undrawSpielplan(validated.data);
+    } catch (error) {
+      // The panel closes the control for both halves, so this arriving means the season moved under
+      // a page still offering the press. A reload returns to that panel, which names any way out.
+      if (error instanceof APIBadStatusError && error.statusCode === 409 && error.serverErrorCode === "REQ-SPIELPLAN-006") {
+        return {
+          success: false,
+          error:
+            `Ein Spielplan lässt sich nur für eine geplante Saison zurücknehmen, zu deren Spielen noch nichts eingetragen ist: ${RECORDED_FACTS_NONE}. ` +
+            "Diese Saison erfüllt das inzwischen nicht mehr. Lade die Seite neu.",
+        };
+      }
+      throw error;
+    }
+
+    if (!undrawOperation.acknowledged) {
+      return { success: false, error: "Beim Zurücknehmen des Spielplans ist ein unerwarteter Fehler aufgetreten" };
+    }
+
+    // The draw's tag set, this removing exactly what that write created.
+    invalidateSpielplan(validated.data.id);
+
+    // A season can carry the watermark with neither collection behind it, so a zero pair does not by
+    // itself mean nothing was removed. Hence three messages rather than one sentence over the counts.
+    const removedRows = undrawOperation.spieltage > 0 || undrawOperation.spiele > 0;
+
+    const message = removedRows
+      ? `Der Spielplan von Saison ${validated.data.id} ist zurückgenommen. Gelöscht wurden ${describeSpielplanUmfang(undrawOperation.spieltage, undrawOperation.spiele)}. Gruppen, Teams pro Gruppe und Qualifikanten lassen sich jetzt wieder im Abschnitt Regeln ändern, die Teams über die Teamseite.`
+      : undrawOperation.watermark_cleared
+        ? `Saison ${validated.data.id} hielt weder Spieltage noch Spiele. Die Angabe, dass ihr Spielplan steht, ist jetzt entfernt.`
+        : `Saison ${validated.data.id} hatte keinen Spielplan mehr, deshalb wurde nichts gelöscht.`;
+
+    return { success: true, undraw: undrawOperation, message };
   });
 }

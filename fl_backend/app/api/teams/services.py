@@ -3,7 +3,12 @@ from itertools import combinations, product
 from typing import AbstractSet, Any, Callable, Iterable, Mapping, Sequence, get_args
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_ABSAGE, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielCommon
+from app.api.spiele.schemas import (
+    SONDEREREIGNIS_COUNTED_AS_ABSAGE,
+    SONDEREREIGNIS_PRODUCING_A_RECORD,
+    SONDEREREIGNIS_WITHOUT_A_RESULT,
+    FLSpielCommon,
+)
 from app.api.teams.schemas import (
     FLGruppen,
     FLGruppenNames,
@@ -936,6 +941,72 @@ def find_gruppe_swap_refusal(
             error_code=SWAP_FIELDS_DISQUALIFIED,
             message=f"the exchange would field a club that has left the season in {departed_fixtures} {noun} dated on or "
             "after its exit; lift the austritt, swap, then re-apply it",
+        )
+
+    return None
+
+
+# A replacement is neither an entry nor a swap: ONE junction row changes hands and the season's
+# fixtures follow it, so it carries codes of its own.
+REPLACE_SAISON_FINISHED = "REQ-REPLACE-001"
+REPLACE_OUTGOING_HAS_A_RECORD = "REQ-REPLACE-002"
+REPLACE_INCOMING_ALREADY_ENTERED = "REQ-REPLACE-003"
+
+
+def has_taken_place(spiel: Mapping[str, Any]) -> bool:
+    """Whether this fixture happened. NOT `unplayed_spiel_nrs` negated: a half-entered score reads unfinished there."""
+
+    # An abandonment and a no-show each left a record that a rewrite would hand to another club. A
+    # fixture called off or struck out left none, so its sides are still free to move.
+    if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") in SONDEREREIGNIS_PRODUCING_A_RECORD:
+        return True
+
+    # A fixture can hold `team1.tore` with no `ergebnis` at all, and nothing refuses that shape.
+    return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
+
+
+def find_replacement_refusal(
+    *,
+    saison_status: str,
+    fixtures_with_a_record: int,
+    incoming_inactive_since: str | None,
+    incoming_already_entered: bool,
+) -> WriteRefusal | None:
+    """Why handing this row to another club must be refused, or `None`.
+
+    **The order is the argument**: the season, then the outgoing club's record, then the incoming
+    club -- so a repairable refusal never sends anyone to repair a doomed replacement.
+    """
+
+    if saison_status == "past":
+        return WriteRefusal(
+            error_code=REPLACE_SAISON_FINISHED,
+            message="season is past; its fixtures and the table derived from them are the record of who played, and a replacement rewrites it",
+        )
+
+    # The OUTGOING club's own fixtures, whatever the phase: the incoming club inherits the schedule
+    # entire, so a record on any of it would be credited to a club that never played it.
+    if fixtures_with_a_record > 0:
+        noun = "fixture has" if fixtures_with_a_record == 1 else "fixtures have"
+
+        return WriteRefusal(
+            error_code=REPLACE_OUTGOING_HAS_A_RECORD,
+            message=f"{fixtures_with_a_record} {noun} already left a record for the outgoing club; "
+            "a replacement carries its fixtures over, and a played one cannot change hands",
+        )
+
+    # The LEAGUE before the season, as `post_saison_team` judges it: a club that has left the league
+    # is a candidate for no season at all, and picking a different one would not repair it.
+    retired = find_club_entry_refusal(inactive_since=incoming_inactive_since)
+    if retired is not None:
+        return retired
+
+    if incoming_already_entered:
+        return WriteRefusal(
+            error_code=REPLACE_INCOMING_ALREADY_ENTERED,
+            # Also the arm that catches one club named on both ends: the row being replaced is
+            # itself a row the incoming club holds, so replacing a club by itself lands here.
+            message="the incoming club already holds a row in this season; a replacement brings in a club that is not entered yet",
         )
 
     return None

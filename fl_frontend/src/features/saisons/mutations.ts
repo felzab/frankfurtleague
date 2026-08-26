@@ -6,6 +6,7 @@ import {
   FLPatchSaisonResponseSchema,
   FLPostSaisonResponseSchema,
   FLSwapGruppenResponseSchema,
+  FLUndrawSpielplanResponseSchema,
 } from "./schemas";
 
 import type {
@@ -19,6 +20,8 @@ import type {
   FLPostSaisonResponse,
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
+  FLUndrawSpielplanPayload,
+  FLUndrawSpielplanResponse,
 } from "./schemas";
 
 // The one create whose payload carries its own id: `saisons._id` is chosen rather than generated, so
@@ -48,12 +51,26 @@ export async function activateSaison({ id }: FLActivateSaisonPayload): Promise<F
 }
 
 /**
- * Draws the season's whole matchday and fixture list in one transaction. No body: the id is the whole
- * argument. **One-way**: `REQ-SPIELPLAN-001` refuses a second draw, so nothing here retries on a 409.
+ * Draws the season's matchdays and fixtures in one transaction. **`replace` makes the same call
+ * DESTRUCTIVE** and nothing writes the removed rows back (`docs/backend/spec.md :: I26`). `shape`
+ * moves the three shape rules with them. Nothing here retries on a 409.
  */
-export async function generateSpielplan({ id }: FLGenerateSpielplanPayload): Promise<FLGenerateSpielplanResponse> {
+export async function generateSpielplan({ id, ...confirmation }: FLGenerateSpielplanPayload): Promise<FLGenerateSpielplanResponse> {
   return apiClient<FLGenerateSpielplanResponse>(`/saisons/${id}/spielplan`, FLGenerateSpielplanResponseSchema, {
     method: "POST",
+    authType: "admin",
+    // `{}` where the caller named no flag, which the endpoint reads as the first draw.
+    body: JSON.stringify(confirmation),
+  });
+}
+
+/**
+ * Removes the season's matchdays, fixtures and watermark in one transaction. **Destructive with no
+ * inverse** (`docs/backend/spec.md :: I26`). No body: the id is the whole argument.
+ */
+export async function undrawSpielplan({ id }: FLUndrawSpielplanPayload): Promise<FLUndrawSpielplanResponse> {
+  return apiClient<FLUndrawSpielplanResponse>(`/saisons/${id}/spielplan`, FLUndrawSpielplanResponseSchema, {
+    method: "DELETE",
     authType: "admin",
   });
 }

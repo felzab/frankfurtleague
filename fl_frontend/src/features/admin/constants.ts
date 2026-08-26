@@ -48,7 +48,14 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           lead: "Alle Saisons, ihre Zeiträume und die Regeln, nach denen sie gespielt werden.",
           points: [
             { term: "Anlegen", detail: "über die Schaltfläche oben rechts. Eine neue Saison ist immer geplant, nie laufend." },
-            { term: "Bearbeiten", detail: "der Stift öffnet die Saisonseite mit Zeitraum, Regeln, Gruppentausch, Spielplan und Umstellung." },
+            {
+              term: "Bearbeiten",
+              // The panels' own headings, in render order: this is a wayfinding list, and an admin
+              // scans the page for the word it names.
+              detail:
+                "der Stift öffnet die Saisonseite mit Zeitraum, Regeln, Gruppentausch, Team ersetzen, Spielplan, " +
+                "Spielplan zurücknehmen und Umstellung.",
+            },
             { term: "Umstellen", detail: "macht eine geplante Saison zur laufenden Saison und schließt die bisherige ab." },
             { term: "Punkte", detail: "gelten rückwirkend, auch für längst gespielte Spiele." },
           ],
@@ -82,7 +89,9 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         hint: {
           lead: "Durchsucht alle Spiele der Saison, um eines gezielt zu öffnen.",
           points: [
-            { term: "Gesucht wird in", detail: "Team, Ort, Datum, Spielnummer und Schiedsrichter." },
+            // Herkunft is searched as the label a reader sees — „Sieger 25.“ finds the fixture fed
+            // by match 25, which no other term here would.
+            { term: "Gesucht wird in", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." },
             { term: "Bearbeiten", detail: "der Stift auf einer Karte öffnet das Spiel." },
           ],
         },
@@ -132,6 +141,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           lead: "Alle Austragungsorte, mit Adresse und Mietpreis.",
           points: [
             { term: "Anlegen", detail: "über die Schaltfläche oben rechts." },
+            { term: "Bearbeiten", detail: "der Stift öffnet die Spielortseite mit Spielort, Adresse und Miete." },
             { term: "Stilllegen", detail: "nimmt den Ort aus den Auswahllisten, ohne ihn zu löschen." },
           ],
           note: "Ein stillgelegter Ort bleibt in jedem Spiel stehen, das ihn schon nennt.",
@@ -152,11 +162,19 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             { term: "Anlegen", detail: "über die Schaltfläche oben rechts. Das Team wird dabei direkt in eine Saison aufgenommen." },
             { term: "Bearbeiten", detail: "der Stift öffnet die Teamseite mit Stammdaten und Saison-Zugehörigkeit." },
             {
+              term: "Ersetzen",
+              detail:
+                "gibt den Platz eines Teams in einer Saison an ein anderes ab, mitsamt seiner angesetzten Spiele. " +
+                "Auf der Saisonseite unter „Team ersetzen“, nicht hier.",
+            },
+            {
               term: "Stilllegen",
               detail: "nur möglich, solange das Team in keiner laufenden oder geplanten Saison spielt. Sein Kürzel bleibt reserviert.",
             },
           ],
-          note: "Ein Austritt gilt für eine Saison und wird auf der Teamseite eingetragen, als Disqualifikation oder als Rückzug. Aus einer Saison entfernt wird nie.",
+          // The two routes out of a season, told apart by what happens to the fixtures — an admin
+          // who reads them as interchangeable picks the one that leaves them on the departed team.
+          note: "Ein Austritt gilt für eine Saison und wird auf der Teamseite eingetragen, als Disqualifikation oder als Rückzug. Seine Spiele bleiben dabei bei ihm stehen; beim Ersetzen wechseln sie mit.",
         },
       },
       {
@@ -173,6 +191,12 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
               term: "Stilllegen",
               detail: "nimmt die Person aus den Auswahllisten. Ihre Kadereinträge bleiben in jeder gespielten Saison erhalten.",
             },
+            {
+              term: "Löschen",
+              detail:
+                "entfernt eine stillgelegte Person endgültig — mit allen Kadereinträgen und ihren Angaben im Änderungsprotokoll. " +
+                "Zurückholen lässt sich das nicht.",
+            },
           ],
           note: "Ein Kadereintrag wird getrennt davon ausgetragen und behält dabei Nummer, Position und Stufe.",
         },
@@ -185,7 +209,14 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           lead: "Alle Schiedsrichter, mit Kontaktdaten und Entschädigung.",
           points: [
             { term: "Anlegen", detail: "über die Schaltfläche oben rechts." },
+            { term: "Bearbeiten", detail: "der Stift öffnet die Schiedsrichterseite mit Person, Kontakt und Honorar." },
             { term: "Stilllegen", detail: "nimmt die Person aus den Auswahllisten, ohne sie zu löschen." },
+            {
+              term: "Kontaktdaten löschen",
+              detail:
+                "entfernt E-Mail und Telefonnummer endgültig, auch aus dem Änderungsprotokoll. " +
+                "Der Schiedsrichter selbst bleibt mit seinem Namen bestehen, weil jedes Spiel ihn nennt.",
+            },
           ],
           note: "Eine stillgelegte Person bleibt in jedem Spiel stehen, das sie schon nennt.",
         },
@@ -207,7 +238,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             {
               term: "Art",
               detail:
-                "was geschehen ist. Eine Sammeländerung trifft alle Datensätze eines Filters auf einmal. „Mehrere angelegt“ benennt keinen einzelnen Datensatz, sondern nur die Zahl.",
+                "was geschehen ist. Eine Sammeländerung trifft alle Datensätze eines Filters auf einmal. „Mehrere angelegt“ benennt keinen einzelnen Datensatz, sondern nur die Zahl. „Gelöscht, ohne Stand“ heißt, dass zu dieser Zeile bewusst kein früherer Datensatz aufbewahrt wurde — so werden die Angaben einer Person entfernt.",
             },
             { term: "Stand gesichert", detail: "der Datensatz von vor der Änderung liegt in dieser Zeile." },
             { term: "Vorgangsnummer", detail: "kopiere sie und suche danach, um jede Zeile eines einzelnen Speicherns zu sehen." },

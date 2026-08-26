@@ -28,6 +28,45 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], mem
 };
 
 /**
+ * `REQ-SQUAD-001` judges the row's `team_id` on the PATCH as well as on the reactivate, so a row
+ * reassigned to a club this season holds comes back without its own club returning.
+ */
+const SQUAD_REPAIR =
+  "Um einen solchen Eintrag zu reaktivieren, bearbeite den Spieler und weise den Eintrag im Bereich „Kader“ einem Team dieser Saison zu.";
+
+/**
+ * What one replacement moved, for the report that follows it. The squad half says AUSTRAGEN: this
+ * write stamps `saison_spieler` rows, and STILLLEGEN is what happens to the person across the league.
+ */
+export const describeReplacementUmfang = ({
+  fannedOutToSpiele,
+  retiredSquadRows,
+}: {
+  fannedOutToSpiele: number;
+  retiredSquadRows: number;
+}): string => {
+  const spiele =
+    fannedOutToSpiele === 0
+      ? "Für das ausscheidende Team war noch kein Spiel angesetzt."
+      : fannedOutToSpiele === 1
+        ? "Ein angesetztes Spiel wurde übernommen."
+        : `${String(fannedOutToSpiele)} angesetzte Spiele wurden übernommen.`;
+
+  // The count is of LIVE rows, so zero says the squad stood empty and never that the club had no
+  // players: one whose players were all ausgetragen first — the usual order — reports zero too.
+  if (retiredSquadRows === 0) return `${spiele} Im Kader des ausscheidenden Teams stand kein Spieler.`;
+
+  // Below the zero arm and never beside it: German counts nothing with a word, so „0 Kadereinträge“
+  // must not be composed at all, not even to be discarded.
+  const ausgetragen =
+    retiredSquadRows === 1
+      ? "Ein Kadereintrag des ausscheidenden Teams wurde ausgetragen."
+      : `${String(retiredSquadRows)} Kadereinträge des ausscheidenden Teams wurden ausgetragen.`;
+
+  return `${spiele} ${ausgetragen} ${SQUAD_REPAIR}`;
+};
+
+/**
  * `fl_backend/app/api/teams/services.py :: _may_hold_a_platz`, over the row that endpoint serves.
  * One rule, so the table and the bracket cannot name different qualifiers
  * (`docs/backend/spec.md :: I24b`).

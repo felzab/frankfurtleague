@@ -7,11 +7,22 @@ import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter, reactivateSchiedsrichter } from "./mutations";
-import { FLPatchSchiedsrichterPayloadSchema, FLPostSchiedsrichterPayloadSchema, FLSchiedsrichterKeyPayloadSchema } from "./schemas";
+import { anonymiseSchiedsrichter, deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter, reactivateSchiedsrichter } from "./mutations";
+import {
+  FLAnonymiseSchiedsrichterPayloadSchema,
+  FLPatchSchiedsrichterPayloadSchema,
+  FLPostSchiedsrichterPayloadSchema,
+  FLSchiedsrichterKeyPayloadSchema,
+} from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload, FLSchiedsrichter, FLSchiedsrichterKeyPayload } from "./schemas";
+import type {
+  FLAnonymiseSchiedsrichterPayload,
+  FLPatchSchiedsrichterPayload,
+  FLPostSchiedsrichterPayload,
+  FLSchiedsrichter,
+  FLSchiedsrichterKeyPayload,
+} from "./schemas";
 
 /**
  * The retirement refusal, or `null` when the 409 is something else. It lands on no field: the retire
@@ -164,6 +175,48 @@ export async function reactivateSchiedsrichterAction(
       success: Boolean(reactivateOperation.acknowledged),
       updated_document: reactivateOperation.updated_document,
       message: "Schiedsrichter reaktiviert.",
+    };
+  });
+}
+
+/**
+ * Clears the telephone number and email address on the row, and every log row's whole saved
+ * pre-image. **Permanent, with no undo.** It refuses nothing, and the row survives so every fixture
+ * naming the referee resolves.
+ */
+export async function anonymiseSchiedsrichterAction(
+  rawPayload: FLAnonymiseSchiedsrichterPayload,
+): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+  return runAdminMutation("anonymiseSchiedsrichterAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLAnonymiseSchiedsrichterPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return {
+        success: false,
+        error: VALIDATION_FAILED,
+        fieldErrors: toFieldErrors(validated.error),
+      };
+    }
+
+    const anonymiseOperation = await anonymiseSchiedsrichter(validated.data);
+    if (!anonymiseOperation.acknowledged) {
+      return { success: false, error: "Beim Löschen der Kontaktdaten ist ein unerwarteter Fehler aufgetreten" };
+    }
+
+    // Nothing to invalidate, as the reactivate has nothing: this moves `kontakt` alone. The referee
+    // list is uncached, a Spiel embeds only the name and the fee, and the log is uncached too, so no
+    // cached read holds a contact detail.
+
+    return {
+      success: Boolean(anonymiseOperation.acknowledged),
+      updated_document: anonymiseOperation.updated_document,
+      message:
+        "E-Mail und Telefonnummer sind gelöscht. Im Änderungsprotokoll ist der gesicherte Stand jeder Zeile gelöscht, " +
+        "die diesen Schiedsrichter betrifft.",
     };
   });
 }

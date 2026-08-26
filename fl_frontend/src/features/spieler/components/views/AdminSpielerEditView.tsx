@@ -19,18 +19,21 @@ import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spie
 /**
  * Every exit routes through the form's discard guard.
  *
- * **The header owns the PERSON's retirement, the form's foot the squad row's.** Two controls that
- * read alike invite the wrong one.
+ * **The header owns the PERSON's retirement, the form's foot the squad row's** — two controls that
+ * read alike invite the wrong one. The erasure is neither, and sits below both.
  */
 export function AdminSpielerEditView({
   spieler,
   saison,
   teams,
+  membershipCount,
 }: {
   spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null };
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
   teams: SpielerTeamOption[];
+  /** Squad rows across EVERY season, for the erasure panel — this page shows one season's. */
+  membershipCount: number;
 }) {
   const router = useRouter();
   const [isWritingStatus, startWritingStatus] = useTransition();
@@ -56,6 +59,7 @@ export function AdminSpielerEditView({
         spieler={spieler}
         saison={saison}
         teams={teams}
+        membershipCount={membershipCount}
         registerRequestLeave={(requestLeave) => {
           requestLeaveRef.current = requestLeave;
         }}
@@ -92,11 +96,12 @@ export function AdminSpielerEditView({
                   </Button>
                 )}
 
-                {/* Worth saying here — it changes what the page below means — though the control for
-                    it is at the form's foot. */}
+                {/* Here, though the control is at the form's foot: it changes what the page below means.
+                    The TINT separates a season-scoped exit from the league-wide badge beside it,
+                    `bg-warning` against `bg-muted`, so the season goes unnamed as on every admin list. */}
                 {rowInactiveSince !== null && (
                   <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>
-                    Nicht im Kader {saison.saisonId} seit {formatSpielDatum(rowInactiveSince)}
+                    Ausgetragen seit {formatSpielDatum(rowInactiveSince)}
                   </span>
                 )}
               </div>

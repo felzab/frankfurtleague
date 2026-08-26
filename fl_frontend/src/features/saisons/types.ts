@@ -55,7 +55,7 @@ export type SaisonOffeneSpiel = {
   id: string;
   spielNr: number;
   datum: string | null;
-  /** `Team A – Team B`, with a placeholder where the bracket has not filled a side yet. */
+  /** The two sides joined by `gegen`, with a placeholder where the bracket has not filled one yet. */
   paarung: string;
 };
 
@@ -79,6 +79,27 @@ export type SaisonSpieltagBound = {
 };
 
 /**
+ * A season's STORED draw as the generator panel weighs it: what a confirmed replace deletes, and the
+ * one figure `REQ-SPIELPLAN-005` measures the offer against.
+ */
+export type SpielplanBestand = {
+  /** How many fixtures the season holds, every phase together. */
+  spiele: number;
+  /**
+   * How many carry something entered against them, and therefore CLOSE the replace. **Mirrors
+   * `fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact`**, the predicate the endpoint
+   * counts `recorded_fixtures` with.
+   */
+  erfasst: number;
+  /**
+   * How many carry a date or a kickoff time. **No refusal reads this**: it is the scheduling a
+   * replace throws away, which the confirmation names because nothing stops it. A venue or a referee
+   * is `erfasst` instead, and stops the replace outright.
+   */
+  angesetzt: number;
+};
+
+/**
  * The generator panel's context, holding only what nothing else on the page carries: `saisonStatus`
  * comes off the season itself and `hasDrawnSpiele` is what freezes the rules panel too, so each
  * stays its own prop rather than a copy in here.
@@ -93,6 +114,8 @@ export type SaisonSpielplanContext = {
    * than recomputed, so the panel and the endpoint cannot name different seasons.
    */
   schedule: readonly FLSaisonPhaseSchedule[];
+  /** What a confirmed replace would destroy, and what `REQ-SPIELPLAN-005` weighs against it. */
+  bestand: SpielplanBestand;
 };
 
 /**
@@ -104,8 +127,9 @@ export type SaisonSwapTeam = {
   name: string;
   gruppe: FLGruppenNames;
   /**
-   * `REQ-SWAP-004` counted for one club, per the season editor page's `hasTakenPlace`. Non-zero makes
-   * the club unpickable: the group phase is a round robin, so it cannot leave its group.
+   * `REQ-SWAP-004` counted for one club, per
+   * `fl_frontend/src/features/saisons/utils.ts :: hasTakenPlace`. Non-zero makes the club
+   * unpickable: the group phase is a round robin, so it cannot leave its group.
    */
   gespielteGruppenSpiele: number;
   /** Spieltag id → this club's Gruppenphase fixtures on it. A swap MOVES every one to the other club. */
@@ -126,4 +150,49 @@ export type SaisonGruppenSwapContext = {
   /** Every club entered in this season, retired ones included, ordered by name. */
   teams: SaisonSwapTeam[];
   playedKnockoutSpiele: number;
+};
+
+/**
+ * One junction row of this season, as the replacement picker offers it. Keyed by `teamId` rather
+ * than by a club: a row may name a club no `teams` document resolves, and handing exactly such a
+ * row on is part of what the operation is for.
+ */
+export type SaisonReplacementRow = {
+  teamId: string;
+  /** The season's copy of the name, or the fixtures' copy of it where no club read reaches the row. */
+  name: string;
+  /** `null` where no club read reaches the row: the group is stored on it and no fixture carries one. */
+  gruppe: FLGruppenNames | null;
+  /** Every fixture of this season standing on the row, each of which changes hands with it. */
+  spiele: number;
+  /**
+   * `REQ-REPLACE-002` counted for this row, over `fl_frontend/src/features/saisons/utils.ts ::
+   * hasTakenPlace` — the endpoint's own predicate. Non-zero makes the row unpickable, because the
+   * record it counts would be credited to the arriving club.
+   */
+  gespielteSpiele: number;
+  /** An `austritt` stands on the row. The replacement clears it rather than moving it. */
+  hasAustritt: boolean;
+  /** No `teams` document resolves `teamId`, so the club has no page this row could be reached from. */
+  isVerwaist: boolean;
+};
+
+/** One club that could take a season's row over, with the two standing facts that refuse it. */
+export type SaisonReplacementCandidate = {
+  id: string;
+  name: string;
+  /** `REQ-ENTER-005`: the club left the league and enters no season until it is reactivated. */
+  isStillgelegt: boolean;
+  /** `REQ-REPLACE-003`: it holds a row here already — which is also how one club on both ends reads. */
+  isInSaison: boolean;
+};
+
+/**
+ * Both sides of the replacement panel. The rows come off this season's reads and the candidates off
+ * a league-wide one, because an arriving club is by definition not in the season yet.
+ */
+export type SaisonReplacementContext = {
+  /** Ordered by name, retired clubs and rows with no club document included. */
+  rows: SaisonReplacementRow[];
+  candidates: SaisonReplacementCandidate[];
 };

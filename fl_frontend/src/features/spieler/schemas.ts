@@ -121,6 +121,16 @@ export const FLReactivateSpielerPayloadSchema = z.object({
 export type FLReactivateSpielerPayload = z.infer<typeof FLReactivateSpielerPayloadSchema>;
 
 /**
+ * The ERASURE's whole argument: the id in the path, no request body. Its own schema and not the
+ * retire's — one stamps a date and the other removes the person, and a shared payload would let a
+ * caller reach the second while reading as the first.
+ */
+export const FLEraseSpielerPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+});
+export type FLEraseSpielerPayload = z.infer<typeof FLEraseSpielerPayloadSchema>;
+
+/**
  * No transforms — empty-to-null normalisation is the FORM boundary's. A schema that rewrote its
  * input would make `z.infer` disagree with what the form holds, and `apiContract.test.ts` compares
  * this shape to the published document.
@@ -196,6 +206,18 @@ export const FLSpielerWriteResponseSchema = BaseAPIResponseSchema.extend({
   spieler_id: CustomObjectIdStringSchema,
 });
 export type FLSpielerWriteResponse = z.infer<typeof FLSpielerWriteResponseSchema>;
+
+/**
+ * Mirrors `FLSpielerErasureResponse` — what the erasure removed, and never an echo of the person: a
+ * name or a consent record here would hand back a fresh copy of exactly what was erased.
+ */
+export const FLSpielerErasureResponseSchema = BaseAPIResponseSchema.extend({
+  spieler_id: CustomObjectIdStringSchema,
+  erased_saison_spieler: z.int().nonnegative(),
+  // No log row is dropped — images are emptied in place and stamped — so this is never a deletion count.
+  redacted_aktionen: z.int().nonnegative(),
+});
+export type FLSpielerErasureResponse = z.infer<typeof FLSpielerErasureResponseSchema>;
 
 /** A junction row, echoed as it was written — it has no read model of its own. */
 export const FLSaisonSpielerResponseSchema = BaseAPIResponseSchema.extend({

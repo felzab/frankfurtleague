@@ -9,7 +9,7 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 # One alias for both the row and the filter: without it the two hand-copies drift, and a filter
 # narrower than the rows answers a legal `?operation=` with a 422 that no test would catch.
-FLAktionOperation = Literal["insert", "insert_many", "patch_one", "patch_many"]
+FLAktionOperation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
 
 
 def _stringify_oids(value: Any) -> Any:
@@ -58,7 +58,9 @@ class FLAktion(BaseModel):
     operation: FLAktionOperation
     document_id: str | None
     db_filter: dict[str, str] | None
-    before: dict[str, Any] | None
+    # A list is `delete_many`'s: a removal follows no write a restore could replay, so one row
+    # carries every image it took (`docs/backend/spec.md :: I48`).
+    before: dict[str, Any] | list[dict[str, Any]] | None
     modified_count: int | None
     redacted_at: str | None
 

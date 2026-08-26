@@ -1,9 +1,15 @@
 from typing import Sequence
 
 from app.core.exceptions import WriteRefusal
+from app.shared.schemas.kontakt import FLKontakt
 
 # A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
 REFEREE_STILL_ASSIGNED = "REQ-RETIRE-004"
+
+# Dotted keys, so `kontakt` itself survives: `app/core/constraints.py :: _KONTAKT` types it required
+# and non-nullable, its members string-or-null. Read off the model, so a contact field added later is
+# cleared rather than silently left behind.
+ANONYMISED_KONTAKT: dict[str, None] = {f"kontakt.{field}": None for field in FLKontakt.model_fields}
 
 
 def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:

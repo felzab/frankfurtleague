@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from app.api.teams.schemas import FLAustritt, FLAustrittType, FLGruppenNames
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH, TEAM_SHORTHAND_LENGTH
@@ -84,6 +84,10 @@ class FLSpielTeamFieldPayload(BaseModel):
 
     No name and no shorthand: the season's `saison_teams` row is where a club's name lives, so a copy
     a client typed could only disagree with it. The server composes them.
+
+    A submitted copy is IGNORED rather than refused, alone among the payload models: the stored and
+    the joined sides below EXTEND this one and `extra` is inherited, so refusing here would answer
+    500 for a fixture read over a document carrying a key no model declares.
     """
 
     team_id: CustomObjectId
@@ -136,6 +140,8 @@ class _SpielOrtBooking(BaseModel):
 class FLSpielOrtFieldPayload(_SpielOrtBooking):
     """The venue as the admin PATCH SUBMITS it: which ground, and what this fixture pays for it."""
 
+    model_config = ConfigDict(extra="forbid")
+
     # No default, and it stays on the payload where the name does not: this is THIS fixture's rent
     # rather than a copy of the venue's current default (`docs/backend/spec.md :: I6`).
     mietpreis: int = Field(ge=0)
@@ -165,6 +171,8 @@ class _SpielSchiedsrichterBooking(BaseModel):
 
 class FLSpielSchiedsrichterFieldPayload(_SpielSchiedsrichterBooking):
     """The referee as the admin PATCH SUBMITS it; `payment` stays for `mietpreis`' reason."""
+
+    model_config = ConfigDict(extra="forbid")
 
     payment: int = Field(ge=0)
 
@@ -329,6 +337,8 @@ FLSpielBookingListAdapter = TypeAdapter(list[FLSpielBooking])
 
 
 class FLPatchSpielDataPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     # No `spiel_id`: the path names the match, the body describes the change (RFC 5789).
 
     # `empty_strings_to_none` turns an unpicked select's "" into null, the ordinary fixture, so
