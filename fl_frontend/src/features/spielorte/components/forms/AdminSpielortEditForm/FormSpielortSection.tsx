@@ -5,7 +5,7 @@ import { FieldError, Input, TextField } from "@heroui/react";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 
 /**
  * The name fans out: the patch rewrites the embedded `ort.name` on every Spiel at this venue, and
@@ -27,14 +27,14 @@ export function FormSpielortSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Spielort
-          <InfoHint label="Hinweis zum Namen">
-            <p>Der Name, unter dem der Ort auf jeder Spielkarte steht.</p>
-            <ul>
-              <li>
-                Eine Korrektur gilt <strong>für jedes Spiel hier</strong>, auch für längst gespielte.
-              </li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Namen"
+            body={{
+              lead: "So heißt der Ort bei jedem Spiel.",
+              points: [{ term: "Auch längst gespielte Spiele", text: "zeigen danach den neuen Namen." }],
+            }}
+          />
         </h2>
       </div>
 

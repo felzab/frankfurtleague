@@ -1,5 +1,5 @@
 /**
- * One appearance for `IconTooltip`'s tooltip and `DisabledHint`'s popover, so a reader cannot tell which answered.
+ * One appearance for `IconTooltip`'s tooltip and every refusal popover, so a reader cannot tell which answered.
  * HeroUI's `break-all` splits a word mid-token; the two overrides write one property each, so no reorder decides.
  */
 export const HINT_SURFACE =

@@ -9,8 +9,8 @@ import { HINT_SURFACE } from "./hintSurface";
 import type { ReactNode } from "react";
 
 /**
- * **On a wrapper, never on the control.** A disabled control dispatches no pointer event and none reaches an ancestor,
- * so the wrapper is the hit target — and the tab stop, a disabled button being out of the tab order entirely.
+ * On a wrapper, never on the control, which `Hint`'s `refusal` mode carries in full (COR-2). This one is what the
+ * call sites outside that mode's reach still render.
  */
 export function DisabledHint({
   reason,

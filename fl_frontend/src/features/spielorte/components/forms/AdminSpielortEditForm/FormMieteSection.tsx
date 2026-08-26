@@ -5,7 +5,7 @@ import { FieldError, NumberField } from "@heroui/react";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
 import type { SpielortBanner } from "./banners";
@@ -33,15 +33,14 @@ export function FormMieteSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Miete
-          <InfoHint label="Hinweis zur Miete">
-            <p>Der Standardsatz für neue Ansetzungen.</p>
-            <ul>
-              <li>
-                Bereits angesetzte Spiele <strong>behalten ihre vereinbarte Miete</strong>.
-              </li>
-              <li>0 € ist eine gültige Angabe, etwa für eine Halle, die der Liga überlassen wird.</li>
-            </ul>
-          </InfoHint>
+          <Hint
+            mode="reveal"
+            label="Hinweis zur Miete"
+            body={{
+              lead: "Diese Miete gilt für neue Spiele.",
+              points: [{ text: "0 € kannst Du eintragen." }],
+            }}
+          />
         </h2>
       </div>
 

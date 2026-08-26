@@ -11,8 +11,8 @@ import { overlayPanel } from "./overlayPanel";
 import type { ReactNode } from "react";
 
 /**
- * The rich-content sibling of `IconTooltip`. **A popover rather than a tooltip because of touch**: react-aria's tooltip
- * never opens on tap, so on a phone it is unreachable, and `useHoverOpenOverlay` adds the hover half back.
+ * A popover rather than a tooltip because of touch, which `Hint` carries in full (COR-2). This one takes arbitrary
+ * children; a hint held to the length cap is `Hint`'s `reveal` mode.
  */
 export function InfoHint({ label, children, trigger }: { label: string; children: ReactNode; trigger?: ReactNode }) {
   const { isOpen, onOpenChange, openFromHover, captureDialog } = useHoverOpenOverlay();
