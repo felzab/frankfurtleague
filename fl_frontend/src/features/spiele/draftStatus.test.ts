@@ -230,6 +230,29 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
 
     assert.deepEqual(derive(manual, draftOf(manual), ["besetzung_missing"]).expected, []);
   });
+
+  /* The grade decides a marker's colour and its one sentence, and the four scheduling fields are one
+     grade by the owner's ruling of 2026-08-26. Nothing else pins which side a category falls on, so a
+     silent move would recolour the editor and leave the sentence beside it false. */
+  it("grades the four scheduling fields alike, and apart from what leaves a fixture unscoreable", () => {
+    const bare = makeStored({ datum: null, uhrzeit: null, ort: null, schiedsrichter: null });
+    const scheduling = derive(bare, draftOf(bare), ["datum_missing", "uhrzeit_missing", "ort_missing", "schiedsrichter_missing"]);
+
+    assert.deepEqual(
+      scheduling.expected.map((field) => [field.path, field.expectedSeverity]),
+      [
+        ["datum", "scheduling"],
+        ["uhrzeit", "scheduling"],
+        ["ort.spielort_id", "scheduling"],
+        ["schiedsrichter.schiedsrichter_id", "scheduling"],
+      ],
+    );
+
+    const unscoreable = makeStored({ saison_phase: "halbfinale", team1: null, team1_quelle: null, team2: null, ergebnis: null });
+    const scoring = derive(unscoreable, draftOf(unscoreable), ["besetzung_missing", "ergebnis_pending"]);
+
+    assert.deepEqual(new Set(scoring.expected.map((field) => field.expectedSeverity)), new Set(["scoring"]));
+  });
 });
 
 describe("deriveSpielDraftStatus · rejected fields", () => {

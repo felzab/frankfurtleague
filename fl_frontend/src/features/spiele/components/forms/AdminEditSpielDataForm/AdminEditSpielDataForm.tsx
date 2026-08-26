@@ -132,6 +132,9 @@ export function AdminEditSpielDataForm({
   const [isLeaving, startLeaving] = useTransition();
 
   const [sonderereignis, setSonderereignis] = useState<FLSonderereignis | null>(spielData.sonderereignis);
+  // Held, never derived from the value: a scalar has no empty-but-present form, so a derived
+  // disclosure would have to seed a member the moment it opened.
+  const [hasSonderereignis, setHasSonderereignis] = useState(spielData.sonderereignis !== null);
   const [ortPayload, setOrtPayload] = useState<FLSpielOrtFieldDraft | null>(spielData.ort);
   const [schiedsrichterPayload, setSchiedsrichterPayload] = useState<FLSpielSchiedsrichterFieldDraft | null>(spielData.schiedsrichter);
 
@@ -366,6 +369,7 @@ export function AdminEditSpielDataForm({
     // Every atom listed rather than looped: one added to the `useState` block above and forgotten
     // here leaves `status.changed` non-empty after both exits, silently.
     setSonderereignis(spielData.sonderereignis);
+    setHasSonderereignis(spielData.sonderereignis !== null);
     setOrtPayload(spielData.ort);
     setSchiedsrichterPayload(spielData.schiedsrichter);
     setDatum(spielData.datum ? parseDate(spielData.datum) : null);
@@ -643,6 +647,13 @@ export function AdminEditSpielDataForm({
 
             <FormSonderereignisSection
               sonderereignis={sonderereignis}
+              hasSonderereignis={hasSonderereignis}
+              onHasSonderereignisChange={(next) => {
+                setHasSonderereignis(next);
+                // Closing it is the only way back to no event, so the value goes with it rather
+                // than surviving out of sight and riding into the save.
+                if (!next) setSonderereignis(null);
+              }}
               // Read off the DRAFT, not the stored fixture: emptying a slot must close the two
               // no-show states in the same tick, or the form offers what the save then refuses.
               hasBothSides={team1Payload !== null && team2Payload !== null}

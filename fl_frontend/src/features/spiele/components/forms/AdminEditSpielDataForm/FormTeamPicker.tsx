@@ -215,11 +215,9 @@ export function FormTeamPicker({
     onQuelleChange({ type: "spiel", spiel_nr: keptIsFree ? kept : NaN, ausgang: selected });
   };
 
+  // The fall-through every card renders a side with, so this box prints what the Spielplan will.
   // No completeness gate: `formatQuelle` answers `null` for an unpicked number by itself.
-  const derivedLabel = formatQuelle(quelle);
-
-  // The occupant the resolution wrote, or the honest empty state until it produces one.
-  const occupantLabel = teamPayload?.name ?? PLACEHOLDER.slot;
+  const occupantLabel = teamPayload?.name ?? formatQuelle(quelle) ?? PLACEHOLDER.slot;
 
   // The STORED side, which is what `REQ-RESULT-001` keys on: the rule is about destroying a
   // recorded result, and a draft that already cleared the goals is the edit doing exactly that.
@@ -552,14 +550,6 @@ export function FormTeamPicker({
           {/* The control above is labelled Herkunft, so the note names it rather than the machinery behind it. */}
           <p className="fluid-xxs text-foreground-muted leading-normal font-medium">Folgt der Herkunft.</p>
         </div>
-      )}
-
-      {/* The same derivation the public cards use, so the admin reads what the bracket will
-          print. Only while UNRESOLVED — an occupied slot prints the team's name instead. */}
-      {derivedLabel !== null && teamPayload === null && (
-        <p className="fluid-xxs text-foreground-muted leading-normal font-medium">
-          Im Spielplan erscheint: <strong className="text-foreground">{derivedLabel}</strong>
-        </p>
       )}
     </div>
   );

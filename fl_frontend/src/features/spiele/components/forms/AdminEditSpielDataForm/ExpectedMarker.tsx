@@ -16,10 +16,10 @@ export function ExpectedMarker({ path }: { path: string }) {
   const field = useSpielExpectedField(path);
   if (field === undefined) return null;
 
-  const isRequired = field.expectedSeverity === "required";
+  const blocksScoring = field.expectedSeverity === "scoring";
 
   const trigger = (
-    <span className={`${FIELD_MARKER} cursor-help ${isRequired ? "bg-danger/15 text-danger-strong" : "bg-warning/15 text-warning-strong"}`}>
+    <span className={`${FIELD_MARKER} cursor-help ${blocksScoring ? "bg-danger/15 text-danger-strong" : "bg-warning/15 text-warning-strong"}`}>
       <CircleDashed className="size-3" />
     </span>
   );
@@ -27,18 +27,18 @@ export function ExpectedMarker({ path }: { path: string }) {
   /* Two elements over one with a conditional lead: `hintCap.test.ts` counts a literal, and a
      ternary is a body it cannot measure. Neither line repeats the trigger's own `aria-label`,
      which a screen reader announces immediately before it. */
-  return isRequired ? (
+  return blocksScoring ? (
     <Hint
       mode="reveal"
       label="Fehlt"
-      body={{ lead: "Nötig, damit das Spiel stattfinden kann." }}
+      body={{ lead: "Ohne diese Angabe kann das Spiel nicht gewertet werden." }}
       trigger={trigger}
     />
   ) : (
     <Hint
       mode="reveal"
-      label="Empfohlen"
-      body={{ lead: "Für das Spiel nicht nötig." }}
+      label="Offen"
+      body={{ lead: "Ohne diese Angabe kann das Spiel nicht stattfinden." }}
       trigger={trigger}
     />
   );

@@ -30,10 +30,10 @@ export function SpielRail({
   const status = useDraftStatus();
   const expected = useSpielExpected();
 
-  // Red counts only what the fixture cannot happen without; the recommended rest goes yellow,
+  // Red counts what leaves the fixture unscoreable; what is merely unarranged goes yellow,
   // matching the markers beside those fields.
-  const expectedRequired = expected.filter((field) => field.expectedSeverity === "required");
-  const expectedRecommended = expected.filter((field) => field.expectedSeverity === "recommended");
+  const expectedScoring = expected.filter((field) => field.expectedSeverity === "scoring");
+  const expectedScheduling = expected.filter((field) => field.expectedSeverity === "scheduling");
 
   // **This set is this line's alone**, and matches the triage list the line describes: `abgebrochen`
   // is absent from it, because an abandoned fixture is still chased for what it is missing.
@@ -77,25 +77,25 @@ export function SpielRail({
             body={{
               lead: "Was für dieses Spiel noch fehlt.",
               points: [
-                { term: "Rot:", text: "nötig, damit das Spiel stattfinden kann." },
-                { term: "Gelb:", text: "empfohlen, nicht nötig." },
+                { term: "Rot:", text: "ohne diese Angabe kann das Spiel nicht gewertet werden." },
+                { term: "Gelb:", text: "ohne diese Angabe kann das Spiel nicht stattfinden." },
               ],
             }}
           />
         }
         badge={
           <span className="rail-marker">
-            {expectedRecommended.length > 0 && (
-              <span className={`${COUNT_BADGE} bg-warning/15 text-warning-strong`}>{expectedRecommended.length}</span>
+            {expectedScheduling.length > 0 && (
+              <span className={`${COUNT_BADGE} bg-warning/15 text-warning-strong`}>{expectedScheduling.length}</span>
             )}
             {/* Tinted like every other badge — `/15` fill, `-strong` text:
                 the two solid-filled counts were the odd ones out and the least like their markers. */}
-            {(expectedRequired.length > 0 || expectedRecommended.length === 0) && (
+            {(expectedScoring.length > 0 || expectedScheduling.length === 0) && (
               <span
                 className={`${COUNT_BADGE} ${
-                  expectedRequired.length > 0 ? "bg-danger/15 text-danger-strong" : "bg-success/15 text-success-strong"
+                  expectedScoring.length > 0 ? "bg-danger/15 text-danger-strong" : "bg-success/15 text-success-strong"
                 }`}>
-                {expectedRequired.length}
+                {expectedScoring.length}
               </span>
             )}
           </span>
@@ -104,10 +104,10 @@ export function SpielRail({
           <p className="muted-meta">{nothingExpectedText}</p>
         ) : (
           <ul className="flex w-full flex-col gap-y-1">
-            {/* Required first: the list's order is its urgency. A fragment link rather than a
+            {/* Unscoreable first: the list's order is its urgency. A fragment link rather than a
                 button — no JavaScript, focusable, and `FieldLabel` puts the matching id on the
                 wrapper with the scroll margin the sticky header needs. */}
-            {[...expectedRequired, ...expectedRecommended].map((field) => (
+            {[...expectedScoring, ...expectedScheduling].map((field) => (
               <li key={field.path}>
                 {/* The default fragment jump teleports; scrolling honours the wrapper's
                     `scroll-mt-28` and gives reduced-motion readers the instant jump their setting
@@ -123,7 +123,7 @@ export function SpielRail({
                   }}
                   className="fluid-xs text-foreground hover:text-brand flex flex-row items-center gap-x-1.5 font-bold transition-colors">
                   <ArrowRight
-                    className={`size-3.5 shrink-0 ${field.expectedSeverity === "required" ? "text-danger-strong" : "text-warning-strong"}`}
+                    className={`size-3.5 shrink-0 ${field.expectedSeverity === "scoring" ? "text-danger-strong" : "text-warning-strong"}`}
                   />
                   {field.label}
                 </a>

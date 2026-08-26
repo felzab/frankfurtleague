@@ -1,6 +1,6 @@
-import { FieldError, ListBox, Select } from "@heroui/react";
+import { FieldError, ListBox, Select, Switch } from "@heroui/react";
 
-import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_NONE_LABEL, SONDEREREIGNIS_OPTIONS } from "@/features/spiele/constants";
+import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS } from "@/features/spiele/constants";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
@@ -12,13 +12,6 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import type { FLSonderereignis } from "@/features/spiele/schemas";
 import type { Key } from "@heroui/react";
 import type { SpielBanner } from "./banners";
-
-/**
- * The ordinary fixture's key in the collection. react-aria addresses an option by `Key`, which has no
- * null, so the absence of an event needs a spelling of its own here — and one that cannot collide
- * with a member of `FLSonderereignis`.
- */
-const NONE_KEY = "regulaer";
 
 /** What each member does to the fixture, in one line, for the panel's own explanation. */
 const SONDEREREIGNIS_EFFECT: Record<FLSonderereignis, string> = {
@@ -35,11 +28,15 @@ const SONDEREREIGNIS_EFFECT: Record<FLSonderereignis, string> = {
  */
 export function FormSonderereignisSection({
   sonderereignis,
+  hasSonderereignis,
+  onHasSonderereignisChange,
   hasBothSides,
   onSonderereignisChange,
   banners,
 }: {
   sonderereignis: FLSonderereignis | null;
+  hasSonderereignis: boolean;
+  onHasSonderereignisChange: (next: boolean) => void;
   /** Both slots hold a club in the DRAFT — `REQ-STATE-003`'s condition, which an open bracket slot fails. */
   hasBothSides: boolean;
   onSonderereignisChange: (value: FLSonderereignis | null) => void;
@@ -53,11 +50,11 @@ export function FormSonderereignisSection({
   const unpickableReason = (event: FLSonderereignis): string | undefined =>
     !hasBothSides && (event === "nichtantreten_team1" || event === "nichtantreten_team2") ? "beide Seiten nötig" : undefined;
 
-  // An unrecognised key cannot arrive from a closed collection, so it reads as the ordinary fixture
-  // rather than throwing on a page holding unsaved work.
+  // A key outside this closed collection can only be a stale page, and dropping the pick would
+  // discard a choice the admin made. The switch is the one way back to no event at all.
   const handleChange = (key: Key | null) => {
     const picked = SONDEREREIGNIS_OPTIONS.find((event) => event === key?.toString());
-    onSonderereignisChange(picked ?? null);
+    if (picked !== undefined) onSonderereignisChange(picked);
   };
 
   return (
@@ -79,58 +76,66 @@ export function FormSonderereignisSection({
       </div>
 
       <div className={styles.body()}>
-        <Select
-          name="sonderereignis"
-          value={sonderereignis ?? NONE_KEY}
-          onChange={handleChange}
-          isInvalid={status?.error ? true : undefined}
-          className="w-full">
-          <FieldLabel path="sonderereignis">Sonderereignis</FieldLabel>
+        {/* A switch rather than a member of the select: `null` is the absence of an event, not a
+            sixth kind of one, and a scalar has no empty-but-present value to open the select on. */}
+        <Switch
+          isSelected={hasSonderereignis}
+          onChange={onHasSonderereignisChange}>
+          {/* Named by its visible content: an `aria-label` would override it with a copy. */}
+          <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+            Sonderereignis eintragen
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch.Content>
+        </Switch>
 
-          <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
-            {/* From the prop rather than `Select.Value`, which resolves its label out of the
-                react-aria collection and shows HeroUI's English placeholder on a render where that
-                collection has not committed — `SaisonSelector`'s reason. */}
-            <span className={sonderereignis === null ? "text-foreground-muted" : "text-danger-strong font-bold"}>
-              {sonderereignis === null ? SONDEREREIGNIS_NONE_LABEL : SONDEREREIGNIS_LABELS[sonderereignis]}
-            </span>
-            <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
-          </Select.Trigger>
+        {/* Nothing pre-selected, `FormAustrittSection`'s rule: a seeded member files an event
+            nobody chose, and `ausgefallen` would refuse goals that are already typed. */}
+        {hasSonderereignis && (
+          <Select
+            name="sonderereignis"
+            value={sonderereignis ?? undefined}
+            onChange={handleChange}
+            isInvalid={status?.error ? true : undefined}
+            className="w-full">
+            <FieldLabel path="sonderereignis">Sonderereignis</FieldLabel>
 
-          <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
-            <ListBox aria-label="Sonderereignis">
-              {/* The ordinary fixture leads, being both the default and the way back out of every
-                  other member. */}
-              <ListBox.Item
-                key={NONE_KEY}
-                id={NONE_KEY}
-                textValue={SONDEREREIGNIS_NONE_LABEL}
-                className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-base)">
-                {SONDEREREIGNIS_NONE_LABEL}
-              </ListBox.Item>
+            <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
+              {/* From the prop rather than `Select.Value`, which resolves its label out of the
+                  react-aria collection and shows HeroUI's English placeholder on a render where that
+                  collection has not committed — `SaisonSelector`'s reason. */}
+              <span className={sonderereignis === null ? "text-foreground-muted" : "text-danger-strong font-bold"}>
+                {sonderereignis === null ? "Sonderereignis wählen" : SONDEREREIGNIS_LABELS[sonderereignis]}
+              </span>
+              <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+            </Select.Trigger>
 
-              {SONDEREREIGNIS_OPTIONS.map((event) => {
-                const reason = unpickableReason(event);
+            <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
+              <ListBox aria-label="Sonderereignis">
+                {SONDEREREIGNIS_OPTIONS.map((event) => {
+                  const reason = unpickableReason(event);
 
-                return (
-                  // Visible and disabled rather than gone, which is `FormGruppenSwapSection`'s rule:
-                  // an admin should see why a state is out of reach, not wonder where it went.
-                  <ListBox.Item
-                    key={event}
-                    id={event}
-                    textValue={SONDEREREIGNIS_LABELS[event]}
-                    isDisabled={reason !== undefined}
-                    className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-base) data-disabled:cursor-not-allowed data-disabled:opacity-40">
-                    <span className="min-w-0 truncate">{SONDEREREIGNIS_LABELS[event]}</span>
-                    {reason !== undefined && <span className="fluid-xs text-foreground-muted shrink-0 font-semibold">{reason}</span>}
-                  </ListBox.Item>
-                );
-              })}
-            </ListBox>
-          </Select.Popover>
+                  return (
+                    // Visible and disabled rather than gone, which is `FormGruppenSwapSection`'s rule:
+                    // an admin should see why a state is out of reach, not wonder where it went.
+                    <ListBox.Item
+                      key={event}
+                      id={event}
+                      textValue={SONDEREREIGNIS_LABELS[event]}
+                      isDisabled={reason !== undefined}
+                      className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-base) data-disabled:cursor-not-allowed data-disabled:opacity-40">
+                      <span className="min-w-0 truncate">{SONDEREREIGNIS_LABELS[event]}</span>
+                      {reason !== undefined && <span className="fluid-xs text-foreground-muted shrink-0 font-semibold">{reason}</span>}
+                    </ListBox.Item>
+                  );
+                })}
+              </ListBox>
+            </Select.Popover>
 
-          <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>
-        </Select>
+            <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>
+          </Select>
+        )}
 
         {/* Announced, the admin having just chosen it. The unexpected consequence is that four of the
             five members stop the fixture being reported under the "fehlt" categories, quietly ending
