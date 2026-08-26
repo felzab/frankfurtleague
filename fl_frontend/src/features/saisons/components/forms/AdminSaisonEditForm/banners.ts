@@ -56,7 +56,7 @@ export function buildSaisonBanners({
       id: "saison.past",
       severity: "info",
       title: "Die Wertung bleibt, wie sie gespielt wurde",
-      body: "Punkte, Reihenfolge bei Punktgleichheit und Qualifikanten wirken rückwirkend und sind deshalb gesperrt.",
+      body: "Punkte, Tiebreak und Qualifikanten wirken rückwirkend und sind deshalb gesperrt.",
       inline: "regeln-status",
     });
   }

@@ -53,7 +53,7 @@ export const FLSaisonRulesSchema = z.object({
     .max(16, { error: "Eine Gruppe fasst höchstens 16 Teams." }),
   // German because the season editor binds this schema to its picker. Frozen once the season is
   // `past`: the table is ordered from the rules on every read, so a later change rewrites a record.
-  tiebreak_order: z.enum(["tordifferenz", "direkter_vergleich"], { error: "Bitte wähle, was bei Punktgleichheit zuerst entscheidet." }),
+  tiebreak_order: z.enum(["tordifferenz", "direkter_vergleich"], { error: "Bitte wähle einen Tiebreak aus." }),
   // Enforced at the squad write rather than here: this bounds a season, not this payload.
   max_kadergroesse: z.int().positive({ error: "Ein Kader fasst mindestens 1 Spieler." }),
   forfeit_ergebnis: FLSaisonForfeitErgebnisSchema,

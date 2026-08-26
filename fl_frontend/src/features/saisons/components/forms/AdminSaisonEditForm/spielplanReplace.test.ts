@@ -18,7 +18,7 @@ const ENTSTEHT = ARMED.split("Daraus entsteht")[1] ?? "";
 /** The panel's own hint, where the conditions on a replace are spelled out for a reader. */
 const HINWEIS = (SOURCE.split("Hinweis zum Spielplan")[1] ?? "").split("</InfoHint>")[0] ?? "";
 
-describe("the draw panel's destructive confirmation", () => {
+describe("the draw half of the Spielplan panel", () => {
   /* First, because a boundary string that stopped matching leaves the slices empty — and half the
      assertions below are `doesNotMatch`, which an empty string passes without reading the panel. */
   it("cuts the armed alert, its scope section and the hint out of the file before reading them", () => {
@@ -37,7 +37,7 @@ describe("the draw panel's destructive confirmation", () => {
   /* Offer the three on a first draw and this fails: an undrawn season has no fixtures to move them
      with, so its numbers stay the rules panel's, where the save bar can still reach them. */
   it("offers the three numbers only where the press replaces a standing draw", () => {
-    const offer = SOURCE.indexOf("{replacesDraw && (");
+    const offer = SOURCE.indexOf("{isDrawing && replacesDraw && (");
     const fields = SOURCE.indexOf("SHAPE_FIELDS.map");
 
     assert.ok(offer !== -1, "the panel gates nothing on replacesDraw");
@@ -48,7 +48,7 @@ describe("the draw panel's destructive confirmation", () => {
   /* Leave them live under the confirmation and this fails: the readout the admin agreed to would
      move between the two presses, and the second press sends whatever the fields hold then. */
   it("freezes the three numbers once the control is armed", () => {
-    assert.match(SOURCE, /isReadOnly=\{isConfirming \|\| isGenerating\}/);
+    assert.match(SOURCE, /isReadOnly=\{isConfirming \|\| isWriting\}/);
   });
 
   /* Call the action outside `press` and one press is the whole confirmation, on a write that redraws
@@ -57,7 +57,7 @@ describe("the draw panel's destructive confirmation", () => {
     const arming = SOURCE.indexOf("press(async () => {");
     const writing = SOURCE.indexOf("generateSpielplanAction(");
 
-    assert.ok(arming !== -1, "handleGenerate no longer presses through useTwoPressConfirm");
+    assert.ok(arming !== -1, "handlePress no longer presses through useTwoPressConfirm");
     assert.ok(arming < writing, "the write stands outside the armed branch");
     assert.match(SOURCE, /<ConfirmReveal>/);
   });
@@ -93,15 +93,16 @@ describe("the draw panel's destructive confirmation", () => {
     assert.doesNotMatch(HINWEIS, /kein Ergebnis/, "the panel spells the list a second time");
   });
 
-  /* Lift the deletion copy out of its branch and this fails: a first draw would then claim to remove
-     matchdays and fixtures that do not exist, which is the inverse of the mistake worth avoiding. */
-  it("keeps the deletion sentence behind the replace branch", () => {
-    const branch = ARMED.indexOf("replacesDraw");
+  /* Lift the deletion readout out of its branch and a first draw claims to remove matchdays and
+     fixtures that do not exist. `holdsADraw` and not `replacesDraw`: the undraw destroys the same
+     rows. */
+  it("keeps the deletion readout behind the predicate for a season that holds one", () => {
+    const branch = ARMED.indexOf("holdsADraw");
     const deletion = ARMED.indexOf("gelöscht");
 
-    assert.ok(branch !== -1, "the armed alert does not read replacesDraw at all");
+    assert.ok(branch !== -1, "the armed alert does not read holdsADraw at all");
     assert.ok(deletion !== -1, "the armed alert names no deletion");
-    assert.ok(branch < deletion, "the armed alert claims a deletion before it knows the press replaces");
+    assert.ok(branch < deletion, "the armed alert claims a deletion before it knows the season holds one");
   });
 
   /* Soften the copy to "der Spielplan wird ersetzt" and this fails. The scheduling is the part an
@@ -136,7 +137,7 @@ describe("the draw panel's destructive confirmation", () => {
      entered, cancellations and bookings included, which that sentence understates. */
   it("states the window as nothing entered rather than nothing scored", () => {
     assert.doesNotMatch(SOURCE, /noch kein Spiel gewertet/);
-    assert.match(SOURCE, /zu keinem ihrer Spiele etwas\s+eingetragen wurde/);
+    assert.match(SOURCE, /zu keinem ihrer\s+Spiele\s+etwas\s+eingetragen wurde/);
   });
 
   /* Reinstate the old sentence anywhere in the panel and this fails: inside `REQ-SPIELPLAN-005`'s

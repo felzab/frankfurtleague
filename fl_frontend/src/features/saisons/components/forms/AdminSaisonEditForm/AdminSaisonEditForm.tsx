@@ -27,7 +27,6 @@ import { buildSaisonBanners } from "./banners";
 import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
 import { FormRolloverSection } from "./FormRolloverSection";
-import { FormSpielplanRuecknahmeSection } from "./FormSpielplanRuecknahmeSection";
 import { FormSpielplanSection } from "./FormSpielplanSection";
 import { FormTeamErsatzSection } from "./FormTeamErsatzSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
@@ -377,7 +376,9 @@ export function AdminSaisonEditForm({
 
           {/* Between the swap and the rollover: the rollover's class of control rather than the
               swap's, in that it writes on press, never joins the save bar, and no later edit
-              reverses it. */}
+              reverses it. One panel over the draw and the rücknahme that reverses it: both are open
+              at once on a drawn planned season and both destroy the same rows, so the operation is
+              picked before arming rather than raced between two armed states. */}
           <FormSpielplanSection
             saisonId={saison.id}
             saisonStatus={saison.status}
@@ -386,26 +387,13 @@ export function AdminSaisonEditForm({
             rules={saison.rules}
             {...spielplan}
             hasDrawnSpiele={hasDrawnSpiele}
-            onBeforeGenerate={() =>
+            // One sentence for both writes: the draw runs on the saved rules and the rücknahme reopens
+            // them, so neither may run over a draft, and both end on the refresh that would drop it.
+            onBeforeWrite={() =>
               guardAgainstDraft(
                 isDirty,
-                "Der Spielplan entsteht aus den gespeicherten Regeln, und das Anlegen lädt die Seite neu. Speichere die Änderungen zuerst.",
+                "Der Spielplan hängt an den gespeicherten Regeln, und dieser Schritt lädt die Seite neu. Speichere die Änderungen zuerst.",
               )
-            }
-          />
-
-          {/* Directly under the draw it reverses, so the repair `REQ-RULES-011` names reads in the
-              order it is walked. Its own panel and not a control inside that one: both are open at
-              once on a drawn planned season, and one armed state cannot serve two. */}
-          <FormSpielplanRuecknahmeSection
-            saisonId={saison.id}
-            saisonStatus={saison.status}
-            hasSpielplan={spielplan.spielplan !== null}
-            spieltageCount={spielplan.spieltageCount}
-            bestand={spielplan.bestand}
-            hasDrawnSpiele={hasDrawnSpiele}
-            onBeforeUndraw={() =>
-              guardAgainstDraft(isDirty, "Das Zurücknehmen lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen.")
             }
           />
 

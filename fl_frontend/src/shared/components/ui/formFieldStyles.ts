@@ -68,6 +68,9 @@ export const FORM_SECTION_HEADING = "fluid-xxs text-foreground-muted font-bold t
  */
 export const FIELD_PAIR = "grid w-full grid-cols-1 gap-4 sm:grid-cols-2";
 
+/** `FIELD_PAIR`'s three-up sibling, and spelled beside it for the same reason: three panels render this grid. */
+export const FIELD_TRIO = "grid w-full grid-cols-1 gap-4 sm:grid-cols-3";
+
 /**
  * The one marker disc. Two can share a label row — the match editor's Fehlt/Empfohlen beside Geändert — and a
  * disc that measured differently from its neighbour read as a second idea rather than the same one.

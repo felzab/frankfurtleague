@@ -30,11 +30,11 @@ function isReplaceWindowOpen({ saisonStatus, erfassteSpieleCount }: SpielplanCon
 export type UndrawControlInput = Omit<SpielplanControlInput, "hasKoRunden">;
 
 /**
- * **One expression for all three readers**: the replace flag, the reason gating it and the undraw's
- * offer must agree on what "drawn" means, or a copy could confirm a replace on a season the undraw
- * considers empty.
+ * **One expression for every reader**: the replace flag, the reason gating it, the undraw's offer and
+ * the panel's own state badge and tone must agree on what "drawn" means, or a copy could confirm a
+ * replace on a season the undraw considers empty.
  */
-function holdsADraw({ hasSpielplan, hasDrawnSpiele, spieltageCount }: UndrawControlInput): boolean {
+export function spielplanHoldsADraw({ hasSpielplan, hasDrawnSpiele, spieltageCount }: UndrawControlInput): boolean {
   return hasSpielplan || hasDrawnSpiele || spieltageCount > 0;
 }
 
@@ -49,7 +49,7 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
   // `REQ-SPIELPLAN-001` and `REQ-SPIELPLAN-002` each step aside for a confirmed replace, and this
   // page confirms one wherever there is something to destroy, so neither closes the control alone.
   // The window below bounds the offer instead.
-  const replacesDraw = holdsADraw(input);
+  const replacesDraw = spielplanHoldsADraw(input);
 
   // Ahead of the `past` freeze, exactly as `find_spielplan_refusal` orders the two: an admin whose
   // press would replace reads the whole window rather than the half of it a status names.
@@ -82,7 +82,7 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
  * a replace the reason function has already closed the control for.
  */
 export function spielplanReplacesDraw(input: SpielplanControlInput): boolean {
-  return spielplanBlockedReason(input) === null && holdsADraw(input);
+  return spielplanBlockedReason(input) === null && spielplanHoldsADraw(input);
 }
 
 /**
@@ -94,7 +94,7 @@ export function spielplanUndrawBlockedReason(input: UndrawControlInput): string 
 
   // This panel's own condition rather than the endpoint's: an undraw of an undrawn season is answered
   // 200 with zeroes, so pressing would ask an admin to confirm the destruction of nothing.
-  if (!holdsADraw(input)) return "Diese Saison hat keinen Spielplan. Es gibt nichts zurückzunehmen.";
+  if (!spielplanHoldsADraw(input)) return "Diese Saison hat keinen Spielplan. Es gibt nichts zurückzunehmen.";
 
   // The replace's split over the same window: a status sentence names a boundary nothing reopens, a
   // record sentence names a state an admin can leave (`blockedReasons.ts :: spielplanBlockedReason`).

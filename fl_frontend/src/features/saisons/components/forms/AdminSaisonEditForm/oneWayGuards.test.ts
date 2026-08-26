@@ -12,9 +12,8 @@ function panelSource(file: string): string {
 }
 
 const PANELS = [
-  { name: "FormSpielplanSection", source: panelSource("FormSpielplanSection.tsx"), guard: "onBeforeGenerate" },
+  { name: "FormSpielplanSection", source: panelSource("FormSpielplanSection.tsx"), guard: "onBeforeWrite" },
   { name: "FormRolloverSection", source: panelSource("FormRolloverSection.tsx"), guard: "onBeforeActivate" },
-  { name: "FormSpielplanRuecknahmeSection", source: panelSource("FormSpielplanRuecknahmeSection.tsx"), guard: "onBeforeUndraw" },
 ];
 
 describe("the season editor's one-way panels", () => {

@@ -103,7 +103,7 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     case "REQ-RULES-005":
       return {
         error:
-          "Diese Saison ist abgeschlossen, deshalb sind Punkte, die Reihenfolge bei Punktgleichheit und die Qualifikanten festgeschrieben. " +
+          "Diese Saison ist abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten festgeschrieben. " +
           "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar.",
       };
     // A bare message, the shape `REQ-RULES-005` uses: the two freezes refuse the same class of edit

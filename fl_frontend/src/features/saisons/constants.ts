@@ -37,13 +37,31 @@ export const PHASE_TINTS: Record<FLSaisonPhase, string> = {
   finale: "bg-phase-finale/10 text-phase-finale",
 };
 
+/** One step of the chain, as the picker renders it under the trigger. */
+export type TiebreakRung = {
+  /** What this step compares. */
+  readonly label: string;
+  /** The condition this step decides under, plus what happens without it, or `null` where it always decides. */
+  readonly caveat: string | null;
+};
+
 type TiebreakOption = {
   readonly value: FLSaisonTiebreakOrder;
   /** Names the CRITERION, for the picker's trigger and the change list. */
   readonly label: string;
-  /** What it does, mirroring `fl_backend/app/api/teams/services.py :: _break_tie`: it leads on this criterion and applies the other after. */
-  readonly hint: string;
+  /**
+   * The whole chain in this option's order, mirroring
+   * `fl_backend/app/api/teams/services.py :: _break_tie`. **Bounded, ending in a stated tie**: that
+   * function makes one pass and never walks back up.
+   */
+  readonly ladder: readonly TiebreakRung[];
 };
+
+/** The first rung of both chains: `_tiers` bands a group by points before `_break_tie` sees it. */
+const PUNKTE_RUNG: TiebreakRung = { label: "Punkte", caveat: null };
+
+/** The goal keys, in the order `_goal_key` reads them. */
+const TORE_RUNG: TiebreakRung = { label: "Tordifferenz, dann Tore aus allen Spielen", caveat: null };
 
 /**
  * The two ways a season separates clubs level on points, in the picker's order. Both wordings live
@@ -53,14 +71,35 @@ export const TIEBREAK_ORDER_OPTIONS: readonly TiebreakOption[] = [
   {
     value: "tordifferenz",
     label: "Tordifferenz",
-    hint: "Erst Tordifferenz und Tore aus allen Spielen, dann die Spiele der punktgleichen Teams untereinander, sobald sie alle gegeneinander gespielt haben. Sonst bleibt es ein Gleichstand.",
+    ladder: [
+      PUNKTE_RUNG,
+      TORE_RUNG,
+      {
+        label: "Die Spiele der punktgleichen Teams untereinander",
+        // `_break_tie` recomputes the mini-table over the teams still level and drops it whole where
+        // they have not all met, so what is left below this rung is a genuine tie.
+        caveat: "Nur wenn alle schon gegeneinander gespielt haben. Sonst bleibt es ein Gleichstand.",
+      },
+    ],
   },
   {
     value: "direkter_vergleich",
     label: "Direkter Vergleich",
-    hint: "Erst die Spiele der punktgleichen Teams untereinander, sobald sie alle gegeneinander gespielt haben. Sonst zuerst Tordifferenz und Tore aus allen Spielen, darunter wieder das direkte Duell.",
+    ladder: [
+      PUNKTE_RUNG,
+      {
+        label: "Die Spiele der punktgleichen Teams untereinander",
+        // An incomplete head-to-head sets `lead_table` back to `None`, which is exactly the chain
+        // above: the goal keys lead and the mini-table follows them.
+        caveat: "Nur wenn alle schon gegeneinander gespielt haben. Sonst führt die Tordifferenz.",
+      },
+      TORE_RUNG,
+    ],
   },
 ];
+
+/** What both chains end in, stated rather than implied: `_break_tie` reports a set it cannot split as one tie. */
+export const TIEBREAK_LADDER_TAIL = "Bleibt es gleich, stehen die Teams gleichauf.";
 
 // The find cannot miss: the parse refuses anything outside the closed set before a render sees it.
 const tiebreakOption = (value: FLSaisonTiebreakOrder): TiebreakOption | undefined =>
@@ -71,9 +110,9 @@ export function tiebreakLabel(value: FLSaisonTiebreakOrder): string {
   return tiebreakOption(value)?.label ?? "";
 }
 
-/** The sentence under the picker, and beside each row it offers. */
-export function tiebreakHint(value: FLSaisonTiebreakOrder): string {
-  return tiebreakOption(value)?.hint ?? "";
+/** The chain this option applies, top rung first. */
+export function tiebreakLadder(value: FLSaisonTiebreakOrder): readonly TiebreakRung[] {
+  return tiebreakOption(value)?.ladder ?? [];
 }
 
 /**
