@@ -25,7 +25,7 @@ export default function AdminSpieltagePage(props: NextPageProps) {
         <AdminCrudSearch
           searchLabel={SPIELTAGE_CRUD_COPY.searchLabel}
           searchPlaceholder={SPIELTAGE_CRUD_COPY.searchPlaceholder}
-          // This shell passes no `createModal`, so the bar joins nothing and keeps its own right edge.
+          // This shell passes no `createModal`, so the bar joins nothing, keeping its own right edge and the row's full width.
           attachEnd={false}
         />
       }>
