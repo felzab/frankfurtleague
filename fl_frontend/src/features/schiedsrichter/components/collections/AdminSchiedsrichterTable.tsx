@@ -188,7 +188,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                   Schule / Verein
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
-                  Std. Honorar
+                  Standard-Honorar
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen

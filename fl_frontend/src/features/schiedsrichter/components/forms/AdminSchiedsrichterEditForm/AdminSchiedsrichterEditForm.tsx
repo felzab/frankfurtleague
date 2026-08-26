@@ -329,12 +329,7 @@ export function AdminSchiedsrichterEditForm({
             kontakt={schiedsrichter.kontakt}
             // The page keys this view on the STORED record, so the write's refresh remounts the form
             // onto the cleared one — an unsaved draft would go with it.
-            onBeforeAnonymise={() =>
-              guardAgainstDraft(
-                isDirty,
-                "Das Löschen lädt die Seite neu und würde die nicht gespeicherten Änderungen verwerfen. Speichere oder verwirf sie zuerst.",
-              )
-            }
+            onBeforeAnonymise={() => guardAgainstDraft(isDirty, "Das Löschen verwirft die nicht gespeicherten Änderungen.")}
           />
         </EditFormLayout>
 

@@ -5,7 +5,7 @@ import { FieldError, NumberField } from "@heroui/react";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
 import type { SchiedsrichterBanner } from "./banners";
@@ -33,15 +33,15 @@ export function FormHonorarSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Honorar
-          <InfoHint label="Hinweis zum Honorar">
-            <p>Der Standardsatz für neue Ansetzungen.</p>
-            <ul>
-              <li>
-                Bereits angesetzte Spiele <strong>behalten ihr vereinbartes Honorar</strong>.
-              </li>
-              <li>0 € ist eine gültige Angabe, etwa für einen ehrenamtlichen Einsatz.</li>
-            </ul>
-          </InfoHint>
+          {/* What an already agreed fee does is the banner's, in this same panel. */}
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Honorar"
+            body={{
+              lead: "Der Standardsatz für neue Ansetzungen.",
+              points: [{ term: "0 €", text: "ist erlaubt, etwa für einen ehrenamtlichen Einsatz." }],
+            }}
+          />
         </h2>
       </div>
 

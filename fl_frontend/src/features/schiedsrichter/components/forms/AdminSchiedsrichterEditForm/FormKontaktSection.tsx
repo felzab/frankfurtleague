@@ -5,7 +5,7 @@ import { FieldError, Input, TextField } from "@heroui/react";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
 import type { FLKontakt } from "@/shared/schemas";
@@ -36,15 +36,15 @@ export function FormKontaktSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Kontakt
-          <InfoHint label="Hinweis zum Kontakt">
-            <p>Wie Du den Schiedsrichter erreichst.</p>
-            <ul>
-              <li>
-                Beides ist <strong>freiwillig</strong> und steht auf keiner öffentlichen Seite.
-              </li>
-              <li>Über die Schiedsrichter-Liste kopierst Du Name, E-Mail und Telefon in einem Zug.</li>
-            </ul>
-          </InfoHint>
+          {/* That both fields are optional is said by the missing required marker, and the gap itself by the banner below. */}
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Kontakt"
+            body={{
+              lead: "Wie Du den Schiedsrichter erreichst.",
+              points: [{ term: "E-Mail und Telefon", text: "stehen auf keiner öffentlichen Seite." }],
+            }}
+          />
         </h2>
       </div>
 

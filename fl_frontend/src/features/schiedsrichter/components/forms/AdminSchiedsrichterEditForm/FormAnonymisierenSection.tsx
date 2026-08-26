@@ -13,7 +13,7 @@ import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -70,38 +70,28 @@ export function FormAnonymisierenSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Kontaktdaten löschen
-          <InfoHint label="Hinweis zum Löschen der Kontaktdaten">
-            <p>Der Weg, Kontaktdaten ganz aus der Verwaltung zu entfernen.</p>
-            <ul>
-              <li>
-                Gelöscht werden <strong>E-Mail und Telefonnummer</strong> im Eintrag des Schiedsrichters.
-              </li>
-              <li>
-                Der <strong>Schiedsrichter bleibt bestehen</strong>, mit seinem Namen: Jedes Spiel nennt ihn, und ohne seine Zeile stünde bei
-                diesen Spielen kein Name mehr.
-              </li>
-              <li>
-                Er lässt sich weiter für Spiele einteilen, und <strong>neue Kontaktdaten</strong> kannst Du jederzeit wieder eintragen.
-              </li>
-              <li>
-                Im <strong>Änderungsprotokoll</strong> wird bei jeder Zeile, die ihn betrifft, der <strong>gesicherte Stand gelöscht</strong>:
-                nicht nur die Kontaktdaten, sondern alles, was dort von ihm gespeichert war, etwa ein früherer Name. Was wann geschehen ist,
-                bleibt lesbar.
-              </li>
-              <li>
-                <strong>Zurückholen lässt sich das nicht.</strong> Die Felder oben zu leeren und zu speichern ist dagegen etwas{" "}
-                <strong>anderes</strong>: Die alten Angaben stehen dann weiterhin im Protokoll.
-              </li>
-            </ul>
-          </InfoHint>
+          {/* The bullet stands first so „das“ points at the lead's deletion and at nothing offered after it. What is
+              deleted, and what survives it, is the panel's own body below. */}
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Löschen der Kontaktdaten"
+            body={{
+              lead: "Der Weg, Kontaktdaten ganz aus der Verwaltung zu entfernen.",
+              points: [
+                { text: "Zurückholen lässt sich das nicht." },
+                { term: "Die Felder oben zu leeren", text: "ist etwas anderes: Die alten Angaben bleiben im Änderungsprotokoll." },
+                { term: "Neue Kontaktdaten", text: "kannst Du jederzeit wieder eintragen." },
+              ],
+            }}
+          />
         </h2>
       </div>
 
       <div className={panel.body()}>
         <p className="fluid-sm text-foreground font-medium">
-          Das Löschen entfernt E-Mail und Telefonnummer von <strong>{name}</strong> aus seinem Eintrag. Im Änderungsprotokoll wird dazu der
-          gesicherte Stand jeder Zeile gelöscht, die ihn betrifft. Gelöscht wird damit auch alles andere, was dort noch von ihm steht. Der
-          Schiedsrichter selbst bleibt mit seinem Namen bestehen, und jedes Spiel behält ihn.
+          Das Löschen entfernt E-Mail und Telefonnummer von <strong>{name}</strong>. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder
+          Zeile gelöscht, die ihn betrifft. Gelöscht wird damit auch alles andere, was dort noch von ihm steht. Was wann geschehen ist, bleibt
+          lesbar. Der Schiedsrichter selbst bleibt mit seinem Namen bestehen, und jedes Spiel behält ihn.
         </p>
 
         {isConfirming && (
@@ -127,11 +117,10 @@ export function FormAnonymisierenSection({
             </div>
 
             {/* No restore is named on purpose: nothing in the system holds the old values once the
-                row and the log have both been cleared. */}
+                row and the log have both been cleared. What goes is the readout directly above. */}
             <p className="fluid-xxs text-foreground leading-normal font-medium">
-              E-Mail und Telefonnummer von {name} werden gelöscht. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder Zeile gelöscht,
-              die ihn betrifft. Gelöscht wird damit auch alles andere, was dort noch von ihm steht. Zurückholen lässt sich das nicht.{" "}
-              <strong>{name}</strong> bleibt als Schiedsrichter bestehen, mit Namen und mit allen Spielen, und lässt sich weiter einteilen.
+              Zurückholen lässt sich das nicht. <strong>{name}</strong> bleibt als Schiedsrichter bestehen, mit Namen und mit allen Spielen, und
+              lässt sich weiter einteilen.
             </p>
           </ConfirmReveal>
         )}

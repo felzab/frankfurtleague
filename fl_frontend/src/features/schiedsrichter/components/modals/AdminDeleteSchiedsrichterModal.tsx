@@ -26,7 +26,7 @@ export function AdminDeleteSchiedsrichterModal({
       heading="Schiedsrichter stilllegen"
       entityLabel="den Schiedsrichter"
       entityName={schiedsrichter.name}
-      consequence="Bereits eingetragene Spiele behalten den hier hinterlegten Schiedsrichter. Er steht künftig nur nicht mehr zur Auswahl."
+      consequence="Bereits eingetragene Spiele behalten diesen Schiedsrichter. Er steht künftig nur nicht mehr zur Auswahl."
       successMessage="Schiedsrichter stillgelegt"
       onConfirm={() => deleteSchiedsrichterAction({ id: schiedsrichter.id })}
     />

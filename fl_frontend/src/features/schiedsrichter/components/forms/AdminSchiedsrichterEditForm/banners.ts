@@ -27,7 +27,8 @@ export function buildSchiedsrichterBanners({
       id: "schiedsrichter.retired",
       severity: "info",
       title: "Dieser Schiedsrichter erscheint in keiner Auswahlliste",
-      body: "Seine Einsätze bleiben erhalten; reaktivieren kannst Du ihn über den Kopf der Seite.",
+      // The way back is the header's own Reaktivieren control, on screen beside this.
+      body: "Seine Einsätze bleiben erhalten.",
       inline: null,
     });
   }
@@ -37,7 +38,8 @@ export function buildSchiedsrichterBanners({
       id: "schiedsrichter.name-changed",
       severity: "warning",
       title: "Der neue Name ersetzt den alten in jedem Spiel",
-      body: "Auch längst gespielte Partien zeigen danach den neuen Namen. Der alte steht nirgends mehr.",
+      // No claim about the old name being gone: the action log keeps the pre-image of this very write.
+      body: "Auch Spiele, die längst gespielt sind, zeigen danach den neuen Namen.",
       inline: null,
     });
   }
@@ -47,7 +49,8 @@ export function buildSchiedsrichterBanners({
       id: "schiedsrichter.honorar-changed",
       severity: "info",
       title: "Bereits angesetzte Spiele behalten ihr Honorar",
-      body: "Der neue Betrag gilt nur für Spiele, die Du danach ansetzt.",
+      // The repair rather than the title's mirror image: an agreed fee is edited on the fixture.
+      body: "Ändern lässt sich der Betrag am Spiel selbst.",
       inline: "honorar",
     });
   }
@@ -57,7 +60,8 @@ export function buildSchiedsrichterBanners({
       id: "schiedsrichter.no-kontakt",
       severity: "info",
       title: "Für diesen Schiedsrichter ist kein Kontakt hinterlegt",
-      body: "Beides ist freiwillig. Ohne Kontakt erreichst Du ihn aber nicht, wenn ein Spiel verlegt wird.",
+      // A state, not the missed telephone call: the gap stops nothing, which is the part a reader acts on.
+      body: "Für Spiele lässt er sich trotzdem einteilen.",
       inline: "kontakt",
     });
   }

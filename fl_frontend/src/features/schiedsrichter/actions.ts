@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { anonymiseSchiedsrichter, deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter, reactivateSchiedsrichter } from "./mutations";
@@ -33,7 +34,10 @@ function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: Field
 
   if (error.serverErrorCode === "REQ-RETIRE-004") {
     return {
-      error: "Diese Person ist noch für Spiele eingeteilt, die kein Ergebnis haben. Teile die Spiele jemand anderem zu oder sage sie ab.",
+      error: buildRefusal({
+        reason: "Diese Person ist noch für Spiele eingeteilt, die kein Ergebnis haben",
+        repair: "Teile die Spiele jemand anderem zu oder sage sie ab",
+      }),
     };
   }
   return null;

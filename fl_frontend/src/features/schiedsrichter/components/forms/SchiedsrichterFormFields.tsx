@@ -47,7 +47,7 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         value={draft.schule ?? ""}
         onChange={(next) => onChange({ ...draft, schule: next })}
         isInvalid={errors?.["schule"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>Schule / Verein </Label>
+        <Label className={FIELD_LABEL}>Schule / Verein</Label>
         <Input
           placeholder="z.B. Goethe-Gymnasium"
           className={FIELD_INPUT}
@@ -61,7 +61,7 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         value={draft.kontakt.email ?? ""}
         onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, email: next } })}
         isInvalid={errors?.["kontakt.email"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>E-Mail </Label>
+        <Label className={FIELD_LABEL}>E-Mail</Label>
         <Input
           placeholder="z.B. ref@beispiel.de"
           className={FIELD_INPUT}
@@ -97,7 +97,7 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
           })
         }
         formatOptions={{ style: "currency", currency: "EUR" }}>
-        <Label className={FIELD_LABEL}>Standard Honorar</Label>
+        <Label className={FIELD_LABEL}>Standard-Honorar</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border transition-colors">
           <NumberField.DecrementButton />
           <NumberField.Input className="fluid-sm w-full py-0" />

@@ -2,5 +2,5 @@
 // becomes a client reference on the server side.
 export const SCHIEDSRICHTER_CRUD_COPY = {
   searchLabel: "Schiedsrichter suchen",
-  searchPlaceholder: "Suchen nach Name, Schule, E-Mail...",
+  searchPlaceholder: "Suchen nach Name, Schule, E-Mail oder Telefon...",
 } as const;

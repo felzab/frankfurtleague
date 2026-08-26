@@ -11,7 +11,7 @@ import { toFieldErrors } from "@/shared/utils/validation";
 import type { FormState } from "@/shared/types/types";
 
 const SignInPayloadSchema = z.object({
-  email: z.email("Gib eine gültige E-Mail-Adresse ein."),
+  email: z.email("Bitte gib eine gültige E-Mail-Adresse ein."),
 });
 
 // Deliberately identical whether or not the address is allowlisted: this action is public, so a
@@ -79,14 +79,14 @@ export async function signOutAction(): Promise<FormState> {
   try {
     await signOut({ redirect: false });
 
-    return { success: true, message: "Erfolgreich abgemeldet." };
+    return { success: true, message: "Erfolgreich abgemeldet" };
   } catch (error) {
     // The same guard as `handleSignIn`: keep a framework redirect from being reported as a failed
     // sign-out.
     unstable_rethrow(error);
 
     if (error instanceof AuthError) {
-      return { success: false, error: "Abmelden fehlgeschlagen. Versuche es erneut." };
+      return { success: false, error: "Versuche es erneut." };
     }
 
     throw error;
