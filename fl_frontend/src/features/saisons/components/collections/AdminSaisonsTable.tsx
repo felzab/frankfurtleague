@@ -6,6 +6,7 @@ import { Calendar, Pencil, Persons } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
+import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
@@ -82,18 +83,14 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
     </RowActions>
   );
 
-  const emptyState = (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{saisonsQuery ? "Keine Saisons für diese Suche." : "Es wurden noch keine Saisons angelegt."}</p>
-    </div>
-  );
+  const emptyMessage = saisonsQuery ? "Keine Saisons für diese Suche." : "Es wurden noch keine Saisons angelegt.";
 
   return (
     <>
       {/* The phone layout: one card per season, no horizontal scrolling anywhere — the pattern all four
           admin tables follow below `md`. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
-        {filteredSaisons.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
+        {filteredSaisons.length === 0 && <AdminCrudEmptyCard message={emptyMessage} />}
         {filteredSaisons.map((saison) => (
           <div
             key={saison.id}
@@ -113,7 +110,9 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
           <Table.ScrollContainer className="scrollbar-hide">
-            <Table.Content aria-label="Tabelle aller Saisons">
+            <Table.Content
+              aria-label="Tabelle aller Saisons"
+              className="table-fixed">
               <Table.Header>
                 <Table.Column
                   isRowHeader
@@ -126,7 +125,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Status
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-48 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>
               </Table.Header>
@@ -134,7 +133,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
               {/* `items` + a render function, not mapped children — see the memo note above. */}
               <Table.Body
                 items={filteredSaisons}
-                renderEmptyState={() => emptyState}>
+                renderEmptyState={() => <AdminCrudEmptyRow message={emptyMessage} />}>
                 {(saison: AdminSaisonRow) => (
                   <Table.Row
                     id={saison.id}

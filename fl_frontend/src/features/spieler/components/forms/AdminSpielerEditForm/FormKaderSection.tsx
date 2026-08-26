@@ -11,7 +11,7 @@ import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS, POSITION_OPTIONS, ROLLE_OPTIO
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -201,7 +201,7 @@ export function FormKaderSection({
                   const [picked] = [...keys].map(String);
                   onRolleChange(picked === undefined ? null : (picked as FLSpielerRolle));
                 }}
-                className="flex w-full flex-row flex-wrap gap-2">
+                className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
                 {ROLLE_OPTIONS.map((option) => (
                   <ToggleButton
                     key={option.value}

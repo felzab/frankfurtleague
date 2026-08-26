@@ -11,6 +11,7 @@ import {
   FIELD_ERROR,
   FIELD_GROUP,
   FIELD_INPUT,
+  TOGGLE_GROUP_ALIGN,
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -119,7 +120,7 @@ export function FormAustrittSection({
                   const [picked] = [...keys].map(String);
                   if (picked !== undefined) onArtChange(picked as FLAustrittType);
                 }}
-                className="flex w-full flex-row flex-wrap gap-2">
+                className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
                 {AUSTRITT_OPTIONS.map((option) => (
                   <ToggleButton
                     key={option.value}

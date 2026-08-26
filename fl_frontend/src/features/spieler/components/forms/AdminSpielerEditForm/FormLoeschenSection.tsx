@@ -80,7 +80,7 @@ export function FormLoeschenSection({
 
       <div className={panel.body()}>
         {blockedReason === null ? (
-          <p className="fluid-sm text-foreground font-medium">
+          <p className="muted-hint">
             Das Löschen entfernt <strong>{fullName}</strong> endgültig aus der Verwaltung: die Person selbst, alle ihre Kadereinträge und ihre
             Angaben im Änderungsprotokoll. Die Spiele bleiben unverändert.
           </p>

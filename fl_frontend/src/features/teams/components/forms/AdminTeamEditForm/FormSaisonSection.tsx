@@ -120,7 +120,7 @@ function GruppenTauschControl({
     <div className="border-border flex w-full flex-col gap-y-3 border-t pt-5">
       {/* A sub-group, not a panel of its own: it edits the row above it, and a second bordered box
           for one picker would read as a second subject. */}
-      <p className={FORM_SECTION_HEADING}>Gruppe tauschen</p>
+      <h3 className={FORM_SECTION_HEADING}>Gruppe tauschen</h3>
 
       {/* The whole-control closures, in the endpoint's own order. Each refuses every pair alike, so
           none of them is a row. */}
@@ -157,7 +157,7 @@ function GruppenTauschControl({
         </Callout>
       ) : (
         <>
-          <p className="fluid-sm text-foreground font-medium">
+          <p className="muted-hint">
             Wähle das Team, mit dem <strong>{self.name}</strong> die Gruppe tauscht.
           </p>
 
@@ -174,7 +174,7 @@ function GruppenTauschControl({
 
             {/* Why an expected club is missing, answered where the picker raises it. A greyed row
             carries its own reason, so nothing here restates the refusal labels. */}
-            <p className="fluid-xxs text-foreground-muted leading-normal font-medium">
+            <p className="fluid-xxs text-foreground leading-normal font-medium">
               Teams, die nicht in dieser Saison stehen, erscheinen hier nicht.
             </p>
           </div>

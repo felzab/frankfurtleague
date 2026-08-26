@@ -89,7 +89,7 @@ export function FormAnonymisierenSection({
       </div>
 
       <div className={panel.body()}>
-        <p className="fluid-sm text-foreground font-medium">
+        <p className="muted-hint">
           Das Löschen entfernt E-Mail und Telefonnummer von <strong>{name}</strong>. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder
           Zeile gelöscht, die ihn betrifft. Gelöscht wird damit auch alles andere, was dort noch von ihm steht. Was wann geschehen ist, bleibt
           lesbar. Der Schiedsrichter selbst bleibt mit seinem Namen bestehen, und jedes Spiel behält ihn.
