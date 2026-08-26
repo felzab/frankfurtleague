@@ -17,7 +17,14 @@ import { formatAddressFull, formatEuro, formatSpielDatum } from "@/shared/utils/
 
 import { formatMapsLink } from "../../utils";
 
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { FLSpielort } from "../../schemas";
+
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: "Keine Spielorte für diese Suche gefunden.",
+  filtered: "Keine Spielorte für diese Filter gefunden.",
+  none: "Es wurden noch keine Spielorte angelegt.",
+};
 
 /**
  * A react-aria collection re-rendered while hidden in an Activity tree loses its rows, and the
@@ -25,12 +32,13 @@ import type { FLSpielort } from "../../schemas";
  * carries the fix; `memo` is the second layer.
  */
 export const AdminSpielorteTable = memo(function AdminSpielorteTable({
-  spielortQuery,
   filteredSpielorte,
+  emptiness,
   setDeletingOrt,
 }: {
-  spielortQuery: string;
   filteredSpielorte: FLSpielort[];
+  /** `AdminCrudView :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
   setDeletingOrt: (ort: FLSpielort) => void;
 }) {
   const [, startReactivating] = useTransition();
@@ -143,7 +151,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{spielortQuery ? "Keine Spielorte für diese Suche gefunden." : "Es wurden noch keine Spielorte angelegt."}</p>
+      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
     </div>
   );
 

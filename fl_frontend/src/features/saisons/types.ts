@@ -32,19 +32,12 @@ export type SaisonDraftFields = {
   rules: FLSaisonRules;
 };
 
-/**
- * One row of the admin season list. Neither count is a rollover precondition — those are
- * `REQ-ACTIVATE-001`, `-002` and `-003`, all three shown in the season editor's rollover panel.
- */
 export type AdminSaisonRow = {
   id: string;
   start_date: string;
   end_date: string;
   status: FLSaisonStatus;
   rules: FLSaisonRules;
-  /** How many matchdays this season has, retired ones included. */
-  spieltageCount: number;
-  teamsCount: number;
 };
 
 /**

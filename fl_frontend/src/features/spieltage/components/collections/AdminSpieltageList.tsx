@@ -14,8 +14,16 @@ import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSpieltagRow } from "../../types";
 import type { SpieltagPhaseProgress } from "../../utils";
+
+// An empty season names where its matchdays come from, because no control on this page makes one.
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: "Keine Spieltage für diese Suche gefunden.",
+  filtered: "Keine Spieltage für diese Filter gefunden.",
+  none: "Für diese Saison gibt es noch keine Spieltage. Sie entstehen zusammen mit dem Spielplan.",
+};
 
 /**
  * The season's matchdays, sectioned by phase in the order they are played — **which arrives correct
@@ -23,13 +31,14 @@ import type { SpieltagPhaseProgress } from "../../utils";
  * plain list has no react-aria collection to keep alive.
  */
 export const AdminSpieltageList = memo(function AdminSpieltageList({
-  spieltageQuery,
   filteredSpieltage,
+  emptiness,
   saisonId,
   phaseProgress,
 }: {
-  spieltageQuery: string;
   filteredSpieltage: AdminSpieltagRow[];
+  /** `AdminCrudView :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
   /** The season the list is showing, for the outbound Spielplan link. Null where no season exists. */
   saisonId: string | null;
   /** Each phase's matchday count against what the season's rules imply. Absent where no season is. */
@@ -124,13 +133,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   if (filteredSpieltage.length === 0) {
     return (
       <div className={`${card()} flex w-full flex-col items-center justify-center gap-3 py-16 text-center`}>
-        {/* Two different facts: a search that matched nothing, and a season whose rounds do not exist
-            yet. The second names where they come from, because no control on this page makes one. */}
-        <p className="muted-hint">
-          {spieltageQuery
-            ? "Keine Spieltage für diese Suche gefunden."
-            : "Für diese Saison gibt es noch keine Spieltage. Sie entstehen zusammen mit dem Spielplan."}
-        </p>
+        <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
       </div>
     );
   }

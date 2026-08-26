@@ -49,6 +49,9 @@ const FACETS: readonly Facet<Row>[] = [
 
 const ids = (rows: Row[]) => rows.map((row) => row.id);
 
+/** Its own array, so the `readFacetSelection` cache below keyed on the facet set cannot answer for `FACETS`. */
+const DEFAULTED: readonly Facet<Row>[] = [{ ...FACETS[0]!, defaultValues: ["aktiv"] }, FACETS[1]!];
+
 describe("applyFacets", () => {
   it("returns the input array itself when nothing is selected", () => {
     // Identity, not just equality: `AdminCrudView` feeds this to `useFuzzySearch`, whose memo and whose
@@ -135,6 +138,22 @@ describe("readFacetSelection", () => {
     assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("gruppe=&q=helm&saison_id=2026")), {});
   });
 
+  it("answers with a facet's default while its parameter is absent", () => {
+    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("")), { status: ["aktiv"] });
+    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("gruppe=A")), { status: ["aktiv"], gruppe: ["A"] });
+  });
+
+  it("lets a chosen value replace a default", () => {
+    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=stillgelegt")), { status: ["stillgelegt"] });
+  });
+
+  it("lets an EMPTY parameter turn a default off, which is the only thing that can", () => {
+    // `useUrlFilters` writes this form instead of deleting the parameter, so a reader who unticks a defaulted
+    // facet reaches the unnarrowed list. The two halves have to agree on the form or the default reasserts.
+    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=")), {});
+    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=&gruppe=A")), { gruppe: ["A"] });
+  });
+
   it("reads a NON-EMPTY selection back as the same object while the query string is unchanged", () => {
     // `applyFacets` returns its input by reference only while nothing is selected, so with a facet
     // active the chain rests on this object instead: `AdminCrudView`'s memo, then the collection.
@@ -219,7 +238,7 @@ for (const slice of readdirSync(FEATURES_DIR, { withFileTypes: true })) {
 
 describe("every facet set in the app", () => {
   // Pinned so a slice's facets quietly dropping out of the walk is a failure rather than a smaller run.
-  const EXPECTED_SETS = 8;
+  const EXPECTED_SETS = 7;
 
   it("discovers every slice's facets", () => {
     assert.equal(
@@ -272,6 +291,20 @@ describe("every facet set in the app", () => {
           facet.options.every((option) => option.label.trim() !== ""),
           `${name} facet "${facet.label}" has an unlabelled option`,
         );
+      }
+    }
+  });
+
+  it("defaults a facet only to values it offers", () => {
+    // An unoffered default narrows the surface to nothing and draws a pill with no label on it, and nothing at
+    // runtime reports why — `readFacetSelection` passes a default through without the offered-set filter.
+    for (const [name, facets] of discovered) {
+      for (const facet of facets) {
+        const offered = new Set(facet.options.map((option) => option.value));
+
+        for (const value of facet.defaultValues ?? []) {
+          assert.ok(offered.has(value), `${name} facet "${facet.label}" defaults to "${value}", which it does not offer`);
+        }
       }
     }
   });

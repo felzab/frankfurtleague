@@ -47,20 +47,6 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
     </span>
   );
 
-  const renderAufbau = (saison: AdminSaisonRow) => (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <span className="muted-meta">
-        <span className="text-foreground font-bold">{saison.rules.number_of_groups}</span> Gruppen
-      </span>
-      <span className="muted-meta">
-        <span className="text-foreground font-bold">{saison.teamsCount}</span> Teams
-      </span>
-      <span className="muted-meta">
-        <span className="text-foreground font-bold">{saison.spieltageCount}</span> Spieltage
-      </span>
-    </div>
-  );
-
   const renderActions = (saison: AdminSaisonRow) => (
     <RowActions>
       <RowActionLink
@@ -119,7 +105,6 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
               {renderStatusBadge(saison)}
             </div>
             {renderZeitraum(saison)}
-            {renderAufbau(saison)}
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(saison)}</div>
           </div>
         ))}
@@ -137,9 +122,6 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Zeitraum
-                </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-3 py-4 font-bold tracking-wider uppercase">
-                  Aufbau
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Status
@@ -166,8 +148,6 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                     </Table.Cell>
 
                     <Table.Cell className="px-3 py-4">{renderZeitraum(saison)}</Table.Cell>
-
-                    <Table.Cell className="px-3 py-4">{renderAufbau(saison)}</Table.Cell>
 
                     <Table.Cell className="px-3 py-4">{renderStatusBadge(saison)}</Table.Cell>
 

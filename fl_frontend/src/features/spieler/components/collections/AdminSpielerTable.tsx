@@ -17,7 +17,14 @@ import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSpielerRow, SpielerTeamOption } from "../../types";
+
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: "Keine Spieler für diese Suche gefunden.",
+  filtered: "Keine Spieler für diese Filter gefunden.",
+  none: "Es wurden noch keine Spieler angelegt.",
+};
 
 /**
  * Memoised, and load-bearing — `AdminCrudView`'s collection-identity note carries why.
@@ -25,15 +32,16 @@ import type { AdminSpielerRow, SpielerTeamOption } from "../../types";
  * The rows are every player; Team, Nummer and Status are the SELECTED SEASON's.
  */
 export const AdminSpielerTable = memo(function AdminSpielerTable({
-  spielerQuery,
   filteredSpieler,
+  emptiness,
   saisonTeams,
   selectedSaisonId,
   selectedSaisonStatus,
   setDeletingSpieler,
 }: {
-  spielerQuery: string;
   filteredSpieler: AdminSpielerRow[];
+  /** `AdminCrudView :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
   /** The clubs holding a junction row in the selected season — the one collection `REQ-SQUAD-001` counts. */
   saisonTeams: readonly SpielerTeamOption[];
   /** Which season the squad columns describe — the sidemenu selector's, resolved by the page. */
@@ -164,7 +172,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{spielerQuery ? "Keine Spieler für diese Suche gefunden." : "Es wurden noch keine Spieler angelegt."}</p>
+      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
     </div>
   );
 

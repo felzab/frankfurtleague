@@ -152,8 +152,8 @@ function FilterRow<TItem>({ facets, items }: { facets: readonly Facet<TItem>[]; 
   const [rowRef, rowWidth] = useFilterPanelWidth();
 
   const isFiltering = (facet: Facet<TItem>) => (selection[facet.param] ?? []).length > 0;
-  // Pills in the URL's order, so a new one lands at the end and no pill already drawn moves. A filtering
-  // facet is in the URL by construction, so neither `indexOf` can be -1.
+  // Pills in the URL's order, so a new one lands at the end and no pill already drawn moves. A facet filtering on
+  // its default is in no parameter at all, and -1 sorting it ahead of every chosen pill is where it belongs.
   const filtered = facets.filter(isFiltering).sort((left, right) => paramOrder.indexOf(left.param) - paramOrder.indexOf(right.param));
   const unfiltered = facets.filter((facet) => !isFiltering(facet));
 

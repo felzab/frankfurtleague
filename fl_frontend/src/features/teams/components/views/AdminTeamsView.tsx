@@ -17,10 +17,10 @@ export function AdminTeamsView({ teams, selectedSaisonStatus }: { teams: AdminTe
       items={teams}
       searchKeys={SEARCH_KEYS}
       facets={TEAM_FACETS}
-      renderTable={({ query, filteredItems, onDelete }) => (
+      renderTable={({ filteredItems, emptiness, onDelete }) => (
         <AdminTeamsTable
-          teamsQuery={query}
           filteredTeams={filteredItems}
+          emptiness={emptiness}
           selectedSaisonStatus={selectedSaisonStatus}
           setDeletingTeam={onDelete}
         />

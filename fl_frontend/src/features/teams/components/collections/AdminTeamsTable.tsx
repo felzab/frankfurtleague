@@ -15,7 +15,14 @@ import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminTeamRow } from "../../types";
+
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: "Keine Teams für diese Suche gefunden.",
+  filtered: "Keine Teams für diese Filter gefunden.",
+  none: "Es wurden noch keine Teams angelegt.",
+};
 
 /**
  * Memoised, and load-bearing — `AdminCrudView`'s collection-identity note carries why.
@@ -23,13 +30,14 @@ import type { AdminTeamRow } from "../../types";
  * The rows are every club; Gruppe and Status are the SELECTED SEASON's.
  */
 export const AdminTeamsTable = memo(function AdminTeamsTable({
-  teamsQuery,
   filteredTeams,
+  emptiness,
   selectedSaisonStatus,
   setDeletingTeam,
 }: {
-  teamsQuery: string;
   filteredTeams: AdminTeamRow[];
+  /** `AdminCrudView :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
   /** Decides the status column's wording — the season's own three words. */
   selectedSaisonStatus: "past" | "active" | "future";
   setDeletingTeam: (team: AdminTeamRow) => void;
@@ -132,7 +140,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{teamsQuery ? "Keine Teams für diese Suche gefunden." : "Es wurden noch keine Teams angelegt."}</p>
+      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
     </div>
   );
 

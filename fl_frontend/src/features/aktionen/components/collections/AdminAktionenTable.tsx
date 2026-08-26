@@ -15,7 +15,14 @@ import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } fr
 import { AKTION_OPERATION_LABELS, AKTION_OPERATION_TINTS, AKTIONEN_CRUD_COPY } from "../../constants";
 import { describeAktionDatensatz, formatAktionZeitpunkt, labelForCollection } from "../../utils";
 
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminAktionRow } from "../../types";
+
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: AKTIONEN_CRUD_COPY.emptyForQuery,
+  filtered: AKTIONEN_CRUD_COPY.emptyForFilters,
+  none: AKTIONEN_CRUD_COPY.emptyOverall,
+};
 
 /**
  * A react-aria collection re-rendered while hidden loses its rows, and the parent's
@@ -23,11 +30,12 @@ import type { AdminAktionRow } from "../../types";
  * fix; `memo` is the second layer.
  */
 export const AdminAktionenTable = memo(function AdminAktionenTable({
-  aktionenQuery,
   filteredAktionen,
+  emptiness,
 }: {
-  aktionenQuery: string;
   filteredAktionen: AdminAktionRow[];
+  /** `AdminCrudView :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
 }) {
   const handleCopyVorgang = async (aktion: AdminAktionRow) => {
     const copied = await copyTextToClipboard(aktion.correlation_id);
@@ -153,7 +161,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{aktionenQuery ? AKTIONEN_CRUD_COPY.emptyForQuery : AKTIONEN_CRUD_COPY.emptyOverall}</p>
+      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
     </div>
   );
 

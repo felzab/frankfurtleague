@@ -34,15 +34,22 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
       const params = new URLSearchParams(window.location.search);
 
       for (const [param, picked] of Object.entries(changes)) {
-        // Deleted rather than emptied, so a shared link carries only what somebody actually chose.
-        if (picked.length === 0) params.delete(param);
-        else params.set(param, picked.join(","));
+        if (picked.length > 0) {
+          params.set(param, picked.join(","));
+          continue;
+        }
+
+        // Deleted rather than emptied, so a shared link carries only what somebody actually chose — except behind a
+        // default, where deleting hands the facet straight back to it and nothing the reader does could turn it off.
+        const isDefaulted = facets.some((facet) => facet.param === param && (facet.defaultValues?.length ?? 0) > 0);
+        if (isDefaulted) params.set(param, "");
+        else params.delete(param);
       }
 
       const query = params.toString();
       window.history.replaceState(null, "", query ? `${pathname}?${query}` : pathname);
     },
-    [pathname],
+    [facets, pathname],
   );
 
   /** Replaces one facet's selection wholesale, which is what a multi-select ListBox reports. */
@@ -60,7 +67,10 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
     [write],
   );
 
-  /** Every facet at once, named explicitly so a parameter that is not a facet survives. */
+  /**
+   * Every facet at once, named explicitly so a parameter that is not a facet survives. A default goes with them
+   * (owner's call, 2026-08-26): the control promises a complete list, and one left standing would still draw a pill.
+   */
   const clearAll = useCallback(() => {
     write(Object.fromEntries(facets.map((facet) => [facet.param, []])));
   }, [facets, write]);

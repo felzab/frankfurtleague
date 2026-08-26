@@ -15,7 +15,14 @@ import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
 
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { FLSchiedsrichter } from "../../schemas";
+
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: "Keine Schiedsrichter für diese Suche gefunden.",
+  filtered: "Keine Schiedsrichter für diese Filter gefunden.",
+  none: "Es wurden noch keine Schiedsrichter angelegt.",
+};
 
 /**
  * A react-aria collection re-rendered while hidden in an Activity tree loses its rows, and the
@@ -23,12 +30,13 @@ import type { FLSchiedsrichter } from "../../schemas";
  * carries the fix; `memo` is the second layer.
  */
 export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
-  schiedsrichterQuery,
   filteredSchiedsrichter,
+  emptiness,
   setDeletingSchiedsrichter,
 }: {
-  schiedsrichterQuery: string;
   filteredSchiedsrichter: FLSchiedsrichter[];
+  /** `AdminCrudView :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
   setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
 }) {
   const [, startReactivating] = useTransition();
@@ -133,9 +141,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">
-        {schiedsrichterQuery ? "Keine Schiedsrichter für diese Suche gefunden." : "Es wurden noch keine Schiedsrichter angelegt."}
-      </p>
+      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
     </div>
   );
 

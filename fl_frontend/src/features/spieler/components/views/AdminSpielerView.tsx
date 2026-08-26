@@ -33,10 +33,10 @@ export function AdminSpielerView({
       items={spieler}
       searchKeys={SEARCH_KEYS}
       facets={facets}
-      renderTable={({ query, filteredItems, onDelete }) => (
+      renderTable={({ filteredItems, emptiness, onDelete }) => (
         <AdminSpielerTable
-          spielerQuery={query}
           filteredSpieler={filteredItems}
+          emptiness={emptiness}
           saisonTeams={teams}
           selectedSaisonId={selectedSaisonId}
           selectedSaisonStatus={selectedSaisonStatus}

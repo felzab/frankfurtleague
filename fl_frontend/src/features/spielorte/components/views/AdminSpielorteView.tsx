@@ -17,10 +17,10 @@ export function AdminSpielorteView({ spielorte }: { spielorte: FLSpielort[] }) {
       items={spielorte}
       searchKeys={SEARCH_KEYS}
       facets={SPIELORT_FACETS}
-      renderTable={({ query, filteredItems, onDelete }) => (
+      renderTable={({ filteredItems, emptiness, onDelete }) => (
         <AdminSpielorteTable
-          spielortQuery={query}
           filteredSpielorte={filteredItems}
+          emptiness={emptiness}
           setDeletingOrt={onDelete}
         />
       )}
