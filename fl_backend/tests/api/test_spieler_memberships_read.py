@@ -273,7 +273,10 @@ def _legacy_squad_row(name: str, saison_id: str) -> dict[str, Any]:
 
 @pytest.fixture(scope="session")
 def squads(mongo_database: Database) -> Database:
-    """Its own corpus rather than `conftest.py`'s league: squads there would make the pipeline suites depend on rows they never mention."""
+    """Its own corpus rather than `conftest.py`'s league: squads there would make the pipeline suites depend on rows they never mention.
+
+    Only what this fixture seeds: `tests/api/conftest.py :: league` owns the rest of `fl_test`.
+    """
     for collection in ("spieler", "saison_spieler"):
         mongo_database.drop_collection(collection)
 

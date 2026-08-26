@@ -154,7 +154,11 @@ def spiel_documents() -> list[dict[str, Any]]:
 
 @pytest.fixture(scope="module")
 def seeded(mongo_container: Any) -> Iterator[Database]:
-    """A database of this module's own: the session-scoped `league` owns the collections of `fl_test`."""
+    """A database of this module's own: the session-scoped `league` owns the collections of `fl_test`.
+
+    Built once for the module and dropped on the way out: `tests/database.py` amortises a per-test
+    build, and its registry would outlive the database.
+    """
 
     client = mongo_container.get_connection_client()
     try:
