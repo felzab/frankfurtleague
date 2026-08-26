@@ -765,7 +765,7 @@ that reads worse without its dash has been cut rather than recast. The same hold
 word's job: a pairing reads `gegen`, and an absent value is named in words rather than by a lone `—`.
 
 **A hyphen that connects stays**, and this is the half a find-and-replace destroys, so the sweep runs
-string by string. `Frankfurt-League`, `K.-o.-Runde`, `Carl-Schurz-Schule`, `E-Mail` and `Karten-Link`
+string by string. `Frankfurt-League`, `KO-Runde`, `Carl-Schurz-Schule`, `E-Mail` and `Karten-Link`
 keep theirs, as does every club and venue name. The test is whether the character joins words into one
 term or separates one clause from another.
 
@@ -830,16 +830,62 @@ splits the draw's one window for exactly that reason: the recorded half a fixtur
 ([`docs/backend/spec.md`](../backend/spec.md) I46) is worded as a state, and the half `status` closes as a
 boundary.
 
-**Three of these rules are held mechanically, by the documentation gate's `copy-dash`, `copy-term` and
-`copy-formal` checks** — the dash rule with its date-range exception, the `Mannschaft` ban, and
-`Sie`/`Ihr` wherever no sentence opens, German capitalising a sentence's first word whatever it is.
+**A hint says what a thing is or does, in the league's own words** (my rule, 2026-08-26). It is capped
+at a lead and at most four single-sentence bullets, together about 350 characters; longer is a document
+rather than a popover, and `fl_frontend/src/shared/components/ui/hintCap.test.ts` refuses it. **A closing note counts
+against those four** (my rule, 2026-08-26), because a cap carrying one exception is how a hint reaches 1,180
+characters. **Meeting the cap means cutting, never compressing** (my rule, 2026-08-26). Compression keeps every
+fact and makes the prose denser, which is how a hint becomes a paragraph nobody reads and how a shortened
+sentence starts asserting something false. Cutting decides what the reader does not need here and deletes
+it. The question is never "how do I say this in fewer words" but "which of these does a reader act on".
+Where a sentence cannot be shortened without becoming untrue, that is the sentence to delete, not the one
+to squeeze: saying less is always available, saying something false is not.
+
+Six
+diagnostics decide _whether_ a sentence belongs:
+
+1. **No justification.** A sentence opening `Damit`, `So`, `Dadurch` or `weil`, or an `aber` walking back
+   the sentence before it, explains the design rather than the thing.
+2. **No experience but this reader's.** "Wer keine Saison auswählt, sieht diese." tells an admin what a
+   visitor meets, which the admin is not and cannot act on.
+3. **No hypothetical the reader is not about to cause.** "Ohne Kontakt erreichst Du ihn nicht, wenn ein
+   Spiel verlegt wird." narrates a future the reader has not entered.
+4. **Nothing the interface already carries.** An optional field is said by the absence of a required
+   marker, a destructive act by the danger panel and the two-press control. A sentence repeating either
+   is the second telling.
+5. **Nothing that follows from what the reader knows.** A price applying only to what comes after it is
+   how prices work. The test is whether deleting the sentence would leave any reader with a wrong
+   expectation.
+6. **No two sentences where a clause carries it.** "Bereits angesetzte Spiele behalten ihre Miete. Der
+   neue Preis gilt nur für Spiele, die Du danach ansetzt." is one fact stated twice from opposite sides.
+
+The seventh decides _how_ it is said, and it outranks the cap: **the reader runs a school football
+league, not this system.** No field name, code or endpoint, and no `Eintrag` or `Datensatz` where
+`Spiel`, `Spieltag`, `Team`, `Kader` or `Gruppe` exists. No derivation, `wird berechnet aus`,
+`ergibt sich aus` and `wird abgeleitet` all describing the machine where only the consequence can matter.
+No conditional chain: `wenn X, dann Y, es sei denn Z` is a specification, and a hint states the common
+case while the refusal handles the rest. Prefer the shorter everyday word, and check a German compound
+past about four syllables against two plain words. **A sentence needing a second reading is too
+complicated, and where being short and being plain pull apart, plain wins.**
+
+**A hint and a banner on one panel never carry the same fact.** The hint carries the rule that stands
+whatever is typed; the banner carries what this save will do. Only review enforces this, a check having
+to read two files and recognise a paraphrase, so it is stated here rather than mechanised.
+
+**Four of these rules are held mechanically, by the documentation gate's `copy-dash`, `copy-term`,
+`copy-formal` and `copy-informal` checks** — the dash rule with its date-range exception, the
+`Mannschaft` ban, `Sie`/`Ihr` wherever no sentence opens, German capitalising a sentence's first word
+whatever it is, and the `Du` family lower-cased anywhere, which needs no opener carve-out at all
+because a lowercase word never opens a German sentence.
 `scripts/docs_gate/copy_rules.py` holds what each admits and what it deliberately lets past; its corpus
 is every string literal and JSX element of `fl_frontend/src`, comments and tests excluded. **Two things
 it has to get right, and does**: the flanking dates of a permitted en dash are siblings rather than
 neighbours in one string wherever a span is built from separate elements, as `renderZeitraum` in the
-seasons table builds it; and recognising a date by the name of the function that formats it couples the
+seasons table builds it; recognising a date by the name of the function that formats it couples the
 check to that name, so `copy-corpus` fails when `formatSpielDatum` stops matching rather than letting
-the exception widen unseen.
+the exception widen unseen; and a dash is punctuation when it is the whole rendered output of its own
+element or of a `||` / `??` fallback, which is what separates a date beside a time from a scoreline the
+flattened text spells identically.
 
 **Every other rule here holds by review.** A lint over grammatical agreement or over register would
 first have to know which string reaches a reader and in what company; one over a list's completeness
@@ -959,7 +1005,7 @@ data: the shared one never learns about `expected`, and the narrow one holds no 
 | A season is edited in Compass and the change never appears                                                                                                                       | A hand edit invalidates nothing; only an action does                                                                                                                           | I16 — accept the daily bound or recreate the containers; the backend caches seasons for ten minutes of its own, so the frontend one alone is not enough (`docs/ops/spec.md` §3)                                                                                                                                                                                            |
 | A field the admin form sends never reaches the database                                                                                                                          | The Zod mirror does not declare it, so `strip` removes it before the body is sent; a key that did reach the backend would be refused rather than dropped                       | I3 — pass it as an action argument, never on the patch body                                                                                                                                                                                                                                                                                                                |
 | Pressing Speichern resets every edited field to its stored value, and the save confirmation opens listing 0 Hinweise                                                             | The form passes a function to `action`, so React resets it on submit and react-aria pushes each field's mount-time value back through `onChange`                               | I32 — submit through `runOnSubmit`; §1.10 carries the chain and why nothing in the toolchain reports it                                                                                                                                                                                                                                                                    |
-| Saving is refused with "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt", and no field is marked                                                       | The submit was refused on a path this form renders no input for: a draft field carrying a value whose inputs have unmounted, or a payload key that never had one               | I33 — a conditional field is retracted by its own condition. I34 — a payload key with no input is either given one or entered in `refusalPaths.test.ts`'s exemption table with the reason it is unreachable, so the toast stands only for a path somebody decided about                                                                                                    |
+| Saving is refused with "Eine Angabe außerhalb dieses Formulars ist ungültig", and no field is marked                                                                             | The submit was refused on a path this form renders no input for: a draft field carrying a value whose inputs have unmounted, or a payload key that never had one               | I33 — a conditional field is retracted by its own condition. I34 — a payload key with no input is either given one or entered in `refusalPaths.test.ts`'s exemption table with the reason it is unreachable, so the toast stands only for a path somebody decided about                                                                                                    |
 | The image build fails on a page that builds locally                                                                                                                              | A page fetches without `await connection()`; the builder has no backend                                                                                                        | I6 — add the guard before the fetch; it need not sit in the default export                                                                                                                                                                                                                                                                                                 |
 | A dynamic route throws at request time but the build passed                                                                                                                      | A Server Component passes a render prop to a Client Component                                                                                                                  | I13 — restore the `"use client"` directive. No gate catches this one                                                                                                                                                                                                                                                                                                       |
 | `updateTag` throws inside a route handler                                                                                                                                        | Wrong function for the context                                                                                                                                                 | I14 — `revalidateTag` in route handlers, `updateTag` in server actions                                                                                                                                                                                                                                                                                                     |

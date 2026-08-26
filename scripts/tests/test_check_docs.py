@@ -1126,13 +1126,24 @@ def _plant_stamp_formats() -> None:
 
 
 def _plant_copy_dash() -> None:
-    """A spaced em dash in rendered German, the shape that shipped three times."""
+    """The spaced em dash that shipped three times, and the two shapes a value hides.
+
+    Both hidden ones flatten to a dash between values, which the exemption for a scoreline lets
+    past: what fails them is the dash having a rendered output of its own.
+    """
     _append(COPY_SAMPLE, 'export const WEG = "Der Eintrag ist weg — das lässt sich nicht mehr holen.";')
+    _append(COPY_SAMPLE, "export function Zeit() {", "  return <p>{datum}<span>-</span>{uhrzeit}</p>;", "}")
+    _append(COPY_SAMPLE, "export function Nummer() {", '  return <p>{spieler.nummer || "-"}</p>;', "}")
 
 
 def _plant_copy_formal() -> None:
     """`Sie` where no sentence opens, which no third person accounts for."""
     _append(COPY_SAMPLE, 'export const BITTE = "Bitte prüfen Sie die Angaben und speichere erneut.";')
+
+
+def _plant_copy_informal() -> None:
+    """A possessive lower-cased, which a sentence's opener cannot account for either way."""
+    _append(COPY_SAMPLE, 'export const WO = "Erfahre, wo die Spiele deines Teams stattfinden.";')
 
 
 def _plant_copy_term() -> None:
@@ -1232,8 +1243,9 @@ CASES: Final[tuple[Case, ...]] = (
     ),
     Case("comment-length", _fails("comment-length", SAMPLE, SECOND_SAMPLE, THIRD_SAMPLE, LABEL_SAMPLE, TSX_SAMPLE), _plant_comment_bounds),
     Case("copy-corpus", _fails("copy-corpus", COPY_ROOT, COPY_ROOT), _plant_copy_corpus),
-    Case("copy-dash", _fails("copy-dash", COPY_SAMPLE), _plant_copy_dash),
+    Case("copy-dash", _fails("copy-dash", *[COPY_SAMPLE] * 3), _plant_copy_dash),
     Case("copy-formal", _fails("copy-formal", COPY_SAMPLE), _plant_copy_formal),
+    Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
     Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
     Case("counts", _reports("counts", NOTES, SAMPLE), _plant_counts),
     Case("enforced-by", _fails("enforced-by", CORE, RULES_INDEX), _plant_enforced_by),

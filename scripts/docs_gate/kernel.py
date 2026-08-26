@@ -131,6 +131,7 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "copy-corpus": frozenset({"fail"}),
     "copy-dash": frozenset({"fail"}),
     "copy-formal": frozenset({"fail"}),
+    "copy-informal": frozenset({"fail"}),
     "copy-term": frozenset({"fail"}),
     "counts": frozenset({"report"}),
     "enforced-by": frozenset({"fail"}),

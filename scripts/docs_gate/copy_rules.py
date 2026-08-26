@@ -2,8 +2,11 @@
 
 `docs/frontend/spec.md` §1.12 held these rules with nothing enforcing them and three spaced em
 dashes shipped past a green gate. The corpus is every string literal and JSX element of
-`fl_frontend/src`, comments and tests excluded, so what narrows a sweep is the rule and not the
-corpus. Scanned rather than parsed: the documentation scope degrades around node, never needs it.
+`fl_frontend/src`, comments and tests excluded, and it is scanned rather than parsed: the
+documentation scope degrades around node and never needs it. What no scan reaches is the inside
+of an interpolated value, one opaque `HOLE` here whose words, spacing and even its presence on
+screen are the browser's answer and not the file's -- so every rule below is held over the
+characters a file spells, and a reader is still the only check on the characters it computes.
 """
 
 from __future__ import annotations
@@ -42,6 +45,11 @@ SUSPENDED_RE: Final = re.compile(r"(?<=\w)-\s+(?:und|oder|bzw\.|sowie|bis|bezieh
 FORMAL_RE: Final = re.compile(r"\b(?:Sie|Ihr(?:e|em|en|er|es)?)\b")
 SENTENCE_OPENER_RE: Final = re.compile(rf"(?:\A|[.!?:;•·|]|[„“\"'(»–—]|{HOLE})[\s\"'„»(]*\Z")
 
+# No opener test, unlike `FORMAL_RE`: German capitalises a sentence's first word, so a lower-case
+# member of the family is one wherever it stands. The lookarounds drop a fragment of a compound
+# token -- `text-dir`, `dir-rtl`.
+INFORMAL_RE: Final = re.compile(r"(?<![\w\-/.])(?:du|dein(?:e|em|en|er|es)?|dir|dich)(?![\w\-/])")
+
 # One German word per concept (§1.12): a club is a `Team` whatever grammar the sentence prefers.
 BANNED_TERMS: Final[dict[str, str]] = {"Mannschaft": "Team"}
 BANNED_TERM_RE: Final = re.compile(rf"\b(?:{'|'.join(BANNED_TERMS)})(?:en|s)?\b")
@@ -51,7 +59,7 @@ BANNED_TERM_RE: Final = re.compile(rf"\b(?:{'|'.join(BANNED_TERMS)})(?:en|s)?\b"
 GERMAN_RE: Final = re.compile(
     # Case-insensitive, German capitalising a sentence's first word whatever it is. The `Du` family
     # stays case-sensitive: `dir` is a directory in half the identifiers in the tree.
-    r"[äöüÄÖÜß]|\bD(?:u|ein|eine|einen|einem|einer|ir|ich)\b|(?i:"
+    r"[äöüÄÖÜß]|\bD(?:u|ein|eine|einen|einem|einer|eines|ir|ich)\b|(?i:"
     r"\b(?:der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines|und|oder|nicht"
     r"|kein|keine|keinen|ist|sind|wird|werden|wurde|hat|haben|kann|muss|sich|noch|schon|auch"
     r"|aber|wenn|dann|damit|dass|mit|ohne|von|vom|zum|zur|aus|bei|nach|unter|durch|gegen|hier"
@@ -69,13 +77,14 @@ Kind = Literal["string", "jsx"]
 class Copy:
     """A string literal, or a JSX element flattened to what it puts on screen.
 
-    `text` holds a `HOLE` per interpolated value and `holes` their sources, so a dash is judged
-    against what will stand beside it.
+    `text` holds a `HOLE` per interpolated value and `holes` their sources. `alone` offsets the
+    dashes that are a rendered value of their own, which the flattening hides.
     """
 
     kind: Kind
     text: str
     holes: tuple[str, ...]
+    alone: tuple[int, ...] = ()
 
     def excerpt(self, at: int, width: int = 64) -> str:
         """The finding's anchor: the offending run, quoted as a reader meets it."""
@@ -84,12 +93,23 @@ class Copy:
         return f"{'…' if start else ''}{shown}{'…' if start + width < len(self.text) else ''}"
 
 
+def _lone_dash_at(rendered: str) -> int | None:
+    """The offset of a dash that is the whole of what `rendered` puts on screen.
+
+    An author giving a dash an output of its own has made it a word; a dash joining two values is
+    spelled against them, inside their element.
+    """
+    stripped = rendered.strip()
+    return rendered.index(stripped) if len(stripped) == 1 and DASH_RE.fullmatch(stripped) else None
+
+
 @dataclass(slots=True)
 class _Buffer:
     """A rendered span under construction, and the sources of the values interpolated into it."""
 
     parts: list[str] = field(default_factory=list)
     holes: list[str] = field(default_factory=list)
+    alone: list[int] = field(default_factory=list)
 
     def add(self, piece: str) -> None:
         if piece:
@@ -98,6 +118,12 @@ class _Buffer:
     def add_hole(self, source: str) -> None:
         self.parts.append(HOLE)
         self.holes.append(source)
+
+    def mark_alone(self, since: int) -> None:
+        """Note a lone dash among the parts written since `since` -- one element's whole output."""
+        at = _lone_dash_at("".join(self.parts[since:]))
+        if at is not None:
+            self.alone.append(sum(len(part) for part in self.parts[:since]) + at)
 
 
 @dataclass(slots=True)
@@ -112,6 +138,8 @@ class _Frame:
     buffer: _Buffer | None = None
     owns: bool = False
     hole_at: int = -1
+    # Where this element's own output starts in the shared buffer, so a closing tag can weigh it.
+    since: int = -1
 
 
 # Where the scan may stop. `/` is here for the comment openers and for a regex literal, whose
@@ -124,6 +152,13 @@ JSX_LEAD_RE: Final = re.compile(r"(?:[(,={};:?&|>\[!]|\breturn|\bcase)\Z")
 # What may stand before a regex literal: the same set without `>`, which closes a JSX tag.
 REGEX_LEAD_RE: Final = re.compile(r"[(,={};:?&|\[!]\Z")
 LEAD_WINDOW: Final = 8
+
+# `x || "-"` names an absent value with a dash, which §1.12 forbids. Read off the operator, never
+# off the literal alone: `split("-")` renders none of the dash it spells, and an argument is where
+# every other lone dash in this tree stands.
+FALLBACK_LEADS: Final[tuple[str, ...]] = ("||", "??")
+# `{/* … */}` puts nothing on screen, so it is no value and leaves no `HOLE` behind.
+JSX_COMMENT_RE: Final = re.compile(r"/\*(?:(?!\*/).)*\*/", re.DOTALL)
 
 
 @dataclass(slots=True)
@@ -195,7 +230,9 @@ def _close_hole(frames: list[_Frame], text: str, index: int) -> None:
     """Record what one `${…}` or `{…}` will render, now that its end is known."""
     frame = frames.pop()
     if frame.buffer is not None and frame.hole_at >= 0:
-        frame.buffer.add_hole(text[frame.hole_at : index - 1])
+        source = text[frame.hole_at : index - 1]
+        if not JSX_COMMENT_RE.fullmatch(source.strip()):
+            frame.buffer.add_hole(source)
 
 
 def _scan(text: str, *, jsx: bool) -> tuple[list[Copy], bool]:
@@ -229,8 +266,10 @@ def _scan(text: str, *, jsx: bool) -> tuple[list[Copy], bool]:
                 continue
             if text.startswith("</", index):
                 close = text.find(">", index)
+                if frame.buffer is not None and frame.since >= 0:
+                    frame.buffer.mark_alone(frame.since)
                 if frame.owns and frame.buffer is not None and frame.buffer.parts:
-                    found.append(Copy("jsx", "".join(frame.buffer.parts), tuple(frame.buffer.holes)))
+                    found.append(Copy("jsx", "".join(frame.buffer.parts), tuple(frame.buffer.holes), tuple(frame.buffer.alone)))
                 frames.pop()
                 lead.push(">")
                 index = size if close == -1 else close + 1
@@ -287,7 +326,9 @@ def _scan(text: str, *, jsx: bool) -> tuple[list[Copy], bool]:
 
         if char in "\"'":
             close = _string_end(text, index)
-            found.append(Copy("string", text[index + 1 : close], ()))
+            literal = text[index + 1 : close]
+            at = _lone_dash_at(literal) if lead.text.endswith(FALLBACK_LEADS) else None
+            found.append(Copy("string", literal, (), () if at is None else (at,)))
             lead.push(char)
             index = close + 1
             continue
@@ -333,9 +374,10 @@ def _scan(text: str, *, jsx: bool) -> tuple[list[Copy], bool]:
             frames.pop()
             if selfclosing:
                 if frame.owns and frame.buffer is not None and frame.buffer.parts:
-                    found.append(Copy("jsx", "".join(frame.buffer.parts), tuple(frame.buffer.holes)))
+                    found.append(Copy("jsx", "".join(frame.buffer.parts), tuple(frame.buffer.holes), tuple(frame.buffer.alone)))
             else:
-                frames.append(_Frame("jsx", buffer=frame.buffer, owns=frame.owns))
+                since = len(frame.buffer.parts) if frame.buffer is not None else -1
+                frames.append(_Frame("jsx", buffer=frame.buffer, owns=frame.owns, since=since))
         lead.push(">")
         index += 1
 
@@ -402,11 +444,13 @@ def _is_date_range(span: Copy, at: int) -> bool:
 
 
 def _is_punctuation(span: Copy, at: int) -> bool:
-    """Whether the dash at `at` parts a clause rather than joining a term.
+    """Whether the dash at `at` stands alone or parts a clause rather than joining a term.
 
-    A long dash parts one wherever it stands loose. A hyphen connects, so it must be loose on BOTH
-    sides (`-mx-1` is not), have a word and not two values beside it, and stand in German.
+    A long dash need only be loose. A hyphen connects, so it must be loose on BOTH sides,
+    `-mx-1` being why, and have a word beside it rather than two values.
     """
+    if at in span.alone:
+        return True
     behind, ahead = span.text[at - 1 : at], span.text[at + 1 : at + 2]
     if span.text[at] in LONG_DASHES:
         return behind.isspace() or ahead.isspace() or (behind == HOLE and ahead == HOLE)
@@ -424,8 +468,13 @@ def _dash_findings(rel: str, span: Copy) -> list[Finding]:
             continue
         behind, ahead = _flank(span, at, ahead=False), _flank(span, at, ahead=True)
         # A span carrying nothing but the dash needs its neighbours named, `…—…` anchoring nothing.
-        where = f"between `{behind}` and `{ahead}`" if behind is not None and ahead is not None else f"in `{span.excerpt(at)}`"
-        found.append(Finding("fail", "copy-dash", rel, f"a dash is punctuation {where} (§1.12)"))
+        if behind is not None and ahead is not None:
+            detail = f"a dash is punctuation between `{behind}` and `{ahead}` (§1.12)"
+        elif at in span.alone:
+            detail = "a dash renders on its own, doing a word's job (§1.12)"
+        else:
+            detail = f"a dash is punctuation in `{span.excerpt(at)}` (§1.12)"
+        found.append(Finding("fail", "copy-dash", rel, detail))
     return found
 
 
@@ -443,6 +492,19 @@ def _formal_findings(rel: str, span: Copy) -> list[Finding]:
             continue
         detail = f"`{match.group(0)}` is the formal address in `{span.excerpt(match.start())}` -- the reader is `Du` (§1.12)"
         found.append(Finding("fail", "copy-formal", rel, detail))
+    return found
+
+
+def _informal_findings(rel: str, span: Copy) -> list[Finding]:
+    """The `Du` family lower-cased, in any span rather than only a German one.
+
+    `is_german` would gate out `deine Wahl`, whose only German is the word judged, and no class,
+    path or identifier spells one of these loose.
+    """
+    found: list[Finding] = []
+    for match in INFORMAL_RE.finditer(span.text):
+        detail = f"`{match.group(0)}` in `{span.excerpt(match.start())}` -- the reader is `Du`, capitalised (§1.12)"
+        found.append(Finding("fail", "copy-informal", rel, detail))
     return found
 
 
@@ -480,6 +542,7 @@ def check_copy_rules() -> list[Finding]:
                 german += 1
             found.extend(_dash_findings(rel, span))
             found.extend(_formal_findings(rel, span))
+            found.extend(_informal_findings(rel, span))
             found.extend(_term_findings(rel, span))
 
     # Three ways this sweep goes quiet without anything else noticing: the tree moves, the scanner
