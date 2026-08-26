@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `f6073b6f`, 2026-08-26\
+**Verified against:** `dbdfbabf`, 2026-08-26\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -326,11 +326,14 @@ fix lands with a harness that can hold a branch**, and that is the larger half o
 **What the standard owes afterwards.** CUR-4's `Exceptions` block names a page added on the branch and
 a stamp-only delta; whichever shape lands adds a clause beside them, and CUR-3's `Enforced by` — which
 claims `stamp` covers a page edited on a branch moving its stamp — has to say what that now means.
+CUR-5's table states the same comparison in its `stamp` and `branch-impact` rows, and
+`check-registry` holds a row's name and its verdict but never its wording, so both rows are
+rewritten by hand in that same commit.
 
 **Not verified:** the process cost of walking the commits is reasoned from the call shape rather than
 timed, and no reading of the gate's wall clock was taken for any of the shapes above.
 
-**Why it ranks first.** Test 1 separates it from everything here, **OPS-75** included. Both are
+**Why it ranks where it does.** Test 1 separates it from everything below it, **OPS-75** included. Both are
 instruments, and OPS-75's own analysis records that the gate's verdict is right and only a caller
 reproducing the helper by hand is misled — so nothing wrong reaches `main` through it. This one is the
 verdict: the gate reports a page verified that nobody re-verified, and that record merges. The
@@ -375,10 +378,10 @@ the live pointer to the ranked page it indexes that asks for nothing.
 
 **Measured over the tracked markdown corpus on 2026-08-26** — every link target resolved from its own
 page's directory, kept where it lands on a tracked file, with `scripts/docs_gate/kernel.py :: SKIP_DIRS`
-applied: 28 pages carry a stamp, and those hold 108 distinct page-and-target pairs. **75 of the 108,
+applied: 28 pages carry a stamp, and those hold 113 distinct page-and-target pairs. **75 of the 113,
 across 23 of the 28 pages, name a file that page's own `cited_paths` set does not hold**, so a branch
 changing that file leaves that page unarmed. Under `docs/_standard/` every such pair is one of them;
-under `docs/_roadmap/`, twelve of twenty-two. The 33 that do arm are armed by a backticked repository
+under `docs/_roadmap/`, twelve of twenty-six. The 38 that do arm are armed by a backticked repository
 path elsewhere on the page happening to name the same file, which is incidental rather than the link
 working.
 
@@ -403,7 +406,7 @@ also more pages asked to restamp per branch, which is **OPS-62**'s objection ove
 The fixture net needs a page armed through a link of each of the three shapes the corpus uses, and one
 whose link target sits outside the repository.
 
-**Why it ranks second.** Test 1 puts it above everything below it for the reason **OPS-75**'s entry
+**Why it ranks where it does.** Test 1 puts it above everything below it for the reason **OPS-75**'s entry
 gives when it puts **OPS-80** above itself: this is the gate's own verdict rather than a hand
 reproduction of one, so what it misses merges. The same test puts **OPS-80** above this one — that
 disarms both arms of CUR-4, the arm watching a page's own edits included, which this leaves working,
@@ -475,7 +478,7 @@ gate is the instrument that branch is about to be verified with, and changing a 
 immediately before measuring with it puts the change and the measurement in the same unverified commit.
 Landing it on its own branch, with the fixture, is what lets the next measurement be trusted.
 
-**Why it ranks third.** Test 1 puts it above everything below it: nothing there makes later work
+**Why it ranks where it does.** Test 1 puts it above everything below it: nothing there makes later work
 cheaper, safer and possible at all in the way a correct measuring instrument does, and every INC-9
 claim made against the corpus until it lands is a claim nobody can rely on. The same test puts
 **OPS-80** and **OPS-82** above it, those being the gate's own verdict rather than a hand reproduction
@@ -622,7 +625,7 @@ and is where a moved default lands.
 effort above is a shape rather than a measurement, and any rule whose name or default moved is
 unenumerated.
 
-**Why it ranks fifth.** Test 2 separates it from everything below it: the date has passed, and the
+**Why it ranks where it does.** Test 2 separates it from everything below it: the date has passed, and the
 distance from the supported line widens on its own with nothing here watching it — the growing
 migration that test names. It sits under **OPS-64** because test 2 asks which item gets worse with
 time, and that one cannot: the exposure it records is already being paid at full rate. It sits under
@@ -855,9 +858,9 @@ names.** Neither states which entries such a table holds, so the requirement has
 from one is an omission or a deliberate exclusion, and nothing in the corpus lets a reader tell those
 apart.
 
-**Measured on 2026-08-26 over both ranked pages.** Their 80 open entries yield 106 pairs of entry and
-surface where the surface owns a spec sheet. **Eleven of the 106 are carried in the matching table and
-95 are not** — 34 absent from `docs/backend/spec.md`, 33 from `docs/ops/spec.md`, 28 from
+**Measured on 2026-08-26 over both ranked pages.** Their 85 open entries yield 110 pairs of entry and
+surface where the surface owns a spec sheet. **Thirteen of the 110 are carried in the matching table
+and 97 are not** — 34 absent from `docs/backend/spec.md`, 32 from `docs/ops/spec.md`, 31 from
 `docs/frontend/spec.md`. At that spread the requirement cannot be read as a list of omissions: taken
 literally it is unmet almost everywhere at once, and discharging it would take each of those three
 tables to several times its size and make it a second copy of the ranked page.
@@ -893,9 +896,9 @@ that the table has held things the ranked pages never did.
 roadmap id and a table's shape; whether it can decide membership depends on what the criterion turns
 out to be, which is downstream of the decision rather than an input to it.
 
-**Why it ranks tenth.** Tests 1 to 3 leave it among the entries around it: nothing ships wrong, no date
+**Why it ranks where it does.** Tests 1 to 3 leave it among the entries around it: nothing ships wrong, no date
 has passed, and what accumulates is one unanswerable pair per filing rather than work to redo. **Test 4
-places it** — one decision retires a requirement that is unverifiable at 95 places today, and that
+places it** — one decision retires a requirement that is unverifiable at 97 places today, and that
 decision is the whole of the S, the sweep it authorises being separate work. It sits above **DOC-11**,
 which costs an M and a programme closed with me to reach a gain of the same kind.
 
@@ -1059,8 +1062,9 @@ the spec describes as one.** `docs/frontend/spec.md` §1.9 calls them "tests tha
 rather than exercise a function" and says that is how a rule no linter can express is held. **For some
 of them that is exactly right.** `fl_frontend/src/core/apiContract.test.ts` and `:: apiRequests.test.ts`
 compare the tree against `fl_backend/openapi.json`;
-`fl_frontend/src/features/saisons/actions.test.ts` reads `fl_backend/app/core/domain.py` and requires
-every declared refusal code to reach a `case` in the German mapper;
+`fl_frontend/src/features/saisons/actions.test.ts` requires every refusal code
+`fl_frontend/src/core/refusalRegister.ts :: declaredCodes` reads out of
+`fl_backend/app/core/domain.py` to reach a `case` in the German mapper;
 `fl_frontend/src/core/refusalPaths.test.ts` and
 `fl_frontend/src/shared/components/ui/formSubmit.test.ts` hold structural rules across the tree. **Each
 of those has an authority somewhere other than the test.**
@@ -1469,9 +1473,9 @@ two sites is a shape that has already reached an administrator here as a generic
 gate green.
 
 **Nothing else already reaches it, checked rather than assumed.** Several frontend tests do read backend
-declarations at test time — the per-feature `actions.test.ts` files read
-`fl_backend/app/core/domain.py`, and two more read `fl_backend/openapi.json`. **They couple at the level
-of refusal codes, not fields**: `fl_frontend/src/features/saisons/actions.test.ts` asserts that every
+declarations at test time — the per-feature `actions.test.ts` files reach
+`fl_backend/app/core/domain.py` through `fl_frontend/src/core/refusalRegister.ts`, and two more read
+`fl_backend/openapi.json`. **They couple at the level of refusal codes, not fields**: `fl_frontend/src/features/saisons/actions.test.ts` asserts that every
 code `PATCH /saisons/{saison_id}` declares reaches a `case` in the mapper, `REQ-RULES-011` included, and
 reads nothing about what that case's message must name.
 
@@ -2061,9 +2065,9 @@ currently holds. Each is also narrower than the rule it serves, and where it fal
 answers with silence rather than a finding.
 
 **The rule families are spelt into the patterns.** `scripts/check_docs.py :: RULE_ID_RE` carries the
-standard's prefixes as a closed alternation, and `RULE_HEAD_RE`, `CHAPTER_ROW_RE` and
-`RULE_INDEX_LINE_RE` repeat the same list. A chapter written under a prefix none of them carries
-falls outside all of them at once: citations of its rules resolve to nothing and dangle unreported,
+standard's prefixes as a closed alternation, and `scripts/docs_gate/perkind.py :: RULE_HEAD_RE`,
+`:: CHAPTER_ROW_RE` and `:: RULE_INDEX_LINE_RE` repeat the same list. A chapter written under a
+prefix none of them carries falls outside all of them at once: citations of its rules resolve to nothing and dangle unreported,
 its rules are not held to PRE-4's anatomy, and none of them is required to take a line in the rules
 index. Widening the alternation by hand is not the answer, because the list is closed so that the
 backend's error codes — which carry an extra segment — can never be read as rule ids. A pattern
