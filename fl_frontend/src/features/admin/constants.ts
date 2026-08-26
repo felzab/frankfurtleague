@@ -194,7 +194,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             {
               term: "Löschen",
               detail:
-                "entfernt eine stillgelegte Person endgültig — mit allen Kadereinträgen und ihren Angaben im Änderungsprotokoll. " +
+                "entfernt eine stillgelegte Person endgültig, mitsamt allen Kadereinträgen und ihren Angaben im Änderungsprotokoll. " +
                 "Zurückholen lässt sich das nicht.",
             },
           ],
@@ -238,7 +238,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             {
               term: "Art",
               detail:
-                "was geschehen ist. Eine Sammeländerung trifft alle Datensätze eines Filters auf einmal. „Mehrere angelegt“ benennt keinen einzelnen Datensatz, sondern nur die Zahl. „Gelöscht, ohne Stand“ heißt, dass zu dieser Zeile bewusst kein früherer Datensatz aufbewahrt wurde — so werden die Angaben einer Person entfernt.",
+                "was geschehen ist. Eine Sammeländerung trifft alle Datensätze eines Filters auf einmal. „Mehrere angelegt“ benennt keinen einzelnen Datensatz, sondern nur die Zahl. „Gelöscht, ohne Stand“ heißt, dass zu dieser Zeile bewusst kein früherer Datensatz aufbewahrt wurde. So werden die Angaben einer Person entfernt.",
             },
             { term: "Stand gesichert", detail: "der Datensatz von vor der Änderung liegt in dieser Zeile." },
             { term: "Vorgangsnummer", detail: "kopiere sie und suche danach, um jede Zeile eines einzelnen Speicherns zu sehen." },

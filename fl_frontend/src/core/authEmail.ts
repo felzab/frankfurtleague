@@ -57,7 +57,7 @@ function renderText(url: string): string {
     url,
     "",
     "Du hast diese Anmeldung nicht angefordert? Dann ignoriere diese E-Mail einfach.",
-    "ohne den Link passiert nichts.",
+    "Ohne den Link passiert nichts.",
   ].join("\n");
 }
 

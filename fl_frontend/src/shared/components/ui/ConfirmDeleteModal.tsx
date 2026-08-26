@@ -122,7 +122,7 @@ export function ConfirmDeleteModal({
                 width={18}
                 height={18}
               />
-              Bist Du Dir wirklich sicher?
+              Bist Du Dir sicher?
             </div>
             <p className="fluid-sm text-foreground-muted leading-relaxed">
               {isPermanent ? (
