@@ -52,9 +52,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
               term: "Bearbeiten",
               // The panels' own headings, in render order: this is a wayfinding list, and an admin
               // scans the page for the word it names.
-              detail:
-                "der Stift öffnet die Saisonseite mit Zeitraum, Regeln, Gruppentausch, Team ersetzen, Spielplan, " +
-                "Spielplan zurücknehmen und Umstellung.",
+              detail: "der Stift öffnet die Saisonseite mit Zeitraum, Regeln, Gruppentausch, Team ersetzen, Spielplan und Umstellung.",
             },
             { term: "Umstellen", detail: "macht eine geplante Saison zur laufenden Saison und schließt die bisherige ab." },
             { term: "Punkte", detail: "gelten rückwirkend, auch für längst gespielte Spiele." },

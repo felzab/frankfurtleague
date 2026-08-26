@@ -40,7 +40,7 @@ type SpielplanOperation = "anlegen" | "zuruecknehmen";
  * The season's fixture list, over `POST` and `DELETE /saisons/{saison_id}/spielplan`. **One panel and
  * one armed state for both**: on a drawn planned season each is open and each destroys the same
  * matchdays and fixtures, so the operation is picked before arming rather than raced between two
- * controls (I37).
+ * controls (`docs/frontend/spec.md :: I37`).
  *
  * **A confirmation step rather than an undo** on either write: one press writes, and nothing replays
  * the removed rows back (`docs/backend/spec.md :: I26`).
@@ -196,7 +196,7 @@ export function FormSpielplanSection({
               <li>
                 <strong>Neu anlegen</strong> und <strong>Zurücknehmen</strong> gehen nur, solange die Saison geplant ist und zu keinem ihrer
                 Spiele etwas eingetragen wurde: {RECORDED_FACTS_NONE}. Beide löschen die vorhandenen Spieltage und Spiele mit jedem Termin und
-                jeder Uhrzeit. Zurückholen lässt sich das in der Verwaltung nicht.
+                jeder Uhrzeit. Es gibt in der Verwaltung keinen Weg zurück.
               </li>
               <li>
                 <strong>Gruppen</strong>, <strong>Teams pro Gruppe</strong> und <strong>Qualifikanten</strong> gehören zum Spielplan: Sobald
@@ -384,12 +384,15 @@ export function FormSpielplanSection({
               )}
             </div>
 
-            {/* No restore is named on either branch. The action log keeps an image of every removed
-                document, but that is a record for a person to read and no endpoint replays it. */}
+            {/* A first draw on a PLANNED season is the one branch with a repair: the undraw beside it
+                removes what this press writes (`REQ-SPIELPLAN-006`). Nothing replays the rows
+                elsewhere, the log's images being a record to read rather than a restore. */}
             <p className="fluid-xxs text-foreground leading-normal font-medium">
               {holdsADraw
-                ? "Zurückholen lässt sich der alte Spielplan in der Verwaltung nicht."
-                : "Rückgängig lässt sich das in der Verwaltung nicht machen."}
+                ? "Die Spieltage und Spiele oben werden dabei gelöscht. Es gibt in der Verwaltung keinen Weg zurück."
+                : saisonStatus === "future"
+                  ? "Zurücknehmen lässt sich der Spielplan danach wieder hier, solange die Saison geplant ist und zu keinem ihrer Spiele etwas eingetragen wurde."
+                  : "Zurücknehmen lässt sich ein Spielplan nur in einer geplanten Saison, und diese läuft bereits. Es gibt in der Verwaltung keinen Weg zurück."}
             </p>
           </ConfirmReveal>
         )}

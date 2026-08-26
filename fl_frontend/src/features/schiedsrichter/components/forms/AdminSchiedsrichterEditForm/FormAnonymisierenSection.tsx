@@ -89,8 +89,8 @@ export function FormAnonymisierenSection({
                 bleibt lesbar.
               </li>
               <li>
-                Die Felder oben zu leeren und zu speichern ist <strong>etwas anderes</strong>: Die alten Angaben stehen dann weiterhin im
-                Protokoll. <strong>Zurückholen lässt sich das Gelöschte nicht.</strong>
+                <strong>Zurückholen lässt sich das nicht.</strong> Die Felder oben zu leeren und zu speichern ist dagegen etwas{" "}
+                <strong>anderes</strong>: Die alten Angaben stehen dann weiterhin im Protokoll.
               </li>
             </ul>
           </InfoHint>

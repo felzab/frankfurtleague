@@ -357,9 +357,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
         if (error.serverErrorCode === "REQ-ACTIVATE-002") {
           return {
             success: false,
-            error:
-              "Diese Saison ist inzwischen abgeschlossen und wird nicht wieder zur laufenden Saison: Die Punkte, die Gruppen und die Tabelle " +
-              "daraus halten fest, was gespielt wurde. Der Abschluss lässt sich in der Verwaltung nicht zurücknehmen. Lade die Seite neu.",
+            error: "Diese Saison ist inzwischen abgeschlossen und wird nicht wieder zur laufenden Saison. Lade die Seite neu.",
           };
         }
         if (error.serverErrorCode === "REQ-ACTIVATE-003") {

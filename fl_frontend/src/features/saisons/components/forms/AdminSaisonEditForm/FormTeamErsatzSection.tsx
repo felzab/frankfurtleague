@@ -136,8 +136,8 @@ export function FormTeamErsatzSection({
                 solches Team hat keine eigene Seite.
               </li>
               <li>
-                Zurücknehmen lässt sich der Wechsel in der Verwaltung nicht. Der aufgehobene Austritt und die ausgetragenen Kadereinträge kommen
-                auch dann nicht zurück, wenn Du die beiden Teams anschließend erneut wechselst.
+                Es gibt in der Verwaltung keinen Weg zurück. Der aufgehobene Austritt und die ausgetragenen Kadereinträge kommen auch dann nicht
+                zurück, wenn Du die beiden Teams anschließend erneut wechselst.
               </li>
             </ul>
           </InfoHint>
@@ -266,9 +266,9 @@ export function FormTeamErsatzSection({
                 </div>
 
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
-                  Der Wechsel gilt sofort und ist auf jeder Tabelle und jedem Spielplan dieser Saison zu sehen. Zurücknehmen lässt er sich in
-                  der Verwaltung nicht: Die Kadereinträge von {outgoing.name} bleiben ausgetragen, auch wenn Du die beiden Teams anschließend
-                  erneut wechselst.
+                  Der Wechsel gilt sofort und ist auf jeder Tabelle und jedem Spielplan dieser Saison zu sehen. Es gibt in der Verwaltung keinen
+                  Weg zurück. Die Kadereinträge von {outgoing.name} bleiben ausgetragen, auch wenn Du die beiden Teams anschließend erneut
+                  wechselst.
                 </p>
               </ConfirmReveal>
             )}

@@ -83,7 +83,7 @@ export function FormLoeschenSection({
                 zurücknehmen.
               </li>
               <li>
-                <strong>Zurückholen lässt sich danach nichts</strong>, auch nicht über das Protokoll.
+                <strong>Zurückholen lässt sich das nicht.</strong> Auch über das Protokoll führt kein Weg zurück.
               </li>
             </ul>
           </InfoHint>
@@ -129,8 +129,8 @@ export function FormLoeschenSection({
             {/* No restore is named, because none exists: the log keeps no image of an erased person,
                 an image being a fresh copy of what the erasure destroyed. */}
             <p className="fluid-xxs text-foreground leading-normal font-medium">
-              {fullName} verschwindet damit aus der Verwaltung und von jeder öffentlichen Seite. Zurückholen lässt sich das nicht: weder die
-              Person noch ihre Kadereinträge noch ihre Angaben im Änderungsprotokoll.
+              {fullName} verschwindet damit aus der Verwaltung und von jeder öffentlichen Seite, mitsamt allen Kadereinträgen und allen Angaben
+              im Änderungsprotokoll. Zurückholen lässt sich das nicht.
             </p>
           </ConfirmReveal>
         )}

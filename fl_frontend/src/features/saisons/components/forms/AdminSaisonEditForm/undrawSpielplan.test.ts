@@ -85,7 +85,7 @@ describe("the undraw half of the Spielplan panel", () => {
   /* Soften this to "der Spielplan wird zurückgesetzt" and this fails. Nothing writes the removed rows
      back: `/spiele` has neither a create nor a delete, and the log's images are a record to read. */
   it("states in the armed alert that the removal cannot be taken back", () => {
-    assert.match(ARMED, /Zurückholen lässt sich der alte Spielplan in der Verwaltung nicht/);
+    assert.match(ARMED, /Es gibt in der Verwaltung keinen Weg zurück\./);
   });
 
   /* Wire an undo here and this fails, for the draw's reason: there is no endpoint to replay the

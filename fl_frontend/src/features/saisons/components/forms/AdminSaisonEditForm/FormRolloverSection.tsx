@@ -117,7 +117,7 @@ export function FormRolloverSection({
             severity="info"
             title="Diese Saison ist abgeschlossen">
             Eine abgeschlossene Saison wird nicht wieder zur laufenden Saison. Ihre Punkte, ihre Gruppen und die Tabelle daraus halten fest, was
-            gespielt wurde, und eine Umstellung würde alle drei wieder öffnen. Der Abschluss lässt sich in der Verwaltung nicht zurücknehmen.
+            gespielt wurde, und eine Umstellung würde alle drei wieder öffnen. Es gibt in der Verwaltung keinen Weg zurück.
           </Callout>
         ) : isAlreadyActive ? (
           // Panel-local and deliberately not a banner: it answers "why can I not act HERE", which is a
@@ -198,11 +198,12 @@ export function FormRolloverSection({
 
             {isConfirming && (
               <ConfirmReveal>
+                {/* The finality is said on the outgoing branch alone: with nothing active this press
+                    closes no season, and closing one is what `REQ-ACTIVATE-002` then refuses to undo. */}
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
                   {outgoing === null
                     ? `Saison ${saisonId} wird sofort öffentlich als laufende Saison angezeigt.`
-                    : `Saison ${outgoing} wird abgeschlossen und ${saisonId} sofort öffentlich als laufende Saison angezeigt.`}{" "}
-                  Rückgängig geht das nur, indem Du die andere Saison wieder umstellst.
+                    : `Saison ${outgoing} ist danach abgeschlossen, und ${saisonId} wird sofort öffentlich als laufende Saison angezeigt. Es gibt in der Verwaltung keinen Weg zurück.`}
                 </p>
               </ConfirmReveal>
             )}

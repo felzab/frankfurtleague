@@ -113,10 +113,13 @@ describe("the draw half of the Spielplan panel", () => {
     }
   });
 
-  /* Drop the claim from either branch and this fails. Both presses are permanent — a replace redraws
-     rather than restoring — so neither may be armed without saying so. */
-  it("states on both branches that the admin cannot take the write back", () => {
-    assert.equal(ARMED.match(/Verwaltung nicht/g)?.length, 2);
+  /* A first draw on a PLANNED season has a repair, the undraw beside it (`REQ-SPIELPLAN-006`), so a
+     permanence claim there sends an admin away from a control this panel offers. The other two
+     destroy rows nothing replays. */
+  it("points a first draw on a planned season at the undraw, and claims no way back on the other two", () => {
+    assert.match(ARMED, /Zurücknehmen lässt sich der Spielplan danach wieder hier/);
+    assert.equal(ARMED.match(/Es gibt in der Verwaltung keinen Weg zurück\./g)?.length, 2);
+    assert.doesNotMatch(ARMED, /Verwaltung nicht/);
   });
 
   /* Wire an undo here and this fails. `/spiele` has neither a create nor a delete, so nothing can

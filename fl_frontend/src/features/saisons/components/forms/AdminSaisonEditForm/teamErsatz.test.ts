@@ -59,7 +59,7 @@ describe("the replacement panel", () => {
   it("offers no undo and reaches no route handler", () => {
     assert.doesNotMatch(PANEL, /actionProps|UNDO_TIMEOUT_MS|Rückgängig/);
     assert.doesNotMatch(PANEL, /\/api\/admin\//);
-    assert.match(PANEL, /Zurücknehmen lässt sich der Wechsel in der Verwaltung nicht/);
+    assert.match(PANEL, /Es gibt in der Verwaltung keinen Weg zurück\./);
   });
 
   /* The swap's and the draw's shape: two presses, and the second one writes. Call the action outside

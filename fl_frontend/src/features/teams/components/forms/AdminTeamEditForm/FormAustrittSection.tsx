@@ -83,7 +83,10 @@ export function FormAustrittSection({
               <li>
                 Die Tabelle <strong>überspringt</strong> das Team bei der Platzvergabe. Seine Ergebnisse bleiben gewertet.
               </li>
-              <li>Aufheben entfernt Art, Grund und Datum ersatzlos. Es gibt keinen Verlauf.</li>
+              <li>
+                Aufheben entfernt Art, Grund und Datum. Direkt nach dem Speichern holt „Rückgängig“ sie fünfzehn Sekunden lang unverändert
+                zurück.
+              </li>
             </ul>
           </InfoHint>
         </h2>
