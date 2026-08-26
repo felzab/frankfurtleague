@@ -313,7 +313,13 @@ if (( RUN_SCRIPTS )); then
   # status and never speaks, so every verdict is still reached below, in written order, and the
   # run still ends at the first failure. `docs/ops/spec.md` §1.6.
   do_selfcheck() { bash scripts/selfcheck.sh; }
-  do_ruff()      { "$PY" -m ruff check scripts && "$PY" -m ruff format --check scripts; }
+  # Only a failing invocation speaks. Both share one capture file, so a passing banner would
+  # print directly above the other's finding and read as a verdict on it.
+  do_ruff() {
+    local lint
+    lint="$("$PY" -m ruff check scripts 2>&1)" || { printf '%s\n' "$lint"; return 1; }
+    "$PY" -m ruff format --check scripts
+  }
   # Run from inside scripts/, where pyright finds its config. `$PY` is absolute, so the `cd` does
   # not disturb it.
   do_pyright()   { ( cd "${REPO_ROOT}/scripts" && "$PY" -m pyright ); }
@@ -358,13 +364,26 @@ if (( RUN_SCRIPTS )); then
     local rc
     if [[ -s "${BG_DIR}/${1}.out" ]]; then cat "${BG_DIR}/${1}.out"; fi
     rc="$(cat "${BG_DIR}/${1}.rc" 2>/dev/null || true)"
-    # Never 1, 2 or 130: each of those is a verdict a check earns by finishing, and a job that left
-    # no status earned none. 3 is what every caller below already reads as a crash.
+    # Never 1, 2 or 130: each is a verdict a check earns by finishing, and a job that left no
+    # status earned none. `bg_verdict` and pytest's own case route it to the crash path.
     if [[ ! "$rc" =~ ^[0-9]+$ ]]; then
       printf '%s\n' "the ${1} check left no exit status behind, so it did not run to completion"
       return 3
     fi
     return "$rc"
+  }
+
+  # A remedy is owed only where the check reached a verdict. A job that left no status reached
+  # none, so 3 takes the crash path instead of announcing findings the check never made.
+  bg_verdict() { # $1 the check · $2 the line to blame a crash on · $3 the remedy for a failure
+    local rc=0
+    quietly bg_replay "$1" || rc=$?
+    case "$rc" in
+      0)   ;;
+      1)   die "$3" ;;
+      130) on_interrupt ;;
+      *)   on_error "$rc" "$2" "scripts · $1" ;;
+    esac
   }
 
   bg_start selfcheck; bg_start ruff; bg_start pyright; bg_start pytest
@@ -383,13 +402,13 @@ if (( RUN_SCRIPTS )); then
 
   step "scripts · ruff  (lint, and format in check mode)"
   bg_join ruff
-  quietly bg_replay ruff \
-    || die "ruff failed in scripts/. Fix with:  fl_backend/.venv/Scripts/python -m ruff format scripts"
+  bg_verdict ruff "${LINENO}" \
+    "ruff failed in scripts/. Fix with:  fl_backend/.venv/Scripts/python -m ruff format scripts"
   ok "the gate's own python is clean"
 
   step "scripts · pyright"
   bg_join pyright
-  quietly bg_replay pyright || die "pyright found type errors in scripts/.
+  bg_verdict pyright "${LINENO}" "pyright found type errors in scripts/.
 These are the same errors Pylance shows in the editor."
   ok "the gate's own types are clean"
 

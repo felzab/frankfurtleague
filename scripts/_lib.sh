@@ -227,8 +227,9 @@ step_took_ms() { # $1 how long this step's work actually took, in milliseconds
   _STEP_T0=$(( SECONDS - $1 / 1000 ))
 }
 
-# Under a section every step carries its duration: the table's rows are sums of these, and a total
-# no line itemises is one nobody can act on.
+# Under a section every step carries its duration, because a total no line itemises is one
+# nobody can act on. The section's own row is a wall clock, which its steps sum to only while
+# they run in order.
 ok() {
   local suffix=""
   if (( _CHROME )); then
