@@ -446,6 +446,14 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SAISONS,
+        "rules.tiebreak_order",
+        Editability.CONDITIONAL,
+        "frozen once the season is `past`: clubs level on points are separated by it on every read, so a change rewrites "
+        "where a finished season's table placed them",
+        "app.api.saisons.services.find_rules_refusal",
+    ),
+    FieldPolicy(
+        Collection.SAISONS,
         "rules.qualifiers_per_group",
         Editability.CONDITIONAL,
         "frozen on a `past` season, and on a drawn one it moves only WITH the fixtures, through the draw's own payload "
@@ -1261,14 +1269,15 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="a matchday whose attached fixtures differ from the count its phase implies",
         reason=(
-            "The draw writes every phase at exactly its implied count, so a drawn season reaches the mismatch "
-            "only where its rules widen afterwards; the seasons whose fixtures were placed by hand hold whatever "
-            "was entered, and refusing the state would block those rather than a mistake. The matchday's own "
-            "write never reads the count at all: `anzahl_spiele` is derived for the reader, and the one write the "
-            "mismatch does bind is the season's rules, where `REQ-RULES-006` refuses a narrowing that would "
-            "deepen it. The list shows attached over expected and tints a mismatch."
+            "A refusal would land on the season's rules patch, and the seasons it would land on are the ones whose "
+            "stored rows no current write path produces -- latching those shut against every later edit, their dates "
+            "included (`docs/backend/spec.md :: I44`), rather than catching a mistake. Nothing opens the gap afresh: "
+            "the draw writes every phase at exactly its implied count, and `REQ-RULES-011` holds the three numbers "
+            "that count follows from to the fixtures drawn from them, in either direction, from the season's first "
+            "fixture onward. The matchday's own write never reads the count at all: `anzahl_spiele` is derived for "
+            "the reader. The list shows attached over expected and tints a mismatch."
         ),
-        near=("REQ-RULES-006",),
+        near=("REQ-RULES-011", "REQ-RULES-006"),
         proven_by="tests/core/test_unenforced.py::TestAMatchdayOffItsImpliedCount",
         surfaced_by="/admin/spieltage",
     ),
