@@ -35,7 +35,21 @@ const SEARCH_KEYS = [
  * per card. Filtered CLIENT-side over the season already fetched, so it cannot find a match outside
  * the selected season.
  */
-export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLSpiel[]; today: string; isAdmin?: boolean }) {
+export function SpielsucheView({
+  spiele,
+  today,
+  isAdmin = false,
+  spieltage,
+}: {
+  spiele: FLSpiel[];
+  today: string;
+  isAdmin?: boolean;
+  /**
+   * The season's matchdays, labelled, for the facet of the same name. Absent on a route that fetched
+   * none, and `fl_frontend/src/features/spiele/facets.ts :: buildSpielFacets` then omits the facet.
+   */
+  spieltage?: readonly { id: string; label: string }[];
+}) {
   const { urlValue: spielQuery, inputValue, setInputValue } = useDebouncedUrlQuery();
 
   // Copies of what a user types but the document does not store as text — a date as "14.03."
@@ -49,9 +63,9 @@ export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLS
     }));
   }, [spiele]);
 
-  // Three facets derive their options from the fixtures, so none can offer a value narrowing to
-  // nothing.
-  const facets = useMemo(() => buildSpielFacets({ spiele, today, isAdmin }), [spiele, today, isAdmin]);
+  // Three facets derive their options from the fixtures, so none of those can offer a value narrowing
+  // to nothing. `spieltag` is the exception, and reads zero for a matchday nothing is drawn into yet.
+  const facets = useMemo(() => buildSpielFacets({ spiele, today, isAdmin, spieltage }), [spiele, today, isAdmin, spieltage]);
   // The controls are `FilterLeiste`'s and they meet this side in the URL, so it only reads.
   const selection = useFacetSelection(facets);
 

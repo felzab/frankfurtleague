@@ -12,7 +12,7 @@ import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "@/features/spieler/con
 import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { IconTooltip } from "@/shared/components/ui/IconTooltip";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -40,7 +40,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   setDeletingSpieler,
 }: {
   filteredSpieler: AdminSpielerRow[];
-  /** `AdminCrudView :: CrudEmptiness` carries what each value means. */
+  /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
   /** The clubs holding a junction row in the selected season — the one collection `REQ-SQUAD-001` counts. */
   saisonTeams: readonly SpielerTeamOption[];
@@ -87,9 +87,12 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         </span>
       )}
       {spieler.selected?.is_nachgetragen === true && spieler.selected.inactive_since === null && (
-        <IconTooltip label="Der Spieler kam erst nach dem Start der Saison dazu.">
-          <span className={`${LABEL_BADGE} bg-info/15 text-info-strong cursor-help`}>Nachgetragen</span>
-        </IconTooltip>
+        /* `InfoHint`, not `IconTooltip` — `InfoHint.tsx` carries why. The badge acts on nothing, so the press is free. */
+        <InfoHint
+          label="Nachgetragen"
+          trigger={<span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Nachgetragen</span>}>
+          <p>Der Spieler kam erst nach dem Start der Saison dazu.</p>
+        </InfoHint>
       )}
       {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
         <>
@@ -161,13 +164,15 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
   /**
    * The phone layout's marker, in the Kürzel chip's exact box. `C` rather than the word — the marker
-   * the squad sheets already used — with the tooltip carrying it for anyone who does not know it.
+   * the squad sheets already used — with the hint carrying it for anyone who does not know it.
    */
   const renderCaptainCompact = (spieler: AdminSpielerRow) =>
     spieler.selected?.is_captain === true ? (
-      <IconTooltip label="Kapitän dieses Teams">
-        <span className={`${SHORTHAND_CHIP} cursor-help`}>C</span>
-      </IconTooltip>
+      <InfoHint
+        label="Kapitän dieses Teams"
+        trigger={<span className={SHORTHAND_CHIP}>C</span>}>
+        <p>Kapitän dieses Teams</p>
+      </InfoHint>
     ) : null;
 
   const emptyState = (

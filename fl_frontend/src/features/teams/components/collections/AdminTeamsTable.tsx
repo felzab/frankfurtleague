@@ -36,7 +36,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   setDeletingTeam,
 }: {
   filteredTeams: AdminTeamRow[];
-  /** `AdminCrudView :: CrudEmptiness` carries what each value means. */
+  /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
   /** Decides the status column's wording — the season's own three words. */
   selectedSaisonStatus: "past" | "active" | "future";

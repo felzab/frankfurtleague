@@ -106,6 +106,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             { term: "Name", detail: "folgt aus der Runde, zu der ein Spieltag gehört." },
             { term: "Zeitraum", detail: "der Stift öffnet den Spieltag, dort trägst Du Beginn und Ende ein." },
             { term: "Spiele", detail: "die angelegte Zahl neben der erwarteten. Weichen sie ab, fehlt etwas." },
+            { term: "Spiele anzeigen", detail: "das Kalendersymbol öffnet die Spielsuche, gefiltert auf diesen Spieltag." },
           ],
           note: "Die Spieltage einer Saison entstehen zusammen mit ihrem Spielplan. Hier legst Du ihren Zeitraum fest.",
         },

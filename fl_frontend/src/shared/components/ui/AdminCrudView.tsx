@@ -17,9 +17,8 @@ import type { Facet } from "../../utils/facets";
 const NO_FACETS: readonly never[] = [];
 
 /**
- * Which narrowing stage emptied the rendered list, and so the one an empty state may name. The facets narrow before the
- * search, so a filter that left nothing owns the message even while a query is also typed. `"none"` is every other case:
- * the resource itself holds nothing, or rows survived both stages and no empty state renders.
+ * Which narrowing stage emptied the list, so an empty state can name it. Facets narrow before the search, so a filter
+ * that left nothing owns the message even where a query is typed too. `"none"` covers an untouched resource as well.
  */
 export type CrudEmptiness = "none" | "filtered" | "searched";
 

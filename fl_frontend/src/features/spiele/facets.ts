@@ -39,10 +39,17 @@ export function buildSpielFacets({
   spiele,
   today,
   isAdmin,
+  spieltage = [],
 }: {
   spiele: readonly FLSpiel[];
   today: string;
   isAdmin: boolean;
+  /**
+   * The season's matchdays in the order they are played, each already carrying the label
+   * `fl_frontend/src/features/spieltage/utils.ts :: spieltagLabels` composes. Empty leaves the facet
+   * off altogether, rather than offering a dimension with nothing in it.
+   */
+  spieltage?: readonly { id: string; label: string }[];
 }): Facet<FLSpiel>[] {
   const teamOptions = distinct(spiele, (spiel) => (spiel.team1 ? { id: spiel.team1.team_id, label: spiel.team1.name } : null)).concat(
     distinct(spiele, (spiel) => (spiel.team2 ? { id: spiel.team2.team_id, label: spiel.team2.name } : null)),
@@ -52,37 +59,55 @@ export function buildSpielFacets({
     left.label.localeCompare(right.label, "de"),
   );
 
-  // The order the filter surface draws its sections in; the admin branch below reorders it.
-  const facets: Facet<FLSpiel>[] = [
-    {
-      param: "status",
-      label: "Status",
-      options: STATUS_OPTIONS,
-      read: (spiel) => [computeSpielStatus({ datum: spiel.datum, sonderereignis: spiel.sonderereignis, today })],
-    },
-    {
-      param: "phase",
-      label: "Phase",
-      options: (Object.keys(PHASE_LABELS) as (keyof typeof PHASE_LABELS)[]).map((phase) => ({ value: phase, label: PHASE_LABELS[phase] })),
-      read: (spiel) => [spiel.saison_phase],
-    },
-    {
-      param: "team",
-      label: "Team",
-      options: teams,
-      // An unoccupied slot contributes nothing, which keeps an unresolved knockout fixture out of a
-      // club's filtered list rather than wrongly in it.
-      read: (spiel) => [spiel.team1?.team_id, spiel.team2?.team_id].filter((id): id is string => id !== undefined),
-    },
-    {
-      param: "ort",
-      label: "Ort",
-      options: distinct(spiele, (spiel) => (spiel.ort ? { id: spiel.ort.spielort_id, label: spiel.ort.name } : null)),
-      read: (spiel) => (spiel.ort === null ? [] : [spiel.ort.spielort_id]),
-    },
-  ];
+  const status: Facet<FLSpiel> = {
+    param: "status",
+    label: "Status",
+    options: STATUS_OPTIONS,
+    read: (spiel) => [computeSpielStatus({ datum: spiel.datum, sonderereignis: spiel.sonderereignis, today })],
+  };
 
-  if (!isAdmin) return facets;
+  const phase: Facet<FLSpiel> = {
+    param: "phase",
+    label: "Phase",
+    options: (Object.keys(PHASE_LABELS) as (keyof typeof PHASE_LABELS)[]).map((phase) => ({ value: phase, label: PHASE_LABELS[phase] })),
+    read: (spiel) => [spiel.saison_phase],
+  };
+
+  const team: Facet<FLSpiel> = {
+    param: "team",
+    label: "Team",
+    options: teams,
+    // An unoccupied slot contributes nothing, which keeps an unresolved knockout fixture out of a
+    // club's filtered list rather than wrongly in it.
+    read: (spiel) => [spiel.team1?.team_id, spiel.team2?.team_id].filter((id): id is string => id !== undefined),
+  };
+
+  const ort: Facet<FLSpiel> = {
+    param: "ort",
+    label: "Ort",
+    options: distinct(spiele, (spiel) => (spiel.ort ? { id: spiel.ort.spielort_id, label: spiel.ort.name } : null)),
+    read: (spiel) => (spiel.ort === null ? [] : [spiel.ort.spielort_id]),
+  };
+
+  // The only facet whose options cannot come off the fixtures: a matchday's German name is composed
+  // rather than served, so the page that fetched the matchdays hands it in.
+  const spieltag: Facet<FLSpiel> | undefined =
+    spieltage.length === 0
+      ? undefined
+      : {
+          param: "spieltag",
+          label: "Spieltag",
+          // Left in the order it arrived, which is the order the matchdays are played. `distinct`'s
+          // alphabetical sort would answer „10. Spieltag“ before „2. Spieltag“.
+          options: spieltage.map((entry) => ({ value: entry.id, label: entry.label })),
+          // Unconditional where `ort` and `schiedsrichter` guard a null: every fixture belongs to a
+          // matchday, so there is no absent case for this one to fold away.
+          read: (spiel) => [spiel.spieltag_id],
+        };
+
+  // The order the filter surface draws its sections in; the admin branch below reorders it. `spieltag`
+  // follows `phase`, the two narrowing the same axis a round apart.
+  if (!isAdmin) return [status, phase, spieltag, team, ort].filter((facet) => facet !== undefined);
 
   const ergebnis: Facet<FLSpiel> = {
     param: "ergebnis",
@@ -138,9 +163,7 @@ export function buildSpielFacets({
     read: (spiel) => (spiel.schiedsrichter === null ? [] : [spiel.schiedsrichter.schiedsrichter_id]),
   };
 
-  const [status, phase, team, ort] = facets;
-
   // `ansetzung` follows `status` because nothing else in the app finds an incomplete fixture. The
   // tail carries no ranking.
-  return [status, ansetzung, team, phase, ort, ergebnis, sonderereignis, schiedsrichter].filter((facet) => facet !== undefined);
+  return [status, ansetzung, team, phase, spieltag, ort, ergebnis, sonderereignis, schiedsrichter].filter((facet) => facet !== undefined);
 }

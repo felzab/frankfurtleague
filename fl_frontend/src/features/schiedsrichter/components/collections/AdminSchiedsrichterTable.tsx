@@ -35,7 +35,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   setDeletingSchiedsrichter,
 }: {
   filteredSchiedsrichter: FLSchiedsrichter[];
-  /** `AdminCrudView :: CrudEmptiness` carries what each value means. */
+  /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
   setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
 }) {

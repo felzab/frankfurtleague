@@ -34,7 +34,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
   emptiness,
 }: {
   filteredAktionen: AdminAktionRow[];
-  /** `AdminCrudView :: CrudEmptiness` carries what each value means. */
+  /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
 }) {
   const handleCopyVorgang = async (aktion: AdminAktionRow) => {
