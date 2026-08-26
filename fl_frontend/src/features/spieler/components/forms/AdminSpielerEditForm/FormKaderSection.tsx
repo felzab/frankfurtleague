@@ -7,7 +7,7 @@ import { Button, FieldError, Input, TextField, ToggleButton, ToggleButtonGroup }
 import { postSaisonSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
-import { NUMMER_MAX_LENGTH, POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
+import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS, POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -171,7 +171,13 @@ export function FormKaderSection({
                   placeholder="z.B. 7"
                   className={`${FIELD_INPUT} font-extrabold tracking-wider`}
                 />
-                <FieldError className={FIELD_ERROR} />
+                <FieldError className={FIELD_ERROR}>
+                  {/* Only the format, which is OUR rule. Every other flag keeps the browser's own sentence in the
+                      reader's language, as `SaisonFormControls.tsx :: SaisonDateField` sets out. */}
+                  {({ validationDetails, validationErrors }) =>
+                    validationDetails.patternMismatch ? NUMMER_MUST_BE_DIGITS : validationErrors.join(" ")
+                  }
+                </FieldError>
               </TextField>
             </div>
 

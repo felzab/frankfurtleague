@@ -48,9 +48,8 @@ export function SaisonDateField({
   minValue?: CalendarDate;
   maxValue?: CalendarDate;
   /**
-   * Shown when the value falls outside the bounds. Per site, because the bound means something
-   * different at each, and because the browser's own message is in ITS UI language and date format,
-   * which `I18nProvider` never reaches: validation here is native, not aria.
+   * Shown when the value falls outside the bounds, in place of the browser's bare date. Per site,
+   * because the bound means something different at each.
    */
   rangeMessage?: string;
 }) {
@@ -83,12 +82,11 @@ export function SaisonDateField({
         </DateField.Suffix>
       </DateField.Group>
       <FieldError className={FIELD_ERROR}>
-        {({ validationDetails }) =>
-          validationDetails.valueMissing
-            ? "Wähle ein Datum."
-            : validationDetails.rangeOverflow || validationDetails.rangeUnderflow
-              ? rangeMessage
-              : "Dieses Datum ist unvollständig."
+        {/* Only the range, which is OUR rule and which the browser can state only as a bare date in
+            its own locale. Everything else stays the browser's, in the language the reader chose:
+            `validationErrors` is where native validation puts it. */}
+        {({ validationDetails, validationErrors }) =>
+          validationDetails.rangeOverflow || validationDetails.rangeUnderflow ? rangeMessage : validationErrors.join(" ")
         }
       </FieldError>
       <DatePicker.Popover
