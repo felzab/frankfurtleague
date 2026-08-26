@@ -41,10 +41,10 @@ import type {
 } from "@/features/teams/schemas";
 import type { FLTeamDraftFields } from "@/features/teams/teamDraftStatus";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
+import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate } from "@internationalized/date";
-import type { ReactNode } from "react";
 
 /** What the undo replays: the halves the save wrote, holding their PRE-SAVE values. */
 type TeamUndoPayloads = {
@@ -85,7 +85,6 @@ export function AdminTeamEditForm({
   gruppeLocked,
   gruppeOffer,
   swap,
-  registerRequestLeave,
   pageHeader,
 }: {
   team: FLTeamRecord;
@@ -98,11 +97,11 @@ export function AdminTeamEditForm({
   gruppeOffer: readonly GruppeOffer[];
   /** The selected season's swap state, from `buildGruppenSwapContext`. */
   swap: SaisonGruppenSwapContext;
-  registerRequestLeave?: (requestLeave: () => void) => void;
-  pageHeader?: ReactNode;
+  pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isLeaving, startLeaving] = useTransition();
 
   const storedMembership = saison.membership;
 
@@ -220,8 +219,12 @@ export function AdminTeamEditForm({
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    if (window.history.length > 1) router.back();
-    else router.push("/admin/teams");
+    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
+    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    startLeaving(() => {
+      if (window.history.length > 1) router.back();
+      else router.push("/admin/teams");
+    });
   };
 
   const requestLeave = () => {
@@ -232,10 +235,6 @@ export function AdminTeamEditForm({
     }
     leavePage();
   };
-
-  useEffect(() => {
-    registerRequestLeave?.(requestLeave);
-  });
 
   const resetDraftToStored = () => {
     setClubDraft({
@@ -430,6 +429,8 @@ export function AdminTeamEditForm({
         onSubmit={runOnSubmit(requestSave)}>
         <EditFormLayout
           header={pageHeader}
+          onLeave={requestLeave}
+          isLeaving={isLeaving}
           rail={
             <DraftRail
               banners={banners}
@@ -486,6 +487,7 @@ export function AdminTeamEditForm({
 
         <FormActionBar
           isPending={isPending}
+          isLeaving={isLeaving}
           onCancel={requestLeave}
         />
       </Form>

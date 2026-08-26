@@ -615,10 +615,11 @@ it.
 
 **The pair is already on screen, carrying a distinction nothing declares.** A person's league-wide
 retirement renders as "Stillgelegt seit …" in the muted pair, and a squad row's season-scoped removal
-as "Ausgetragen seit …" in the warning pair — the same two badges in
-`fl_frontend/src/features/spieler/components/collections/AdminSpielerTable.tsx` and
-`fl_frontend/src/features/spieler/components/views/AdminSpielerEditView.tsx`, whose comment records
-the choice. **This is not an accessibility question**: the badges carry different words and the tint
+as "Ausgetragen seit …" in the warning pair — both badges in
+`fl_frontend/src/features/spieler/components/collections/AdminSpielerTable.tsx`, and the second verb
+again as a rail banner's heading in
+`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts ::
+spieler.row-retired-since`. **This is not an accessibility question**: the badges carry different words and the tint
 reinforces a distinction the text already makes, which is what WCAG 1.4.1 asks. What carries the
 meaning is the verb, and the verb is the thing the corpus never declares.
 

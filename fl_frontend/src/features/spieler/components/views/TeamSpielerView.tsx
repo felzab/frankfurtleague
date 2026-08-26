@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { ArrowUturnCwLeft } from "@gravity-ui/icons";
@@ -8,6 +9,7 @@ import { Avatar, Button, Chip, Table } from "@heroui/react";
 
 import { PILL_RADIUS } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
+import { formButton } from "@/shared/components/ui/formButtons";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 
 import type { FLSpielerPublic } from "../../schemas";
@@ -20,14 +22,20 @@ import type { FLSpielerPublic } from "../../schemas";
  */
 export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; teamSpieler: FLSpielerPublic[] }) {
   const router = useRouter();
+  const [isLeaving, startLeaving] = useTransition();
 
   return (
     <div className={`${PAGE_RISE} flex w-full flex-col`}>
       <Button
         onPress={() => {
-          router.back();
+          // The pending flag is what ends react-aria's hover: it clears `data-hovered` when a control
+          // turns disabled, and no `pointerleave` follows a click that leaves.
+          startLeaving(() => {
+            router.back();
+          });
         }}
-        className="bg-surface border-border text-foreground data-hovered:bg-hover fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+        isDisabled={isLeaving}
+        className={`${formButton({ intent: "nav", size: "sm" })} mb-6 w-fit gap-x-2`}>
         <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
         <span>Zurück</span>
       </Button>

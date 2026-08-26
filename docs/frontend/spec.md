@@ -591,13 +591,13 @@ sufficient on its own.
 Next 16 exposes **no navigation blocker** — verified against the `next/navigation` export list and
 `AppRouterInstance`. What the page can intercept, it does:
 
-| Leaving by                      | Guarded | How                                                    |
-| ------------------------------- | :-----: | ------------------------------------------------------ |
-| Reload, tab close, browser quit |   ✅    | `beforeunload`, in `useUnsavedChangesWarning`          |
-| A link this page renders        |   ✅    | `<Link onNavigate>`                                    |
-| Abbrechen, and the Zurück pill  |   ✅    | The form's own `requestLeave`, via a register-callback |
-| The admin sidemenu's links      |   ❌    | Rendered by the layout, above this tree                |
-| The browser's Back button       |   ❌    | `popstate` fires after the router has committed        |
+| Leaving by                      | Guarded | How                                                               |
+| ------------------------------- | :-----: | ----------------------------------------------------------------- |
+| Reload, tab close, browser quit |   ✅    | `beforeunload`, in `useUnsavedChangesWarning`                     |
+| A link this page renders        |   ✅    | `<Link onNavigate>`                                               |
+| Abbrechen, and the Zurück pill  |   ✅    | The form's own `requestLeave`, handed to both by `EditFormLayout` |
+| The admin sidemenu's links      |   ❌    | Rendered by the layout, above this tree                           |
+| The browser's Back button       |   ❌    | `popstate` fires after the router has committed                   |
 
 **The gaps are accepted** rather than paid for, and the shape of the payment is recorded so the trade
 can be re-taken rather than re-derived: a `NavigationGuardContext` in the admin layout, which every
@@ -758,9 +758,8 @@ the same weight as the dates it joins, so the span reads as one grey ribbon in w
 outweighs its endpoints. The season selector also styles its span `uppercase`, which turns the word
 into `BIS` and leaves a dash untouched. Every span in the product uses it:
 `fl_frontend/src/features/saisons/components/collections/AdminSaisonsTable.tsx :: renderZeitraum`,
-`fl_frontend/src/features/saisons/components/ui/SaisonSelector.tsx :: timespan`,
-`fl_frontend/src/features/spieltage/components/collections/AdminSpieltageList.tsx` and
-`fl_frontend/src/features/spieltage/components/views/AdminSpieltagEditView.tsx`.
+`fl_frontend/src/features/saisons/components/ui/SaisonSelector.tsx :: timespan` and
+`fl_frontend/src/features/spieltage/components/collections/AdminSpieltageList.tsx`.
 
 **The exception reaches two dates and nothing else.** Not a range of numbers, which stays `von 2 bis
 16`; not a scoreline; not `format.ts :: PLACEHOLDER`'s `--:--` and `-:-`, which are digit masks and
@@ -846,16 +845,25 @@ The consequences worth knowing before editing metadata:
 
 ### 1.14 The shared editor surface
 
-Every entity editor is one shell over one status object. Five modules under
+Every entity editor is one shell over one status object. Six modules under
 `fl_frontend/src/shared/components/ui/` hold that shape, and a slice contributes only what is its own.
 
 | Module                   | Provides                                                                             |
 | ------------------------ | ------------------------------------------------------------------------------------ |
 | `EditFormLayout.tsx`     | The scroll container, page-width wrapper, two-column grid and sticky rail slot       |
+| `EditPageHeader.tsx`     | The Zurück pill, the `h2`, its one chip, the reactivate control and the save notice  |
 | `DraftStatusContext.tsx` | `DraftStatusProvider`, and `useDraftStatus` / `useFieldStatus` for anything below it |
 | `DraftRail.tsx`          | The Hinweise and Änderungen cards, separately and as a `DraftRail` pair              |
 | `FormActionBar.tsx`      | The save/cancel bar and its unsaved-changes count                                    |
 | `FieldLabel.tsx`         | A field's label, its `feld-` anchor id, and the Geändert marker                      |
+
+**The header is a title, at most one thing horizontally beside it, and the save notice** (my rule,
+2026-08-26). `EditPageHeader` owns all three and `EditFormLayout` takes its data slots rather than a
+node, so a second line has nowhere to go: there is no `children`, no subtitle and no context prop. The
+row does not wrap at any width — the title truncates and the chip holds its place — because a chip
+pushed onto a second line under the heading is the ragged header the rule exists to prevent. Where a
+retirement badge and an identity chip both apply, the badge takes the slot: the Kürzel and the squad
+number are fields of the form below, and the day a row was retired is stated nowhere else.
 
 **A slice owns its descriptors and nothing structural.** It declares a group union and a
 `FLFieldDescriptor` table, folds them through
@@ -917,6 +925,7 @@ data: the shared one never learns about `expected`, and the narrow one holds no 
 | I35 | **Every `path` a field label is given is a path its editor's descriptor table carries.** A path no descriptor carries renders a label with no Geändert marker and no error, because `useFieldStatus` answers `undefined` rather than throwing                                                                                                                                                                                                                                                                                                                      | `fl_frontend/src/shared/components/ui/fieldLabelPaths.test.ts` sweeps every literal, template and composed path a label is handed                                                                                                                                                                                                                                                                                                                                           |
 | I36 | **Every request `apiClient` composes reaches an operation `fl_backend/openapi.json` publishes — matched on method and on path shape — sends only query parameters that operation declares, each agreeing with it on type and enum members, and declares every parameter the operation requires.** A query parameter publishes inline under `paths` rather than as a component, so I17's comparison never reaches one                                                                                                                                               | `fl_frontend/src/core/apiRequests.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | I37 | **A write with no undo escalates in place through the shared two-press control, and a panel spelling its own armed state is the violation.** The hook holds the arming, the guard that runs before BOTH presses and the pending state; the shell announces itself as an alert and takes one gap for every panel, no variant of any kind, because a knob there is a variant prop under another name. What stays each panel's own is the copy, the blocked reason, the readouts and how it grades the response                                                       | `fl_frontend/src/shared/hooks/useTwoPressConfirm.ts`; `fl_frontend/src/shared/components/ui/ConfirmReveal.tsx`, `ConfirmActionRow.tsx` and `ConfirmReadoutRow.tsx` beside it; `fl_frontend/src/shared/components/ui/formButtons.ts :: confirmButton` for the armed fill; and `fl_frontend/src/shared/components/ui/confirmPanel.test.ts`, which holds every panel on its roster to the shell, the action row and that fill, and fails one that keeps armed state of its own |
+| I38 | **An entity editor's page chrome is `EditPageHeader`, and a control that leaves a page is disabled while it goes.** The header carries a title, at most one thing beside it and the save notice, and a slice supplies data slots rather than a node. The disabled flag is what ends react-aria's hover on a tree the App Router keeps, no `pointerleave` following a click that leaves                                                                                                                                                                             | `fl_frontend/src/shared/components/ui/EditPageHeader.tsx` and `EditFormLayout.tsx :: EditFormLayout`, whose `header` prop admits no node; `fl_frontend/src/shared/components/ui/formButtons.test.ts`, which fails a `<Button>` in an editor view or in the header that does not go through `formButton`. The disabling is review judgment                                                                                                                                   |
 
 ## 3. Violation → remedy
 

@@ -41,6 +41,12 @@ export function ctaButton(options: {
 }
 
 /**
+ * The neutral fill, named once because two intents wear it: the bar's Abbrechen and the page chrome's Zurück pill are
+ * one exit, and a second spelling of it is what lets the two halves drift apart.
+ */
+const NEUTRAL_FILL = "border-border text-foreground data-hovered:bg-hover border bg-transparent";
+
+/**
  * `h-12` and `transform-none` beat `@heroui/styles`, which fixes a height and scales on `[data-pressed]` where
  * no `scale-*` can cancel it. Neither is visible to the toolchain, so `formButtons.test.ts` asserts both.
  */
@@ -51,7 +57,12 @@ export const formButton = tv({
   variants: {
     intent: {
       submit: "bg-brand-solid data-hovered:bg-brand-solid-hover text-brand-solid-foreground",
-      cancel: "border-border text-foreground data-hovered:bg-hover border bg-transparent",
+      cancel: NEUTRAL_FILL,
+      /**
+       * A control outside the action bar. It is a recipe rather than a hand-spelled string so it inherits the
+       * base: without it the vendored press scales the pill and the reduced-motion escape misses it.
+       */
+      nav: NEUTRAL_FILL,
       // `-solid` plus its paired foreground: `bg-danger` is a tint, and under `text-foreground` it falls
       // below 4.5:1 in both themes, where this pair clears it in both.
       destructive: "bg-danger-solid data-hovered:bg-danger-solid-hover text-danger-solid-foreground",
@@ -64,6 +75,8 @@ export const formButton = tv({
     },
     /** For forms whose submit is the only control — the sign-in tabs have no "Abbrechen" beside it. */
     fullWidth: { true: "w-full" },
+    /** Height alone, so page chrome stays under the action bar's without becoming a second fill. */
+    size: { sm: "h-10" },
   },
   defaultVariants: { intent: "submit" },
 });

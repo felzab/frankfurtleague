@@ -26,8 +26,8 @@ import { FormZeitraumSection } from "./FormZeitraumSection";
 import type { FLPatchSpieltagPayload } from "@/features/spieltage/schemas";
 import type { FLSpieltagDraftFields } from "@/features/spieltage/spieltagDraftStatus";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
+import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
-import type { ReactNode } from "react";
 
 /**
  * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted, and
@@ -57,17 +57,16 @@ async function postSpieltagUndo(payload: FLPatchSpieltagPayload): Promise<{ succ
 export function AdminSpieltagEditForm({
   spieltag,
   saisonSpan,
-  registerRequestLeave,
   pageHeader,
 }: {
   spieltag: AdminSpieltagRow;
   /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
   saisonSpan?: { start: string; end: string };
-  registerRequestLeave?: (requestLeave: () => void) => void;
-  pageHeader?: ReactNode;
+  pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isLeaving, startLeaving] = useTransition();
 
   // An undated matchday enters as the empty string, which is the same state a cleared picker leaves
   // behind — so one branch below covers both, and the schema refuses the save either way.
@@ -138,8 +137,12 @@ export function AdminSpieltagEditForm({
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    if (window.history.length > 1) router.back();
-    else router.push("/admin/spieltage");
+    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
+    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    startLeaving(() => {
+      if (window.history.length > 1) router.back();
+      else router.push("/admin/spieltage");
+    });
   };
 
   const requestLeave = () => {
@@ -150,10 +153,6 @@ export function AdminSpieltagEditForm({
     }
     leavePage();
   };
-
-  useEffect(() => {
-    registerRequestLeave?.(requestLeave);
-  });
 
   const resetDraftToStored = () => {
     setBeginn(spieltag.beginn ?? "");
@@ -264,6 +263,8 @@ export function AdminSpieltagEditForm({
         onSubmit={runOnSubmit(requestSave)}>
         <EditFormLayout
           header={pageHeader}
+          onLeave={requestLeave}
+          isLeaving={isLeaving}
           rail={
             <DraftRail
               banners={banners}
@@ -289,6 +290,7 @@ export function AdminSpieltagEditForm({
 
         <FormActionBar
           isPending={isPending}
+          isLeaving={isLeaving}
           onCancel={requestLeave}
         />
       </Form>

@@ -41,9 +41,9 @@ import type {
   SaisonSpieltagBound,
 } from "@/features/saisons/types";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
+import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { CalendarDate } from "@internationalized/date";
-import type { ReactNode } from "react";
 
 /**
  * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted, and
@@ -78,7 +78,6 @@ export function AdminSaisonEditForm({
   spielplan,
   hasDrawnSpiele,
   spieltagBound,
-  registerRequestLeave,
   pageHeader,
 }: {
   saison: { id: string; status: FLSaisonStatus } & SaisonDraftFields;
@@ -93,11 +92,11 @@ export function AdminSaisonEditForm({
   hasDrawnSpiele: boolean;
   /** The span the dated matchdays already occupy, which the date pickers may not shrink past. */
   spieltagBound: SaisonSpieltagBound;
-  registerRequestLeave?: (requestLeave: () => void) => void;
-  pageHeader?: ReactNode;
+  pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isLeaving, startLeaving] = useTransition();
 
   // `CalendarDate` in state, strings on the wire — `parseDate` takes exactly the `YYYY-MM-DD` the API
   // sends. A picker cleared to null is held as null, and the schema is what reports it.
@@ -184,8 +183,12 @@ export function AdminSaisonEditForm({
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    if (window.history.length > 1) router.back();
-    else router.push("/admin/saisons");
+    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
+    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    startLeaving(() => {
+      if (window.history.length > 1) router.back();
+      else router.push("/admin/saisons");
+    });
   };
 
   const requestLeave = () => {
@@ -196,10 +199,6 @@ export function AdminSaisonEditForm({
     }
     leavePage();
   };
-
-  useEffect(() => {
-    registerRequestLeave?.(requestLeave);
-  });
 
   const resetDraftToStored = () => {
     setStartDate(parseDate(saison.start_date));
@@ -328,6 +327,8 @@ export function AdminSaisonEditForm({
         onSubmit={runOnSubmit(requestSave)}>
         <EditFormLayout
           header={pageHeader}
+          onLeave={requestLeave}
+          isLeaving={isLeaving}
           rail={
             <DraftRail
               banners={banners}
@@ -414,6 +415,7 @@ export function AdminSaisonEditForm({
 
         <FormActionBar
           isPending={isPending}
+          isLeaving={isLeaving}
           onCancel={requestLeave}
         />
       </Form>

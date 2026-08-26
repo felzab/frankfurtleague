@@ -1,11 +1,6 @@
 "use client";
 
-import { useRef, useTransition } from "react";
-import { useRouter } from "next/navigation";
-
-import { ArrowUturnCwLeft } from "@gravity-ui/icons";
-
-import { Button } from "@heroui/react";
+import { useTransition } from "react";
 
 import { reactivateTeamAction } from "@/features/teams/actions";
 import { AdminTeamEditForm } from "@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm";
@@ -39,13 +34,9 @@ export function AdminTeamEditView({
   swap: SaisonGruppenSwapContext;
   today: string;
 }) {
-  const router = useRouter();
   const [isReactivating, startReactivating] = useTransition();
 
   const isRetired = team.inactive_since !== null;
-
-  // The form's own guarded exit, registered from below.
-  const requestLeaveRef = useRef<() => void>(() => router.back());
 
   const handleReactivate = () => {
     startReactivating(async () => {
@@ -64,43 +55,19 @@ export function AdminTeamEditView({
         gruppeLocked={gruppeLocked}
         gruppeOffer={gruppeOffer}
         swap={swap}
-        registerRequestLeave={(requestLeave) => {
-          requestLeaveRef.current = requestLeave;
+        pageHeader={{
+          title: team.name,
+          // Retirement outranks the Kürzel: the Kürzel is a field of the form below, the day is nowhere else.
+          chip: isRetired ? (
+            <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(team.inactive_since)}</span>
+          ) : (
+            // The TeamCard's chip, so the Kürzel wears one colour everywhere.
+            <span className="bg-brand-solid text-brand-solid-foreground flex h-10 w-10 items-center justify-center rounded-xl font-extrabold shadow-sm">
+              {team.shorthand}
+            </span>
+          ),
+          reactivate: isRetired ? { isPending: isReactivating, onPress: handleReactivate } : undefined,
         }}
-        pageHeader={
-          <>
-            <Button
-              onPress={() => requestLeaveRef.current()}
-              className="bg-surface border-border text-foreground data-hovered:bg-hover fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
-              <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
-              <span>Zurück</span>
-            </Button>
-
-            <header className="mb-6 flex w-full flex-col gap-y-2">
-              <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
-                <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">{team.name}</h2>
-                {/* The TeamCard's chip, so the Kürzel wears one colour everywhere. */}
-                <span className="bg-brand-solid text-brand-solid-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold shadow-sm">
-                  {team.shorthand}
-                </span>
-                {isRetired && (
-                  <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>
-                    Stillgelegt seit {formatSpielDatum(team.inactive_since ?? "")}
-                  </span>
-                )}
-                {isRetired && (
-                  <Button
-                    onPress={handleReactivate}
-                    isDisabled={isReactivating}
-                    className="border-border bg-surface text-foreground data-hovered:bg-hover fluid-xs flex h-8 w-fit items-center rounded-lg border px-3 font-bold shadow-sm transition-colors">
-                    {isReactivating ? "Reaktiviert..." : "Reaktivieren"}
-                  </Button>
-                )}
-              </div>
-              <p className="muted-hint">Änderungen gelten erst, wenn Du speicherst.</p>
-            </header>
-          </>
-        }
       />
     </div>
   );
