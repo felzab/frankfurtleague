@@ -69,7 +69,7 @@ export function FormActionBar({
           {/* The hint answers the standing block only. `isPending` ends by itself and the label
               already says "Speichert...", so explaining it would describe a state nobody waits on. */}
           <DisabledHint
-            reason={isPending || status.isDirty ? null : "Es gibt noch keine Änderung zu speichern. Ändere zuerst etwas im Formular."}
+            reason={isPending || status.isDirty ? null : "Es gibt noch keine Änderung zu speichern."}
             className="flex-1 sm:flex-initial">
             <Button
               type="submit"

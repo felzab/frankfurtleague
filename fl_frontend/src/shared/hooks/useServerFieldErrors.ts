@@ -2,13 +2,26 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { appToast } from "@/shared/utils/appToast";
+import { buildRefusal } from "@/shared/utils/refusal";
+
 import type { FieldErrors } from "@/shared/utils/validation";
+
+/**
+ * The one answer to a refusal no input can show, written where it is detected rather than at each
+ * form: every editor reaching this state has the same thing to say and no reason to word it anew.
+ */
+const reportUnhandledFieldError = (): void => {
+  appToast.danger("Speichern fehlgeschlagen", {
+    description: buildRefusal({ reason: "Eine Angabe außerhalb dieses Formulars ist ungültig", repair: "Lade die Seite neu" }),
+  });
+};
 
 /**
  * `reportValidity()` is what moves focus to the first rejected field, and must run from an effect: react-aria focuses
  * only from its `invalid` handler. It returning `true` means no input renders the path — hence `onUnhandledErrors`.
  */
-export function useServerFieldErrors(onUnhandledErrors?: (errors: FieldErrors) => void) {
+export function useServerFieldErrors(onUnhandledErrors: (errors: FieldErrors) => void = reportUnhandledFieldError) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -24,7 +37,7 @@ export function useServerFieldErrors(onUnhandledErrors?: (errors: FieldErrors) =
     const form = formRef.current;
     if (!form) return;
 
-    if (form.reportValidity()) onUnhandledRef.current?.(fieldErrors);
+    if (form.reportValidity()) onUnhandledRef.current(fieldErrors);
   }, [fieldErrors]);
 
   return { fieldErrors, setFieldErrors, formRef };

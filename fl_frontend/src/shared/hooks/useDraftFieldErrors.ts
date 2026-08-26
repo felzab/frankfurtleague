@@ -63,8 +63,8 @@ export function useDraftFieldErrors<TSchema extends string>({
 }: {
   schemas: Readonly<Record<TSchema, ZodType>>;
   /**
-   * Fires when a submit was refused on a path no rendered input can display — the caller's cue to say
-   * so in a toast, because nothing on screen will.
+   * Replaces the toast `useServerFieldErrors` raises when a submit was refused on a path no rendered
+   * input can display. An editor wanting that wording passes nothing.
    */
   onUnhandledErrors?: (errors: FieldErrors) => void;
 }) {

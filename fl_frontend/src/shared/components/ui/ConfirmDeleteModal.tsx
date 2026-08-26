@@ -7,6 +7,7 @@ import { TrashBin, TriangleExclamation } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { formButton, MODAL_FOOTER_ROW } from "./formButtons";
 import { ModalShell } from "./ModalShell";
@@ -73,7 +74,7 @@ export function ConfirmDeleteModal({
       if (!res.success) {
         // The caller's own verb: a failure naming "Löschen" about a retirement names an action nobody asked for.
         appToast.danger(`${capitalized} fehlgeschlagen`, {
-          description: res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.",
+          description: res.error || res.message || UNKNOWN_REFUSAL,
         });
         return;
       }

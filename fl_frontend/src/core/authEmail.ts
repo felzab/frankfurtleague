@@ -24,7 +24,7 @@ function renderHtml(url: string): string {
       <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#525252;">
         Klicke auf den Button, um Dich bei der ${BRAND_NAME}-Verwaltung anzumelden. Der Link ist
         <strong style="color:#0a0a0a;">${LINK_VALIDITY_TEXT}</strong> gültig und kann nur einmal
-        verwendet werden.
+        verwendet werden. Ist er abgelaufen, fordere auf der Anmeldeseite einfach einen neuen an.
       </p>
       <a href="${url}" style="display:inline-block;background-color:${BRAND_COLOR};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:10px;">
         Jetzt anmelden
@@ -61,6 +61,10 @@ function renderText(url: string): string {
   ].join("\n");
 }
 
+/**
+ * **The two parts state the same facts.** A mail client renders one or the other, so anything only
+ * the text half carried would reach only the readers whose client refuses HTML.
+ */
 export function buildMagicLinkEmail(url: string): MagicLinkEmail {
   return {
     subject: `Anmeldelink für ${BRAND_NAME}`,

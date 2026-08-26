@@ -13,4 +13,4 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
 
 /** Two constants because a toast's title is the outcome and its description the detail; the first line alone must carry it. */
 export const CLIPBOARD_ERROR_TITLE = "Kopieren nicht möglich";
-export const CLIPBOARD_ERROR_DETAIL = "Die Zwischenablage ist in diesem Kontext nicht verfügbar.";
+export const CLIPBOARD_ERROR_DETAIL = "Dieser Browser gibt die Zwischenablage nicht frei.";
