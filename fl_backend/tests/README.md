@@ -1,6 +1,6 @@
 # Backend tests
 
-**Verified against:** `2b285402`, 2026-08-26\
+**Verified against:** `3dc107a5`, 2026-08-26\
 **Folder purpose:** the regression net under the backend's validation rules — the constraints the
 frontend mirrors rather than enforces, plus what MongoDB actually does with them.
 
@@ -9,9 +9,9 @@ frontend mirrors rather than enforces, plus what MongoDB actually does with them
 | Read                                                       | For                                                                   |
 | ---------------------------------------------------------- | --------------------------------------------------------------------- |
 | [`../../docs/backend/spec.md`](../../docs/backend/spec.md) | The contract: the two tiers, the `db` marker, the conventions         |
-| `conftest.py`                                              | The factory fixtures, and the session-scoped `mongod` container       |
+| `conftest.py`                                              | The factory fixtures, and the session-scoped `mongod` containers      |
 | `config.py`                                                | The settings an application under test is built with                  |
-| `database.py`                                              | A db test's database: schema built once, documents cleared per test   |
+| `database.py`                                              | The database a db test opens for itself: built once, emptied per call |
 | `shared/`                                                  | The custom types and shared schemas under `app/shared/`               |
 | `core/`                                                    | The declared domain model, the database constraints, logging          |
 | `api/`                                                     | One module per entity: models, filters, refusals, pipelines, guards   |

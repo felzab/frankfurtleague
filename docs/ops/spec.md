@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `2b285402`, 2026-08-26\
+**Verified against:** `3dc107a5`, 2026-08-26\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 | Section                                                | Answers                                                              |
@@ -263,9 +263,11 @@ their own caches and throwaway trees, so they start together and each is collect
 and the scope costs its slowest check rather than the sum of them. Every verdict is still reached in
 written order and the run still ends at the first check that fails, because a job records an exit
 status and never speaks — and a job that left no status is read as a crash rather than as a pass.
-`--serial` and `--verbose` take the serial path here too, for the reasons they take it above; a run
-covering only this scope does not, that exception belonging to the pool alone. A step joined after its
-work ran beside its neighbours is re-dated to that work's own length
+`--serial` and `--verbose` take the serial path here too, for the reasons they take it above, and
+nothing else does: CI, a run covering one scope, and a machine with no interpreter at the checkers'
+floor are the pool's exceptions alone. This level is bash, so no interpreter decides it, and in CI —
+where each scope is already its own job — it is the only concurrency a run has. A step joined after
+its work ran beside its neighbours is re-dated to that work's own length
 (`scripts/_lib.sh :: step_took_ms`), without which the first step joined absorbs the whole stretch and
 every step after it reads as free.
 
@@ -303,8 +305,10 @@ the frontend job runs, which already covers it.
 Docker is checked before any check runs on a run covering the ops, database or image scopes, and the
 backend virtualenv on one covering the scripts, documentation, backend or database scopes; the
 frontend's `pnpm install` prerequisite is checked nowhere, so a missing one surfaces at the first
-frontend step. Each tool is its own step, tool output is captured and shown only when its step fails,
-and `--verbose` streams everything instead (§1.7). **The self-check is the exception**, and it is
+step running a tool out of `node_modules` — prettier in the formatter's scope, `tsc` in the
+frontend's, the lockfile check before it needing only pnpm itself. Each tool is its own step, tool
+output is captured and shown only when its step fails, and `--verbose` streams everything instead
+(§1.7). **The self-check is the exception**, and it is
 replayed rather than captured: what it skipped and what it warned about reach the screen through a
 ledger even on a step that passed, because a skip nobody sees reads as a pass (§1.7).
 
