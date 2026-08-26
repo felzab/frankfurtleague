@@ -11,7 +11,7 @@ import {
   Sliders,
 } from "@gravity-ui/icons";
 
-import type { SidemenuStructure } from "@/shared/types/types";
+import type { SidemenuHint, SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
 
 /**
@@ -33,6 +33,24 @@ export const ADMIN_SIDEMENU_ICONS = {
 } as const satisfies Record<string, React.ElementType>;
 
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
+
+/**
+ * What the bar reads on `/admin/spiele/[spiel_id]`, the one route no nav entry names. It gets no entry of its own
+ * because the nav renders a link per entry and there is no fixture index to link to.
+ */
+export const ADMIN_SHELL_FALLBACK = {
+  label: "Spiele",
+  hint: {
+    lead: "Ein einzelnes Spiel bearbeiten.",
+    points: [
+      {
+        term: "Auf dieser Seite",
+        // The panels' own headings, in render order: an admin scans the page for the word it names.
+        detail: "Ansetzung, Begegnung, Ergebnis, Notiz und Sonderereignis.",
+      },
+    ],
+  },
+} as const satisfies { label: string; hint: SidemenuHint };
 
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   // Deliberately unnamed: everything below is season-scoped, and `SidemenuNavLinks` renders neither a

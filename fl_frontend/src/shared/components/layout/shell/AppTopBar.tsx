@@ -23,7 +23,7 @@ export function AppTopBar({
   onSignOut,
 }: {
   title: string;
-  /** The active route's `hint`. Absent on a route the navigation does not name. */
+  /** The active route's `hint`, already resolved against the shell's fallback, so the glyph is a fixture of the bar. */
   hint?: SidemenuHint;
   isMobileOpen: boolean;
   onToggleMobileMenu: () => void;

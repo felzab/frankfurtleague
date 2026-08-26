@@ -1,6 +1,6 @@
 "use client";
 
-import { DASHBOARD_SIDEMENU_ICONS, DASHBOARD_SIDEMENU_STRUCTURE } from "@/features/dashboard/constants";
+import { DASHBOARD_SHELL_FALLBACK, DASHBOARD_SIDEMENU_ICONS, DASHBOARD_SIDEMENU_STRUCTURE } from "@/features/dashboard/constants";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 
 import type React from "react";
@@ -16,9 +16,8 @@ export function DashboardShell({ saisonMetadataDisplay, children }: { saisonMeta
       linkPrefix="/dashboard"
       iconDictionary={DASHBOARD_SIDEMENU_ICONS}
       saisonMetadataDisplay={saisonMetadataDisplay}
-      // Reached only by `/dashboard` itself, which has no page and redirects: the detail routes
-      // resolve to their own section.
-      fallbackTitle="Saisonübersicht">
+      fallbackTitle={DASHBOARD_SHELL_FALLBACK.label}
+      fallbackHint={DASHBOARD_SHELL_FALLBACK.hint}>
       {children}
     </AppShell>
   );

@@ -20,17 +20,22 @@ export function AdminCrudShell({
   children: ReactNode;
 }) {
   return (
-    // The placeholder's minimum runs here because this mounts when the navigation starts, which is the clock
-    // the region below the boundary cannot read for itself (`globals.css`). It paints nothing.
-    <div className="animate-admin-placeholder-hold max-w-page mx-auto flex w-full flex-col gap-8 p-6 sm:p-8">
-      {/* Below `sm` the two are one joined control, sharing a seam with no gap; the corner and label flattening
-          live in `SearchBar` and `formButton`'s trigger. From `sm` they separate. */}
-      <div className="flex w-full flex-row items-center gap-0 sm:justify-between sm:gap-3">
-        {search}
-        {createModal}
-      </div>
+    // The gutter sits outside the cap, so `max-w-page` measures content rather than content plus padding
+    // (`EditFormLayout` splits the same way).
+    <div className="w-full p-6 sm:p-8">
+      {/* The placeholder's minimum runs here because this mounts when the navigation starts, which is the clock
+          the region below the boundary cannot read for itself (`globals.css`). It paints nothing, and the property
+          it animates inherits to `children`. */}
+      <div className="animate-admin-placeholder-hold max-w-page mx-auto flex w-full flex-col gap-8">
+        {/* Below `sm` the two are one joined control, sharing a seam with no gap; the corner and label flattening
+            live in `SearchBar` and `formButton`'s trigger. From `sm` they separate. */}
+        <div className="flex w-full flex-row items-center gap-0 sm:justify-between sm:gap-3">
+          {search}
+          {createModal}
+        </div>
 
-      {children}
+        {children}
+      </div>
     </div>
   );
 }

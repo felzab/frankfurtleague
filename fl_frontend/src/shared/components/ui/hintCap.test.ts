@@ -246,9 +246,12 @@ function assertCap(written: readonly string[]): void {
  * a `features` import.
  */
 const DATA_TABLES = [
-  { file: "features/admin/constants.ts", constant: "ADMIN_SIDEMENU_STRUCTURE", shape: "sidemenu" },
-  { file: "features/dashboard/constants.ts", constant: "DASHBOARD_SIDEMENU_STRUCTURE", shape: "sidemenu" },
-  { file: "features/admin/utils.ts", constant: "ACTION_REQUIRED_LABELS", shape: "triage" },
+  { file: "features/admin/constants.ts", constant: "ADMIN_SIDEMENU_STRUCTURE", shape: "sidemenu", floor: 4 },
+  { file: "features/dashboard/constants.ts", constant: "DASHBOARD_SIDEMENU_STRUCTURE", shape: "sidemenu", floor: 4 },
+  { file: "features/admin/utils.ts", constant: "ACTION_REQUIRED_LABELS", shape: "triage", floor: 4 },
+  // A shell fallback holds the one hint for the route its navigation does not name, so its floor is that one hint.
+  { file: "features/admin/constants.ts", constant: "ADMIN_SHELL_FALLBACK", shape: "fallback", floor: 1 },
+  { file: "features/dashboard/constants.ts", constant: "DASHBOARD_SHELL_FALLBACK", shape: "fallback", floor: 1 },
 ] as const;
 
 /** One table entry's hint, flattened into the blocks it renders as, the lead first. */
@@ -320,6 +323,15 @@ function sidemenuHintsIn(declared: ts.Expression, constant: string): DataHint[] 
   return hints;
 }
 
+/** A shell fallback's one hint, named by the bar title it is shown under. */
+function fallbackHintsIn(declared: ts.Expression, constant: string): DataHint[] {
+  if (!ts.isObjectLiteralExpression(declared)) return [];
+  const hint = propertyOf(declared, "hint");
+  if (hint === undefined || !ts.isObjectLiteralExpression(hint)) return [];
+
+  return [{ constant, key: staticText(propertyOf(declared, "label")) ?? "unnamed", blocks: hintBlocks(hint) }];
+}
+
 /**
  * A triage category's panel, which `AdminSpieleActionRequiredView` renders as its `name` over its
  * `desc` — the same lead-and-block shape a `SidemenuHint` writes, so the same cap counts it.
@@ -341,10 +353,12 @@ function triageHintsIn(declared: ts.Expression, constant: string): DataHint[] {
   return hints;
 }
 
+/** Keyed by `shape`, so a table declaring one the sweep cannot read is a compile error rather than an empty result. */
+const READER_FOR = { sidemenu: sidemenuHintsIn, triage: triageHintsIn, fallback: fallbackHintsIn };
+
 const dataTables = DATA_TABLES.map((table) => {
   const declared = constantIn(parseModule(table.file), table.constant);
-  const hints =
-    declared === null ? [] : table.shape === "sidemenu" ? sidemenuHintsIn(declared, table.constant) : triageHintsIn(declared, table.constant);
+  const hints = declared === null ? [] : READER_FOR[table.shape](declared, table.constant);
 
   return { ...table, hints };
 });
@@ -361,9 +375,12 @@ describe("what a hint is allowed to say", () => {
   });
 
   it("found the data tables to measure at all", () => {
-    // Per table, so a rename that emptied one could not hide behind the two still reading.
+    // Per table, so a rename that emptied one could not hide behind the others still reading.
     for (const table of dataTables) {
-      assert.ok(table.hints.length >= 4, `${table.constant} yielded ${String(table.hints.length)} hints — the sweep no longer reads it`);
+      assert.ok(
+        table.hints.length >= table.floor,
+        `${table.constant} yielded ${String(table.hints.length)} hints against a floor of ${String(table.floor)} — the sweep no longer reads it`,
+      );
     }
   });
 

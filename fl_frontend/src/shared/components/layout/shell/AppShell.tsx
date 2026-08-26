@@ -7,7 +7,7 @@ import { SkipToContentLink } from "../../ui/SkipToContentLink";
 import { Sidemenu } from "../sidemenu/Sidemenu";
 import { AppTopBar } from "./AppTopBar";
 
-import type { FormState, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
+import type { FormState, SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
 import type React from "react";
 
 /**
@@ -20,6 +20,7 @@ export function AppShell<TIcon extends string>({
   iconDictionary,
   saisonMetadataDisplay,
   fallbackTitle,
+  fallbackHint,
   onSignOut,
   children,
 }: {
@@ -32,6 +33,11 @@ export function AppShell<TIcon extends string>({
    * the bar names the section and the page names the record.
    */
   fallbackTitle: string;
+  /**
+   * Required for the same reason `SidemenuStructureSubOption.hint` is: a glyph present on most routes and absent on one
+   * reads as "this page has nothing to explain", which is a claim about the page rather than about the navigation.
+   */
+  fallbackHint: SidemenuHint;
   /** Passed to the bar's options menu; only the admin shell supplies one. */
   onSignOut?: () => Promise<FormState>;
   children: React.ReactNode;
@@ -70,7 +76,7 @@ export function AppShell<TIcon extends string>({
 
       <AppTopBar
         title={activeOption?.label ?? fallbackTitle}
-        hint={activeOption?.hint}
+        hint={activeOption?.hint ?? fallbackHint}
         isMobileOpen={isMobileOpen}
         onToggleMobileMenu={() => setIsMobileOpen(!isMobileOpen)}
         isDesktopCollapsed={isDesktopCollapsed}

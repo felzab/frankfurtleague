@@ -92,12 +92,12 @@ export function TopNav() {
           <Separator className="my-1" />
 
           <Dropdown.Section aria-label="Einstellungen">
-            {/* See the identical row in `SidemenuOptionsMenu` for why this row does not close. */}
+            {/* See the identical row in `SidemenuOptionsMenu` for why this row neither closes nor tints. */}
             <Dropdown.Item
               id="theme-switch"
               textValue="Modus"
               shouldCloseOnSelect={false}
-              className="flex w-full cursor-default items-center justify-between px-2 py-1.5 data-hovered:bg-transparent!">
+              className="flex w-full cursor-default items-center justify-between bg-transparent! px-2 py-1.5">
               <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
               <ThemeSwitch compact />
             </Dropdown.Item>

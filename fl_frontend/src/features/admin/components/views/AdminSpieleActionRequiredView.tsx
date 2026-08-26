@@ -159,26 +159,28 @@ export function AdminSpieleActionRequiredView({
         <Tabs.Panel
           key={section.category}
           id={section.category}
-          className="max-w-page flex w-full flex-col items-center gap-y-5 px-4 pt-0 pb-4 outline-none sm:px-8">
-          {section.spiele.length === 0 ? (
-            <EmptyState
-              tone="positive"
-              title="Keine Spiele in dieser Kategorie"
-            />
-          ) : (
-            // Faults reach the `bracket_fault` section alone: the one list already filtered by that
-            // diagnosis, and the only category whose tab cannot state the reason itself.
-            <div
-              role="list"
-              className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
-              <SpielCardsList
-                spiele={[...section.spiele]}
-                today={today}
-                isAdmin
-                faultsBySpielId={section.category === "bracket_fault" ? faultsBySpielId : undefined}
+          className="flex w-full flex-col items-center px-4 pt-0 pb-4 outline-none sm:px-8">
+          <div className="max-w-page flex w-full flex-col items-center gap-y-5">
+            {section.spiele.length === 0 ? (
+              <EmptyState
+                tone="positive"
+                title="Keine Spiele in dieser Kategorie"
               />
-            </div>
-          )}
+            ) : (
+              // Faults reach the `bracket_fault` section alone: the one list already filtered by that
+              // diagnosis, and the only category whose tab cannot state the reason itself.
+              <div
+                role="list"
+                className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
+                <SpielCardsList
+                  spiele={[...section.spiele]}
+                  today={today}
+                  isAdmin
+                  faultsBySpielId={section.category === "bracket_fault" ? faultsBySpielId : undefined}
+                />
+              </div>
+            )}
+          </div>
         </Tabs.Panel>
       ))}
     </Tabs>

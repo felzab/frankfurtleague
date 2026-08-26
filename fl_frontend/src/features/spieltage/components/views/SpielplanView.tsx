@@ -61,7 +61,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
         <Tabs.Panel
           key={spieltagData.id}
           id={spieltagData.id}
-          className="max-w-page w-full px-4 pt-0 pb-4 outline-none sm:px-8">
+          className="w-full px-4 pt-0 pb-4 outline-none sm:px-8">
           {/* The switch animation belongs on the CARDS. RAC holds a deselected panel mounted until
               `panel.getAnimations()` settle and ignores descendants, so `animate-in` here leaves
               the previous panel on screen. */}
@@ -69,7 +69,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
               Spieltag's card sat, so a single fade reads as the content mutating in place. */}
           <div
             role="list"
-            className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
+            className={`${CARDS_CASCADE} max-w-page mx-auto grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
             <SpielCardsList
               spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}
               today={today}

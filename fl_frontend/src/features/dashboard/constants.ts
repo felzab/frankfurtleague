@@ -1,6 +1,6 @@
 import { Calendar, ClockArrowRotateLeft, LayoutHeaderCells, Magnifier, Medal, Person, Persons } from "@gravity-ui/icons";
 
-import type { SidemenuStructure } from "@/shared/types/types";
+import type { SidemenuHint, SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
 
 /**
@@ -18,6 +18,17 @@ export const DASHBOARD_SIDEMENU_ICONS = {
 } as const satisfies Record<string, React.ElementType>;
 
 export type DashboardIconName = keyof typeof DASHBOARD_SIDEMENU_ICONS;
+
+/**
+ * What the bar reads on `/dashboard` itself, which the nav does not name because every entry below is a section of it.
+ */
+export const DASHBOARD_SHELL_FALLBACK = {
+  label: "Saisonübersicht",
+  hint: {
+    // The three group headings below, which is the whole of what the section holds.
+    lead: "Alles zur ausgewählten Saison: Spiele, Tabellen und Teams.",
+  },
+} as const satisfies { label: string; hint: SidemenuHint };
 
 /**
  * `label` is what the nav item and the shell's page title both read, and `hint` is what the info
