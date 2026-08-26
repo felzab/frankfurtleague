@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `dbdfbabf`, 2026-08-26\
+**Verified against:** `80d95c1f`, 2026-08-26\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -858,9 +858,9 @@ names.** Neither states which entries such a table holds, so the requirement has
 from one is an omission or a deliberate exclusion, and nothing in the corpus lets a reader tell those
 apart.
 
-**Measured on 2026-08-26 over both ranked pages.** Their 85 open entries yield 110 pairs of entry and
-surface where the surface owns a spec sheet. **Thirteen of the 110 are carried in the matching table
-and 97 are not** — 34 absent from `docs/backend/spec.md`, 32 from `docs/ops/spec.md`, 31 from
+**Measured on 2026-08-26 over both ranked pages.** Their 85 open entries yield 108 pairs of entry and
+surface where the surface owns a spec sheet. **Thirteen of the 108 are carried in the matching table
+and 95 are not** — 33 absent from `docs/backend/spec.md`, 32 from `docs/ops/spec.md`, 30 from
 `docs/frontend/spec.md`. At that spread the requirement cannot be read as a list of omissions: taken
 literally it is unmet almost everywhere at once, and discharging it would take each of those three
 tables to several times its size and make it a second copy of the ranked page.
@@ -898,7 +898,7 @@ out to be, which is downstream of the decision rather than an input to it.
 
 **Why it ranks where it does.** Tests 1 to 3 leave it among the entries around it: nothing ships wrong, no date
 has passed, and what accumulates is one unanswerable pair per filing rather than work to redo. **Test 4
-places it** — one decision retires a requirement that is unverifiable at 97 places today, and that
+places it** — one decision retires a requirement that is unverifiable at 95 places today, and that
 decision is the whole of the S, the sweep it authorises being separate work. It sits above **DOC-11**,
 which costs an M and a programme closed with me to reach a gain of the same kind.
 
