@@ -14,6 +14,7 @@ const build = (overrides: Partial<Parameters<typeof buildSaisonBanners>[0]> = {}
     isPointsChanged: false,
     isTiebreakChanged: false,
     isStufenChanged: false,
+    hasDrawnSpiele: false,
     outgoingSaisonId: null,
     offeneSpieleCount: 0,
     ...overrides,
@@ -38,6 +39,30 @@ describe("buildSaisonBanners", () => {
     // what proves the entry was not split; neither regex pins a wording beyond its own fact.
     assert.match(banner?.title ?? "", /ganzen Seite/);
     assert.match(banner?.body ?? "", /längst gespielte Spiele/);
+  });
+
+  /* The rail carries it alone. Rendered beside the rules fields as well, the same sentence read as a
+     property of those fields, when it is one about every edit the page can make. */
+  it("keeps the live-season entry off the rules panel", () => {
+    const [banner] = build({ saisonStatus: "active" });
+
+    assert.equal(banner?.inline, null);
+  });
+
+  /* The freeze the draw imposes, which no other entry states: `saison.past` names the three the
+     scoring freezes, and on a drawn season two further fields are shut with it. */
+  it("says so on the rail once the season holds fixtures, whatever its status", () => {
+    assert.deepEqual(ids(build({ hasDrawnSpiele: true })), ["saison.drawn"]);
+    assert.deepEqual(ids(build({ saisonStatus: "past", hasDrawnSpiele: true })), ["saison.past", "saison.drawn"]);
+  });
+
+  /* An `info`, and this is the whole reason: `resolveBlockingBanners` raises `ConfirmSaveModal` for a
+     `warning`, which would put a dialog in front of every save on a season that holds fixtures. */
+  it("grades the drawn freeze as a standing property rather than as a consequence of the save", () => {
+    const [banner] = build({ hasDrawnSpiele: true });
+
+    assert.equal(banner?.severity, "info");
+    assert.equal(banner?.inline, null);
   });
 
   it("grades both rule breaches as danger, and only the span one claims the save is barred", () => {

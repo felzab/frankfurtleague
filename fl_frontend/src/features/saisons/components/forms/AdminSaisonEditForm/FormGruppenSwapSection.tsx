@@ -221,7 +221,7 @@ export function FormGruppenSwapSection({
           <>
             <p
               id={PAIR_LABEL_ID}
-              className="fluid-sm text-foreground font-medium">
+              className="muted-hint">
               Wähle die beiden Teams, die ihre Gruppen tauschen sollen.
             </p>
 

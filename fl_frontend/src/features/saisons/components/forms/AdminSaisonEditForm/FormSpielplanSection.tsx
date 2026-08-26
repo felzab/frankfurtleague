@@ -18,7 +18,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { confirmButton } from "@/shared/components/ui/formButtons";
-import { FIELD_LABEL, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_LABEL, FIELD_TRIO, FORM_SECTION_HEADING, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
@@ -176,9 +176,11 @@ export function FormSpielplanSection({
             panel established the treatment. */}
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           {holdsADraw ? (
-            <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Spielplan steht</span>
+            <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Spielplan steht</span>
           ) : (
-            <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Kein Spielplan</span>
+            /* Warning rather than the neutral grey: a season with no fixtures cannot be played, so this
+               is a state to leave rather than one of two equal ones. */
+            <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>Kein Spielplan</span>
           )}
         </span>
         <h2 className={panel.heading()}>
@@ -231,7 +233,7 @@ export function FormSpielplanSection({
               cancel();
               setPicked(next === "anlegen" || next === "zuruecknehmen" ? next : null);
             }}
-            className="flex w-full flex-row flex-wrap gap-2">
+            className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
             <ToggleButton
               id="anlegen"
               className={STUFE_CHIP}>
@@ -246,7 +248,7 @@ export function FormSpielplanSection({
         )}
 
         {closedReason === null ? (
-          <p className="fluid-sm text-foreground font-medium">
+          <p className="muted-hint">
             {isDrawing ? (
               replacesDraw ? (
                 <>
@@ -266,7 +268,7 @@ export function FormSpielplanSection({
         ) : (
           /* In the body as well as on the control: a refusal hint opens on hover and on focus alone,
              so a reader who never points at a closed button would otherwise never learn why. */
-          <p className="fluid-sm text-foreground-muted font-medium">{closedReason}</p>
+          <p className="muted-hint">{closedReason}</p>
         )}
 
         {/* Offered on a REPLACE alone, which is where the endpoint takes them: a first draw runs off

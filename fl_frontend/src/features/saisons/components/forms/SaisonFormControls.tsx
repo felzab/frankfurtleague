@@ -156,9 +156,14 @@ export function SaisonRuleNumberField({
       value={value}
       isReadOnly={isReadOnly}
       onChange={(next) => onChange(Number.isNaN(next) ? minValue : next)}
-      onBlur={onBlur}>
+      onBlur={onBlur}
+      // Dimmed here because react-aria styles nothing for read-only: at full strength a frozen field
+      // reads as an editable one, and the reader learns otherwise only by typing into it.
+      className={isReadOnly === true ? "opacity-50" : undefined}>
       {label}
-      <NumberField.Group className={FIELD_GROUP}>
+      {/* `!` because the brand-on-focus rule in `globals.css` keys on this group while react-aria marks
+          only the ROOT read-only: an important utility outranks that unlayered normal declaration. */}
+      <NumberField.Group className={isReadOnly === true ? `${FIELD_GROUP} border-border!` : FIELD_GROUP}>
         <NumberField.DecrementButton />
         <NumberField.Input className={FIELD_COUNT_INPUT} />
         <NumberField.IncrementButton />

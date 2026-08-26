@@ -14,6 +14,9 @@ import type { FLSaisonRules } from "@/features/saisons/schemas";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SaisonBanner } from "./banners";
 
+/** Names the forfeit pair for a screen reader: the heading over it is a `Label` bound to no control of its own. */
+const FORFEIT_LABEL_ID = "nichtantreten-ergebnis";
+
 /**
  * **`erlaubte_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No
  * validator holds `saison_spieler.stufe` against a season's list, deliberately: narrowing a season
@@ -97,9 +100,21 @@ export function FormRegelnSection({
             />
           </div>
           {/* One label over the pair, mirroring its one row in the change list: the season regulates
-              both sides' goals together, so neither number is a decision on its own. */}
-          <FieldLabel path="rules.forfeit_ergebnis">Ergebnis eines Spiels, zu dem ein Team nicht antritt</FieldLabel>
-          <div className={FIELD_PAIR}>
+              both sides' goals together, so neither number is a decision on its own. Still a
+              `FieldLabel`, which is what carries the Geändert marker and the row's anchor. */}
+          <FieldLabel path="rules.forfeit_ergebnis">
+            {/* The heading recipe on the text rather than on the `Label`: it governs the pair below it,
+                and at `FIELD_LABEL` it wore the same weight as the two field labels it governs. */}
+            <span
+              id={FORFEIT_LABEL_ID}
+              className={FORM_SECTION_HEADING}>
+              Ergebnis eines Spiels, zu dem ein Team nicht antritt
+            </span>
+          </FieldLabel>
+          <div
+            role="group"
+            aria-labelledby={FORFEIT_LABEL_ID}
+            className={FIELD_PAIR}>
             <SaisonRuleNumberField
               name="rules.forfeit_ergebnis.sieger_tore"
               label={<Label className={FIELD_LABEL}>Tore für den Sieger</Label>}
@@ -222,9 +237,8 @@ export function FormRegelnSection({
                 the qualifiers move on a redraw, the other two standing on which clubs are entered. */}
             {isDrawnSaison && (
               <p>
-                Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Die Qualifikanten änderst Du, indem Du
-                den Spielplan mit der neuen Zahl neu anlegst: Beides entsteht in einem Schritt. Gruppen und Teams pro Gruppe hängen dagegen an
-                den Teams, die in dieser Saison stehen. Nimm dafür zuerst den Spielplan zurück, passe die Teams an und lege ihn danach neu an.
+                Die Qualifikanten änderst Du, indem Du den Spielplan mit der neuen Zahl neu anlegst. Für Gruppen und Teams pro Gruppe nimmst Du
+                den Spielplan zurück, passt die Teams an und legst ihn danach neu an.
               </p>
             )}
             {/* Spelled out per case rather than listing the always-open fields: under one freeze the

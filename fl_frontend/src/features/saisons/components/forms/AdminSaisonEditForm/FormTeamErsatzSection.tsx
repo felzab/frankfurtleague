@@ -159,7 +159,7 @@ export function FormTeamErsatzSection({
           <>
             <p
               id={PAIR_LABEL_ID}
-              className="fluid-sm text-foreground font-medium">
+              className="muted-hint">
               Wähle das Team, das ausscheidet, und das Team, das seinen Platz übernimmt.
             </p>
 

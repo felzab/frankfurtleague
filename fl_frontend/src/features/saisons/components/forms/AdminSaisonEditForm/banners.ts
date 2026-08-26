@@ -4,6 +4,7 @@ import type { RailBanner } from "@/shared/components/ui/railBanner";
 export type SaisonBannerId =
   | "saison.active"
   | "saison.past"
+  | "saison.drawn"
   | "saison.end-before-start"
   | "saison.qualifiers-overflow"
   | "saison.points-changed"
@@ -23,6 +24,7 @@ export function buildSaisonBanners({
   isPointsChanged,
   isTiebreakChanged,
   isStufenChanged,
+  hasDrawnSpiele,
   outgoingSaisonId,
   offeneSpieleCount,
 }: {
@@ -33,6 +35,8 @@ export function buildSaisonBanners({
   isPointsChanged: boolean;
   isTiebreakChanged: boolean;
   isStufenChanged: boolean;
+  /** `REQ-RULES-011`'s condition: the season holds fixtures, which is what freezes the three they were drawn from. */
+  hasDrawnSpiele: boolean;
   /** The season the rollover would close, or `null` when nothing holds `active`. */
   outgoingSaisonId: string | null;
   offeneSpieleCount: number;
@@ -47,7 +51,9 @@ export function buildSaisonBanners({
       severity: "info",
       title: "Änderungen wirken sofort auf der ganzen Seite",
       body: "Eine Regeländerung zählt auch für längst gespielte Spiele.",
-      inline: "regeln-status",
+      // Rail-only, unlike the `past` entry below: this one stands over the whole page rather than over
+      // the rules panel, and beside the fields it read as a property of those fields alone.
+      inline: null,
     });
   }
 
@@ -58,6 +64,18 @@ export function buildSaisonBanners({
       title: "Die Wertung bleibt, wie sie gespielt wurde",
       body: "Punkte, Tiebreak und Qualifikanten wirken rückwirkend und sind deshalb gesperrt.",
       inline: "regeln-status",
+    });
+  }
+
+  // `info`, never `warning`: the freeze is a standing property of a drawn season rather than something
+  // this save would cause, and a `warning` would raise `ConfirmSaveModal` over every edit on the page.
+  if (hasDrawnSpiele) {
+    banners.push({
+      id: "saison.drawn",
+      severity: "info",
+      title: "Der Aufbau der Saison steht fest",
+      body: "Gruppen, Teams pro Gruppe und Qualifikanten sind gesperrt, solange der Spielplan steht.",
+      inline: null,
     });
   }
 

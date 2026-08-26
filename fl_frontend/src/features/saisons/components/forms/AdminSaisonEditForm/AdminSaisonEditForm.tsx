@@ -171,6 +171,7 @@ export function AdminSaisonEditForm({
     isPointsChanged: isChanged("rules.win_points") || isChanged("rules.draw_points"),
     isTiebreakChanged: isChanged("rules.tiebreak_order"),
     isStufenChanged: isChanged("rules.erlaubte_stufen"),
+    hasDrawnSpiele,
     outgoingSaisonId: rollover.outgoingSaisonId,
     offeneSpieleCount: rollover.offeneSpiele.length,
   });

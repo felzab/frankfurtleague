@@ -128,7 +128,7 @@ export function FormRolloverSection({
             {/* The outgoing season, named rather than assumed: on a fresh database there is none, and a
                 panel that spoke of "the previous season" regardless would be describing a document
                 that does not exist. */}
-            <p className="fluid-sm text-foreground font-medium">
+            <p className="muted-hint">
               {outgoing === null ? (
                 <>
                   Derzeit ist keine Saison aktiv. Die Umstellung macht <strong>{saisonId}</strong> zur laufenden Saison.

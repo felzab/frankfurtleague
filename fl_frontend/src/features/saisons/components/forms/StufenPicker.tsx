@@ -5,7 +5,7 @@ import { useId } from "react";
 import { FieldError, Input, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
-import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { Key } from "@heroui/react";
@@ -66,7 +66,7 @@ export function StufenPicker({
               const picked = new Set([...keys].map(String));
               onChange(STUFE_OPTIONS.filter((stufe) => picked.has(stufe)));
             }}
-            className="flex w-full flex-row flex-wrap gap-2">
+            className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
             {STUFE_OPTIONS.map((stufe) => (
               <ToggleButton
                 key={stufe}

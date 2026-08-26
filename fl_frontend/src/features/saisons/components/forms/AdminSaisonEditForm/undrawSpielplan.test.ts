@@ -120,7 +120,7 @@ describe("the undraw half of the Spielplan panel", () => {
   /* A refusal hint opens on hover and on focus alone, so a reader who never points at a closed
      button would otherwise never learn why. Both readers get the same sentence, from one source. */
   it("puts the reason in the body as well as on the control", () => {
-    assert.match(SOURCE, /<p className="fluid-sm text-foreground-muted font-medium">\{closedReason\}<\/p>/);
+    assert.match(SOURCE, /<p className="muted-hint">\{closedReason\}<\/p>/);
     assert.match(SOURCE, /mode="refusal"\s+reason=\{isWriting \? null : closedReason\}/);
   });
 });
