@@ -19,17 +19,11 @@ const reportUnhandledFieldError = (): void => {
 
 /**
  * `reportValidity()` is what moves focus to the first rejected field, and must run from an effect: react-aria focuses
- * only from its `invalid` handler. It returning `true` means no input renders the path — hence `onUnhandledErrors`.
+ * only from its `invalid` handler. It returning `true` means no input renders the path — hence the toast.
  */
-export function useServerFieldErrors(onUnhandledErrors: (errors: FieldErrors) => void = reportUnhandledFieldError) {
+export function useServerFieldErrors() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const formRef = useRef<HTMLFormElement>(null);
-
-  // A ref so callers can pass an inline arrow without re-running the effect every render.
-  const onUnhandledRef = useRef(onUnhandledErrors);
-  useEffect(() => {
-    onUnhandledRef.current = onUnhandledErrors;
-  });
 
   useEffect(() => {
     if (Object.keys(fieldErrors).length === 0) return;
@@ -37,7 +31,7 @@ export function useServerFieldErrors(onUnhandledErrors: (errors: FieldErrors) =>
     const form = formRef.current;
     if (!form) return;
 
-    if (form.reportValidity()) onUnhandledRef.current(fieldErrors);
+    if (form.reportValidity()) reportUnhandledFieldError();
   }, [fieldErrors]);
 
   return { fieldErrors, setFieldErrors, formRef };

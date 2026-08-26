@@ -57,18 +57,8 @@ export function mergeFieldVerdicts(submitErrors: FieldErrors, verdicts: FieldVer
  * (`docs/frontend/spec.md` I19). Each key's schema is the one its server action parses
  * (`docs/frontend/spec.md` I18), or browser and server state different rules.
  */
-export function useDraftFieldErrors<TSchema extends string>({
-  schemas,
-  onUnhandledErrors,
-}: {
-  schemas: Readonly<Record<TSchema, ZodType>>;
-  /**
-   * Replaces the toast `useServerFieldErrors` raises when a submit was refused on a path no rendered
-   * input can display. An editor wanting that wording passes nothing.
-   */
-  onUnhandledErrors?: (errors: FieldErrors) => void;
-}) {
-  const { fieldErrors: submitErrors, setFieldErrors, formRef } = useServerFieldErrors(onUnhandledErrors);
+export function useDraftFieldErrors<TSchema extends string>({ schemas }: { schemas: Readonly<Record<TSchema, ZodType>> }) {
+  const { fieldErrors: submitErrors, setFieldErrors, formRef } = useServerFieldErrors();
 
   const [verdicts, setVerdicts] = useState<FieldVerdicts>({});
 
