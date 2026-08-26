@@ -66,10 +66,9 @@ gate_exit() {
   if worker; then end_section; emit_section_ledger > "${FL_GATE_LEDGER:?}"; fi
   cleanup
   if [[ -n "${POOL_DIR:-}" ]]; then rm -rf "$POOL_DIR"; fi
-  # A run leaving before its steps collected them. Only the job shells are signalled: a tool
-  # already started tears its own fixtures down, and bash offers no portable way to reach a
-  # grandchild. The removal is best-effort for the same reason — Windows refuses to unlink a file
-  # a surviving tool still holds open.
+  # Only the job shells are signalled: a started tool tears its own fixtures down, and bash cannot
+  # portably reach a grandchild. The `rm` is best-effort for the same reason -- Windows will not
+  # unlink a file a surviving tool holds open.
   if (( ${#BG_PID[@]} )); then kill "${BG_PID[@]}" 2>/dev/null || true; fi
   if [[ -n "$BG_DIR" ]]; then rm -rf "$BG_DIR" 2>/dev/null || true; fi
   if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then rm -f "$FL_SELFCHECK_LEDGER"; fi
@@ -310,11 +309,9 @@ if (( RUN_SCRIPTS )); then
       || on_error 3 "${LINENO}" "scripts/selfcheck.sh left ${records} ledger record(s) under a closing count of '${declared:-none}'"
   }
 
-  # The four checks below read this tree and write only their own caches and throwaway trees, so
-  # they start together and each is collected at its own step: the scope then costs its slowest
-  # check rather than the sum of all four. Nothing about the output moves. A job records an exit
-  # status and never speaks, so every verdict is still reached here, in written order, and the run
-  # still ends at the first check that fails.
+  # Safe to start together: each writes only its own cache or a throwaway tree. A job records a
+  # status and never speaks, so every verdict is still reached below, in written order, and the
+  # run still ends at the first failure. `docs/ops/spec.md` §1.6.
   do_selfcheck() { bash scripts/selfcheck.sh; }
   do_ruff()      { "$PY" -m ruff check scripts && "$PY" -m ruff format --check scripts; }
   # Run from inside scripts/, where pyright finds its config. `$PY` is absolute, so the `cd` does

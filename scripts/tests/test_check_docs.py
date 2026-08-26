@@ -549,8 +549,8 @@ class Fixture:
 def _discard(root: Path) -> None:
     """Remove one fixture repository, the read-only files git wrote inside it included.
 
-    Windows refuses to unlink a read-only file, and that is how git writes every loose object, so
-    a removal that only ignores the error leaves the whole `.git` tree behind on every run.
+    Windows will not unlink a read-only file, and that is how git writes every loose object -- so
+    ignoring the error alone leaves every `.git` tree behind.
     """
 
     def _clear_readonly(remove: Callable[..., object], path: str, _exc: BaseException) -> None:
@@ -567,9 +567,9 @@ def _load() -> Fixture:
     """The checker, imported from a copy of scripts/ inside a fresh fixture repository."""
     root = Path(tempfile.mkdtemp(prefix="check-docs-fixture-")).resolve()
     atexit.register(_discard, root)
-    # The tool caches are named as well as the packages: the gate runs this suite beside ruff and
-    # pyright, and a cache being rewritten under the walk is a copy that fails for nothing the
-    # corpus can explain. Nothing in the fixture reads them -- its git tracks the corpus by name.
+    # Caches as well as packages: the gate runs this suite beside ruff and pyright, and one being
+    # rewritten under the walk fails the copy for nothing the corpus can explain. The fixture reads
+    # none of them; its git tracks the corpus by name.
     ignored = shutil.ignore_patterns("__pycache__", "tests", ".ruff_cache", ".pytest_cache", ".mypy_cache")
     shutil.copytree(REPO_ROOT / SCRIPTS_COPY, root / SCRIPTS_COPY, ignore=ignored)
     sys.path.insert(0, str(root / SCRIPTS_COPY))
