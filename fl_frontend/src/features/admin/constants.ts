@@ -111,11 +111,12 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           // can render, so no caption on the page is missing from this legend.
           points: [
             { term: "„1. der Gruppe A“", detail: "aus der Tabelle gesetzt." },
-            { term: "„Sieger 25.“", detail: "aus einem früheren Spiel." },
+            // Both outcomes, because `formatQuelle` spells the other seat „Verlierer 25.“ and a legend
+            // naming only the winner leaves that caption unexplained on the page.
+            { term: "„Sieger 25.“ und „Verlierer 25.“", detail: "aus einem früheren Spiel." },
             { term: "„Manuell gesetzt“", detail: "von Hand besetzt." },
             { term: "„Ohne Herkunft“", detail: "diese Seite füllt niemand." },
           ],
-          note: "Die Gruppenphase steht nicht hier.",
         },
       },
     ],

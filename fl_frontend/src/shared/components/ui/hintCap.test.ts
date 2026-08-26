@@ -7,7 +7,7 @@ import ts from "typescript";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
-/** The cap is a lead and four bullets, together about this many characters. */
+/** The cap is a lead and four blocks, a `note` among them, together about this many characters (`docs/frontend/spec.md` §1.12). */
 const HINT_CHAR_CAP = 350;
 const HINT_POINT_CAP = 4;
 
@@ -193,8 +193,13 @@ function blocksOf(children: readonly ts.JsxChild[]): { readable: string[]; unrea
 function sentenceBreaks(sentence: string): number {
   let stripped = sentence;
   for (const abbreviation of ABBREVIATIONS) stripped = stripped.split(abbreviation).join("");
+  // Quotes bound no sentence, and dropping them first lets one rule cover a mark inside a quoted label
+  // as well as one outside it.
+  const body = stripped.replace(/[„“”"»«]/g, "").replace(/[.!?]\s*$/, "");
 
-  return (stripped.replace(/[.!?]\s*$/, "").match(/[.!?]/g) ?? []).length;
+  // A period ends a sentence only before a capital, German capitalising every sentence's first word.
+  // What that admits is the ordinal in a rendered label like `Sieger 25.`, which no list can enumerate.
+  return (body.match(/\.\s+\p{Lu}/gu) ?? []).length + (body.match(/[!?]/g) ?? []).length;
 }
 
 /**
@@ -220,12 +225,12 @@ const panels = sites.filter((site) => site.tag === "InfoHint");
 const UNMEASURABLE_BLOCK_CEILING = 10;
 
 /**
- * The cap, over whatever the two mechanisms wrote. It exists to make an author say LESS: where compressing a
+ * The cap, over whatever mechanism wrote it. It exists to make an author say LESS: where compressing a
  * sentence would make it false, what goes is the content needing that density, never the cap.
  */
 function assertCap(written: readonly string[]): void {
-  const bullets = Math.max(written.length - 1, 0);
-  assert.ok(bullets <= HINT_POINT_CAP, `${String(bullets)} bullets — the cap is ${String(HINT_POINT_CAP)}`);
+  const blocks = Math.max(written.length - 1, 0);
+  assert.ok(blocks <= HINT_POINT_CAP, `${String(blocks)} blocks after the lead — the cap is ${String(HINT_POINT_CAP)}`);
 
   const length = written.reduce((sum, sentence) => sum + sentence.length, 0);
   assert.ok(length <= HINT_CHAR_CAP, `${String(length)} characters — the cap is ${String(HINT_CHAR_CAP)}. Say less, or move it.`);
@@ -234,6 +239,115 @@ function assertCap(written: readonly string[]): void {
     assert.equal(sentenceBreaks(sentence), 0, `two sentences where one was allowed: "${sentence}"`);
   }
 }
+
+/**
+ * The prose the JSX sweep cannot see: each table holds whole hints that render through one
+ * interpolated element. Read as source, never imported: ESLint's layer boundary forbids `shared`
+ * a `features` import.
+ */
+const DATA_TABLES = [
+  { file: "features/admin/constants.ts", constant: "ADMIN_SIDEMENU_STRUCTURE", shape: "sidemenu" },
+  { file: "features/dashboard/constants.ts", constant: "DASHBOARD_SIDEMENU_STRUCTURE", shape: "sidemenu" },
+  { file: "features/admin/utils.ts", constant: "ACTION_REQUIRED_LABELS", shape: "triage" },
+] as const;
+
+/** One table entry's hint, flattened into the blocks it renders as, the lead first. */
+type DataHint = { constant: string; key: string; blocks: readonly (string | null)[] };
+
+function parseModule(relative: string): ts.SourceFile {
+  const full = path.join(SRC_DIR, ...relative.split("/"));
+
+  return ts.createSourceFile(relative, readFileSync(full, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+}
+
+/** The literal a top-level `const` holds, past any `as const satisfies …` wrapping it. */
+function constantIn(source: ts.SourceFile, name: string): ts.Expression | null {
+  for (const statement of source.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (declaration.name.getText(source) !== name || declaration.initializer === undefined) continue;
+
+      let expression: ts.Expression = declaration.initializer;
+      while (ts.isAsExpression(expression) || ts.isSatisfiesExpression(expression)) expression = expression.expression;
+
+      return expression;
+    }
+  }
+
+  return null;
+}
+
+/** The one line a `points` entry renders as, its term bold and its detail not. */
+function pointLine(point: ts.Expression): string | null {
+  if (!ts.isObjectLiteralExpression(point)) return null;
+  const term = staticText(propertyOf(point, "term"));
+  const detail = staticText(propertyOf(point, "detail"));
+
+  return term === null || detail === null ? null : `${term} ${detail}`;
+}
+
+/** A `SidemenuHint`'s blocks: the lead, then each point as its rendered line, then the note. */
+function hintBlocks(hint: ts.ObjectLiteralExpression): (string | null)[] {
+  const points = propertyOf(hint, "points");
+  const note = propertyOf(hint, "note");
+
+  return [
+    staticText(propertyOf(hint, "lead")),
+    ...(points === undefined ? [] : ts.isArrayLiteralExpression(points) ? points.elements.map(pointLine) : [null]),
+    ...(note === undefined ? [] : [staticText(note)]),
+  ];
+}
+
+/** Every `hint` a sidemenu structure declares, named by the route id that owns it. */
+function sidemenuHintsIn(declared: ts.Expression, constant: string): DataHint[] {
+  if (!ts.isArrayLiteralExpression(declared)) return [];
+
+  const hints: DataHint[] = [];
+  for (const entry of declared.elements) {
+    if (!ts.isObjectLiteralExpression(entry)) continue;
+    const options = propertyOf(entry, "sub_options");
+    if (options === undefined || !ts.isArrayLiteralExpression(options)) continue;
+
+    for (const option of options.elements) {
+      if (!ts.isObjectLiteralExpression(option)) continue;
+      const hint = propertyOf(option, "hint");
+      if (hint === undefined || !ts.isObjectLiteralExpression(hint)) continue;
+
+      hints.push({ constant, key: staticText(propertyOf(option, "id")) ?? "unnamed", blocks: hintBlocks(hint) });
+    }
+  }
+
+  return hints;
+}
+
+/**
+ * A triage category's panel, which `AdminSpieleActionRequiredView` renders as its `name` over its
+ * `desc` — the same lead-and-block shape a `SidemenuHint` writes, so the same cap counts it.
+ */
+function triageHintsIn(declared: ts.Expression, constant: string): DataHint[] {
+  if (!ts.isObjectLiteralExpression(declared)) return [];
+
+  const hints: DataHint[] = [];
+  for (const category of declared.properties) {
+    if (!ts.isPropertyAssignment(category) || !ts.isObjectLiteralExpression(category.initializer)) continue;
+
+    hints.push({
+      constant,
+      key: category.name.getText(),
+      blocks: [staticText(propertyOf(category.initializer, "name")), staticText(propertyOf(category.initializer, "desc"))],
+    });
+  }
+
+  return hints;
+}
+
+const dataTables = DATA_TABLES.map((table) => {
+  const declared = constantIn(parseModule(table.file), table.constant);
+  const hints =
+    declared === null ? [] : table.shape === "sidemenu" ? sidemenuHintsIn(declared, table.constant) : triageHintsIn(declared, table.constant);
+
+  return { ...table, hints };
+});
 
 describe("what a hint is allowed to say", () => {
   it("found hints to measure at all", () => {
@@ -244,6 +358,13 @@ describe("what a hint is allowed to say", () => {
     // The panel floor is the renderers under `shared/`, which render a value and so can never become a `Hint`.
     // An authored panel converts away over time, so a floor tracking today's count would fail on its own success.
     assert.ok(panels.length >= 4, `expected at least 4 hint panels, found ${String(panels.length)}`);
+  });
+
+  it("found the data tables to measure at all", () => {
+    // Per table, so a rename that emptied one could not hide behind the two still reading.
+    for (const table of dataTables) {
+      assert.ok(table.hints.length >= 4, `${table.constant} yielded ${String(table.hints.length)} hints — the sweep no longer reads it`);
+    }
   });
 
   it("adds no panel block the cap cannot reach", () => {
@@ -273,6 +394,15 @@ describe("what a hint is allowed to say", () => {
   for (const site of panels) {
     it(`${site.file}:${String(site.line)} keeps the cap in its own panel`, () => {
       assertCap(blocksOf(site.children).readable);
+    });
+  }
+
+  for (const hint of dataTables.flatMap((table) => table.hints)) {
+    it(`${hint.constant} :: ${hint.key} keeps the cap in its own table`, () => {
+      const unreadable = hint.blocks.filter((block) => block === null).length;
+      assert.equal(unreadable, 0, `${String(unreadable)} block(s) are not plain strings, so the cap cannot be counted`);
+
+      assertCap(hint.blocks.filter((block): block is string => block !== null));
     });
   }
 

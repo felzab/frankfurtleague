@@ -9,7 +9,10 @@ export interface SidemenuHint {
   lead: string;
   /** One entry per thing worth naming — a control, a state, a rule the page applies. */
   points?: readonly { term: string; detail: string }[];
-  /** A closing caveat, for the one thing a reader would otherwise look for here and not find. */
+  /**
+   * A closing caveat, for the one thing a reader would otherwise look for here and not find. It counts
+   * against the cap like a bullet (`docs/frontend/spec.md` §1.12).
+   */
   note?: string;
 }
 
