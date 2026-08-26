@@ -31,21 +31,44 @@ const sources = new Map(
   collectSources(SRC_DIR).map((file) => [path.relative(SRC_DIR, file).split(path.sep).join("/"), readFileSync(file, "utf8")]),
 );
 
-/** One `<Hint …>` in the tree, with its attributes reachable by name. */
-type HintSite = { file: string; line: number; attributes: Map<string, ts.JsxAttributeValue | undefined> };
+/**
+ * The cap binds the content, so both panel mechanisms are swept: a site the sweep cannot see is one exempt for not
+ * having moved. `DisabledHint` and `IconTooltip` are absent, each drawing `HINT_SURFACE`, the label chip.
+ */
+const MEASURED_TAGS = new Set(["Hint", "InfoHint"]);
+
+/** One measured element in the tree, with its attributes reachable by name and its children readable. */
+type HintSite = {
+  file: string;
+  line: number;
+  tag: string;
+  attributes: Map<string, ts.JsxAttributeValue | undefined>;
+  /** `InfoHint` writes its panel here; `Hint` writes it into a `body` attribute instead. */
+  children: readonly ts.JsxChild[];
+};
 
 function hintSitesIn(file: string, text: string): HintSite[] {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const sites: HintSite[] = [];
 
   const visit = (node: ts.Node): void => {
-    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-      if (node.tagName.getText(source) === "Hint") {
+    // The element, never its opening tag: matching both would count every `InfoHint` with children twice.
+    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const opening = ts.isJsxElement(node) ? node.openingElement : node;
+      const tag = opening.tagName.getText(source);
+
+      if (MEASURED_TAGS.has(tag)) {
         const attributes = new Map<string, ts.JsxAttributeValue | undefined>();
-        for (const attribute of node.attributes.properties) {
+        for (const attribute of opening.attributes.properties) {
           if (ts.isJsxAttribute(attribute)) attributes.set(attribute.name.getText(source), attribute.initializer);
         }
-        sites.push({ file, line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1, attributes });
+        sites.push({
+          file,
+          line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+          tag,
+          attributes,
+          children: ts.isJsxElement(node) ? node.children : [],
+        });
       }
     }
     ts.forEachChild(node, visit);
@@ -108,6 +131,64 @@ function pointsOf(body: ts.ObjectLiteralExpression): { readable: string[]; unrea
   return { readable, unreadable };
 }
 
+const collapse = (text: string): string => text.replace(/\s+/g, " ").trim();
+
+/** The text a JSX subtree renders, or `null` where a value the sweep cannot read stands anywhere in it. */
+function jsxText(node: ts.JsxChild): string | null {
+  if (ts.isJsxText(node)) return node.text;
+  if (ts.isJsxExpression(node)) return node.expression === undefined ? "" : staticText(node.expression);
+  if (ts.isJsxSelfClosingElement(node)) return "";
+  if (!ts.isJsxElement(node) && !ts.isJsxFragment(node)) return null;
+
+  let joined = "";
+  for (const child of node.children) {
+    const part = jsxText(child);
+    if (part === null) return null;
+    joined += part;
+  }
+  return joined;
+}
+
+/**
+ * The blocks an `InfoHint`'s children render as: one per element and one per `<li>`, the lead-and-bullets shape
+ * `Hint`'s `body` declares. Adjacent bare children join, an unwrapped hint rendering as one run.
+ */
+function blocksOf(children: readonly ts.JsxChild[]): { readable: string[]; unreadable: number } {
+  const readable: string[] = [];
+  let unreadable = 0;
+  let run: (string | null)[] = [];
+
+  const push = (text: string | null): void => {
+    if (text === null) unreadable += 1;
+    else if (collapse(text) !== "") readable.push(collapse(text));
+  };
+
+  const closeRun = (): void => {
+    if (run.length === 0) return;
+    const parts = run;
+    run = [];
+    push(parts.includes(null) ? null : parts.join(""));
+  };
+
+  for (const child of children) {
+    if (ts.isJsxElement(child) && child.openingElement.tagName.getText() === "ul") {
+      closeRun();
+      for (const item of child.children) if (ts.isJsxElement(item)) push(jsxText(item));
+      continue;
+    }
+    if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
+      closeRun();
+      push(jsxText(child));
+      continue;
+    }
+    if (ts.isJsxText(child) && child.containsOnlyTriviaWhiteSpaces) continue;
+    run.push(jsxText(child));
+  }
+  closeRun();
+
+  return { readable, unreadable };
+}
+
 /** Sentence-ending punctuation that is not an abbreviation's and not the string's own last mark. */
 function sentenceBreaks(sentence: string): number {
   let stripped = sentence;
@@ -128,8 +209,31 @@ function describedByReaches(text: string, token: string): boolean {
   return false;
 }
 
-const reveals = sites.filter((site) => staticText(site.attributes.get("mode")) === "reveal");
-const inlines = sites.filter((site) => staticText(site.attributes.get("mode")) === "inline");
+const reveals = sites.filter((site) => site.tag === "Hint" && staticText(site.attributes.get("mode")) === "reveal");
+const inlines = sites.filter((site) => site.tag === "Hint" && staticText(site.attributes.get("mode")) === "inline");
+const panels = sites.filter((site) => site.tag === "InfoHint");
+
+/**
+ * Blocks holding only a rendered value, whose panel is a renderer rather than authored prose. The ceiling only ever
+ * comes down: a new one is a hint written where the sweep cannot reach it.
+ */
+const UNMEASURABLE_BLOCK_CEILING = 10;
+
+/**
+ * The cap, over whatever the two mechanisms wrote. It exists to make an author say LESS: where compressing a
+ * sentence would make it false, what goes is the content needing that density, never the cap.
+ */
+function assertCap(written: readonly string[]): void {
+  const bullets = Math.max(written.length - 1, 0);
+  assert.ok(bullets <= HINT_POINT_CAP, `${String(bullets)} bullets — the cap is ${String(HINT_POINT_CAP)}`);
+
+  const length = written.reduce((sum, sentence) => sum + sentence.length, 0);
+  assert.ok(length <= HINT_CHAR_CAP, `${String(length)} characters — the cap is ${String(HINT_CHAR_CAP)}. Say less, or move it.`);
+
+  for (const sentence of written) {
+    assert.equal(sentenceBreaks(sentence), 0, `two sentences where one was allowed: "${sentence}"`);
+  }
+}
 
 describe("what a hint is allowed to say", () => {
   it("found hints to measure at all", () => {
@@ -137,6 +241,18 @@ describe("what a hint is allowed to say", () => {
     // vacuously true.
     assert.ok(sources.size >= 100, `expected at least 100 components to sweep, found ${String(sources.size)}`);
     assert.ok(reveals.length >= 3, `expected at least 3 revealed hints, found ${String(reveals.length)}`);
+    // The panel floor is the renderers under `shared/`, which render a value and so can never become a `Hint`.
+    // An authored panel converts away over time, so a floor tracking today's count would fail on its own success.
+    assert.ok(panels.length >= 4, `expected at least 4 hint panels, found ${String(panels.length)}`);
+  });
+
+  it("adds no panel block the cap cannot reach", () => {
+    const unmeasurable = panels.reduce((sum, site) => sum + blocksOf(site.children).unreadable, 0);
+
+    assert.ok(
+      unmeasurable <= UNMEASURABLE_BLOCK_CEILING,
+      `${String(unmeasurable)} panel blocks render a value the cap cannot count, against a ceiling of ${String(UNMEASURABLE_BLOCK_CEILING)}`,
+    );
   });
 
   for (const site of reveals) {
@@ -149,15 +265,14 @@ describe("what a hint is allowed to say", () => {
 
       const { readable, unreadable } = pointsOf(body);
       assert.equal(unreadable, 0, `${String(unreadable)} bullet(s) are not plain strings, so the cap cannot be counted`);
-      assert.ok(readable.length <= HINT_POINT_CAP, `${String(readable.length)} bullets — the cap is ${String(HINT_POINT_CAP)}`);
 
-      const written = [lead, ...readable];
-      const length = written.reduce((sum, sentence) => sum + sentence.length, 0);
-      assert.ok(length <= HINT_CHAR_CAP, `${String(length)} characters — the cap is ${String(HINT_CHAR_CAP)}. Say less, or move it.`);
+      assertCap([lead, ...readable]);
+    });
+  }
 
-      for (const sentence of written) {
-        assert.equal(sentenceBreaks(sentence), 0, `two sentences where one was allowed: "${sentence}"`);
-      }
+  for (const site of panels) {
+    it(`${site.file}:${String(site.line)} keeps the cap in its own panel`, () => {
+      assertCap(blocksOf(site.children).readable);
     });
   }
 

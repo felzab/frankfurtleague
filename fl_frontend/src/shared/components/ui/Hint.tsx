@@ -65,9 +65,11 @@ type HintProps =
 export function Hint(props: HintProps) {
   if (props.mode === "inline")
     return (
+      // The scale is spelled out and not `muted-hint`, which is `fluid-sm`: this paragraph sits under a control and
+      // pairs with the same sentence on a mirrored panel, where two type steps apart read as two designs.
       <p
         id={props.describes}
-        className="muted-hint">
+        className="fluid-xxs text-foreground-muted leading-normal font-medium">
         {props.text}
       </p>
     );
