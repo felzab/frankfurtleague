@@ -1,4 +1,4 @@
-import { POSITION_OPTIONS, STUFE_OPTIONS } from "./constants";
+import { POSITION_OPTIONS, ROLLE_OPTIONS, STUFE_OPTIONS } from "./constants";
 
 import type { Facet } from "@/shared/utils/facets";
 import type { AdminSpielerRow, SpielerTeamOption } from "./types";
@@ -38,12 +38,12 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
     param: "rolle",
     label: "Rolle",
     options: [
-      { value: "kapitaen", label: "Kapitän" },
+      ...ROLLE_OPTIONS.map((option) => ({ value: option.value, label: option.label })),
       { value: "nachgetragen", label: "Nachgetragen" },
     ],
     read: (spieler) => {
       const held: string[] = [];
-      if (spieler.selected?.is_captain) held.push("kapitaen");
+      if (spieler.selected?.rolle != null) held.push(spieler.selected.rolle);
       if (spieler.selected?.is_nachgetragen) held.push("nachgetragen");
       return held;
     },

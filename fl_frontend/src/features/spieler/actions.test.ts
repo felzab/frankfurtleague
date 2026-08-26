@@ -215,6 +215,50 @@ describe("REQ-SQUAD-001 where no form is on screen", () => {
   });
 });
 
+describe("REQ-SQUAD-004 as the admin reads it", () => {
+  /* One sentence for every path, as the cap has: the editor disables a role the squad has already
+     given away, so a refusal arriving here at all is a stale form rather than a choice to mark. */
+  it("carries a sentence and lands on no field", () => {
+    const branch = squadBranch("REQ-SQUAD-004");
+
+    assert.notEqual(branch, "", "the squad mapper has no arm for the role refusal");
+    assert.match(branch, /error: SQUAD_ROLLE_TAKEN/, "the refusal reaches the admin as an unhandled conflict");
+    assert.doesNotMatch(branch, /fieldErrors/, "a message keyed to the role control cannot be rendered");
+  });
+
+  /* One code answers both roles, and the reactivate raises it with no role on screen at all — so the
+     sentence may name neither, and it has to name the repair. */
+  it("names neither role and names the repair", () => {
+    const declared = /const SQUAD_ROLLE_TAKEN =([\s\S]*?);\n/.exec(ACTIONS)?.[1] ?? "";
+
+    assert.notEqual(declared, "", "the message is no longer declared under that name");
+    assert.doesNotMatch(declared, /Kapitän/, "the sentence names a role the reactivate never showed");
+    assert.match(declared, /Rolle/, "the message does not say what is already taken");
+    assert.match(declared, /Nimm sie dem anderen Spieler zuerst ab/, "the message states no repair");
+  });
+
+  /* The page holds every membership already, so the editor can narrow the offer rather than let the
+     press fail. The refusal still runs: a stale form and a direct request both reach the endpoint. */
+  it("offers no role the destination squad has already given away", () => {
+    assert.match(
+      EDIT_FORM,
+      /const heldRollen = teams\.find\(\(team\) => team\.teamId === teamId\)\?\.heldRollen \?\? \{\};/,
+      "the offer is derived from something other than the draft team's own holders",
+    );
+    assert.match(PAGE, /collectHeldRollen\(\{/, "the page stopped supplying who holds each role");
+  });
+
+  /* A transfer carries the draft's role into the destination squad, where the write path would
+     refuse it. Cleared rather than carried, so the change list shows it instead of a failed save. */
+  it("gives up a role that the team being moved into already has", () => {
+    assert.match(
+      EDIT_FORM,
+      /if \(rolle !== null && takenInNext\[rolle\] !== undefined\) setRolle\(null\);/,
+      "a transfer carries a refused role",
+    );
+  });
+});
+
 describe("the reactivate's gate on the editor", () => {
   /* The refusal is deterministic and the page already holds what decides it — the season's junction
      rows against the row's stored club — so the press is offered only where the endpoint takes it. */

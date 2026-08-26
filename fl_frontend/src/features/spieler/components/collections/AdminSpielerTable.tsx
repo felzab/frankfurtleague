@@ -8,7 +8,7 @@ import { Pencil, Person } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
-import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "@/features/spieler/constants";
+import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, rolleKuerzel, rolleLabel } from "@/features/spieler/constants";
 import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
@@ -151,23 +151,32 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     );
   };
 
-  const renderCaptain = (spieler: AdminSpielerRow) =>
-    spieler.selected?.is_captain === true ? (
-      <span className={`${LABEL_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>Kapitän</span>
-    ) : null;
+  const renderRolle = (spieler: AdminSpielerRow) => {
+    const rolle = spieler.selected?.rolle;
+
+    return rolle == null ? null : (
+      <span className={`${LABEL_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>{rolleLabel(rolle)}</span>
+    );
+  };
 
   /**
-   * The phone layout's marker, in the Kürzel chip's exact box. `C` rather than the word — the marker
-   * the squad sheets already used — with the hint carrying it for anyone who does not know it.
+   * The phone layout's marker, in the Kürzel chip's exact box. The letters rather than the word — the
+   * markers the squad sheets already used — with the hint carrying it for anyone who does not know them.
    */
-  const renderCaptainCompact = (spieler: AdminSpielerRow) =>
-    spieler.selected?.is_captain === true ? (
+  const renderRolleCompact = (spieler: AdminSpielerRow) => {
+    const rolle = spieler.selected?.rolle;
+    if (rolle == null) return null;
+
+    const label = `${rolleLabel(rolle)} dieses Teams`;
+
+    return (
       <InfoHint
-        label="Kapitän dieses Teams"
-        trigger={<span className={SHORTHAND_CHIP}>C</span>}>
-        <p>Kapitän dieses Teams</p>
+        label={label}
+        trigger={<span className={SHORTHAND_CHIP}>{rolleKuerzel(rolle)}</span>}>
+        <p>{label}</p>
       </InfoHint>
-    ) : null;
+    );
+  };
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
@@ -211,7 +220,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                   {spieler.selected?.stufe ? ` · ${spieler.selected.stufe}` : ""}
                 </span>
               </div>
-              {renderCaptainCompact(spieler)}
+              {renderRolleCompact(spieler)}
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">{renderStatusBadges(spieler)}</div>
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(spieler)}</div>
@@ -269,7 +278,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                             height={18}
                           />
                           <span className="fluid-sm text-foreground truncate font-semibold">{spieler.fullName}</span>
-                          {renderCaptain(spieler)}
+                          {renderRolle(spieler)}
                         </div>
                       </Table.Cell>
 

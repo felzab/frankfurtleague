@@ -327,9 +327,9 @@ class TestStringifyFilter:
     def test_every_value_is_rendered_as_text(self):
         # A boolean is in the sample deliberately: `False` renders as text a reader could otherwise
         # mistake for a stored string, and the validator admits only strings.
-        rendered = _stringify_filter({"team_id": TEAM_OID, "spiel_nr": 1, "is_captain": False, "saison_id": "2026"})
+        rendered = _stringify_filter({"team_id": TEAM_OID, "spiel_nr": 1, "is_nachgetragen": False, "saison_id": "2026"})
 
-        assert rendered == {"team_id": str(TEAM_OID), "spiel_nr": "1", "is_captain": "False", "saison_id": "2026"}
+        assert rendered == {"team_id": str(TEAM_OID), "spiel_nr": "1", "is_nachgetragen": "False", "saison_id": "2026"}
 
     def test_an_objectid_survives_as_the_hex_string_that_names_it(self):
         """Most fan-outs match on one, and a reader comparing the row against a document has only this text to do it with."""

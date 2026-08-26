@@ -23,6 +23,10 @@ FLSpielerPosition = Literal["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 # a season contains would refuse an entry as the year turns.
 FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 
+# Slugs rather than the German `position` and `stufe` store: a role also has a label and a badge
+# Kuerzel, and a stored German word would be a third spelling for those two to drift from.
+FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
+
 
 class FLEinwilligung(BaseModel):
     """What this person agreed may be published about them.
@@ -64,8 +68,10 @@ class _SaisonSpielerWritable(BaseModel):
     stufe: FLSpielerStufe | None
     # True when the player joined a season already under way; the form derives it from the status.
     is_nachgetragen: bool
-    # On the JUNCTION, not the person: captaincy is a role within one team for one season.
-    is_captain: bool
+    # On the JUNCTION, not the person: a role is held within one team for one season. ONE field
+    # rather than a flag per role, because two booleans can both be true and no validator sees a
+    # second field to refuse it.
+    rolle: FLSpielerRolle | None
 
 
 class FLSpielerPublic(_SpielerPerson):
@@ -99,7 +105,7 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     # Re-declared with defaults where the junction requires them: a squad row written before either
     # field existed still has to be describable, and a model that 422s describes it as impossible.
     is_nachgetragen: bool = False
-    is_captain: bool = False
+    rolle: FLSpielerRolle | None = None
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
     # player who left one squad has a retired junction row and is still a player.
     inactive_since: CustomOptionalDateString
@@ -114,8 +120,8 @@ FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
 class FLSaisonSpielerRow(BaseModel):
     """The junction document as it is STORED -- the DECLARED SHAPE ONLY, validated against no read.
 
-    Every key is required, so a row missing `is_captain` would 500 the list;
-    `app/api/spieler/admin_router.py :: _as_junction` defaults it likewise.
+    `rolle` is the one defaulted key, and the one the validator leaves out of `required`: every
+    stored row predates it. `app/api/spieler/admin_router.py :: _as_junction` defaults it likewise.
     """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -124,7 +130,9 @@ class FLSaisonSpielerRow(BaseModel):
     saison_id: str
     team_id: CustomObjectId
     is_nachgetragen: bool
-    is_captain: bool
+    # DEFAULTED, alone on this model: every stored row predates the field, so the validator leaves
+    # it out of `required` and a model requiring it would describe those rows as impossible.
+    rolle: FLSpielerRolle | None = None
     stufe: FLSpielerStufe | None
     position: FLSpielerPosition | None
     # A STRING, never an int: squad numbers are worn, not counted, and "07" is a printed shirt.
@@ -261,7 +269,7 @@ class FLSpielerMembership(_SaisonSpielerWritable):
     # Defaulted as `FLSpieler` is: this reads STORED rows, and the lookup projects a missing key
     # away rather than as null, so one row predating either field would 500 the whole list.
     is_nachgetragen: bool = False
-    is_captain: bool = False
+    rolle: FLSpielerRolle | None = None
 
     saison_id: str
     inactive_since: CustomOptionalDateString

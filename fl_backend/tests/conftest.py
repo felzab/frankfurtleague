@@ -205,7 +205,7 @@ def saison_spieler() -> PayloadFactory:
             "saison_id": "2026",
             "team_id": TEAM_ID,
             "is_nachgetragen": False,
-            "is_captain": False,
+            "rolle": None,
             "stufe": "Q2",
             "position": "Angriff",
             "nummer": "10",
@@ -226,7 +226,7 @@ def spieler() -> PayloadFactory:
             # `Angriff`, not `Sturm`: the enum closed on this spelling.
             "position": "Angriff",
             "is_nachgetragen": False,
-            "is_captain": False,
+            "rolle": None,
             "team_id": TEAM_ID,
             "inactive_since": None,
             # Collected rather than carried over, so the default corpus is the case the rule is for.

@@ -60,7 +60,7 @@ class TestTheMembershipsPipeline:
             "position": 1,
             "stufe": 1,
             "is_nachgetragen": 1,
-            "is_captain": 1,
+            "rolle": 1,
             # A squad row really can be retired, unlike a team junction row, and dropping this makes it look live.
             "inactive_since": 1,
         }
@@ -139,7 +139,7 @@ class TestTheResponseModel:
                             "position": "Sturm",
                             "stufe": "Q1",
                             "is_nachgetragen": False,
-                            "is_captain": False,
+                            "rolle": None,
                             "inactive_since": None,
                         }
                     ],
@@ -162,7 +162,7 @@ class TestTheResponseModel:
                         "position": None,
                         "stufe": None,
                         "is_nachgetragen": False,
-                        "is_captain": False,
+                        "rolle": None,
                         "inactive_since": None,
                     }
                 ],
@@ -193,16 +193,16 @@ class TestTheResponseModel:
             }
         )
 
-        assert (player.memberships[0].is_nachgetragen, player.memberships[0].is_captain) == (False, False)
+        assert (player.memberships[0].is_nachgetragen, player.memberships[0].rolle) == (False, None)
 
     def test_a_membership_defaults_match_the_flattened_read(self):
         """`FLSpielerMembership` and `FLSpieler` read the same collection: a default on one and not the other is the disagreement this pins."""
-        for field in ("is_nachgetragen", "is_captain"):
+        for field in ("is_nachgetragen", "rolle"):
             assert FLSpielerMembership.model_fields[field].default == FLSpieler.model_fields[field].default
 
     @pytest.mark.parametrize("payload_model", [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload])
-    @pytest.mark.parametrize("field", ["is_nachgetragen", "is_captain"])
-    def test_a_payload_keeps_both_flags_required(self, payload_model, field):
+    @pytest.mark.parametrize("field", ["is_nachgetragen", "rolle"])
+    def test_a_payload_keeps_both_squad_facts_required(self, payload_model, field):
         """The defaults belong to the read models: the patch `$set`s its dump, so one here strips an armband a form forgot to send."""
         assert payload_model.model_fields[field].is_required()
 
@@ -249,7 +249,7 @@ def _squad_row(name: str, saison_id: str, *, nummer: str | None, inactive_since:
         "position": "Mittelfeld",
         "stufe": "Q1",
         "is_nachgetragen": False,
-        "is_captain": False,
+        "rolle": None,
         "inactive_since": inactive_since,
     }
 
@@ -263,10 +263,10 @@ def _legacy_spieler(name: str) -> dict[str, Any]:
 
 
 def _legacy_squad_row(name: str, saison_id: str) -> dict[str, Any]:
-    """A row as written before either flag existed: the keys are ABSENT rather than false, which is what the projection cannot supply."""
+    """A row as written before either field existed: the keys are ABSENT rather than empty, which is what the projection cannot supply."""
     row = _squad_row(name, saison_id, nummer="5")
     del row["is_nachgetragen"]
-    del row["is_captain"]
+    del row["rolle"]
 
     return row
 
@@ -348,15 +348,15 @@ class TestTheMembershipsPipelineExecuted:
         assert [row["vorname"] for row in raw] == ["A", "A", "B", "C", "O"]
         assert [row["nachname"] for row in raw][:2] == ["Abel", "Alt"]
 
-    def test_a_row_written_before_the_flags_existed_still_reads(self, squads: Database):
+    def test_a_row_written_before_the_two_fields_existed_still_reads(self, squads: Database):
         """The whole chain, because its middle is the surprise: `$project` with a `1` omits an absent key rather than nulling it."""
         raw = next(row for row in squads.spieler.aggregate(build_spieler_memberships_pipeline()) if row["nachname"] == "Abel")
         legacy = next(row for row in raw["memberships"] if row["saison_id"] == PRIOR_SAISON)
 
-        assert "is_nachgetragen" not in legacy and "is_captain" not in legacy
+        assert "is_nachgetragen" not in legacy and "rolle" not in legacy
 
         rows = {row.saison_id: row for row in self._by_surname(squads)["Abel"].memberships}
-        assert (rows[PRIOR_SAISON].is_nachgetragen, rows[PRIOR_SAISON].is_captain) == (False, False)
+        assert (rows[PRIOR_SAISON].is_nachgetragen, rows[PRIOR_SAISON].rolle) == (False, None)
 
     def test_the_consent_record_reaches_this_read_whole(self, squads: Database):
         """All four fields, through a real aggregation: nothing is projected at the root, so the record rides on the stored document."""

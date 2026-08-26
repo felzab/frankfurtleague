@@ -204,7 +204,7 @@ REFUSED_BULK_INSERT_REPORT: dict[str, Any] = {
                 "saison_id": "2026",
                 "team_id": ObjectId("6890a1b2c3d4e5f60fff0013"),
                 "is_nachgetragen": False,
-                "is_captain": False,
+                "rolle": None,
                 "stufe": "Q1",
                 "position": "Tor",
                 "nummer": "99",

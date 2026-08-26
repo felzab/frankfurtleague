@@ -22,9 +22,9 @@ const EMPTY_DRAFT_BASE = {
   nummer: null,
   position: null,
   stufe: null,
-  // A new entry is never the captain — that is a decision about an existing squad, made on the
+  // A new entry never carries a role — that is a decision about an existing squad, made on the
   // player's own page.
-  is_captain: false,
+  rolle: null,
 } as const;
 
 /**

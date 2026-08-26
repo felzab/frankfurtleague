@@ -141,7 +141,7 @@ def squad_row(saison_id: str, spieler_id: ObjectId = SPIELER_OID, kind: str = "4
         "position": "Angriff",
         "stufe": "Q3",
         "is_nachgetragen": False,
-        "is_captain": False,
+        "rolle": None,
         "inactive_since": None,
     }
 

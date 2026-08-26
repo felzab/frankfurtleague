@@ -210,7 +210,7 @@ class TestSaisonSpielerRow:
     """`saison_spieler`'s declared shape. It validates no stored document — see the class docstring for why it may not."""
 
     def test_declares_exactly_the_ten_stored_keys(self):
-        """Compared as a set against the validator's `required` tuple: a model naming an eleventh key would store one nothing reads."""
+        """Compared as a set against the validator's `properties`: a model naming an eleventh key would store one nothing reads."""
 
         # Named as STORED, so `id` reads `_id`; an alias that is not a plain string names no single key.
         stored = {
@@ -224,17 +224,19 @@ class TestSaisonSpielerRow:
             "saison_id",
             "team_id",
             "is_nachgetragen",
-            "is_captain",
+            "rolle",
             "stufe",
             "position",
             "nummer",
             "inactive_since",
         }
 
-    def test_no_field_carries_a_default(self):
-        """Every key is in the validator's `required` tuple, and a default would make the model accept a row the database refuses."""
+    def test_no_field_carries_a_default_except_the_one_the_validator_does_not_require(self):
+        """A default on any other key would make the model accept a row the database refuses, `required` holding the rest."""
 
-        assert [name for name, field in FLSaisonSpielerRow.model_fields.items() if not field.is_required()] == []
+        # `rolle` alone, and it has to stay alone: every stored row predates the field, so requiring
+        # it would refuse all of them, and the model has to describe what the validator admits.
+        assert [name for name, field in FLSaisonSpielerRow.model_fields.items() if not field.is_required()] == ["rolle"]
 
     def test_a_number_is_a_string_and_not_an_int(self, saison_spieler):
         """Squad numbers are worn, not counted: `07` and `7` are different shirts, and an int erases the distinction."""

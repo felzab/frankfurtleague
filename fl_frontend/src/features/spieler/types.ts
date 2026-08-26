@@ -3,6 +3,7 @@ import type {
   FLPatchSaisonSpielerPayload,
   FLPostSaisonSpielerPayload,
   FLSpielerPosition,
+  FLSpielerRolle,
   FLSpielerStufe,
 } from "./schemas";
 
@@ -61,8 +62,8 @@ export type SpielerSquadFields = {
   position: FLSpielerPosition | null;
   stufe: FLSpielerStufe | null;
   is_nachgetragen: boolean;
-  /** A role on the junction, not a property of the person. */
-  is_captain: boolean;
+  /** A role on the junction, not a property of the person. `null` is the ordinary state. */
+  rolle: FLSpielerRolle | null;
   /** The day the ROW was retired. Not editable — the retire and reactivate controls own it. */
   inactive_since: string | null;
 };
@@ -93,6 +94,13 @@ export type SpielerTeamOption = {
    * **Absent means UNKNOWN, not none** — the team facet supplies none, so absent must warn nothing.
    */
   takenNummern?: readonly string[];
+  /**
+   * Who already holds each role in this team this season, bar the edited player's own row.
+   *
+   * **Absent means UNKNOWN, not free**, as `takenNummern` is: a caller that cannot answer must not
+   * make the editor offer a role the write path would refuse.
+   */
+  heldRollen?: Partial<Record<FLSpielerRolle, string>>;
 };
 
 /**

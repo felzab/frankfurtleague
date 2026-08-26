@@ -1,4 +1,4 @@
-import type { FLSpielerWithMemberships } from "./schemas";
+import type { FLSpielerRolle, FLSpielerWithMemberships } from "./schemas";
 
 /**
  * Mirrors `fl_backend/app/api/spieler/services.py :: normalised_nummer`, **leading zeros included**:
@@ -63,6 +63,39 @@ export function collectTakenSquadNummern({
       if (nummer === null) continue;
 
       (byTeam[membership.team_id] ??= []).push(nummer);
+    }
+  }
+
+  return byTeam;
+}
+
+/**
+ * Who holds each squad role in one season, by team, excluding one player's own rows.
+ *
+ * **Retired rows are excluded** — a player who left the squad is not leading it, which is the same
+ * live-rows-only count the write path takes (`REQ-SQUAD-004`).
+ */
+export function collectHeldRollen({
+  spieler,
+  saisonId,
+  exceptSpielerId,
+}: {
+  spieler: readonly FLSpielerWithMemberships[];
+  saisonId: string;
+  exceptSpielerId: string;
+}): Record<string, Partial<Record<FLSpielerRolle, string>>> {
+  const byTeam: Record<string, Partial<Record<FLSpielerRolle, string>>> = {};
+
+  for (const person of spieler) {
+    if (person.id === exceptSpielerId) continue;
+
+    for (const membership of person.memberships) {
+      if (membership.saison_id !== saisonId || membership.inactive_since !== null || membership.rolle === null) continue;
+
+      // First writer wins. A squad holding one role twice is a state the write path refuses, so the
+      // name shown is only ever a starting point for the person repairing it.
+      (byTeam[membership.team_id] ??= {})[membership.rolle] ??=
+        person.nachname === null ? person.vorname : `${person.vorname} ${person.nachname}`;
     }
   }
 

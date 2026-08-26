@@ -1,4 +1,27 @@
-import type { FLSpielerPosition, FLSpielerStufe } from "./schemas";
+import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
+
+type RolleOption = { value: FLSpielerRolle; label: string; kuerzel: string };
+
+/**
+ * The German for each squad role, and the marker the phone layout shows in the Kürzel chip's box.
+ * Every surface reads this rather than writing its own, so no two can name a role differently.
+ */
+export const ROLLE_OPTIONS: readonly RolleOption[] = [
+  { value: "kapitaen", label: "Kapitän", kuerzel: "C" },
+  { value: "co_kapitaen", label: "Co-Kapitän", kuerzel: "CC" },
+];
+
+/** The find cannot miss: `rolle` is the closed set this table enumerates, and the parse refuses anything else. */
+const rolleOption = (rolle: FLSpielerRolle): RolleOption | undefined => ROLLE_OPTIONS.find((option) => option.value === rolle);
+
+export function rolleLabel(rolle: FLSpielerRolle): string {
+  return rolleOption(rolle)?.label ?? "";
+}
+
+/** Always rendered with the full label as its hint, so the letters never stand alone. */
+export function rolleKuerzel(rolle: FLSpielerRolle): string {
+  return rolleOption(rolle)?.kuerzel ?? "";
+}
 
 export const SPIELER_CRUD_COPY = {
   searchLabel: "Spieler suchen",

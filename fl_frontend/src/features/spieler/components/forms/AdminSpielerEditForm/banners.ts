@@ -11,9 +11,10 @@ export type SpielerBannerId =
   | "spieler.nachgetragen"
   | "spieler.entry-nachgetragen"
   | "spieler.team-changed"
-  | "spieler.nummer-geteilt";
+  | "spieler.nummer-geteilt"
+  | "spieler.rolle-vergeben";
 
-export type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "austragen";
+export type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "kader-rolle" | "austragen";
 
 export type SpielerBanner = RailBanner<SpielerBannerId> & { inline: SpielerBannerSpot | null };
 
@@ -28,6 +29,7 @@ export function buildSpielerBanners({
   isNachgetragen,
   isTeamChanged,
   newlySharedNummer,
+  blockedRolle,
 }: {
   isRetired: boolean;
   saisonId: string;
@@ -41,6 +43,8 @@ export function buildSpielerBanners({
   isTeamChanged: boolean;
   /** The shirt this draft would put a SECOND wearer on, or `null` — never a number already shared. */
   newlySharedNummer: string | null;
+  /** A role the DRAFT's team has already given away, with the label and the holder, or `null`. */
+  blockedRolle: { label: string; heldBy: string } | null;
 }): readonly SpielerBanner[] {
   const banners: SpielerBanner[] = [];
 
@@ -120,6 +124,16 @@ export function buildSpielerBanners({
         `Im gewählten Kader trägt bereits jemand die Nummer ${newlySharedNummer}. Das ist erlaubt. ` +
         `Beide erscheinen in der Saison ${saisonId} mit ihr auf den öffentlichen Seiten.`,
       inline: null,
+    });
+  }
+
+  if (blockedRolle !== null) {
+    banners.push({
+      id: "spieler.rolle-vergeben",
+      severity: "info",
+      title: `${blockedRolle.label} ist im gewählten Team schon vergeben`,
+      body: `In der Saison ${saisonId} führt ${blockedRolle.heldBy} das Team an. Entferne die Rolle dort zuerst, wenn Du sie hier vergeben willst.`,
+      inline: "kader-rolle",
     });
   }
 

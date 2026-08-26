@@ -583,6 +583,14 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SAISON_SPIELER,
+        "rolle",
+        Editability.CONDITIONAL,
+        "writable while no other LIVE row of the same team and season holds the role being given: a squad leads with one "
+        "Kapitaen and one Co-Kapitaen, and holding both at once is unrepresentable rather than refused",
+        "app.api.spieler.services.find_squad_rolle_refusal",
+    ),
+    FieldPolicy(
+        Collection.SAISON_SPIELER,
         "stufe",
         Editability.CONDITIONAL,
         "held to the league's closed set by the validator, and to the season's `erlaubte_stufen` by what the form offers",
@@ -1239,6 +1247,18 @@ RULES: tuple[Rule, ...] = (
         summary="a squad may not exceed the season's `max_kadergroesse`",
         implemented_by="app.api.spieler.services.find_squad_capacity_refusal",
         tested_by="tests/api/test_containment_refusals.py::TestASquadCap",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SQUAD-004",
+        operation=(
+            "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "
+            "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate"
+        ),
+        aggregate="Saison",
+        summary="a squad holds each `rolle` at most once among its live rows",
+        implemented_by="app.api.spieler.services.find_squad_rolle_refusal",
+        tested_by="tests/api/test_containment_refusals.py::TestASquadRolle",
         multi_document=True,
     ),
     Rule(

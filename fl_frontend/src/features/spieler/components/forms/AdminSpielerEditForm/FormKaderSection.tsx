@@ -2,12 +2,12 @@
 
 import { useState, useTransition } from "react";
 
-import { Button, FieldError, Input, Switch, TextField } from "@heroui/react";
+import { Button, FieldError, Input, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
 import { postSaisonSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
-import { NUMMER_MAX_LENGTH, POSITION_OPTIONS } from "@/features/spieler/constants";
+import { NUMMER_MAX_LENGTH, POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -17,8 +17,9 @@ import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { appToast } from "@/shared/utils/appToast";
 
-import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
+import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
+import type { Key } from "@heroui/react";
 import type { SpielerBanner } from "./banners";
 
 /** The app's one wording and one palette for a season's state. */
@@ -44,8 +45,9 @@ export function FormKaderSection({
   onPositionChange,
   stufe,
   onStufeChange,
-  isCaptain,
-  onIsCaptainChange,
+  rolle,
+  onRolleChange,
+  heldRollen,
   onValidateFields,
   onValidateSelection,
   spielerId,
@@ -63,8 +65,10 @@ export function FormKaderSection({
   onPositionChange: (next: FLSpielerPosition | null) => void;
   stufe: FLSpielerStufe | null;
   onStufeChange: (next: FLSpielerStufe | null) => void;
-  isCaptain: boolean;
-  onIsCaptainChange: (next: boolean) => void;
+  rolle: FLSpielerRolle | null;
+  onRolleChange: (next: FLSpielerRolle | null) => void;
+  /** Who holds each role in the DRAFT's team, so a role the write path would refuse is not offered. */
+  heldRollen: Partial<Record<FLSpielerRolle, string>>;
   onValidateFields: (paths: readonly string[]) => void;
   onValidateSelection: (paths: readonly string[], selected: { team_id: string }) => void;
   spielerId: string;
@@ -95,7 +99,7 @@ export function FormKaderSection({
         position,
         stufe,
         is_nachgetragen: entryIsNachgetragen,
-        is_captain: false,
+        rolle: null,
       });
 
       const teamError = res.fieldErrors?.team_id ?? null;
@@ -168,23 +172,48 @@ export function FormKaderSection({
               </TextField>
             </div>
 
-            {/* A switch rather than a note, unlike `is_nachgetragen`: a decision somebody makes and
-                changes, and a role within THIS season's squad. */}
-            <div className="flex w-full flex-col gap-y-1">
-              <FieldLabel path="is_captain">Kapitän</FieldLabel>
-              <Switch
-                name="is_captain"
-                isSelected={isCaptain}
-                onChange={onIsCaptainChange}
-                className="border-border bg-surface hover:bg-hover w-full rounded-lg border px-3 py-2.5 transition-colors">
-                <Switch.Content className="fluid-sm text-foreground flex w-full flex-row items-center justify-between gap-x-3 font-medium">
-                  <span>Führt das Team in der Saison {saison.saisonId} als Kapitän an.</span>
-                  <Switch.Control className={isCaptain ? "bg-brand-solid" : ""}>
-                    <Switch.Thumb />
-                  </Switch.Control>
-                </Switch.Content>
-              </Switch>
-            </div>
+            {/* A group rather than a switch, unlike `is_nachgetragen`: three states, and pressing the
+                held one again is how a role is given up. Empty selection is the ordinary state. */}
+            <TextField
+              name="rolle"
+              // The proxy is what makes a refusal land: `ToggleButtonGroup` takes no `name`, so it
+              // joins no field context and `form.reportValidity()` cannot see the group.
+              value={rolle ?? ""}
+              onChange={() => undefined}
+              className="flex w-full flex-col gap-y-1">
+              <FieldLabel path="rolle">Rolle</FieldLabel>
+              <ToggleButtonGroup
+                aria-label="Rolle im Kader"
+                size="sm"
+                isDetached
+                selectionMode="single"
+                selectedKeys={rolle === null ? [] : [rolle]}
+                onSelectionChange={(keys: Set<Key>) => {
+                  const [picked] = [...keys].map(String);
+                  onRolleChange(picked === undefined ? null : (picked as FLSpielerRolle));
+                }}
+                className="flex w-full flex-row flex-wrap gap-2">
+                {ROLLE_OPTIONS.map((option) => (
+                  <ToggleButton
+                    key={option.value}
+                    id={option.value}
+                    // Disabled only where SOMEBODY ELSE holds it: the current holder has to be able to
+                    // press it again to give it up.
+                    isDisabled={heldRollen[option.value] !== undefined && rolle !== option.value}
+                    className="border-border bg-surface hover:bg-hover fluid-sm data-selected:bg-brand-solid data-selected:text-brand-solid-foreground rounded-lg border px-3 py-2 font-medium transition-colors data-disabled:opacity-50">
+                    {option.label}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+
+              <Input className="hidden" />
+              <FieldError className={FIELD_ERROR} />
+
+              <InlineBanners
+                banners={banners}
+                spot="kader-rolle"
+              />
+            </TextField>
 
             <div className={FIELD_PAIR}>
               <div className="flex w-full flex-col gap-y-1">

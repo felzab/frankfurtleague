@@ -55,6 +55,11 @@ const SQUAD_TEAM_NOT_IN_SAISON =
   "Das Team dieses Kadereintrags ist in dieser Saison nicht dabei. Weise den Eintrag im Bereich „Kader“ auf der Seite " +
   "des Spielers zuerst einem Team dieser Saison zu.";
 
+// Neither role is named: the reactivate offers no role on screen, and one sentence has to serve it
+// as well as the two the editor picks between.
+const SQUAD_ROLLE_TAKEN =
+  "In diesem Team ist diese Rolle bereits vergeben. Nimm sie dem anderen Spieler zuerst ab, dann kannst Du sie hier vergeben.";
+
 /** Base tag only: the cached spieler read spans every season. */
 function invalidateSpieler(): void {
   updateTag("spieler");
@@ -62,14 +67,17 @@ function invalidateSpieler(): void {
 
 /**
  * Two shapes for one refusal: the field message marks the team picker, and the sentence beside it is
- * what a reactivate toasts, that path rendering no field at all. The cap belongs to no field
- * either — it is a fact about the season's rules.
+ * what a reactivate toasts, that path rendering no field at all. Neither the cap nor a taken role
+ * belongs to a field — one is a fact about the season's rules, the other about the squad.
  */
 function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   if (error.serverErrorCode === "REQ-SQUAD-001") {
     return { error: SQUAD_TEAM_NOT_IN_SAISON, fieldErrors: { team_id: "Dieses Team ist in der gewählten Saison nicht dabei." } };
+  }
+  if (error.serverErrorCode === "REQ-SQUAD-004") {
+    return { error: SQUAD_ROLLE_TAKEN };
   }
   if (error.serverErrorCode === "REQ-SQUAD-003") {
     return {
@@ -108,7 +116,7 @@ export async function postSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const { saison_id, team_id, nummer, position, stufe, is_nachgetragen, is_captain, ...personFields } = validated.data;
+    const { saison_id, team_id, nummer, position, stufe, is_nachgetragen, rolle, ...personFields } = validated.data;
 
     // No 409 branch on the person: no uniqueness rule on a name, because two people can share one.
     const postOperation = await postSpieler(personFields);
@@ -127,7 +135,7 @@ export async function postSpielerAction(
         position,
         stufe,
         is_nachgetragen,
-        is_captain,
+        rolle,
       });
     } catch (error) {
       invalidateSpieler();

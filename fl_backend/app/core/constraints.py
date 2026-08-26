@@ -50,6 +50,7 @@ _QUELLE_TYPES = ["gruppe", "spiel"]
 _QUELLE_AUSGAENGE = ["sieger", "verlierer"]
 _POSITIONEN = ["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 _STUFEN = ["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
+_SPIELER_ROLLEN = ["kapitaen", "co_kapitaen"]
 
 # Derived, not spelled: these ARE the collection names, and the log never records itself.
 _LOGGED_COLLECTIONS = [str(name) for name in Collection if name is not Collection.AKTIONEN]
@@ -296,7 +297,6 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "saison_id",
                 "team_id",
                 "is_nachgetragen",
-                "is_captain",
                 "stufe",
                 "position",
                 "nummer",
@@ -308,7 +308,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "saison_id": {"bsonType": "string"},
                 "team_id": {"bsonType": "objectId"},
                 "is_nachgetragen": {"bsonType": "bool"},
-                "is_captain": {"bsonType": "bool"},
+                # Deliberately out of `required`, as `saisons.spielplan` is: every stored row
+                # predates the field, so making the key mandatory would refuse every one of them and
+                # owe a backfill. A missing key and a stored null both read as holding no role.
+                "rolle": {"bsonType": _STRING_OR_NULL, "enum": [*_SPIELER_ROLLEN, None]},
                 "stufe": {"bsonType": _STRING_OR_NULL, "enum": [*_STUFEN, None]},
                 "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
                 # A STRING, not an int. Squad numbers are worn, not counted.
