@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `6b32e04b`, 2026-08-26\
+**Verified against:** `8e8a53ee`, 2026-08-26\
 **Scope:** `fl_backend/`
 
 | Section                                                                        | Answers                                                           |
@@ -317,17 +317,18 @@ it rewrites and which it must leave alone. What is reached only indirectly is §
 
 #### The two tiers, and the marker that separates them
 
-| Tier        | Selected by         | Needs Docker | Cost                                                   |
-| ----------- | ------------------- | ------------ | ------------------------------------------------------ |
-| **Default** | everything unmarked | no           | 8.4s warm (2026-08-20)                                 |
-| **`db`**    | `@pytest.mark.db`   | yes          | 55–61s warm (2026-08-26); cold adds the `mongo:8` pull |
+| Tier        | Selected by         | Needs Docker | Cost                                                |
+| ----------- | ------------------- | ------------ | --------------------------------------------------- |
+| **Default** | everything unmarked | no           | 8.4s warm (2026-08-20)                              |
+| **`db`**    | `@pytest.mark.db`   | yes          | 60s warm (2026-08-26); cold adds the `mongo:8` pull |
 
 **Both figures are warm developer-machine runs of the tier on its own**, with the `mongo:8` image
 already pulled. They say what a run costs here rather than what it costs in CI, and a figure moves
-with the machine as much as with the suite. The `db` range is the spread of three runs taken while a
-second gate was running on the same machine — which is not how a db-tier measurement is taken
-([`docs/ops/spec.md`](../ops/spec.md) §3) — so it stands as a ceiling rather than a middle, until one
-taken alone replaces it.
+with the machine as much as with the suite. The `db` figure is a pair of runs within a fifth of a
+second of each other on an idle machine; a run taken while another process started is discarded
+rather than averaged in, since a contended db-tier measurement measures the contention
+([`docs/ops/spec.md`](../ops/spec.md) §3). The gate's own `db` section costs more than the tier does
+alone — the other sections run beside it.
 
 `fl_backend/pyproject.toml :: addopts` deselects the marker, so a bare `pytest` runs the fast tier only.
 A command-line `-m` overrides it — addopts are prepended rather than merged — so `pytest -m db` runs
