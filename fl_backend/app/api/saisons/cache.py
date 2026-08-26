@@ -12,6 +12,15 @@ CURRENT_SAISON_CACHE_KEY: Final = "current"
 # One process, one cache: a second uvicorn worker changes that arithmetic.
 _cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
+# Bumped by every drop, so a store can tell whether one landed while its fetch was in flight.
+_generation = 0
+
+
+def saison_cache_generation() -> int:
+    """Read before dispatching a fetch: a drop landing while that fetch is in flight is what this lets its store detect."""
+
+    return _generation
+
 
 def read_cached_saison(key: str) -> dict[str, Any] | None:
     """The cached document under `key`, as a copy — or `None` on a miss or an expired entry."""
@@ -28,8 +37,15 @@ def read_cached_saison(key: str) -> dict[str, Any] | None:
     return deepcopy(document)
 
 
-def store_cached_saison(key: str, document: dict[str, Any]) -> None:
-    """Store a FOUND document; a miss is never cached, so it keeps raising 404 from a fresh read."""
+def store_cached_saison(key: str, document: dict[str, Any], *, generation: int) -> None:
+    """Store a FOUND document; a miss is never cached, so it keeps raising 404 from a fresh read.
+
+    Refused when a drop landed since `generation` was read: that document predates the drop, and
+    would be served for a whole TTL.
+    """
+
+    if generation != _generation:
+        return
 
     _cache[key] = (time.monotonic(), deepcopy(document))
 
@@ -37,4 +53,7 @@ def store_cached_saison(key: str, document: dict[str, Any]) -> None:
 def invalidate_saison_cache() -> None:
     """Drop everything: reasoning about which keys a write could have changed is not worth the one `find_one` it would save."""
 
+    global _generation
+
+    _generation += 1
     _cache.clear()

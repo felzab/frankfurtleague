@@ -25,7 +25,7 @@ import { FormZeitraumSection } from "./FormZeitraumSection";
 
 import type { FLPatchSpieltagPayload } from "@/features/spieltage/schemas";
 import type { FLSpieltagDraftFields } from "@/features/spieltage/spieltagDraftStatus";
-import type { AdminSpieltagRow } from "@/features/spieltage/types";
+import type { AdminSpieltagEditRow } from "@/features/spieltage/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 
@@ -50,17 +50,17 @@ async function postSpieltagUndo(payload: FLPatchSpieltagPayload): Promise<{ succ
 }
 
 /**
- * The matchday editor's form. **Two fields on a page is deliberate**: what earns the page is what the
- * form has to SAY, the backend refusals standing behind those controls. The rail is where all of that
- * goes.
+ * The matchday editor's form. **A page carrying one date or two is deliberate**: what earns the page
+ * is what the form has to SAY, the backend refusals standing behind those controls. The rail is where
+ * all of that goes.
  */
 export function AdminSpieltagEditForm({
   spieltag,
   saisonSpan,
   pageHeader,
 }: {
-  spieltag: AdminSpieltagRow;
-  /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
+  spieltag: AdminSpieltagEditRow;
+  /** The season's own span, which bounds every date picker (`REQ-DATE-002`). */
   saisonSpan?: { start: string; end: string };
   pageHeader: EditPageHeaderContent;
 }) {
@@ -72,6 +72,10 @@ export function AdminSpieltagEditForm({
   // behind — so one branch below covers both, and the schema refuses the save either way.
   const [beginn, setBeginn] = useState(spieltag.beginn ?? "");
   const [ende, setEnde] = useState(spieltag.ende ?? "");
+
+  // The final is one match, so its matchday is played inside one day and is dated once. Read off
+  // `saison_phase` and never off the label, which is composed for the page and is not the identity.
+  const isSingleDay = spieltag.saison_phase === "finale";
 
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
@@ -88,7 +92,7 @@ export function AdminSpieltagEditForm({
   const draftFields: FLSpieltagDraftFields = { beginn, ende };
   const storedFields: FLSpieltagDraftFields = { beginn: spieltag.beginn ?? "", ende: spieltag.ende ?? "" };
 
-  const status = deriveSpieltagDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
+  const status = deriveSpieltagDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors, isSingleDay });
   const isDirty = status.isDirty && !hasSaved;
 
   // The latch's job ends the moment the revalidated matchday arrives and the two agree; left
@@ -114,8 +118,8 @@ export function AdminSpieltagEditForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
-  // Both dates are pickers, so every control is judged on change — and the cross-field span rule
-  // reports on `ende`, so both paths refresh together or its message never clears.
+  // Every date is picked rather than typed, so every control is judged on change — and the cross-field
+  // span rule reports on `ende`, so both paths refresh together or its message never clears.
   const validatePicked = (paths: readonly string[], picked: Partial<FLSpieltagDraftFields>) =>
     validatePaths("spieltag", { ...buildPayload(), ...picked }, paths);
 
@@ -270,10 +274,14 @@ export function AdminSpieltagEditForm({
           <FormZeitraumSection
             beginn={beginn}
             ende={ende}
+            isSingleDay={isSingleDay}
             onBeginnChange={(next) => {
               setBeginn(next);
+              // One picked day fills both ends of a single-day matchday's span, so the payload keeps
+              // the pair the endpoint takes and the save path stays the one every matchday uses.
+              if (isSingleDay) setEnde(next);
               // Both paths, because the span refinement reports on `ende` whichever date moved.
-              validatePicked(["beginn", "ende"], { beginn: next });
+              validatePicked(["beginn", "ende"], isSingleDay ? { beginn: next, ende: next } : { beginn: next });
             }}
             onEndeChange={(next) => {
               setEnde(next);

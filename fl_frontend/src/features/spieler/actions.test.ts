@@ -5,7 +5,13 @@ import { describe, it } from "node:test";
 
 // Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
-import { ERASURE_NEEDS_RETIREMENT, LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_A_TEAM_IN_SAISON } from "./constants.ts";
+import {
+  ERASURE_NEEDS_RETIREMENT,
+  LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
+  NUMMER_MAX_LENGTH,
+  NUMMER_MUST_BE_DIGITS,
+  REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
+} from "./constants.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
@@ -35,6 +41,19 @@ const PAGE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "
   /\s+/g,
   " ",
 );
+
+/** The mirror that states the number's format on a validated payload. Not collapsed: it holds no JSX. */
+const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
+/** The create form, which states the same format natively. Collapsed for the reason `PANEL` is. */
+const CREATE_FORM = readFileSync(path.resolve(import.meta.dirname, "components", "forms", "AdminCreateSpielerForm.tsx"), "utf8").replace(
+  /\s+/g,
+  " ",
+);
+/** The squad section, which states it natively beside the schema's own. Collapsed for the same reason. */
+const KADER_SECTION = readFileSync(
+  path.resolve(import.meta.dirname, "components", "forms", "AdminSpielerEditForm", "FormKaderSection.tsx"),
+  "utf8",
+).replace(/\s+/g, " ");
 
 const ERASURE_OPERATION = "DELETE /spieler/{spieler_id}/erasure";
 const ERASURE_CODES = ["REQ-PURGE-001"];
@@ -332,5 +351,33 @@ describe("the reactivate's gate on the list", () => {
   it("says the refusal where the list's reader stands", () => {
     assert.notEqual(LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_A_TEAM_IN_SAISON, "the list borrowed the editor's sentence");
     assert.ok(!LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON.includes("oben"), "the list's sentence points at a place the list does not have");
+  });
+});
+
+describe("the number's format as the admin reads it", () => {
+  /* The schema over a validated payload and the field's own `patternMismatch` reach one slot on one
+     value. A second literal is how they come to word one rule differently. */
+  it("is stated once and shared by every site that states it", () => {
+    for (const [site, source] of [
+      ["schemas.ts", SCHEMAS],
+      ["AdminCreateSpielerForm.tsx", CREATE_FORM],
+      ["FormKaderSection.tsx", KADER_SECTION],
+    ] as const) {
+      assert.ok(source.includes("NUMMER_MUST_BE_DIGITS"), `${site} restates the sentence instead of sharing it`);
+      assert.ok(!source.includes("Die Nummer besteht"), `${site} spells the sentence out beside the shared one`);
+    }
+  });
+
+  /* The cap is enforced where the sentence cannot reach — each `maxLength` attribute and the
+     schema's regex — so a sentence naming its own figure can outlive the bound it describes. */
+  it("names the cap the input enforces, and the regex refuses at", () => {
+    assert.ok(
+      NUMMER_MUST_BE_DIGITS.includes(`1 bis ${String(NUMMER_MAX_LENGTH)} Ziffern`),
+      "the sentence names a bound the input does not enforce",
+    );
+    assert.ok(
+      SCHEMAS.includes(`.regex(/^\\d{1,${String(NUMMER_MAX_LENGTH)}}$/, { error: NUMMER_MUST_BE_DIGITS })`),
+      "the schema's regex and the cap name different bounds",
+    );
   });
 });

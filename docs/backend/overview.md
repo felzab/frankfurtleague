@@ -1,6 +1,6 @@
 # Backend — overview
 
-**Verified against:** `f6073b6f`, 2026-08-26\
+**Verified against:** `d6be7a6f`, 2026-08-26\
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB, with a read router and a write router per resource. The
@@ -94,10 +94,10 @@ is not negotiable.
 
 ## Errors
 
-Every failure is a `BaseAPIException` carrying an `error_code`, so a log line names a specific failure rather
-than a status class. The subclasses, the handlers carrying codes of their own, the full table and the rule
-that every failure response is `{error_code, correlation_id}` are
-[`docs/logging/error-codes.md`](../logging/error-codes.md).
+Every failure the application raises is a `BaseAPIException` carrying an `error_code`, and a handler supplies a
+code for every failure it does not — so a log line names a specific failure rather than a status class. The
+subclasses, the handlers carrying codes of their own, the full table and the rule that every failure response is
+`{error_code, correlation_id}` are [`docs/logging/error-codes.md`](../logging/error-codes.md).
 
 ## Testing
 

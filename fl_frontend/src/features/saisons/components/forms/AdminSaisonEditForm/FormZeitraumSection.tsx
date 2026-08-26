@@ -77,6 +77,7 @@ export function FormZeitraumSection({
             onChange={onStartDateChange}
             onBlur={() => onFieldLeft(["start_date"])}
             maxValue={startMax}
+            rangeMessage="Wähle einen Tag vor dem Ende."
           />
           <SaisonDateField
             isRequired
@@ -87,6 +88,7 @@ export function FormZeitraumSection({
             onChange={onEndDateChange}
             onBlur={() => onFieldLeft(["end_date"])}
             minValue={endMin}
+            rangeMessage="Wähle einen Tag nach dem Beginn."
           />
         </div>
 

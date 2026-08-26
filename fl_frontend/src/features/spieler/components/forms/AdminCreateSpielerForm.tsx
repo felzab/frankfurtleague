@@ -5,7 +5,7 @@ import { FieldError, Input, Label, ListBox, Select, TextField } from "@heroui/re
 import { postSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
-import { NUMMER_MAX_LENGTH, POSITION_OPTIONS } from "@/features/spieler/constants";
+import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS, POSITION_OPTIONS } from "@/features/spieler/constants";
 import { isSquadNummerNewlyShared } from "@/features/spieler/utils";
 import { Callout } from "@/shared/components/ui/Callout";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
@@ -162,7 +162,13 @@ export function AdminCreateSpielerForm({
                   placeholder="z.B. 7"
                   className={`${FIELD_INPUT} font-extrabold tracking-wider`}
                 />
-                <FieldError className={FIELD_ERROR} />
+                <FieldError className={FIELD_ERROR}>
+                  {/* Only the format, which is OUR rule. Every other flag keeps the browser's own sentence in the
+                      reader's language, as `SaisonFormControls.tsx :: SaisonDateField` sets out. */}
+                  {({ validationDetails, validationErrors }) =>
+                    validationDetails.patternMismatch ? NUMMER_MUST_BE_DIGITS : validationErrors.join(" ")
+                  }
+                </FieldError>
               </TextField>
 
               <ClosedSetSelect

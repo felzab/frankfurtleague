@@ -3,6 +3,8 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, PersonNameSchema } from "@/shared/schemas";
 
+import { NUMMER_MUST_BE_DIGITS } from "./constants";
+
 /**
  * Mirrors `FLSpielerPosition`. German error because the squad editor's picker binds this directly;
  * an untouched picker submits null, which this refuses and the nullable wrappers below allow.
@@ -147,7 +149,7 @@ const saisonSpielerPayloadFields = {
   // A string on the wire — worn rather than counted — but free text was never meant to admit a name.
   nummer: z
     .string()
-    .regex(/^\d{1,4}$/, { error: "Die Nummer besteht aus 1 bis 4 Ziffern." })
+    .regex(/^\d{1,4}$/, { error: NUMMER_MUST_BE_DIGITS })
     .nullable(),
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),

@@ -4,10 +4,16 @@ import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip
 import { AdminSpieltagEditForm } from "@/features/spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 
-import type { AdminSpieltagRow } from "@/features/spieltage/types";
+import type { AdminSpieltagEditRow } from "@/features/spieltage/types";
 
 /** The body of `/admin/spieltage/[spieltag_id]`. */
-export function AdminSpieltagEditView({ spieltag, saisonSpan }: { spieltag: AdminSpieltagRow; saisonSpan?: { start: string; end: string } }) {
+export function AdminSpieltagEditView({
+  spieltag,
+  saisonSpan,
+}: {
+  spieltag: AdminSpieltagEditRow;
+  saisonSpan?: { start: string; end: string };
+}) {
   return (
     <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminSpieltagEditForm

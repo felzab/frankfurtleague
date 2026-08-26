@@ -9,7 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import generate_spielplan, patch_saison
-from app.api.saisons.cache import invalidate_saison_cache, read_cached_saison, store_cached_saison
+from app.api.saisons.cache import invalidate_saison_cache, read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.schedule import group_matchdays, total_group_matches
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
@@ -732,7 +732,7 @@ class TestAFailedDrawLeavesNothingBehind:
         self, mongo_replica_set_url: str, narrowed: Collection, refused_field: str
     ):
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> AbortedDraw:
-            store_cached_saison(SAISON_ID, saison_document())
+            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
             await database.command("collMod", str(narrowed), validator=NARROWED_VALIDATORS[narrowed], validationLevel="strict")
 
             with pytest.raises(OperationFailure) as failure:
@@ -814,7 +814,7 @@ class TestTheSeasonCacheIsDroppedOnlyByADrawThatCommitted:
 
     def test_a_committed_draw_drops_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
-            store_cached_saison(SAISON_ID, saison_document())
+            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
             await call_draw(database, client)
 
             return read_cached_saison(SAISON_ID)
@@ -825,7 +825,7 @@ class TestTheSeasonCacheIsDroppedOnlyByADrawThatCommitted:
         """The control: a drop before the refusal would pass the case above while costing every reader a re-read for nothing."""
 
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
-            store_cached_saison(SAISON_ID, saison_document())
+            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
 
             with pytest.raises(DocumentConflictException):
                 await call_draw(database, client)

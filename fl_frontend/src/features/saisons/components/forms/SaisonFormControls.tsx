@@ -30,6 +30,7 @@ export function SaisonDateField({
   isRequired = false,
   minValue,
   maxValue,
+  rangeMessage = "Wähle einen Tag im möglichen Zeitraum.",
 }: {
   /** The field's path in the payload, so `Form`'s `validationErrors` reach it by name. */
   name: string;
@@ -46,6 +47,11 @@ export function SaisonDateField({
    */
   minValue?: CalendarDate;
   maxValue?: CalendarDate;
+  /**
+   * Shown when the value falls outside the bounds, in place of the browser's bare date. Per site,
+   * because the bound means something different at each.
+   */
+  rangeMessage?: string;
 }) {
   return (
     <DatePicker
@@ -75,7 +81,14 @@ export function SaisonDateField({
           </DatePicker.Trigger>
         </DateField.Suffix>
       </DateField.Group>
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR}>
+        {/* Only the range, which is OUR rule and which the browser can state only as a bare date in
+            its own locale. Everything else stays the browser's, in the language the reader chose:
+            `validationErrors` is where native validation puts it. */}
+        {({ validationDetails, validationErrors }) =>
+          validationDetails.rangeOverflow || validationDetails.rangeUnderflow ? rangeMessage : validationErrors.join(" ")
+        }
+      </FieldError>
       <DatePicker.Popover
         className={DATE_PICKER_POPOVER}
         placement={DATE_PICKER_PLACEMENT}>

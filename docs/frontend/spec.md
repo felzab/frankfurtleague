@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `11107ca7`, 2026-08-26\
+**Verified against:** `d6be7a6f`, 2026-08-26\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -945,12 +945,18 @@ pushed onto a second line under the heading is the ragged header the rule exists
 retirement badge and an identity chip both apply, the badge takes the slot: the Kürzel and the squad
 number are fields of the form below, and the day a row was retired is stated nowhere else.
 
-**A slice owns its descriptors and nothing structural.** It declares a group union and a
-`FLFieldDescriptor` table, folds them through
+**A slice owns its descriptors and nothing structural.** It declares a group union and its
+`FLFieldDescriptor` rows, folds them through
 `fl_frontend/src/shared/utils/draftStatus.ts :: deriveDraftStatus`, builds its own banners, and mounts
 `DraftStatusProvider` around the form. `FieldLabel`, `FormActionBar` and `RailChangesSection` all read
 that context rather than taking props, so a label deep inside a form section needs no drilling — and a
 slice that renders one of them outside the provider throws rather than rendering a wrong state.
+
+**A form whose panel has more than one arrangement declares a table per arrangement and picks between
+them**, which stays the slice's decision and asks nothing of the shared surface:
+`fl_frontend/src/features/spieltage/spieltagDraftStatus.ts :: deriveSpieltagDraftStatus` takes which
+arrangement is on screen from the form and hands `deriveDraftStatus` the matching table, so a control
+the reader cannot see owns no row and every rendered label still finds one (I35).
 
 **The rail's hint names its entity through a `nomen` prop, as a topic prefix**:
 `Saison: alle Warnungen an einem Ort, auch die aus dem Formular.` The prefix is what removes German

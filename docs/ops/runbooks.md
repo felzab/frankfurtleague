@@ -1,6 +1,6 @@
 # Ops — runbooks
 
-**Verified against:** `f6073b6f`, 2026-08-26\
+**Verified against:** `d6be7a6f`, 2026-08-26\
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are

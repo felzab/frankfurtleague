@@ -43,10 +43,17 @@ export function orderStufen(erlaubt: readonly FLSpielerStufe[]): FLSpielerStufe[
 }
 
 /**
- * The input carries the bound so the browser refuses a further keystroke; the SCHEMA is what
- * produces the message, because the action validates the payload and returns the field error.
+ * The input carries the bound so the browser refuses a further keystroke; the sentence a value
+ * getting past it earns is `NUMMER_MUST_BE_DIGITS`, which builds its figure from this one.
  */
 export const NUMMER_MAX_LENGTH = 4;
+
+/**
+ * One sentence, stated by the schema's regex over a validated payload and by the field's own
+ * `patternMismatch`. Both reach one slot on one value, so a drift between them would read as two
+ * rules. The figure is `NUMMER_MAX_LENGTH`'s, never spelt again.
+ */
+export const NUMMER_MUST_BE_DIGITS = `Die Nummer besteht aus 1 bis ${String(NUMMER_MAX_LENGTH)} Ziffern.`;
 
 /**
  * `REQ-PURGE-001` in German, said once — the REPAIR rather than the state, which the Callout beside

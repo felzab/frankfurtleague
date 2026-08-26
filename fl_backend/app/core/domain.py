@@ -1298,11 +1298,11 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "the draw writes every phase at exactly its implied count, and `REQ-RULES-011` holds the three numbers "
             "that count follows from to the fixtures drawn from them, in either direction, from the season's first "
             "fixture onward. The matchday's own write never reads the count at all: `anzahl_spiele` is derived for "
-            "the reader. The list shows attached over expected and tints a mismatch."
+            "the reader. The matchday editor's rail names both counts for whoever opens a stored row that holds the gap."
         ),
         near=("REQ-RULES-011", "REQ-RULES-006"),
         proven_by="tests/core/test_unenforced.py::TestAMatchdayOffItsImpliedCount",
-        surfaced_by="/admin/spieltage",
+        surfaced_by="fl_frontend/src/features/spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm.tsx",
     ),
     Unenforced(
         subject="two players in one team and one season wearing the same squad number",
