@@ -62,7 +62,9 @@ describe("buildSpieltagBanners", () => {
     assert.ok(ids(build({ spieleAngelegt: 6 })).includes("spieltag.anzahl-offen"));
   });
 
-  it("keeps the count report out of the confirmation, because an incomplete season is the normal state", () => {
+  /* The repair is a redraw on the season page, so a save stopped here would hold the matchday's dates
+     hostage to a state its own write path neither caused nor reads. */
+  it("keeps the count report out of the confirmation, because nothing on this page repairs it", () => {
     const banner = build({ spieleAngelegt: 2 }).find((entry) => entry.id === "spieltag.anzahl-offen");
 
     assert.equal(banner?.severity, "info");

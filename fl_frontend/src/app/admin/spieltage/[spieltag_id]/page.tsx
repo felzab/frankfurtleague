@@ -10,7 +10,7 @@ import { resolveSpieltagId } from "@/features/spieltage/resolvers";
 import { spieltagLabels } from "@/features/spieltage/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
-import type { AdminSpieltagRow } from "@/features/spieltage/types";
+import type { AdminSpieltagEditRow } from "@/features/spieltage/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
@@ -61,7 +61,7 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
 
   const attached = spieleRes.spiele.filter((spiel) => spiel.spieltag_id === spieltag.id);
 
-  const row: AdminSpieltagRow = {
+  const row: AdminSpieltagEditRow = {
     id: spieltag.id,
     label,
     beginn: spieltag.beginn,

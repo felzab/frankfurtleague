@@ -3,7 +3,6 @@ import { connection } from "next/server";
 
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
-import { getAdminSpiele } from "@/features/spiele/queries";
 import { AdminSpieltageView } from "@/features/spieltage/components/views/AdminSpieltageView";
 import { SPIELTAGE_CRUD_COPY } from "@/features/spieltage/constants";
 import { getAdminSpieltage } from "@/features/spieltage/queries";
@@ -74,17 +73,14 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     );
   }
 
-  const [spieltageRes, spieleRes] = await Promise.all([getAdminSpieltage({ saison_id: saisonId }), getAdminSpiele({ saison_id: saisonId })]);
-
-  const spieleBySpieltag = new Map<string, number>();
-  for (const spiel of spieleRes.spiele) {
-    spieleBySpieltag.set(spiel.spieltag_id, (spieleBySpieltag.get(spiel.spieltag_id) ?? 0) + 1);
-  }
+  const spieltageRes = await getAdminSpieltage({ saison_id: saisonId });
 
   // One pass rather than per row: the label needs how many matchdays the phase holds.
   const labels = spieltagLabels(spieltageRes.spieltage);
 
-  const rows: AdminSpieltagRow[] = spieltageRes.spieltage.map((spieltag) => ({
+  // Annotated on the callback, so the literal is checked against the row type itself: an element
+  // type `map` infers takes whatever the object holds, this list's absent fixture count included.
+  const rows = spieltageRes.spieltage.map((spieltag): AdminSpieltagRow => ({
     id: spieltag.id,
     label: labels.get(spieltag.id)?.label ?? "",
     beginn: spieltag.beginn,
@@ -92,7 +88,6 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     anzahl_spiele: spieltag.anzahl_spiele,
     saison_phase: spieltag.saison_phase,
     saison_id: spieltag.saison_id,
-    spieleAngelegt: spieleBySpieltag.get(spieltag.id) ?? 0,
     position: spieltag.position,
   }));
 

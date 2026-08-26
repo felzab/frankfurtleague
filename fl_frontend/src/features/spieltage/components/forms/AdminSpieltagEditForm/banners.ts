@@ -57,7 +57,8 @@ export function buildSpieltagBanners({
     });
   }
 
-  // Reported and never refused: a season being set up passes through every intermediate count.
+  // Reported and never refused, on `fl_backend/app/core/domain.py :: Unenforced`'s reasoning: no write
+  // path produces this state, and refusing it would latch shut the stored rows that already hold it.
   if (spieleAngelegt !== anzahlSpiele) {
     banners.push({
       id: "spieltag.anzahl-offen",

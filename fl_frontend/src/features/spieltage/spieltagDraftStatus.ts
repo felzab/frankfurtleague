@@ -17,22 +17,30 @@ export type FLSpieltagFieldGroup = "Zeitraum";
 
 export type FLSpieltagDraftStatus = FLDraftStatus<FLSpieltagFieldGroup>;
 
+type FLSpieltagFieldDescriptor = FLFieldDescriptor<FLSpieltagDraftFields, FLSpieltagFieldGroup>;
+
+const readDatum = (value: string): string | null => (emptyAsNull(value) === null ? null : formatSpielDatum(value));
+
 /**
- * Every field the matchday editor can change. **`ende` carries the span refinement's message**, which
- * `FLPatchSpieltagPayloadSchema` puts there deliberately.
+ * Every field the matchday editor can change where it dates both ends. **`ende` carries the span
+ * refinement's message**, which `FLPatchSpieltagPayloadSchema` puts there deliberately.
  */
-const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSpieltagDraftFields, FLSpieltagFieldGroup>[] = [
+const SPAN_DESCRIPTORS: readonly FLSpieltagFieldDescriptor[] = [
+  { path: "beginn", label: "Beginn", group: "Zeitraum", read: (source) => readDatum(source.beginn) },
+  { path: "ende", label: "Ende", group: "Zeitraum", read: (source) => readDatum(source.ende) },
+];
+
+/**
+ * One row where one picker dates the matchday: a second would name a control that is not on screen.
+ * `errorPaths` still lands the span refinement's message, which the schema reports on `ende`.
+ */
+const SINGLE_DAY_DESCRIPTORS: readonly FLSpieltagFieldDescriptor[] = [
   {
     path: "beginn",
-    label: "Beginn",
+    label: "Datum",
     group: "Zeitraum",
-    read: (source) => (emptyAsNull(source.beginn) === null ? null : formatSpielDatum(source.beginn)),
-  },
-  {
-    path: "ende",
-    label: "Ende",
-    group: "Zeitraum",
-    read: (source) => (emptyAsNull(source.ende) === null ? null : formatSpielDatum(source.ende)),
+    errorPaths: ["beginn", "ende"],
+    read: (source) => readDatum(source.beginn),
   },
 ];
 
@@ -40,10 +48,13 @@ export function deriveSpieltagDraftStatus({
   stored,
   draft,
   fieldErrors,
+  isSingleDay,
 }: {
   stored: FLSpieltagDraftFields;
   draft: FLSpieltagDraftFields;
   fieldErrors: FieldErrors;
+  /** Which arrangement the Zeitraum panel is rendering, which is the form's decision and not this table's. */
+  isSingleDay: boolean;
 }): FLSpieltagDraftStatus {
-  return deriveDraftStatus({ descriptors: FIELD_DESCRIPTORS, stored, draft, fieldErrors });
+  return deriveDraftStatus({ descriptors: isSingleDay ? SINGLE_DAY_DESCRIPTORS : SPAN_DESCRIPTORS, stored, draft, fieldErrors });
 }

@@ -7,9 +7,7 @@ import { Calendar, Globe, Pencil } from "@gravity-ui/icons";
 
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -103,27 +101,6 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     );
   };
 
-  /** The derived expectation against what is attached — the per-matchday half of `renderPhaseCount`. */
-  const renderSpieleCount = (spieltag: AdminSpieltagRow) => {
-    const matches = spieltag.spieleAngelegt === spieltag.anzahl_spiele;
-    // The noun agrees with the EXPECTED count, the number it belongs to: „1 / 1 Spiel“.
-    const noun = spieltag.anzahl_spiele === 1 ? "Spiel" : "Spiele";
-
-    return (
-      <IconTooltip
-        label={
-          matches
-            ? `${String(spieltag.spieleAngelegt)} von ${String(spieltag.anzahl_spiele)} erwarteten ${spieltag.anzahl_spiele === 1 ? "Spiel" : "Spielen"} angelegt.`
-            : `${String(spieltag.spieleAngelegt)} angelegt, erwartet ${spieltag.anzahl_spiele === 1 ? "ist 1 Spiel" : `sind ${String(spieltag.anzahl_spiele)} Spiele`}.`
-        }
-        tone={matches ? undefined : "danger"}>
-        <span className={`${LABEL_BADGE} cursor-help ${matches ? "bg-success/15 text-success-strong" : "bg-warning/15 text-warning-strong"}`}>
-          {spieltag.spieleAngelegt} / {spieltag.anzahl_spiele} {noun}
-        </span>
-      </IconTooltip>
-    );
-  };
-
   const renderActions = (spieltag: AdminSpieltagRow) => (
     <RowActions>
       {/* `spieltag` as `buildSpielFacets` declares it: `phase` would answer with the whole group stage
@@ -208,8 +185,6 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                     </span>
                   </div>
                 </div>
-
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 md:shrink-0">{renderSpieleCount(spieltag)}</div>
 
                 <div className="border-border/50 -mx-1 border-t pt-2 md:mx-0 md:shrink-0 md:border-t-0 md:pt-0">{renderActions(spieltag)}</div>
               </li>

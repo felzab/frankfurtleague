@@ -13,10 +13,6 @@ export type FLSpieltageFilterParams = {
   order?: "asc" | "desc";
 };
 
-/**
- * **`spieleAngelegt` against `anzahl_spiele` is why this is a list and not a link into the
- * Spielplan**: nothing holds the two equal, because a season being set up passes through every count.
- */
 export type AdminSpieltagRow = {
   id: string;
   /** Composed from the phase and `position`, never stored. See `spieltagLabels`. */
@@ -27,8 +23,15 @@ export type AdminSpieltagRow = {
   anzahl_spiele: number;
   saison_phase: FLSaisonPhase;
   saison_id: string;
-  /** How many matches actually carry this matchday's id, counted from the season's fixtures. */
-  spieleAngelegt: number;
   /** The served place within this row's phase, which the label renders and the list numbers. */
   position: number;
+};
+
+/**
+ * The list's row plus the one field only a fixture read answers. Separate, so the list page — which
+ * fetches no fixtures — cannot stand a placeholder in for a count it does not have.
+ */
+export type AdminSpieltagEditRow = AdminSpieltagRow & {
+  /** How many matches actually carry this matchday's id, counted from the season's fixtures. */
+  spieleAngelegt: number;
 };
