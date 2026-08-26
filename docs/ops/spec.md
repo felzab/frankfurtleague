@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `1bee7a81`, 2026-08-26\
+**Verified against:** `07a36b6b`, 2026-08-26\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 | Section                                                | Answers                                                              |
@@ -252,9 +252,9 @@ is per stream: a terminal that merges stdout and stderr sees a scope's error lin
 rather than between it. `--serial` runs them one at a time and is what a byte-identity comparison is
 measured against; `--verbose`, a run covering one scope, and CI are serial too, CI because it already
 runs one scope per job, as is a machine with no interpreter at the checkers' floor, the pool being
-python. Only two scopes are constrained: `db` follows `backend`, which shares its `__pycache__` and
-`.pytest_cache`, and `ops` follows `backend`, `db` and `frontend`, whose trees its stand-in `.env`
-files appear in. **The `--frontend` implication above is the parent's, never a worker's** — a worker
+python. One scope is constrained: `ops` follows `backend`, `db` and `frontend`, whose trees its
+stand-in `.env` files appear in, which makes it the tail of the run rather than a member of it. **The
+`--frontend` implication above is the parent's, never a worker's** — a worker
 runs the one scope it is given. `scripts/gate_pool.py` owns the spawning and nothing else; the
 sections, the closing table and the closing statements stay in `scripts/_lib.sh`.
 

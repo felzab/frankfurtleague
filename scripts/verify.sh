@@ -113,8 +113,6 @@ if ! worker; then set_not_run "$NOT_RUN"; fi
 # Absence means independent of every other scope, which is what lets the pool start it at once.
 scope_shares() { # $1 scope · prints the scopes it must follow
   case "$1" in
-    # Both test tiers write fl_backend/__pycache__ and .pytest_cache.
-    db)  printf 'backend' ;;
     # Its stand-in .env files appear and vanish in both trees, which the backend's tests and
     # `next build` read while they run.
     ops) printf 'backend db frontend' ;;
