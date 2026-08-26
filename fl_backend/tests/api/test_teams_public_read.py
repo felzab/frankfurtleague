@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, get_type_hints
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
 from app.api.saisons.cache import invalidate_saison_cache
@@ -14,6 +14,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from tests.config import build_test_config
+from tests.database import a_clean_database
 
 DATABASE_NAME = "fl_teams_public_read_test"
 
@@ -101,11 +102,7 @@ def on_a_league(container: Any, body: Body) -> Any:
     """One client and event loop per call: Motor binds to the loop it first ran on."""
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(container.get_connection_url())
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
+        async with a_clean_database(container.get_connection_url(), DATABASE_NAME) as (_, database):
             # Process-global and keyed by season id, so an entry another module left would answer here.
             invalidate_saison_cache()
 
@@ -119,9 +116,6 @@ def on_a_league(container: Any, body: Body) -> Any:
             await database[Collection.SAISON_TEAMS].insert_many([junction_row("Helmholtz", "HG"), junction_row("Lessing", "LE")])
 
             return await body(database)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 

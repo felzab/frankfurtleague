@@ -15,8 +15,10 @@ import atexit
 import contextlib
 import importlib
 import io
+import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -544,11 +546,32 @@ class Fixture:
     unreachable_sha: str
 
 
+def _discard(root: Path) -> None:
+    """Remove one fixture repository, the read-only files git wrote inside it included.
+
+    Windows will not unlink a read-only file, and that is how git writes every loose object -- so
+    ignoring the error alone leaves every `.git` tree behind.
+    """
+
+    def _clear_readonly(remove: Callable[..., object], path: str, _exc: BaseException) -> None:
+        os.chmod(path, stat.S_IWRITE)
+        remove(path)
+
+    # Suppressed around the retry rather than instead of it: interpreter shutdown has nobody left
+    # to tell, but a failure swallowed before the retry is what let these accumulate.
+    with contextlib.suppress(OSError):
+        shutil.rmtree(root, onexc=_clear_readonly)
+
+
 def _load() -> Fixture:
     """The checker, imported from a copy of scripts/ inside a fresh fixture repository."""
     root = Path(tempfile.mkdtemp(prefix="check-docs-fixture-")).resolve()
-    atexit.register(shutil.rmtree, root, True)
-    shutil.copytree(REPO_ROOT / SCRIPTS_COPY, root / SCRIPTS_COPY, ignore=shutil.ignore_patterns("__pycache__", "tests"))
+    atexit.register(_discard, root)
+    # Caches as well as packages: the gate runs this suite beside ruff and pyright, and one being
+    # rewritten under the walk fails the copy for nothing the corpus can explain. The fixture reads
+    # none of them; its git tracks the corpus by name.
+    ignored = shutil.ignore_patterns("__pycache__", "tests", ".ruff_cache", ".pytest_cache", ".mypy_cache")
+    shutil.copytree(REPO_ROOT / SCRIPTS_COPY, root / SCRIPTS_COPY, ignore=ignored)
     sys.path.insert(0, str(root / SCRIPTS_COPY))
     gate = importlib.import_module("check_docs")
     # The seam itself, stated as an assertion: the checker derives its repository root from its own

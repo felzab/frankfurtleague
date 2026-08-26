@@ -1,6 +1,6 @@
 # Scripts
 
-**Verified against:** `4393dba3`, 2026-08-19\
+**Verified against:** `d828ee1c`, 2026-08-26\
 **Folder purpose:** the operational scripts for building, testing, running and deploying
 Frankfurt-League, plus the checkers the verification gate runs.
 
@@ -24,7 +24,7 @@ Frankfurt-League, plus the checkers the verification gate runs.
 | `scripts/check_compose_mirror.py` | any           | The local stack against production, minus the differences it declares |
 | `scripts/check_pr_body.py`        | CI only       | A pull request body, which is not in the repository                   |
 | `scripts/ts_normalize.mjs`        | any           | Whether two TypeScript files differ by anything but comments          |
-| `scripts/tests/`                  | any           | pytest over the documentation gate's own checks                       |
+| `scripts/tests/`                  | any           | pytest over the documentation gate's checks and the kernel's floors   |
 | `scripts/ruff.toml`               | —             | ruff's configuration for the python in this folder                    |
 | `scripts/pyrightconfig.json`      | —             | pyright's configuration for the python in this folder                 |
 

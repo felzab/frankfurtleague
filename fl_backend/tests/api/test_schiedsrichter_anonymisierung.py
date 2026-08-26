@@ -12,9 +12,10 @@ from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, patch_
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterWriteResponse
 from app.api.schiedsrichter.services import ANONYMISED_KONTAKT
 from app.core.collections import Collection
-from app.core.constraints import SUPPORT_INDEXES, apply_constraints
+from app.core.constraints import SUPPORT_INDEXES
 from app.core.recording import build_redaction_filter
 from app.shared.schemas.kontakt import FLKontakt
+from tests.database import a_clean_database
 
 DATABASE_NAME = "fl_schiedsrichter_anonymisierung_test"
 
@@ -117,28 +118,20 @@ async def a_referee_with_a_history(database: AsyncIOMotorDatabase, client: Async
     )
 
 
-def on_a_league(url: str, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on.
+def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
+    """The REAL validators and support indexes, so a namespace a transaction cannot create is there.
 
-    The REAL validators and support indexes are installed, and `apply_constraints` creates every
-    namespace as it goes -- a transaction cannot create one.
+    `mutates_schema=True` where the body narrows one of those validators: `tests/database.py` then
+    keeps the change off every later test.
     """
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
-            await apply_constraints(database)
+        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.SCHIEDSRICHTER].insert_many([referee_document(oid) for oid in REFEREE_NAMES])
             for oid in REFEREE_NAMES:
                 await a_referee_with_a_history(database, client, oid)
 
             return await body(database, client)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 
@@ -406,7 +399,7 @@ def test_a_refused_redaction_takes_the_clearing_back(mongo_replica_set_url: str)
 
         return failure.value.code, await stored_referees(database), await log_rows_naming(database, SCHIEDSRICHTER_OID)
 
-    code, referees, rows = on_a_league(mongo_replica_set_url, body)
+    code, referees, rows = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
     # Asserted on the code, so this cannot pass because something else failed before any write.
     assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the redaction, got code {code}"

@@ -219,8 +219,17 @@ step() {
   printf '\n%s==> %s%s\n' "$C_BOLD" "$*" "$C_RESET"
 }
 
-# Under a section every step carries its duration: the table's rows are sums of these, and a total
-# no line itemises is one nobody can act on.
+# Re-dates the open step to the work's own length, for a step whose work ran beside its neighbours
+# rather than between them, where the order they are collected in is not the order they ran in.
+# `docs/ops/spec.md` §1.6.
+step_took_ms() { # $1 how long this step's work actually took, in milliseconds
+  _STEP_MS0=$(( $(_now_ms) - $1 ))
+  _STEP_T0=$(( SECONDS - $1 / 1000 ))
+}
+
+# Under a section every step carries its duration, because a total no line itemises is one
+# nobody can act on. The section's own row is a wall clock, which its steps sum to only while
+# they run in order.
 ok() {
   local suffix=""
   if (( _CHROME )); then

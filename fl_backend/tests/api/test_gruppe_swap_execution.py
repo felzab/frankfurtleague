@@ -18,6 +18,7 @@ from app.api.teams.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
+from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
 
@@ -108,28 +109,25 @@ def on_a_seeded_season(
     *,
     spiele: list[dict[str, Any]] | None = None,
     saison_status: str = "active",
+    mutates_schema: bool = False,
 ) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on. A transaction cannot create a collection."""
+    """`spiele` by hand, a transaction being unable to create a collection.
+
+    `mutates_schema=True` where the body attaches a validator: `tests/database.py` then keeps the
+    change off every later test.
+    """
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
+        async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SPIELE,), mutates_schema=mutates_schema) as (client, database):
             await database[Collection.SAISONS].insert_one({"_id": SAISON_ID, "status": saison_status})
             await database[Collection.SAISON_TEAMS].insert_many(
                 [junction(ALPHA, "A"), junction(ALPHA_RIVAL, "A"), junction(BETA, "B"), junction(BETA_RIVAL, "B")]
             )
             await database[Collection.TEAMS].insert_many([club(team_id) for team_id in NAMES])
-            await database.create_collection(Collection.SPIELE)
             if spiele:
                 await database[Collection.SPIELE].insert_many(spiele)
 
             return await body(database, client)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 
@@ -335,7 +333,7 @@ class TestAMidFlightFailureTakesBothWritesBack:
 
             return failure.value.code, await gruppen_now(database), await sides_now(database)
 
-        code, stored, sides = on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
+        code, stored, sides = on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN), mutates_schema=True)
 
         # Asserted on the code, so this cannot pass because something else failed before either write.
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the second write, got code {code}"

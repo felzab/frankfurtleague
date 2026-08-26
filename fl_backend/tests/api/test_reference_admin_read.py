@@ -13,6 +13,7 @@ from app.core.config import API_VERSION
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from tests.config import build_test_config
+from tests.database import a_clean_database_sync
 
 ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
 BASE_AUTH = {"Authorization": "Bearer test-key-base"}
@@ -165,14 +166,12 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
 
     client = MongoClient(url)
     try:
-        client.drop_database(database_name)
-        database = client[database_name]
+        database = a_clean_database_sync(client, url, database_name)
         database[Collection.SPIELORTE].insert_one(spielort_document())
         database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_documents())
 
         yield url
     finally:
-        client.drop_database(database_name)
         client.close()
 
 

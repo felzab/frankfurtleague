@@ -19,8 +19,8 @@ from app.api.saisons.schemas import (
 from app.api.saisons.services import RULES_SHAPE_AFTER_DRAW
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
-from app.core.constraints import apply_constraints
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
+from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
 
@@ -121,25 +121,16 @@ def on_a_seeded_saison(url: str, body: Body) -> Any:
     """One client and event loop per call: Motor binds to the loop it first ran on. A transaction cannot create a collection."""
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
+        # The SHIPPED validators and unique indexes, and every collection -- including the one the
+        # action log appends to inside each of the two transactions below.
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
             invalidate_saison_cache()
-
-            # The SHIPPED validators and unique indexes, and it creates every collection -- including
-            # the one the action log appends to inside each of the two transactions below.
-            await apply_constraints(database)
 
             await database[Collection.SAISONS].insert_one(saison_document())
             await database[Collection.SAISON_TEAMS].insert_many(entry_rows())
 
             return await body(database, client)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 

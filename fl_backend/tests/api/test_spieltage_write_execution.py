@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
@@ -12,6 +12,7 @@ from app.api.spieltage.admin_router import patch_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
 from app.api.spieltage.services import SPIELTAG_BEGINN_OUT_OF_ORDER, SPIELTAG_SPAN_BELOW_FIXTURES
 from app.core.exceptions import DocumentConflictException
+from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
 
@@ -111,16 +112,10 @@ def on_a_database(url: str, body: Body) -> Any:
     """One client and event loop per call: Motor binds to the loop it first runs on."""
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(url)
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
+        async with a_clean_database(url, DATABASE_NAME) as (_, database):
             await database.saisons.insert_one(saison_document())
             await database.spieltage.insert_one(spieltag_document())
             return await body(database)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
 

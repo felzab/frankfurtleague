@@ -4,7 +4,7 @@ from typing import Any, Awaitable, Callable, Mapping, Sequence, get_args
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import ValidationError
 
 from app.api.saisons.cache import invalidate_saison_cache
@@ -24,6 +24,7 @@ from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.main import create_app
 from tests.config import build_test_config
+from tests.database import a_clean_database
 
 DATABASE_NAME = "fl_spieler_public_read_test"
 
@@ -426,11 +427,7 @@ def on_a_database(container: Any, body: Body) -> Any:
     """One client and event loop per call: Motor binds to the loop it first runs on."""
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(container.get_connection_url())
-        try:
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-
+        async with a_clean_database(container.get_connection_url(), DATABASE_NAME) as (_, database):
             # This corpus stores no season, so the read's gate finds none to withhold -- but the cache
             # behind it is process-global, and another module's entry under this id would answer here.
             invalidate_saison_cache()
@@ -459,8 +456,5 @@ def on_a_database(container: Any, body: Body) -> Any:
             )
 
             return await body(database)
-        finally:
-            await client.drop_database(DATABASE_NAME)
-            client.close()
 
     return asyncio.run(_run())
