@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `d6be7a6f`, 2026-08-26\
+**Verified against:** `22805a09`, 2026-08-27\
 **Scope:** `fl_backend/`
 
 | Section                                                                        | Answers                                                           |
@@ -439,7 +439,7 @@ a **guard** decides who may make the read at all, a **response model** decides w
 | `READ-CONTACT-001` | A referee's `kontakt` and `schule` -- a referee is a pupil                                                                                 | `fl_backend/app/api/schiedsrichter/router.py`, guarded `verify_access_admin` whole, no public page having called it                                                                                                                                                                                 |
 | `READ-MONEY-001`   | `default_mietpreis`, `default_payment`, and a fixture's own `ort.mietpreis` and `schiedsrichter.payment`                                   | The two reference routers' guards, and `fl_backend/app/api/spiele/schemas.py :: FLSpielOrtFieldPublic` / `:: FLSpielSchiedsrichterFieldPublic`, which `FLSpielJoinedAdmin` extends to add the figures back                                                                                          |
 | `READ-ADDRESS-001` | Nothing -- a venue's address IS public, through `maps_link`, and is declared so rather than withheld by one route and published by another | `fl_backend/app/api/spielorte/admin_router.py :: _maps_link` composes the whole postal address into that string, and `fl_backend/app/api/spiele/schemas.py :: FLSpielOrtFieldPublic` serves it on every fixture; the structured `address` is admin-tier because no public surface renders the parts |
-| `READ-SQUAD-001`   | Nothing -- a squad is filtered by the ROW's retirement, so a retired person keeps the rows they played                                     | `fl_backend/app/api/spieler/services.py :: build_spieler_pipeline`, whose only `inactive_since` match sits inside the `$lookup`; the retire dialog's promise in `fl_frontend/src/features/admin/constants.ts` rests on it                                                                           |
+| `READ-SQUAD-001`   | Nothing -- a squad is filtered by the ROW's retirement, so a retired person keeps the rows they played                                     | `fl_backend/app/api/spieler/services.py :: build_spieler_pipeline`, whose only `inactive_since` match sits inside the `$lookup`; the retire dialog's promise in `fl_frontend/src/features/spieler/components/modals/AdminDeleteSpielerModal.tsx :: AdminDeleteSpielerModal` rests on it             |
 | `READ-SQUAD-002`   | Retired squad rows, which it cannot un-hide at all                                                                                         | The base tier declares no `include_inactive`, no public surface having passed one; the rule lives on `fl_backend/app/api/spieler/schemas.py :: FLSpielerMembership`, whose every row carries its own `inactive_since`                                                                               |
 
 **A withheld field is absent, never nulled.** A response whose shape follows the caller's key is one no Zod

@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `6669079e`, 2026-08-26\
+**Verified against:** `22805a09`, 2026-08-27\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -1763,7 +1763,7 @@ way the `Mannschaft` sweep was run — a find-and-replace is what breaks it, bec
 not interchangeable in every sentence position.
 
 **`bereits` and `schon` both mean _already_, and the product spells both.** `schon` carries the
-larger share — 46 occurrences against 16, measured 2026-08-26 — so what is left is a minority
+larger share — 45 occurrences against 16, measured 2026-08-27 — so what is left is a minority
 spelling rather than an even split. `docs/frontend/spec.md` §1.12 asks for one German word per
 concept, and this is the same defect the `Mannschaft` sweep closed for _Team_, one register lower.
 
@@ -1891,7 +1891,7 @@ should be guessed.
 **Path:** Independent of every entry here. What it waits on is a product ruling per entity rather
 than a page or another item.
 
-**The Fehlt and Empfohlen markers exist on the match editor alone, and putting them on the other
+**The Fehlt and Offen markers exist on the match editor alone, and putting them on the other
 entity editors is a domain question before it is a UI one.**
 `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/ExpectedMarker.tsx :: ExpectedMarker`
 renders a marker only where a field is empty **and** a triage category is waiting on it. Those

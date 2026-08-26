@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `d6be7a6f`, 2026-08-26
+**Verified against:** `22805a09`, 2026-08-27
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
