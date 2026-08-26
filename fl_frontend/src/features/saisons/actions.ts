@@ -97,24 +97,23 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     // `saisonDraftStatus`'s `errorPaths`.
     case "REQ-RULES-010":
       return { fieldErrors: { "rules.forfeit_ergebnis.sieger_tore": FORFEIT_CANNOT_DECIDE } };
-    // Both freezes can hold at once and neither message can see which does, so each names only what
-    // it freezes and closes with the four fields neither reaches. `FormRegelnSection`'s note has the
-    // season's status and lists the rest per case.
+    // Neither freeze can see whether the other holds, so each names only the fields it freezes. A
+    // reload is the whole repair: the panel holds these three read-only, so only a season that
+    // turned `past` under an open page reaches this.
     case "REQ-RULES-005":
       return {
-        error:
-          "Diese Saison ist abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten festgeschrieben. " +
-          "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar.",
+        error: "Diese Saison ist abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten festgeschrieben. Lade die Seite neu.",
       };
     // A bare message, the shape `REQ-RULES-005` uses: the two freezes refuse the same class of edit
     // in one panel, and one answering through field paths would split that into two mechanisms.
     case "REQ-RULES-011":
       return {
+        // Wrapped so the second repair reads as one run: `undrawSpielplan.test.ts` matches the verb
+        // this message sends an admin looking for against the control that carries it.
         error:
-          "Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Die Qualifikanten änderst Du, " +
-          "indem Du den Spielplan mit der neuen Zahl neu anlegst. Beides entsteht in einem Schritt. Gruppen und Teams pro Gruppe " +
-          "hängen dagegen an den Teams, die in dieser Saison stehen: Nimm dafür zuerst den Spielplan zurück, passe die Teams an und " +
-          "lege ihn danach neu an. Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar.",
+          "Für diese Saison sind schon Spiele angesetzt. Die Qualifikanten änderst Du, indem Du den Spielplan mit der neuen Zahl " +
+          "neu anlegst. Gruppen und Teams pro Gruppe hängen dagegen an den Teams, die in dieser Saison stehen: " +
+          "Nimm dafür zuerst den Spielplan zurück, passe die Teams an und lege ihn danach neu an.",
       };
     case "REQ-RULES-006":
       return {

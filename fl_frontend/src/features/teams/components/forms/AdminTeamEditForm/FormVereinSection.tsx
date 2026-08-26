@@ -42,10 +42,7 @@ export function FormVereinSection({
             label="Hinweis zu den Teamdaten"
             body={{
               lead: "Name, Kürzel und Beschreibung erscheinen öffentlich.",
-              points: [
-                { term: "Eine Umbenennung", text: "wird in alle Spiele des Teams übernommen." },
-                { term: "Das Kürzel", text: "ist ligaweit eindeutig, auch bei stillgelegten Teams." },
-              ],
+              points: [{ term: "Eine Umbenennung", text: "wird in alle Spiele des Teams übernommen." }],
             }}
           />
         </h2>

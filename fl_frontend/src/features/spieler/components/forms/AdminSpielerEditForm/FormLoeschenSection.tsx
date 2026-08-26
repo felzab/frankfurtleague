@@ -70,10 +70,7 @@ export function FormLoeschenSection({
           <Hint
             mode="reveal"
             label="Hinweis zum Löschen"
-            body={{
-              lead: "Der Weg, eine Person ganz aus der Verwaltung zu entfernen.",
-              points: [{ term: "Das Änderungsprotokoll", text: "behält seine Zeilen und verliert nur die Angaben zur Person." }],
-            }}
+            body={{ lead: "Der Weg, eine Person ganz aus der Verwaltung zu entfernen." }}
           />
         </h2>
       </div>

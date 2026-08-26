@@ -319,10 +319,7 @@ export function FormSaisonSection({
           <Hint
             mode="reveal"
             label="Hinweis zur Saison-Zugehörigkeit"
-            body={{
-              lead: "Dieser Bereich gilt für die Saison aus dem Seitenmenü.",
-              points: [{ term: "Denselben Gruppentausch", text: "startest Du auf der Saisonseite mit zwei frei gewählten Teams." }],
-            }}
+            body={{ lead: "Dieser Bereich gilt für die Saison aus dem Seitenmenü." }}
           />
         </h2>
       </div>

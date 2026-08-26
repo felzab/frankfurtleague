@@ -114,15 +114,7 @@ export function FormTeamErsatzSection({
           <Hint
             mode="reveal"
             label="Hinweis zum Ersetzen"
-            body={{
-              lead: "Ein Team gibt seinen Platz in dieser Saison an ein anderes ab.",
-              points: [
-                { term: "Das nachrückende Team", text: "übernimmt Gruppe, Gegner, Termine und Orte." },
-                { term: "Kein Spiel", text: "wird dabei gelöscht oder verschoben." },
-                { term: "Ein eingetragener Austritt", text: "wird aufgehoben." },
-                { term: "Die Kadereinträge des ausscheidenden Teams", text: "werden ausgetragen." },
-              ],
-            }}
+            body={{ lead: "Ein Team gibt seinen Platz in dieser Saison an ein anderes ab." }}
           />
         </h2>
       </div>

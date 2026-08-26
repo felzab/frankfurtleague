@@ -185,13 +185,14 @@ export function FormSpielplanSection({
         </span>
         <h2 className={panel.heading()}>
           Spielplan
+          {/* The two bullets are the second half of the repair `REQ-RULES-011` sends an admin on, so
+              this hint keeps its wayfinding where an ordinary one would lose it. */}
           <Hint
             mode="reveal"
             label="Hinweis zum Spielplan"
             body={{
               lead: "Der Spielplan umfasst die Spieltage und Spiele dieser Saison.",
               points: [
-                { term: "Er entsteht", text: "aus den Gruppen dieser Saison, und jede braucht genau so viele Teams, wie die Regeln vorsehen." },
                 { term: "Die Teams", text: "verteilst Du über die Teamseite." },
                 {
                   term: "Gruppen, Teams pro Gruppe und Qualifikanten",
@@ -277,12 +278,6 @@ export function FormSpielplanSection({
         {isDrawing && replacesDraw && (
           <div className="flex w-full flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING}>Aufbau des neuen Spielplans</h3>
-            {/* Said beside the boxes, not only in the hint: after a draw every offered group holds
-                exactly its full count, so the two upper numbers move only once the groups do. */}
-            <p className="fluid-xs text-foreground-muted font-medium">
-              <strong>Qualifikanten</strong> kannst Du hier allein ändern. <strong>Gruppen</strong> und <strong>Teams pro Gruppe</strong> gelten
-              erst, wenn die Gruppen dieser Saison genau dazu passen. Verteile die Teams also vorher über die <strong>Teamseite</strong>.
-            </p>
             <div className={FIELD_TRIO}>
               {SHAPE_FIELDS.map(({ key: shapeKey, label, minValue, maxValue }) => (
                 <SaisonRuleNumberField

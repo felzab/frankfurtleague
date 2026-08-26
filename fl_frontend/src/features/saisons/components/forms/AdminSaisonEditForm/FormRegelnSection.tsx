@@ -7,7 +7,6 @@ import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
 import type { FLSaisonRules } from "@/features/saisons/schemas";
@@ -58,20 +57,7 @@ export function FormRegelnSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Regeln
-          <Hint
-            mode="reveal"
-            label="Hinweis zu den Regeln"
-            body={{
-              lead: "Diese Werte legen fest, wie die Saison gespielt wird.",
-              points: [
-                { term: "Gruppen", text: "und Teams pro Gruppe begrenzen, wohin ein Team aufgenommen werden kann." },
-                { term: "Qualifikanten", text: "sind die Teams jeder Gruppe, die die KO-Runde erreichen." },
-              ],
-            }}
-          />
-        </h2>
+        <h2 className={panel.heading()}>Regeln</h2>
       </div>
 
       <div className={panel.body()}>
@@ -228,29 +214,14 @@ export function FormRegelnSection({
           spot="regeln-status"
         />
 
-        {/* Panel-local, not a banner: which of THESE fields are frozen is a fact about the inputs
-            directly above, and on the rail it would describe controls the reader cannot see. The
-            `past` freeze is the banner's above, which names the same three fields. */}
-        {(isFinishedSaison || isDrawnSaison) && (
-          <div className="fluid-xxs text-foreground-muted flex w-full flex-col gap-y-1 font-medium">
-            {/* Two repairs and not one, as `find_rules_refusal` composes them per moved field: only
-                the qualifiers move on a redraw, the other two standing on which clubs are entered. */}
-            {isDrawnSaison && (
-              <p>
-                Die Qualifikanten änderst Du, indem Du den Spielplan mit der neuen Zahl neu anlegst. Für Gruppen und Teams pro Gruppe nimmst Du
-                den Spielplan zurück, passt die Teams an und legst ihn danach neu an.
-              </p>
-            )}
-            {/* Spelled out per case rather than listing the always-open fields: under one freeze the
-                other's fields are still editable, and leaving them out would read as closing them. */}
-            <p>
-              {isFinishedSaison && isDrawnSaison
-                ? "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
-                : isFinishedSaison
-                  ? "Gruppen, Teams pro Gruppe, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
-                  : "Punkte, Tiebreak, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."}
-            </p>
-          </div>
+        {/* Panel-local: on the rail it would describe controls the reader cannot see. Two repairs and
+            not one, as `find_rules_refusal` composes them per moved field: only the qualifiers move
+            on a redraw, the other two standing on which clubs are entered. */}
+        {isDrawnSaison && (
+          <p className="fluid-xxs text-foreground-muted w-full font-medium">
+            Die Qualifikanten änderst Du, indem Du den Spielplan mit der neuen Zahl neu anlegst. Für Gruppen und Teams pro Gruppe nimmst Du den
+            Spielplan zurück, passt die Teams an und legst ihn danach neu an.
+          </p>
         )}
       </div>
     </section>

@@ -67,10 +67,7 @@ export function FormAdresseSection({
           <Hint
             mode="reveal"
             label="Hinweis zur Adresse"
-            body={{
-              lead: "Der Heimstandort des Teams, öffentlich auf der Teamseite.",
-              points: [{ term: "Der Stadtteil", text: "ist optional." }],
-            }}
+            body={{ lead: "Der Heimstandort des Teams, öffentlich auf der Teamseite." }}
           />
         </h2>
       </div>

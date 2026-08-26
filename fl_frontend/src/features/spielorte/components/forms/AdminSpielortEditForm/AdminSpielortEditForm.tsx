@@ -137,7 +137,6 @@ export function AdminSpielortEditForm({
     isRetired,
     isNameChanged: isChanged("name"),
     isAddressChanged,
-    isMietpreisChanged: isChanged("default_mietpreis"),
     hasStadtteil: address.stadtteil.trim() !== "",
   });
 
@@ -306,7 +305,6 @@ export function AdminSpielortEditForm({
             defaultMietpreis={defaultMietpreis}
             onChange={setDefaultMietpreis}
             onFieldChanged={validatePicked}
-            banners={banners}
           />
         </EditFormLayout>
 

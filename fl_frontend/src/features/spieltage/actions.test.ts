@@ -125,16 +125,16 @@ describe("the German the ordering refusal renders", () => {
   });
 });
 
-describe("the greying the Zeitraum hint promises", () => {
+describe("what bounds the Zeitraum pickers", () => {
   /* The season is the only bound the pickers take, and that is a decision: `REQ-DATE-008` judges the
-     STEP, so a static one would grey out a repair the endpoint allows. A promise wider than the
-     bounds offers days the save then refuses. */
-  it("promises greying no wider than the bounds the pickers carry", () => {
+     STEP, so a static one would grey out a repair the endpoint allows. The greying is the calendar's
+     own answer and carries no sentence beside it (`docs/frontend/spec.md` §1.12, diagnostic 4), so a
+     bound reaching wider than the span would be the only thing left saying which days are offered. */
+  it("bounds both pickers by the season's span, and promises the greying in no sentence", () => {
     const bounds = [...HINT_SECTION.matchAll(/(?:minValue|maxValue)=\{\w+\}/g)].map((match) => match[0]);
-    const greying = HINT_SECTION.split("{ term:").find((item) => item.includes("ausgegraut")) ?? "";
 
     assert.deepEqual([...new Set(bounds)].sort(), ["maxValue={spanEnd}", "minValue={spanStart}"]);
-    assert.match(greying, /außerhalb der Saison/);
+    assert.doesNotMatch(HINT_SECTION, /ausgegraut/);
   });
 });
 

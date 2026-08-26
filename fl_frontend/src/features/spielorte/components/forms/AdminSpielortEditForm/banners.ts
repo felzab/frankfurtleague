@@ -1,8 +1,8 @@
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-export type SpielortBannerId = "spielort.retired" | "spielort.maps-link-derived" | "spielort.miete-changed" | "spielort.kein-stadtteil";
+export type SpielortBannerId = "spielort.retired" | "spielort.maps-link-derived" | "spielort.kein-stadtteil";
 
-export type SpielortBannerSpot = "adresse" | "miete";
+export type SpielortBannerSpot = "adresse";
 
 export type SpielortBanner = RailBanner<SpielortBannerId> & { inline: SpielortBannerSpot | null };
 
@@ -10,14 +10,12 @@ export function buildSpielortBanners({
   isRetired,
   isNameChanged,
   isAddressChanged,
-  isMietpreisChanged,
   hasStadtteil,
 }: {
   isRetired: boolean;
   isNameChanged: boolean;
   /** Whether any address field differs from what is stored. */
   isAddressChanged: boolean;
-  isMietpreisChanged: boolean;
   hasStadtteil: boolean;
 }): readonly SpielortBanner[] {
   const banners: SpielortBanner[] = [];
@@ -46,23 +44,13 @@ export function buildSpielortBanners({
     });
   }
 
-  if (isMietpreisChanged) {
-    banners.push({
-      id: "spielort.miete-changed",
-      severity: "info",
-      title: "Bereits angesetzte Spiele behalten ihre Miete",
-      // The repair rather than the title's mirror image: what a fixture costs is the fixture's own field.
-      body: "Die Miete eines einzelnen Spiels änderst Du am Spiel selbst.",
-      inline: "miete",
-    });
-  }
-
+  // The title is the whole banner: what the field buys is the Adresse panel's hint, and its being
+  // optional is said by the absent required marker.
   if (!hasStadtteil) {
     banners.push({
       id: "spielort.kein-stadtteil",
       severity: "info",
       title: "Für diesen Spielort ist kein Stadtteil hinterlegt",
-      body: "Das Feld ist freiwillig. Es hilft nur beim Suchen in der Spielort-Liste.",
       inline: "adresse",
     });
   }

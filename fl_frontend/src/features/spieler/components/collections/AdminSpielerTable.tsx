@@ -13,7 +13,6 @@ import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { Hint } from "@/shared/components/ui/Hint";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
@@ -93,13 +92,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>
       )}
       {spieler.selected?.is_nachgetragen === true && spieler.selected.inactive_since === null && (
-        /* A hint, not `IconTooltip` — `Hint.tsx` carries why. The badge acts on nothing, so the press is free. */
-        <Hint
-          mode="reveal"
-          label="Nachgetragen"
-          body={{ lead: "Der Spieler kam erst nach dem Start der Saison dazu." }}
-          trigger={<span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Nachgetragen</span>}
-        />
+        <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Nachgetragen</span>
       )}
     </div>
   );

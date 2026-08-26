@@ -122,11 +122,7 @@ export function buildTeamBanners({
       id: "team.austritt-lifting",
       severity: "warning",
       title: "Aufheben entfernt Art, Grund und Datum",
-      // The window is named because the save IS reversible: the editor builds the stored record into
-      // its undo payload, and `POST /api/admin/teams/undo` patches it back verbatim.
-      body:
-        "Der Grund verschwindet damit von der Teamseite und von jedem Spiel des Teams. Direkt nach dem Speichern kannst Du alle drei " +
-        "fünfzehn Sekunden lang mit „Rückgängig“ unverändert zurückholen.",
+      body: "Der Grund verschwindet damit von der Teamseite und von jedem Spiel des Teams.",
       inline: "austritt-aufhebung",
     });
   }

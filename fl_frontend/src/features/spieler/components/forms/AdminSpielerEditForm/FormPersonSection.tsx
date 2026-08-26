@@ -33,10 +33,7 @@ export function FormPersonSection({
           <Hint
             mode="reveal"
             label="Hinweis zur Person"
-            body={{
-              lead: "Der Name gilt über alle Saisons hinweg.",
-              points: [{ term: "Eine Korrektur", text: "ist sofort überall zu sehen." }],
-            }}
+            body={{ lead: "Der Name gilt über alle Saisons hinweg." }}
           />
         </h2>
       </div>

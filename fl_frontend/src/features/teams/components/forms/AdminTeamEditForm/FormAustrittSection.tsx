@@ -74,11 +74,7 @@ export function FormAustrittSection({
             label="Hinweis zum Austritt"
             body={{
               lead: "Das Team scheidet aus dieser Saison aus; seine Spiele bleiben bei ihm.",
-              points: [
-                { term: "Eine Disqualifikation", text: "spricht die Liga aus, einen Rückzug erklärt das Team selbst." },
-                { term: "Die Tabelle", text: "überspringt das Team bei der Platzvergabe, seine Ergebnisse bleiben gewertet." },
-                { term: "Team ersetzen", text: "auf der Saisonseite gibt die Spiele an ein anderes Team weiter." },
-              ],
+              points: [{ term: "Die Tabelle", text: "überspringt das Team bei der Platzvergabe, seine Ergebnisse bleiben gewertet." }],
             }}
           />
         </h2>

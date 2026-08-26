@@ -74,32 +74,22 @@ export function FormMatchupSection({
           Begegnung
           {/* Two elements rather than one with a conditional body: `hintCap.test.ts` counts a
               literal, and a ternary is a body it cannot measure. What a manual side COSTS is the
-              takeover banner's, so this row says only what the choice does. */}
+              takeover banner's, so this row says only what the choice does. The bullet is the one
+              thing no control shows: `FormTeamPicker` drops a taken outcome from the list in silence. */}
           {isKnockout ? (
             <Hint
               mode="reveal"
               label="Hinweis zur Begegnung"
               body={{
-                lead: "Jede Seite hat eine Herkunft:",
-                points: [
-                  { term: "Sieger / Verlierer eines Spiels:", text: "folgt automatisch dem Ausgang der früheren Runde." },
-                  { term: "Platz in einer Gruppe:", text: "folgt automatisch der Abschlusstabelle." },
-                  { term: "Manuell gesetzt:", text: "Du wählst das Team selbst." },
-                  { text: "Wählbar sind nur frühere Runden, deren Ausgang noch kein anderes Spiel belegt." },
-                ],
+                lead: "Jede Seite hat eine Herkunft.",
+                points: [{ text: "Wählbar sind nur frühere Runden, deren Ausgang noch kein anderes Spiel belegt." }],
               }}
             />
           ) : (
             <Hint
               mode="reveal"
               label="Hinweis zur Begegnung"
-              body={{
-                lead: "Welche beiden Teams aufeinandertreffen.",
-                points: [
-                  { term: "Ausgeschiedene Teams", text: "sind gesperrt." },
-                  { term: "Ein Team", text: "spielt höchstens einmal pro Spieltag." },
-                ],
-              }}
+              body={{ lead: "Welche beiden Teams aufeinandertreffen." }}
             />
           )}
         </h2>

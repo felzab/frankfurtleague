@@ -6,9 +6,6 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
-import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-
-import type { SchiedsrichterBanner } from "./banners";
 
 /**
  * A default and never a stored copy: what a match pays is its own `payment`, and the backend's
@@ -19,12 +16,10 @@ export function FormHonorarSection({
   defaultPayment,
   onChange,
   onFieldChanged,
-  banners,
 }: {
   defaultPayment: number;
   onChange: (next: number) => void;
   onFieldChanged: (paths: readonly string[], picked: { default_payment: number }) => void;
-  banners: readonly SchiedsrichterBanner[];
 }) {
   const panel = formPanel();
 
@@ -33,24 +28,15 @@ export function FormHonorarSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Honorar
-          {/* What an already agreed fee does is the banner's, in this same panel. */}
           <Hint
             mode="reveal"
             label="Hinweis zum Honorar"
-            body={{
-              lead: "Der Standardsatz für neue Ansetzungen.",
-              points: [{ term: "0 €", text: "ist erlaubt, etwa für einen ehrenamtlichen Einsatz." }],
-            }}
+            body={{ lead: "Der Standardsatz für neue Ansetzungen." }}
           />
         </h2>
       </div>
 
       <div className={panel.body()}>
-        <InlineBanners
-          banners={banners}
-          spot="honorar"
-        />
-
         <NumberField
           isRequired
           minValue={0}

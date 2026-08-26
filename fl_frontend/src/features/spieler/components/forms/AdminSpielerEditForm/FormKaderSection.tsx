@@ -130,13 +130,7 @@ export function FormKaderSection({
           <Hint
             mode="reveal"
             label="Hinweis zum Kadereintrag"
-            body={{
-              lead: "Diese Angaben gelten nur für die im Seitenmenü gewählte Saison.",
-              points: [
-                { term: "Ein Teamwechsel", text: "wird hier eingetragen." },
-                { term: "Nummer, Position und Stufe", text: "dürfen leer bleiben." },
-              ],
-            }}
+            body={{ lead: "Diese Angaben gelten nur für die im Seitenmenü gewählte Saison." }}
           />
         </h2>
       </div>

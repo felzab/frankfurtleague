@@ -5,22 +5,13 @@ import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { FLSonderereignis } from "@/features/spiele/schemas";
 import type { Key } from "@heroui/react";
 import type { SpielBanner } from "./banners";
-
-/** What each member does to the fixture, in one line, for the panel's own explanation. */
-const SONDEREREIGNIS_EFFECT: Record<FLSonderereignis, string> = {
-  ausgefallen: "findet nicht statt, wird nicht gewertet und trägt kein Ergebnis.",
-  nichtantreten_team1: "Team 1 ist nicht erschienen; gewertet wird für Team 2, nach den Regeln der Saison.",
-  nichtantreten_team2: "Team 2 ist nicht erschienen; gewertet wird für Team 1, nach den Regeln der Saison.",
-  abgebrochen: "hat stattgefunden und wird weiter wie ein gespieltes Spiel behandelt.",
-  annulliert: "zählt nicht mehr und trägt kein Ergebnis.",
-};
 
 /**
  * **A fixture's event is not the absence of a result**: `abgebrochen` may carry any score and a
@@ -62,16 +53,22 @@ export function FormSonderereignisSection({
       <div className={styles.header()}>
         <h2 className={styles.heading()}>
           Sonderereignis
-          <InfoHint label="Hinweis zum Sonderereignis">
-            <p>Was mit dem Spiel geschehen ist, über das Spielen hinaus.</p>
-            <ul>
-              {SONDEREREIGNIS_OPTIONS.map((event) => (
-                <li key={event}>
-                  <strong>{SONDEREREIGNIS_LABELS[event]}</strong> {SONDEREREIGNIS_EFFECT[event]}
-                </li>
-              ))}
-            </ul>
-          </InfoHint>
+          {/* Written out rather than mapped, so `hintCap.test.ts` can measure it. The two Nichtantreten
+              members are one line: the list is counted against what the reader can reach
+              (`docs/frontend/spec.md` §1.12), and either is the same award. */}
+          <Hint
+            mode="reveal"
+            label="Hinweis zum Sonderereignis"
+            body={{
+              lead: "Was mit dem Spiel geschehen ist, über das Spielen hinaus.",
+              points: [
+                { term: "Ausgefallen", text: "wird nicht gewertet." },
+                { term: "Nichtantreten", text: "wird für das angetretene Team gewertet." },
+                { term: "Abgebrochen", text: "zählt wie ein gespieltes Spiel." },
+                { term: "Annulliert", text: "zählt nicht mehr." },
+              ],
+            }}
+          />
         </h2>
       </div>
 

@@ -213,7 +213,7 @@ describe("buildSpielBanners", () => {
 
       assert.equal(rest.length, 0, refusalCode);
       assert.equal(banner?.severity, "danger", refusalCode);
-      assert.ok((banner?.body.length ?? 0) > 0, refusalCode);
+      assert.ok((banner?.body ?? "").length > 0, refusalCode);
     }
   });
 

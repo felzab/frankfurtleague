@@ -12,7 +12,14 @@ import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSaisonRow } from "../../types";
+
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: "Keine Saisons für diese Suche.",
+  filtered: "Keine Saisons für diese Filter.",
+  none: "Es wurden noch keine Saisons angelegt.",
+};
 
 /**
  * Memoised, and load-bearing: `AdminSpielorteTable` carries the collection-identity account. **No
@@ -20,11 +27,12 @@ import type { AdminSaisonRow } from "../../types";
  * and one that is over is `past`.
  */
 export const AdminSaisonsTable = memo(function AdminSaisonsTable({
-  saisonsQuery,
   filteredSaisons,
+  emptiness,
 }: {
-  saisonsQuery: string;
   filteredSaisons: AdminSaisonRow[];
+  /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
 }) {
   // One source for both layouts, so the table and the phone cards cannot disagree.
 
@@ -83,14 +91,12 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
     </RowActions>
   );
 
-  const emptyMessage = saisonsQuery ? "Keine Saisons für diese Suche." : "Es wurden noch keine Saisons angelegt.";
-
   return (
     <>
       {/* The phone layout: one card per season, no horizontal scrolling anywhere — the pattern all four
           admin tables follow below `md`. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
-        {filteredSaisons.length === 0 && <AdminCrudEmptyCard message={emptyMessage} />}
+        {filteredSaisons.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSaisons.map((saison) => (
           <div
             key={saison.id}
@@ -133,7 +139,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
               {/* `items` + a render function, not mapped children — see the memo note above. */}
               <Table.Body
                 items={filteredSaisons}
-                renderEmptyState={() => <AdminCrudEmptyRow message={emptyMessage} />}>
+                renderEmptyState={() => <AdminCrudEmptyRow message={EMPTY_MESSAGES[emptiness]} />}>
                 {(saison: AdminSaisonRow) => (
                   <Table.Row
                     id={saison.id}

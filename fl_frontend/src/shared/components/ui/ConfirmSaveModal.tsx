@@ -51,7 +51,7 @@ export function ConfirmSaveModal({
           <span className="bg-danger/15 text-danger-strong rounded-md px-1.5 py-0.5 font-bold whitespace-nowrap">
             {count === 1 ? "1 Hinweis" : `${String(count)} Hinweise`}
           </span>{" "}
-          {count === 1 ? "gilt" : "gelten"} für diesen Entwurf. Lies {count === 1 ? "ihn" : "sie"}, bevor Du speicherst.
+          {count === 1 ? "gilt" : "gelten"} für diesen Entwurf.
         </p>
 
         <div className="mt-4 flex w-full flex-col gap-y-3">

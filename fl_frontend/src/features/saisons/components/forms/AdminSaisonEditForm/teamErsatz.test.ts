@@ -36,10 +36,12 @@ describe("the replacement panel", () => {
   });
 
   /* The draw deletes what it replaces and says so; this endpoint deletes nothing. Borrow that
-     register here and the panel asks an admin to agree to a loss that will not happen. */
-  it("promises the schedule survives, and never borrows the draw's deletion register", () => {
-    assert.match(PANEL, /gelöscht oder verschoben/);
-    assert.doesNotMatch(PANEL, /gehen dabei verloren|Zurückholen lässt sich/);
+     register here and the panel asks an admin to agree to a loss that will not happen. The survival
+     is promised once, in the callout `describeUebernommeneSpiele` writes, and never as its negation
+     in the hint above it (`docs/frontend/spec.md` §1.12). */
+  it("promises the schedule survives through the callout, and never borrows the draw's deletion register", () => {
+    assert.match(PANEL, /describeUebernommeneSpiele\(outgoing\.spiele\)/);
+    assert.doesNotMatch(PANEL, /gehen dabei verloren|gelöscht oder verschoben|Zurückholen lässt sich/);
   });
 
   /* What the press actually moves, all four. A confirmation exists to state the consequences an

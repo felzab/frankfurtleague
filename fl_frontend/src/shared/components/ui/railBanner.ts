@@ -7,7 +7,8 @@ export type RailBanner<Id extends string = string> = {
   id: Id;
   severity: "info" | "warning" | "danger";
   title: string;
-  body: string;
+  /** Omitted where the title is the whole banner, which is what a body repeating the panel leaves behind. */
+  body?: string;
   /**
    * The panel spot that also renders this inline, or `null` for rail-only. `InlineBanner` types the name against this
    * union, so a misspelling is a type error rather than a banner that silently never appears.

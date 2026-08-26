@@ -9,7 +9,6 @@ const build = (overrides: Partial<Parameters<typeof buildSchiedsrichterBanners>[
   buildSchiedsrichterBanners({
     isRetired: false,
     isNameChanged: false,
-    isPaymentChanged: false,
     hasKontakt: true,
     ...overrides,
   });
@@ -39,14 +38,6 @@ describe("buildSchiedsrichterBanners", () => {
 
     assert.equal(banner?.id, "schiedsrichter.name-changed");
     assert.equal(banner?.severity, "warning");
-  });
-
-  it("keeps the fee change out of the confirmation, because nothing already agreed is rewritten", () => {
-    const [banner] = build({ isPaymentChanged: true });
-
-    assert.equal(banner?.id, "schiedsrichter.honorar-changed");
-    assert.equal(banner?.severity, "info");
-    assert.equal(banner?.inline, "honorar");
   });
 
   it("reports a missing contact from the DRAFT, so filling one in clears it before the save", () => {

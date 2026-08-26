@@ -18,10 +18,10 @@ export function AdminSaisonsView({ saisons }: { saisons: AdminSaisonRow[] }) {
     <AdminCrudView<AdminSaisonRow>
       items={saisons}
       searchKeys={SEARCH_KEYS}
-      renderTable={({ query, filteredItems }) => (
+      renderTable={({ filteredItems, emptiness }) => (
         <AdminSaisonsTable
-          saisonsQuery={query}
           filteredSaisons={filteredItems}
+          emptiness={emptiness}
         />
       )}
     />

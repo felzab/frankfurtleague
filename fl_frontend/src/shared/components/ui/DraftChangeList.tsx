@@ -66,14 +66,21 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
                     <span className="text-foreground min-w-0 truncate font-bold">{field.draftText}</span>
                   )}
                   <span className="ml-auto flex shrink-0 items-center">
-                    <InfoHint
-                      label={`${word}: ${field.label}`}
-                      trigger={<Icon className={`size-3.5 ${cls}`} />}>
-                      <p>
-                        <strong>{word}</strong>
-                      </p>
-                      {operation !== "added" && <p>Vorher: {field.storedText}</p>}
-                    </InfoHint>
+                    {/* The previous value is the whole of what the panel carries, so a new entry gets
+                        the glyph alone: `FieldLabel.tsx` keeps the operation word off the panel for the
+                        same reason, the trigger's own `aria-label` already announcing it. */}
+                    {operation === "added" ? (
+                      <Icon
+                        aria-hidden="true"
+                        className={`size-3.5 ${cls}`}
+                      />
+                    ) : (
+                      <InfoHint
+                        label={`${word}: ${field.label}`}
+                        trigger={<Icon className={`size-3.5 ${cls}`} />}>
+                        <p>Vorher: {field.storedText}</p>
+                      </InfoHint>
+                    )}
                   </span>
                   <span className="sr-only">{word}</span>
                 </li>

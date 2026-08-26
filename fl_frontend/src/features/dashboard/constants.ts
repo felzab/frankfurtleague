@@ -25,8 +25,7 @@ export type DashboardIconName = keyof typeof DASHBOARD_SIDEMENU_ICONS;
 export const DASHBOARD_SHELL_FALLBACK = {
   label: "Saisonübersicht",
   hint: {
-    // The three group headings below, which is the whole of what the section holds.
-    lead: "Alles zur ausgewählten Saison: Spiele, Tabellen und Teams.",
+    lead: "Alles zur ausgewählten Saison.",
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
@@ -76,7 +75,6 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         iconName: "LayoutHeaderCells",
         hint: {
           lead: "Der Tabellenstand jeder Gruppe der Saison.",
-          note: "Die Gesamtbilanz eines Teams steht auf seiner eigenen Seite.",
         },
       },
     ],

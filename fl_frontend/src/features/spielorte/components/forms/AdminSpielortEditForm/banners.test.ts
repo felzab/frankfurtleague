@@ -12,7 +12,6 @@ const build = (overrides: Partial<Parameters<typeof buildSpielortBanners>[0]> = 
     isRetired: false,
     isNameChanged: false,
     isAddressChanged: false,
-    isMietpreisChanged: false,
     hasStadtteil: true,
     ...overrides,
   });
@@ -55,15 +54,17 @@ describe("buildSpielortBanners", () => {
     assert.equal(banner?.severity, "warning");
   });
 
-  it("keeps the rent change out of the confirmation, because nothing already agreed is rewritten", () => {
-    const [banner] = build({ isMietpreisChanged: true });
-
-    assert.equal(banner?.id, "spielort.miete-changed");
-    assert.equal(banner?.severity, "info");
-  });
-
   it("reports a missing district from the DRAFT, so typing one in clears it before the save", () => {
     assert.ok(ids(build({ hasStadtteil: false })).includes("spielort.kein-stadtteil"));
     assert.ok(!ids(build({ hasStadtteil: true })).includes("spielort.kein-stadtteil"));
+  });
+
+  /* The title is the whole banner. A body would have to say the field is optional, which the absent
+     required marker says, or where the district is searched, which the panel's own hint says. */
+  it("states the missing district in its title and writes no body under it", () => {
+    const [banner] = build({ hasStadtteil: false });
+
+    assert.equal(banner?.body, undefined);
+    assert.match(banner?.title ?? "", /kein Stadtteil/);
   });
 });

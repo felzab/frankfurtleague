@@ -175,15 +175,7 @@ export function FormGruppenSwapSection({
           <Hint
             mode="reveal"
             label="Hinweis zum Gruppentausch"
-            body={{
-              lead: "Zwei Teams tauschen ihre Gruppen.",
-              points: [
-                { term: "Jede Gruppe", text: "behält ihre Größe." },
-                { term: "Die angesetzten Spiele", text: "tauschen mit, samt Gegner, Termin und Ort." },
-                { term: "Spiele der KO-Runde", text: "bleiben, wo sie sind." },
-                { text: "Verschiebe eines der Spiele, wenn ein Team sonst zweimal an einem Spieltag stünde." },
-              ],
-            }}
+            body={{ lead: "Zwei Teams tauschen ihre Gruppen." }}
           />
         </h2>
       </div>

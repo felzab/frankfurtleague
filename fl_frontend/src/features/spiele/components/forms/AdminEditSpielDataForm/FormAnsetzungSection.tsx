@@ -54,10 +54,7 @@ export function FormAnsetzungSection({
             label="Hinweis zur Ansetzung"
             body={{
               lead: "Wann, wo und mit wem das Spiel stattfindet.",
-              points: [
-                { term: "Datum und Anpfiff", text: "lassen sich über das ×-Symbol wieder leeren." },
-                { term: "Mietpreis und Honorar", text: "gelten nur für dieses Spiel." },
-              ],
+              points: [{ term: "Mietpreis und Honorar", text: "gelten nur für dieses Spiel." }],
             }}
           />
         </h2>

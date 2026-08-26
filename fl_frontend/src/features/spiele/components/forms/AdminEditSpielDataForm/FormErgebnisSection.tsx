@@ -126,12 +126,7 @@ export function FormErgebnisSection({
               lead: "Die Tore beider Seiten.",
               points: [
                 { term: "Ausschalten", text: "setzt das Ergebnis auf den gespeicherten Stand zurück." },
-                {
-                  term: "Unentschieden im KO-Spiel:",
-                  text: "das Elfmeterschießen bringt eine Seite weiter, für die Tabelle bleibt es ein Unentschieden.",
-                },
-                // What the forfeit is worth belongs to the Sonderereignis panel, which states it there.
-                { term: "Nichtantreten", text: "schließt ein Elfmeterschießen aus." },
+                { term: "Das Elfmeterschießen", text: "bleibt für die Tabelle ein Unentschieden." },
               ],
             }}
           />
