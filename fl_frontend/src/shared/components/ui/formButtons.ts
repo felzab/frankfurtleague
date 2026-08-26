@@ -41,12 +41,6 @@ export function ctaButton(options: {
 }
 
 /**
- * The neutral fill, named once because two intents wear it: the bar's Abbrechen and the page chrome's Zurück pill are
- * one exit, and a second spelling of it is what lets the two halves drift apart.
- */
-const NEUTRAL_FILL = "border-border text-foreground data-hovered:bg-hover border bg-transparent";
-
-/**
  * `h-12` and `transform-none` beat `@heroui/styles`, which fixes a height and scales on `[data-pressed]` where
  * no `scale-*` can cancel it. Neither is visible to the toolchain, so `formButtons.test.ts` asserts both.
  */
@@ -57,12 +51,13 @@ export const formButton = tv({
   variants: {
     intent: {
       submit: "bg-brand-solid data-hovered:bg-brand-solid-hover text-brand-solid-foreground",
-      cancel: NEUTRAL_FILL,
+      cancel: "border-border text-foreground data-hovered:bg-hover border bg-transparent",
       /**
-       * A control outside the action bar. It is a recipe rather than a hand-spelled string so it inherits the
-       * base: without it the vendored press scales the pill and the reduced-motion escape misses it.
+       * Page chrome, not the action bar's exit: a surface and a shadow where `cancel` is transparent. A recipe, not a
+       * hand-spelled string, so it inherits the base — without that the vendored press scales the pill and the
+       * reduced-motion escape misses it.
        */
-      nav: NEUTRAL_FILL,
+      nav: "border-border bg-surface text-foreground data-hovered:bg-hover fluid-xs border px-4 font-bold shadow-sm",
       // `-solid` plus its paired foreground: `bg-danger` is a tint, and under `text-foreground` it falls
       // below 4.5:1 in both themes, where this pair clears it in both.
       destructive: "bg-danger-solid data-hovered:bg-danger-solid-hover text-danger-solid-foreground",

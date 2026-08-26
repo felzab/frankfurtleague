@@ -30,6 +30,7 @@ export function SaisonDateField({
   isRequired = false,
   minValue,
   maxValue,
+  rangeMessage = "Wähle einen Tag im möglichen Zeitraum.",
 }: {
   /** The field's path in the payload, so `Form`'s `validationErrors` reach it by name. */
   name: string;
@@ -46,6 +47,12 @@ export function SaisonDateField({
    */
   minValue?: CalendarDate;
   maxValue?: CalendarDate;
+  /**
+   * Shown when the value falls outside the bounds. Per site, because the bound means something
+   * different at each, and because the browser's own message is in ITS UI language and date format,
+   * which `I18nProvider` never reaches: validation here is native, not aria.
+   */
+  rangeMessage?: string;
 }) {
   return (
     <DatePicker
@@ -75,7 +82,15 @@ export function SaisonDateField({
           </DatePicker.Trigger>
         </DateField.Suffix>
       </DateField.Group>
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR}>
+        {({ validationDetails }) =>
+          validationDetails.valueMissing
+            ? "Wähle ein Datum."
+            : validationDetails.rangeOverflow || validationDetails.rangeUnderflow
+              ? rangeMessage
+              : "Dieses Datum ist unvollständig."
+        }
+      </FieldError>
       <DatePicker.Popover
         className={DATE_PICKER_POPOVER}
         placement={DATE_PICKER_PLACEMENT}>

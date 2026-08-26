@@ -76,6 +76,7 @@ export function FormZeitraumSection({
             name="beginn"
             minValue={spanStart}
             maxValue={spanEnd}
+            rangeMessage="Wähle einen Tag innerhalb der Saison."
             ariaLabel="Beginn auswählen"
             label={<FieldLabel path="beginn">Beginn</FieldLabel>}
             value={asCalendarDate(beginn)}
@@ -86,6 +87,7 @@ export function FormZeitraumSection({
             name="ende"
             minValue={spanStart}
             maxValue={spanEnd}
+            rangeMessage="Wähle einen Tag innerhalb der Saison."
             ariaLabel="Ende auswählen"
             label={<FieldLabel path="ende">Ende</FieldLabel>}
             value={asCalendarDate(ende)}
