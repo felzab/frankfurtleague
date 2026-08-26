@@ -181,7 +181,7 @@ export async function reactivateSchiedsrichterAction(
     return {
       success: Boolean(reactivateOperation.acknowledged),
       updated_document: reactivateOperation.updated_document,
-      message: "Schiedsrichter reaktiviert.",
+      message: "Schiedsrichter reaktiviert",
     };
   });
 }

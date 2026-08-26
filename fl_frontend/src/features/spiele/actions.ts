@@ -32,7 +32,10 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   }
   if (error.serverErrorCode === "REQ-RESULT-001") {
     return {
-      error: "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen. Wähle ein anderes Team, oder lösche zuerst die Tore.",
+      error: buildRefusal({
+        reason: "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen",
+        repair: "Wähle ein anderes Team, oder lösche zuerst die Tore",
+      }),
     };
   }
   // One code covers both references and the failure body names neither, so the message names both.
@@ -40,13 +43,18 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   // and pick another.
   if (error.serverErrorCode === "REQ-BOOKING-001") {
     return {
-      error: "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht. Reaktiviere ihn, oder lade die Seite neu und wähle einen anderen.",
+      error: buildRefusal({
+        reason: "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht",
+        repair: "Reaktiviere ihn, oder lade die Seite neu und wähle einen anderen",
+      }),
     };
   }
   if (error.serverErrorCode === "REQ-CLASH-001") {
     return {
-      error:
-        "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand, oder teile das Spiel anders ein.",
+      error: buildRefusal({
+        reason: "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt",
+        repair: "Wähle eine Uhrzeit mit mindestens vier Stunden Abstand, oder teile das Spiel anders ein",
+      }),
     };
   }
   return null;

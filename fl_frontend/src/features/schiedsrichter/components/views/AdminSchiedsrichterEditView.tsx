@@ -31,7 +31,7 @@ export function AdminSchiedsrichterEditView({
   const handleReactivate = () => {
     startReactivating(async () => {
       const res = await reactivateSchiedsrichterAction({ id: schiedsrichter.id });
-      if (res.success) appToast.success(res.message ?? "Schiedsrichter reaktiviert.");
+      if (res.success) appToast.success(res.message ?? "Schiedsrichter reaktiviert");
       else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };

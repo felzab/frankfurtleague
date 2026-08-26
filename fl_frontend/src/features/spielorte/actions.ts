@@ -161,7 +161,7 @@ export async function reactivateSpielortAction(
     return {
       success: Boolean(reactivateOperation.acknowledged),
       updated_document: reactivateOperation.updated_document,
-      message: "Spielort reaktiviert.",
+      message: "Spielort reaktiviert",
     };
   });
 }

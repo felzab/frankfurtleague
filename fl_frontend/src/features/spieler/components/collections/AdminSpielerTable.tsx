@@ -68,7 +68,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   const handleReactivateRow = (spieler: AdminSpielerRow) => {
     startReactivating(async () => {
       const res = await reactivateSaisonSpielerAction({ spieler_id: spieler.id, saison_id: selectedSaisonId });
-      if (res.success) appToast.success(res.message ?? "Kadereintrag reaktiviert");
+      if (res.success) appToast.success(res.message ?? "Kadereintrag reaktiviert. Nummer, Position und Stufe sind wiederhergestellt.");
       else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
