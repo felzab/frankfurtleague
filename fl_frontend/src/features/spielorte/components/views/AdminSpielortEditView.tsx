@@ -8,6 +8,7 @@ import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLAddress } from "@/shared/schemas";
 
@@ -31,7 +32,7 @@ export function AdminSpielortEditView({
     startReactivating(async () => {
       const res = await reactivateSpielortAction({ id: spielort.id });
       if (res.success) appToast.success(res.message ?? "Spielort reaktiviert.");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 

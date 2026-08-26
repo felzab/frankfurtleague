@@ -40,7 +40,8 @@ export function buildSpielortBanners({
       id: "spielort.maps-link-derived",
       severity: "warning",
       title: "Jedes Spiel an diesem Ort ändert sich mit",
-      body: "Nach dem Speichern führt die Karte an jedem Spiel hier zur neuen Adresse, auch an längst gespielten.",
+      // Both halves, because either field alone raises this: an address-only sentence is false after a rename.
+      body: "Auch Spiele, die längst gespielt sind, zeigen danach diesen Namen und führen zu dieser Adresse.",
       inline: "adresse",
     });
   }
@@ -50,7 +51,8 @@ export function buildSpielortBanners({
       id: "spielort.miete-changed",
       severity: "info",
       title: "Bereits angesetzte Spiele behalten ihre Miete",
-      body: "Der neue Preis gilt nur für Spiele, die Du danach ansetzt.",
+      // The repair rather than the title's mirror image: what a fixture costs is the fixture's own field.
+      body: "Die Miete eines einzelnen Spiels änderst Du am Spiel selbst.",
       inline: "miete",
     });
   }

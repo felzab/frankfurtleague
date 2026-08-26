@@ -14,6 +14,7 @@ import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowAct
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatAddressFull, formatEuro, formatSpielDatum } from "@/shared/utils/format";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { formatMapsLink } from "../../utils";
 
@@ -21,8 +22,8 @@ import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { FLSpielort } from "../../schemas";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
-  searched: "Keine Spielorte für diese Suche gefunden.",
-  filtered: "Keine Spielorte für diese Filter gefunden.",
+  searched: "Keine Spielorte für diese Suche.",
+  filtered: "Keine Spielorte für diese Filter.",
   none: "Es wurden noch keine Spielorte angelegt.",
 };
 
@@ -61,7 +62,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
     startReactivating(async () => {
       const res = await reactivateSpielortAction({ id: ort.id });
       if (res.success) appToast.success(res.message ?? "Spielort reaktiviert.");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 

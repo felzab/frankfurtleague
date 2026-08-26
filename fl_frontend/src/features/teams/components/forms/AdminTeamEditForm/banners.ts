@@ -32,6 +32,7 @@ export function buildTeamBanners({
   isMember,
   storedAustritt,
   hasAustritt,
+  draftGrund,
   isGruppeLocked,
   isGruppeChanged,
 }: {
@@ -42,6 +43,8 @@ export function buildTeamBanners({
   /** The junction row's stored record — `null` both without a record and without a membership. */
   storedAustritt: FLAustritt | null;
   hasAustritt: boolean;
+  /** The reason as this draft would publish it, whether the record is new or already stands. */
+  draftGrund: string;
   isGruppeLocked: boolean;
   isGruppeChanged: boolean;
 }): readonly TeamBanner[] {
@@ -101,7 +104,10 @@ export function buildTeamBanners({
     }
   }
 
-  if (hasAustritt && storedAustritt === null) {
+  // Graded on the text that would be published, never on the record being new: rewriting a standing
+  // reason puts new words on the public page exactly as entering one does, and the standing banner
+  // below is `info`, so it can raise no warning of its own.
+  if (hasAustritt && (storedAustritt === null || draftGrund !== storedAustritt.grund)) {
     banners.push({
       id: "team.austritt-entering",
       severity: "danger",

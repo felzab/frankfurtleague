@@ -88,14 +88,15 @@ export function AdminSpieleActionRequiredView({
     window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
   };
 
-  // A season with no fixtures at all; without this it renders an empty tab bar over empty panels.
+  // The type checker's floor, not a state the data reaches: the section list is built from
+  // `ACTION_REQUIRED_LABELS`, so it is never empty and only `noUncheckedIndexedAccess` reads
+  // `sections[0]` as absent.
   if (activeSection === undefined) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
         <EmptyState
-          tone="positive"
-          title="Alles erledigt!"
-          hint="Kein Spiel braucht gerade eine Eingabe."
+          title="Diese Übersicht lässt sich gerade nicht anzeigen."
+          hint="Lade die Seite neu."
         />
       </div>
     );
@@ -162,7 +163,7 @@ export function AdminSpieleActionRequiredView({
           {section.spiele.length === 0 ? (
             <EmptyState
               tone="positive"
-              title="Keine Spiele in dieser Kategorie!"
+              title="Keine Spiele in dieser Kategorie"
             />
           ) : (
             // Faults reach the `bracket_fault` section alone: the one list already filtered by that
