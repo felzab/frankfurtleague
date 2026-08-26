@@ -2,7 +2,7 @@ import type { FLAustrittType, FLGruppenNames } from "./schemas";
 
 export const TEAMS_CRUD_COPY = {
   searchLabel: "Teams suchen",
-  searchPlaceholder: "Suchen nach Name oder Kürzel...",
+  searchPlaceholder: "z.B. Goethe-Gymnasium oder GG",
 } as const;
 
 /** In the order every picker offers them. The closed set is `FLGruppenNames`'s. */

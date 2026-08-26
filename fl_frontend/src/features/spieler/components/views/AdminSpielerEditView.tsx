@@ -8,6 +8,7 @@ import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 
@@ -38,8 +39,8 @@ export function AdminSpielerEditView({
   const runStatusWrite = (write: () => Promise<{ success: boolean; message?: string; error?: string }>, failureHeading: string) => {
     startWritingStatus(async () => {
       const res = await write();
-      if (res.success) appToast.success(res.message ?? "Gespeichert!");
-      else appToast.danger(failureHeading, { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      if (res.success) appToast.success(res.message ?? "Gespeichert");
+      else appToast.danger(failureHeading, { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 

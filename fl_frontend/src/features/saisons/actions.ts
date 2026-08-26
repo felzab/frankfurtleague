@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { RECORDED_FACTS_NONE } from "./constants";
@@ -260,7 +261,7 @@ export async function postSaisonAction(
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: "Beim Anlegen der neuen Saison ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
     // A create lands `future`, so nothing resolving the current season moves. Only the list does.
@@ -304,7 +305,7 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
     }
 
     if (!patchOperation.acknowledged) {
-      return { success: false, error: "Bei der Bearbeitung der Saison ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht gespeichert", repair: "Versuche es erneut" }) };
     }
 
     invalidateSaisonAndTable();
@@ -312,7 +313,7 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
     return {
       success: true,
       saison: patchOperation,
-      message: "Saison gespeichert!",
+      message: "Saison gespeichert",
     };
   });
 }
@@ -371,7 +372,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
     }
 
     if (!activateOperation.acknowledged) {
-      return { success: false, error: "Bei der Umstellung der Saison ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht umgestellt", repair: "Versuche es erneut" }) };
     }
 
     invalidateRollover();
@@ -463,7 +464,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
     }
 
     if (!swapOperation.acknowledged) {
-      return { success: false, error: "Beim Tausch der Gruppen ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Gruppen wurden nicht getauscht", repair: "Versuche es erneut" }) };
     }
 
     // Both layers: the base tag serves reads that named no season, the granular one those that named
@@ -524,7 +525,7 @@ export async function generateSpielplanAction(rawPayload: FLGenerateSpielplanPay
     }
 
     if (!generateOperation.acknowledged) {
-      return { success: false, error: "Beim Anlegen des Spielplans ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
     invalidateSpielplan(validated.data.id);
@@ -586,7 +587,7 @@ export async function undrawSpielplanAction(rawPayload: FLUndrawSpielplanPayload
     }
 
     if (!undrawOperation.acknowledged) {
-      return { success: false, error: "Beim Zurücknehmen des Spielplans ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht zurückgenommen", repair: "Versuche es erneut" }) };
     }
 
     // The draw's tag set, this removing exactly what that write created.

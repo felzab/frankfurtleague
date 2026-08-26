@@ -56,7 +56,7 @@ export function FormAnsetzungSection({
               lead: "Wann, wo und mit wem das Spiel stattfindet.",
               points: [
                 { term: "Datum und Anpfiff", text: "lassen sich über das ×-Symbol wieder leeren." },
-                { term: "Mietpreis und Entschädigung", text: "gelten nur für dieses Spiel." },
+                { term: "Mietpreis und Honorar", text: "gelten nur für dieses Spiel." },
               ],
             }}
           />

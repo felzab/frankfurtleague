@@ -63,13 +63,13 @@ export async function postSchiedsrichterAction(
 
     const postOperation = await postSchiedsrichter(validated.data);
     if (!postOperation.acknowledged) {
-      return { success: false, error: "Beim Anlegen des neuen Schiedsrichters ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
     return {
       success: Boolean(postOperation.acknowledged),
       created_id: postOperation.created_id,
-      message: "Schiedsrichter erfolgreich angelegt!",
+      message: "Schiedsrichter angelegt",
     };
   });
 }
@@ -94,7 +94,10 @@ export async function patchSchiedsrichterAction(
 
     const postOperation = await patchSchiedsrichter(validated.data);
     if (!postOperation.acknowledged) {
-      return { success: false, error: "Beim Bearbeiten der Schiedsrichter-Daten ist ein unerwarteter Fehler aufgetreten" };
+      return {
+        success: false,
+        error: buildRefusal({ reason: "Die Schiedsrichterdaten wurden nicht gespeichert", repair: "Versuche es erneut" }),
+      };
     }
 
     // A rename fans the name into every match, the one cached read it reaches; a match keeps its own fee.
@@ -103,7 +106,7 @@ export async function patchSchiedsrichterAction(
     return {
       success: Boolean(postOperation.acknowledged),
       updated_document: postOperation.updated_document,
-      message: "Schiedsrichter erfolgreich bearbeitet!",
+      message: "Schiedsrichter bearbeitet",
     };
   });
 }
@@ -137,7 +140,7 @@ export async function deleteSchiedsrichterAction(
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: "Beim Stilllegen des Schiedsrichters ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
     }
 
     return {
@@ -172,7 +175,7 @@ export async function reactivateSchiedsrichterAction(
 
     const reactivateOperation = await reactivateSchiedsrichter(validated.data);
     if (!reactivateOperation.acknowledged) {
-      return { success: false, error: "Beim Reaktivieren des Schiedsrichters ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
     }
 
     return {
@@ -208,7 +211,7 @@ export async function anonymiseSchiedsrichterAction(
 
     const anonymiseOperation = await anonymiseSchiedsrichter(validated.data);
     if (!anonymiseOperation.acknowledged) {
-      return { success: false, error: "Beim Löschen der Kontaktdaten ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Kontaktdaten wurden nicht gelöscht", repair: "Versuche es erneut" }) };
     }
 
     // Nothing to invalidate, as the reactivate has nothing: this moves `kontakt` alone. The referee

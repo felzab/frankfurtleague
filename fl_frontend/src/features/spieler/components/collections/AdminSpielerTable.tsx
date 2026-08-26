@@ -17,13 +17,14 @@ import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSpielerRow, SpielerTeamOption } from "../../types";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
-  searched: "Keine Spieler für diese Suche gefunden.",
-  filtered: "Keine Spieler für diese Filter gefunden.",
+  searched: "Keine Spieler für diese Suche.",
+  filtered: "Keine Spieler für diese Filter.",
   none: "Es wurden noch keine Spieler angelegt.",
 };
 
@@ -59,16 +60,16 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   const handleReactivatePerson = (spieler: AdminSpielerRow) => {
     startReactivating(async () => {
       const res = await reactivateSpielerAction({ id: spieler.id });
-      if (res.success) appToast.success(res.message ?? "Spieler reaktiviert!");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      if (res.success) appToast.success(res.message ?? "Spieler reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 
   const handleReactivateRow = (spieler: AdminSpielerRow) => {
     startReactivating(async () => {
       const res = await reactivateSaisonSpielerAction({ spieler_id: spieler.id, saison_id: selectedSaisonId });
-      if (res.success) appToast.success(res.message ?? "Kadereintrag reaktiviert!");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      if (res.success) appToast.success(res.message ?? "Kadereintrag reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 

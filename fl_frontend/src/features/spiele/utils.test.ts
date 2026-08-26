@@ -277,20 +277,20 @@ describe("formatSpielUpdateMessage", () => {
   });
 
   it("says only that the match was saved when the bracket did not move", () => {
-    assert.equal(formatSpielUpdateMessage([]), "Die Spieldaten wurden erfolgreich aktualisiert");
+    assert.equal(formatSpielUpdateMessage([]), "Die Spieldaten wurden aktualisiert");
   });
 
   it("names one advanced fixture in the singular", () => {
     assert.equal(
       formatSpielUpdateMessage([moved(29)]),
-      "Die Spieldaten wurden erfolgreich aktualisiert. Die Paarung in Spiel 29 wurde ebenfalls aktualisiert",
+      "Die Spieldaten wurden aktualisiert. Die Paarung in Spiel 29 wurde ebenfalls aktualisiert",
     );
   });
 
   it("joins several with und, as German does and a hand-rolled join would not", () => {
     assert.equal(
       formatSpielUpdateMessage([moved(29), moved(30), moved(31)]),
-      "Die Spieldaten wurden erfolgreich aktualisiert. Die Paarungen in den Spielen 29, 30 und 31 wurden ebenfalls aktualisiert",
+      "Die Spieldaten wurden aktualisiert. Die Paarungen in den Spielen 29, 30 und 31 wurden ebenfalls aktualisiert",
     );
   });
 
@@ -518,7 +518,7 @@ describe("toPatchPayload and buildUndoPayloads", () => {
     assert.deepEqual(Object.keys(toPatchPayload(joined).team1 ?? {}).sort(), ["team_id", "tore"]);
   });
 
-  it("keeps the rent and the Entschädigung on the payload, where the composed names do not travel", () => {
+  it("keeps the rent and the Honorar on the payload, where the composed names do not travel", () => {
     // Each is what THIS fixture pays rather than a copy of a default, so an omitted one is a rent
     // silently rewritten to nothing by the very `$set` that was meant to leave it alone.
     const booked = {

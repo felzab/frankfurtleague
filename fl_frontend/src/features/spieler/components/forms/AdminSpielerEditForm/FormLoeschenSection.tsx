@@ -18,6 +18,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 /**
  * The pupil's erasure, on `DELETE /spieler/{spieler_id}/erasure`. **A confirmation step and no undo**,
@@ -50,7 +51,7 @@ export function FormLoeschenSection({
       const res = await eraseSpielerAction({ id: spielerId });
 
       if (!res.success) {
-        appToast.danger("Spieler nicht gelöscht", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+        appToast.danger("Spieler nicht gelöscht", { description: res.error ?? UNKNOWN_REFUSAL });
         return;
       }
 

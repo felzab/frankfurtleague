@@ -105,7 +105,7 @@ export function AdminCreateTeamForm({
         return { ...res, success: res.success && !!res.created_id };
       }}
       marksRequired
-      successMessage="Team erfolgreich angelegt"
+      successMessage="Team angelegt"
       onClose={onClose}
     />
   );

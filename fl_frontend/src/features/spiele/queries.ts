@@ -49,7 +49,7 @@ export function getAdminSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSp
 
 /**
  * The one fixture the match editor loads, admin-tier because it round-trips the rent and the
- * referee's Entschädigung — two figures a base-tier read withholds (`READ-MONEY-001`).
+ * referee's Honorar — two figures a base-tier read withholds (`READ-MONEY-001`).
  *
  * **Uncached, and it stays uncached**: see `docs/frontend/spec.md` §1.2.
  */

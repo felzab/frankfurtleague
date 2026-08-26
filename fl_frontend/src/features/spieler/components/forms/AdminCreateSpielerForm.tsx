@@ -208,7 +208,7 @@ export function AdminCreateSpielerForm({
         return { ...res, success: res.success && !!res.spieler_id };
       }}
       marksRequired
-      successMessage="Spieler erfolgreich angelegt"
+      successMessage="Spieler angelegt"
       onClose={onClose}
     />
   );

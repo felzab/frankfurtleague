@@ -14,13 +14,14 @@ import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowAct
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { FLSchiedsrichter } from "../../schemas";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
-  searched: "Keine Schiedsrichter für diese Suche gefunden.",
-  filtered: "Keine Schiedsrichter für diese Filter gefunden.",
+  searched: "Keine Schiedsrichter für diese Suche.",
+  filtered: "Keine Schiedsrichter für diese Filter.",
   none: "Es wurden noch keine Schiedsrichter angelegt.",
 };
 
@@ -61,7 +62,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     startReactivating(async () => {
       const res = await reactivateSchiedsrichterAction({ id: schiedsrichter.id });
       if (res.success) appToast.success(res.message ?? "Schiedsrichter reaktiviert.");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 

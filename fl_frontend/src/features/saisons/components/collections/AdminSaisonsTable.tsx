@@ -84,7 +84,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
 
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{saisonsQuery ? "Keine Saisons für diese Suche gefunden." : "Es wurden noch keine Saisons angelegt."}</p>
+      <p className="muted-hint">{saisonsQuery ? "Keine Saisons für diese Suche." : "Es wurden noch keine Saisons angelegt."}</p>
     </div>
   );
 

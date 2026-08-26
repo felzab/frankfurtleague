@@ -126,7 +126,7 @@ export async function postSpielerAction(
     // No 409 branch on the person: no uniqueness rule on a name, because two people can share one.
     const postOperation = await postSpieler(personFields);
     if (!postOperation.acknowledged) {
-      return { success: false, error: "Beim Anlegen des neuen Spielers ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
     // The junction row, in the same action: without one the player is invisible to every
@@ -164,7 +164,7 @@ export async function postSpielerAction(
     return {
       success: Boolean(postOperation.acknowledged),
       spieler_id: postOperation.spieler_id,
-      message: "Spieler erfolgreich angelegt!",
+      message: "Spieler angelegt",
     };
   });
 }
@@ -189,7 +189,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
 
     const patchOperation = await patchSpieler(validated.data);
     if (!patchOperation.acknowledged) {
-      return { success: false, error: "Beim Bearbeiten der Spielerdaten ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Spielerdaten wurden nicht gespeichert", repair: "Versuche es erneut" }) };
     }
 
     invalidateSpieler();
@@ -197,7 +197,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
     return {
       success: Boolean(patchOperation.acknowledged),
       spieler: patchOperation,
-      message: "Spieler erfolgreich bearbeitet!",
+      message: "Spieler bearbeitet",
     };
   });
 }
@@ -218,7 +218,7 @@ export async function deleteSpielerAction(
 
     const deleteOperation = await deleteSpieler(validated.data);
     if (!deleteOperation.acknowledged) {
-      return { success: false, error: "Beim Stilllegen des Spielers ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
     }
 
     invalidateSpieler();
@@ -247,7 +247,7 @@ export async function reactivateSpielerAction(
 
     const reactivateOperation = await reactivateSpieler(validated.data);
     if (!reactivateOperation.acknowledged) {
-      return { success: false, error: "Beim Reaktivieren des Spielers ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
     }
 
     invalidateSpieler();
@@ -255,7 +255,7 @@ export async function reactivateSpielerAction(
     return {
       success: Boolean(reactivateOperation.acknowledged),
       spieler: reactivateOperation,
-      message: "Spieler reaktiviert!",
+      message: "Spieler reaktiviert",
     };
   });
 }
@@ -335,7 +335,7 @@ export async function postSaisonSpielerAction(
     return {
       success: true,
       saison_spieler: saisonSpieler,
-      message: `Spieler in die Saison ${validated.data.saison_id} aufgenommen!`,
+      message: `Spieler in die Saison ${validated.data.saison_id} aufgenommen`,
     };
   });
 }
@@ -368,7 +368,7 @@ export async function patchSaisonSpielerAction(
     return {
       success: true,
       saison_spieler: saisonSpieler,
-      message: "Kadereintrag gespeichert!",
+      message: "Kadereintrag gespeichert",
     };
   });
 }

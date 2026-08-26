@@ -25,7 +25,7 @@ export function rolleKuerzel(rolle: FLSpielerRolle): string {
 
 export const SPIELER_CRUD_COPY = {
   searchLabel: "Spieler suchen",
-  searchPlaceholder: "Suchen nach Name, Team oder Nummer...",
+  searchPlaceholder: "z.B. Lena Meier oder 7",
 } as const;
 
 /** Ordered from the goal outwards, as a squad sheet reads. The closed set is `FLSpielerPositionSchema`'s. */

@@ -88,7 +88,7 @@ export type FLSpielOrtField = z.infer<typeof FLSpielOrtFieldSchema>;
 /** The referee as the admin PATCH submits it; `payment` stays on the wire for `mietpreis`' reason. */
 export const FLSpielSchiedsrichterFieldPayloadSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
-  payment: z.int({ error: "Bitte gib eine Entschädigung ein." }).nonnegative({ error: "Die Entschädigung darf nicht negativ sein." }),
+  payment: z.int({ error: "Bitte gib ein Honorar ein." }).nonnegative({ error: "Das Honorar darf nicht negativ sein." }),
 });
 export type FLSpielSchiedsrichterFieldPayload = z.infer<typeof FLSpielSchiedsrichterFieldPayloadSchema>;
 

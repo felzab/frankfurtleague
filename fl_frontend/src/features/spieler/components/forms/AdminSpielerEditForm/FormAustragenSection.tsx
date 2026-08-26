@@ -11,6 +11,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SpielerBanner } from "./banners";
 
@@ -43,8 +44,8 @@ export function FormAustragenSection({
   const run = (write: () => Promise<{ success: boolean; message?: string; error?: string }>, failureHeading: string) => {
     startWriting(async () => {
       const res = await write();
-      if (res.success) appToast.success(res.message ?? "Gespeichert!");
-      else appToast.danger(failureHeading, { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      if (res.success) appToast.success(res.message ?? "Gespeichert");
+      else appToast.danger(failureHeading, { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 

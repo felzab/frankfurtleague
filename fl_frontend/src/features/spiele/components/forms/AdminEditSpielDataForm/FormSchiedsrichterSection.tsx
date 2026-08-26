@@ -96,7 +96,7 @@ export function FormSchiedsrichterSection({
         <FieldLabel
           path="schiedsrichter.payment"
           extraMarker={<ExpectedMarker path="schiedsrichter.payment" />}>
-          Entschädigung
+          Honorar
         </FieldLabel>
         <NumberField.Group className={FIELD_GROUP}>
           <StepFiveButton

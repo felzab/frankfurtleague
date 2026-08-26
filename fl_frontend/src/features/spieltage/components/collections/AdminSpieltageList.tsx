@@ -20,8 +20,8 @@ import type { SpieltagPhaseProgress } from "../../utils";
 
 // An empty season names where its matchdays come from, because no control on this page makes one.
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
-  searched: "Keine Spieltage für diese Suche gefunden.",
-  filtered: "Keine Spieltage für diese Filter gefunden.",
+  searched: "Keine Spieltage für diese Suche.",
+  filtered: "Keine Spieltage für diese Filter.",
   none: "Für diese Saison gibt es noch keine Spieltage. Sie entstehen zusammen mit dem Spielplan.",
 };
 

@@ -24,6 +24,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { spielplanBlockedReason, spielplanHoldsADraw, spielplanReplacesDraw, spielplanUndrawBlockedReason } from "./blockedReasons";
 import { describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape";
@@ -135,7 +136,7 @@ export function FormSpielplanSection({
 
         if (!res.success) {
           appToast.danger(replacesDraw ? "Spielplan nicht neu angelegt" : "Spielplan nicht angelegt", {
-            description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten.",
+            description: res.error ?? UNKNOWN_REFUSAL,
           });
           return;
         }
@@ -145,7 +146,7 @@ export function FormSpielplanSection({
         const res = await undrawSpielplanAction({ id: saisonId });
 
         if (!res.success) {
-          appToast.danger("Spielplan nicht zurückgenommen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+          appToast.danger("Spielplan nicht zurückgenommen", { description: res.error ?? UNKNOWN_REFUSAL });
           return;
         }
 

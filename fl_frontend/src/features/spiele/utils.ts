@@ -366,7 +366,7 @@ export const formatSpielUpdateMessage = (
   bracketFaults: readonly FLBracketFault[] = [],
   releasedSides: readonly FLSpielReleasedSide[] = [],
 ): string => {
-  const sentences = ["Die Spieldaten wurden erfolgreich aktualisiert"];
+  const sentences = ["Die Spieldaten wurden aktualisiert"];
 
   if (advancedTo.length > 0) {
     sentences.push(

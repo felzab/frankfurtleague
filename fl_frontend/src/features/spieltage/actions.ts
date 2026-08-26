@@ -82,6 +82,6 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
 
     invalidateSpieltage();
 
-    return { success: true, spieltag: patchOperation, message: "Spieltag gespeichert!" };
+    return { success: true, spieltag: patchOperation, message: "Spieltag gespeichert" };
   });
 }

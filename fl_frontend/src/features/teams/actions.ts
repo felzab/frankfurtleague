@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam, replaceSaisonTeam } from "./mutations";
@@ -141,7 +142,7 @@ export async function postTeamAction(
       throw error;
     }
     if (!postOperation.acknowledged) {
-      return { success: false, error: "Beim Anlegen des neuen Teams ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
     // The junction row, in the same action: without one the club is invisible to every
@@ -166,7 +167,7 @@ export async function postTeamAction(
     return {
       success: Boolean(postOperation.acknowledged),
       created_id: postOperation.created_id,
-      message: "Team erfolgreich angelegt!",
+      message: "Team angelegt",
     };
   });
 }
@@ -205,7 +206,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
       throw error;
     }
     if (!patchOperation.acknowledged) {
-      return { success: false, error: "Beim Bearbeiten der Teamdaten ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Die Teamdaten wurden nicht gespeichert", repair: "Versuche es erneut" }) };
     }
 
     // Base tags only: the rename and its fan-out into the embedded match copies touch EVERY season's
@@ -218,7 +219,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
       updated_document: patchOperation.updated_document,
       fanned_out_to_spiele: patchOperation.fanned_out_to_spiele,
       fanned_out_to_saison_teams: patchOperation.fanned_out_to_saison_teams,
-      message: "Team erfolgreich bearbeitet!",
+      message: "Team bearbeitet",
     };
   });
 }
@@ -252,7 +253,7 @@ export async function deleteTeamAction(
       throw error;
     }
     if (!deleteOperation.acknowledged) {
-      return { success: false, error: "Beim Stilllegen des Teams ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
     }
 
     // Base tag only: retirement hides the club from every season's default list at once. `spiele` is
@@ -283,7 +284,7 @@ export async function reactivateTeamAction(
 
     const reactivateOperation = await reactivateTeam(validated.data);
     if (!reactivateOperation.acknowledged) {
-      return { success: false, error: "Beim Reaktivieren des Teams ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
     }
 
     updateTag("teams");
@@ -291,7 +292,7 @@ export async function reactivateTeamAction(
     return {
       success: Boolean(reactivateOperation.acknowledged),
       updated_document: reactivateOperation.updated_document,
-      message: "Team reaktiviert!",
+      message: "Team reaktiviert",
     };
   });
 }
@@ -334,7 +335,7 @@ export async function postSaisonTeamAction(
     return {
       success: true,
       saison_team: saisonTeam,
-      message: `Team in die Saison ${validated.data.saison_id} aufgenommen!`,
+      message: `Team in die Saison ${validated.data.saison_id} aufgenommen`,
     };
   });
 }
@@ -374,7 +375,7 @@ export async function patchSaisonTeamAction(
     return {
       success: true,
       saison_team: saisonTeam,
-      message: "Saison-Zugehörigkeit gespeichert!",
+      message: "Saison-Zugehörigkeit gespeichert",
     };
   });
 }
@@ -412,7 +413,7 @@ export async function replaceSaisonTeamAction(
     }
 
     if (!replacement.acknowledged) {
-      return { success: false, error: "Beim Wechsel des Teams ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht ersetzt", repair: "Versuche es erneut" }) };
     }
 
     // BOTH pairs, as the group swap invalidates them: the league table now names another club, and

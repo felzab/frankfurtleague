@@ -275,7 +275,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   describeField({
     path: "schiedsrichter.payment",
     group: "Ansetzung",
-    label: "Entschädigung",
+    label: "Honorar",
     expectedWhen: null,
     read: (source) => source.schiedsrichter?.payment ?? null,
     equals: sameCount,

@@ -8,6 +8,7 @@ import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { FLTeamRecord } from "@/features/teams/schemas";
@@ -41,8 +42,8 @@ export function AdminTeamEditView({
   const handleReactivate = () => {
     startReactivating(async () => {
       const res = await reactivateTeamAction({ id: team.id });
-      if (res.success) appToast.success(res.message ?? "Team reaktiviert!");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      if (res.success) appToast.success(res.message ?? "Team reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 

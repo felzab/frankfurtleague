@@ -4,10 +4,10 @@ import type { FLAktion } from "./schemas";
 // becomes a client reference on the server side.
 export const AKTIONEN_CRUD_COPY = {
   searchLabel: "Protokoll durchsuchen",
-  searchPlaceholder: "Suchen nach Person, Datensatz oder Vorgangsnummer...",
+  searchPlaceholder: "z.B. name@beispiel.de oder eine Vorgangsnummer",
   /** One per `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` value: each narrowing stage asks something different of the reader. */
-  emptyForQuery: "Keine Änderungen für diese Suche gefunden.",
-  emptyForFilters: "Keine Änderungen für diese Filter gefunden.",
+  emptyForQuery: "Keine Änderungen für diese Suche.",
+  emptyForFilters: "Keine Änderungen für diese Filter.",
   emptyOverall: "Es wurde noch keine Änderung aufgezeichnet.",
 } as const;
 

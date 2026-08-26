@@ -14,13 +14,14 @@ import { card } from "@/shared/components/ui/card";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminTeamRow } from "../../types";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
-  searched: "Keine Teams für diese Suche gefunden.",
-  filtered: "Keine Teams für diese Filter gefunden.",
+  searched: "Keine Teams für diese Suche.",
+  filtered: "Keine Teams für diese Filter.",
   none: "Es wurden noch keine Teams angelegt.",
 };
 
@@ -53,8 +54,8 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   const handleReactivate = (team: AdminTeamRow) => {
     startReactivating(async () => {
       const res = await reactivateTeamAction({ id: team.id });
-      if (res.success) appToast.success(res.message ?? "Team reaktiviert!");
-      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+      if (res.success) appToast.success(res.message ?? "Team reaktiviert");
+      else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
 

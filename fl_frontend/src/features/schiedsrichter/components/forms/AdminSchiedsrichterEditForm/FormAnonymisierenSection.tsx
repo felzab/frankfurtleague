@@ -16,6 +16,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLKontakt } from "@/shared/schemas";
 
@@ -53,7 +54,7 @@ export function FormAnonymisierenSection({
       const res = await anonymiseSchiedsrichterAction({ id: schiedsrichterId });
 
       if (!res.success) {
-        appToast.danger("Kontaktdaten nicht gelöscht", { description: res.error ?? "Ein unerwarteter Fehler ist aufgetreten." });
+        appToast.danger("Kontaktdaten nicht gelöscht", { description: res.error ?? UNKNOWN_REFUSAL });
         return;
       }
 
