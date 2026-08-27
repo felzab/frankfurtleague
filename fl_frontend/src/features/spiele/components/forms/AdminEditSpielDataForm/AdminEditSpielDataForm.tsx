@@ -28,6 +28,7 @@ import {
   collectKnockoutTeamIds,
   collectSpieltagTeamOccupancy,
   formatUndoScopeWarning,
+  isFirstKnockoutRound,
   listDependentSpiele,
   listMovedSpiele,
   toStoredSide,
@@ -300,6 +301,9 @@ export function AdminEditSpielDataForm({
   // so a `null` preview means "no answer yet" and contributes nothing, not "nothing would be lost".
   const banners = buildSpielBanners({
     isKnockout,
+    // The same derivation `FormTeamPicker` closes the group choice on, so the closed row and the
+    // banner explaining it cannot disagree.
+    seedsFromTheGroups: isFirstKnockoutRound(saisonSpiele, spielData),
     sides: [
       { fieldName: "team1", label: "Team 1", quelle: team1Quelle, team: team1Payload },
       { fieldName: "team2", label: "Team 2", quelle: team2Quelle, team: team2Payload },
@@ -393,9 +397,8 @@ export function AdminEditSpielDataForm({
   };
 
   const requestSave = () => {
-    // Refusal banners are excluded: they report what the server ALREADY refused, where this gate
-    // confirms what a save is about to cause. Left in, a standing one turns the next Save into a
-    // dialog about a failure that has already happened.
+    // Refusal banners are excluded: each names a save the endpoint refuses, where this gate confirms
+    // what a save would cause. Left in, one turns the next Save into a dialog about a failure.
     const blocking = resolveBlockingBanners(banners.filter((banner) => !isSpielRefusalBannerId(banner.id)));
     if (blocking !== null) {
       // Snapshotted, not read live: a background revalidation would move the list under the dialog.

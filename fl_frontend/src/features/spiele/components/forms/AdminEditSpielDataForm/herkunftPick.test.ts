@@ -6,6 +6,9 @@ import { describe, it } from "node:test";
 /** Source text rather than a render, `sonderereignisPick.test.ts`'s idiom and for its reason. */
 const SOURCE = readFileSync(path.resolve(import.meta.dirname, "FormTeamPicker.tsx"), "utf8");
 
+/** The rule's other half: the picker closes the control, and the editor feeds the banner saying why. */
+const EDITOR = readFileSync(path.resolve(import.meta.dirname, "AdminEditSpielDataForm.tsx"), "utf8");
+
 describe("the Herkunft picker's group placing", () => {
   /* A bracket of four opens at the Halbfinale and one of sixteen at the Achtelfinale, so a rule
      spelling a round would be wrong for one of the two. */
@@ -33,9 +36,37 @@ describe("the Herkunft picker's group placing", () => {
     assert.match(SOURCE, /pickIfOffered\(quelleOptions, key\?\.toString\(\) \?\? "manuell"\)/);
   });
 
-  /* A later round wired to a group placing by hand has to stay editable, or the narrowing strands
-     the fixture in a source its own form will not show. */
-  it("leaves a side that already holds one able to keep it", () => {
-    assert.match(SOURCE, /isFirstKnockoutRound\(saisonSpiele, spielData\) \|\| storedQuelle\?\.type === "gruppe"/);
+  /* A stored one is refused by the endpoint on every save of the fixture, so keeping it takeable
+     would offer a change no save can land (`REQ-WIRING-002`). */
+  it("closes the row for a side that already holds one", () => {
+    assert.match(SOURCE, /const seedsFromTheGroups = isFirstKnockoutRound\(saisonSpiele, spielData\);/);
+    assert.doesNotMatch(SOURCE, /seedsFromTheGroups = .*storedQuelle/);
+  });
+
+  /* The row above being closed decides only the TYPE. Left open, the group and the placing each
+     offer a change to the very shape the endpoint refuses. */
+  it("closes the group and the placing with the row that chose them", () => {
+    const disabled = [...SOURCE.matchAll(/isDisabled=\{!seedsFromTheGroups\}/g)];
+
+    assert.equal(disabled.length, 2, "the group or the placing control stays open");
+  });
+
+  /* Closed, not dropped: the stored placing is the only readout of what the side is wired to, and
+     an admin who cannot see it cannot tell which repair to make. */
+  it("keeps the stored placing on screen while it is closed", () => {
+    assert.match(SOURCE, /quelle\?\.type === "gruppe" && \(/);
+    assert.match(SOURCE, /name=\{`\$\{fieldName\}_quelle\.platz`\}/);
+  });
+
+  /* A refusal the reader meets before pressing save rather than after, the endpoint answering every
+     save of the fixture however unrelated the edit. */
+  it("carries a banner at the source control", () => {
+    assert.match(SOURCE, /spot=\{`\$\{fieldName\}-herkunft`\}/);
+  });
+
+  /* One derivation behind both, or the picker closes a control the banner beneath it denies is
+     closed at all. */
+  it("feeds that banner the derivation the picker closes on", () => {
+    assert.match(EDITOR, /seedsFromTheGroups: isFirstKnockoutRound\(saisonSpiele, spielData\)/);
   });
 });

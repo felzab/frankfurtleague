@@ -162,8 +162,9 @@ export function FormTeamPicker({
   const recommendedChoice = recommendedChoiceFor(feederSpiele.length > 0);
 
   // A group placing seeds the bracket's entrance, and from there an earlier match feeds the slot.
-  // A side already wired to one keeps the answer, or the narrowing would strand stored wiring.
-  const seedsFromTheGroups = isFirstKnockoutRound(saisonSpiele, spielData) || storedQuelle?.type === "gruppe";
+  // Absolute, a stored one included: `REQ-WIRING-002` refuses every save carrying one, so leaving it
+  // editable would only offer a change no save can take.
+  const seedsFromTheGroups = isFirstKnockoutRound(saisonSpiele, spielData);
 
   const quelleOptions: RefusableOption[] = availableChoices.map((item) => ({
     id: item.key,
@@ -434,9 +435,12 @@ export function FormTeamPicker({
       {/* Rendered per variant, so no box belongs to a shape the source is not in. */}
       {quelle?.type === "gruppe" && (
         <div className={FIELD_PAIR}>
+          {/* Closed with the row above rather than dropped: the stored placing is the only place an
+              admin can read what this side is wired to, and the banner below names the way out. */}
           <Autocomplete
             name={`${fieldName}_quelle.gruppe`}
             className="w-full"
+            isDisabled={!seedsFromTheGroups}
             selectionMode="single"
             value={quelle.gruppe}
             // The platz survives the group change unless the new group already seeds it.
@@ -474,6 +478,7 @@ export function FormTeamPicker({
           <Autocomplete
             name={`${fieldName}_quelle.platz`}
             className="w-full"
+            isDisabled={!seedsFromTheGroups}
             selectionMode="single"
             placeholder="Platz wählen"
             value={Number.isInteger(quelle.platz) ? String(quelle.platz) : null}
@@ -567,6 +572,13 @@ export function FormTeamPicker({
           <FieldError className={FIELD_ERROR} />
         </Autocomplete>
       )}
+
+      {/* Never announced: the closed choice above cannot produce this, so it is there from first
+          paint or not at all, which makes it a property rather than an event. */}
+      <InlineBanners
+        banners={banners}
+        spot={`${fieldName}-herkunft`}
+      />
 
       {/* Danger on the state, so a slot taken over in any edit carries it; `isAnnounced` keys on
           the act, only this edit's takeover being an event worth announcing. */}

@@ -1,9 +1,13 @@
+import { buildRefusal } from "@/shared/utils/refusal";
+
 import type { FLSonderereignis, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
 export type SpielBannerId =
   | "spiel.eligibility-refused"
   | "spiel.spieltag-refused"
+  | "spiel.team1-seed-refused"
+  | "spiel.team2-seed-refused"
   | "spiel.team1-manual"
   | "spiel.team2-manual"
   | "spiel.team1-unqualified"
@@ -18,6 +22,8 @@ export type SpielBannerId =
   | "spiel.release-preview";
 
 export type SpielBannerSpot =
+  | "team1-herkunft"
+  | "team2-herkunft"
   | "team1-manuell"
   | "team2-manuell"
   | "team1-qualifikation"
@@ -84,11 +90,20 @@ const REFUSAL_REMEDIES: Record<SpielRefusalCode, { id: SpielBannerId; title: str
 export const isSpielRefusalCode = (code: string | undefined): code is SpielRefusalCode =>
   code !== undefined && Object.hasOwn(REFUSAL_REMEDIES, code);
 
+/**
+ * Refused in advance rather than by the last save: `REQ-WIRING-002` answers every save of a fixture
+ * wired this way, so these join the delivered ones in the set below.
+ */
+const SEED_REFUSAL_IDS = ["spiel.team1-seed-refused", "spiel.team2-seed-refused"] as const satisfies readonly SpielBannerId[];
+
 // Derived from the remedies, never listed again: a third refusal added above would otherwise reach
 // the rail and be forgotten here.
-const REFUSAL_BANNER_IDS: ReadonlySet<SpielBannerId> = new Set(Object.values(REFUSAL_REMEDIES).map((remedy) => remedy.id));
+const REFUSAL_BANNER_IDS: ReadonlySet<SpielBannerId> = new Set<SpielBannerId>([
+  ...Object.values(REFUSAL_REMEDIES).map((remedy) => remedy.id),
+  ...SEED_REFUSAL_IDS,
+]);
 
-/** Whether this banner reports a refusal already delivered, rather than a consequence a save would cause. */
+/** Whether this banner names a save the endpoint refuses, rather than a consequence a save would cause. */
 export const isSpielRefusalBannerId = (id: SpielBannerId): boolean => REFUSAL_BANNER_IDS.has(id);
 
 /** A list of fixture numbers as German writes it: "29, 30 und 31", with "und" and no serial comma. */
@@ -97,6 +112,7 @@ export const joinGerman = (spielNummern: readonly number[]): string =>
 
 export function buildSpielBanners({
   isKnockout,
+  seedsFromTheGroups,
   sides,
   knockoutTeamIds,
   isNewlyChosen,
@@ -110,6 +126,11 @@ export function buildSpielBanners({
   refusalCode,
 }: {
   isKnockout: boolean;
+  /**
+   * Whether a group placing may seed this fixture at all, which only the round the season's bracket
+   * opens on may (`fl_frontend/src/features/spiele/utils.ts :: isFirstKnockoutRound`).
+   */
+  seedsFromTheGroups: boolean;
   sides: readonly SpielBannerSide[];
   /** Every team the bracket already fields — the client's proxy for "qualified". */
   knockoutTeamIds: ReadonlySet<string>;
@@ -144,7 +165,24 @@ export function buildSpielBanners({
   }
 
   for (const side of sides) {
-    if (!isKnockout || side.quelle !== null) continue;
+    if (!isKnockout) continue;
+
+    // `REQ-WIRING-002` answers every save carrying this, however unrelated the edit, so the way out
+    // is named before a save that cannot land rather than after it.
+    if (!seedsFromTheGroups && side.quelle?.type === "gruppe") {
+      banners.push({
+        id: side.fieldName === "team1" ? "spiel.team1-seed-refused" : "spiel.team2-seed-refused",
+        severity: "danger",
+        title: `Ein Gruppenplatz besetzt ${side.label} nur in der ersten KO-Runde`,
+        body: buildRefusal({
+          reason: "So lässt sich das Spiel nicht speichern",
+          repair: "Wähle ein früheres Spiel als Herkunft, oder setze das Team manuell",
+        }),
+        inline: side.fieldName === "team1" ? "team1-herkunft" : "team2-herkunft",
+      });
+    }
+
+    if (side.quelle !== null) continue;
 
     banners.push({
       id: side.fieldName === "team1" ? "spiel.team1-manual" : "spiel.team2-manual",
