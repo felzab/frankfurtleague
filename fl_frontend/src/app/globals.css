@@ -689,7 +689,10 @@ input:focus:placeholder-shown {
 
 /* WHERE THE ARMS ABOVE PAINT NOTHING, focus must still show (WCAG 2.4.7): a frozen field and a
    closed picker are both tab stops that reach neither border. react-aria's attribute, not
-   `:focus-visible`, so a CLICK on either paints nothing at all. */
+   `:focus-visible`, so this outline answers a key press, not a click. */
+/* A CLICK on a frozen group stays quiet for a second reason: HeroUI's `[data-focus-within]`
+   border and fill match it and lose, out-layered by the `utilities` classes
+   `formFieldStyles.ts :: FIELD_GROUP` puts on the group. */
 :is(
     [data-slot="input"],
     [data-slot="input-group"],
