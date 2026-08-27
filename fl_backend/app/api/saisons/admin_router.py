@@ -294,10 +294,20 @@ async def patch_saison(
             phase_of_spieltag[spieltag["_id"]] = spieltag["saison_phase"]
 
         per_spieltag: dict[Any, int] = {}
-        # `spieltag_id` alone: what a fixture carries is no business of this route, `REQ-RULES-011`
-        # freezing the shape on the draw's existence rather than on anything entered since.
-        async for spiel in spiele_collection.find({"saison_id": saison_id}, {"spieltag_id": 1}, session=session):
+        played_knockout = 0
+        # ONE pass for both counts, and `has_taken_place` over the documents rather than a `$match`
+        # of its own: a predicate here and an equivalent filter there would drift, as the group swap
+        # avoids for the same rule (`REQ-SWAP-002`).
+        async for spiel in spiele_collection.find(
+            {"saison_id": saison_id},
+            {"spieltag_id": 1, "saison_phase": 1, "ergebnis": 1, "sonderereignis": 1, "team1.tore": 1, "team2.tore": 1},
+            session=session,
+        ):
             per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
+            # The FIXTURE's own phase, never its matchday's: the bracket was seeded from the placings
+            # `REQ-RULES-012` protects, and what was played is what the fixture records.
+            if spiel.get("saison_phase") in KNOCKOUT_PHASES and has_taken_place(spiel):
+                played_knockout += 1
 
         # Every fixture of the season, whichever matchday it hangs on: what `REQ-RULES-011` freezes is the
         # draw, and a fixture pointing at another season's matchday came out of this season's rules too.
@@ -332,6 +342,7 @@ async def patch_saison(
                 largest_squad=largest_squad,
                 attached_by_phase=attached_by_phase,
                 drawn_fixtures=drawn_fixtures,
+                played_knockout_fixtures=played_knockout,
             )
         )
 

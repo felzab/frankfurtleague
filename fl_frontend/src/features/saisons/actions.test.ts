@@ -122,6 +122,7 @@ describe("the saison actions against the backend's refusal register", () => {
       "REQ-RULES-009",
       "REQ-RULES-010",
       "REQ-RULES-011",
+      "REQ-RULES-012",
     ]);
     for (const code of declared) assert.ok(RULES_MAP.includes(`case "${code}":`), `${code} reaches the admin as a generic conflict`);
   });

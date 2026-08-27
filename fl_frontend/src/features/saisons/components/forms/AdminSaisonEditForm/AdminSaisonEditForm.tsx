@@ -356,6 +356,9 @@ export function AdminSaisonEditForm({
               validateStufen(next);
             }}
             isFinishedSaison={saison.status === "past"}
+            // `REQ-RULES-012` off the SAME count `FormGruppenSwapSection` closes on for `REQ-SWAP-002`:
+            // both rules read a played knockout fixture, so one derivation keeps the two panels agreeing.
+            isKnockoutStarted={swap.playedKnockoutSpiele > 0}
             isDrawnSaison={hasDrawnSpiele}
             banners={banners}
           />

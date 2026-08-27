@@ -104,6 +104,12 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
       return {
         error: "Diese Saison ist abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten festgeschrieben. Lade die Seite neu.",
       };
+    // Bare like the freeze above, and a reload for the same reason: the panel holds the Tiebreak
+    // closed once a KO fixture has been played, so only a result entered under an open page gets here.
+    case "REQ-RULES-012":
+      return {
+        error: "Die KO-Runde dieser Saison hat begonnen, deshalb ist der Tiebreak festgeschrieben. Lade die Seite neu.",
+      };
     // A bare message, the shape `REQ-RULES-005` uses: the two freezes refuse the same class of edit
     // in one panel, and one answering through field paths would split that into two mechanisms.
     case "REQ-RULES-011":

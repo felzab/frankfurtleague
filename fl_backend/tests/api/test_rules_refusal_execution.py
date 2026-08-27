@@ -8,7 +8,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
-from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW
+from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW, RULES_TIEBREAK_AFTER_KNOCKOUT
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from tests.database import a_clean_database
@@ -42,10 +42,18 @@ PRIOR_SAISONS_SQUAD = 9
 PERMITTED_KADER = 4
 REFUSED_KADER = 2
 
+# The other value of the closed set, so a case moves `tiebreak_order` to something the model accepts.
+OTHER_TIEBREAK = "direkter_vergleich"
+
+# 4 groups x 2 qualifiers is 8, which the ladder enters at the Viertelfinale: 4 fixtures.
+KNOCKOUT_FIXTURES = 4
+PLAYED_KNOCKOUT_FIXTURES = 1
+
 # Fixed rather than generated, so a failure names the same rows every run.
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607240001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607240002")
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072400a1")
+KNOCKOUT_SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072400a2")
 MEMBERSHIP_ID = "6890a1b2c3d4e5f60724{:04d}"
 SPIEL_ID = "6890a1b2c3d4e5f60725{:04d}"
 
@@ -134,10 +142,50 @@ def drawn_spiele() -> list[dict[str, Any]]:
     ]
 
 
+def knockout_spieltag_document() -> dict[str, Any]:
+    """The season's first bracket matchday, inside its span and after the group matchday above."""
+
+    return {
+        "_id": KNOCKOUT_SPIELTAG_OID,
+        "beginn": "2026-04-15",
+        "ende": "2026-04-15",
+        "position": 1,
+        "saison_phase": "viertelfinale",
+        "saison_id": SAISON_ID,
+    }
+
+
+def knockout_spiele(*, played: int = 0) -> list[dict[str, Any]]:
+    """The bracket's first round, `played` of them carrying a result.
+
+    A RESULT and nothing else, so what closes the window is the fact `has_taken_place` reads rather
+    than a side, a date or a booking any of the other rules could answer for.
+    """
+
+    return [
+        {
+            "_id": ObjectId(SPIEL_ID.format(100 + nr)),
+            "spiel_nr": DRAWN_FIXTURES + nr,
+            "saison_id": SAISON_ID,
+            "saison_phase": "viertelfinale",
+            "spieltag_id": KNOCKOUT_SPIELTAG_OID,
+            "datum": "2026-04-15",
+            **({"ergebnis": "3:1"} if nr <= played else {}),
+        }
+        for nr in range(1, KNOCKOUT_FIXTURES + 1)
+    ]
+
+
 Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
 
 
-def on_a_database(url: str, body: Body, *, spiele: list[dict[str, Any]] | None = None) -> Any:
+def on_a_database(
+    url: str,
+    body: Body,
+    *,
+    spiele: list[dict[str, Any]] | None = None,
+    spieltage: list[dict[str, Any]] | None = None,
+) -> Any:
     """One client and event loop per call: Motor binds to the loop it first runs on."""
 
     async def _run() -> Any:
@@ -147,7 +195,7 @@ def on_a_database(url: str, body: Body, *, spiele: list[dict[str, Any]] | None =
 
             await database[Collection.SAISONS].insert_one(saison_document())
             await database[Collection.SAISON_SPIELER].insert_many(squad_rows())
-            await database[Collection.SPIELTAGE].insert_one(spieltag_document())
+            await database[Collection.SPIELTAGE].insert_many([spieltag_document(), *(spieltage or [])])
             if spiele:
                 await database[Collection.SPIELE].insert_many(spiele)
 
@@ -234,3 +282,63 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
         response = on_a_database(mongo_replica_set_url, body)
 
         assert response.updated_document.rules.teams_per_group == WIDER_PER_GROUP
+
+
+class TestTheKnockoutIsWhatFreezesTheTiebreak:
+    """`REQ-RULES-012` through the endpoint, whose count of PLAYED bracket fixtures is what the rule turns on.
+
+    The phase and the predicate are both the endpoint's own: a case here reaches neither by handing
+    a number in, which is what the unit tests do.
+    """
+
+    def test_a_played_knockout_fixture_freezes_the_order(self, mongo_replica_set_url: str):
+        """The bracket was seeded from the group placings this order decides, and one round of it is now on the record."""
+
+        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+            with pytest.raises(DocumentConflictException) as refusal:
+                await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
+
+            return refusal.value
+
+        refusal = on_a_database(
+            mongo_replica_set_url,
+            body,
+            spiele=[*drawn_spiele(), *knockout_spiele(played=PLAYED_KNOCKOUT_FIXTURES)],
+            spieltage=[knockout_spieltag_document()],
+        )
+
+        assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
+        # The played one alone: every other bracket fixture counted in would show here as well as in the verdict.
+        assert str(PLAYED_KNOCKOUT_FIXTURES) in refusal.error_detail["message"]
+
+    def test_a_drawn_but_unplayed_bracket_leaves_the_order_open(self, mongo_replica_set_url: str):
+        """The boundary: the fixtures exist and are wired, and re-seeding them costs nobody a round they already played."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            return await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
+
+        response = on_a_database(
+            mongo_replica_set_url,
+            body,
+            spiele=[*drawn_spiele(), *knockout_spiele()],
+            spieltage=[knockout_spieltag_document()],
+        )
+
+        assert response.updated_document.rules.tiebreak_order == OTHER_TIEBREAK
+
+    def test_a_played_group_fixture_leaves_the_order_open(self, mongo_replica_set_url: str):
+        """The narrowing to the bracket: a group still being played is exactly where re-ordering it is a normal correction."""
+
+        played_gruppenphase = [{**drawn_spiele()[0], "ergebnis": "2:0"}, *drawn_spiele()[1:]]
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            return await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
+
+        response = on_a_database(
+            mongo_replica_set_url,
+            body,
+            spiele=[*played_gruppenphase, *knockout_spiele()],
+            spieltage=[knockout_spieltag_document()],
+        )
+
+        assert response.updated_document.rules.tiebreak_order == OTHER_TIEBREAK

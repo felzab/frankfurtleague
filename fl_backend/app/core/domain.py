@@ -448,8 +448,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SAISONS,
         "rules.tiebreak_order",
         Editability.CONDITIONAL,
-        "frozen once the season is `past`: clubs level on points are separated by it on every read, so a change rewrites "
-        "where a finished season's table placed them",
+        "frozen once a knockout fixture of the season has been played (`REQ-RULES-012`), the bracket having been seeded from "
+        "the group placings it decides, and again once the season is `past`: clubs level on points are separated by it on "
+        "every read, so a change rewrites where a finished season's table placed them",
         "app.api.saisons.services.find_rules_refusal",
     ),
     FieldPolicy(
@@ -838,6 +839,15 @@ RULES: tuple[Rule, ...] = (
         summary="a finished season's points and qualifier count are frozen, because the table is derived from them",
         implemented_by="app.api.saisons.services.find_rules_refusal",
         tested_by="tests/api/test_rules_refusal.py::TestAFinishedSeasonFreezes",
+    ),
+    Rule(
+        code="REQ-RULES-012",
+        operation="PATCH /saisons/{saison_id}",
+        aggregate="Saison",
+        summary="`tiebreak_order` is frozen once a knockout fixture of the season has been played",
+        implemented_by="app.api.saisons.services.find_rules_refusal",
+        tested_by="tests/api/test_rules_refusal.py::TestAStartedKnockoutFreezesTheTiebreak",
+        multi_document=True,
     ),
     Rule(
         code="REQ-RULES-006",

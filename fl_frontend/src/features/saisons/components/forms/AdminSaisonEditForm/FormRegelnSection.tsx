@@ -35,6 +35,7 @@ export function FormRegelnSection({
   onFieldLeft,
   onStufenChange,
   isFinishedSaison,
+  isKnockoutStarted,
   isDrawnSaison,
   banners,
 }: {
@@ -48,6 +49,12 @@ export function FormRegelnSection({
    * (`REQ-RULES-005`). The endpoint refuses a change to any of them; this stops the page offering one.
    */
   isFinishedSaison: boolean;
+  /**
+   * Whether a knockout fixture has been played, which freezes the tiebreak (`REQ-RULES-012`).
+   * **Handed in, never derived here**: the group swap grades the same fact (`REQ-SWAP-002`), and a
+   * second reading would offer what the endpoint refuses.
+   */
+  isKnockoutStarted: boolean;
   /**
    * Whether the season's fixtures exist, which freezes the three they were drawn from
    * (`REQ-RULES-011`). Not a later stage of the freeze above: a season is drawn long before it is
@@ -145,11 +152,20 @@ export function FormRegelnSection({
           <h3 className={FORM_SECTION_HEADING}>Tiebreak</h3>
           <SaisonTiebreakSelect
             name="rules.tiebreak_order"
-            isDisabled={isFinishedSaison}
+            isDisabled={isFinishedSaison || isKnockoutStarted}
             label={<FieldLabel path="rules.tiebreak_order">Was zuerst entscheidet</FieldLabel>}
             value={rules.tiebreak_order}
             onChange={(tiebreak_order) => onRulesChange({ ...rules, tiebreak_order })}
           />
+
+          {/* Panel-local for the reason the redraw note at the foot of this panel is: on the rail it
+              would name a control the reader cannot see. Only while the season still runs -- a
+              finished one is answered by the standing banner this panel already carries. */}
+          {isKnockoutStarted && !isFinishedSaison && (
+            <p className="fluid-xxs text-foreground-muted w-full font-medium">
+              Nach dem Beginn der KO-Runde lässt sich der Tiebreak nicht mehr ändern.
+            </p>
+          )}
         </div>
 
         <Separator className="bg-border" />
