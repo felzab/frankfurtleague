@@ -86,6 +86,16 @@ def season_of(shape: Shape) -> tuple[FLSpiel, ...]:
     return tuple(FLSpielListAdapter.validate_python(list(drawn(shape).spiele)))
 
 
+def with_the_slot_cleared(season: tuple[FLSpiel, ...], spiel_id: Any) -> tuple[FLSpiel, ...]:
+    """`season` with this fixture stripped of its own sources, so resubmitting them reads as ENTERING them.
+
+    `find_wiring_refusal` judges the side whose source a save moves (`docs/backend/spec.md :: I44`),
+    which a resubmission never does.
+    """
+
+    return tuple(spiel if spiel.id != spiel_id else spiel.model_copy(update={"team1_quelle": None, "team2_quelle": None}) for spiel in season)
+
+
 def payload_of(raw: Mapping[str, Any]) -> FLPatchSpielDataPayload:
     """The drawn fixture resubmitted unchanged -- the body `PATCH /spiele/{spiel_id}` carries when nothing was edited."""
 
@@ -116,14 +126,14 @@ class TestTheDrawnWiringIsWiringTheWritePathAccepts:
 
     @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
     def test_no_emitted_fixture_carries_a_wiring_its_own_endpoint_would_refuse(self, shape: Shape):
-        """A drawn season the write path refuses is one whose fixtures an admin can never save again, venue and kick-off included."""
+        """Wiring the write path refuses is wiring an admin who cleared the slot could never point back at."""
 
         season = season_of(shape)
 
         refused = [
             (raw["spiel_nr"], refusal.message)
             for raw in drawn(shape).spiele
-            if (refusal := find_wiring_refusal(raw["_id"], payload_of(raw), season)) is not None
+            if (refusal := find_wiring_refusal(raw["_id"], payload_of(raw), with_the_slot_cleared(season, raw["_id"]))) is not None
         ]
 
         assert refused == []

@@ -221,6 +221,70 @@ class TestMaintainedSides:
         assert refusal_for(season, 30, team1=spiel_team_field()) is None
 
 
+def stored_as(season_docs: list[dict[str, Any]], nr: int, **wiring: Any) -> list[dict[str, Any]]:
+    """`season_docs` with fixture `nr` ALREADY holding `wiring`, so a save resubmitting it changes nothing."""
+
+    return [doc if doc["spiel_nr"] != nr else {**doc, **wiring} for doc in season_docs]
+
+
+# Each shape as a fixture stores it, with a SECOND value out of the same rule beside it. A hand
+# edit reaches all six and two saves racing reach the duplicate; no write path repairs any.
+STORED_SHAPES: dict[str, tuple[int, dict[str, Any], dict[str, Any], str]] = {
+    "group-fixture": (1, {"team1_quelle": sieger(2)}, {"team1_quelle": sieger(25)}, WIRING_UNSUPPORTED),
+    "dangling-feeder": (30, {"team1_quelle": sieger(27)}, {"team1_quelle": sieger(28)}, WIRING_UNSUPPORTED),
+    "gruppenphase-feeder": (30, {"team1_quelle": sieger(1)}, {"team1_quelle": sieger(2)}, WIRING_UNSUPPORTED),
+    "same-round-feeder": (29, {"team1_quelle": sieger(30)}, {"team1_quelle": sieger(31)}, WIRING_UNSUPPORTED),
+    "outcome-already-used": (30, {"team1_quelle": sieger(25)}, {"team1_quelle": sieger(26)}, WIRING_UNSUPPORTED),
+    "seed-past-the-opening-round": (
+        30,
+        {"team1_quelle": gruppenplatz("C", 1)},
+        {"team1_quelle": gruppenplatz("D", 1)},
+        WIRING_SEED_PAST_THE_OPENING_ROUND,
+    ),
+}
+
+stored_shape_cases = pytest.mark.parametrize(("nr", "stored_wiring", "moved_to", "code"), list(STORED_SHAPES.values()), ids=list(STORED_SHAPES))
+
+
+class TestAStoredShapeDoesNotLatch:
+    """Every rule above judges a source this payload MOVES (`docs/backend/spec.md :: I44`).
+
+    The classes above judge the same shapes INTRODUCED, which is the step, and none of these is one.
+    """
+
+    @stored_shape_cases
+    def test_resubmitting_a_stored_shape_unchanged_is_legal(self, season, nr, stored_wiring, moved_to, code):
+        """The no-op save of a fixture wired this way -- what a venue or a kick-off-time edit sends."""
+        assert refusal_for(stored_as(season, nr, **stored_wiring), nr) is None
+
+    @stored_shape_cases
+    def test_moving_a_stored_shape_to_another_breach_is_refused(self, season, nr, stored_wiring, moved_to, code):
+        """A second value out of the same rule is no better than the first, and choosing it IS a step."""
+        refusal = refusal_for(stored_as(season, nr, **stored_wiring), nr, **moved_to)
+
+        assert refusal is not None
+        assert refusal.error_code == code
+
+    def test_a_stored_reference_cycle_stays_editable(self, season):
+        """`_fixtures_depending_on_a_cycle` reports a cycle and repairs nothing, so refusing both ends would strand them."""
+
+        cyclic = stored_as(stored_as(season, 29, team1_quelle=sieger(30)), 30, team1_quelle=sieger(29))
+
+        assert refusal_for(cyclic, 29) is None
+        assert refusal_for(cyclic, 30) is None
+
+    def test_the_side_beside_a_stored_shape_stays_repairable(self, season):
+        """The point of judging the step: a stored breach on one side leaves the other side's own wiring free."""
+
+        latched = stored_as(season, 30, team1_quelle=gruppenplatz("C", 1))
+
+        assert refusal_for(latched, 30, team2_quelle=verlierer(25)) is None
+
+    def test_a_kept_source_is_still_taken(self, season):
+        """Match 29 keeps 25's winner rather than being judged on it, and the season holds it either way."""
+        assert "already feeds" in message_for(season, 29, team2_quelle=sieger(25))
+
+
 class TestEveryRefusalCarriesItsCode:
     """The code travels with the refusal: a code named at a call site is a second copy nothing compares against the rule's own."""
 

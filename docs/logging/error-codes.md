@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `d8af59c5`, 2026-08-27\
+**Verified against:** `42c4e075`, 2026-08-27\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
@@ -49,7 +49,9 @@ it is never on its own proof that the document is absent.
 `REQ-RULES-004`, `REQ-RULES-006`, `REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010` and
 `REQ-RULES-011` arrive on the edit that introduces or worsens the violation and let a resubmission of the stored
 values through, because a season patch replaces `rules` wholesale. `REQ-DATE-008` is the same shape one payload
-over: a matchday patch carries `beginn` and `ende` together, so an `ende`-only edit resubmits the stored `beginn`
+over: a matchday patch carries `beginn` and `ende` together, so an `ende`-only edit resubmits the stored `beginn`. The
+two wiring codes read the same way on a third payload: a match patch carries both `quelle` fields, so `REQ-WIRING-001`
+and `REQ-WIRING-002` judge the side whose source the save MOVES and leave a fixture already wired out of rule editable
 (`docs/backend/spec.md :: I44`).
 
 **The draw freezes a season's SHAPE alone**: `REQ-RULES-011` names `number_of_groups`, `teams_per_group` and
@@ -116,7 +118,8 @@ until the season turns `past`, where `REQ-RULES-005` freezes it.
 | `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved                                                                          |
 | `REQ-BOOKING-001`     | 409    | A venue or a referee NEWLY assigned to a fixture is unknown or retired — one already stored survives its target's retirement                           |
 | `REQ-CLASH-001`       | 409    | A venue or a referee would serve two fixtures less than four hours apart                                                                               |
-| `REQ-WIRING-001`      | 409    | Bracket wiring the season cannot hold reached the match write path                                                                                     |
+| `REQ-WIRING-001`      | 409    | A save MOVED a side's source to bracket wiring the season cannot hold; a fixture already wired that way stays editable                                 |
+| `REQ-WIRING-002`      | 409    | A save MOVED a side's source to a group placing on a round past the one this season's bracket opens on                                                 |
 | `REQ-ELIGIBILITY-001` | 409    | A team that has left the season stands on a match dated on or after its exit, and the save changed an input the rule reads                             |
 | `REQ-ELIGIBILITY-002` | 409    | A newly fielded team holds no `saison_teams` row for the fixture's season                                                                              |
 | `REQ-RESULT-001`      | 409    | A side carrying goals on a played fixture was emptied rather than switched                                                                             |

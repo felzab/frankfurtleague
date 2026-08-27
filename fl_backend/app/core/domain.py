@@ -1146,7 +1146,8 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison-Spielplan",
         summary=(
             "the wiring must be one the season can hold: no `quelle` on a group fixture, no dangling or "
-            "later feeder, no outcome feeding two slots, no hand-set team on a maintained side"
+            "later feeder, no outcome feeding two slots, no hand-set team on a maintained side -- each "
+            "judged on what this save moves, the source or the occupant"
         ),
         implemented_by="app.api.spiele.services.find_wiring_refusal",
         tested_by="tests/api/test_wiring_refusal.py::TestEveryRefusalCarriesItsCode",
@@ -1156,7 +1157,10 @@ RULES: tuple[Rule, ...] = (
         code="REQ-WIRING-002",
         operation="PATCH /spiele/{spiel_id}",
         aggregate="Saison-Spielplan",
-        summary="a group placing seeds only the round this season's bracket opens on; every later slot is fed by a match",
+        summary=(
+            "a group placing seeds only the round this season's bracket opens on; every later slot is fed by a match, "
+            "judged on the side whose source this save moves"
+        ),
         implemented_by="app.api.spiele.services.find_wiring_refusal",
         tested_by="tests/api/test_wiring_refusal.py::TestEveryRefusalCarriesItsCode",
         multi_document=True,

@@ -1046,9 +1046,9 @@ def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
 
 WIRING_UNSUPPORTED = "REQ-WIRING-001"
 
-# Its own code because its repair is the opposite one: the shapes above reach the endpoint only from
-# a form the season has moved under, and this one is the fixture's OWN stored wiring, refused on
-# every save of it however unrelated the edit.
+# Its own code because the repair is the opposite one: the shapes above are ones the form cannot
+# build, so a request carrying one is stale; this one the form offers, so the way out is a
+# different source rather than a reload.
 WIRING_SEED_PAST_THE_OPENING_ROUND = "REQ-WIRING-002"
 
 
@@ -1072,10 +1072,20 @@ def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPaylo
         if quelle is not None
     }
 
-    sides = (("team1", payload.team1, payload.team1_quelle), ("team2", payload.team2, payload.team2_quelle))
+    sides = (
+        ("team1", payload.team1, payload.team1_quelle, stored.team1_quelle),
+        ("team2", payload.team2, payload.team2_quelle, stored.team2_quelle),
+    )
 
-    for label, _, quelle in sides:
-        if quelle is None:
+    # A source this payload KEEPS is not judged below, but the season still holds it, so the other
+    # side cannot be pointed at it. Seeded before the loop, so the answer does not depend on which
+    # side the admin moved.
+    used |= {_quelle_key(quelle) for _, _, quelle, stored_quelle in sides if quelle is not None and quelle == stored_quelle}
+
+    for label, _, quelle, stored_quelle in sides:
+        # The payload replaces the fixture wholesale, so a rule reading it alone would latch every
+        # later edit of a fixture already wired this way (`docs/backend/spec.md :: I44`).
+        if quelle is None or quelle == stored_quelle:
             continue
 
         if stored.saison_phase == "gruppenphase":
@@ -1114,7 +1124,7 @@ def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPaylo
             return _wiring_refusal(f"{label}_quelle: this source already feeds another slot of the season")
         used.add(key)
 
-    for label, team, quelle in sides:
+    for label, team, quelle, _ in sides:
         if quelle is None:
             continue
 
