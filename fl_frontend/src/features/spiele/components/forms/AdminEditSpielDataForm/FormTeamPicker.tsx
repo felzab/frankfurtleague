@@ -4,19 +4,28 @@ import { Autocomplete, FieldError, Label, ListBox, SearchField, useFilter } from
 
 import { dismissControl } from "@/core/dismissControl";
 import { PHASE_LABELS } from "@/features/saisons/constants";
-import { formatQuelle, isDirectlyPrecedingRound, listFeederSpiele, quelleKey, toStoredSide } from "@/features/spiele/utils";
+import {
+  formatQuelle,
+  isDirectlyPrecedingRound,
+  isFirstKnockoutRound,
+  listFeederSpiele,
+  quelleKey,
+  toStoredSide,
+} from "@/features/spiele/utils";
 import { austrittZustand } from "@/features/teams/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { pickIfOffered } from "@/shared/components/ui/refusableOption";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
+import type { RefusableOption } from "@/shared/components/ui/refusableOption";
 import type { Key } from "@heroui/react";
 import type { SpielBanner } from "./banners";
 
@@ -142,6 +151,8 @@ export function FormTeamPicker({
   // Empty for the first knockout round, which is seeded from the group phase and fed by nothing.
   const feederSpiele = listFeederSpiele(saisonSpiele, spielData);
 
+  const storedQuelle = fieldName === "team1" ? spielData.team1_quelle : spielData.team2_quelle;
+
   // The stored value stays listed even where it should not exist, so hand-edited data renders
   // truthfully rather than as an empty control.
   const availableChoices = QUELLE_CHOICES.filter(
@@ -150,12 +161,27 @@ export function FormTeamPicker({
 
   const recommendedChoice = recommendedChoiceFor(feederSpiele.length > 0);
 
-  // Danger however the side came to be manual, the cost of missing it not depending on when.
-  // Only the ANNOUNCEMENT is graded: a takeover made in THIS edit is the only event.
-  const storedQuelle = fieldName === "team1" ? spielData.team1_quelle : spielData.team2_quelle;
+  // A group placing seeds the bracket's entrance, and from there an earlier match feeds the slot.
+  // A side already wired to one keeps the answer, or the narrowing would strand stored wiring.
+  const seedsFromTheGroups = isFirstKnockoutRound(saisonSpiele, spielData) || storedQuelle?.type === "gruppe";
+
+  const quelleOptions: RefusableOption[] = availableChoices.map((item) => ({
+    id: item.key,
+    name: item.label,
+    meta: item.key === recommendedChoice ? "Empfohlen" : null,
+    refusal: item.key === "gruppe" && !seedsFromTheGroups ? "nur in der ersten KO-Runde" : null,
+  }));
+
+  // Visible and closed rather than gone, `FormSonderereignisSection`'s rule: an admin should see
+  // why an answer is out of reach, not wonder where it went.
+  const refusedQuelleKeys = quelleOptions.filter((option) => option.refusal !== null).map((option) => option.id);
+
   // The source decides what is editable: a team picked against a source would be reverted by the
   // same request that reported success, so only the manual answer shows a team picker.
   const isManual = isKnockout && quelle === null;
+
+  // Danger however the side came to be manual, the cost of missing it not depending on when.
+  // Only the ANNOUNCEMENT is graded: a takeover made in THIS edit is the only event.
   const hasJustBeenTakenOver = isManual && storedQuelle !== null;
 
   const handleTeamSelection = (key: Key | null) => {
@@ -192,7 +218,12 @@ export function FormTeamPicker({
    * stored occupant, so a manual detour's team cannot ride along.
    */
   const handleChoiceSelection = (key: Key | null) => {
-    const selected = (key ?? "manuell") as QuelleChoice;
+    // Re-read rather than left to the disabled row, which is `pickIfOffered`'s whole clause: a
+    // keyboard pick or a list a render old must not seat a source this round cannot hold.
+    const offered = pickIfOffered(quelleOptions, key?.toString() ?? "manuell");
+    if (offered === null) return;
+
+    const selected = offered as QuelleChoice;
 
     if (selected === "manuell") {
       onQuelleChange(null);
@@ -347,7 +378,10 @@ export function FormTeamPicker({
         className="w-full"
         selectionMode="single"
         value={choice}
-        onChange={handleChoiceSelection}>
+        onChange={handleChoiceSelection}
+        // On the root, the one route HeroUI documents for an Autocomplete, and the one the team
+        // picker below already closes its rows with.
+        disabledKeys={refusedQuelleKeys}>
         <FieldLabel
           path={`${fieldName}_quelle`}
           extraMarker={<ExpectedMarker path={`${fieldName}_quelle`} />}>
@@ -365,21 +399,32 @@ export function FormTeamPicker({
 
         <Autocomplete.Popover className={overlayPanel()}>
           <ListBox className="p-1">
-            {availableChoices.map((item) => (
-              <ListBox.Item
-                key={item.key}
-                id={item.key}
-                // Also in `textValue`, so a screen reader reads the recommendation too.
-                textValue={item.key === recommendedChoice ? `${item.label} (empfohlen)` : item.label}
-                className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
-                {/* Success-tinted, not brand: brand on brand was the least readable chip here.
-                    `ml-auto` like every list chip, or two lists park it in two places. */}
-                <span className="min-w-0 truncate">{item.label}</span>
-                {item.key === recommendedChoice && (
-                  <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>Empfohlen</span>
-                )}
-              </ListBox.Item>
-            ))}
+            {quelleOptions.map((option) => {
+              // A refusal outranks a recommendation: the reason is the whole of what a reader
+              // needs from a row they cannot take.
+              const note = option.refusal ?? option.meta;
+
+              return (
+                <ListBox.Item
+                  key={option.id}
+                  id={option.id}
+                  // Also in `textValue`, so a screen reader reads the note the row carries too.
+                  textValue={note === null ? option.name : `${option.name} (${note})`}
+                  className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
+                  <span className="min-w-0 truncate">{option.name}</span>
+                  {/* Success-tinted, not brand: brand on brand was the least readable chip here.
+                      `ml-auto` like every list chip, or two lists park it in two places. A refusal
+                      is plain muted text instead, the badge belonging to a row that can be taken. */}
+                  {option.refusal !== null ? (
+                    <span className="fluid-xs text-foreground-muted ml-auto shrink-0 font-semibold">{option.refusal}</span>
+                  ) : (
+                    option.meta !== null && (
+                      <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>{option.meta}</span>
+                    )
+                  )}
+                </ListBox.Item>
+              );
+            })}
           </ListBox>
         </Autocomplete.Popover>
         {/* No `Description`: the Begegnung panel's `Hint` explains all four answers once. */}
