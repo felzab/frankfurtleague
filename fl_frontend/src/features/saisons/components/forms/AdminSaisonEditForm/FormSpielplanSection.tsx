@@ -216,6 +216,16 @@ export function FormSpielplanSection({
           </Callout>
         )}
 
+        {/* The rule behind the closure, carried in the panel rather than only in the sentence naming
+            this season's own state. Scoped to `active`: a finished season is closed by the same
+            branch of `spielplanBlockedReason` and this sentence would not be about it. */}
+        {holdsADraw && saisonStatus === "active" && (
+          <Callout
+            severity="info"
+            title="Der Spielplan lässt sich für laufende Saisons nicht neu anlegen"
+          />
+        )}
+
         {/* Offered only where BOTH stand open, which is a drawn planned season with nothing recorded.
             In every other state one operation is the whole offer and a picker would be a control with
             one reachable position. */}

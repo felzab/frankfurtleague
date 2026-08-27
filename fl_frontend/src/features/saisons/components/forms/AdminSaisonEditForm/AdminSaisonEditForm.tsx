@@ -8,6 +8,7 @@ import { parseDate } from "@internationalized/date";
 import { Form } from "@heroui/react";
 
 import { patchSaisonAction } from "@/features/saisons/actions";
+import { PLACING_RULES_FIELDS, RESCORING_RULES_FIELDS } from "@/features/saisons/constants";
 import { deriveSaisonDraftStatus } from "@/features/saisons/saisonDraftStatus";
 import { FLPatchSaisonPayloadSchema } from "@/features/saisons/schemas";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
@@ -161,6 +162,8 @@ export function AdminSaisonEditForm({
     validatePaths("saison", { ...buildPayload(), rules: { ...rules, erlaubte_stufen: next } }, ["rules.erlaubte_stufen"]);
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
+  // Named by the rules field the mirror holds, so a field moved between the two lists needs no second edit here.
+  const isRuleChanged = (field: string) => isChanged(`rules.${field}`);
   const isEndBeforeStart = startDate !== null && endDate !== null && endDate.compare(startDate) < 0;
 
   const banners = buildSaisonBanners({
@@ -168,8 +171,8 @@ export function AdminSaisonEditForm({
     isEndBeforeStart,
     qualifiersPerGroup: rules.qualifiers_per_group,
     teamsPerGroup: rules.teams_per_group,
-    isPointsChanged: isChanged("rules.win_points") || isChanged("rules.draw_points"),
-    isTiebreakChanged: isChanged("rules.tiebreak_order"),
+    isRescoringChanged: RESCORING_RULES_FIELDS.some(isRuleChanged),
+    isPlacingChanged: PLACING_RULES_FIELDS.some(isRuleChanged),
     isStufenChanged: isChanged("rules.erlaubte_stufen"),
     hasDrawnSpiele,
     outgoingSaisonId: rollover.outgoingSaisonId,

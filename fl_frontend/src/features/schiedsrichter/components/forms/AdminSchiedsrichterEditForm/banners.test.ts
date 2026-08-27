@@ -44,4 +44,12 @@ describe("buildSchiedsrichterBanners", () => {
     assert.ok(ids(build({ hasKontakt: false })).includes("schiedsrichter.no-kontakt"));
     assert.ok(!ids(build({ hasKontakt: true })).includes("schiedsrichter.no-kontakt"));
   });
+
+  /* The title is the whole banner. A body saying the gap stops nothing is reassurance, which tells
+     the reader the banner did not need writing (`docs/frontend/spec.md` §1.12). */
+  it("states the missing contact in its title and writes no body under it", () => {
+    const banner = build({ hasKontakt: false }).find(({ id }) => id === "schiedsrichter.no-kontakt");
+
+    assert.equal(banner?.body, undefined);
+  });
 });

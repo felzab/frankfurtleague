@@ -46,8 +46,6 @@ export function buildSchiedsrichterBanners({
       id: "schiedsrichter.no-kontakt",
       severity: "info",
       title: "Für diesen Schiedsrichter ist kein Kontakt hinterlegt",
-      // A state, not the missed telephone call: the gap stops nothing, which is the part a reader acts on.
-      body: "Für Spiele lässt er sich trotzdem einteilen.",
       inline: "kontakt",
     });
   }

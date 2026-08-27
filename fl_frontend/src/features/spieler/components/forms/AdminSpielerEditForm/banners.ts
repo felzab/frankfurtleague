@@ -11,7 +11,6 @@ export type SpielerBannerId =
   | "spieler.nachgetragen"
   | "spieler.entry-nachgetragen"
   | "spieler.team-changed"
-  | "spieler.nummer-geteilt"
   | "spieler.rolle-vergeben";
 
 export type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "kader-rolle" | "austragen";
@@ -28,7 +27,6 @@ export function buildSpielerBanners({
   isRowTeamInSaison,
   isNachgetragen,
   isTeamChanged,
-  newlySharedNummer,
   blockedRolle,
 }: {
   isRetired: boolean;
@@ -41,8 +39,6 @@ export function buildSpielerBanners({
   isRowTeamInSaison: boolean;
   isNachgetragen: boolean;
   isTeamChanged: boolean;
-  /** The shirt this draft would put a SECOND wearer on, or `null` — never a number already shared. */
-  newlySharedNummer: string | null;
   /** A role the DRAFT's team has already given away, with the label and the holder, or `null`. */
   blockedRolle: { label: string; heldBy: string } | null;
 }): readonly SpielerBanner[] {
@@ -52,8 +48,9 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.retired",
       severity: "info",
-      title: "Dieser Spieler steht nicht mehr zur Auswahl",
-      body: "Seine Kadereinträge bleiben bestehen. Reaktivieren kannst Du ihn oben auf dieser Seite.",
+      title: "Dieser Spieler erscheint in keiner Auswahlliste",
+      // The way back is the header's own Reaktivieren control, on screen beside this.
+      body: "Seine Kadereinträge bleiben erhalten.",
       inline: null,
     });
   }
@@ -73,7 +70,6 @@ export function buildSpielerBanners({
         id: "spieler.entry-nachgetragen",
         severity: "info",
         title: "Wird als nachgetragen markiert",
-        body: `Die Saison ${saisonId} läuft bereits.`,
         inline: "kader-nachgetragen",
       });
     }
@@ -98,7 +94,6 @@ export function buildSpielerBanners({
       id: "spieler.nachgetragen",
       severity: "info",
       title: "Dieser Eintrag ist nachgetragen",
-      body: `Der Spieler kam erst nach dem Start der Saison ${saisonId} dazu.`,
       inline: null,
     });
   }
@@ -108,21 +103,7 @@ export function buildSpielerBanners({
       id: "spieler.team-changed",
       severity: "warning",
       title: "Teamwechsel wirkt sofort",
-      body: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen, auch auf den öffentlichen Seiten.",
-      inline: null,
-    });
-  }
-
-  // A `warning` and never a refusal: the state is permitted on every write path
-  // (`fl_backend/app/core/domain.py :: UNENFORCED`), and the grade routes the save through confirmation.
-  if (newlySharedNummer !== null) {
-    banners.push({
-      id: "spieler.nummer-geteilt",
-      severity: "warning",
-      title: "Zwei Spieler tragen dann dieselbe Nummer",
-      body:
-        `Im gewählten Kader trägt bereits jemand die Nummer ${newlySharedNummer}. Das ist erlaubt. ` +
-        `Beide erscheinen in der Saison ${saisonId} mit ihr auf den öffentlichen Seiten.`,
+      body: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen.",
       inline: null,
     });
   }

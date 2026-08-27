@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 
+// Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { PLACING_RULES_FIELDS, RESCORING_RULES_FIELDS } from "../../../constants.ts";
 import { buildSaisonBanners } from "./banners.ts";
 
 import type { SaisonBanner } from "./banners.ts";
@@ -11,8 +15,8 @@ const build = (overrides: Partial<Parameters<typeof buildSaisonBanners>[0]> = {}
     isEndBeforeStart: false,
     qualifiersPerGroup: 2,
     teamsPerGroup: 4,
-    isPointsChanged: false,
-    isTiebreakChanged: false,
+    isRescoringChanged: false,
+    isPlacingChanged: false,
     isStufenChanged: false,
     hasDrawnSpiele: false,
     outgoingSaisonId: null,
@@ -22,31 +26,49 @@ const build = (overrides: Partial<Parameters<typeof buildSaisonBanners>[0]> = {}
 
 const ids = (banners: readonly SaisonBanner[]): string[] => banners.map((banner) => banner.id);
 
+const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..", "..");
+
+/* Source text rather than an import: the other half of the mirror is Python, and the frontend holds
+   no second copy of the tuple that could be read in its place. */
+const FROZEN_RULES_SOURCE = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "saisons", "services.py"), "utf8");
+
+const BACKEND_FROZEN_FIELDS: string[] = [
+  ...(/FROZEN_RULES_FIELDS: tuple\[str, \.\.\.\] = \(([^)]*)\)/.exec(FROZEN_RULES_SOURCE)?.[1] ?? "").matchAll(/"([^"]+)"/g),
+].flatMap((match) => (match[1] === undefined ? [] : [match[1]]));
+
+/* THE COUPLING. `REQ-RULES-005` freezes exactly these four, and the editor warns about them while
+   the season is still open — so a field added on the backend fails here naming itself. */
+describe("the two retroactive-reach lists against the backend's frozen set", () => {
+  it("cuts the tuple out of the module before comparing against it", () => {
+    assert.ok(BACKEND_FROZEN_FIELDS.length > 0, "the tuple parsed to nothing, so the comparison below is vacuous");
+  });
+
+  it("splits the frozen set in two and covers all of it", () => {
+    assert.deepEqual([...RESCORING_RULES_FIELDS, ...PLACING_RULES_FIELDS].sort(), [...BACKEND_FROZEN_FIELDS].sort());
+    // Disjoint, or one moved field would raise both warnings for one edit.
+    assert.equal(RESCORING_RULES_FIELDS.filter((field) => PLACING_RULES_FIELDS.includes(field)).length, 0);
+  });
+});
+
 describe("buildSaisonBanners", () => {
   it("raises nothing for a planned season with no pending edit and nothing to roll over", () => {
     assert.deepEqual(ids(build()), []);
   });
 
-  it("gives each season status exactly one banner, never both", () => {
-    assert.deepEqual(ids(build({ saisonStatus: "active" })), ["saison.active"]);
+  /* Only the finished season speaks for itself. A running one is reported by whichever rule the draft
+     actually moved, so a standing entry beside them would be the same fact told before it is true. */
+  it("says nothing about a running season until an edit reaches a frozen rule", () => {
+    assert.deepEqual(ids(build({ saisonStatus: "active" })), []);
     assert.deepEqual(ids(build({ saisonStatus: "past" })), ["saison.past"]);
   });
 
-  it("carries both live-season consequences in one entry, since neither follows from the other", () => {
-    const [banner] = build({ saisonStatus: "active" });
+  /* The title is the whole entry: a body would state the freeze from the other side, and the panel's
+     read-only fields already show which of them is shut. */
+  it("states the finished season's freeze in its title alone", () => {
+    const [banner] = build({ saisonStatus: "past" });
 
-    // The site-wide reach rides in the title and the retroactive one in the body, so the pair is
-    // what proves the entry was not split; neither regex pins a wording beyond its own fact.
-    assert.match(banner?.title ?? "", /ganzen Seite/);
-    assert.match(banner?.body ?? "", /längst gespielte Spiele/);
-  });
-
-  /* The rail carries it alone. Rendered beside the rules fields as well, the same sentence read as a
-     property of those fields, when it is one about every edit the page can make. */
-  it("keeps the live-season entry off the rules panel", () => {
-    const [banner] = build({ saisonStatus: "active" });
-
-    assert.equal(banner?.inline, null);
+    assert.equal(banner?.body, undefined);
+    assert.equal(banner?.inline, "regeln-status");
   });
 
   /* The freeze the draw imposes, which no other entry states: `saison.past` names the three the
@@ -74,12 +96,19 @@ describe("buildSaisonBanners", () => {
     assert.match(breaches[1]?.body ?? "", /nicht weiter verschlechtert/);
   });
 
-  it("warns about a moved tiebreak on its own entry, since re-sorting is not re-scoring", () => {
-    const both = build({ isPointsChanged: true, isTiebreakChanged: true });
+  it("warns about a moved placing rule on its own entry, since re-sorting is not re-scoring", () => {
+    const both = build({ isRescoringChanged: true, isPlacingChanged: true });
 
-    assert.deepEqual(ids(both), ["saison.points-changed", "saison.tiebreak-changed"]);
+    assert.deepEqual(ids(both), ["saison.scoring-changed", "saison.placing-changed"]);
     // A warning, so the save confirms: neither effect is visible at the field that caused it.
     assert.ok(both.every((banner) => banner.severity === "warning"));
+  });
+
+  /* The one `auch` §1.12 keeps, and the reason the scoring entry has a body at all: a reader reads a
+     rules edit as forward-looking unless the already-played half is named. */
+  it("keeps the played-fixture reach on the scoring entry and off the placing one", () => {
+    assert.match(build({ isRescoringChanged: true })[0]?.body ?? "", /längst gespielte Spiele/);
+    assert.equal(build({ isPlacingChanged: true })[0]?.body, undefined);
   });
 
   it("counts the outgoing season's unfinished fixtures into the title, singular and plural", () => {
@@ -91,7 +120,7 @@ describe("buildSaisonBanners", () => {
   });
 
   it("stays quiet about the rollover on the season that is already running", () => {
-    assert.deepEqual(ids(build({ saisonStatus: "active", outgoingSaisonId: "2025", offeneSpieleCount: 3 })), ["saison.active"]);
+    assert.deepEqual(ids(build({ saisonStatus: "active", outgoingSaisonId: "2025", offeneSpieleCount: 3 })), []);
   });
 
   it("stays quiet about the rollover on a finished season, which no open fixture is what blocks", () => {

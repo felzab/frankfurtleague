@@ -28,6 +28,15 @@ describe("buildTeamBanners", () => {
     assert.deepEqual(ids(build()), []);
   });
 
+  /* One shape across the four retirable editors: the title names the exclusion, the body names what
+     survives, and the way back is the header's own control rather than a sentence pointing at it. */
+  it("states the retirement as the exclusion plus what survives, and points at no control", () => {
+    const [banner] = build({ isRetired: true });
+
+    assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
+    assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
+  });
+
   it("names the season the club is missing from, in the title", () => {
     const [banner] = build({ isMember: false });
 

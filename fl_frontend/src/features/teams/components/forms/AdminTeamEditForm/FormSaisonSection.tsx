@@ -134,18 +134,12 @@ function GruppenTauschControl({
         <Callout
           severity="info"
           title="Die KO-Runde hat begonnen">
-          {swap.playedKnockoutSpiele === 1
-            ? "Ein Spiel der KO-Runde wurde schon gespielt oder abgesagt."
-            : `${String(swap.playedKnockoutSpiele)} Spiele der KO-Runde wurden schon gespielt oder abgesagt.`}{" "}
-          Die Setzung ist aus diesen Gruppen entstanden, deshalb lässt sich jetzt keine Gruppe mehr tauschen.
+          Danach lässt sich keine Gruppe mehr tauschen.
         </Callout>
       ) : self.gespielteGruppenSpiele > 0 ? (
         <Callout
           severity="info"
           title={`${self.name} hat in seiner Gruppe schon gespielt`}>
-          {self.gespielteGruppenSpiele === 1
-            ? `Ein Spiel in Gruppe ${self.gruppe} wurde schon gespielt oder abgesagt.`
-            : `${String(self.gespielteGruppenSpiele)} Spiele in Gruppe ${self.gruppe} wurden schon gespielt oder abgesagt.`}{" "}
           Wer in einer Gruppe schon gespielt hat, bleibt in ihr.
         </Callout>
       ) : !hasAPartner ? (

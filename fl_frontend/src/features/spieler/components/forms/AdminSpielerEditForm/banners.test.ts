@@ -17,7 +17,6 @@ const build = (overrides: Partial<Parameters<typeof buildSpielerBanners>[0]> = {
     isRowTeamInSaison: true,
     isNachgetragen: false,
     isTeamChanged: false,
-    newlySharedNummer: null,
     blockedRolle: null,
     ...overrides,
   });
@@ -27,6 +26,15 @@ const ids = (banners: readonly SpielerBanner[]): string[] => banners.map((banner
 describe("buildSpielerBanners", () => {
   it("raises nothing for a settled squad row with no pending edit", () => {
     assert.deepEqual(ids(build()), []);
+  });
+
+  /* One shape across the four retirable editors: the title names the exclusion, the body names what
+     survives, and the way back is the header's own control rather than a sentence pointing at it. */
+  it("states the retirement as the exclusion plus what survives, and points at no control", () => {
+    const [banner] = build({ isRetired: true });
+
+    assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
+    assert.ok(!/Reaktivieren/.test(banner?.body ?? ""));
   });
 
   it("offers the entry remedy for a player no squad holds", () => {
@@ -64,6 +72,9 @@ describe("buildSpielerBanners", () => {
   });
 
   it("announces the derived nachgetragen flag only where there is no row to enter into yet", () => {
+    // Titles alone: why the flag is set is the season's status, which the page already shows.
+    assert.equal(build({ isMember: false, saisonStatus: "active" }).find(({ id }) => id === "spieler.entry-nachgetragen")?.body, undefined);
+    assert.equal(build({ isNachgetragen: true }).find(({ id }) => id === "spieler.nachgetragen")?.body, undefined);
     assert.ok(ids(build({ isMember: false, saisonStatus: "active" })).includes("spieler.entry-nachgetragen"));
     assert.ok(!ids(build({ isMember: false, saisonStatus: "future" })).includes("spieler.entry-nachgetragen"));
     assert.ok(!ids(build({ saisonStatus: "active" })).includes("spieler.entry-nachgetragen"));
@@ -74,19 +85,6 @@ describe("buildSpielerBanners", () => {
 
     assert.equal(banner?.id, "spieler.team-changed");
     assert.equal(banner?.severity, "warning");
-  });
-
-  // `warning` is what routes it through the confirmation; `info` would let the save pass in silence.
-  it("grades a newly shared shirt as a warning naming the number", () => {
-    const [banner] = build({ newlySharedNummer: "1" });
-
-    assert.equal(banner?.id, "spieler.nummer-geteilt");
-    assert.equal(banner?.severity, "warning");
-    assert.match(banner?.body ?? "", /Nummer 1\b/);
-  });
-
-  it("raises nothing for a duplicate the row already stands in", () => {
-    assert.deepEqual(ids(build({ newlySharedNummer: null })), []);
   });
 
   it("names the role and its holder where the draft team has already given it away", () => {

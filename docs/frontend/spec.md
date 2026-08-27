@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `0a47dba3`, 2026-08-27\
+**Verified against:** `33bdd47c`, 2026-08-27\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -931,17 +931,79 @@ length takes the answer away with it. What binds each instead:
 - **A refusal names the repair, always.** The FORM shape stated above is its floor and not its
   ceiling, and a refusal shortened past its second sentence has become a dead end. Diagnostic 8 does
   not reach it either: naming the panel that holds the repair IS the repair.
-- **A banner says what this save will do**, so the consequence is the whole of its job. It takes a
-  title and a body, and the register rule still binds the body — a conditional chain is a
-  specification wherever it is written.
+- **A banner names the one thing the reader would otherwise get wrong about the act in front of
+  them.** That is the consequence only where a save raised it; the block below this fence decides
+  which of four things it is, and the register rule binds the body either way — a conditional chain
+  is a specification wherever it is written.
 - **A toast's title says what happened, and its body what it cost.** Where the server sent a message,
   that message is the body and nothing is written over it.
 - **An empty state says which narrowing emptied the list**, so a reader who searched, a reader who
   filtered and a reader who has entered nothing yet each meet a different sentence.
 
+**Four questions raise a banner, and a banner answers the one that raised it** (my rule, 2026-08-27).
+A save raises _what will this do to what is already there_, and the answer is the consequence. A
+control this panel cannot offer raises _why not_, and the answer is the rule behind the closure. A
+control that lives on another page raises _where_, and the answer is that page. A gap in the record
+raises _what should I add_, and the answer is the instruction. **The answer is a title and at most one
+sentence under it**, and a banner needing two has answered a second question nobody asked.
+
+**Write the rule, never the situation that met it.** A closed control is closed by a rule, and the rule
+is the half a reader can carry away and predict from: `Nach dem Beginn der KO-Runde ist ein
+Gruppentausch nicht mehr möglich` is the shape, rather than how many knockout fixtures have been played
+and how the seeding came out of the groups. **The tell is a figure or a clause about rows other than the
+one being edited** — a count, a date, or a measurement of today's data against the rule (`und das trifft
+auf keines mehr zu`). What the reader is standing on is not that tell: the season's own status, the
+group's own letter and the reason they have just typed are the subject and stay. **A readout is not
+prose and none of this reaches it** — a stored value shown back, or the pair of counts the
+interpolation rule above prescribes in place of a sentence agreeing with both, is data a reader
+compares rather than a sentence they read.
+
+**One line survives, and it is whichever slot already holds the consequence.** A title naming what a
+field bounds, over a body naming what happens to the rows that already hold a value, is inverted: the
+body is the line to keep and the title goes with the mechanism it states. Where the title already holds
+the consequence, the body is the one that goes, and it usually goes because it restates the title from
+the other side (diagnostic 6). **Say what is now true rather than what stopped being true** — a negation
+makes the reader invert it to learn the state they are in, and a bracket slot taken off its source is
+set by hand whichever way the sentence is written.
+
+**These come out of a banner wherever they appear**: the causal tail (`deshalb`, `damit`, `so`), which
+is diagnostic 1 in a banner; the scope tail (`auf der ganzen Seite`, `überall`), widening a claim past
+anything the reader acts on; a trailing `auch …` naming the edge case the sentence before it already
+covers; `sobald Du speicherst`, when every banner is about the pending save (diagnostic 4); emphasis on
+a verb that carries itself, `Wort für Wort` beside `angezeigt`; and reassurance (`trotzdem`, `das ist
+erlaubt`), which tells the reader the banner did not need writing. A derived value is already gone under
+the consequence rule above.
+
+**The trailing `auch` has exactly one exception: the clause naming that a change reaches fixtures that
+are already played** (my rule, 2026-08-27). It is not the edge case of the sentence before it but the
+half the sentence before it does not carry, because a reader who has just typed a value reads a save as
+forward-looking and expects what is already recorded to keep the old one. The consequence rule above
+already names the venue banner as the worked instance, so the two would otherwise contradict each other.
+**The exception reaches that clause and nothing else** — not a second `auch` on the same banner, not rows
+the save leaves alone, and not a banner whose save cannot reach a played fixture in the first place,
+which is a claim to check against the write path rather than to assume. The test is whether deleting the
+clause would leave the reader expecting the old value to stand wherever the fixture has been played.
+
+**A banner nothing raised is deleted rather than shortened.** One that stands whatever the reader does
+answers no question, and where a conditional banner states the same fact at the moment it matters, the
+standing one is the second telling. A value the page renders as plain text raises nothing either: a
+reader who never meets a control does not ask why it is closed.
+
+**Severity is a behavioural choice and never a tone.**
+`fl_frontend/src/shared/components/ui/railBanner.ts :: resolveBlockingBanners` raises the save
+confirmation for every `warning` and `danger` on the list, so regrading one banner adds or removes a
+confirmation step for every save on that page, and
+`fl_frontend/src/shared/components/ui/Callout.tsx :: Callout` states what the three grades mean. A
+standing property is `info` however expensive it is to discover, because a `warning` for it confirms
+every unrelated edit on the page.
+
 **A hint and a banner on one panel never carry the same fact.** The hint carries the rule that stands
 whatever is typed; the banner carries what this save will do. Only review enforces this, a check having
-to read two files and recognise a paraphrase, so it is stated here rather than mechanised.
+to read two files and recognise a paraphrase, so it is stated here rather than mechanised. **The
+one-sentence body is the half a check could reach**, as a second sentence-final stop in a `banners.ts`
+body — exempting the refusal remedies that ride the rail, which
+`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts :: isSpielRefusalBannerId`
+already marks and whose floor is two sentences under the refusal rule above.
 
 **Four of these rules are held mechanically, by the documentation gate's `copy-dash`, `copy-term`,
 `copy-formal` and `copy-informal` checks** — the dash rule with its date-range exception, the

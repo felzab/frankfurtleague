@@ -55,7 +55,8 @@ export function buildTeamBanners({
       id: "team.retired",
       severity: "info",
       title: "Dieses Team erscheint in keiner Auswahlliste",
-      body: "Sein Kürzel bleibt reserviert; reaktivieren kannst Du es über den Kopf der Seite.",
+      // The way back is the header's own Reaktivieren control, on screen beside this.
+      body: "Sein Kürzel bleibt reserviert.",
       inline: null,
     });
   }
@@ -112,7 +113,7 @@ export function buildTeamBanners({
       id: "team.austritt-entering",
       severity: "danger",
       title: "Der Grund wird veröffentlicht",
-      body: "Sobald Du speicherst, steht er Wort für Wort auf der Teamseite und an jedem Spiel des Teams.",
+      body: "Er steht danach auf der Teamseite und an jedem Spiel des Teams.",
       inline: "austritt-eintrag",
     });
   }
@@ -122,7 +123,6 @@ export function buildTeamBanners({
       id: "team.austritt-lifting",
       severity: "warning",
       title: "Aufheben entfernt Art, Grund und Datum",
-      body: "Der Grund verschwindet damit von der Teamseite und von jedem Spiel des Teams.",
       inline: "austritt-aufhebung",
     });
   }

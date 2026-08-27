@@ -32,6 +32,15 @@ describe("buildSpielortBanners", () => {
     assert.equal(banner?.inline, null);
   });
 
+  /* One shape across the four retirable editors: the title names the exclusion, the body names what
+     survives, and the way back is the header's own control rather than a sentence pointing at it. */
+  it("states the retirement as the exclusion plus what survives, and points at no control", () => {
+    const [banner] = build({ isRetired: true });
+
+    assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
+    assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
+  });
+
   it("leads with the retirement, which is what the rest of the page has to be read against", () => {
     assert.equal(ids(build({ isRetired: true, isNameChanged: true, hasStadtteil: false }))[0], "spielort.retired");
   });

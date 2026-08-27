@@ -1,20 +1,17 @@
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-export type SpieltagBannerId = "spieltag.zeitraum-changed" | "spieltag.ende-vor-beginn" | "spieltag.name-abgeleitet" | "spieltag.anzahl-offen";
+export type SpieltagBannerId = "spieltag.zeitraum-changed" | "spieltag.ende-vor-beginn" | "spieltag.anzahl-offen";
 
 export type SpieltagBannerSpot = "zeitraum";
 
 export type SpieltagBanner = RailBanner<SpieltagBannerId> & { inline: SpieltagBannerSpot | null };
 
 export function buildSpieltagBanners({
-  label,
   isZeitraumChanged,
   isEndeVorBeginn,
   spieleAngelegt,
   anzahlSpiele,
 }: {
-  /** The matchday's name, for the banner standing in for the field it has none of. */
-  label: string;
   isZeitraumChanged: boolean;
   isEndeVorBeginn: boolean;
   /** Fixtures actually carrying this matchday's id. */
@@ -23,16 +20,6 @@ export function buildSpieltagBanners({
   anzahlSpiele: number;
 }): readonly SpieltagBanner[] {
   const banners: SpieltagBanner[] = [];
-
-  // Rail-only and always: it answers "warum kann ich den Namen nicht ändern", and the label is the
-  // one thing on this page with no field behind it.
-  banners.push({
-    id: "spieltag.name-abgeleitet",
-    severity: "info",
-    title: `Der Name „${label}“ steht fest`,
-    body: "Er folgt aus der Runde, zu der dieser Spieltag gehört.",
-    inline: null,
-  });
 
   if (isZeitraumChanged) {
     banners.push({

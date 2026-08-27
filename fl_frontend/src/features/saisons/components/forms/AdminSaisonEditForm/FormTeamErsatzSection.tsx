@@ -137,8 +137,7 @@ export function FormTeamErsatzSection({
           <Callout
             severity="info"
             title="Die Saison ist zu weit">
-            Ersetzen lässt sich nur ein Team, das in dieser Saison noch nicht gespielt hat, und das trifft auf keines mehr zu. Trage für ein
-            ausscheidendes Team stattdessen unten auf seiner Teamseite einen Austritt ein.
+            Ersetzen lässt sich nur ein Team, das in dieser Saison noch nicht gespielt hat.
           </Callout>
         ) : !hasPickableCandidate ? (
           <Callout

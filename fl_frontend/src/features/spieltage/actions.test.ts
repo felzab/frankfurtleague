@@ -53,7 +53,6 @@ function refusalMessage(code: string): string {
 /** The moved-span warning's body, which states the rule BEFORE a save rather than after one. */
 function spanWarningBody(): string {
   const banners = buildSpieltagBanners({
-    label: "2. Spieltag",
     isZeitraumChanged: true,
     isEndeVorBeginn: false,
     spieleAngelegt: 4,

@@ -126,7 +126,6 @@ export function AdminSpieltagEditForm({
   const isZeitraumChanged = status.changed.some((field) => field.group === "Zeitraum");
 
   const banners = buildSpieltagBanners({
-    label: spieltag.label,
     isZeitraumChanged,
     isEndeVorBeginn: beginn !== "" && ende !== "" && ende < beginn,
     spieleAngelegt: spieltag.spieleAngelegt,

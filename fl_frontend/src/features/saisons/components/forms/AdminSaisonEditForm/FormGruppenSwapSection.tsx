@@ -191,10 +191,7 @@ export function FormGruppenSwapSection({
           <Callout
             severity="info"
             title="Die KO-Runde hat begonnen">
-            {swap.playedKnockoutSpiele === 1
-              ? "Ein Spiel der KO-Runde wurde schon gespielt oder abgesagt."
-              : `${String(swap.playedKnockoutSpiele)} Spiele der KO-Runde wurden schon gespielt oder abgesagt.`}{" "}
-            Die Setzung ist aus diesen Gruppen entstanden, deshalb lässt sich jetzt keine Gruppe mehr tauschen.
+            Danach lässt sich keine Gruppe mehr tauschen.
           </Callout>
         ) : !hasTwoGruppen ? (
           <Callout
@@ -206,8 +203,7 @@ export function FormGruppenSwapSection({
           <Callout
             severity="info"
             title="Die Gruppenphase ist zu weit">
-            Tauschen können nur Teams, die in ihrer Gruppe noch kein Spiel gespielt oder abgesagt bekommen haben, und die gibt es nicht mehr in
-            zwei verschiedenen Gruppen. Eine Gruppe ist ein Rundenturnier: Wer darin einmal gespielt hat, gehört dorthin.
+            Tauschen können nur Teams, die in ihrer Gruppe noch kein Spiel gespielt oder abgesagt bekommen haben.
           </Callout>
         ) : (
           <>

@@ -128,3 +128,10 @@ export const SAISON_ID_LENGTH = 4;
 export const RECORDED_FACTS_NONE =
   "kein Ergebnis, kein Ausfall, kein Ort, kein Schiedsrichter, keine Notiz und keine von Hand geänderte Herkunft";
 export const RECORDED_FACTS_ANY = "ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter, eine Notiz oder eine von Hand geänderte Herkunft";
+
+/**
+ * Together `fl_backend/app/api/saisons/services.py :: FROZEN_RULES_FIELDS`, hand-copied and split by
+ * reach: one moves every total, the other moves none and only the order under them.
+ */
+export const RESCORING_RULES_FIELDS: readonly string[] = ["win_points", "draw_points"];
+export const PLACING_RULES_FIELDS: readonly string[] = ["tiebreak_order", "qualifiers_per_group"];

@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 
 import { resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
 
+// Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { SONDEREREIGNIS_LABELS } from "../../../constants.ts";
 import { buildSpielBanners, isSpielRefusalCode } from "./banners.ts";
 
 import type { SpielBanner, SpielBannerSide } from "./banners.ts";
@@ -51,6 +53,15 @@ describe("buildSpielBanners", () => {
     assert.deepEqual(ids(built), ["spiel.team1-manual", "spiel.team2-manual"]);
   });
 
+  /* Says what is now TRUE rather than what stopped being true, and in the title alone: a body naming
+     the wiring the slot lost states the same fact from the other side. */
+  it("states a hand-set side as the state it is in, without a body", () => {
+    const [banner] = build({ sides: [side("team1")] });
+
+    assert.equal(banner?.body, undefined);
+    assert.ok(!/nicht mehr|automatisch/.test(banner?.title ?? ""));
+  });
+
   it("adds the qualification warning only for a hand-picked team the bracket does not already field", () => {
     const picked = side("team1", { team: team("t1", "Adler") });
 
@@ -67,12 +78,23 @@ describe("buildSpielBanners", () => {
     const refused = build({ sonderereignis: "ausgefallen", hasAnyTore: true });
     assert.ok(!ids(resolveRailBanners(refused)).includes("spiel.sonderereignis-standing"));
 
-    const awarded = build({ sonderereignis: "nichtantreten_team1" });
+    const awarded = build({ sonderereignis: "nichtantreten_team1", hasAnyTore: true });
     assert.ok(!ids(resolveRailBanners(awarded)).includes("spiel.sonderereignis-standing"));
   });
 
   it("keeps the standing note on a fixture called off in an earlier session with nothing else to say", () => {
     assert.deepEqual(ids(resolveRailBanners(build({ sonderereignis: "ausgefallen" }))), ["spiel.sonderereignis-standing"]);
+  });
+
+  /* The title is the whole note, and a body about how the fixture reads elsewhere would be false of
+     a no-show, which reaches this note whenever the award replaces nothing. */
+  it("states the standing note in its title alone, so it holds for a no-show too", () => {
+    for (const sonderereignis of ["ausgefallen", "annulliert", "nichtantreten_team1"] as const) {
+      const [banner] = resolveRailBanners(build({ sonderereignis }));
+
+      assert.equal(banner?.id, "spiel.sonderereignis-standing", sonderereignis);
+      assert.equal(banner?.body, undefined, sonderereignis);
+    }
   });
 
   // **The one member the standing note excludes**: an abandoned fixture IS still chased, so "wird
@@ -84,7 +106,7 @@ describe("buildSpielBanners", () => {
   it("announces a change from one member to another, not only a first event", () => {
     const swapped = build({ isNewlyChosen: true, sonderereignis: "annulliert" });
 
-    assert.match(swapped.find((banner) => banner.id === "spiel.sonderereignis-meaning")?.title ?? "", /Annulliert/);
+    assert.match(swapped.find((banner) => banner.id === "spiel.sonderereignis-meaning")?.title ?? "", /zählt rückwirkend nicht mehr/);
   });
 
   it("gives each member its own meaning rather than one sentence for all five", () => {
@@ -94,6 +116,17 @@ describe("buildSpielBanners", () => {
     );
 
     assert.equal(new Set(titles).size, titles.length);
+  });
+
+  /* The picker above spells the member's own name, so a title opening with it is the second telling
+     (`docs/frontend/spec.md` §1.12, diagnostic 4). */
+  it("never opens a meaning with the label the reader has just picked", () => {
+    for (const sonderereignis of ["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"] as const) {
+      const title = build({ isNewlyChosen: true, sonderereignis }).find((banner) => banner.id === "spiel.sonderereignis-meaning")?.title ?? "";
+
+      assert.ok(!title.includes("heißt"), sonderereignis);
+      assert.ok(!title.startsWith(SONDEREREIGNIS_LABELS[sonderereignis]), sonderereignis);
+    }
   });
 
   it("names the fixtures an unscored event leaves unoccupied, singular and plural", () => {
@@ -143,14 +176,16 @@ describe("buildSpielBanners", () => {
     assert.ok(ids(built).includes("spiel.forfeit-awarded"));
   });
 
-  // Info while nothing is lost, warning once typed goals are about to be replaced -- which is also
-  // what makes the save confirm.
-  it("raises the forfeit note only to a warning when it would discard typed goals", () => {
+  /* Silent while the award replaces nothing, a warning once it does -- which is also what makes the
+     save confirm. An `info` never reached the save gate, so this decides a rail line alone. */
+  it("raises the forfeit note only where the award would discard entered work", () => {
     const bare = build({ sonderereignis: "nichtantreten_team2" });
     const withGoals = build({ sonderereignis: "nichtantreten_team2", hasAnyTore: true });
+    const withShootOut = build({ sonderereignis: "nichtantreten_team2", dropsShootOut: true });
 
-    assert.equal(bare.find((banner) => banner.id === "spiel.forfeit-awarded")?.severity, "info");
+    assert.ok(!ids(bare).includes("spiel.forfeit-awarded"));
     assert.equal(withGoals.find((banner) => banner.id === "spiel.forfeit-awarded")?.severity, "warning");
+    assert.equal(withShootOut.find((banner) => banner.id === "spiel.forfeit-awarded")?.severity, "warning");
   });
 
   // The record is entered work like the goals are, and the award replaces nothing of it -- so the
@@ -160,8 +195,9 @@ describe("buildSpielBanners", () => {
     const forfeit = built.find((banner) => banner.id === "spiel.forfeit-awarded");
 
     assert.equal(forfeit?.severity, "warning");
+    // The title carries both losses, so nothing under it states the second one again.
     assert.match(forfeit?.title ?? "", /Elfmeterschießen/);
-    assert.match(forfeit?.body ?? "", /Elfmeterschießen wird nicht gespeichert/);
+    assert.equal(forfeit?.body, undefined);
   });
 
   it("says nothing about a shoot-out where none is being discarded", () => {
@@ -187,16 +223,14 @@ describe("buildSpielBanners", () => {
 
   it("carries the remedies the two rail-backed refusals leave off their field message", () => {
     // `fl_backend/app/api/spiele/services.py :: find_eligibility_refusal` keys on the austritt date,
-    // so lifting it clears the refusal in every phase. The walkover needs both sides resolved
-    // (`REQ-STATE-003`); calling off is Gruppenphase-only.
+    // so lifting it clears the refusal in every phase, which is what the one repair rests on.
     const eligibility = build({ refusalCode: "REQ-ELIGIBILITY-001" });
     const body = eligibility.find((banner) => banner.id === "spiel.eligibility-refused")?.body ?? "";
 
     assert.deepEqual(ids(eligibility), ["spiel.eligibility-refused"]);
     assert.match(body, /Hebe den Austritt auf/);
-    // The two clauses that carry the risk: each states a precondition, and each was wrong once.
-    assert.match(body, /Stehen beide Seiten fest/);
-    assert.match(body, /in der Gruppenphase/);
+    // The alternative routes are gone: a refusal names the repair, not every other way round it.
+    assert.ok(!/Nichtantreten|Gruppenphase/.test(body));
 
     const spieltag = build({ refusalCode: "REQ-SPIELTAG-001" });
 

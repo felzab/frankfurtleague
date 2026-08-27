@@ -26,7 +26,8 @@ export function buildSpielortBanners({
       id: "spielort.retired",
       severity: "info",
       title: "Dieser Spielort erscheint in keiner Auswahlliste",
-      body: "Seine Spiele bleiben erhalten; reaktivieren kannst Du ihn über den Kopf der Seite.",
+      // The way back is the header's own Reaktivieren control, on screen beside this.
+      body: "Seine Spiele bleiben erhalten.",
       inline: null,
     });
   }

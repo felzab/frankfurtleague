@@ -2,13 +2,12 @@ import type { FLSaisonStatus } from "@/features/saisons/schemas";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
 export type SaisonBannerId =
-  | "saison.active"
   | "saison.past"
   | "saison.drawn"
   | "saison.end-before-start"
   | "saison.qualifiers-overflow"
-  | "saison.points-changed"
-  | "saison.tiebreak-changed"
+  | "saison.scoring-changed"
+  | "saison.placing-changed"
   | "saison.stufen-changed"
   | "saison.rollover-blocked";
 
@@ -21,8 +20,8 @@ export function buildSaisonBanners({
   isEndBeforeStart,
   qualifiersPerGroup,
   teamsPerGroup,
-  isPointsChanged,
-  isTiebreakChanged,
+  isRescoringChanged,
+  isPlacingChanged,
   isStufenChanged,
   hasDrawnSpiele,
   outgoingSaisonId,
@@ -32,8 +31,10 @@ export function buildSaisonBanners({
   isEndBeforeStart: boolean;
   qualifiersPerGroup: number;
   teamsPerGroup: number;
-  isPointsChanged: boolean;
-  isTiebreakChanged: boolean;
+  /** Whether the draft moves a rule under which every played fixture is scored again. */
+  isRescoringChanged: boolean;
+  /** Whether the draft moves a rule deciding who comes out of a group ahead of whom. */
+  isPlacingChanged: boolean;
   isStufenChanged: boolean;
   /** `REQ-RULES-011`'s condition: the season holds fixtures, which is what freezes the three they were drawn from. */
   hasDrawnSpiele: boolean;
@@ -43,26 +44,11 @@ export function buildSaisonBanners({
 }): readonly SaisonBanner[] {
   const banners: SaisonBanner[] = [];
 
-  if (saisonStatus === "active") {
-    // The retroactive reach is what the form cannot show: the rules fields look like any other
-    // edit, and a change to them re-scores Spiele that were already played under the old ones.
-    banners.push({
-      id: "saison.active",
-      severity: "info",
-      title: "Änderungen wirken sofort auf der ganzen Seite",
-      body: "Eine Regeländerung zählt auch für längst gespielte Spiele.",
-      // Rail-only, unlike the `past` entry below: this one stands over the whole page rather than over
-      // the rules panel, and beside the fields it read as a property of those fields alone.
-      inline: null,
-    });
-  }
-
   if (saisonStatus === "past") {
     banners.push({
       id: "saison.past",
       severity: "info",
       title: "Die Wertung bleibt, wie sie gespielt wurde",
-      body: "Punkte, Tiebreak und Qualifikanten wirken rückwirkend und sind deshalb gesperrt.",
       inline: "regeln-status",
     });
   }
@@ -101,26 +87,25 @@ export function buildSaisonBanners({
     });
   }
 
-  // The one edit whose effect is retroactive and invisible at the field: the table is scored on read,
-  // so the numbers move with nothing announcing it.
-  if (isPointsChanged) {
+  // The reach is invisible at the field: the table is scored on read, so every total moves with
+  // nothing announcing it. The body keeps its `auch` under §1.12's played-fixture exception.
+  if (isRescoringChanged) {
     banners.push({
-      id: "saison.points-changed",
+      id: "saison.scoring-changed",
       severity: "warning",
-      title: "Punkte wirken auf die ganze Saison",
+      title: "Die Tabelle wird neu gerechnet",
       body: "Auch längst gespielte Spiele zählen dann nach den neuen Punkten.",
       inline: null,
     });
   }
 
-  // The points banner's sibling, and separate from it: the table is re-sorted rather than re-scored,
-  // so every total stays put while the order under it moves.
-  if (isTiebreakChanged) {
+  // Its sibling and separate from it: nobody's total moves here, only the order under the totals and
+  // the cut it is read against.
+  if (isPlacingChanged) {
     banners.push({
-      id: "saison.tiebreak-changed",
+      id: "saison.placing-changed",
       severity: "warning",
-      title: "Die Tabellen werden neu sortiert",
-      body: "Punktgleiche Teams dieser Saison können danach in anderer Reihenfolge stehen, auch in längst gespielten Gruppen.",
+      title: "Wer aus einer Gruppe weiterkommt, entscheidet sich neu",
       inline: null,
     });
   }
@@ -130,7 +115,7 @@ export function buildSaisonBanners({
       id: "saison.stufen-changed",
       severity: "info",
       title: "Stufen begrenzen nur die Auswahl",
-      body: "Bestehende Kadereinträge behalten ihre Stufe, auch eine, die diese Saison nicht mehr anbietet.",
+      body: "Bestehende Kadereinträge behalten ihre Stufe.",
       inline: null,
     });
   }
@@ -146,7 +131,7 @@ export function buildSaisonBanners({
         offeneSpieleCount === 1
           ? `1 Spiel der Saison ${outgoingSaisonId} hat noch kein Ergebnis`
           : `${String(offeneSpieleCount)} Spiele der Saison ${outgoingSaisonId} haben noch kein Ergebnis`,
-      body: `Solange das so ist, lässt sich Saison ${outgoingSaisonId} nicht abschließen. Trage die fehlenden Ergebnisse ein oder sage die Spiele ab; ein abgesagtes Spiel gilt als erledigt.`,
+      body: `Solange das so ist, lässt sich Saison ${outgoingSaisonId} nicht abschließen. Trage die fehlenden Ergebnisse ein oder sage die Spiele ab.`,
       inline: "umstellung",
     });
   }

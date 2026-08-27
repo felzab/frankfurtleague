@@ -6,8 +6,6 @@ import { postSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
 import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS, POSITION_OPTIONS } from "@/features/spieler/constants";
-import { isSquadNummerNewlyShared } from "@/features/spieler/utils";
-import { Callout } from "@/shared/components/ui/Callout";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
@@ -52,13 +50,6 @@ export function AdminCreateSpielerForm({
       renderFields={(draft, setDraft) => {
         const selectedOption = saisonOptions.find((option) => option.saisonId === draft.saison_id) ?? saisonOptions[0];
         const teams = selectedOption?.teams ?? [];
-
-        // `stored` is null: no squad row yet, so every number here is one the write would introduce.
-        const nummerIsNewlyShared = isSquadNummerNewlyShared({
-          draft: { teamId: draft.team_id, nummer: draft.nummer },
-          stored: null,
-          takenInDraftTeam: teams.find((team) => team.teamId === draft.team_id)?.takenNummern ?? [],
-        });
 
         return (
           <>
@@ -189,17 +180,6 @@ export function AdminCreateSpielerForm({
                 placeholder="Keine Angabe"
               />
             </div>
-
-            {/* A callout, not a field message: a shared shirt is permitted on every write path
-                (`fl_backend/app/core/domain.py :: UNENFORCED`), so it is a consequence, not a fault. */}
-            {nummerIsNewlyShared && (
-              <Callout
-                severity="warning"
-                title="Zwei Spieler tragen dann dieselbe Nummer">
-                Im gewählten Kader trägt bereits jemand die Nummer {draft.nummer?.trim()}. Das ist erlaubt. Beide erscheinen mit ihr auf den
-                öffentlichen Seiten.
-              </Callout>
-            )}
 
             {draft.is_nachgetragen && (
               <p className="fluid-xxs text-foreground-muted font-medium">

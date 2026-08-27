@@ -7,7 +7,6 @@ import type { SpieltagBanner } from "./banners.ts";
 
 const build = (overrides: Partial<Parameters<typeof buildSpieltagBanners>[0]> = {}): readonly SpieltagBanner[] =>
   buildSpieltagBanners({
-    label: "2. Spieltag",
     isZeitraumChanged: false,
     isEndeVorBeginn: false,
     spieleAngelegt: 4,
@@ -18,8 +17,10 @@ const build = (overrides: Partial<Parameters<typeof buildSpieltagBanners>[0]> = 
 const ids = (banners: readonly SpieltagBanner[]): string[] => banners.map((banner) => banner.id);
 
 describe("buildSpieltagBanners", () => {
-  it("always states that the name is fixed, because nothing on the page is a field for it", () => {
-    assert.deepEqual(ids(build()), ["spieltag.name-abgeleitet"]);
+  /* Nothing stands unconditionally. The name has no field to be refused at, so a reader never asks
+     why it cannot be changed, and a banner nothing raised is deleted rather than shortened. */
+  it("raises nothing for a settled matchday with no pending edit", () => {
+    assert.deepEqual(ids(build()), []);
   });
 
   it("grades a moved span as a warning, so a save stops on it", () => {

@@ -38,45 +38,40 @@ export type SpielBannerSide = {
 
 /**
  * What the chosen event does, in the admin's words. **Per member and never one sentence for all
- * five**: the consequence differs, and the single warning this replaced was false for the members it
- * did not describe.
+ * five**: the consequence differs, and one sentence for all of them is false for most of them. The
+ * picker above spells the member's own name, so neither line here repeats it.
  */
-const SONDEREREIGNIS_MEANING: Record<FLSonderereignis, { title: string; body: string }> = {
+const SONDEREREIGNIS_MEANING: Record<FLSonderereignis, { title: string; body?: string }> = {
   ausgefallen: {
-    title: "Ausgefallen heißt: das Spiel findet nicht statt",
-    body: "Es wird nirgends gewertet und nicht mehr angemahnt. Ein Ergebnis darf nicht daran stehen.",
+    title: "Das Spiel findet nicht statt",
+    body: "Es wird nirgends gewertet und nicht mehr angemahnt.",
   },
   nichtantreten_team1: {
-    title: "Nichtantreten heißt: Team 1 ist nicht erschienen",
-    body: "Das Spiel wird beim Speichern nach den Regeln der Saison für Team 2 gewertet und zählt voll für die Tabelle.",
+    title: "Team 1 ist nicht angetreten",
+    body: "Das Spiel wird nach den Regeln der Saison für Team 2 gewertet.",
   },
   nichtantreten_team2: {
-    title: "Nichtantreten heißt: Team 2 ist nicht erschienen",
-    body: "Das Spiel wird beim Speichern nach den Regeln der Saison für Team 1 gewertet und zählt voll für die Tabelle.",
+    title: "Team 2 ist nicht angetreten",
+    body: "Das Spiel wird nach den Regeln der Saison für Team 1 gewertet.",
   },
-  abgebrochen: {
-    title: "Abgebrochen heißt: das Spiel hat stattgefunden",
-    body: "Es wird weiter wie ein gespieltes Spiel behandelt: ohne Ergebnis wird es angemahnt, mit Ergebnis zählt es ganz normal mit.",
-  },
+  // The title is the whole entry: what a reader gets wrong here is that an abandonment changes
+  // nothing about the scoring, and a body would state that a second time.
+  abgebrochen: { title: "Das Spiel zählt weiter wie ein gespieltes" },
   annulliert: {
-    title: "Annulliert heißt: das Spiel zählt nicht mehr",
-    body: "Es wird nirgends gewertet und nicht mehr angemahnt. Ein Ergebnis darf nicht daran stehen.",
+    title: "Das Spiel zählt rückwirkend nicht mehr",
+    body: "Es wird nirgends gewertet und nicht mehr angemahnt.",
   },
 };
 
 /** The refusal codes whose remedies ride the rail rather than the one field message they land on. */
 export type SpielRefusalCode = "REQ-ELIGIBILITY-001" | "REQ-SPIELTAG-001";
 
-/**
- * The half a one-sentence field message cannot carry. The walkover names its precondition, because
- * `REQ-STATE-003` is judged first and offering one on an unresolved slot would send an admin
- * straight into a second refusal.
- */
+/** The half a one-sentence field message cannot carry: the rule the refusal rests on, and the repair. */
 const REFUSAL_REMEDIES: Record<SpielRefusalCode, { id: SpielBannerId; title: string; body: string }> = {
   "REQ-ELIGIBILITY-001": {
     id: "spiel.eligibility-refused",
     title: "Ein ausgeschiedenes Team blockiert das Speichern",
-    body: "Der Austritt zählt auch, wenn nur Datum oder Sonderereignis geändert wurde. Hebe den Austritt auf, oder wähle ein anderes Team. Stehen beide Seiten fest, kannst Du stattdessen das Nichtantreten des ausgeschiedenen Teams eintragen, nur in der Gruppenphase auch das Spiel absagen.",
+    body: "Der Austritt zählt auch, wenn nur Datum oder Sonderereignis geändert wurde. Hebe den Austritt auf, oder wähle ein anderes Team.",
   },
   "REQ-SPIELTAG-001": {
     id: "spiel.spieltag-refused",
@@ -154,8 +149,7 @@ export function buildSpielBanners({
     banners.push({
       id: side.fieldName === "team1" ? "spiel.team1-manual" : "spiel.team2-manual",
       severity: "danger",
-      title: `${side.label} wird nicht mehr automatisch gefüllt`,
-      body: "Kein späteres Ergebnis ändert diese Seite.",
+      title: `${side.label} setzt Du von Hand`,
       inline: side.fieldName === "team1" ? "team1-manuell" : "team2-manuell",
     });
 
@@ -198,7 +192,6 @@ export function buildSpielBanners({
         dependentSpielNummern.length === 1
           ? `Ohne Wertung bleibt Spiel ${nummern} unbesetzt`
           : `Ohne Wertung bleiben die Spiele ${nummern} unbesetzt`,
-      body: "Die Runden danach bleiben ebenfalls offen.",
       inline: "sonderereignis-turnierbaum",
     });
   }
@@ -216,23 +209,15 @@ export function buildSpielBanners({
     });
   }
 
-  // The forfeit is composed on the server from the season's rules, so the numbers are stated nowhere
-  // on this page. Entered goals or a shoot-out raise it to a warning, which is what makes the save
-  // confirm: both are somebody's work that the award replaces.
-  if (sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2") {
+  // Raised only where the award REPLACES somebody's work, which is also what makes the save confirm.
+  // A bare no-show destroys nothing, and the meaning entry above already states the award.
+  if ((sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2") && (hasAnyTore || dropsShootOut)) {
     banners.push({
       id: "spiel.forfeit-awarded",
-      severity: hasAnyTore || dropsShootOut ? "warning" : "info",
+      severity: "warning",
       title: dropsShootOut
         ? "Die Wertung ersetzt das Ergebnis und verwirft das Elfmeterschießen"
-        : hasAnyTore
-          ? "Die eingetragenen Tore werden durch die Wertung ersetzt"
-          : "Das Ergebnis wird beim Speichern gewertet",
-      // Appended rather than a second whole sentence-pair, so the award's own wording has one home.
-      // What it adds is the record the save discards without replacing anything.
-      body: `Ein Nichtantreten wird nach den Regeln der Saison für das angetretene Team gewertet; die Tore musst Du nicht eintragen.${
-        dropsShootOut ? " Das eingetragene Elfmeterschießen wird nicht gespeichert." : ""
-      }`,
+        : "Die eingetragenen Tore werden durch die Wertung ersetzt",
       inline: "sonderereignis-wertung",
       supersedes: ["spiel.sonderereignis-standing"],
     });
@@ -251,14 +236,12 @@ export function buildSpielBanners({
   }
 
   // **This set is the standing note's alone**, and `abgebrochen` is absent from it: an abandoned
-  // fixture is still chased for its result and still reads by date, so neither half of this is true
-  // of it.
+  // fixture is still chased for its result, so this would be false of it.
   if (sonderereignis !== null && sonderereignis !== "abgebrochen") {
     banners.push({
       id: "spiel.sonderereignis-standing",
       severity: "info",
       title: "Dieses Spiel wird nicht mehr angemahnt",
-      body: "Es erscheint überall als abgesagt.",
       inline: null,
     });
   }
@@ -272,7 +255,6 @@ export function buildSpielBanners({
         voidedSpielNummern.length === 1
           ? `Speichern löscht das Ergebnis in Spiel ${nummern}`
           : `Speichern löscht die Ergebnisse in den Spielen ${nummern}`,
-      body: "Die Tore wurden von einem Team erzielt, das dort danach nicht mehr steht.",
       inline: null,
     });
   }
@@ -284,7 +266,6 @@ export function buildSpielBanners({
       severity: "warning",
       title:
         releasedSpielNummern.length === 1 ? `Ein Team wird aus Spiel ${nummern} entfernt` : `Teams werden aus den Spielen ${nummern} entfernt`,
-      body: "Ein Team spielt höchstens einmal pro Spieltag.",
       inline: null,
     });
   }
