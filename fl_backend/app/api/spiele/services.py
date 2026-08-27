@@ -1046,14 +1046,14 @@ def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
 
 WIRING_UNSUPPORTED = "REQ-WIRING-001"
 
-# Its own code because the repair is the opposite one: the shapes above are ones the form cannot
-# build, so a request carrying one is stale; this one the form offers, so the way out is a
-# different source rather than a reload.
+# Its own code because the repair differs: `REQ-WIRING-001` can mean the season moved and a reload
+# clears it, while nothing moves a fixture's round, so a resend answers the same. The way out is a
+# different source on that side, or a hand-set team.
 WIRING_SEED_PAST_THE_OPENING_ROUND = "REQ-WIRING-002"
 
 
 def _wiring_refusal(message: str) -> WriteRefusal:
-    """One code for the shapes the form cannot build at all: they are one rule, and one repair."""
+    """One code for every shape with the same repair -- the season moved under the page, so reload."""
 
     return WriteRefusal(error_code=WIRING_UNSUPPORTED, message=message)
 

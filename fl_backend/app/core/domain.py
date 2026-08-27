@@ -1324,13 +1324,15 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "A shirt number is worn rather than assigned, and the league already fields four goalkeepers "
             "in one squad all wearing 1 -- so refusing the state would make live rows uneditable and, once "
             "one was retired, unreactivatable. Refusing it on the create and the patch while the reactivate "
-            "consulted no rule at all was the same rule answering three ways (decided 2026-08-13). The editor's rail "
-            "warns before a save introduces one and saves anyway; the warning carries no inline spot, so it is the "
-            "rail rather than the squad section that shows it."
+            "consulted no rule at all was the same rule answering three ways (decided 2026-08-13). NOTHING REPORTS "
+            "IT EITHER: no read compares one squad row's number against another's, and the create form and the "
+            "editor's squad section judge `nummer` on its format alone. Every squad list prints the figures, so a "
+            "person can read two of them as equal, but no surface names that as a state -- and whether one should "
+            "is open rather than settled, the same state covering a squad's keepers and a late entry colliding "
+            "with a shirt somebody already wears (roadmap FB-17)."
         ),
         near=("REQ-SQUAD-001",),
         proven_by="tests/core/test_unenforced.py::TestASharedSquadNumber",
-        surfaced_by="fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx",
     ),
     Unenforced(
         subject="a bracket slot the resolution filled with a team that later left the season",
