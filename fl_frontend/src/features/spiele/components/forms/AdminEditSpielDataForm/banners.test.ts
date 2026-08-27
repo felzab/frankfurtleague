@@ -56,23 +56,22 @@ describe("buildSpielBanners", () => {
     assert.deepEqual(ids(built), ["spiel.team1-manual", "spiel.team2-manual"]);
   });
 
-  /* The Herkunft picker's chosen option reads „Manuell gesetzt“, so a title spelling that back is the
-     second telling (`docs/frontend/spec.md` §1.12, diagnostic 4). What it does not show is the reach. */
-  it("states what a hand-set side costs rather than the choice the picker already shows", () => {
+  /* Two lines, and the rail is why the title may spell the picker's own choice back: it renders away
+     from that control, so the state is named where it stands and the body carries the reach. */
+  it("names the hand-set state in the title and what it costs in the body", () => {
     const [banner] = build({ sides: [side("team1")] });
 
-    assert.equal(banner?.body, undefined);
-    assert.ok(!/manuell|von Hand|nicht mehr|automatisch/i.test(banner?.title ?? ""));
-    assert.match(banner?.title ?? "", /Spätere Ergebnisse lassen Team 1 unverändert/);
+    assert.match(banner?.title ?? "", /Team 1 wird manuell gesetzt/);
+    assert.match(banner?.body ?? "", /Spätere Ergebnisse lassen diese Seite unverändert/);
   });
 
-  /* A slot is off its source whatever this save does, and `docs/frontend/spec.md` §1.12 grades a
-     standing property `info` — above it, every later edit of the fixture confirms for this. */
-  it("grades a hand-set side as a standing property, clear of the save's confirmation", () => {
+  /* The confirmation is the grade's whole behaviour (`railBanner.ts :: resolveBlockingBanners`), and
+     an unwired slot earns it: nothing maintains it, and no surface reports it drifting. */
+  it("grades a hand-set side danger, so the fixture's save is confirmed", () => {
     const built = build({ sides: [side("team1"), side("team2")] });
 
-    assert.equal(built[0]?.severity, "info");
-    assert.equal(resolveBlockingBanners(built), null);
+    assert.equal(built[0]?.severity, "danger");
+    assert.equal(resolveBlockingBanners(built)?.length, 2);
   });
 
   /* The closed Herkunft row states its reason inside a popover and the two controls under it state

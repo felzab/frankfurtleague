@@ -50,7 +50,7 @@ export function buildSpielerBanners({
       severity: "info",
       title: "Dieser Spieler erscheint in keiner Auswahlliste",
       // The way back is the header's own Reaktivieren control, on screen beside this.
-      body: "Seine Kadereinträge bleiben erhalten.",
+      body: "Seine Plätze im Kader bleiben erhalten.",
       inline: null,
     });
   }
@@ -65,11 +65,13 @@ export function buildSpielerBanners({
     });
 
     // `is_nachgetragen` is derived from the season's status rather than asked — see `FormKaderSection`.
+    // The body is the word's meaning, which its sibling below owes the reader for the same reason.
     if (saisonStatus !== "future") {
       banners.push({
         id: "spieler.entry-nachgetragen",
         severity: "info",
-        title: "Wird als nachgetragen markiert",
+        title: "Dieser Spieler wird nachgetragen",
+        body: "Zu Beginn der Saison war er nicht im Kader.",
         inline: "kader-nachgetragen",
       });
     }
@@ -89,21 +91,25 @@ export function buildSpielerBanners({
     });
   }
 
+  // The person rather than the row, and the body says what the word means: the player list spells it
+  // back as a badge, and no surface but this one tells a reader what it stands for.
   if (isNachgetragen) {
     banners.push({
       id: "spieler.nachgetragen",
       severity: "info",
-      title: "Dieser Eintrag ist nachgetragen",
+      title: "Dieser Spieler wurde nachgetragen",
+      body: "Zu Beginn der Saison war er nicht im Kader.",
       inline: null,
     });
   }
 
+  // One line, and it is the move rather than its timing: every banner here is about the pending save,
+  // so a title dating the effect states what the reader already knows.
   if (isTeamChanged) {
     banners.push({
       id: "spieler.team-changed",
       severity: "warning",
-      title: "Teamwechsel wirkt sofort",
-      body: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen.",
+      title: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen",
       inline: null,
     });
   }

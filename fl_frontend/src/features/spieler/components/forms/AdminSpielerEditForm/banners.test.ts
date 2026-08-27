@@ -72,19 +72,27 @@ describe("buildSpielerBanners", () => {
   });
 
   it("announces the derived nachgetragen flag only where there is no row to enter into yet", () => {
-    // Titles alone: why the flag is set is the season's status, which the page already shows.
-    assert.equal(build({ isMember: false, saisonStatus: "active" }).find(({ id }) => id === "spieler.entry-nachgetragen")?.body, undefined);
-    assert.equal(build({ isNachgetragen: true }).find(({ id }) => id === "spieler.nachgetragen")?.body, undefined);
+    /* Both name the player, and both spell the word out: „nachgetragen“ is what the player list
+       spells back as a badge, and no surface but this one says what it means. */
+    const entering = build({ isMember: false, saisonStatus: "active" }).find(({ id }) => id === "spieler.entry-nachgetragen");
+    const standing = build({ isNachgetragen: true }).find(({ id }) => id === "spieler.nachgetragen");
+
+    assert.match(entering?.title ?? "", /Dieser Spieler wird nachgetragen/);
+    assert.match(standing?.title ?? "", /Dieser Spieler wurde nachgetragen/);
+    assert.match(entering?.body ?? "", /Zu Beginn der Saison war er nicht im Kader/);
+    assert.match(standing?.body ?? "", /Zu Beginn der Saison war er nicht im Kader/);
     assert.ok(ids(build({ isMember: false, saisonStatus: "active" })).includes("spieler.entry-nachgetragen"));
     assert.ok(!ids(build({ isMember: false, saisonStatus: "future" })).includes("spieler.entry-nachgetragen"));
     assert.ok(!ids(build({ saisonStatus: "active" })).includes("spieler.entry-nachgetragen"));
   });
 
-  it("grades a transfer as a warning", () => {
+  it("grades a transfer as a warning and states the move rather than when it lands", () => {
     const [banner] = build({ isTeamChanged: true });
 
     assert.equal(banner?.id, "spieler.team-changed");
     assert.equal(banner?.severity, "warning");
+    assert.match(banner?.title ?? "", /verschwindet aus dem alten Kader und erscheint im neuen/);
+    assert.equal(banner?.body, undefined);
   });
 
   it("names the role and its holder where the draft team has already given it away", () => {

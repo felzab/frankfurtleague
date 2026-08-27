@@ -917,7 +917,7 @@ Eight diagnostics decide _whether_ a sentence belongs:
 
 The ninth decides _how_ it is said, and it outranks the cap: **the reader runs a school football
 league, not this system.** No field name, code or endpoint, and no `Eintrag` or `Datensatz` where
-`Spiel`, `Spieltag`, `Team`, `Kader` or `Gruppe` exists. No derivation, `wird berechnet aus`,
+`Spiel`, `Spieltag`, `Spieler`, `Team`, `Kader` or `Gruppe` exists. No derivation, `wird berechnet aus`,
 `ergibt sich aus` and `wird abgeleitet` all describing the machine where only the consequence can matter.
 No conditional chain: `wenn X, dann Y, es sei denn Z` is a specification, and a hint states the common
 case while the refusal handles the rest. Prefer the shorter everyday word, and check a German compound
@@ -958,13 +958,33 @@ prose and none of this reaches it** — a stored value shown back, or the pair o
 interpolation rule above prescribes in place of a sentence agreeing with both, is data a reader
 compares rather than a sentence they read.
 
-**One line survives, and it is whichever slot already holds the consequence.** A title naming what a
-field bounds, over a body naming what happens to the rows that already hold a value, is inverted: the
-body is the line to keep and the title goes with the mechanism it states. Where the title already holds
-the consequence, the body is the one that goes, and it usually goes because it restates the title from
-the other side (diagnostic 6). **Say what is now true rather than what stopped being true** — a negation
-makes the reader invert it to learn the state they are in, and a bracket slot taken off its source is
-set by hand whichever way the sentence is written.
+**A banner's title is written from where the reader stands, never from where the write lands** (my rule,
+2026-08-27). Three things decide it. **Its subject is the thing in the league the reader would point at**
+— the table, the qualifiers, the player — and never the row holding it: `Dieser Spieler wurde
+nachgetragen` where `Dieser Eintrag ist nachgetragen` named the record, which is the ninth rule above
+reaching a sentence's subject rather than only its vocabulary. **Its verb is what becomes different for
+the reader**, never the step the machine takes to get there: `wird neu gerechnet` and `entscheidet sich
+neu` state the recalculation, where `könnte sich ändern` states the table an admin will open. **And its
+mood is the one the code can keep** — the scoring is redone for certain, while whether the table comes
+out different depends on what has been played, and the difference is what the reader went to check. A
+certainty the save cannot deliver is spent the first time an admin looks and finds nothing moved, and
+the page's other banners are believed less afterwards.
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/banners.ts :: buildSaisonBanners`
+holds the conditional pair, and
+`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts :: buildSpielerBanners`
+the named subject.
+
+**One line survives only where the two would say one thing.** The cap above — a title and at most one
+sentence — bounds the answer rather than pushing toward the title alone. A title naming what a field
+bounds, over a body naming what happens to the rows that already hold a value, is inverted: the body is
+the line to keep and the title goes with the mechanism it states. Where the title already holds the
+consequence, the body is the one that goes, and it goes because it restates the title from the other
+side (diagnostic 6). **A body reaching a fact the title cannot stays** — the two `auch` clauses below
+are the commonest, and what a term the interface only spells back as a badge actually means is another.
+Neither is the second question the cap refuses: each completes the one answer the title began, which
+without it leaves the reader holding the wrong half. **Say what is now true rather than what stopped
+being true** — a negation makes the reader invert it to learn the state they are in, and a bracket slot
+taken off its source is set by hand whichever way the sentence is written.
 
 **These come out of a banner wherever they appear**: the causal tail (`deshalb`, `damit`, `so`), which
 is diagnostic 1 in a banner; the scope tail (`auf der ganzen Seite`, `überall`), widening a claim past

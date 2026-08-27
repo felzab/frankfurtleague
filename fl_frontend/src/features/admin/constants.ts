@@ -107,7 +107,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         label: "Finalrunden",
         iconName: "Medal",
         hint: {
-          lead: "Woher jede Seite jedes KO-Spiels kommt.",
+          lead: "Die Finalrunden der Saison.",
         },
       },
     ],

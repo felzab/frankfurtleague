@@ -124,7 +124,14 @@ describe("buildSaisonBanners", () => {
      being the only status either field is frozen in. */
   it("names the played-fixture reach on both retroactive entries", () => {
     assert.match(build({ isRescoringChanged: true })[0]?.body ?? "", /Auch längst gespielte Spiele/);
-    assert.match(build({ isPlacingChanged: true })[0]?.body ?? "", /Auch in längst gespielten Gruppen/);
+    assert.match(build({ isPlacingChanged: true })[0]?.body ?? "", /auch längst fertige Gruppen/);
+  });
+
+  /* The mood is the point: the scoring moves for certain, while whether the table a reader then opens
+     looks different depends on what has been played. */
+  it("states each rules change as an outcome that could follow, never as a recalculation", () => {
+    assert.match(build({ isRescoringChanged: true })[0]?.title ?? "", /Die Tabelle könnte sich ändern/);
+    assert.match(build({ isPlacingChanged: true })[0]?.title ?? "", /Die Qualifikanten für die KO-Runde könnten sich ändern/);
   });
 
   it("counts the outgoing season's unfinished fixtures into the title, singular and plural", () => {

@@ -169,13 +169,14 @@ export function buildSpielBanners({
 
     if (side.quelle !== null) continue;
 
-    // The picker's own option spells the choice, so the title carries the half it cannot: only a hand
-    // edit fills this slot again. `info` because the slot is off its source whatever the save does, and
-    // a higher grade would confirm every later edit.
+    // `danger`, so `resolveBlockingBanners` confirms the save: an unwired slot stops being maintained and
+    // diverges from a feeder's later result unreported. The rail carries it away from the picker, so the
+    // title names the state and the body the reach.
     banners.push({
       id: side.fieldName === "team1" ? "spiel.team1-manual" : "spiel.team2-manual",
-      severity: "info",
-      title: `Spätere Ergebnisse lassen ${side.label} unverändert`,
+      severity: "danger",
+      title: `${side.label} wird manuell gesetzt`,
+      body: "Spätere Ergebnisse lassen diese Seite unverändert.",
       inline: side.fieldName === "team1" ? "team1-manuell" : "team2-manuell",
     });
 

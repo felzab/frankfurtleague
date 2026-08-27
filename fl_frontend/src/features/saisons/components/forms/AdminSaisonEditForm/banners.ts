@@ -87,14 +87,15 @@ export function buildSaisonBanners({
     });
   }
 
-  // The reach is invisible at the field: the table is scored on read, so every total moves with
-  // nothing announcing it. The body keeps its `auch` under §1.12's played-fixture exception.
+  // The reach is invisible at the field: the table is scored on read, so a total moves with nothing
+  // announcing it. Conditional because a season with nothing played reaches this too. The body keeps
+  // its `auch` under §1.12's played-fixture exception.
   if (isRescoringChanged) {
     banners.push({
       id: "saison.scoring-changed",
       severity: "warning",
-      title: "Die Tabelle wird neu gerechnet",
-      body: "Auch längst gespielte Spiele zählen dann nach den neuen Punkten.",
+      title: "Die Tabelle könnte sich ändern",
+      body: "Auch längst gespielte Spiele werden nach den neuen Regeln gewertet.",
       inline: null,
     });
   }
@@ -106,8 +107,8 @@ export function buildSaisonBanners({
     banners.push({
       id: "saison.placing-changed",
       severity: "warning",
-      title: "Wer aus einer Gruppe weiterkommt, entscheidet sich neu",
-      body: "Auch in längst gespielten Gruppen kann die Reihenfolge dann anders sein.",
+      title: "Die Qualifikanten für die KO-Runde könnten sich ändern",
+      body: "Dies betrifft auch längst fertige Gruppen.",
       inline: null,
     });
   }
@@ -117,7 +118,7 @@ export function buildSaisonBanners({
       id: "saison.stufen-changed",
       severity: "info",
       title: "Stufen begrenzen nur die Auswahl",
-      body: "Bestehende Kadereinträge behalten ihre Stufe.",
+      body: "Wer schon im Kader steht, behält seine Stufe.",
       inline: null,
     });
   }
