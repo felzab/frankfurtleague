@@ -96,9 +96,10 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 41  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
 | 42  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
 | 43  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
-| 44  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
-| 45  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 46  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 44  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
+| 45  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
+| 46  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 47  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -2151,7 +2152,53 @@ I rejected is that the framework may omit the value on some render path, which n
 is what a reader has to decide about every time this function is edited, and this function is what
 every season-scoped page opens with.
 
-### 44 · FE-32 — A banner's id names a derivation its own sentence does not state
+### 44 · BE-38 — A squad-number helper has no caller, and its docstring is the only record of the rule it states
+
+**Status:** Open\
+**Surfaces:** BE\
+**Effort:** S\
+**Path:** Independent — FB-17 is where a comparison between two squad numbers would first be wanted,
+and it neither waits on this entry nor settles it.
+
+**`fl_backend/app/api/spieler/services.py :: normalised_nummer` is reached by no production module.** Its
+readers are `fl_backend/tests/api/test_containment_refusals.py :: TestASquadEntry` and the audit pages that
+recorded it. Nothing calls it under a name built from a string either: every `getattr` in `fl_backend/app`
+resolves a model attribute from a literal or from a declared field tuple, and no module there is imported by
+name.
+
+**What it would decide, against what decides it now.** It trims a value and turns an empty one into `None`,
+and it keeps leading zeros, so `07` and `7` are different shirts. The trim cannot reach a value the API
+admits: `fl_backend/app/api/spieler/schemas.py :: SQUAD_NUMMER_PATTERN` is anchored and digits only, so no
+`nummer` a write path accepts carries whitespace or is empty. The zeros half is what storage does unasked —
+the string is kept as typed, and `:: FLSpielerSortOptions` offers `nummer` as a sort key, which orders those
+strings in the database, where `07` stands before `7`.
+
+**Nothing else in the corpus states the rule.** `fl_backend/app/core/domain.py :: UNENFORCED` declares that
+two players in one team and one season may wear the same number, and that no read compares one squad row's
+number with another's; it does not say what counts as the same number. The docstring is the one place `07`
+is written down as a shirt of its own.
+
+**Leaving it costs a reader.** A helper carrying a docstring and a parametrised test reads as a rule the
+product applies somewhere, and establishing that no write path applies it takes a search of the whole
+backend. **Taking it out costs the judgement.** Whoever next has to compare two shirt numbers reaches for
+the numeric comparison, which calls `07` and `7` one shirt, and with the docstring gone nothing in the
+repository contradicts them. Neither cost is plainly the larger, which is why this is filed rather than
+taken.
+
+**Three routes, and this entry picks none.** Delete the function and the test that pins it. Or move the
+sentence somewhere that survives the deletion — the `UNENFORCED` entry above, or a
+[`docs/backend/spec.md`](../backend/spec.md) invariant — and then delete. Or keep it until a surface exists
+that compares two numbers, on the ground that a rule already carrying a test is cheaper than one derived
+again from scratch.
+
+**What ranks it here.** Above **FE-32**: each costs a maintainer rather than a user, but that one's doubt is
+settled by reading the sentence beside the id, and this one's only by searching the backend for a caller.
+Below **FE-20**: the same shape of code no caller reaches, sitting in the function every season-scoped page
+opens with rather than among one slice's helpers, so it is re-decided far more often. Deliberately not near
+**BE-34**, which reads like the same finding and is not — that index's unserved half is a read somebody
+wants built, so landing it adds a capability, and nothing here adds one.
+
+### 45 · FE-32 — A banner's id names a derivation its own sentence does not state
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2185,7 +2232,7 @@ when they were written, so rewriting an id there falsifies a record instead of c
 of leaving it is one maintainer's minute in a module that is read whenever a venue's banners change,
 and that is less than every entry above it.
 
-### 45 · BE-7 — `typing` imports instead of `collections.abc`
+### 46 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -2198,7 +2245,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 46 · BE-14 — The certainty walk gives up in a group of six or more
+### 47 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
